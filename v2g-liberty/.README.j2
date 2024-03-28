@@ -1,0 +1,23 @@
+# V2G Liberty: Automated and optimised vehicle-to-grid charging
+
+This add-on lets you add full automatic and optimised control over bidirectional charging of your electric
+vehicle (EV), also known as Vehicle to Grid (V2G). It is a practical app based on home assistant frontend that works in
+the browser and on your phone.
+
+The schedules are optimised to maximise revenues ór minimising emissions. The optimisations are handled by
+[FlexMeasures](https://flexmeasures.io/).
+
+![The V2G Liberty Dashboard](https://positive-design.nl/wp-content/uploads/2024/03/V2GL-v0.3.0.png)
+
+You can read more about V2G Liberty on [v2g-liberty.eu](https://v2g-liberty.eu/).
+
+## Pre-requisites
++ Currently this software only works with the Wallbox Quasar 1 charger.<br>
+  We expect to support new chargers soon. The battery electric vehicle of course must support bidirectional charging.
++ An electricity contract with dynamic prices.<br>
+  In the European Union this usually is based on day-ahead prices, our schedules accommodate for these. One can also
+  self provide the price data through V2G Liberty, so any dynamic energy contract is supported.
++ A FlexMeasures account.<br>
+  You can self-host FlexMeasures or [request a subscription](https://v2g-liberty.eu/?pagename=contact) to one on our
+  servers.
++ An online calendar (e.g. NextCloud, OwnCloud, Google, Apple iCloud, etc.)

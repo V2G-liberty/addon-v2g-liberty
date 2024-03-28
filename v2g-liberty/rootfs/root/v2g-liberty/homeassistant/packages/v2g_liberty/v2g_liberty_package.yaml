@@ -1,0 +1,560 @@
+################################################################################
+#                                                                              #
+#    V2G Liberty Package                                                       #
+#    Contains all entities needed for the V2G Liberty software to work         #
+#                                                                              #
+################################################################################
+
+lovelace:
+  mode: storage
+  # These do not seem to work as expected, maybe resources cannot be added in a package...
+  # see https://github.com/RomRider/apexcharts-card#add-resource-reference
+  # So, currently these have to be added through the UI.
+  # This is why the mode is storage instead of the (expected?) yaml.
+  # resources:
+  #   - url: /hacsfiles/lovelace-card-mod/card-mod.js
+  #     type: module
+  #   - url: /hacsfiles/apexcharts-card/apexcharts-card.js
+  #     type: module
+
+  dashboards:
+    lovelace-yaml:
+      mode: yaml
+      filename: packages/v2g_liberty/v2g_liberty_dashboard.yaml
+      title: V2G Liberty
+      icon: mdi:car-electric
+      show_in_sidebar: true
+      require_admin: false
+
+input_select:
+  charge_mode:
+    name: Charge mode
+    options:
+      - Automatic
+      - Max boost now
+      - Stop
+    # "Stop" used to be "Off" but this triggers HA to see it as False..
+    icon: mdi:battery-charging-medium
+    # ToDo: check if initial: Automatic is useful
+
+input_boolean:
+  # Used for signaling in the UI that the EPEX prices temporarily cannot be retrieved from FM
+  error_epex_prices_cannot_be_retrieved:
+    name: "Error: EPEX prices cannot be retrieved"
+
+  # Used for signaling in the UI there are no new (valid) schedules available.
+  # E..g. no communication with FM, timeouts, flatline, etc.
+  error_no_new_schedule_available:
+    name: "Error: No new schedule available"
+
+  # Used for signaling in the UI that Modbus communication with the charger is no longer possible
+  # This usually indicates the Modbus Module in the charger has crashed and the charger should be restarted externally.
+  charger_modbus_communication_fault:
+    name: "Error: charger Modbus communication fault"
+
+  #Three booleans to mimic a radiobutton group for the chargemode the user can set in the UI
+  chargemodeautomatic:
+    name: ChargeModeAutomatic
+    icon: mdi:battery-charging-80
+
+  chargemodemaxboostnow:
+    name: ChargeModeMaxBoostNow
+    icon: mdi:battery-alert
+
+  chargemodeoff:
+    name: ChargeModeOff
+    icon: mdi:battery-off
+
+input_number:
+  # Used in both UI and in code.
+  car_state_of_charge:
+    name: Car State of Charge
+    icon: mdi:battery-medium
+    min: 0.0
+    max: 100.0
+    unit_of_measurement: "%"
+    step: 1.0
+    mode: slider
+
+  # Used in both UI and in code.
+  car_remaining_range:
+    name: Car Remaining Range
+    icon: mdi:ev-station
+    min: 0
+    max: 1000
+    unit_of_measurement: "km"
+    step: 100
+    mode: box
+
+  # Used for stats in UI.
+  total_charging_cost_last_7_days:
+    name: Total charging costs last 7 days
+    max: 1000.00
+    min: -1000.00
+    step: 0.01
+    unit_of_measurement: "€"
+    mode: box
+
+  # Used for stats in UI.
+  total_charged_energy_last_7_days:
+    name: Total charged energy last 7 days
+    max: 10000
+    min: -10000
+    step: 1
+    unit_of_measurement: "kWh"
+    mode: box
+
+  # Used for stats in UI.
+  total_discharged_energy_last_7_days:
+    name: Total discharged energy last 7 days
+    max: 10000
+    min: -10000
+    step: 1
+    unit_of_measurement: "kWh"
+    mode: box
+
+  # Used for stats in UI.
+  net_energy_last_7_days:
+    name: Total net energy last 7 days
+    max: 10000
+    min: -10000
+    step: 1
+    unit_of_measurement: "kWh"
+    mode: box
+
+  # Used for stats in UI.
+  total_saved_emissions_last_7_days:
+    name: Total saved emissions last 7 days
+    max: 1000
+    min: -1000
+    step: 0.001
+    unit_of_measurement: "kg CO2"
+    mode: box
+
+  # Used for stats in UI.
+  total_emissions_last_7_days:
+    name: Total emissions last 7 days
+    max: 1000
+    min: -1000
+    step: 0.001
+    unit_of_measurement: "kg CO2"
+    mode: box
+
+  # Used for stats in UI.
+  net_emissions_last_7_days:
+    name: Net emissions last 7 days
+    max: 1000
+    min: -1000
+    step: 0.001
+    unit_of_measurement: "kg CO2"
+    mode: box
+
+input_text:
+  # Used for stats in UI.
+  poll_refresh_indicator:
+    name: This changes everytime the EVSE gets polled (if active, 5 to 15 sec.)
+    initial: " "
+
+  # Used for stats in UI.
+  total_discharge_time_last_7_days:
+    name: Total discharge time in last 7 days
+
+  # Used for stats in UI.
+  total_charge_time_last_7_days:
+    name: Total charge time in last 7 days
+
+  # Used to show a user understandable version of the states in the UI.
+  # "Translation" is done in an automation.
+  charger_state:
+    name: Charger state
+    icon: mdi:ev-station
+    max: 100
+    mode: text
+    min: 0
+
+  # V2G Liberty version is set by V2G Liberty.py based upon constant.
+  # Used only for setting text in dashboard.
+  v2g_liberty_version:
+    name: V2G Liberty version
+    icon: mdi:identifier
+    max: 100
+    mode: text
+    min: 0
+
+  # Helper, set by V2G Liberty.py based upon setting utility in secrets.
+  # Used only for setting text in dashboard.
+  utility_display_name:
+    name: Utility display name
+    icon: mdi:transmission-tower
+    max: 100
+    mode: text
+    min: 0
+
+  # Helper, set by V2G Liberty.py based upon setting fm_optimisation_mode in secrets.
+  # Used only for setting text in dashboard.
+  optimisation_mode:
+    name: Optimisation mode
+    icon: mdi:cog-transfer-outline
+    max: 100
+    mode: text
+    min: 0
+
+  # Used to store the (serialised) charge schedule HA receives from the
+  # backend FM, not used in UI.
+  chargeschedule:
+    name: ChargeSchedule
+    max: 10000
+    min: 0
+    mode: text
+    icon: mdi:calendar-multiselect
+
+  # Used to store the (serialized) list of hourly EPEX prices that is fetched by
+  # get_fm_data code from FM daily. This then is shown in the UI in the graph.
+  epex_prices:
+    name: EPEX prices
+    max: 10000
+    min: 0
+    mode: text
+
+  # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
+  # get_fm_data code from FM daily. This then is shown in the UI in the graph.
+  co2_emissions:
+    name: CO2 emissions
+    max: 10000
+    min: 0
+    mode: text
+
+  # Based on the current SoC and the schedule a prognosis (list of values) is
+  # calculated and this (serialised list) is stored in this variable. This is Used
+  # in the graph, shown as yellow prognosis line.
+  soc_prognosis:
+    name: SoC Prognosis
+    max: 10000
+    mode: text
+    min: 0
+
+  # Based on the current SoC and max boost function (when SoC is below minimum).
+  # This contains two values current SoC and min. SoC at expected time.
+  # This is shown in the graph as a red prognosis line.
+  soc_prognosis_boost:
+    name: SoC Prognosis Boost
+    max: 10000
+    mode: text
+    min: 0
+
+  # Used for setting an error in the UI when V2G Liberty app cannot retrieve EPEX data.
+  epex_log:
+    name: epex_log
+    max: 10000
+    min: 0
+    mode: text
+
+
+# Not needed if a calendar integration (e.g. google) is used.
+calendar:
+  - platform: caldav
+    username: !secret caldavUN
+    password: !secret caldavPWD
+    url: !secret caldavURL
+    days: 7
+
+script:
+  disconnectnow:
+    alias: DisconnectNow
+    sequence:
+      - event: DISCONNECT_CHARGER
+        event_data: {}
+    mode: single
+  restartcharger:
+    alias: RestartCharger
+    sequence:
+      - event: RESTART_CHARGER
+        event_data: {}
+    mode: single
+
+automation:
+  - id: "1635947392909"
+    alias: Notify for Charger in Error > 5 min
+    description: ""
+    trigger:
+      - platform: state
+        entity_id: input_text.charger_state
+        to: Error
+        for:
+          hours: 0
+          minutes: 5
+          seconds: 0
+          milliseconds: 0
+    condition: []
+    action:
+      - device_id: d316527a7a32664c800e47c500c9c3f2
+        domain: mobile_app
+        type: notify
+        title: Charger in Error
+        message: Error state for more than 5 minutes. Please check charger.
+    mode: single
+
+  - id: "1633010017995"
+    alias: Chargemode to Automatic
+    description: 'A bit of a hack because HA does not provide radiobuttons
+
+      The values of the helper "input_select.charge_mode" are to be reflected in the
+      UI as 3 (radio)buttons.
+
+      Te give these buttons a on/off state for each of them a toggle helper is used.
+
+      When a toggle-button is clicked an (these) automations receives the trigger selects
+      the corresponding item in the input_select and switches the other toggles to off.'
+    trigger:
+      - platform: state
+        entity_id: input_boolean.chargemodeautomatic
+        from: "off"
+        to: "on"
+    condition: []
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.charge_mode
+        data:
+          option: Automatic
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodemaxboostnow
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeoff
+    mode: single
+  - id: "1633010167089"
+    alias: Chargemode to Max boost now
+    description: 'A bit of a hack because HA does not provide radiobuttons
+
+      The values of the helper "input_select.charge_mode" are to be reflected in the
+      UI as 3 (radio)buttons.
+
+      Te give these buttons a on/off state for each of them a toggle helper is used.
+
+      When a toggle-button is clicked an (these) automations receives the trigger selects
+      the corresponding item in the input_select and switches the other toggles to off.'
+    trigger:
+      - platform: state
+        entity_id: input_boolean.chargemodemaxboostnow
+        from: "off"
+        to: "on"
+    condition: []
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.charge_mode
+        data:
+          option: Max boost now
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeautomatic
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeoff
+    mode: single
+  - id: "1633010384766"
+    alias: Chargemode to Off
+    description: 'A bit of a hack because HA does not provide radiobuttons
+
+      The values of the helper "input_select.charge_mode" are to be reflected in the
+      UI as 3 (radio)buttons.
+
+      Te give these buttons a on/off state for each of them a toggle helper is used.
+
+      When a toggle-button is clicked an (these) automations receives the trigger selects
+      the corresponding item in the input_select and switches the other toggles to off.'
+    trigger:
+      - platform: state
+        entity_id: input_boolean.chargemodeoff
+        from: "off"
+        to: "on"
+    condition: []
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.charge_mode
+        data:
+          option: Stop
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodeautomatic
+        data: {}
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.chargemodemaxboostnow
+        data: {}
+    mode: single
+
+  # TODO:
+  # Remove this automation as the new polling prevents the none-int values.
+  # Replace 'sensor.charger_connected_car_state_of_charge' with 'sensor.car_state_of_charge'
+  # in the modbus_evse_client.py.
+  # In the package rename 'input_number.car_state_of_charge' to 'sensor.car_state_of_charge'
+  - id: "1626364003549"
+    alias: "Translate Quasar SoC change "
+    description: >-
+      Goal:
+      Provide sanitized Quasar SoC in % (in input_number.car_state_of_charge).
+
+      Special cases that are ignored:
+      + 0% (often when the charger is paused) that is never a correct value.
+      + The Modbus YAML code often shows "unavailable" for a little while.
+
+    trigger:
+      - platform: state
+        entity_id: sensor.charger_connected_car_state_of_charge
+    condition:
+      - condition: numeric_state
+        entity_id: sensor.charger_connected_car_state_of_charge
+        above: "0"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.charger_connected_car_state_of_charge
+            state: unavailable
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.car_state_of_charge
+        data:
+          value: "{{states('sensor.charger_connected_car_state_of_charge') |int }}"
+    mode: single
+  # - id: "1630074922160"
+  #   alias: Translate Quasar charger state
+  #   description:
+  #     "Goal: create technical charger state (from Modbus YAML in configuration)
+  #     more readable.
+  #     The modbus YAML passes an int that must be translated to text.
+  #     Therefore, we fill another variable (input) with the most recent non-0 value.
+  #     The Modbus YAML code also often displays 'unavailable', which we translate to
+  #     'no communication with charger'"
+  #   trigger:
+  #     - platform: state
+  #       entity_id: sensor.charger_charger_state
+  #   condition: []
+  #   action:
+  #     - choose:
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "0"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: No car connected
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "1"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: Charging
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "2"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Connected: waiting for car demand"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "3"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Connected: controlled by Wallbox App"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "4"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Connected: not charging (paused)"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "5"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Connected: end of schedule"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "6"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Disconnected locked"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "7"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: Error
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "8"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Connected: In queue by Power Sharing"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "9"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Error: Unconfigured Power Sharing System"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "10"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: "Connected: In queue by Power Boost (Home uses all available power)"
+  #         - conditions:
+  #             - condition: state
+  #               entity_id: sensor.charger_charger_state
+  #               state: "11"
+  #           sequence:
+  #             - service: input_text.set_value
+  #               target:
+  #                 entity_id: input_text.charger_state
+  #               data:
+  #                 value: Discharging
+        # default: []
+    # mode: single

@@ -1,0 +1,29 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Home Assistant Community Add-on: V2G Liberty
+# Configures V2G Liberty
+# ==============================================================================
+
+# Creates initial AppDaemon configuration in case it is non-existing
+if ! bashio::fs.file_exists '/config/appdaemon.yaml'; then
+    cp -R /root/appdaemon/* /config/ \
+        || bashio::exit.nok 'Failed to create initial AppDaemon configuration'
+fi
+
+mkdir -p /config/logs
+cp -Rv /root/v2g-liberty/appdaemon/* /config \
+    || bashio::exit.nok 'Failed to copy V2G-Liberty app'
+
+if ! bashio::fs.file_exists '/homeassistant/packages/v2g_liberty'; then
+    mkdir -p /homeassistant/packages/v2g_liberty
+fi
+cp -Rv /root/v2g-liberty/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
+    || bashio::exit.nok 'Failed to copy V2G-Liberty package'
+
+# TODO:
+# Copy files (if they do not exist yet) for:
+# APEX chart card, see:
+# https://github.com/RomRider/apexcharts-card?tab=readme-ov-file#manual-install
+# Card-mod, see:
+# https://github.com/thomasloven/hass-config/wiki/Lovelace-Plugins

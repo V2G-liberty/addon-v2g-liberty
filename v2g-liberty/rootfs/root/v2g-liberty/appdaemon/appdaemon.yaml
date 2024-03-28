@@ -1,0 +1,28 @@
+---
+secrets: /homeassistant/secrets.yaml
+
+appdaemon:
+  latitude: !secret ha_latitude
+  longitude: !secret ha_longitude
+  elevation: !secret ha_elevation
+  time_zone: !secret ha_time_zone
+  production_mode: False
+  plugins:
+    HASS:
+      type: hass
+
+# Setting logging is optional but useful. The software is in use for quite some
+# time but not bullet-proof yet. So every now and then you'll need to see what
+# happened.
+# Make sure the "log" folder is created.
+logs:
+  main_log:
+    filename: /config/logs/appdaemon_main.log
+  error_log:
+    filename: /config/logs/appdaemon_error.log
+
+http:
+  url: http://127.0.0.1:5050
+admin:
+api:
+hadashboard:
