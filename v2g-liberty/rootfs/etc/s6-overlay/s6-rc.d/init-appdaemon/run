@@ -21,9 +21,14 @@ fi
 cp -Rv /root/v2g-liberty/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
     || bashio::exit.nok 'Failed to copy V2G-Liberty package'
 
-# TODO:
-# Copy files (if they do not exist yet) for:
-# APEX chart card, see:
-# https://github.com/RomRider/apexcharts-card?tab=readme-ov-file#manual-install
-# Card-mod, see:
-# https://github.com/thomasloven/hass-config/wiki/Lovelace-Plugins
+if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/apexcharts-card'; then
+    mkdir -p /homeassistant/www/v2g_liberty/apexcharts-card
+fi
+cp -Rv /root/v2g-liberty/homeassistant/plugins/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
+    || bashio::exit.nok 'Failed to copy apexchart-card plugin'
+
+if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/lovelace-card-mod'; then
+    mkdir -p /homeassistant/www/v2g_liberty/lovelace-card-mod
+fi
+cp -Rv /root/v2g-liberty/homeassistant/plugins/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
+    || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'

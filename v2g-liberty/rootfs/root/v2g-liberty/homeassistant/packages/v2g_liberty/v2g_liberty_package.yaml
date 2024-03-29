@@ -6,17 +6,7 @@
 ################################################################################
 
 lovelace:
-  mode: storage
-  # These do not seem to work as expected, maybe resources cannot be added in a package...
-  # see https://github.com/RomRider/apexcharts-card#add-resource-reference
-  # So, currently these have to be added through the UI.
-  # This is why the mode is storage instead of the (expected?) yaml.
-  # resources:
-  #   - url: /hacsfiles/lovelace-card-mod/card-mod.js
-  #     type: module
-  #   - url: /hacsfiles/apexcharts-card/apexcharts-card.js
-  #     type: module
-
+  mode: yaml
   dashboards:
     lovelace-yaml:
       mode: yaml
@@ -25,6 +15,12 @@ lovelace:
       icon: mdi:car-electric
       show_in_sidebar: true
       require_admin: false
+  resources:
+    - url: /local/v2g_liberty/lovelace-card-mod/card-mod.js
+      type: module
+    - url: /local/v2g_liberty/apexcharts-card/apexcharts-card.js
+      type: module
+
 
 input_select:
   charge_mode:
