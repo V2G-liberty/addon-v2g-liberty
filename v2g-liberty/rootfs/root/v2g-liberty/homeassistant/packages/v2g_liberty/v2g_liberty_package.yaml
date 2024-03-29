@@ -269,27 +269,6 @@ script:
     mode: single
 
 automation:
-  - id: "1635947392909"
-    alias: Notify for Charger in Error > 5 min
-    description: ""
-    trigger:
-      - platform: state
-        entity_id: input_text.charger_state
-        to: Error
-        for:
-          hours: 0
-          minutes: 5
-          seconds: 0
-          milliseconds: 0
-    condition: []
-    action:
-      - device_id: d316527a7a32664c800e47c500c9c3f2
-        domain: mobile_app
-        type: notify
-        title: Charger in Error
-        message: Error state for more than 5 minutes. Please check charger.
-    mode: single
-
   - id: "1633010017995"
     alias: Chargemode to Automatic
     description: 'A bit of a hack because HA does not provide radiobuttons

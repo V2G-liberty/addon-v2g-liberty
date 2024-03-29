@@ -28,18 +28,6 @@ v2g-globals:
   fm_own_emissions_sensor_id: !secret fm_own_emissions_sensor_id
   fm_own_context_display_name: !secret fm_own_context_display_name
 
-modbus_evse_client:
-  module: modbus_evse_client
-  class: ModbusEVSEclient
-  priority: 20
-  dependencies:
-    - v2g-globals
-
-  wallbox_host: !secret wallbox_host
-  wallbox_port: !secret wallbox_port
-
-  car_average_wh_per_km: !secret car_average_wh_per_km
-
 v2g_liberty:
   module: v2g_liberty
   class: V2Gliberty
@@ -47,15 +35,23 @@ v2g_liberty:
   dependencies:
     - v2g-globals
     - flexmeasures-client
-    - modbus_evse_client
+    - wallbox-client
 
   admin_mobile_name: !secret admin_mobile_name
   admin_mobile_platform: !secret admin_mobile_platform
 
   car_average_wh_per_km: !secret car_average_wh_per_km
 
-  car_reservation_calendar: !secret car_calendar_name
-  car_reservation_calendar_timezone: !secret car_calendar_timezone
+  fm_car_reservation_calendar: calendar.car_reservation
+  wallbox_modbus_registers: !include /config/apps/v2g-liberty/wallbox_modbus_registers.yaml
+
+  wallbox_host: !secret wallbox_host
+  wallbox_port: !secret wallbox_port
+
+  # The Wallbox Quasar needs processing time after a setting is done
+  # This is a waiting time between the actions in milliseconds
+  wait_between_charger_write_actions: 5000
+  timeout_charger_write_actions: 20000
 
 flexmeasures-client:
   module: flexmeasures_client
@@ -68,17 +64,27 @@ flexmeasures-client:
   fm_user_password: !secret fm_user_password
   fm_schedule_duration: !secret fm_schedule_duration
 
+  reschedule_on_soc_changes_only: false # Whether to skip requesting a new schedule when the SOC has been updated, but hasn't changed
   max_number_of_reattempts_to_retrieve_schedule: 6
   delay_for_reattempts_to_retrieve_schedule: 15
   delay_for_initial_attempt_to_retrieve_schedule: 20
+
+  fm_car_reservation_calendar: !secret car_calendar_name
+  fm_car_reservation_calendar_timezone: !secret car_calendar_timezone
+
+wallbox-client:
+  module: wallbox_client
+  class: RegisterModule
+  priority: 50
+  # The Wallbox Quasar needs processing time after a setting is done
+  # This is a waiting time between the actions in milliseconds
+  wait_between_charger_write_actions: 5000
+  timeout_charger_write_actions: 20000
 
 get_fm_data:
   module: get_fm_data
   class: FlexMeasuresDataImporter
   priority: 100
-  dependencies:
-    - v2g-globals
-    - flexmeasures-client
   fm_data_user_email: !secret fm_user_email
   fm_data_user_password: !secret fm_user_password
   VAT: !secret VAT
@@ -89,8 +95,8 @@ set_fm_data:
   class: SetFMdata
   priority: 100
   dependencies:
+    - wallbox-client
     - v2g-globals
-    - modbus_evse_client
 
   fm_data_user_email: !secret fm_user_email
   fm_data_user_password: !secret fm_user_password
@@ -98,3 +104,7 @@ set_fm_data:
   fm_base_entity_address_power: !secret fm_base_entity_address_power
   fm_base_entity_address_availability: !secret fm_base_entity_address_availability
   fm_base_entity_address_soc: !secret fm_base_entity_address_soc
+
+  wallbox_host: !secret wallbox_host
+  wallbox_port: !secret wallbox_port
+  wallbox_modbus_registers: !include /config/apps/v2g-liberty/wallbox_modbus_registers.yaml
