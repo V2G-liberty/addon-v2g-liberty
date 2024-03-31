@@ -24,11 +24,11 @@ cp -Rv /root/v2g-liberty/homeassistant/packages/v2g_liberty/* /homeassistant/pac
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/apexcharts-card'; then
     mkdir -p /homeassistant/www/v2g_liberty/apexcharts-card
 fi
-cp -Rv /root/v2g-liberty/homeassistant/plugins/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
+cp -Rv /root/v2g-liberty/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
     || bashio::exit.nok 'Failed to copy apexchart-card plugin'
 
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/lovelace-card-mod'; then
     mkdir -p /homeassistant/www/v2g_liberty/lovelace-card-mod
 fi
-cp -Rv /root/v2g-liberty/homeassistant/plugins/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
+cp -Rv /root/v2g-liberty/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
     || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'
