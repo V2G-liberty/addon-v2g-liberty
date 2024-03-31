@@ -1,0 +1,495 @@
+title: V2G Liberty
+views:
+  - path: default_view
+    title: Main
+    icon: mdi:car-electric
+    cards:
+      - type: vertical-stack
+        title: Charger
+        cards:
+          - type: markdown
+            entities:
+              - entity: input_text.charger_state
+              - entity: sensor.charger_real_charging_power
+            content: >-
+              <ha-icon icon="mdi:ev-station"></ha-icon>
+              <div title="Polling EVSE">&nbsp;{{ states('input_text.poll_refresh_indicator')}}</div>
+              <table><tbody><tr><th>
+              {{ states('input_text.charger_state') }}
+              </th><td>
+              {{ states('sensor.charger_real_charging_power') }}&nbsp;Watt
+              </td></tr></tbody></table>
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    font-size: 123%;
+                  }
+                ha-markdown$: |
+                  div {
+                    color: #999999;
+                    font-size: 70%
+                    font-weight: bold;
+                    position: absolute;
+                    top: 10px;
+                    right: 15px;
+                  }
+                  div:hover:before {
+                    content: "Receiving data";
+                    color: var(--success-color);
+                    font-size: 70%;
+                  }
+                  table {
+                    width: 100%;
+                    max-width: 100%;
+                    margin: 8px 0;
+                  }
+                  th {
+                    font-weight: normal;
+                    text-align: left;
+                  }
+                  td {
+                    text-align: right;
+                    vertical-align: top;
+                  }
+
+          - type: conditional
+            conditions:
+              - entity: input_text.charger_state
+                state: "Connected: controlled by Wallbox App"
+              - entity: input_boolean.chargemodeoff
+                state: "off"
+            card:
+              type: markdown
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+              content: >-
+                <ha-alert alert-type="warning" title="The charger is controlled by Wallbox App">V2G Liberty might not be able to charge</ha-alert>
+
+                It seem that there is a charge time-schedule set in the Wallbox app. V2G&nbsp;Liberty probably cannot control the charger now.
+
+                Remove the time-schedule for charging from the Wallbox app for automatic charging via V2G Liberty.
+
+          - type: conditional
+            conditions:
+              - entity: sensor.charger_charger_state
+                state: "0"
+              - entity: sensor.charger_locked
+                state: "1"
+            card:
+              type: markdown
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+              content: >-
+                <ha-alert alert-type="warning" title="The charger is locked">V2G Liberty cannot charge</ha-alert>
+
+                Unlock the charger manually via the Wallbox app or -if used- the RFID card.
+
+                This should restore automatic charging functionality.
+
+          - type: conditional
+            conditions:
+              - entity: input_boolean.charger_modbus_communication_fault
+                state: "on"
+            card:
+              type: markdown
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+              content: >-
+                <ha-alert alert-type="error" title="The charger is not responding.">Automatic charging has been stopped.</ha-alert>
+
+                Please follow these instructions:
+
+                1. Restart the charger manually<br/>Via the Wallbox app or my.wallbox.com<br/>`Settings > Advanced options > Restart`
+
+                2. Wait 5 minutes
+
+                3. Restart AppDaemon<br/>`Settings > Addons > AppDaemon > Restart`
+
+                4. Wait 2 minutes
+
+                5. Switch chargemode to automatic
+
+
+                This should restore automatic charging functionality.
+
+          - type: button
+            tap_action:
+              action: call-service
+              service: script.disconnectnow
+              service_data: {}
+              target: {}
+            entity: ""
+            name: Disconnect now
+            icon: mdi:power-plug-off
+            icon_height: 40px
+            hold_action:
+              action: none
+            card_mod:
+              style: |
+                ha-card {
+                  padding-top: 10px;
+                  margin-bottom: 48px;
+                }
+
+          - type: conditional
+            conditions:
+              - condition: screen
+                media_query: "(min-width: 1024px)"
+            card:
+              type: markdown
+              entities:
+                - entity: input_number.total_charging_cost_last_7_days
+                - entity: input_number.net_energy_last_7_days
+                - entity: input_text.total_charge_time_last_7_days
+                - entity: input_number.total_emissions_last_7_days
+                - entity: input_number.total_charged_energy_last_7_days
+                - entity: input_text.total_discharge_time_last_7_days
+                - entity: input_number.total_saved_emissions_last_7_days
+                - entity: input_number.total_discharged_energy_last_7_days
+                - entity: input_number.net_emissions_last_7_days
+                - entity: input_number.net_energy_last_7_days
+              content: !include v2g_liberty_ui_module_stats.yaml
+              card_mod:
+                style: !include table_style.yaml
+
+      - type: vertical-stack
+        title: Connected car
+        cards:
+          - type: gauge
+            entity: input_number.car_state_of_charge
+            min: 0
+            max: 100
+            name: Car SoC
+            # TODO: Base these values on user settings min/max charge (in secrets).
+            segments:
+              - from: 0
+                color: var(--error-color)
+              - from: 5
+                color: var(--warning-color)
+              - from: 20
+                color: var(--success-color)
+              - from: 80
+                color: var(--warning-color)
+            needle: true
+            unit: "%"
+          - type: markdown
+            entities:
+              - entity: input_number.car_remaining_range
+            content: '≈ **{{ states("input_number.car_remaining_range")|round(0)}}** km'
+            card_mod:
+              style: |
+                ha-card {
+                  text-align: center;
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -52px;
+                }
+          - type: custom:apexcharts-card
+            graph_span: 24h
+            span:
+              start: hour
+              offset: "-4h"
+            now:
+              show: true
+            header:
+              show: true
+              title: Car State of Charge (%)
+            apex_config:
+              legend:
+                show: false
+              chart:
+                zoom:
+                  enabled: true
+                toolbar:
+                  show: true
+                  tools:
+                    zoom: true
+                    pan: true
+                    reset: true
+            series:
+              - entity: input_text.epex_prices
+                color: "#666666"
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: EPEXprice
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.price];
+                  });
+                type: line
+              - entity: input_text.co2_emissions
+                transform: "return x / 6;"
+                color: "#43a047"
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: EPEXprice
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.emission];
+                  });
+                type: line
+              - entity: input_number.car_state_of_charge
+                color: "#009be5"
+                stroke_width: 2
+                type: line
+                extend_to: now
+                yaxis_id: SoC
+              - entity: input_text.soc_prognosis_boost
+                type: line
+                color: "#e48628"
+                stroke_width: 2
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
+              - entity: input_text.soc_prognosis
+                type: line
+                color: "#fea602"
+                stroke_width: 2
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
+            yaxis:
+              - id: SoC
+                min: 0
+                max: 100
+                decimals: 0
+                apex_config:
+                  tickAmount: 5
+              - id: EPEXprice
+                decimals: 0
+                opposite: true
+                min: "|-2|"
+                max: "|+2|"
+          - type: markdown
+            entities:
+              - entity: input_text.optimisation_mode
+              - entity: input_text.utility_display_name
+            content: >-
+              <table><tbody><tr><th>
+              Optimised on <span>{{states("input_text.optimisation_mode")}}</span>
+              </th><td>
+              {{states("input_text.utility_display_name")}}
+              </td></tr></tbody></table>
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+                ha-markdown$: |
+                  table {
+                    width: 100%;
+                    max-width: 100%;
+                    margin: 8px 0;
+                  }
+                  th {
+                    font-weight: normal;
+                    text-align: left;
+                  }
+                  td {
+                    text-align: right;
+                    vertical-align: top;
+                  }
+                  span {
+                    font-weight: bold;
+                  }
+          - type: conditional
+            conditions:
+              - entity: input_boolean.error_no_new_schedule_available
+                state: "on"
+            card:
+              type: markdown
+              content: >-
+                <ha-alert alert-type="warning" title="No new schedules available">
+                The current schedule wil remain active.<br/>
+                Usually this problem is solved automatically within an hour.<br/>
+                If the schedule does not fit your needs, consider charging manually.</ha-alert>
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+
+          - type: conditional
+            conditions:
+              - entity: input_boolean.error_epex_prices_cannot_be_retrieved
+                state: "on"
+            card:
+              type: markdown
+              content: >-
+                <ha-alert alert-type="warning">Temporarily no price and/or emissions data available.</ha-alert>
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -22px;
+                  }
+
+      - type: vertical-stack
+        title: Charge mode
+        cards:
+          - type: grid
+            cards:
+              - type: button
+                name: Automatic
+                hold_action:
+                  action: none
+                entity: input_boolean.chargemodeautomatic
+                show_state: false
+                icon_height: 40px
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding: 10% 0 !important;
+                    }
+              - type: button
+                name: Max Charge Now
+                icon: mdi:battery-alert
+                hold_action:
+                  action: none
+                entity: input_boolean.chargemodemaxboostnow
+                show_state: false
+                icon_height: 40px
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding: 10% 0 !important;
+                    }
+              - type: button
+                name: "Off"
+                hold_action:
+                  action: none
+                entity: input_boolean.chargemodeoff
+                icon_height: 40px
+                show_state: false
+                card_mod:
+                  style: |
+                    ha-card {
+                      padding: 10% 0 !important;
+                    }
+            square: false
+          - type: conditional
+            conditions:
+              - entity: input_text.charger_state
+                state: No car connected
+              - entity: input_boolean.chargemodemaxboostnow
+                state: "on"
+            card:
+              type: markdown
+              content: >-
+                <ha-alert alert-type="warning" title="No car is connected">To start Max-charge-now, please connect the car to the charger.</ha-alert>
+          - type: calendar
+            entities:
+              - calendar.car_reservation
+            initial_view: listWeek
+            title: Car reservations
+            card_mod:
+              style: |
+                ha-card.type-calendar {
+                  min-height: auto;
+                  height: 350px;
+                  overflow: hidden;
+                }
+                ha-card.type-calendar div.header:after {
+                  content: "Target SoC is 100% at start of each event.";
+                  font-size: 50%;
+                  color: #6f6f6f;
+                  display: block;
+                }
+
+          - type: conditional
+            conditions:
+              - condition: screen
+                media_query: "(max-width: 1024px)"
+            card:
+              type: markdown
+              entities:
+                - entity: input_number.total_charging_cost_last_7_days
+                - entity: input_number.net_energy_last_7_days
+                - entity: input_text.total_charge_time_last_7_days
+                - entity: input_number.total_emissions_last_7_days
+                - entity: input_number.total_charged_energy_last_7_days
+                - entity: input_text.total_discharge_time_last_7_days
+                - entity: input_number.total_saved_emissions_last_7_days
+                - entity: input_number.total_discharged_energy_last_7_days
+                - entity: input_number.net_emissions_last_7_days
+                - entity: input_number.net_energy_last_7_days
+              content: !include v2g_liberty_ui_module_stats.yaml
+              card_mod:
+                style: !include table_style.yaml
+
+          - type: markdown
+            entities:
+              - input_text.v2g_liberty_version
+            content: >-
+              Version <span>{{states("input_text.v2g_liberty_version")}}</span>
+            card_mod:
+              style:
+                .: |
+                  ha-card {
+                    border: none;
+                    color: #797979;
+                    background-color: transparent;
+                    text-align: right;
+                  }
+                ha-markdown$: |
+                  span {
+                    font-weight: bold;
+                  }
+
+  - title: Help
+    icon: mdi:help-box
+    cards:
+      - type: entities
+        entities:
+          - entity: sensor.unrecoverable_errors_register_high
+          - entity: sensor.unrecoverable_errors_register_low
+          - entity: sensor.recoverable_errors_register_high
+          - entity: sensor.recoverable_errors_register_low
+          - entity: sensor.serial_number_high
+          - entity: sensor.serial_number_low
+          - entity: sensor.firmware_version
+        title: "Quasar"
+      - type: entities
+        entities:
+          - input_text.v2g_liberty_version
+          - input_number.car_remaining_range
+          - input_number.car_state_of_charge
+          - input_select.charge_mode
+          - update.appdaemon_update

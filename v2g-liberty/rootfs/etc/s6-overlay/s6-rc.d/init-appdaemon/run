@@ -1,0 +1,34 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Home Assistant Community Add-on: V2G Liberty
+# Configures V2G Liberty
+# ==============================================================================
+
+# Creates initial AppDaemon configuration in case it is non-existing
+if ! bashio::fs.file_exists '/config/appdaemon.yaml'; then
+    cp -R /root/appdaemon/* /config/ \
+        || bashio::exit.nok 'Failed to create initial AppDaemon configuration'
+fi
+
+mkdir -p /config/logs
+cp -Rv /root/v2g-liberty/appdaemon/* /config \
+    || bashio::exit.nok 'Failed to copy V2G-Liberty app'
+
+if ! bashio::fs.file_exists '/homeassistant/packages/v2g_liberty'; then
+    mkdir -p /homeassistant/packages/v2g_liberty
+fi
+cp -Rv /root/v2g-liberty/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
+    || bashio::exit.nok 'Failed to copy V2G-Liberty package'
+
+if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/apexcharts-card'; then
+    mkdir -p /homeassistant/www/v2g_liberty/apexcharts-card
+fi
+cp -Rv /root/v2g-liberty/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
+    || bashio::exit.nok 'Failed to copy apexchart-card plugin'
+
+if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/lovelace-card-mod'; then
+    mkdir -p /homeassistant/www/v2g_liberty/lovelace-card-mod
+fi
+cp -Rv /root/v2g-liberty/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
+    || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'

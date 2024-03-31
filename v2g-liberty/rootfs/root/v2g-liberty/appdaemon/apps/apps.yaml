@@ -1,0 +1,100 @@
+---
+v2g-globals:
+  module: v2g_globals
+  class: V2GLibertyGlobals
+  # This needs to load before all other modules
+  priority: 10
+
+  charger_plus_car_roundtrip_efficiency: !secret charger_plus_car_roundtrip_efficiency
+  charger_max_charging_power: !secret wallbox_max_charging_power
+  charger_max_discharging_power: !secret wallbox_max_discharging_power
+
+  car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
+  car_min_soc_in_percent: !secret car_min_soc_in_percent
+  car_max_soc_in_percent: !secret car_max_soc_in_percent
+  allowed_duration_above_max_soc_in_hrs: !secret allowed_duration_above_max_soc_in_hrs
+
+  fm_account_power_sensor_id: !secret fm_account_power_sensor_id
+  fm_account_availability_sensor_id: !secret fm_account_availability_sensor_id
+  fm_account_soc_sensor_id: !secret fm_account_soc_sensor_id
+  fm_account_cost_sensor_id: !secret fm_account_cost_sensor_id
+
+  fm_optimisation_mode: !secret fm_optimisation_mode
+  electricity_provider: !secret electricity_provider
+
+  # If electricity_provider is set to "self-provided"
+  fm_own_price_production_sensor_id: !secret fm_own_price_production_sensor_id
+  fm_own_price_consumption_sensor_id: !secret fm_own_price_consumption_sensor_id
+  fm_own_emissions_sensor_id: !secret fm_own_emissions_sensor_id
+  fm_own_context_display_name: !secret fm_own_context_display_name
+
+modbus_evse_client:
+  module: modbus_evse_client
+  class: ModbusEVSEclient
+  priority: 20
+  dependencies:
+    - v2g-globals
+
+  wallbox_host: !secret wallbox_host
+  wallbox_port: !secret wallbox_port
+
+  car_average_wh_per_km: !secret car_average_wh_per_km
+
+v2g_liberty:
+  module: v2g_liberty
+  class: V2Gliberty
+  priority: 50
+  dependencies:
+    - v2g-globals
+    - flexmeasures-client
+    - modbus_evse_client
+
+  admin_mobile_name: !secret admin_mobile_name
+  admin_mobile_platform: !secret admin_mobile_platform
+
+  car_average_wh_per_km: !secret car_average_wh_per_km
+
+  car_reservation_calendar: !secret car_calendar_name
+  car_reservation_calendar_timezone: !secret car_calendar_timezone
+
+flexmeasures-client:
+  module: flexmeasures_client
+  class: FlexMeasuresClient
+  priority: 50
+  dependencies:
+    - v2g-globals
+
+  fm_user_email: !secret fm_user_email
+  fm_user_password: !secret fm_user_password
+  fm_schedule_duration: !secret fm_schedule_duration
+
+  max_number_of_reattempts_to_retrieve_schedule: 6
+  delay_for_reattempts_to_retrieve_schedule: 15
+  delay_for_initial_attempt_to_retrieve_schedule: 20
+
+get_fm_data:
+  module: get_fm_data
+  class: FlexMeasuresDataImporter
+  priority: 100
+  dependencies:
+    - v2g-globals
+    - flexmeasures-client
+  fm_data_user_email: !secret fm_user_email
+  fm_data_user_password: !secret fm_user_password
+  VAT: !secret VAT
+  markup_per_kwh: !secret markup_per_kwh
+
+set_fm_data:
+  module: set_fm_data
+  class: SetFMdata
+  priority: 100
+  dependencies:
+    - v2g-globals
+    - modbus_evse_client
+
+  fm_data_user_email: !secret fm_user_email
+  fm_data_user_password: !secret fm_user_password
+
+  fm_base_entity_address_power: !secret fm_base_entity_address_power
+  fm_base_entity_address_availability: !secret fm_base_entity_address_availability
+  fm_base_entity_address_soc: !secret fm_base_entity_address_soc

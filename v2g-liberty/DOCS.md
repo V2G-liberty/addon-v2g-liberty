@@ -25,8 +25,7 @@ The installation of this add-on is pretty straightforward.
 
 **Note**: _Remember to restart the add-on when the configuration is changed._
 
-1. Go to the tab `configuration` and set your personal preferences and configuration options 
-   according to your needs.
+1. Go to the tab `configuration` and set your personal preferences and 
 2. Start the V2G Liberty add-on.
 3. Check the logs of the to see if everything went well.
 
@@ -58,8 +57,7 @@ You could also [open an issue][issue] on GitHub.
 
 ## Authors & contributors
 
-The original setup of this repository is by Ard Jonker, [Seita B.V.](https://github.com/seitabv) and 
-[Ronald Pijnacker](https://github.com/rhpijnacker).
+The original setup of this repository is by Ard Jonker, Seita B.V. and Ronald Pijnacker.
 
 ## License
 
