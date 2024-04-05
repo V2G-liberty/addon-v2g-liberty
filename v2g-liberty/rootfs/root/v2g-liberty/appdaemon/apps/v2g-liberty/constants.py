@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-03-26 Initial version
-V2G_LIBERTY_VERSION = "0.3.1"
+# Date 2024-04-05 Bug fix, version here needs to be complient with config.yaml and changelog.md
+V2G_LIBERTY_VERSION = "0.0.2"
 
 # USER PREFERENCE
 # See remark for charger constants
