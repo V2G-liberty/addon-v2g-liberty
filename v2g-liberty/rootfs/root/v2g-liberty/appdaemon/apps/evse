@@ -6,8 +6,8 @@ v2g-globals:
   priority: 10
 
   charger_plus_car_roundtrip_efficiency: !secret charger_plus_car_roundtrip_efficiency
-  charger_max_charging_power: !secret evse_max_charging_power
-  charger_max_discharging_power: !secret evse_max_discharging_power
+  charger_max_charging_power: !secret wallbox_max_charging_power
+  charger_max_discharging_power: !secret wallbox_max_discharging_power
 
   car_max_capacity_in_kwh: !secret car_max_capacity_in_kwh
   car_min_soc_in_percent: !secret car_min_soc_in_percent
@@ -35,8 +35,8 @@ modbus_evse_client:
   dependencies:
     - v2g-globals
 
-  evse_host: !secret evse_host
-  evse_port: !secret evse_port
+  wallbox_host: !secret wallbox_host
+  wallbox_port: !secret wallbox_port
 
   car_average_wh_per_km: !secret car_average_wh_per_km
 
