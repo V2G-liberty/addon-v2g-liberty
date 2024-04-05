@@ -1,33 +1,158 @@
-# Home Assistant Community Add-on: V2G Liberty
+# V2G Liberty add-on
 
-[V2G Liberty][v2g-liberty] Automated and optimised vehicle-to-grid charging
+The V2G Liberty add-on delivers full automatic and optimised control over bidirectional charging 
+of your electric vehicle (EV). Bidirectional charging is also known as Vehicle to Grid (V2G).
 
-This add-on lets you add full automatic and optimised control over bidirectional charging of your electric
-vehicle (EV), also known as Vehicle to Grid (V2G). It is a practical app based on home assistant frontend that works in
-the browser and on your phone.
+*Liberty* in the name refers to:
+- V2G&nbsp;Liberty strives for you to be independent of the make/type of charger & car.
+ 
+  <span class="sub-text">The truth now is that only the Wallbox Quasar charger offers (affordable) bidirectional charging.
+  As it is equipped with a CHAdeMo connector, so currently only cars with this connector are supported.
+  We expect to add new chargers to V2G&nbsp;Liberty soon.</span>
+- V2G&nbsp;Liberty strives for you to be independent of power company.
+ 
+  <span class="sub-text">You can choose any contract but V2G is only relevant for contracts with dynamic 
+  (e.g. hourly changing) electricity prices.</span>
 
-The schedules are optimised to maximise revenues ór minimising emissions. The optimised schedules are produced by
-[FlexMeasures](https://flexmeasures.io/).
+You can read more about V2G Liberty on [v2g-liberty.eu](https://v2g-liberty.eu/) or [github.com](https://github.com/V2G-liberty/addon-v2g-liberty)
 
-You can read more about V2G Liberty on [v2g-liberty.eu](https://v2g-liberty.eu/).
+The schedules are optimised to maximise revenues. The optimised schedules
+are produced by [FlexMeasures](https://flexmeasures.io/). While the price optimisation already 
+decreases emissions significantly, you can also choose to take sustainability a step further and optimise for minimising emissions (and still do quite well on savings on charge costs).
 
-## Installation
 
-The installation of this add-on is pretty straightforward.
+## Preparation
+
+Before installing or activation of V2G Liberty, please make sure:
+ - The charging and discharging with the EV and Quasar charger works properly. Test this with the app supplied with the charger.
+ - You have a FlexMeasures account
+ - You have an electricity contract with dynamic prices (can be added later)
+ - You have an online calendar
+
+For details see [readme on GitHub](https://github.com/V2G-liberty/addon-v2g-liberty?tab=readme-ov-file#Preparation).
+
+
+## Installation 
+
+The installation of this add-on is pretty straightforward and only needs to be done once.
+Later updates will install automatically.
+
+As you see this text in the add-on UI you've probably already 
+completed steps 1 to 7, if so, skip them.
 
 1. Copy this URL: `https://github.com/V2G-liberty/addon-v2g-liberty.git`
-2. In home assistant got to `setting > add-ons`.
-3. Open the menu in the top right with the ⋮-icon and select the option `repostitories`
-4. Paste the URL of step 1 and click `ADD`.
-5. Click the `Install` button to install the add-on.
+2. In home assistant got to `settings > add-ons`.
+3. Hit the big blue button in the bottom right `add-on shop`.
+4. Open the menu in the top right with the ⋮-icon and select the option `repostitories`.
+5. Paste the URL of step 1 and click `ADD`, wait a little and click `Close`.
+6. Scroll down to the bottom of the page, the V2G Liberty add-on should be visible there.
+   If not, refresh the page. Click the add-on.
+7. The add-on page opens, click the `Install` button to install the add-on. This might take 
+   quite a while as several files have to be copied.
+8. Consider activating `Watch dog` and `Automatic update`.
+
+Now the add-on needs to be configured before finishing the installation.
+
 
 ## Configuration
 
-**Note**: _Remember to restart the add-on when the configuration is changed._
+If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally 
+skip these configuration steps.
 
-1. Go to the tab `configuration` and set your personal preferences and 
-2. Start the V2G Liberty add-on.
-3. Check the logs of the to see if everything went well.
+You'll need to edit some .yaml files, here we use the File Editor add-on, you can use an other one if you prefer.
+
+1. Start the File Editor add-on `settings > add-ons > File Editor`. 
+2. The V2G Liberty add-on has copied two example files to the Home Assistant config root folder:<br>
+   `v2g_liberty_example_configuration.yaml` and `v2g_liberty_example_secrets.yaml`.<br>
+   These should be visible in the File Editor.
+3. Open `v2g_liberty_example_configuration.yaml` with the File Editor and copy the content (you can 
+   copy from here as well):
+   ```yaml
+   homeassistant:
+     packages:
+       v2g_pack: !include packages/v2g_liberty/v2g_liberty_package.yaml
+
+   # Loads default set of integrations. Do not remove.
+   default_config:
+   ```
+   Now open the original `configuration.yaml` and paste the text:
+    - If there is a section `homeassistant:` already, just add the lines `packages: ... .yaml` in there.
+    - If there is a section `default_config:` already, leave it unchanged.
+
+   Don't forget to save your changes.
+
+   You can now safely delete the `v2g_liberty_example_configuration.yaml` file to prevent mistakes in the future.
+4. The actual settings for the configuration are done in the `secrets.yaml` file.
+
+   Open `v2g_liberty_example_secrets.yaml` in File Editor and copy all text.
+
+   Now open the original `secrets.yaml` and paste the text. If there is text in this file more already,
+   just add the copied text underneath.
+
+5. Now please read the entire file very carefully! Take your time!
+
+   Alter all entries indicated with `## ALWAYS CHANGE ##` to you needs. All documentation on what to enter
+   is conveniently added in the file.
+
+   Also check the sections marked with `## ALWAYS CHECK / SOME TIMES CHANGE ##` to see if you would like to 
+   make changes.
+
+   Don't forget to save your changes.
+
+   You can now safely delete the `v2g_liberty_example_secrets.yaml` file to prevent mistakes in the future.
+6. Finally, restart Home Assistant by going to `settings > system` and in the top 
+   right click the top right ⏼ menu and select `Restart Home Assistant`.
+
+   When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible.
+
+
+## Finish the installation
+
+1. Now again go to `settings > add-ons > V2G Liberty` and start V2G Liberty add-on by clicking the `Start` button.
+2. Have a look at the logs (most right tab on top of the page) to see if all went well.
+   The last line should say something like:
+
+   `s6-rc: info: service legacy-services successfully started`.
+
+This is the basic installation, you are ready to use the app!
+
+## Tips & tricks
+
+Here some tips and tricks to make your V2G life even more enjoyable!
+These are "out of the box" super handy Home Assistant features. These settings are optional but highly recommended.
+
+
+### Add additional users
+
+This lets more users (persons in the household) operate the charger and receive relevant notifications.
+
+
+### Install the HA companion app on your mobile
+
+You can get it from the official app store of your phone platform.
+If you’ve added your HA instance and logged in you can manage the charging via the app and, 
+very conveniently, receive notifications about the charging on you mobile.
+
+
+### Make V2G Liberty your default dashboard
+
+To make the V2G Liberty dashboard your default go to `Settings > Dashboards`. 
+Select the V2G Liberty dashboard row and click the link "SET AS DEFAULT IN THIS DEVICE".
+
+
+#### Happy 🚘 ← ⚡ → 🏡 charging!
+
+
+<style>
+  body {
+    max-width: 50em;
+    margin: 4em;
+  }
+  span.sub-text {
+     font-size: 90%;
+     color: #797979;
+  }
+</style>
 
 
 ## Changelog & Releases
@@ -57,7 +182,9 @@ You could also [open an issue][issue] on GitHub.
 
 ## Authors & contributors
 
-The original setup of this repository is by Ard Jonker, Seita B.V. and Ronald Pijnacker.
+This repository is created by Ard Jonker, [Seita B.V.](https://github.com/seitabv) and 
+[Ronald Pijnacker](https://github.com/rhpijnacker).
+
 
 ## License
 
