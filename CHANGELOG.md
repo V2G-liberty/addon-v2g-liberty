@@ -21,6 +21,29 @@ This section shows what the next release might include.
 
 - ?
 
+
+
+## 0.0.2 - 2024-04-05
+
+
+### Added
+
+- None
+  
+### Fixed
+
+- #6-bug-notification-for-no-schedule-does-not-get-send
+
+### Changed
+
+- None
+
+### Removed
+
+- Nothing
+
+
+
 ## [0.0.1] - 2024-04-04
 
 This is the initial version
