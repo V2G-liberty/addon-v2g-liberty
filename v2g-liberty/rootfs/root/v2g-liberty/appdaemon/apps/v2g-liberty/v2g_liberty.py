@@ -524,7 +524,7 @@ class V2Gliberty(hass.Hass):
             self.set_state("input_boolean.error_no_new_schedule_available", state="on")
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
-                self.notification_timer_handle = self.run_in(self.no_new_schedule_notification, 60 * 60)
+                self.notification_timer_handle = await self.run_in(self.no_new_schedule_notification, 60 * 60)
                 self.no_schedule_notification_is_planned = True
         else:
             self.set_state("input_boolean.error_no_new_schedule_available", state="off")
