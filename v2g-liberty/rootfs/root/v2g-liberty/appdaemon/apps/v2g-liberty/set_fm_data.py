@@ -162,10 +162,13 @@ class SetFMdata(hass.Hass):
             Ignore states with string "unavailable".
             (This is not a value related to the availability that is recorded here)
         """
-        old = old.get('state', 'unavailable')
+        if old is None:
+            return
+        else:
+            old = old.get('state', 'unavailable')
         new = new.get('state', 'unavailable')
         if old == "unavailable" or new == "unavailable":
-            # Ignore state changes related to unavailable. These are not be of influence on availability of charger/car.
+            # Ignore state changes related to unavailable. These are not of influence on availability of charger/car.
             return
         self.record_availability()
 
@@ -422,8 +425,8 @@ class SetFMdata(hass.Hass):
         res = requests.post(
             c.FM_AUTHENTICATION_URL,
             json=dict(
-                email=self.args["fm_data_user_email"],
-                password=self.args["fm_data_user_password"],
+                email=c.FM_ACCOUNT_USERNAME,
+                password=c.FM_ACCOUNT_PASSWORD,
             ),
         )
         if not res.status_code == 200:

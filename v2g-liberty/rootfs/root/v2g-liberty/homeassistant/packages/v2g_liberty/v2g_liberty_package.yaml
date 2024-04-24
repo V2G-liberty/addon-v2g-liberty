@@ -21,8 +21,31 @@ lovelace:
     - url: /local/v2g_liberty/apexcharts-card/apexcharts-card.js
       type: module
 
-
 input_select:
+  admin_mobile_name:
+    name: The mobile of the administrator
+    icon: mdi:shield-account
+    options:
+      - Please choose an option
+  admin_mobile_platform:
+    name: The operation system of the mobile of the administrator
+    icon: mdi:cellphone-cog
+    options:
+      - android
+      - ios
+
+  electricity_provider:
+    options:
+      - nl_generic
+      - nl_anwb_energie
+      - nl_next_energy
+      - nl_tibber
+      - no_generic
+      - self_provided
+  optimisation_mode:
+    options:
+      - price
+      - emission
   charge_mode:
     name: Charge mode
     options:
@@ -31,9 +54,18 @@ input_select:
       - Stop
     # "Stop" used to be "Off" but this triggers HA to see it as False..
     icon: mdi:battery-charging-medium
-    # ToDo: check if initial: Automatic is useful
 
 input_boolean:
+  # Settings related entities
+  charger_show_option_to_change_min_max_power:
+    name: Change default (dis-)charge power
+    icon: mdi:square-edit-outline
+
+  fm_show_option_to_change_url:
+    name: Change default server
+  use_vat_and_markup:
+    name: Use VAT and markup to calculate price in HA
+
   # Used for signaling in the UI that the EPEX prices temporarily cannot be retrieved from FM
   error_epex_prices_cannot_be_retrieved:
     name: "Error: EPEX prices cannot be retrieved"
@@ -48,10 +80,11 @@ input_boolean:
   charger_modbus_communication_fault:
     name: "Error: charger Modbus communication fault"
 
-  #Three booleans to mimic a radiobutton group for the chargemode the user can set in the UI
+  #Three booleans to mimic a radio button group for the charge mode the user can set in the UI
   chargemodeautomatic:
     name: ChargeModeAutomatic
     icon: mdi:battery-charging-80
+    initial: true
 
   chargemodemaxboostnow:
     name: ChargeModeMaxBoostNow
@@ -62,6 +95,162 @@ input_boolean:
     icon: mdi:battery-off
 
 input_number:
+  # Setting related entities
+  fm_account_power_sensor_id:
+    name: Power sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+  fm_account_soc_sensor_id:
+    name: State of charge sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+  fm_account_availability_sensor_id:
+    name: Availability sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+  fm_account_cost_sensor_id:
+    name: Costs sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+
+  # Sensor IDs for self-provided
+  fm_account_own_power_sensor_id:
+    name: Power sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+  fm_account_own_soc_sensor_id:
+    name: State of charge sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+  fm_account_own_availability_sensor_id:
+    name: Availability sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+  fm_account_own_cost_sensor_id:
+    name: Costs sensor ID
+    min: 1
+    max: 99999
+    step: 1
+    mode: box
+    unit_of_measurement: " "
+
+  energy_price_vat:
+    name: VAT
+    min: 0
+    max: 50
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+
+  energy_price_markup_per_kwh:
+    name: Markup/kWh
+    min: 0
+    max: 200
+    step: 0.001
+    mode: box
+    unit_of_measurement: ct/kWh
+
+  charger_plus_car_roundtrip_efficiency:
+    name: Roundtrip efficiency of charger and car
+    min: 50
+    max: 100
+    step: 1
+    icon: mdi:arrow-u-left-bottom
+    mode: box
+    unit_of_measurement: "%"
+
+  charger_max_charging_power:
+    name: Max charging power
+    min: 1380
+    max: 25000
+    step: 1
+    icon: mdi:car-arrow-left
+    mode: box
+    unit_of_measurement: W
+  charger_max_discharging_power:
+    name: " "
+    min: 1380
+    max: 25000
+    step: 1
+    icon: mdi:car-arrow-right
+    mode: box
+    unit_of_measurement: W
+
+  charger_port:
+    name: "Charger port"
+    min: 1
+    max: 65535
+    step: 1
+    icon: mdi:numeric
+    mode: box
+    unit_of_measurement: " "
+
+  car_max_capacity_in_kwh:
+    name: Car battery max. capacity
+    min: 10
+    max: 200
+    step: 1
+    icon: mdi:battery-high
+    mode: box
+    unit_of_measurement: kWh
+
+  car_consumption_wh_per_km:
+    name: Car energy consumption
+    icon: mdi:gauge-low
+    min: 100
+    max: 400
+    unit_of_measurement: Wh/km
+    step: 1.0
+    mode: box
+
+  car_min_soc_in_percent:
+    name: Car battery min. soc
+    min: 10
+    max: 30
+    step: 1
+    icon: mdi:chart-bell-curve-cumulative
+    mode: box
+    unit_of_measurement: "%"
+
+  car_max_soc_in_percent:
+    name: Car battery max. soc
+    min: 60
+    max: 100
+    step: 1
+    icon: mdi:chart-sankey
+    mode: box
+    unit_of_measurement: "%"
+
+  allowed_duration_above_max_soc_in_hrs:
+    name: Allowed duration above max soc
+    min: 2
+    max: 36
+    step: 1
+    icon: mdi:timer-lock-outline
+    mode: box
+    unit_of_measurement: "hrs"
+
   # Used in both UI and in code.
   car_state_of_charge:
     name: Car State of Charge
@@ -145,10 +334,36 @@ input_number:
     unit_of_measurement: "kg CO2"
     mode: box
 
+
 input_text:
+  # Settings related entities
+  initiated_ha_entities:
+    max: 1000
+    # Entity to store entity (id's) that have been initialised,
+    # so we know they should not be overwritten with the default value.
+    # This entity should never show up in the UI.
+  charger_host_url:
+    name: Charger host URL
+    icon: mdi:lan-pending
+  charger_connection_status:
+    mode: text
+
+  fm_account_username:
+    icon: mdi:account
+    name: Username (email address)
+  fm_account_password:
+    icon: mdi:form-textbox-password
+    name: Password
+    mode: password
+  fm_host_url:
+    icon: mdi:server-network-outline
+    name: URL
+  fm_connection_status:
+    mode: text
+
   # Used for stats in UI.
   poll_refresh_indicator:
-    name: This changes everytime the EVSE gets polled (if active, 5 to 15 sec.)
+    name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
     initial: " "
 
   # Used for stats in UI.
@@ -255,16 +470,24 @@ calendar:
     days: 7
 
 script:
+  test_charger_connection:
+    alias: TestChargerConnection
+    sequence:
+      - event: TEST_CHARGER_CONNECTION
+        event_data: {}
+    mode: single
+
+  test_fm_connection:
+    alias: TestFMconnection
+    sequence:
+      - event: TEST_FM_CONNECTION
+        event_data: {}
+    mode: single
+
   disconnectnow:
     alias: DisconnectNow
     sequence:
       - event: DISCONNECT_CHARGER
-        event_data: {}
-    mode: single
-  restartcharger:
-    alias: RestartCharger
-    sequence:
-      - event: RESTART_CHARGER
         event_data: {}
     mode: single
 
@@ -362,7 +585,6 @@ automation:
         data: {}
     mode: single
 
-  # TODO:
   # Remove this automation as the new polling prevents the none-int values.
   # Replace 'sensor.charger_connected_car_state_of_charge' with 'sensor.car_state_of_charge'
   # in the modbus_evse_client.py.
@@ -396,140 +618,3 @@ automation:
         data:
           value: "{{states('sensor.charger_connected_car_state_of_charge') |int }}"
     mode: single
-  # - id: "1630074922160"
-  #   alias: Translate Quasar charger state
-  #   description:
-  #     "Goal: create technical charger state (from Modbus YAML in configuration)
-  #     more readable.
-  #     The modbus YAML passes an int that must be translated to text.
-  #     Therefore, we fill another variable (input) with the most recent non-0 value.
-  #     The Modbus YAML code also often displays 'unavailable', which we translate to
-  #     'no communication with charger'"
-  #   trigger:
-  #     - platform: state
-  #       entity_id: sensor.charger_charger_state
-  #   condition: []
-  #   action:
-  #     - choose:
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "0"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: No car connected
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "1"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: Charging
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "2"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Connected: waiting for car demand"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "3"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Connected: controlled by Wallbox App"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "4"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Connected: not charging (paused)"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "5"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Connected: end of schedule"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "6"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Disconnected locked"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "7"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: Error
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "8"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Connected: In queue by Power Sharing"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "9"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Error: Unconfigured Power Sharing System"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "10"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: "Connected: In queue by Power Boost (Home uses all available power)"
-  #         - conditions:
-  #             - condition: state
-  #               entity_id: sensor.charger_charger_state
-  #               state: "11"
-  #           sequence:
-  #             - service: input_text.set_value
-  #               target:
-  #                 entity_id: input_text.charger_state
-  #               data:
-  #                 value: Discharging
-        # default: []
-    # mode: single

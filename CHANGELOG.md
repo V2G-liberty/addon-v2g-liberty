@@ -15,13 +15,58 @@ This section shows what the next release might include.
 
 ### Changed
 
-- Move configuration from secrets.yaml to add-on configuration
+- ?
 
 ### Removed
 
 - ?
+ 
 
-## [0.0.1] - 2024-04-04
+## 0.1.0 - 2024-04-15
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Off not stopping charging
+- key-error on failed auth request in get_fm_data
+
+
+### Changed
+
+- Move configuration from secrets.yaml to add-on configuration (#5)
+- Bumped docker ghcr.io/hassio-addons/base to15.0.8
+- Bumped docker python3-dev and python3 to 3.11.9-r0
+- Legal notice of Wallbox moved from wallbox_registers.yaml to modbus_evse_client.py
+
+### Removed
+
+- 
+
+
+## 0.0.2 - 2024-04-05
+
+### Added
+
+- None
+
+### Fixed
+
+- #6-bug-notification-for-no-schedule-does-not-get-send
+
+### Changed
+
+- None
+
+### Removed
+
+- Nothing
+
+
+## 0.0.1 - 2024-04-04
 
 This is the initial version
 

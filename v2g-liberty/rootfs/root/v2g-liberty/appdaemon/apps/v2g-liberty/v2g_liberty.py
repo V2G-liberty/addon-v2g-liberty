@@ -27,19 +27,18 @@ class V2Gliberty(hass.Hass):
     DISCONNECTED_STATE: int = 0
     # Fail-safe for processing schedules that might have schedule with too high update frequency
     MIN_RESOLUTION: timedelta
-    CAR_AVERAGE_WH_PER_KM: int
     ADMIN_MOBILE_NAME: str
     HA_NAME: str = ""
 
     CAR_RESERVATION_CALENDAR: str
 
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
-    timer_handle_set_next_action: object
+    timer_handle_set_next_action: object = None
     call_next_action_at_least_every: int
     scheduling_timer_handles: List[AsyncGenerator]
 
     # A SoC of 0 means: unknown/car not connected.
-    # Keep local variables so it is not needed to get it every time from evse client
+    # Keep local variables, so it is not needed to get it every time from evse client
     # or HA entity. They are updated via "process_soc", which is triggered via event listener.
     connected_car_soc: int
     connected_car_soc_kwh: float
@@ -60,10 +59,10 @@ class V2Gliberty(hass.Hass):
     no_schedule_errors: dict
     notification_timer_handle: object
     user_was_notified_of_no_schedule: bool
+    no_schedule_notification_is_planned: bool
 
     # For notifying users
     PRIORITY_NOTIFICATION_CONFIG: list
-    recipients: list
 
     evse_client: object
     fm_client: object
@@ -72,7 +71,6 @@ class V2Gliberty(hass.Hass):
         self.log("Initializing V2Gliberty")
 
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
-        self.CAR_AVERAGE_WH_PER_KM = int(float(self.args["car_average_wh_per_km"]))
 
         self.CAR_RESERVATION_CALENDAR = self.args["car_reservation_calendar"]
 
@@ -83,15 +81,13 @@ class V2Gliberty(hass.Hass):
         self.back_to_max_soc = None
 
         # Show the settings in the UI
-        #TODO: Use set_textvalue instead??
+        # TODO: Use set_textvalue instead??
         self.set_value("input_text.v2g_liberty_version", c.V2G_LIBERTY_VERSION)
         self.set_value("input_text.optimisation_mode", c.OPTIMISATION_MODE)
         self.set_value("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
 
         self.ADMIN_MOBILE_NAME = self.args["admin_mobile_name"].lower()
         self.PRIORITY_NOTIFICATION_CONFIG = {}
-        self.recipients = []
-        self.__init_notification_configuration()
 
         self.in_boost_to_reach_min_soc = False
         self.call_next_action_at_least_every = 15 * 60
@@ -142,7 +138,7 @@ class V2Gliberty(hass.Hass):
 
         current_soc = await self.get_state("sensor.charger_connected_car_state_of_charge")
         await self.__process_soc(current_soc)
-        await self.__set_next_action(v2g_args="initialise") # on initializing the app
+        await self.set_next_action(v2g_args="initialise") # on initializing the app
 
         self.log("Completed Initializing V2Gliberty")
 
@@ -197,61 +193,6 @@ class V2Gliberty(hass.Hass):
 
 
     ######################################################################
-    #                   INITILIZATION RELATED FUNCTIONS                  #
-    ######################################################################
-
-    def __init_notification_configuration(self):
-        # List of all the recipients to notify
-        # Check if Admin is configured correctly
-        # Warn user about bad config with persistent notification in UI.
-        self.log("Initializing notification configuration")
-
-        self.recipients.clear()
-        # Service "mobile_app_" seems more reliable than using get_trackers,
-        # as these names do not always match with the service.
-        for service in self.list_services():
-            if service["service"].startswith("mobile_app_"):
-                self.recipients.append(service["service"].replace("mobile_app_", ""))
-        self.log(f"Recipients for notifications: {self.recipients}.")
-
-        message = ""
-        if len(self.recipients) == 0:
-            message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant " \
-                      f"for notifications.<br/>" \
-                      f"It is highly recommended to do so. Please install the HA companion app on your mobile device " \
-                      f"and connect it to Home Assistant."
-            self.log(f"Configuration error: {message}.")
-        elif self.ADMIN_MOBILE_NAME not in self.recipients:
-            alternative_admin = self.recipients[0]
-            message = f"The admin mobile name ***{self.ADMIN_MOBILE_NAME}*** in configuration is not a registered " \
-                      f"recipient.<br/>" \
-                      f"Please use one of the following: {self.recipients}.<br/>" \
-                      f"Now, ***{alternative_admin}*** will be used for high-priority/technical notifications with " \
-                      f"the assumption it is a iOS device."
-            self.log(f"Configuration error: The admin_mobile_name '{self.ADMIN_MOBILE_NAME}' in configuration not a "
-                     f"registered recipient.")
-            self.ADMIN_MOBILE_NAME = self.recipients[0]
-        else:
-            # Only check platform config if admin mobile name is valid.
-            platform = self.args["admin_mobile_platform"].lower()
-            if platform == "ios":
-                self.PRIORITY_NOTIFICATION_CONFIG = {
-                    "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}}
-            elif platform == "android":
-                self.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
-            else:
-                message = f"The admin_mobile_platform in configuration: '{platform}' is unknown."
-                self.log(f"Configuration error: {message}")
-
-        if message != "":
-            # TODO: Research if showing this only to admin users is possible.
-            self.call_service('persistent_notification/create', title="Configuration error", message=message,
-                              notification_id="notification_config_error")
-
-        self.log("Completed Initializing notification configuration")
-
-
-    ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
 
@@ -277,7 +218,7 @@ class V2Gliberty(hass.Hass):
         if old_state == 'Stop' and new_state != 'Stop':
             await self.evse_client.set_active()
 
-        await self.__set_next_action(v2g_args="__update_charge_mode")
+        await self.set_next_action(v2g_args="__update_charge_mode")
         return
 
 
@@ -288,7 +229,7 @@ class V2Gliberty(hass.Hass):
         res = await self.__process_soc(reported_soc)
         if not res:
             return
-        await self.__set_next_action(v2g_args="__handle_soc_change")
+        await self.set_next_action(v2g_args="__handle_soc_change")
         return
 
 
@@ -352,7 +293,7 @@ class V2Gliberty(hass.Hass):
 
         # **** Handle connected:
         if new_charger_state != self.DISCONNECTED_STATE:
-            await self.__set_next_action(v2g_args="handle_charger_state_change")
+            await self.set_next_action(v2g_args="handle_charger_state_change")
             return
 
         # Handling errors is left to the evse_client as this knows what specific situations there are for 
@@ -401,7 +342,7 @@ class V2Gliberty(hass.Hass):
             notification_data = self.PRIORITY_NOTIFICATION_CONFIG
 
         if send_to_all and not critical:
-            to_notify = self.recipients
+            to_notify = c.NOTIFICATION_RECIPIENTS
 
         if tag:
             notification_data["tag"] = tag
@@ -423,10 +364,10 @@ class V2Gliberty(hass.Hass):
                 # Remove the notification after a time-to-live
                 # A tag is required for clearing.
                 # Critical notifications should not auto clear.
-                self.run_in(self.__clear_notification, ttl, recipient=recipient, tag=tag)
+                self.run_in(self.__clear_notification, delay=ttl, recipient=recipient, tag=tag)
 
     def __clear_notification_for_all_recipients(self, tag: str):
-        for recipient in self.recipients:
+        for recipient in c.NOTIFICATION_RECIPIENTS:
             identification = { "recipient": recipient, "tag": tag }
             self.__clear_notification(identification)
 
@@ -471,15 +412,15 @@ class V2Gliberty(hass.Hass):
 
 
     async def __cancel_timer(self, timer):
-        """Utility function to silently cancel timers.
+        """Utility function to silently cancel a timer.
         Born because the "silent" flag in cancel_timer does not work and the 
         logs get flooded with un_useful warnings.
 
         Args:
-            timers (list): list of timer_handles to cancel
+            timer: timer_handle to cancel
         """
         if self.info_timer(timer):
-            silent = True #Does not really work
+            silent = True # Does not really work
             await self.cancel_timer(timer, silent)
 
     async def __notify_no_new_schedule(self, reset: Optional[bool] = False):
@@ -511,7 +452,7 @@ class V2Gliberty(hass.Hass):
                 self.log(f"__notify_no_new_schedule, notification timer cancelled: {res}.")
             self.no_schedule_notification_is_planned = False
             self.__clear_notification_for_all_recipients(tag = "no_new_schedule")
-            self.set_state("input_boolean.error_no_new_schedule_available", state="off")
+            await self.set_state("input_boolean.error_no_new_schedule_available", state="off")
             return
 
         any_errors = False
@@ -521,13 +462,14 @@ class V2Gliberty(hass.Hass):
                 break
 
         if any_errors:
-            self.set_state("input_boolean.error_no_new_schedule_available", state="on")
+            await self.set_state("input_boolean.error_no_new_schedule_available", state="on")
+            await self.set_value("input_text.fm_connection_status", "Failed to connect/login.")
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
-                self.notification_timer_handle = self.run_in(self.no_new_schedule_notification, 60 * 60)
+                self.notification_timer_handle = await self.run_in(self.no_new_schedule_notification, delay=60 * 60)
                 self.no_schedule_notification_is_planned = True
         else:
-            self.set_state("input_boolean.error_no_new_schedule_available", state="off")
+            await self.set_state("input_boolean.error_no_new_schedule_available", state="off")
             canceled_before_run = await self.cancel_timer(self.notification_timer_handle, True)
             self.log(f"__notify_no_new_schedule, notification timer cancelled before run: {canceled_before_run}.")
             if self.no_schedule_notification_is_planned and not canceled_before_run:
@@ -546,7 +488,7 @@ class V2Gliberty(hass.Hass):
                 )
             self.no_schedule_notification_is_planned = False
 
-    def no_new_schedule_notification(self):
+    def no_new_schedule_notification(self, v2g_args=None):
         # Work-around to have this in a separate function (without arguments) and not inline in handle_no_new_schedule
         # This is needed because self.run_in() with kwargs does not really work well and results in this app crashing
         title = "No new schedules available"
@@ -771,7 +713,7 @@ class V2Gliberty(hass.Hass):
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = "SoC prognosis based on schedule available at " + now.isoformat()
         result = dict(records=records)
-        self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
+        await self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
 
     async def __set_soc_prognosis_boost_in_ui(self, records: Optional[dict] = None):
         """Write or remove SoC prognosis boost in graph via HA entity input_text.soc_prognosis_boost
@@ -799,7 +741,7 @@ class V2Gliberty(hass.Hass):
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = "SoC prognosis boost based on boost 'schedule' available at " + now.isoformat()
         result = dict(records=records)
-        self.set_state("input_text.soc_prognosis_boost", state=new_state, attributes=result)
+        await self.set_state("input_text.soc_prognosis_boost", state=new_state, attributes=result)
 
 
     async def __start_max_charge_now(self):
@@ -822,7 +764,7 @@ class V2Gliberty(hass.Hass):
             return False
         self.connected_car_soc = round(reported_soc, 0)
         self.connected_car_soc_kwh = round(reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
-        remaining_range = int(round((self.connected_car_soc_kwh*1000/self.CAR_AVERAGE_WH_PER_KM), 0))
+        remaining_range = int(round((self.connected_car_soc_kwh*1000/c.CAR_CONSUMPTION_WH_PER_KM), 0))
         self.set_value("input_number.car_remaining_range", remaining_range)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         self.log(f"New SoC processed, self.connected_car_soc_kwh is now set to: {self.connected_car_soc_kwh}kWh.")
@@ -843,11 +785,12 @@ class V2Gliberty(hass.Hass):
         return True
 
 
-    async def __set_next_action(self, v2g_args = None):
+    async def set_next_action(self, v2g_args = None):
         """The function determines what action should be taken next based on current SoC, Charge_mode, Charger_state
 
         This function is meant to be called upon:
         - Initialisation
+        - Settings updates (from v2g_globals.py)
         - SoC updates
         - Charger state updates
         - Charge mode updates
@@ -865,8 +808,8 @@ class V2Gliberty(hass.Hass):
             await self.__cancel_timer(self.timer_handle_set_next_action)
 
         self.timer_handle_set_next_action = await self.run_in(
-            self.__set_next_action,
-            self.call_next_action_at_least_every,
+            self.set_next_action,
+            delay = self.call_next_action_at_least_every,
         )
 
         if not await self.evse_client.is_car_connected():
@@ -874,7 +817,7 @@ class V2Gliberty(hass.Hass):
             return
 
         if self.evse_client.try_get_new_soc_in_process:
-            self.log("__set_next_action: evse_client.try_get_new_soc_in_process, stopped setting next action.")
+            self.log("set_next_action: evse_client.try_get_new_soc_in_process, stopped setting next action.")
             return
         
         if self.connected_car_soc == 0:
@@ -917,7 +860,7 @@ class V2Gliberty(hass.Hass):
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
                 # For % /100, for kwh to wh * 1000 results in *10..
                 delta_to_min_soc_wh = (c.CAR_MIN_SOC_IN_PERCENT - self.connected_car_soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
-                delta_to_min_soc_wh = delta_to_min_soc_wh / (c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY ** 0.5)
+                delta_to_min_soc_wh = delta_to_min_soc_wh / (c.ROUNDTRIP_EFFICIENCY_FACTOR ** 0.5)
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid 0 minutes as
                 # this would not show in graph.

@@ -13,7 +13,7 @@ views:
               - entity: sensor.charger_real_charging_power
             content: >-
               <ha-icon icon="mdi:ev-station"></ha-icon>
-              <div title="Polling EVSE">&nbsp;{{ states('input_text.poll_refresh_indicator')}}</div>
+              <div title="Polling charger">&nbsp;{{ states('input_text.poll_refresh_indicator')}}</div>
               <table><tbody><tr><th>
               {{ states('input_text.charger_state') }}
               </th><td>
@@ -472,24 +472,494 @@ views:
                   span {
                     font-weight: bold;
                   }
-
-  - title: Help
-    icon: mdi:help-box
+  # Settings tab
+  # TODO: Make this a separate dashboard:
+  # + that is not shown in the left menu
+  # + that is admin only
+  # + that is linked from the main page
+  # On the main page make all content conditional:
+  # if settings are not complete do not show them, only the link to settings.
+  - title: Settings
+    type: masonry
+    icon: mdi:cog
     cards:
-      - type: entities
-        entities:
-          - entity: sensor.unrecoverable_errors_register_high
-          - entity: sensor.unrecoverable_errors_register_low
-          - entity: sensor.recoverable_errors_register_high
-          - entity: sensor.recoverable_errors_register_low
-          - entity: sensor.serial_number_high
-          - entity: sensor.serial_number_low
-          - entity: sensor.firmware_version
-        title: "Quasar"
-      - type: entities
-        entities:
-          - input_text.v2g_liberty_version
-          - input_number.car_remaining_range
-          - input_number.car_state_of_charge
-          - input_select.charge_mode
-          - update.appdaemon_update
+      - type: vertical-stack
+        cards:
+        - type: entities
+          title: Optimisation
+          entities:
+            - entity: input_select.optimisation_mode
+              name: Optimisation mode
+              icon: mdi:chart-timeline-variant-shimmer
+              card_mod: !include info_icon_style.yaml
+            - entity: input_number.car_min_soc_in_percent
+              name: Schedule lower limit
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.car_max_soc_in_percent
+              name: Schedule upper limit
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.allowed_duration_above_max_soc_in_hrs
+              card_mod: !include input_number_style.yaml
+          card_mod:
+            style: |
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                content: "How should scheduling be optimised: \A + Maximise financial gains based on dynamic prices \A + Minimise emissions from CO₂ release in electricity production";
+              }
+              ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                content: "The scheduling will not discharge below this limit and, -if the car returns with and SoC below this value- will charge to this minimum a.s.a.p. before regular scheduling. \A \A A high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings. \A \A A lower value results in a (sometimes) smaller driving range available for un-planned drives but there is always more room for the schedule. \A \ A The setting must be between 10 and 30, default is 20.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(3):hover::after {
+                content: "The schedule will use this as an upper limit for regular scheduling. It can be used to further protect the battery from degradation as a 100% charge (for longer periods) may reduce battery health/lifetime. \A \A When a calendar item is present, the schedule will ignore this setting and try to charge to 100% (or if the calendar item has a target use that). \A \A A low setting reduces schedule flexibility and so the capability to earn money and reduce emissions. \A \A The setting must be between 60 and 100, default is 80.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(4):hover::after {
+                content: "When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum? \A \A A longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery. \A \A This duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions. \A \A The setting must be between 2 and 36, default is 12.";
+              }
+              ha-card.type-entities div.card-content div:hover::after {
+                white-space: pre-wrap;
+                font-size: 90%;
+                color: #222;
+                position: absolute;
+                width: 300px;
+                right: 4px;
+                top: 44px;
+                background-color: #fff;
+                border: 1px solid #cccccc;
+                border-radius: 8px;
+                padding: 8px 16px;
+                z-index: 110;
+              }
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                top: auto !important;
+                bottom: 52px;
+              }
+        - type: entities
+          entities:
+            - entity: input_select.electricity_provider
+              name: Electricity provider
+              icon: mdi:office-building
+            - entity: input_boolean.use_vat_and_markup
+              icon: mdi:cash-edit
+          show_header_toggle: false
+          title: Energy
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_boolean.use_vat_and_markup
+              state: 'on'
+          card:
+            type: entities
+            entities:
+              - entity: input_number.energy_price_vat
+                icon: mdi:close
+                card_mod: !include input_number_style.yaml
+              - entity: input_number.energy_price_markup_per_kwh
+                icon: mdi:plus
+                card_mod: !include input_number_style.yaml
+            card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -16px;
+                    padding-left: 36px;
+                  }
+                  ha-card.type-entities div.card-content::before {
+                    content: "VAT / markup data is only taken into account for generic electricity providers, or in some cases, price data is self-provided. \A It is used for transforming the raw price data (from FM) to net price to be shown in UI: (market_price_per_kwh + markup_per_kwh) * VAT";
+                    white-space: pre-wrap;
+                    color: #000000;
+                    display: block;
+                    padding: 8px 0px;
+                    margin-bottom: 8px;
+                    margin-top: -8px;
+                  }
+                  ha-card.type-entities div.card-content div:first-child:hover::after {
+                    content: "Value Added Tax \A If you'd like to effectively 'not use VAT' you can set it to 0%.";
+                  }
+                  ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                    content: "This is a markup in cents(!) per kWh, e.g. 14.539 is a normal markup in the Netherlands.";
+                  }
+                  ha-card.type-entities div.card-content div:hover::after {
+                    white-space: pre-wrap;
+                    font-size: 90%;
+                    color: #222;
+                    position: absolute;
+                    width: 300px;
+                    right: 4px;
+                    top: 44px;
+                    background-color: #fff;
+                    border: 1px solid #cccccc;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    z-index: 110;
+                  }
+        - type: entities
+          title: Car
+          entities:
+            - entity: input_number.car_max_capacity_in_kwh
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.charger_plus_car_roundtrip_efficiency
+              card_mod: !include input_number_style.yaml 
+            - entity: input_number.car_consumption_wh_per_km
+              card_mod: !include input_number_style.yaml
+          card_mod:
+            style: |
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                content: "The usable energy storage capacity of the battery of the car. \A For the Nissan Leaf this is usually 21, 39 or 59 (advertised as 24, 40 and 62). \A See https://ev-database.org.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                content: "A typical EV + charger roundtrip efficient is around 85 %. \A Use an setting between 50 and 100.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(3):hover::after {
+                content: "The average electricity usage of your car in Watt-hour (Wh) per km \A In most cars you can find historical data in the menu's or see https://ev-database.org. \A \A Normally this is between 140 (very efficient) and 300 (rather in-efficient vans). \A \A Make sure you use the right 'unit of measure': Wh per km.";
+              }
+              ha-card.type-entities div.card-content div:hover::after {
+                white-space: pre-wrap;
+                font-size: 90%;
+                color: #222;
+                position: absolute;
+                width: 300px;
+                right: 4px;
+                top: 44px;
+                background-color: #fff;
+                border: 1px solid #cccccc;
+                border-radius: 8px;
+                padding: 8px 16px;
+                z-index: 110;
+              }
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Charger
+            entities:
+              - entity: input_text.charger_host_url
+                card_mod: !include info_icon_style.yaml
+              - entity: input_number.charger_port
+                card_mod: !include input_number_style.yaml
+            card_mod:
+                style: |
+                  ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                    content: "The host URL (IP address) and port can be found in the Wallbox app. \A \A Connect with bluetooth and in the app go to Settings > Connectivity > Ethernet (or Wi-Fi).";
+                  }
+                  ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                    content: "By default the charger uses port 502.";
+                  }
+                  ha-card.type-entities div.card-content div:hover::after {
+                    white-space: pre-wrap;
+                    font-size: 90%;
+                    color: #222;
+                    position: absolute;
+                    width: 300px;
+                    right: 4px;
+                    top: 44px;
+                    background-color: #fff;
+                    border: 1px solid #cccccc;
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    z-index: 110;
+                  }
+          - type: markdown
+            entity: input_text.charger_connection_status
+            content: >-
+              <span> {{ states("input_text.charger_connection_status")}} &nbsp;</span>
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -14px;
+                  padding-bottom: 14px;
+                }
+
+          - type: button
+            show_name: true
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: script.test_charger_connection
+              target: {}
+            entity: ''
+            name: TEST
+            icon: ''
+            card_mod:
+              style: |
+                ha-card {
+                  width: 100px;
+                  height: 32px !important;
+                  border-radius: 2px;
+                  background-color: var(--primary-color);
+                  color: var(--app-header-text-color);
+                  font-size: 90%;
+                  padding: 0 !important;
+                  margin-top: -70px;
+                  margin-left: calc(100% - 118px);
+                }
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: unknown
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: unavailable
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: ''
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: ' '
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: 'Failed to connect'
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: 'Trying to connect...'
+            card:
+              type: entities
+              entities:
+                - entity: input_boolean.charger_show_option_to_change_min_max_power
+                  name: Reduce max. (dis-)charge power
+              card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -24px;
+                    padding-bottom: 14px;
+                  }
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: unknown
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: unavailable
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: ''
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: ' '
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: 'Failed to connect'
+              - condition: state
+                entity: input_text.charger_connection_status
+                state_not: 'Trying to connect...'
+              - condition: state
+                entity: input_boolean.charger_show_option_to_change_min_max_power
+                state: 'on'
+            card:
+              type: entities
+              entities:
+                - entity: input_number.charger_max_charging_power
+                  name: Max charging power
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.charger_max_discharging_power
+                  name: Max discharging power
+                  card_mod: !include input_number_style.yaml
+              card_mod:
+                  style: |
+                    ha-card {
+                      border-top: none;
+                      border-top-left-radius: 0;
+                      border-top-right-radius: 0;
+                      margin-top: -28px;
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                      content: "Set this to reduce the maximum charge power that is set in the charger.";
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                      content: "Set this to reduce the maximum discharge power. The charger has one max. charge power setting for both charge and discharge. \A \A Usually the discharge power is the same as the charge power. In some cases the charger or (gird operator) regulations require a different (lower) dis-charge power.";
+                    }
+                    ha-card.type-entities div.card-content div:hover::after {
+                      white-space: pre-wrap;
+                      font-size: 90%;
+                      color: #222;
+                      position: absolute;
+                      width: 300px;
+                      right: 4px;
+                      top: 44px;
+                      background-color: #fff;
+                      border: 1px solid #cccccc;
+                      border-radius: 8px;
+                      padding: 8px 16px;
+                      z-index: 110;
+                    }
+                    ha-card.type-entities div.card-content::after {
+                      content: "It is recommended to use a load balancer (power-boost for WB). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.";
+                      white-space: pre-wrap;
+                      font-size: 90%;
+                      color: #222222;
+                      display: block;
+                      margin-top: 16px;
+                      margin-bottom: 8px;
+                      padding: 16px;
+                      background-color: #F2F2F2;
+                    }
+          - type: markdown
+            content: >-
+              <ha-alert alert-type="info" title="Be safe">Electric safety must be provided by the hardware, 
+              not this software! Please consult a certified electrician what maximum power can be set on the charger.
+              </ha-alert>
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -24px;
+                  padding-bottom: 10px;
+                }
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: FlexMeasures account
+            entities:
+              - entity: input_text.fm_account_username
+              - entity: input_text.fm_account_password
+              - entity: input_boolean.fm_show_option_to_change_url
+                secondary_info: none
+                icon: mdi:link-edit
+            card_mod:
+                style: |
+                  ha-card.type-entities div.card-content::before {
+                    content: "The username and password for the default server can be requested at https://v2g-liberty.eu.";
+                    font-size: 90%;
+                    white-space: pre-wrap;
+                    color: #222;
+                    display: block;
+                    margin: -8px 0 24px 0;
+                  }
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.fm_show_option_to_change_url
+                state: 'on'
+            card:
+              type: entities
+              entities:
+                - entity: input_text.fm_host_url
+              card_mod:
+                  style: |
+                    ha-card {
+                      border-top: none;
+                      border-bottom: none;
+                      border-radius: 0;
+                      margin-top: -30px;
+                    }
+
+          - type: markdown
+            entity: input_text.fm_connection_status
+            content: >-
+              {{ states("input_text.fm_connection_status")}}
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -14px;
+                  padding-bottom: 14px;
+                }
+
+          - type: button
+            show_name: true
+            show_icon: false
+            tap_action:
+              action: call-service
+              service: script.test_fm_connection
+              target: {}
+            entity: ''
+            name: TEST
+            icon: ''
+            card_mod:
+                style: |
+                  ha-card {
+                    width: 100px;
+                    height: 32px !important;
+                    border-radius: 2px;
+                    background-color: var(--primary-color);
+                    color: var(--app-header-text-color);
+                    font-size: 90%;
+                    padding: 0 !important;
+                    margin-top: -70px;
+                    margin-left: calc(100% - 118px);
+                  }
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.electricity_provider
+                state_not: self_provided
+            card:
+              type: entities
+              title: FlexMeasures Sensor IDs
+              entities:
+                - entity: input_number.fm_account_power_sensor_id
+                  name: Power
+                  icon: mdi:lightning-bolt
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_soc_sensor_id
+                  name: State of charge
+                  icon: mdi:percent-outline
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_availability_sensor_id
+                  name: Availability
+                  icon: mdi:home-percent
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_cost_sensor_id
+                  name: Costs
+                  icon: mdi:currency-eur
+                  card_mod: !include input_number_style.yaml
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.electricity_provider
+                state: self_provided
+            card:
+              type: entities
+              title: FlexMeasures self provided sensor IDs
+              entities:
+                - entity: input_number.fm_account_own_power_sensor_id
+                  name: Power
+                  icon: mdi:lightning-bolt
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_own_soc_sensor_id
+                  name: State of charge
+                  icon: mdi:percent-outline
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_own_availability_sensor_id
+                  name: Availability
+                  icon: mdi:home-percent
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_own_cost_sensor_id
+                  name: Costs
+                  icon: mdi:currency-eur
+                  card_mod: !include input_number_style.yaml
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Administrator
+            entities:
+              - entity: input_select.admin_mobile_name
+              - entity: input_select.admin_mobile_platform
+            card_mod:
+                style: |
+                  ha-card.type-entities div.card-content::before {
+                    content: "High priority notifications get send to the administrators mobile device. \A Currently the only high priority notification is for charger communication failures that need a restart of the charger.)";
+                    white-space: pre-wrap;
+                    color: #000000;
+                    display: block;
+                    padding: 8px 0px;
+                    margin-bottom: 8px;
+                    margin-top: -8px;
+                  }
+
