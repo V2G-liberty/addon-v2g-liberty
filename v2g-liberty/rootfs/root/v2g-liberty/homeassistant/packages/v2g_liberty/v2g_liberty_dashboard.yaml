@@ -599,7 +599,7 @@ views:
             - entity: input_number.car_max_capacity_in_kwh
               card_mod: !include input_number_style.yaml
             - entity: input_number.charger_plus_car_roundtrip_efficiency
-              card_mod: !include input_number_style.yaml 
+              card_mod: !include input_number_style.yaml
             - entity: input_number.car_consumption_wh_per_km
               card_mod: !include input_number_style.yaml
           card_mod:
@@ -637,8 +637,19 @@ views:
                 card_mod: !include info_icon_style.yaml
               - entity: input_number.charger_port
                 card_mod: !include input_number_style.yaml
+              - type: button
+                name: ' '
+                action_name: TEST
+                tap_action:
+                  action: call-service
+                  service: script.test_charger_connection
+                  target: {}
+              - type: divider
             card_mod:
                 style: |
+                  ha-card {
+                    padding-bottom: 40px;
+                  }
                   ha-card.type-entities div.card-content div:nth-child(1):hover::after {
                     content: "The host URL (IP address) and port can be found in the Wallbox app. \A \A Connect with bluetooth and in the app go to Settings > Connectivity > Ethernet (or Wi-Fi).";
                   }
@@ -660,67 +671,40 @@ views:
                     z-index: 110;
                   }
           - type: markdown
-            entity: input_text.charger_connection_status
+            entities:
+              - input_text.charger_connection_status
+              - input_text.charger_max_available_power
             content: >-
-              <span> {{ states("input_text.charger_connection_status")}} &nbsp;</span>
+              {{ states("input_text.charger_connection_status")}} | 
+              {{ (now().timestamp() - states.input_text.charger_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+              <div>&nbsp;</div>
+              The charger is set to provide max. **{{ states("input_text.charger_max_available_power")}}**&nbsp;W
             card_mod:
-              style: |
-                ha-card {
-                  border-top: none;
-                  border-top-left-radius: 0;
-                  border-top-right-radius: 0;
-                  margin-top: -14px;
-                  padding-bottom: 14px;
-                }
-
-          - type: button
-            show_name: true
-            show_icon: false
-            tap_action:
-              action: call-service
-              service: script.test_charger_connection
-              target: {}
-            entity: ''
-            name: TEST
-            icon: ''
-            card_mod:
-              style: |
-                ha-card {
-                  width: 100px;
-                  height: 32px !important;
-                  border-radius: 2px;
-                  background-color: var(--primary-color);
-                  color: var(--app-header-text-color);
-                  font-size: 90%;
-                  padding: 0 !important;
-                  margin-top: -70px;
-                  margin-left: calc(100% - 118px);
-                }
-
+              style:
+                .: |
+                  ha-card {
+                    background-color: transparent;
+                    border: none;
+                    max-width: calc(100% - 100px);
+                    margin-top: -118px;
+                    margin-left: 12px;
+                    padding: 0 !important;
+                  }
+                ha-markdown$: |
+                  div {
+                    height: 16px !important;
+                    padding: 0;
+                    margin: 0;
+                  }
           - type: conditional
             conditions:
               - condition: state
                 entity: input_text.charger_connection_status
-                state_not: unknown
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: unavailable
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: ''
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: ' '
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: 'Failed to connect'
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: 'Trying to connect...'
+                state: "Successfully connected"
             card:
               type: entities
               entities:
-                - entity: input_boolean.charger_show_option_to_change_min_max_power
+                - entity: input_boolean.use_reduced_max_charge_power
                   name: Reduce max. (dis-)charge power
               card_mod:
                 style: |
@@ -728,31 +712,21 @@ views:
                     border-top: none;
                     border-top-left-radius: 0;
                     border-top-right-radius: 0;
-                    margin-top: -24px;
-                    padding-bottom: 14px;
+                    margin-top: -36px;
+                    padding-top: 0;
+                    padding-bottom: 0;
                   }
+                  ha-card * {
+                    padding-top: 0;
+                  }
+
           - type: conditional
             conditions:
               - condition: state
                 entity: input_text.charger_connection_status
-                state_not: unknown
+                state: "Successfully connected"
               - condition: state
-                entity: input_text.charger_connection_status
-                state_not: unavailable
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: ''
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: ' '
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: 'Failed to connect'
-              - condition: state
-                entity: input_text.charger_connection_status
-                state_not: 'Trying to connect...'
-              - condition: state
-                entity: input_boolean.charger_show_option_to_change_min_max_power
+                entity: input_boolean.use_reduced_max_charge_power
                 state: 'on'
             card:
               type: entities
@@ -804,7 +778,7 @@ views:
                     }
           - type: markdown
             content: >-
-              <ha-alert alert-type="info" title="Be safe">Electric safety must be provided by the hardware, 
+              <ha-alert alert-type="info">Electric safety must be provided by the hardware, 
               not this software! Please consult a certified electrician what maximum power can be set on the charger.
               </ha-alert>
             card_mod:
@@ -814,7 +788,6 @@ views:
                   border-top-left-radius: 0;
                   border-top-right-radius: 0;
                   margin-top: -24px;
-                  padding-bottom: 10px;
                 }
 
       - type: vertical-stack
@@ -822,77 +795,55 @@ views:
           - type: entities
             title: FlexMeasures account
             entities:
+              - type: weblink
+                url: https://v2g-liberty.eu
+                new_tab: True
+                icon: ""
               - entity: input_text.fm_account_username
               - entity: input_text.fm_account_password
               - entity: input_boolean.fm_show_option_to_change_url
                 secondary_info: none
                 icon: mdi:link-edit
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.fm_show_option_to_change_url
+                    state: 'on'
+                row:
+                  entity: input_text.fm_host_url
+              - type: button
+                name: ' '
+                action_name: TEST
+                tap_action:
+                  action: call-service
+                  service: script.test_fm_connection
+                  target: {}
             card_mod:
-                style: |
-                  ha-card.type-entities div.card-content::before {
-                    content: "The username and password for the default server can be requested at https://v2g-liberty.eu.";
-                    font-size: 90%;
-                    white-space: pre-wrap;
-                    color: #222;
-                    display: block;
-                    margin: -8px 0 24px 0;
-                  }
-
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: input_boolean.fm_show_option_to_change_url
-                state: 'on'
-            card:
-              type: entities
-              entities:
-                - entity: input_text.fm_host_url
-              card_mod:
-                  style: |
-                    ha-card {
-                      border-top: none;
-                      border-bottom: none;
-                      border-radius: 0;
-                      margin-top: -30px;
-                    }
+              style: |
+                ha-card.type-entities div.card-content div:nth-child(1) {
+                  margin-bottom: 22px !important;
+                  margin-left: 8px !important;
+                }
+                ha-card.type-entities div.card-content div:nth-child(1)::before {
+                  content: "An account for the default server can be requested at:";
+                  color: #222;
+                  margin-left: 32px;
+                }
 
           - type: markdown
             entity: input_text.fm_connection_status
             content: >-
-              {{ states("input_text.fm_connection_status")}}
+              {{ states("input_text.fm_connection_status")}} |  
+              {{ (now().timestamp() - states.input_text.fm_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
             card_mod:
               style: |
                 ha-card {
-                  border-top: none;
-                  border-top-left-radius: 0;
-                  border-top-right-radius: 0;
-                  margin-top: -14px;
-                  padding-bottom: 14px;
+                  background-color: transparent;
+                  border: none;
+                  max-width: calc(100% - 100px);
+                  margin-top: -70px;
+                  margin-left: 12px;
+                  padding: 0 !important;
                 }
-
-          - type: button
-            show_name: true
-            show_icon: false
-            tap_action:
-              action: call-service
-              service: script.test_fm_connection
-              target: {}
-            entity: ''
-            name: TEST
-            icon: ''
-            card_mod:
-                style: |
-                  ha-card {
-                    width: 100px;
-                    height: 32px !important;
-                    border-radius: 2px;
-                    background-color: var(--primary-color);
-                    color: var(--app-header-text-color);
-                    font-size: 90%;
-                    padding: 0 !important;
-                    margin-top: -70px;
-                    margin-left: calc(100% - 118px);
-                  }
           - type: conditional
             conditions:
               - condition: state

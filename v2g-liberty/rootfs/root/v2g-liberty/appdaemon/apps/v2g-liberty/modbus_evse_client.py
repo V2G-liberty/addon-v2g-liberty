@@ -171,7 +171,7 @@ class ModbusEVSEclient(hass.Hass):
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min 1380, max 7400
     # Used when set_setpoint_type = power
-    MAX_CHARGE_POWER_REGISTER: int = 514
+    MAX_AVAILABLE_POWER_REGISTER: int = 514
     # The Quasar does not accept a setting lower than 6A => 6A*230V = 1380W
     CHARGE_POWER_LOWER_LIMIT: int = 1380
     # The Quasar does not accept a setting lower than 32A => 32A*230V = 7400W
@@ -380,14 +380,14 @@ class ModbusEVSEclient(hass.Hass):
     async def __process_min_max_charge_power(self):
         """ Reads the maximum charge power setting from the charger."""
         self.log("__get_min_max_charge_power")
-        max_power_in_charger = await self.__force_get_register(
-            register=self.MAX_CHARGE_POWER_REGISTER,
+        max_available_power_by_charger = await self.__force_get_register(
+            register=self.MAX_AVAILABLE_POWER_REGISTER,
             min=self.CHARGE_POWER_LOWER_LIMIT,
             max=self.CHARGE_POWER_UPPER_LIMIT
         )
         await self.v2g_globals.process_max_power_settings(
-            min_charge_power = self.CHARGE_POWER_LOWER_LIMIT,
-            max_charge_power = max_power_in_charger
+            min_acceptable_charge_power = self.CHARGE_POWER_LOWER_LIMIT,
+            max_available_charge_power = max_available_power_by_charger
         )
 
     async def __set_charger_control(self, take_or_give_control: str):
@@ -643,7 +643,8 @@ class ModbusEVSEclient(hass.Hass):
             await self.__get_and_process_registers([self.ENTITY_CHARGER_STATE])
             state = await self.get_state("sensor.charger_charger_state", attribute="all")
 
-        state = int(float(state['state']))
+        if state is not None:
+            state = int(float(state['state']))
         # self.log(f"Returning charger_state: '{state}' ({type(state)}).")
         return state
 
@@ -934,12 +935,12 @@ class ModbusEVSEclient(hass.Hass):
             self.log(f"__connect_to_modbus_sever: {source} waited {time_used} seconds to get a connection.")
         self.modbus_connection_in_use = True
 
-        now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
         msg = ""
         err = ""
         try:
             await self.client.connect()
-            msg = f"Successful connection at {now}"
+            # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
+            msg = "Successfully connected"
         except ConnectionException as ce:
             self.log(f"__connect_to_modbus_server: Connection exception while connecting to server '{ce}'.")
             # TODO: Maybe try close + connect again?
@@ -954,9 +955,10 @@ class ModbusEVSEclient(hass.Hass):
             # raise ce
             return_value = False
         if not self.client.connected:
-            msg = f"Failed to connect at {now} ({err})."
+            msg = f"Failed to connect ({err})."
             return_value = False
-        # self.log(msg)
+        # TODO: also write a timestamp to an attribute  so that the last_reported date changes
+        # so that in the UI a more frequent (correct) update "age" can be shown.
         await self.__update_state("input_text.charger_connection_status", state=msg)
         return return_value
 

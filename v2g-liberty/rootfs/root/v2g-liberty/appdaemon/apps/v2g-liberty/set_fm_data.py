@@ -84,9 +84,10 @@ class SetFMdata(hass.Hass):
 
     def initialize(self):
         self.log(f"Initializing SetFMdata.")
-        self.FM_ENTITY_ADDRESS_POWER = self.args["fm_base_entity_address_power"] + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-        self.FM_ENTITY_ADDRESS_AVAILABILITY = self.args["fm_base_entity_address_availability"] + str(c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID)
-        self.FM_ENTITY_ADDRESS_SOC =  self.args["fm_base_entity_address_soc"] + str(c.FM_ACCOUNT_SOC_SENSOR_ID)
+        # TODO: The snsor_id's can be dynamically set, these should also change then.
+        self.FM_ENTITY_ADDRESS_POWER = c.FM_BASE_ENTITY_ADDRESS_POWER + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
+        self.FM_ENTITY_ADDRESS_AVAILABILITY = c.FM_BASE_ENTITY_ADDRESS_AVAILABILITY + str(c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID)
+        self.FM_ENTITY_ADDRESS_SOC = c.FM_BASE_ENTITY_ADDRESS_SOC + str(c.FM_ACCOUNT_SOC_SENSOR_ID)
 
         self.evse_client = self.get_app("modbus_evse_client")
 

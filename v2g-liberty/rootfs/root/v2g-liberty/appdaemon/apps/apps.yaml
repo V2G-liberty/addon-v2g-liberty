@@ -31,18 +31,18 @@ flexmeasures-client:
   dependencies:
     - v2g-globals
 
-# get_fm_data:
-#   module: get_fm_data
-#   class: FlexMeasuresDataImporter
-#   priority: 100
-#   dependencies:
-#     - v2g-globals
-#     - flexmeasures-client
+get_fm_data:
+  module: get_fm_data
+  class: FlexMeasuresDataImporter
+  priority: 100
+  dependencies:
+   - v2g-globals
+   - flexmeasures-client
 
-# set_fm_data:
-#   module: set_fm_data
-#   class: SetFMdata
-#   priority: 100
-#   dependencies:
-#     - v2g-globals
-#     - modbus_evse_client
+set_fm_data:
+  module: set_fm_data
+  class: SetFMdata
+  priority: 100
+  dependencies:
+    - v2g-globals
+    - modbus_evse_client

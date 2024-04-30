@@ -57,7 +57,7 @@ input_select:
 
 input_boolean:
   # Settings related entities
-  charger_show_option_to_change_min_max_power:
+  use_reduced_max_charge_power:
     name: Change default (dis-)charge power
     icon: mdi:square-edit-outline
 
@@ -188,6 +188,7 @@ input_number:
     icon: mdi:car-arrow-left
     mode: box
     unit_of_measurement: W
+
   charger_max_discharging_power:
     name: " "
     min: 1380
@@ -342,9 +343,17 @@ input_text:
     # Entity to store entity (id's) that have been initialised,
     # so we know they should not be overwritten with the default value.
     # This entity should never show up in the UI.
+
+
+  # This is not a setting but is read from the charger and is an upper limit for max_(dis-)charging_power
+  charger_max_available_power:
+    mode: text
+    initial: "??"
+
   charger_host_url:
     name: Charger host URL
     icon: mdi:lan-pending
+
   charger_connection_status:
     mode: text
 

@@ -53,34 +53,19 @@ FM_EVENT_RESOLUTION_IN_MINUTES = 5
 
 # CONSTANTS for FM URL's
 FM_BASE_URL = "https://seita.energy"
-FM_BASE_API_URL = FM_BASE_URL + "/api/"
 FM_API_VERSION = "v3_0"
 
-# URL for checking if API is alive
-# https://flexmeasures.seita.nl/api/ops/ping
-FM_PING_URL = FM_BASE_API_URL + "ops/ping"
-
-# URL for authentication on FM
-# https://flexmeasures.seita.nl/api/requestAuthToken
-FM_AUTHENTICATION_URL = FM_BASE_API_URL + "requestAuthToken"
-
-# URL for retrieval of the schedules
-# https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/trigger
-# https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/SI
-# Where XX is the sensor_id and SI is the schedule_id
-FM_SCHEDULE_URL = FM_BASE_API_URL + FM_API_VERSION + "/sensors/"
-FM_SCHEDULE_SLUG = "/schedules/"
-FM_SCHEDULE_TRIGGER_SLUG = FM_SCHEDULE_SLUG + "trigger"
-
-# URL for getting data for the chart:
-# https://flexmeasures.seita.nl/api/dev/sensor/XX/chart_data/
-# Where XX is the sensor_id
-FM_GET_DATA_URL = FM_BASE_API_URL + "dev/sensor/"
-FM_GET_DATA_SLUG = "/chart_data/"
-
-# URL for sending metering data to FM:
-# https://flexmeasures.seita.nl/api/v3_0/sensors/data
-FM_SET_DATA_URL = FM_BASE_API_URL + FM_API_VERSION + "/sensors/data"
+# Set through globals based on FM_BASE_URL
+# TODO: Use fm_client so much of these do not need to be administered any more.
+FM_BASE_API_URL: str = ""
+FM_PING_URL: str = ""
+FM_AUTHENTICATION_URL: str = ""
+FM_SCHEDULE_URL: str = ""
+FM_SCHEDULE_SLUG: str = ""
+FM_SCHEDULE_TRIGGER_SLUG: str = ""
+FM_GET_DATA_URL: str = ""
+FM_GET_DATA_SLUG: str = ""
+FM_SET_DATA_URL: str = ""
 
 # Utility context
 # The utility (or electricity provider) are represented by different sensor's.
@@ -98,24 +83,25 @@ DEFAULT_UTILITY_CONTEXTS = {
 # FM ACCOUNT CONSTANTS
 # These don't have defaults. To allow a "not-initialised state we use str instead of int.
 # They should asap be overwritten by v2g_globals with value from HA settings entities
-FM_PRICE_PRODUCTION_SENSOR_ID: str = ""
-FM_PRICE_CONSUMPTION_SENSOR_ID: str = ""
-FM_EMISSIONS_SENSOR_ID: str = ""
-UTILITY_CONTEXT_DISPLAY_NAME: str = ""
+FM_PRICE_PRODUCTION_SENSOR_ID: int = 0
+FM_PRICE_CONSUMPTION_SENSOR_ID: int = 0
+FM_EMISSIONS_SENSOR_ID: int = 0
+UTILITY_CONTEXT_DISPLAY_NAME: int = 0
 
-FM_ACCOUNT_POWER_SENSOR_ID: str = ""
-FM_ACCOUNT_AVAILABILITY_SENSOR_ID: str = ""
-FM_ACCOUNT_SOC_SENSOR_ID: str = ""
-FM_ACCOUNT_COST_SENSOR_ID: str = ""
+FM_ACCOUNT_POWER_SENSOR_ID: int = 0
+FM_ACCOUNT_AVAILABILITY_SENSOR_ID: int = 0
+FM_ACCOUNT_SOC_SENSOR_ID: int = 0
+FM_ACCOUNT_COST_SENSOR_ID: int = 0
+
+# TODO: get from flexmeasures.
+FM_BASE_ENTITY_ADDRESS_POWER: str = "ea1.2022-03.nl.seita.flexmeasures:fm1."
+FM_BASE_ENTITY_ADDRESS_AVAILABILITY: str = "ea1.2022-03.nl.seita.flexmeasures:fm1."
+FM_BASE_ENTITY_ADDRESS_SOC: str = "ea1.2022-04.nl.seita.flexmeasures:fm1."
 
 FM_ACCOUNT_USERNAME: str = ""
 FM_ACCOUNT_PASSWORD: str = ""
 
 # CHARGER CONSTANTS
-# ToDo:
-# These are set by v2g_globals, should be moved there...
-# Some have defaults here that should asap be overwritten by v2g_globals with value from secrets.yaml
-
 # IP address and port for charger modbus communication
 CHARGER_HOST_URL: str = ""
 # Default port for charger modbus
