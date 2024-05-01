@@ -34,6 +34,9 @@ class FlexMeasuresDataImporter(hass.Hass):
     # + Calculation of the emission (savings) in the last 7 days.
     emission_intensities: dict
 
+    # For sending notifications to the user.
+    v2g_main_app: object
+
     def initialize(self):
         """Daily get EPEX prices, emissions and cost data for display in the UI.
 
@@ -46,6 +49,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         HA handles this to render the price data in the UI (chart).
         """
         self.log("Initializing FlexMeasuresDataImporter")
+
+        self.v2g_main_app = self.get_app("v2g_liberty")
 
         self.fm_token = ""
         self.PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_CONSUMPTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
@@ -303,7 +308,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                 self.run_at(self.get_epex_prices, self.second_try_time_price_data)
             else:
                 self.log(f"Retry tomorrow.")
-                self.get_app("v2g_liberty").notify_user(
+                self.v2g_main_app.notify_user(
                     message="Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
                     title=None,
                     tag="no_price_data",
@@ -346,9 +351,9 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.run_at(self.get_epex_prices, self.second_try_time_price_data)
         else:
             if has_negative_prices:
-                self.get_app("v2g_liberty").notify_user(
+                self.v2g_main_app.notify_user(
                     message="Consider to check times in the app to optimize electricity usage.",
-                    title="Negative electricity prices upcomming",
+                    title="Negative electricity prices upcoming",
                     tag="negative_energy_prices",
                     critical=False,
                     send_to_all=True,

@@ -23,18 +23,21 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "fm_account_username",
         "entity_type": "input_text",
         "value_type": "str",
+        "factory_default": None,
         "lister": None
     }
     SETTING_FM_ACCOUNT_PASSWORD = {
         "entity_name": "fm_account_password",
         "entity_type": "input_text",
         "value_type": "str",
+        "factory_default": None,
         "lister": None
     }
     SETTING_FM_BASE_URL = {
         "entity_name": "fm_host_url",
         "entity_type": "input_text",
         "value_type": "str",
+        "factory_default": "https://seita.energy",
         "lister": None
     }
 
@@ -43,12 +46,14 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "fm_account_power_sensor_id",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1,
         "lister": None
     }
     SETTING_FM_ACCOUNT_AVAILABILITY_SENSOR_ID = {
         "entity_name": "fm_account_availability_sensor_id",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1,
         "lister": None
     }
     SETTING_FM_ACCOUNT_SOC_SENSOR_ID = {
@@ -61,6 +66,7 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "fm_account_cost_sensor_id",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1,
         "lister": None
     }
 
@@ -69,24 +75,28 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "fm_own_price_production_sensor_id",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1,
         "lister": None
     }
     SETTING_FM_PRICE_CONSUMPTION_SENSOR_ID = {
         "entity_name": "fm_own_price_consumption_sensor_id",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1,
         "lister": None
     }
     SETTING_FM_EMISSIONS_SENSOR_ID = {
         "entity_name": "fm_own_emissions_sensor_id",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1,
         "lister": None
     }
     SETTING_UTILITY_CONTEXT_DISPLAY_NAME = {
         "entity_name": "fm_own_context_display_name",
         "entity_type": "input_text",
         "value_type": "str",
+        "factory_default": None,
         "lister": None
     }
 
@@ -94,12 +104,14 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "optimisation_mode",
         "entity_type": "input_select",
         "value_type": "str",
+        "factory_default": "price",
         "lister": None
     }
     SETTING_ELECTRICITY_PROVIDER = {
         "entity_name": "electricity_provider",
         "entity_type": "input_select",
         "value_type": "str",
+        "factory_default": "nl_generic",
         "lister": None
     }
 
@@ -108,30 +120,35 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "charger_host_url",
         "entity_type": "input_text",
         "value_type": "str",
+        "factory_default": None,
         "lister": None
     }
     SETTING_CHARGER_PORT = {
         "entity_name": "charger_port",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 502,
         "lister": None
     }
     SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = {
         "entity_name": "charger_plus_car_roundtrip_efficiency",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 85,
         "lister": None
     }
     SETTING_CAR_MAX_CAPACITY_IN_KWH = {
         "entity_name": "car_max_capacity_in_kwh",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 24,
         "lister": None
     }
     SETTING_CAR_CONSUMPTION_WH_PER_KM = {
         "entity_name": "car_consumption_wh_per_km",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 175,
         "lister": None
     }
 
@@ -139,18 +156,21 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "car_min_soc_in_percent",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 20,
         "lister": None
     }
     SETTING_CAR_MAX_SOC_IN_PERCENT = {
         "entity_name": "car_max_soc_in_percent",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 80,
         "lister": None
     }
     SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS = {
         "entity_name": "allowed_duration_above_max_soc_in_hrs",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 12,
         "lister": None
     }
 
@@ -158,12 +178,14 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "use_reduced_max_charge_power",
         "entity_type": "input_boolean",
         "value_type": "bool",
+        "factory_default": False,
         "lister": None
     }
     SETTING_CHARGER_MAX_CHARGE_POWER = {
         "entity_name": "charger_max_charging_power",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1380,
         "min": 1380,
         "max": 25000,
         "lister": None
@@ -172,6 +194,7 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "charger_max_discharging_power",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 1380,
         "min": 1380,
         "max": 25000,
         "lister": None
@@ -182,24 +205,28 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_name": "energy_price_vat",
         "entity_type": "input_number",
         "value_type": "int",
+        "factory_default": 0,
         "lister": None
     }
     SETTING_ENERGY_PRICE_MARKUP_PER_KWH = {
         "entity_name": "energy_price_markup_per_kwh",
         "entity_type": "input_number",
         "value_type": "float",
+        "factory_default": 0,
         "lister": None
     }
     SETTING_ADMIN_MOBILE_NAME = {
         "entity_name": "admin_mobile_name",
         "entity_type": "input_select",
         "value_type": "str",
+        "factory_default": None,
         "lister": None
     }
     SETTING_ADMIN_MOBILE_PLATFORM = {
         "entity_name": "admin_mobile_platform",
         "entity_type": "input_select",
         "value_type": "str",
+        "factory_default": "ios",
         "lister": None
     }
 
@@ -374,7 +401,7 @@ class V2GLibertyGlobals(hass.Hass):
                     await self.__store_setting(entity_id=entity_id, setting_value=return_value)
                     await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
                 elif entity_type == "input_select":
-                    # If no value is set on an select, the first option automatically gets selected, store this settings
+                    # If no value is set on an input_select, the first option automatically gets selected, store this settings
                     return_value = setting_entity.get('state', None)
                     await self.__store_setting(entity_id=entity_id, setting_value=return_value)
                 else:
@@ -509,8 +536,8 @@ class V2GLibertyGlobals(hass.Hass):
         if use_reduced_max_charge_power:
             # set c.CHARGER_MAX_CHARGE_POWER and c.CHARGER_MAX_DISCHARGE_POWER to max from charger
             # cancel callbacks for SETTINGS.
-            self.__cancel_listening(self.SETTING_CHARGER_MAX_CHARGE_POWER)
-            self.__cancel_listening(self.SETTING_CHARGER_MAX_DISCHARGE_POWER)
+            await self.__cancel_listening(self.SETTING_CHARGER_MAX_CHARGE_POWER)
+            await self.__cancel_listening(self.SETTING_CHARGER_MAX_DISCHARGE_POWER)
             c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
             c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"]
         else:
@@ -614,6 +641,36 @@ class V2GLibertyGlobals(hass.Hass):
             setting_object=self.SETTING_FM_BASE_URL,
             callback=callback_method
         )
+
+        # Set all FM related constants based upon the base url
+        c.FM_BASE_API_URL = c.FM_BASE_URL + "/api/"
+
+        # URL for checking if API is alive
+        # https://flexmeasures.seita.nl/api/ops/ping
+        c.FM_PING_URL = c.FM_BASE_API_URL + "ops/ping"
+
+        # URL for authentication on FM
+        # https://flexmeasures.seita.nl/api/requestAuthToken
+        c.FM_AUTHENTICATION_URL = c.FM_BASE_API_URL + "requestAuthToken"
+
+        # URL for retrieval of the schedules
+        # https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/trigger
+        # https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/SI
+        # Where XX is the sensor_id and SI is the schedule_id
+        c.FM_SCHEDULE_URL = c.FM_BASE_API_URL + c.FM_API_VERSION + "/sensors/"
+        c.FM_SCHEDULE_SLUG = "/schedules/"
+        c.FM_SCHEDULE_TRIGGER_SLUG = c.FM_SCHEDULE_SLUG + "trigger"
+
+        # URL for getting data for the chart:
+        # https://flexmeasures.seita.nl/api/dev/sensor/XX/chart_data/
+        # Where XX is the sensor_id
+        c.FM_GET_DATA_URL = c.FM_BASE_API_URL + "dev/sensor/"
+        c.FM_GET_DATA_SLUG = "/chart_data/"
+
+        # URL for sending metering data to FM:
+        # https://flexmeasures.seita.nl/api/v3_0/sensors/data
+        c.FM_SET_DATA_URL = c.FM_BASE_API_URL + c.FM_API_VERSION + "/sensors/data"
+
         c.FM_ACCOUNT_POWER_SENSOR_ID = await self.__process_setting(
             constant_to_set=c.FM_ACCOUNT_POWER_SENSOR_ID,
             setting_object=self.SETTING_FM_ACCOUNT_POWER_SENSOR_ID,
@@ -714,8 +771,7 @@ class V2GLibertyGlobals(hass.Hass):
             # This is the initial, init has not finished yet
             return
         if self.info_timer(self.collect_action_handle):
-            silent = True  # Does not really work..
-            await self.cancel_timer(self.collect_action_handle, silent)
+            await self.cancel_timer(self.collect_action_handle, True)
         self.collect_action_handle = await self.run_in(self.__collective_action, delay=15)
 
     async def __collective_action(self, v2g_args=None):

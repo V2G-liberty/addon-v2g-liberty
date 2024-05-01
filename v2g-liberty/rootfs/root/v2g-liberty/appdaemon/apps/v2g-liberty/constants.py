@@ -56,7 +56,7 @@ FM_BASE_URL = "https://seita.energy"
 FM_API_VERSION = "v3_0"
 
 # Set through globals based on FM_BASE_URL
-# TODO: Use fm_client so much of these do not need to be administered any more.
+# TODO: Use fm_client so than many of these do not need to be administered here any more.
 FM_BASE_API_URL: str = ""
 FM_PING_URL: str = ""
 FM_AUTHENTICATION_URL: str = ""

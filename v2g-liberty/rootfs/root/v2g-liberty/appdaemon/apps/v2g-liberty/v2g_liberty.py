@@ -6,14 +6,15 @@ import re
 import math
 import asyncio
 from v2g_globals import time_round
-import constants as c
 from v2g_globals import V2GLibertyGlobals
+import constants as c
+# from reservations_client import ReservationsClient
 
 import appdaemon.plugins.hass.hassapi as hass
 
 
 class V2Gliberty(hass.Hass):
-    """ This class manages the bi-directional charging proces.
+    """ This class manages the bi-directional charging process.
     For this it communicates with:
     + The EVSE client, that communicates with the EV
     + The fm_client, that communicates with the FlexMeasures platform (which delivers the charging schedules).
@@ -63,9 +64,11 @@ class V2Gliberty(hass.Hass):
 
     evse_client: object
     fm_client: object
-
+    calendar: object
     async def initialize(self):
         self.log("Initializing V2Gliberty")
+        # self.calendar = ReservationsClient()
+        # self.log(f"initialise: Calendar = {self.calendar}")
 
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
