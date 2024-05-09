@@ -82,7 +82,8 @@ class FlexMeasuresClient(hass.Hass):
 
     async def initialise_fm_settings(self, event=None, data=None, kwargs=None):
         self.log("initialise_fm_settings called")
-        await self.set_state("input_text.fm_connection_status", state="Testing connection...")
+        keep_alive = {"keep_alive": await self.get_now()}
+        await self.set_state("input_text.fm_connection_status", state="Testing connection...", attributes=keep_alive)
         base_url = c.FM_SCHEDULE_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
         self.FM_URL = base_url + c.FM_SCHEDULE_SLUG
         self.FM_TRIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
@@ -102,9 +103,7 @@ class FlexMeasuresClient(hass.Hass):
             message = "Success!"
         else:
             message = "Failed to connect and login"
-        # TODO: also write a timestamp to an attribute  so that the last_reported date changes
-        # so that in the UI a more frequent (correct) update "age" can be shown.
-        await self.set_state("input_text.fm_connection_status", state=message)
+        await self.set_state("input_text.fm_connection_status", state=message, attributes=keep_alive)
 
     async def ping_server(self, *args):
         """ Ping function to check if server is alive """
@@ -197,8 +196,7 @@ class FlexMeasuresClient(hass.Hass):
         now = datetime.now(tz=c.TZ)
         self.log(f"get_new_schedule: nu = {now.isoformat()}, ({type(now)}).")
         if self.fm_busy_getting_schedule:
-            self.log(
-                f"get_new_schedule self.fm_date_time_last_schedule = {self.fm_date_time_last_schedule.isoformat()}, ({type(self.fm_date_time_last_schedule)}).")
+            self.log(f"get_new_schedule self.fm_date_time_last_schedule {self.fm_date_time_last_schedule.isoformat()}.")
             seconds_since_last_schedule = int((now - self.fm_date_time_last_schedule).total_seconds())
             if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
                 self.log(f"Retrieving previous schedule is taking too long ({seconds_since_last_schedule} sec.),"

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import isodate
+import pytz
 from typing import AsyncGenerator, List, Optional
 from itertools import accumulate
 import re
@@ -64,7 +65,8 @@ class V2Gliberty(hass.Hass):
 
     evse_client: object
     fm_client: object
-    calendar: object
+    reservations_client: object
+
     async def initialize(self):
         self.log("Initializing V2Gliberty")
         # self.calendar = ReservationsClient()
@@ -110,6 +112,7 @@ class V2Gliberty(hass.Hass):
 
         self.evse_client = await self.get_app("modbus_evse_client")
         self.fm_client = await self.get_app("flexmeasures-client")
+        self.reservations_client = await self.get_app("reservations-client")
 
         self.listen_state(self.__update_charge_mode, "input_select.charge_mode", attribute="all")
         self.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
@@ -143,6 +146,63 @@ class V2Gliberty(hass.Hass):
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
 
+    def notify_user(self,
+                      message: str,
+                      title: Optional[str] = None,
+                      tag: Optional[str] = None,
+                      critical: bool = False,
+                      send_to_all: bool = False,
+                      ttl: Optional[int] = 0
+                      ):
+        """ Utility function to send notifications to the user
+            - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
+            - send_to_all : send to all users (can't be combined with critical), default = only send to Admin.
+            - tag         : id that can be used to replace or clear a previous message
+            - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear.
+                            A tag is required.
+
+            We assume there always is an ADMIN and there might be several other users that need to be notified.
+            When a new call to this function with the same tag is made, the previous message will be overwritten
+            if it still exists.
+        """
+
+        # Use abbreviation to make more room for title itself.
+        title = "V2G-L: " + title if title else "V2G Liberty"
+
+        # All notifications always get sent to admin
+        to_notify = [c.ADMIN_MOBILE_NAME]
+        notification_data = {}
+
+        # critical trumps send_to_all
+        if critical:
+            notification_data = c.PRIORITY_NOTIFICATION_CONFIG
+
+        if send_to_all and not critical:
+            to_notify = c.NOTIFICATION_RECIPIENTS
+
+        if tag:
+            notification_data["tag"] = tag
+
+        message = message + " [" + self.HA_NAME + "]"
+
+        self.log(f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}.")
+        for recipient in to_notify:
+            service = "notify/mobile_app_" + recipient
+            try:
+                if notification_data:
+                    self.call_service(service, title=title, message=message, data=notification_data)
+                else:
+                    self.call_service(service, title=title, message=message)
+            except:
+                self.log(f"Could not notify: exception on {recipient}.")
+
+            if ttl > 0 and tag and not critical:
+                # Remove the notification after a time-to-live
+                # A tag is required for clearing.
+                # Critical notifications should not auto clear.
+                self.run_in(self.__clear_notification, delay=ttl, recipient=recipient, tag=tag)
+
+
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """ Keep track of situations where no new schedules are available:
             - invalid schedule
@@ -169,19 +229,15 @@ class V2Gliberty(hass.Hass):
         # Assume the charger has crashed.
         self.log(f"The charger probably crashed, notifying user")
         title = "Modbus communication error"
-        message = "Automatic charging has been stopped. Please click this notification to open the V2G Liberty App and follow the steps to solve this problem."
-        self.__notify_user(
+        message = "Automatic charging has been stopped. Please click this notification to open the V2G Liberty App " \
+                  "and follow the steps to solve this problem."
+        self.notify_user(
             message=message,
             title=title,
             tag="critical_error",
-            critical=False,
+            critical=True,
             send_to_all=False
         )
-        # TODO:
-        # Just changed the critical to False as i expect this to occur less frequent.
-        # It seems self-fixing now. This should be handled so that the notification is
-        # removed and functions are restored if communication is restored.
-
         await self.set_state("input_boolean.charger_modbus_communication_fault", state="on")
         self.__set_chargemode_in_ui("Stop")
         return
@@ -233,7 +289,7 @@ class V2Gliberty(hass.Hass):
         await self.__reset_no_new_schedule()
         await self.evse_client.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
-        self.__notify_user(
+        self.notify_user(
             message="Charger is disconnected",
             title=None,
             tag="charger_disconnected",
@@ -272,7 +328,7 @@ class V2Gliberty(hass.Hass):
             charge_mode = await self.get_state("input_select.charge_mode", None)
             if charge_mode == "Max boost now":
                 self.__set_chargemode_in_ui("Automatic")
-                self.__notify_user(
+                self.notify_user(
                     message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
                     title=None,
                     tag="charge_mode_change",
@@ -294,67 +350,6 @@ class V2Gliberty(hass.Hass):
     ######################################################################
     #               PRIVATE GENERAL NOTIFICATION FUNCTIONS               #
     ######################################################################
-
-    def __notify_user(self,
-                      message: str,
-                      title: Optional[str] = None,
-                      tag: Optional[str] = None,
-                      critical: bool = False,
-                      send_to_all: bool = False,
-                      ttl: Optional[int] = 0
-                      ):
-        """ Utility function to send notifications to the user
-            - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
-            - send_to_all : send to all users (can't be combined with critical), default = only send to Admin.
-            - tag         : id that can be used to replace or clear a previous message
-            - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear.
-                            A tag is required.
-
-            We assume there always is an ADMIN and there might be several other users that need to be notified.
-            When a new call to this function with the same tag is made, the previous message will be overwritten
-            if it still exists.
-        """
-
-        self.log(f"Notifying user..")
-
-        if title:
-            # Use abbreviation to make more room for title itself.
-            title = "V2G-L: " + title
-        else:
-            title = "V2G Liberty"
-
-        # All notifications always get sent to admin
-        to_notify = [c.ADMIN_MOBILE_NAME]
-        notification_data = {}
-
-        # critical trumps send_to_all
-        if critical:
-            notification_data = c.PRIORITY_NOTIFICATION_CONFIG
-
-        if send_to_all and not critical:
-            to_notify = c.NOTIFICATION_RECIPIENTS
-
-        if tag:
-            notification_data["tag"] = tag
-
-        message = message + " [" + self.HA_NAME + "]"
-
-        self.log(f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}.")
-        for recipient in to_notify:
-            service = "notify/mobile_app_" + recipient
-            try:
-                if notification_data:
-                    self.call_service(service, title=title, message=message, data=notification_data)
-                else:
-                    self.call_service(service, title=title, message=message)
-            except:
-                self.log(f"Could not notify: exception on {recipient}.")
-
-            if ttl > 0 and tag and not critical:
-                # Remove the notification after a time-to-live
-                # A tag is required for clearing.
-                # Critical notifications should not auto clear.
-                self.run_in(self.__clear_notification, delay=ttl, recipient=recipient, tag=tag)
 
     def __clear_notification_for_all_recipients(self, tag: str):
         for recipient in c.NOTIFICATION_RECIPIENTS:
@@ -466,7 +461,7 @@ class V2Gliberty(hass.Hass):
                 message = f"The problems with schedules have been solved. " \
                           f"If you've set charging via the chargers app, " \
                           f"consider to end that and use automatic charging again."
-                self.__notify_user(
+                self.notify_user(
                     message=message,
                     title=title,
                     tag="no_new_schedule",
@@ -483,7 +478,7 @@ class V2Gliberty(hass.Hass):
         message = f"The current schedule will remain active." \
                   f"Usually this problem is solved automatically in an hour or so." \
                   f"If the schedule does not fit your needs, consider charging manually via the chargers app."
-        self.__notify_user(
+        self.notify_user(
             message=message,
             title=title,
             tag="no_new_schedule",
@@ -522,65 +517,60 @@ class V2Gliberty(hass.Hass):
         now = await self.get_now()
         resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         target_datetime = (time_round(now, resolution) + timedelta(days=7))
+
         # By default, we assume no calendar item so no relaxation window is needed
         target_soc_kwh = c.CAR_MAX_CAPACITY_IN_KWH
 
-        # Check if calendar has a relevant item that is within one week (*) from now.
-        # (*) 7 days is the setting in v2g_liberty_package.yaml
+        # Check if reservations_client has any (relevant) items
         # If so try to retrieve target_soc
-        car_reservation = await self.get_state(self.CAR_RESERVATION_CALENDAR, attribute="all")
-        # This should get the first item from the calendar. If no item is found (i.e. items are too far into the future)
-        # it returns a general entity that does not contain a start_time, message or description.
 
-        if car_reservation is None:
+        car_reservations = await self.reservations_client.get_v2g_events()
+
+        if car_reservations is None or len(car_reservations) == 0:
             self.log("No calendar item found, no calendar configured?")
         else:
-            self.log(f"Calender: {car_reservation}")
-            calendar_item_start = car_reservation["attributes"].get("start_time", None)
-            if calendar_item_start is not None:
-                # Prepare for date parsing
-                calendar_item_start = calendar_item_start.replace(" ", "T")
-                TZ = isodate.parse_tzinfo(self.get_timezone())
-                calendar_item_start = isodate.parse_datetime(calendar_item_start).astimezone(TZ)
-                # self.log(f"calendar_item_start: {calendar_item_start}.")
-                if calendar_item_start < target_datetime:
-                    # There is a relevant calendar item with a start date less than a week in the future.
-                    # Set the calendar_item_start as the target for the schedule
-                    target_datetime = time_round(calendar_item_start, resolution)
+            car_reservation = car_reservations[0]
+            self.log(f"Calender event: {car_reservation}")
+            calendar_item_start = car_reservation['start']
 
-                    # Now try to retrieve target_soc.
-                    # Depending on the type of calendar the description or message contains the possible target_soc.
-                    m = car_reservation["attributes"]["message"]
-                    d = car_reservation["attributes"]["description"]
-                    # Prevent concatenation of possible None values
-                    text_to_search_in = " ".join(filter(None, [m, d]))
-                    # First try searching for a number in kWh
-                    found_target_soc_in_kwh = search_for_soc_target("kWh", text_to_search_in)
-                    if found_target_soc_in_kwh is not None:
-                        self.log(f"Target SoC from calendar: {found_target_soc_in_kwh} kWh.")
-                        target_soc_kwh = found_target_soc_in_kwh
-                    else:
-                        # No kWh number found, try searching for a number in %
-                        found_target_soc_in_percentage = search_for_soc_target("%", text_to_search_in)
-                        if found_target_soc_in_percentage is not None:
-                            self.log(f"Target SoC from calendar: {found_target_soc_in_percentage} %.")
-                            target_soc_kwh = round(
-                                float(found_target_soc_in_percentage) / 100 * c.CAR_MAX_CAPACITY_IN_KWH, 2)
-                    # ToDo: Add possibility to set target in km
+            if calendar_item_start < target_datetime:
+                # There is a relevant calendar item with a start date less than a week in the future.
+                # Set the calendar_item_start as the target for the schedule
+                target_datetime = time_round(calendar_item_start, resolution)
 
-                    # Prevent target_soc above max_capacity
-                    if target_soc_kwh > c.CAR_MAX_CAPACITY_IN_KWH:
-                        self.log(f"Target SoC from calendar too high: {target_soc_kwh}, "
-                                 f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
-                        target_soc_kwh = c.CAR_MAX_CAPACITY_IN_KWH
-                    elif target_soc_kwh < c.CAR_MIN_SOC_IN_KWH:
-                        self.log(f"Target SoC from calendar too low: {target_soc_kwh}, "
-                                 f"adjusted to {c.CAR_MIN_SOC_IN_KWH}kWh.")
-                        target_soc_kwh = c.CAR_MIN_SOC_IN_KWH
+                # Now try to retrieve target_soc.
+                # Depending on the type of calendar the description or message contains the possible target_soc.
+                s = car_reservation["summary"]
+                d = car_reservation["description"]
+                # Prevent concatenation of possible None values
+                text_to_search_in = " ".join(filter(None, [s, d]))
+                # First try searching for a number in kWh
+                found_target_soc_in_kwh = search_for_soc_target("kWh", text_to_search_in)
+                if found_target_soc_in_kwh is not None:
+                    self.log(f"Target SoC from calendar: {found_target_soc_in_kwh} kWh.")
+                    target_soc_kwh = found_target_soc_in_kwh
+                else:
+                    # No kWh number found, try searching for a number in %
+                    found_target_soc_in_percentage = search_for_soc_target("%", text_to_search_in)
+                    if found_target_soc_in_percentage is not None:
+                        self.log(f"Target SoC from calendar: {found_target_soc_in_percentage} %.")
+                        target_soc_kwh = round(
+                            float(found_target_soc_in_percentage) / 100 * c.CAR_MAX_CAPACITY_IN_KWH, 2)
+                # ToDo: Add possibility to set target in km
+
+                # Prevent target_soc above max_capacity
+                if target_soc_kwh > c.CAR_MAX_CAPACITY_IN_KWH:
+                    self.log(f"Target SoC from calendar too high: {target_soc_kwh}, "
+                                f"adjusted to {c.CAR_MAX_CAPACITY_IN_KWH}kWh.")
+                    target_soc_kwh = c.CAR_MAX_CAPACITY_IN_KWH
+                elif target_soc_kwh < c.CAR_MIN_SOC_IN_KWH:
+                    self.log(f"Target SoC from calendar too low: {target_soc_kwh}, "
+                                f"adjusted to {c.CAR_MIN_SOC_IN_KWH}kWh.")
+                    target_soc_kwh = c.CAR_MIN_SOC_IN_KWH
 
         self.log(f"Calling get_new_schedule with "
                  f"current_soc_kwh: {self.connected_car_soc_kwh}kWh ({type(self.connected_car_soc_kwh)}, "
-                 f"target_datetime: {target_datetime}kWh ({type(target_datetime)}, "
+                 f"target_datetime: {target_datetime} ({type(target_datetime)}, "
                  f"target_soc_kwh: {target_soc_kwh}kWh ({type(target_soc_kwh)}, "
                  f"back_to_max:  {self.back_to_max_soc} ({type(self.back_to_max_soc)}.")
         await self.fm_client.get_new_schedule(
@@ -756,7 +746,7 @@ class V2Gliberty(hass.Hass):
         # ToDo: Discuss with users if this is useful.
         if self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT and await self.evse_client.is_charging():
             message = f"Car battery at {self.connected_car_soc} %, range ≈ {remaining_range} km."
-            self.__notify_user(
+            self.notify_user(
                 message=message,
                 title=None,
                 tag="battery_max_soc_reached",
@@ -856,7 +846,7 @@ class V2Gliberty(hass.Hass):
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low. " \
                           f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) is reached. " \
                           f"This is expected around {expected_min_soc_time}."
-                self.__notify_user(
+                self.notify_user(
                     message=message,
                     title="Car battery is too low",
                     tag="battery_too_low",
@@ -873,7 +863,7 @@ class V2Gliberty(hass.Hass):
                 # Remove "boost schedule" from graph.
                 await self.__set_soc_prognosis_boost_in_ui(None)
             elif self.connected_car_soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1) and await self.evse_client.is_discharging():
-                # Failsafe, this should not happen...
+                # Fail-safe, this should not happen...
                 self.log(f"Stopped discharging as SoC has reached minimum ({c.CAR_MIN_SOC_IN_PERCENT}%).")
                 await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=0))
 
@@ -888,7 +878,7 @@ class V2Gliberty(hass.Hass):
 
             if self.connected_car_soc >= 100:
                 self.log(f"Reset charge_mode to 'Automatic' because max_charge is reached.")
-                # ToDo: Maybe do this after 20 minutes or so..
+                # TODO: Wait 15 min, than ask user if they want to postpone scheduled charging or not.
                 self.__set_chargemode_in_ui("Automatic")
             else:
                 self.log("Starting max charge now based on charge_mode = Max boost now")

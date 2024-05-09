@@ -34,6 +34,27 @@ input_select:
       - android
       - ios
 
+  car_calendar_source:
+    name: Source for car calendar
+    icon: mdi:sprout
+    options:
+      - Direct caldav source
+      - Home Assistant integration
+
+  # Used when the car calendar is provided by a local integration (e.g. Google Calendar)
+  integration_calendar_entity_name:
+    name: Calendar integration
+    icon: mdi:calendar-edit-outline
+    options:
+      - Please choose an option
+
+  # Used when the car calendar is online
+  car_calendar_name:
+    name: Car reservation calendar
+    icon: mdi:car-info
+    options:
+      - Please choose an option
+
   electricity_provider:
     options:
       - nl_generic
@@ -42,10 +63,12 @@ input_select:
       - nl_tibber
       - no_generic
       - self_provided
+
   optimisation_mode:
     options:
       - price
       - emission
+
   charge_mode:
     name: Charge mode
     options:
@@ -337,26 +360,47 @@ input_number:
 
 
 input_text:
-  # Settings related entities
-  initiated_ha_entities:
-    max: 1000
-    # Entity to store entity (id's) that have been initialised,
-    # so we know they should not be overwritten with the default value.
-    # This entity should never show up in the UI.
+  #############  calendar related entities #############
+  calendar_account_init_url:
+    name: Calendar host URL
+    icon: mdi:web
+  calendar_account_username:
+    name: Username
+    icon: mdi:account
+  calendar_account_password:
+    name: Password
+    icon: mdi:form-textbox-password
+    mode: password
+  calendar_account_connection_status:
+    mode: text
+  # Util entity that holds the events in an attribute events
+  calendar_events:
+    mode: text
 
-
+  #############  charger related entities #############
+  charger_host_url:
+    name: Charger host URL
+    icon: mdi:lan-pending
   # This is not a setting but is read from the charger and is an upper limit for max_(dis-)charging_power
   charger_max_available_power:
     mode: text
     initial: "??"
-
-  charger_host_url:
-    name: Charger host URL
-    icon: mdi:lan-pending
-
   charger_connection_status:
     mode: text
+  poll_refresh_indicator:
+    name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
+    initial: " "
+  # Used to show a user understandable version of the states in the UI.
+  # "Translation" is done in an automation.
+  charger_state:
+    name: Charger state
+    icon: mdi:ev-station
+    max: 100
+    mode: text
+    min: 0
 
+
+  #############  flexmeasures related entities #############
   fm_account_username:
     icon: mdi:account
     name: Username (email address)
@@ -370,27 +414,13 @@ input_text:
   fm_connection_status:
     mode: text
 
-  # Used for stats in UI.
-  poll_refresh_indicator:
-    name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
-    initial: " "
 
-  # Used for stats in UI.
+  #############  UI statistics related entities #############
   total_discharge_time_last_7_days:
     name: Total discharge time in last 7 days
-
-  # Used for stats in UI.
   total_charge_time_last_7_days:
     name: Total charge time in last 7 days
 
-  # Used to show a user understandable version of the states in the UI.
-  # "Translation" is done in an automation.
-  charger_state:
-    name: Charger state
-    icon: mdi:ev-station
-    max: 100
-    mode: text
-    min: 0
 
   # V2G Liberty version is set by V2G Liberty.py based upon constant.
   # Used only for setting text in dashboard.
@@ -470,15 +500,14 @@ input_text:
     mode: text
 
 
-# Not needed if a calendar integration (e.g. google) is used.
-calendar:
-  - platform: caldav
-    username: !secret caldavUN
-    password: !secret caldavPWD
-    url: !secret caldavURL
-    days: 7
-
 script:
+  test_calendar_connection:
+    alias: TestCalendarConnection
+    sequence:
+      - event: TEST_CALENDAR_CONNECTION
+        event_data: {}
+    mode: single
+
   test_charger_connection:
     alias: TestChargerConnection
     sequence:

@@ -20,6 +20,7 @@ v2g_liberty:
     - v2g-globals
     - flexmeasures-client
     - modbus_evse_client
+    - reservations-client
 
   car_reservation_calendar: !secret car_calendar_name
   car_reservation_calendar_timezone: !secret car_calendar_timezone
@@ -30,6 +31,14 @@ flexmeasures-client:
   priority: 50
   dependencies:
     - v2g-globals
+
+reservations-client:
+  module: reservations_client
+  class: ReservationsClient
+  priority: 50
+  dependencies:
+    - v2g-globals
+
 
 get_fm_data:
   module: get_fm_data

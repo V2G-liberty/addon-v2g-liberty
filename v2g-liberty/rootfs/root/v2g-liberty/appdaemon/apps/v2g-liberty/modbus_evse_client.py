@@ -13,7 +13,7 @@ import appdaemon.plugins.hass.hassapi as hass
 class ModbusEVSEclient(hass.Hass):
     """ This class communicates with the EVSE via modbus.
         In V2G Liberty this is to be the only class to communicate with the EVSE.
-        It does this mainly by polling the EVSE for states and values in an 
+        It does this mainly by polling the EVSE for states and values in an
         asynchronous way, as the charger might not always react instantly.
 
         Values of the EVSE (like charger status or car SoC) are then written to
@@ -228,6 +228,13 @@ class ModbusEVSEclient(hass.Hass):
     # How old may data retrieved from HA entities be before it is renewed from the EVSE
     STATE_MAX_AGE_IN_SECONDS: int = 15
 
+    # For tracking modbus failure in charger
+    # At first successful connection this counter is set to 0
+    # Until then do not trigger this counter, as most likely the user is still busy configuring
+    connection_failure_counter: int = -1
+    dtm_connection_failure_since: datetime
+    MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS: int = 300
+
     async def initialize(self):
         self.log("Initializing ModbusEVSEclient")
         self.CHARGER_POLLING_ENTITIES = [
@@ -296,16 +303,16 @@ class ModbusEVSEclient(hass.Hass):
         """
         # Check for automatic mode should be done by V2G Liberty app
 
-        charge_power_in_watt = round(kwargs["charge_power"])
         if not await self.is_car_connected():
             self.log("Not setting charge_rate: No car connected.")
             return
+        charge_power_in_watt = int(float(kwargs["charge_power"]))
         await self.__set_charger_control("take")
         if charge_power_in_watt == 0:
             await self.__set_charger_action("stop", reason="start_charge_with_power externally called with power = 0")
         else:
             await self.__set_charger_action("start", reason="start_charge_with_power externally called with power <> 0")
-
+        self.log(f"start_charge_with_power: calling __set_charge_power with power {charge_power_in_watt}.")
         await self.__set_charge_power(charge_power=charge_power_in_watt)
 
     async def set_inactive(self):
@@ -326,7 +333,7 @@ class ModbusEVSEclient(hass.Hass):
     def is_available_for_automated_charging(self) -> bool:
         """Whether the car and EVSE are available for automated charging.
         To simplify things for the caller, this is implemented as a synchronous function.
-        This means the state is retrieved from HA instead of the charger and as a result 
+        This means the state is retrieved from HA instead of the charger and as a result
         can be as old as the maximum polling interval.
         """
         state = self.get_state("sensor.charger_charger_state")
@@ -372,8 +379,8 @@ class ModbusEVSEclient(hass.Hass):
         # This also creates the entities in HA that many modules depend upon.
         await self.__get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
 
-        # SoC is essential for many decisions so we need to get it as soon as possible.
-        # As at init there most likely is no charging in progress this will be the first 
+        # SoC is essential for many decisions, so we need to get it as soon as possible.
+        # As at init there most likely is no charging in progress this will be the first
         # opportunity to do a poll.
         await self.__get_car_soc()
 
@@ -444,6 +451,9 @@ class ModbusEVSEclient(hass.Hass):
                 value=self.CONTROL_TYPES['user'],
                 source="__set_charger_control, give_control"
             )
+            # For the rare case that forced get soc is in action when the car gets disconnected.
+            self.try_get_new_soc_in_process = False
+
         else:
             raise ValueError(f"Unknown option for take_or_give_control: {take_or_give_control}")
         return
@@ -454,11 +464,7 @@ class ModbusEVSEclient(hass.Hass):
 
     async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
         """Has a sister function in V2G Liberty that also handles this from there"""
-        # This should not happen as polling is stopped, just to be safe..
         self.log("__handle_charger_state_change called")
-        if self.try_get_new_soc_in_process:
-            self.log("__handle_charger_state_change try_get_new_soc_in_process = True, stop handling")
-            return
 
         if new is None:
             self.log("__handle_charger_state_change, new state = None, stop handling")
@@ -470,18 +476,18 @@ class ModbusEVSEclient(hass.Hass):
         # YES, because:
         # + It is only for the UI, the functional names are not perse related to a charger (type).
         # + this is the only place where self.CHARGER_STATES is used!
+        # NO, because:
+        # + self.try_get_new_soc_in_process is not available there..
         # Also make a text version of the state available in the UI
         charger_state_text = self.CHARGER_STATES[new_charger_state]
-        if charger_state_text is not None:
+        if charger_state_text is not None and not self.try_get_new_soc_in_process:
+            # self.try_get_new_soc_in_process should not happen as polling is stopped, just to be safe..
             await self.__update_state(entity="input_text.charger_state", state=charger_state_text)
             self.log(f"__handle_charger_state_change, set state in text for UI = {charger_state_text}.")
 
         if old is not None:
             old_charger_state = int(float(old["state"]))
-        else:
-            old_charger_state = None
 
-        # self.log(f"Handling charger_state change new_state: {new_charger_state} ({type(new_charger_state)}), old_state: {old_state} ({type(old_state)})")
         if old_charger_state == new_charger_state:
             self.log("__handle_charger_state_change new = old, stop handling")
             return
@@ -672,7 +678,7 @@ class ModbusEVSEclient(hass.Hass):
         return state
 
     async def __get_and_process_registers(self, entities: list):
-        """ This function reads the values from the EVSE via modbus and 
+        """ This function reads the values from the EVSE via modbus and
         writes these values to corresponding sensors in HA.
 
         The registers dictionary should have the structure:
@@ -718,7 +724,7 @@ class ModbusEVSEclient(hass.Hass):
         Args:
             entity (str): entity_id
             state (any, optional): The value the entity should be written with. Defaults to None.
-            attributes (any, optional): The value (can be dict) the attributes should be written 
+            attributes (any, optional): The value (can be dict) the attributes should be written
             with. Defaults to None.
         """
         new_state = state
@@ -745,8 +751,8 @@ class ModbusEVSEclient(hass.Hass):
         Args:
             charge_power (int):
                 Power in Watt, is checked to be between
-                CHARGER_MAX_CHARGE_POWER and -CHARGER_MAX_DISCHARGE_POWER 
-            skip_min_soc_check (bool, optional): 
+                CHARGER_MAX_CHARGE_POWER and -CHARGER_MAX_DISCHARGE_POWER
+            skip_min_soc_check (bool, optional):
                 boolean is used when the check for the minimum soc needs to be skipped.
                 This is used when this method is called from the __get_car_soc Defaults to False.
         """
@@ -843,7 +849,7 @@ class ModbusEVSEclient(hass.Hass):
             When car is disconnected
             Only poll for charger status to see if car is connected again.
         """
-        # These needs to be in different lists because the 
+        # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
         await self.__get_and_process_registers([self.ENTITY_CHARGER_STATE])
         await self.__get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
@@ -855,7 +861,7 @@ class ModbusEVSEclient(hass.Hass):
             When car is connected
             Poll for soc, state, power, lock etc..
         """
-        # These needs to be in different lists because the 
+        # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
         await self.__get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self.__get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
@@ -869,7 +875,7 @@ class ModbusEVSEclient(hass.Hass):
         """Handle a failure of modbus (communication) that does not seem to auto restore:
             - Cancel polling
             - Notify the user via v2g-liberty module that a restart of the modbus server might be needed.
-              This also set charge mode to stop. 
+              This also set charge mode to stop.
 
         Args:
             exception (object, optional): The exception that caused the problem for logging purposes.
@@ -883,7 +889,7 @@ class ModbusEVSEclient(hass.Hass):
         """Function to call when no connection with the modbus server could be made.
         This is only expected at startup.
         A persistent notification will be set pointing out that the configuration might not be ok.
-        Polling is canceled as this is pointless without a connection. 
+        Polling is canceled as this is pointless without a connection.
         """
         # Try to reset the connection
         # try to restart the client
@@ -957,14 +963,14 @@ class ModbusEVSEclient(hass.Hass):
         if not self.client.connected:
             msg = f"Failed to connect ({err})."
             return_value = False
-        # TODO: also write a timestamp to an attribute  so that the last_reported date changes
-        # so that in the UI a more frequent (correct) update "age" can be shown.
-        await self.__update_state("input_text.charger_connection_status", state=msg)
+
+        keep_alive = {"keep_alive": await self.get_now()}
+        await self.__update_state("input_text.charger_connection_status", state=msg, attributes=keep_alive)
         return return_value
 
     async def __disconnect_from_modbus_server(self, delay_after_disconnect: int = 0):
         """ Utility function to disconnect from modbus server
-            Releases lock on "one connection at the time", that is why disconnection from 
+            Releases lock on "one connection at the time", that is why disconnection from
             the modbus server should exclusively be done through this function.
             Works in conjunction with __connect_to_modbus_server
 
@@ -988,7 +994,7 @@ class ModbusEVSEclient(hass.Hass):
         return
 
     async def __force_get_register(self, register: int, min: int, max: int) -> int:
-        """ When a 'realtime' reading from the modbus server is needed that is expected 
+        """ When a 'realtime' reading from the modbus server is needed that is expected
         to be between min/max. We keep trying to get a reading that is within min - max range.
 
         Of course there is a timeout. If this is reached we expect the modbus server to have crashed
@@ -1013,9 +1019,8 @@ class ModbusEVSEclient(hass.Hass):
                 # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
                 result = await self.client.read_holding_registers(register, count=1, slave=1)
             except ConnectionException as ce:
-                self.log(
-                    f"__force_get_register, no connection: ({ce}). Close and open connection to see it this helps..")
-                # TODO: check if this is n't doing any harm..
+                self.log(f"__force_get_register, no connection: ({ce}). Close & open connection to see it this helps..")
+                # TODO: check if client.close() should be awaited..
                 self.client.close()
                 await self.client.connect()
                 pass
@@ -1059,7 +1064,7 @@ class ModbusEVSEclient(hass.Hass):
         Args:
             address (int): the register / address to write to
             value (int): the value to write
-            source (str): only for debugging 
+            source (str): only for debugging
 
         Raises:
             exc: Modbus exception
@@ -1076,6 +1081,7 @@ class ModbusEVSEclient(hass.Hass):
             # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
             result = await self.client.write_register(address, value, slave=1)
         except ModbusException as exc:
+            # TODO: Should the self.connection_failure_counter check be implemented here (see __modbus_read)
             self.log(f"__modbus_write, Received ModbusException({exc}) from library")
             await self.__disconnect_from_modbus_server()
             raise exc
@@ -1091,7 +1097,7 @@ class ModbusEVSEclient(hass.Hass):
            Reading from the modbus server is preferably done through this function
 
         Args:
-            address (int): The starting register/address from which to read the values 
+            address (int): The starting register/address from which to read the values
             length (int, optional): Number of successive addresses to read. Defaults to 1.
             source (str, optional): only for debugging.
 
@@ -1103,14 +1109,48 @@ class ModbusEVSEclient(hass.Hass):
         """
         res = await self.__connect_to_modbus_server(source=source)
         if not res:
+            self.log(f"__modbus_read: no connection available.")
             return None
         try:
             # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
             result = await self.client.read_holding_registers(address, length, slave=1)
+        except ConnectionException as ce:
+            # The connection exceptions seem to occur after client.read_holding_registers instead of
+            # -as you would expect- after .connect().
+            # This variable is initiated at -1. At first successful connection this counter is set to 0
+            # Until then do not trigger this counter, as most likely the user is still busy configuring
+            if self.connection_failure_counter == -1:
+                self.log(f"__modbus_read: Connection exception while reading holding register. "
+                         f"Configuration (not yet) invalid?")
+                await self.__handle_no_modbus_connection()
+                return
+
+            if self.connection_failure_counter == 0:
+                self.log(f"__modbus_read: First occurrence of connection_exception. "
+                         f"Try to 'reset' once by closing and opening connection.")
+                self.client.close()
+                await self.client.connect()
+                self.dtm_connection_failure_since = await self.get_now()
+
+            if self.connection_failure_counter > 0:
+                self.log(f"__modbus_read: Recurring connection exception while reading holding register.")
+                now = await self.get_now()
+                duration = (now - self.dtm_connection_failure_since).total_seconds()
+                if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
+                    txt = f"__modbus_read: Connection problems for more then " \
+                          f"{self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS} sec. Considered none-recoverable."
+                    self.log(txt)
+                    await self.__handle_modbus_failure(txt)
+
+            self.connection_failure_counter += 1
+            return
         except ModbusException as exc:
             self.log(f"__modbus_write, Received ModbusException({exc}) from library")
             raise exc
-        await self.__disconnect_from_modbus_server(self.WAIT_AFTER_MODBUS_READ_IN_MS)
+        self.connection_failure_counter = 0
+        self.dtm_connection_failure_since = None
+
+        await self.__disconnect_from_modbus_server(self.WAIT_AFTER_MODBUS_READ_IN_MS / 1000)
 
         return list(map(self.__get_2comp, result.registers))
 
@@ -1124,7 +1164,6 @@ class ModbusEVSEclient(hass.Hass):
         Returns:
             int: With negative values if applicable
         """
-        # self.log(f"__get_2comp in: {number}.")
         try:
             number = int(float(number))
         except:
@@ -1132,5 +1171,4 @@ class ModbusEVSEclient(hass.Hass):
         if number > self.HALF_MAX_USI:
             # This represents a negative value.
             number = number - self.MAX_USI
-        # self.log(f"__get_2comp out: {number}.")
         return number

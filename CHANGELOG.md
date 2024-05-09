@@ -22,7 +22,7 @@ This section shows what the next release might include.
 - ?
  
 
-## 0.1.0 - 2024-04-15
+## 0.1.0 - 2024-05-07
 
 ### Added
 
@@ -31,8 +31,10 @@ This section shows what the next release might include.
 
 ### Fixed
 
-- Off not stopping charging
-- key-error on failed auth request in get_fm_data
+- Setting charge mode to 'Off' not stopping charging
+- Key-error on failed auth request in get_fm_data
+- Improved handling of charger crashes. Restored high-priority message.
+- Handle rare case where system would not restart after re-connect
 
 
 ### Changed

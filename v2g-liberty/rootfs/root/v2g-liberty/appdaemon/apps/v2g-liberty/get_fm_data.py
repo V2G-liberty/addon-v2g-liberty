@@ -332,6 +332,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                 'price': round(((price['event_value'] * conversion) +
                                 c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
             }
+            # TODO: Also check if data point is in the future
             if data_point['price'] < 0:
                 has_negative_prices = True
             epex_price_points.append(data_point)
