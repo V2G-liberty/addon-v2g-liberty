@@ -87,7 +87,8 @@ class ReservationsClient(hass.Hass):
                 await self.activate_selected_calendar()
             else:
                 self.log(f"initialise_calendar: No calendar selected")
-                return "Please select a calendar"
+                # TODO: Would be nice if it could say "Please choose a calendar"
+                return "Successfully connected"
 
             if self.calender_listener_id != "":
                 await self.cancel_listen_state(self.calender_listener_id)
