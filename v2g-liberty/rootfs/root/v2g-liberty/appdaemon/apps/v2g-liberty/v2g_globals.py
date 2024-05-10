@@ -8,10 +8,6 @@ import constants as c
 
 
 class V2GLibertyGlobals(hass.Hass):
-    # Entity to store entity (id's) that have been initialised,
-    # so we know they should not be overwritten with the default setting_value.
-    # This entity should never show up in the UI.
-    # ha_initiated_entities_id: str = "input_text.initiated_ha_entities"
     v2g_settings: dict = {}
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
@@ -289,73 +285,112 @@ class V2GLibertyGlobals(hass.Hass):
         await self.__retrieve_settings()
         await self.__initialise_devices()
         await self.__read_and_process_charger_settings()
-        await self.__read_and_process_calendar_client_settings()
+        await self.__read_and_process_calendar_settings()
         await self.__read_and_process_fm_client_settings()
         await self.__read_and_process_general_settings()
-        # Has to run after __read_and_process_calendar_client_settings()
-        await self.__init_car_calendar()
 
+        # Listen to [TEST] buttons
         self.listen_event(self.__test_charger_connection, "TEST_CHARGER_CONNECTION")
-        self.listen_event(self.__init_car_calendar, "TEST_CALENDAR_CONNECTION")
+        self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
 
         # Was None, which blocks processing during initialisation
         self.collect_action_handle = ""
         self.log("Completed initializing V2GLibertyGlobals")
 
-    async def __init_car_calendar(self, event=None, data=None, kwargs=None):
+    async def __init_integration_calendar(self, event=None, data=None, kwargs=None):
+        # Get the possible calendars from ha scope "calendar"
+        # if 0 set persistent notification
+        # if current one is not in list set persistent notification
+        # Populate the input_select input_select.integration_calendar_entity_name with possible calendars
+        # Select the right option
+        # Add a listener
+        self.log("__init_integration_calendar called")
+
+        res = await self.calendar_client.initialise_calendar()
+        if res != "success":
+            await self.set_state("input_text.calendar_account_connection_status", state=res)
+            self.log(f"__init_integration_calendar, res: {res}.")
+            return
+
+        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected"
+        await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
+
+        calendar_names = await self.calendar_client.get_calendar_names()
+        # self.log(f"__init_integration_calendar, calendar_names: {calendar_names}.")
+        if len(calendar_names) == 0:
+            message = f"No calendars from integration available. " \
+                      f"A car reservation calendar is essential for V2G Liberty. " \
+                      f"Please arrange for one.<br/>"
+            self.log(f"Configuration error: {message}.")
+            # TODO: Research if showing this only to admin users is possible.
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="calendar_config_error"
+            )
+            calendar_names = ["No calenders found"]
+
+        self.call_service("input_select/set_options", entity_id="input_select.integration_calendar_entity_name",
+                          options=calendar_names)
+        c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
+            setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
+            callback=self.__read_and_process_calendar_settings
+        )
+
+        self.log("Completed __init_integration_calendar")
+
+
+    async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
+        # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
         # Get the possible calendars from the validated account
         # if 0 set persistent notification
         # if current one is not in list set persistent notification
-        # Populate the input_select XX with possible calendars from the validated account
+        # Populate the input_select input_select.car_calendar_name with possible calendars
         # Select the right option
         # Add a listener
-        self.log("__init_car_calendar called")
-        await self.set_state("input_text.calendar_account_connection_status", state="Trying to connect...")
+        self.log("__init_caldav_calendar called")
+
+        await self.set_state("input_text.calendar_account_connection_status", state="Getting calendars...")
+
         # reset options in calendar_name select
         calendar_names = []
         self.call_service("input_select/set_options", entity_id="input_select.car_calendar_name",
                           options=calendar_names)
 
         res = await self.calendar_client.initialise_calendar()
-        self.log(f"__init_car_calendar called, res: {res}.")
         if res != "success":
             await self.set_state("input_text.calendar_account_connection_status", state=res)
+            self.log(f"__init_caldav_calendar, res: {res}.")
             return
 
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
         await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
         calendar_names = await self.calendar_client.get_calendar_names()
-        self.log(f"__init_car_calendar called, calendar_names: {calendar_names}.")
+        # self.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
         if len(calendar_names) == 0:
-            # TODO: Also show this directly in UI, not only in
             message = f"No calendars available on {c.CALENDAR_ACCOUNT_INIT_URL} " \
                       f"A car reservation calendar is essential for V2G Liberty. " \
                       f"Please arrange for one.<br/>"
             self.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
-            await self.call_service('persistent_notification/create', title="Configuration error", message=message,
-                                    notification_id="notification_config_error")
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="calendar_config_error"
+            )
             calendar_names = ["No calenders found"]
 
-        if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
-            self.call_service("input_select/set_options", entity_id="input_select.car_calendar_name",
-                              options=calendar_names)
-            # TODO: If no stored_setting is found:
-            # try guess a good default by selecting the first option that has "car" or "auto" in it's name.
-            c.CAR_CALENDAR_NAME = await self.__process_setting(
-                setting_object=self.SETTING_CAR_CALENDAR_NAME,
-                callback=self.__read_and_process_calendar_client_settings
-            )
-            await self.calendar_client.activate_selected_calendar()
-        else:
-            self.call_service("input_select/set_options", entity_id="input_select.integration_calendar_entity_name",
-                              options=calendar_names)
-            c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
-                setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
-                callback=self.__read_and_process_calendar_client_settings
-            )
+        self.call_service("input_select/set_options", entity_id="input_select.car_calendar_name",
+                          options=calendar_names)
+        # TODO: If no stored_setting is found:
+        # try guess a good default by selecting the first option that has "car" or "auto" in it's name.
+        c.CAR_CALENDAR_NAME = await self.__process_setting(
+            setting_object=self.SETTING_CAR_CALENDAR_NAME,
+            callback=self.__read_and_process_calendar_settings
+        )
 
-        self.log("Completed __init_car_calendar")
+        await self.calendar_client.activate_selected_calendar()
+        self.log("Completed __init_caldav_calendar")
 
     async def __initialise_devices(self):
         # List of all the recipients to notify
@@ -378,8 +413,11 @@ class V2GLibertyGlobals(hass.Hass):
                       f"and connect it to Home Assistant.<br/>"
             self.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
-            await self.call_service('persistent_notification/create', title="Configuration error", message=message,
-                                    notification_id="notification_config_error")
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="notification_config_error"
+            )
         else:
             self.log(f"__initialise_devices - recipients for notifications: {c.NOTIFICATION_RECIPIENTS}.")
             self.call_service("input_select/set_options", entity_id="input_select.admin_mobile_name",
@@ -407,19 +445,19 @@ class V2GLibertyGlobals(hass.Hass):
 
         str_dict = ""
         if not os.path.exists(self.settings_file_path):
-            self.log(f"__retrieve_settings, create settings file")
+            # self.log(f"__retrieve_settings, create settings file")
             with open(self.settings_file_path, 'w') as file:
                 file.write(" ")
         else:
             with open(self.settings_file_path, 'r') as file:
                 str_dict = json.load(file)
-            self.log(f"__retrieve_settings, str_list: {str_dict}")
+            # self.log(f"__retrieve_settings, str_list: {str_dict}")
         if str_dict is None or str_dict == "":
             self.v2g_settings = {}
         else:
             self.v2g_settings = json.loads(str_dict)
 
-        self.log(f"__retrieve_settings, self.v2g_settings: {self.v2g_settings}")
+        # self.log(f"__retrieve_settings, self.v2g_settings: {self.v2g_settings}")
 
     async def __store_setting(self, entity_id: str, setting_value: any):
         """Store (overwrite or create) a setting in settings file.
@@ -446,12 +484,15 @@ class V2GLibertyGlobals(hass.Hass):
         entity_name = setting['entity_name']
         entity_type = setting['entity_type']
         entity_id = f"{entity_type}.{entity_name}"
-        self.log(f'__write_setting_to_ha called with value {setting_value} for entity {entity_id}.')
+        # self.log(f'__write_setting_to_ha called with value {setting_value} for entity {entity_id}.')
 
         if setting_value is not None:
             # setting_value has a relevant setting_value to set to HA
             if entity_type == "input_select":
-                await self.select_option(entity_id, setting_value)
+                try:
+                    await self.select_option(entity_id, setting_value)
+                except Exception as e:
+                    self.log(f"Failed to set input_select, value not in options? Exception: {e}.")
             elif entity_type == "input_boolean":
                 if setting_value is True:
                     await self.turn_on(entity_id)
@@ -464,10 +505,6 @@ class V2GLibertyGlobals(hass.Hass):
                 #     new_attributes["min"] = min_allowed_value
                 # if max_allowed_value:
                 #     new_attributes["max"] = max_allowed_value
-
-                # self.log(f"__write_setting() attributes-to-write: {new_attributes}.")
-
-                # # Assume input_text or input_number
                 # if new_attributes:
                 #     await self.set_state(entity_id, state=setting_value, attributes=new_attributes)
                 # else:
@@ -480,9 +517,6 @@ class V2GLibertyGlobals(hass.Hass):
            if not empty:
            - return the setting_value of the setting-entity
         """
-        if setting_object == self.SETTING_CAR_CALENDAR_NAME:
-            self.log("self.SETTING_CAR_CALENDAR_NAME. Callback: {callback}")
-
         entity_name = setting_object['entity_name']
         entity_type = setting_object['entity_type']
         entity_id = f"{entity_type}.{entity_name}"
@@ -499,9 +533,9 @@ class V2GLibertyGlobals(hass.Hass):
                 # v2g_setting was empty, populate it with the factory default from settings_object
                 factory_default = setting_object['factory_default']
                 if factory_default is not None and factory_default != "":
-                    return_value, has_changed = self.__check_and_convert_value(setting_object, factory_default)
-                    self.log(f"__process_setting, Initial call. No relevant v2g_setting. "
-                             f"Set constant and UI to factory_default: {return_value} {type(return_value)}.")
+                    return_value, has_changed = await self.__check_and_convert_value(setting_object, factory_default)
+                    # self.log(f"__process_setting, Initial call. No relevant v2g_setting. "
+                    #          f"Set constant and UI to factory_default: {return_value} {type(return_value)}.")
                     await self.__store_setting(entity_id=entity_id, setting_value=return_value)
                     await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
                 elif entity_type == "input_select":
@@ -518,9 +552,9 @@ class V2GLibertyGlobals(hass.Hass):
             else:
                 # Initial call with relevant v2g_setting.
                 # Write that to HA for UI and return this value to set in constants
-                return_value, has_changed = self.__check_and_convert_value(setting_object, stored_setting_value)
-                self.log(f"__process_setting, Initial call. Relevant v2g_setting: {return_value}, "
-                         f"write this to HA entity '{entity_id}'.")
+                return_value, has_changed = await self.__check_and_convert_value(setting_object, stored_setting_value)
+                # self.log(f"__process_setting, Initial call. Relevant v2g_setting: {return_value}, "
+                #          f"write this to HA entity '{entity_id}'.")
                 await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
 
             if callback is not None:
@@ -530,9 +564,9 @@ class V2GLibertyGlobals(hass.Hass):
             # Not the initial call, so this is triggered by changed value in UI
             # Write value from HA to store and constant
             state = setting_entity.get('state', None)
-            return_value, has_changed = self.__check_and_convert_value(setting_object, state)
-            self.log(f"__process_setting. Triggered by changes in UI. "
-                     f"Write value '{return_value}' to store '{entity_id}'.")
+            return_value, has_changed = await self.__check_and_convert_value(setting_object, state)
+            # self.log(f"__process_setting. Triggered by changes in UI. "
+            #          f"Write value '{return_value}' to store '{entity_id}'.")
             if has_changed:
                 await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
             await self.__store_setting(entity_id=entity_id, setting_value=return_value)
@@ -555,7 +589,7 @@ class V2GLibertyGlobals(hass.Hass):
 
         return return_value
 
-    def __check_and_convert_value(self, setting_object, value_to_convert):
+    async def __check_and_convert_value(self, setting_object, value_to_convert):
         """ Check number against min/max from setting object, altering to stay within these limits.
             Convert to required type (in setting object)
 
@@ -597,7 +631,7 @@ class V2GLibertyGlobals(hass.Hass):
                 has_changed = True
                 return_value = rv
         elif value_type == "bool":
-            if value_to_convert or value_to_convert in ['true', 'True', 'on']:
+            if value_to_convert in ['true', 'True', 'on']:
                 return_value = True
             else:
                 return_value = False
@@ -607,17 +641,20 @@ class V2GLibertyGlobals(hass.Hass):
         if has_changed:
             msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
             ntf_id = f"auto_adjusted_setting_{entity_id}"
-            self.create_persistent_notification(message=msg, title='Automatically adjusted setting',
-                                                notification_id=ntf_id)
+            await self.create_persistent_notification(
+                message=msg,
+                title='Automatically adjusted setting',
+                notification_id=ntf_id
+            )
             self.log(f"__check_and_convert_number {msg}")
         return return_value, has_changed
 
-    async def __cancel_listening(self, setting: dict):
-        if setting['lister'] is None:
-            return
-        else:
-            await self.cancel_listen_state(setting['lister'])
-            setting['lister'] = None
+
+    async def __cancel_setting_listener(self, setting_object: dict):
+        listener_id = setting_object['lister']
+        if listener_id is not None and listener_id != "":
+            await self.cancel_listen_state(setting_object['lister'])
+            setting_object['lister'] = None
 
     async def __read_and_process_charger_settings(self, entity=None, attribute=None, old=None, new=None, kwargs=None):
 
@@ -655,8 +692,8 @@ class V2GLibertyGlobals(hass.Hass):
         else:
             # set c.CHARGER_MAX_CHARGE_POWER and c.CHARGER_MAX_DISCHARGE_POWER to max from charger
             # cancel callbacks for SETTINGS.
-            await self.__cancel_listening(self.SETTING_CHARGER_MAX_CHARGE_POWER)
-            await self.__cancel_listening(self.SETTING_CHARGER_MAX_DISCHARGE_POWER)
+            await self.__cancel_setting_listener(self.SETTING_CHARGER_MAX_CHARGE_POWER)
+            await self.__cancel_setting_listener(self.SETTING_CHARGER_MAX_DISCHARGE_POWER)
             c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
             c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"]
 
@@ -675,11 +712,14 @@ class V2GLibertyGlobals(hass.Hass):
         )
         if c.ADMIN_MOBILE_NAME not in c.NOTIFICATION_RECIPIENTS:
             message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not a registered.<br/>" \
-                      f"Please choose one in the settings view."
+                      f"Please go to the settings view and choose one from the list."
             self.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
-            self.call_service('persistent_notification/create', title="Configuration error", message=message,
-                              notification_id="notification_config_error_no_admin")
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="notification_config_error_no_admin"
+            )
             c.ADMIN_MOBILE_NAME = c.NOTIFICATION_RECIPIENTS[0]
 
         c.ADMIN_MOBILE_PLATFORM = await self.__process_setting(
@@ -722,23 +762,26 @@ class V2GLibertyGlobals(hass.Hass):
 
         await self.__collect_action_triggers(source="changed general_settings")
 
-    async def __read_and_process_calendar_client_settings(self, entity=None, attribute=None, old=None, new=None,
+    async def __read_and_process_calendar_settings(self, entity=None, attribute=None, old=None, new=None,
                                                           kwargs=None):
-        self.log("__read_and_process_calendar_client_settings called")
+        self.log("__read_and_process_calendar_settings called")
 
-        callback_method = self.__read_and_process_calendar_client_settings
+        callback_method = self.__read_and_process_calendar_settings
 
         tmp = await self.__process_setting(
             setting_object=self.SETTING_CAR_CALENDAR_SOURCE,
-            callback=None
+            callback=callback_method
         )
-        self.log(f"__read_and_process_calendar_client_settings CAR_CALENDAR_SOURCE: {tmp}")
-
         if c.CAR_CALENDAR_SOURCE != tmp:
-            # TODO: Source has changed; cancel listeners
-            pass
+            c.CAR_CALENDAR_SOURCE = tmp
+            if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
+                await self.__cancel_setting_listener(self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME)
+            else:
+                await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_INIT_URL)
+                await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_USERNAME)
+                await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_PASSWORD)
+                await self.__cancel_setting_listener(self.SETTING_CAR_CALENDAR_NAME)
 
-        c.CAR_CALENDAR_SOURCE = tmp
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             c.CALENDAR_ACCOUNT_INIT_URL = await self.__process_setting(
                 setting_object=self.SETTING_CALENDAR_ACCOUNT_INIT_URL,
@@ -755,16 +798,20 @@ class V2GLibertyGlobals(hass.Hass):
             c.CAR_CALENDAR_NAME = await self.__process_setting(
                 setting_object=self.SETTING_CAR_CALENDAR_NAME,
                 callback=None
-            )  # Callback here is none as it will be set from init_car_calendar
+            )  # Callback here is none as it will be set from __init_caldav_calendar
+
+            await self.__init_caldav_calendar()
+
         else:
             c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
                 setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
                 callback=None
-            )
-            self.log(
-                f"__read_and_process_calendar_client_settings c.INTEGRATION_CALENDAR_ENTITY_NAME: {c.INTEGRATION_CALENDAR_ENTITY_NAME}")
+            ) # Callback here is none as it will be set from __init_integration_calendar
+
+            await self.__init_integration_calendar()
 
         await self.__collect_action_triggers(source="changed calendar settings")
+
 
     async def __read_and_process_fm_client_settings(self, entity=None, attribute=None, old=None, new=None, kwargs=None):
         # Split for future when the python lib fm_client is used: that needs to be re-inited
@@ -841,7 +888,7 @@ class V2GLibertyGlobals(hass.Hass):
 
         # If the price and emissions data is provided to FM by V2G Liberty (noe EPEX markets)
         # this is labelled as "self_provided".
-        # TODO: Cancel listers for none-relevants
+        # TODO: Cancel listers for none relevant items
         if c.ELECTRICITY_PROVIDER == "self_provided":
             c.FM_PRICE_PRODUCTION_SENSOR_ID = await self.__process_setting(
                 setting_object=self.SETTING_FM_PRICE_PRODUCTION_SENSOR_ID,
@@ -864,8 +911,7 @@ class V2GLibertyGlobals(hass.Hass):
                 c.ELECTRICITY_PROVIDER,
                 c.DEFAULT_UTILITY_CONTEXTS["nl_generic"],
             )
-            self.log(f"De utility_context is: {context}.")
-            # ToDo: Notify user if fallback "nl_generic" is used..
+            # TODO Notify user if fallback "nl_generic" is used..
             c.FM_PRICE_PRODUCTION_SENSOR_ID = context["production-sensor"]
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
             c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
@@ -891,6 +937,7 @@ class V2GLibertyGlobals(hass.Hass):
 
         await self.__collect_action_triggers(source="changed fm_settings")
 
+
     async def __collect_action_triggers(self, source: str):
         # Prevent parallel calls to set_next_cation and always wait a little as
         # the user likely changes several settings at a time.
@@ -904,10 +951,13 @@ class V2GLibertyGlobals(hass.Hass):
             await self.cancel_timer(self.collect_action_handle, True)
         self.collect_action_handle = await self.run_in(self.__collective_action, delay=15)
 
+
     async def __collective_action(self, v2g_args=None):
         await self.fm_client.initialise_fm_settings()
         await self.evse_client.initialise_charger(v2g_args="changed settings")
+        await self.calendar_client.initialise_calendar()
         await self.v2g_main_app.set_next_action(v2g_args="changed settings")
+
 
     async def process_max_power_settings(self, min_acceptable_charge_power: int, max_available_charge_power: int):
         """To be called from modbus_evse_client to check if setting in the charger
@@ -925,8 +975,8 @@ class V2GLibertyGlobals(hass.Hass):
         kwargs = {'run_once': True}
         await self.__read_and_process_charger_settings(kwargs=kwargs)
 
-    def create_persistent_notification(self, message: str, title: str, notification_id: str):
-        self.call_service(
+    async def create_persistent_notification(self, message: str, title: str, notification_id: str):
+        await self.call_service(
             'persistent_notification/create',
             title=title,
             message=message,
