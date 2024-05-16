@@ -20,6 +20,12 @@ lovelace:
       type: module
     - url: /local/v2g_liberty/apexcharts-card/apexcharts-card.js
       type: module
+# TODO: see if this can speedup cardmod.
+# See: https://github.com/thomasloven/lovelace-card-mod#performance-improvements
+# frontend:
+#   extra_module_url:
+#     - /local/card-mod.js
+
 
 input_select:
   admin_mobile_name:
@@ -501,6 +507,13 @@ input_text:
 
 
 script:
+  reset_to_factory_defaults:
+    alias: ResetToFactoryDefaults
+    sequence:
+      - event: RESET_TO_FACTORY_DEFAULTS
+        event_data: {}
+    mode: single
+
   test_calendar_connection:
     alias: TestCalendarConnection
     sequence:
@@ -627,32 +640,32 @@ automation:
   # Replace 'sensor.charger_connected_car_state_of_charge' with 'sensor.car_state_of_charge'
   # in the modbus_evse_client.py.
   # In the package rename 'input_number.car_state_of_charge' to 'sensor.car_state_of_charge'
-  - id: "1626364003549"
-    alias: "Translate Quasar SoC change "
-    description: >-
-      Goal:
-      Provide sanitized Quasar SoC in % (in input_number.car_state_of_charge).
-
-      Special cases that are ignored:
-      + 0% (often when the charger is paused) that is never a correct value.
-      + The Modbus YAML code often shows "unavailable" for a little while.
-
-    trigger:
-      - platform: state
-        entity_id: sensor.charger_connected_car_state_of_charge
-    condition:
-      - condition: numeric_state
-        entity_id: sensor.charger_connected_car_state_of_charge
-        above: "0"
-      - condition: not
-        conditions:
-          - condition: state
-            entity_id: sensor.charger_connected_car_state_of_charge
-            state: unavailable
-    action:
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.car_state_of_charge
-        data:
-          value: "{{states('sensor.charger_connected_car_state_of_charge') |int }}"
-    mode: single
+  #  - id: "1626364003549"
+  #    alias: "Translate Quasar SoC change "
+  #    description: >-
+  #      Goal:
+  #      Provide sanitized Quasar SoC in % (in input_number.car_state_of_charge).
+  #
+  #      Special cases that are ignored:
+  #      + 0% (often when the charger is paused) that is never a correct value.
+  #      + The Modbus YAML code often shows "unavailable" for a little while.
+  #
+  #    trigger:
+  #      - platform: state
+  #        entity_id: sensor.charger_connected_car_state_of_charge
+  #    condition:
+  #      - condition: numeric_state
+  #        entity_id: sensor.charger_connected_car_state_of_charge
+  #        above: "0"
+  #      - condition: not
+  #        conditions:
+  #          - condition: state
+  #            entity_id: sensor.charger_connected_car_state_of_charge
+  #            state: unavailable
+  #    action:
+  #      - service: input_number.set_value
+  #        target:
+  #          entity_id: input_number.car_state_of_charge
+  #        data:
+  #          value: "{{states('sensor.charger_connected_car_state_of_charge') |int }}"
+  #    mode: single

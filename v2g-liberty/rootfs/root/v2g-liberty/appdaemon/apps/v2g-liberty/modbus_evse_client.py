@@ -293,6 +293,7 @@ class ModbusEVSEclient(hass.Hass):
         await self.__set_charger_action("stop", reason="stop called externally")
         await self.__set_charge_power(charge_power=0)
 
+
     async def start_charge_with_power(self, kwargs: dict, *args, **fnc_kwargs):
         """ Function to start a charge session with a given power in Watt.
             To be called from v2g-liberty module.
@@ -401,7 +402,7 @@ class ModbusEVSEclient(hass.Hass):
         """Set charger control: take control from the user or give control back to the user (the EVSE app).
 
         This is a private function. The V2G Liberty module should use the function set_active() and set_inactive().
-         
+
         With taking control:
         + the user cannot use the app, it becomes exclusive for the modbus connection.
         + the charger automatic charge upon connection is disabled.
@@ -466,10 +467,11 @@ class ModbusEVSEclient(hass.Hass):
         """Has a sister function in V2G Liberty that also handles this from there"""
         self.log("__handle_charger_state_change called")
 
-        if new is None:
+        new_charger_state = new.get("state", None)
+        if new_charger_state is None:
             self.log("__handle_charger_state_change, new state = None, stop handling")
             return
-        new_charger_state = int(float(new["state"]))
+        new_charger_state = int(float(new_charger_state))
         self.log(f"__handle_charger_state_change, new = {new_charger_state}.")
 
         # TODO: Move to v2g-liberty.py?
@@ -485,8 +487,9 @@ class ModbusEVSEclient(hass.Hass):
             await self.__update_state(entity="input_text.charger_state", state=charger_state_text)
             self.log(f"__handle_charger_state_change, set state in text for UI = {charger_state_text}.")
 
-        if old is not None:
-            old_charger_state = int(float(old["state"]))
+        old_charger_state = old.get("state", None)
+        if old_charger_state is not None:
+            old_charger_state = int(float(old_charger_state))
 
         if old_charger_state == new_charger_state:
             self.log("__handle_charger_state_change new = old, stop handling")
@@ -554,9 +557,14 @@ class ModbusEVSEclient(hass.Hass):
 
     async def __is_charging_or_discharging(self) -> bool:
         state = await self.__get_charger_state()
+        if state is None:
+            # The connection to the charger probably is not setup yet.
+            self.log(
+                f"__is_charging_or_discharging, charger state is None (not setup yet?). Assume not (dis-)charging.")
+            return False
         is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
-        self.log(
-            f"__is_charging_or_discharging, state: {state} ({self.CHARGER_STATES[state]}), charging: {is_charging}.")
+        self.log(f"__is_charging_or_discharging, state: {state} ({self.CHARGER_STATES[state]}), "
+                 f"charging: {is_charging}.")
         return is_charging
 
     async def __get_car_soc(self) -> int:
@@ -633,26 +641,28 @@ class ModbusEVSEclient(hass.Hass):
         return state
 
     async def __get_charger_state(self) -> int:
-        # self.log("__get_charger_state")
-        state = await self.get_state("sensor.charger_charger_state", attribute="all")
+        self.log("__get_charger_state")
+        charger_state = await self.get_state("sensor.charger_charger_state", attribute="all")
         should_be_renewed = False
-        if state is None or not isinstance(state, dict) or "last_changed" not in state:
+        if charger_state is None or not isinstance(charger_state, dict) or "last_changed" not in charger_state:
             # This can occur if it is queried for the first time and no polling has taken place
             # yet. Then the entity does not exist yet and returns None.
             should_be_renewed = True
         else:
             # Check if charger_status is not too old
-            lc = datetime.fromisoformat(state['last_changed'])
+            lc = datetime.fromisoformat(charger_state['last_changed'])
             nu = await self.get_now()
             should_be_renewed = (nu - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
+
         if should_be_renewed:
             await self.__get_and_process_registers([self.ENTITY_CHARGER_STATE])
-            state = await self.get_state("sensor.charger_charger_state", attribute="all")
+            charger_state = await self.get_state("sensor.charger_charger_state", attribute="all")
 
-        if state is not None:
-            state = int(float(state['state']))
-        # self.log(f"Returning charger_state: '{state}' ({type(state)}).")
-        return state
+        charger_state = charger_state.get('state', None)
+        if charger_state is not None:
+            charger_state = int(float(charger_state))
+        self.log(f"Returning charger_state: '{charger_state}' ({type(charger_state)}).")
+        return charger_state
 
     async def __get_charge_power(self) -> int:
         # self.log("__get_charge_power")

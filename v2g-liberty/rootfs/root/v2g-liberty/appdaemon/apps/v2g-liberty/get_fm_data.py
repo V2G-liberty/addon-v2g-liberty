@@ -133,7 +133,10 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         if res.status_code != 200:
             self.log_failed_response(res, "Get FM CHARGING COST data")
-            # Currently there is no reason to retry as the server will not re-run scheduled script for cost calculation
+            # This might include situation where sensor_id is not correct (yet).
+            # Currently, there is no reason to retry as the server will not re-run scheduled script for cost calculation
+            return
+
         charging_costs = res.json()
 
         total_charging_cost_last_7_days = 0
@@ -323,7 +326,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
         conversion = 1 / 10
-        vat_factor = (100 + c.ENERGY_PRICE_VAT)/100
+        vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
         epex_price_points = []
         has_negative_prices = False
         for price in prices:
@@ -452,7 +455,16 @@ class FlexMeasuresDataImporter(hass.Hass):
         if not res.status_code == 200:
             self.log_failed_response(res, "requestAuthToken")
             return False
-        self.fm_token = res.json()["auth_token"]
+        json = res.json()
+        if json is None:
+            self.log(f"Authenticating failed, no valid json response.")
+            return False
+
+        self.fm_token = res.json().get("auth_token", None)
+        if self.fm_token is None:
+            self.log(f"Authenticating failed, no auth_token in json response: '{json}'.")
+            return False
+        return True
 
     def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:

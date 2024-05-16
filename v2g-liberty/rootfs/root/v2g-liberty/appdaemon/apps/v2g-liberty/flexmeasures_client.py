@@ -147,8 +147,15 @@ class FlexMeasuresClient(hass.Hass):
             message = f"Failed to connect/login at {now}."
             self.set_state("input_text.fm_connection_status", state=message)
             return False
+        json_response = res.json()
+        if json_response is None:
+            self.log(f"Authenticating failed, no valid json response.")
+            return False
 
-        self.fm_token = res.json()["auth_token"]
+        self.fm_token = json_response.get("auth_token", None)
+        if self.fm_token is None:
+            self.log(f"Authenticating failed, no auth_token in json response: '{json_response}'.")
+            return False
         message = f"Successful connect+login at {now}"
         self.set_state("input_text.fm_connection_status", state=message)
         return True

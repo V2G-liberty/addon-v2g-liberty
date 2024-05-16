@@ -6,7 +6,6 @@ import adbase as ad
 import requests
 import constants as c
 import caldav
-
 import appdaemon.plugins.hass.hassapi as hass
 
 
@@ -27,14 +26,17 @@ class ReservationsClient(hass.Hass):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
+    v2g_main_app: object
 
     async def initialize(self):
         self.log("initialise ReservationsClient")
+        self.v2g_main_app = await self.get_app("v2g_liberty")
         self.principal = None
         self.poll_timer_id = ""
         self.v2g_events = []
         await self.initialise_calendar()
         self.log(f"Completed initialise ReservationsClient")
+
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -56,6 +58,9 @@ class ReservationsClient(hass.Hass):
             # initialised and activated.
             # self.log(f"initialise_calendar, url: {c.CALENDAR_ACCOUNT_INIT_URL}, username: " \
             #          f"{c.CALENDAR_ACCOUNT_USERNAME}, password: {c.CALENDAR_ACCOUNT_PASSWORD}")
+            if c.CALENDAR_ACCOUNT_INIT_URL == "" or c.CALENDAR_ACCOUNT_USERNAME == "" or c.CALENDAR_ACCOUNT_PASSWORD == "":
+                return "Incomplete caldav configuration"
+
             self.cal_client = caldav.DAVClient(
                 url=c.CALENDAR_ACCOUNT_INIT_URL,
                 username=c.CALENDAR_ACCOUNT_USERNAME,
@@ -63,7 +68,6 @@ class ReservationsClient(hass.Hass):
             )
             try:
                 self.principal = self.cal_client.principal()
-
             except caldav.lib.error.PropfindError:
                 self.log(f"initialise_calendar: Wrong URL error")
                 return "Wrong URL or authorisation error"
@@ -74,7 +78,7 @@ class ReservationsClient(hass.Hass):
                 self.log(f"initialise_calendar: Connection error")
                 return "Connection error"
             except Exception as e:
-                self.log(f"initialise_calendar: Unknown error")
+                self.log(f"initialise_calendar: Unknown error: '{e}'.")
                 return "Unknown error"
 
             if self.principal is None:
@@ -113,16 +117,17 @@ class ReservationsClient(hass.Hass):
 
     async def get_calendar_names(self):
         # Called by globals to populate the input_select.
-        # self.log("get_calendar_names called")
+        self.log("get_calendar_names called")
         cal_names = []
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             if self.principal is None:
+                self.log(f"get_calendar_names principle is none")
                 return cal_names
             for calendar in self.principal.calendars():
                 cal_names.append(calendar.name)
         else:
             calendar_states = await self.get_state("calendar")
-            # self.log(f"get_calendar_names calendar states: {calendar_states}")
+            self.log(f"get_calendar_names calendar states: {calendar_states}")
             for calendar in calendar_states:
                 cal_names.append(calendar)
         self.log(f"get_calendar_names, returning calendars: {cal_names}")
@@ -132,7 +137,7 @@ class ReservationsClient(hass.Hass):
         # Only used for "Direct caldav source"
         self.log("activate_selected_calendar called")
         if c.CAR_CALENDAR_NAME is None or c.CAR_CALENDAR_NAME in ["", "unknown", "Please choose an option"]:
-            self.log(f"activate_selected_calendar empty,not activating.")
+            self.log(f"activate_selected_calendar empty, not activating.")
             # TODO: Check if this ever occurs, it is tested at initialisation already...
             # TODO: Create persistent notification
             return False
@@ -140,15 +145,15 @@ class ReservationsClient(hass.Hass):
             self.car_reservation_calendar = self.principal.calendar(name=c.CAR_CALENDAR_NAME)
         except caldav.lib.error.NotFoundError:
             # There is an old calendar name stored which cannot be found on (the new?) caldav remote?
-            self.log(
-                f"activate_selected_calendar c.CAR_CALENDAR_NAME {c.CAR_CALENDAR_NAME}, not found on server, not activating.")
+            self.log(f"activate_selected_calendar c.CAR_CALENDAR_NAME {c.CAR_CALENDAR_NAME}, "
+                     f"not found on server, not activating.")
             c.CAR_CALENDAR_NAME = ""
             return False
 
         if self.poll_timer_id != "" and self.timer_running(self.poll_timer_id):
             # Making sure there won't be parallel polling treads.
-            self.log(
-                f"activate_selected_calendar, there seems to be a poll-timer already: {self.poll_timer_id}: cancelling.")
+            self.log(f"activate_selected_calendar, there seems to be a poll-timer already: "
+                     f"{self.poll_timer_id}: cancelling.")
             await self.cancel_timer(self.poll_timer_id)
             self.poll_timer_id = ""
 
@@ -182,32 +187,33 @@ class ReservationsClient(hass.Hass):
         #     end_date=end,
         # )
 
-        if new is None:
-            self.log("__handle_calendar_integration_change aborted as new is None.")
-            return
-        start = new["attributes"].get("start_time", None)
-        if start is None:
-            self.log("__handle_calendar_integration_change aborted as start is None.")
-            return
-        start = start.replace(" ", "T")
-        start = isodate.parse_datetime(start).astimezone(c.TZ)
-
-        end = new["attributes"].get("end_time", None)
-        if end is None:
-            # Fail-safe, assume a duration of 1 hour
-            end = start + timedelta(hours=1)
-        else:
-            end = end.replace(" ", "T")
-            end = isodate.parse_datetime(end).astimezone(c.TZ)
-
-        v2g_event = {
-            'start': start,
-            'end': end,
-            'summary': new["attributes"]["message"],
-            'description': new["attributes"]["description"]
-        }
         self.v2g_events.clear()
-        self.v2g_events.append(v2g_event)
+        if new is not None:
+            start = new["attributes"].get("start_time", None)
+            if start is not None:
+                start = start.replace(" ", "T")
+                start = isodate.parse_datetime(start).astimezone(c.TZ)
+
+                end = new["attributes"].get("end_time", None)
+                if end is None:
+                    # Fail-safe, assume a duration of 1 hour
+                    end = start + timedelta(hours=1)
+                else:
+                    end = end.replace(" ", "T")
+                    end = isodate.parse_datetime(end).astimezone(c.TZ)
+
+                v2g_event = {
+                    'start': start,
+                    'end': end,
+                    'summary': new["attributes"]["message"],
+                    'description': new["attributes"]["description"]
+                }
+                self.v2g_events.append(v2g_event)
+            else:
+                self.log("__handle_calendar_integration_change aborted as start is None.")
+        else:
+            self.log("__handle_calendar_integration_change aborted as new is None.")
+
         await self.__write_events_in_ui_entity()
 
     async def __poll_calendar(self, kwargs=None):
@@ -248,6 +254,7 @@ class ReservationsClient(hass.Hass):
             # Nothing has changed... this will be less relevant once sync_tokens are used.
             return
 
+        self.v2g_events.clear()
         self.v2g_events = remote_v2g_events
         self.log("__poll_calendar changed v2g_events")
         await self.__write_events_in_ui_entity()

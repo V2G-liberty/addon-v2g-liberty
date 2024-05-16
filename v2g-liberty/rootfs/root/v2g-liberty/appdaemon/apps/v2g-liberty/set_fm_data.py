@@ -432,4 +432,13 @@ class SetFMdata(hass.Hass):
         )
         if not res.status_code == 200:
             self.log_failed_response(res, "requestAuthToken")
-        self.fm_token = res.json()["auth_token"]
+        json = res.json()
+        if json is None:
+            self.log(f"Authenticating failed, no valid json response.")
+            return False
+
+        self.fm_token = res.json().get("auth_token", None)
+        if self.fm_token is None:
+            self.log(f"Authenticating failed, no auth_token in json response: '{json}'.")
+            return False
+        return True

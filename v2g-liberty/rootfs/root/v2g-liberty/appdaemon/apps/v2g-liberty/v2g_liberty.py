@@ -32,11 +32,9 @@ class V2Gliberty(hass.Hass):
     MIN_RESOLUTION: timedelta
     HA_NAME: str = ""
 
-    CAR_RESERVATION_CALENDAR: str
-
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: object = None
-    call_next_action_at_least_every: int
+    call_next_action_at_least_every: int = 15 * 60
     scheduling_timer_handles: List[AsyncGenerator]
 
     # A SoC of 0 means: unknown/car not connected.
@@ -54,7 +52,7 @@ class V2Gliberty(hass.Hass):
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
     # initially charger_in_error_since is set to this date reference.
-    # If charger_in_error_since is not equal to this date we know timeing has started.
+    # If charger_in_error_since is not equal to this date we know timing has started.
     date_reference: datetime
 
     # For handling no_schedule_errors
@@ -69,13 +67,8 @@ class V2Gliberty(hass.Hass):
 
     async def initialize(self):
         self.log("Initializing V2Gliberty")
-        # self.calendar = ReservationsClient()
-        # self.log(f"initialise: Calendar = {self.calendar}")
 
         self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
-
-        self.CAR_RESERVATION_CALENDAR = self.args["car_reservation_calendar"]
-
         self.HA_NAME = await self.get_state("zone.home", attribute="friendly_name")
         self.log(f"Name of HA instance: '{self.HA_NAME}'.")
 
@@ -83,13 +76,11 @@ class V2Gliberty(hass.Hass):
         self.back_to_max_soc = None
 
         # Show the settings in the UI
-        # TODO: Use set_textvalue instead??
-        self.set_value("input_text.v2g_liberty_version", c.V2G_LIBERTY_VERSION)
-        self.set_value("input_text.optimisation_mode", c.OPTIMISATION_MODE)
-        self.set_value("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
+        self.set_textvalue("input_text.v2g_liberty_version", c.V2G_LIBERTY_VERSION)
+        self.set_textvalue("input_text.optimisation_mode", c.OPTIMISATION_MODE)
+        self.set_textvalue("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
 
         self.in_boost_to_reach_min_soc = False
-        self.call_next_action_at_least_every = 15 * 60
         self.timer_handle_set_next_action = ""
         self.connected_car_soc = 0
         self.connected_car_soc_kwh = 0
@@ -197,7 +188,7 @@ class V2Gliberty(hass.Hass):
                 self.log(f"Could not notify: exception on {recipient}.")
 
             if ttl > 0 and tag and not critical:
-                # Remove the notification after a time-to-live
+                # Remove the notification after a time-to-live.
                 # A tag is required for clearing.
                 # Critical notifications should not auto clear.
                 self.run_in(self.__clear_notification, delay=ttl, recipient=recipient, tag=tag)
@@ -506,7 +497,7 @@ class V2Gliberty(hass.Hass):
             self.log(f"Not getting new schedule. Charge mode is not 'Automatic' but '{charge_mode}'.")
             return
 
-        # Check whether we're not in boost mode
+        # Check whether we're not in boost mode.
         if self.in_boost_to_reach_min_soc:
             self.log(f"Not getting new schedule. SoC below minimum, boosting to reach that first.")
             return
@@ -527,8 +518,10 @@ class V2Gliberty(hass.Hass):
         car_reservations = await self.reservations_client.get_v2g_events()
 
         if car_reservations is None or len(car_reservations) == 0:
-            self.log("No calendar item found, no calendar configured?")
+            self.log("No calendar items found.")
         else:
+            # TODO: Now we only look at the first calendar item, we'd like to take
+            # all items in the upcoming week into account for scheduling
             car_reservation = car_reservations[0]
             self.log(f"Calender event: {car_reservation}")
             calendar_item_start = car_reservation['start']
@@ -607,19 +600,36 @@ class V2Gliberty(hass.Hass):
         self.log("__process_schedule called, triggered by change in input_text.chargeschedule.")
 
         if not await self.evse_client.is_car_connected():
-            self.log("Stopped processing schedule; car is not connected")
+            self.log("__process_schedule aborted: car is not connected")
             return
 
-        self.log("Retrieving schedule from input_text.chargeschedule...")
-        schedule = new["attributes"]
-        values = schedule["values"]
-        duration = isodate.parse_duration(schedule["duration"])
+        schedule = new.get("attributes", None)
+        if schedule is None:
+            self.log("__process_schedule aborted: no schedule found.")
+            return
+
+        values = schedule.get("values", None)
+        if values is None:
+            self.log("__process_schedule aborted: no values found.")
+            return
+
+        duration = schedule.get("duration", None)
+        if duration is None:
+            self.log("__process_schedule aborted: no duration found.")
+            return
+
+        start = schedule.get("start", None)
+        if start is None:
+            self.log("__process_schedule aborted: no start datetime found.")
+            return
+
+        duration = isodate.parse_duration(duration)
         resolution = duration / len(values)
-        start = isodate.parse_datetime(schedule["start"])
+        start = isodate.parse_datetime(start)
 
         # Check against expected control signal resolution
         if resolution < self.MIN_RESOLUTION:
-            self.log(f"Stopped processing schedule; the resolution ({resolution}) is below "
+            self.log(f"__process_schedule aborted: the resolution ({resolution}) is below "
                      f"the set minimum ({self.MIN_RESOLUTION}).")
             await self.handle_no_new_schedule("invalid_schedule", True)
             return
@@ -718,7 +728,7 @@ class V2Gliberty(hass.Hass):
         await self.set_state("input_text.soc_prognosis_boost", state=new_state, attributes=result)
 
     async def __start_max_charge_now(self):
-        # just to be shure..
+        # just to be sure..
         await self.evse_client.set_active()
         await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=c.CHARGER_MAX_CHARGE_POWER))
 
