@@ -1,0 +1,23 @@
+style:
+  ha-select $: |
+    div.mdc-select::before {
+      content: "ⓘ";
+      font-size: 150%;
+      font-weight: bold;
+      position: absolute;
+      top: 18px;
+      right: 40px;
+      z-index: 100;
+      color: var(--primary-color);
+    }
+  ha-textfield $: |
+    label.mdc-text-field::after {
+      content: "ⓘ";
+      font-size: 150%;
+      font-weight: bold;
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      z-index: 100;
+      color: var(--primary-color);
+    }

@@ -14,8 +14,6 @@ import isodate
 
 class FlexMeasuresDataImporter(hass.Hass):
     # CONSTANTS
-    VAT: float
-    MARKUP: float
     EMISSIONS_URL: str
     PRICES_URL: str
     CHARGING_COST_URL: str
@@ -33,8 +31,11 @@ class FlexMeasuresDataImporter(hass.Hass):
     # Emissions /kwh in the last 7 days to now. Populated by a call to FM.
     # Used for:
     # + Intermediate storage to fill an entity for displaying the data in the graph
-    # + Calculation of the emmision (savings) in the last 7 days.
+    # + Calculation of the emission (savings) in the last 7 days.
     emission_intensities: dict
+
+    # For sending notifications to the user.
+    v2g_main_app: object
 
     def initialize(self):
         """Daily get EPEX prices, emissions and cost data for display in the UI.
@@ -49,20 +50,9 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         self.log("Initializing FlexMeasuresDataImporter")
 
-        # FM in some cases returns gross prices that need conversion for the UI.
-        # VAT and Markup are initialised with "no effect value".
-        self.VAT = 1
-        # Usually a markup per kWh for transport and sustainability
-        self.MARKUP = 0
-        # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
-        # For others, we expect netto prices (including VAT and Markup).
-        # If self_provided data also includes VAT and markup the values in secrets can
-        # be set to 1 and 0 respectively to achieve the same result as here.
-        if c.ELECTRICITY_PROVIDER in ["self_provided", "nl_generic", "no_generic"]:
-            self.VAT = float(self.args["VAT"])
-            self.MARKUP = float(self.args["markup_per_kwh"])
-        self.log(f"Price calculation constants. VAT: {self.VAT}, Markup {self.MARKUP}.")
+        self.v2g_main_app = self.get_app("v2g_liberty")
 
+        self.fm_token = ""
         self.PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_CONSUMPTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
         self.EMISSIONS_URL = c.FM_GET_DATA_URL + str(c.FM_EMISSIONS_SENSOR_ID) + c.FM_GET_DATA_SLUG
         self.CHARGING_COST_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_COST_SENSOR_ID) + c.FM_GET_DATA_SLUG
@@ -143,7 +133,10 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         if res.status_code != 200:
             self.log_failed_response(res, "Get FM CHARGING COST data")
-            # Currently there is no reason to retry as the server will not re-run scheduled script for cost calculation
+            # This might include situation where sensor_id is not correct (yet).
+            # Currently, there is no reason to retry as the server will not re-run scheduled script for cost calculation
+            return
+
         charging_costs = res.json()
 
         total_charging_cost_last_7_days = 0
@@ -318,13 +311,13 @@ class FlexMeasuresDataImporter(hass.Hass):
                 self.run_at(self.get_epex_prices, self.second_try_time_price_data)
             else:
                 self.log(f"Retry tomorrow.")
-                self.get_app("v2g_liberty").notify_user(
-                    message = "Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
-                    title = None,
-                    tag = "no_price_data",
-                    critical = False,
-                    send_to_all = True,
-                    ttl = 15*60
+                self.v2g_main_app.notify_user(
+                    message="Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
+                    title=None,
+                    tag="no_price_data",
+                    critical=False,
+                    send_to_all=True,
+                    ttl=15 * 60
                 )
             return
 
@@ -333,21 +326,23 @@ class FlexMeasuresDataImporter(hass.Hass):
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
         conversion = 1 / 10
-
+        vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
         epex_price_points = []
         has_negative_prices = False
         for price in prices:
-            data_point = {}
-            data_point['time'] = datetime.fromtimestamp(price['event_start'] / 1000).isoformat()
-            data_point['price'] = round(((price['event_value'] * conversion) + self.MARKUP) * self.VAT, 2)
+            data_point = {
+                'time': datetime.fromtimestamp(price['event_start'] / 1000).isoformat(),
+                'price': round(((price['event_value'] * conversion) +
+                                c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
+            }
+            # TODO: Also check if data point is in the future
             if data_point['price'] < 0:
                 has_negative_prices = True
             epex_price_points.append(data_point)
 
         # To make sure HA considers this as new info a datetime is added
         new_state = "EPEX prices collected at " + now.isoformat()
-        result = {}
-        result['records'] = epex_price_points
+        result = {'records': epex_price_points}
         self.set_state("input_text.epex_prices", state=new_state, attributes=result)
 
         # FM returns all the prices it has, sometimes it has not retrieved new
@@ -355,18 +350,18 @@ class FlexMeasuresDataImporter(hass.Hass):
         date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
         date_tomorrow = (now + timedelta(days=1)).isoformat()
         if date_latest_price < date_tomorrow:
-            self.log(f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, " \
-                    f"Retry at {self.second_try_time_price_data}.")
+            self.log(f"FM EPEX prices seem not renewed yet, latest price at: {date_latest_price}, "
+                     f"Retry at {self.second_try_time_price_data}.")
             self.run_at(self.get_epex_prices, self.second_try_time_price_data)
         else:
             if has_negative_prices:
-                self.get_app("v2g_liberty").notify_user(
-                    message     = "Consider to check times in the app to optimize electricity usage.",
-                    title       = "Negative electricity prices upcomming",
-                    tag         = "negative_energy_prices",
-                    critical    = False,
-                    send_to_all = True,
-                    ttl         = 12*60*60
+                self.v2g_main_app.notify_user(
+                    message="Consider to check times in the app to optimize electricity usage.",
+                    title="Negative electricity prices upcoming",
+                    tag="negative_energy_prices",
+                    critical=False,
+                    send_to_all=True,
+                    ttl=12 * 60 * 60
                 )
             self.log(f"FM EPEX prices successfully retrieved. Latest price at: {date_latest_price}.")
 
@@ -449,22 +444,32 @@ class FlexMeasuresDataImporter(hass.Hass):
         """Authenticate with the FlexMeasures server and store the returned auth token.
         Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
-        self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
+        self.log(f"set_fm_data: Authenticating.")
         res = requests.post(
             c.FM_AUTHENTICATION_URL,
             json=dict(
-                email=self.args["fm_data_user_email"],
-                password=self.args["fm_data_user_password"],
+                email=c.FM_ACCOUNT_USERNAME,
+                password=c.FM_ACCOUNT_PASSWORD,
             ),
         )
         if not res.status_code == 200:
             self.log_failed_response(res, "requestAuthToken")
-        self.fm_token = res.json()["auth_token"]
+            return False
+        json = res.json()
+        if json is None:
+            self.log(f"Authenticating failed, no valid json response.")
+            return False
+
+        self.fm_token = res.json().get("auth_token", None)
+        if self.fm_token is None:
+            self.log(f"Authenticating failed, no auth_token in json response: '{json}'.")
+            return False
+        return True
 
     def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
             self.log(f"Call to  {url} failed on authorization (possibly the token expired); "
-                     f"attempting to reauthenticate once")
+                     f"attempting to re-authenticate once")
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
             fnc(*fnc_args, **fnc_kwargs)

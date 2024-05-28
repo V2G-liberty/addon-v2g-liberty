@@ -80,12 +80,12 @@ dedicated online calendar.This is mandatory, without it V2G Liberty cannot work.
 It is of course most useful if the calendar is integrated with your normal calendar and if you can easily edit the calendar items on your smartphone (outside HA / V2G Liberty).
 Options are, for example:
 - A CalDav compatible calendar. E.g. NextCloud or OwnCloud if you’d like an open-source solution
-- iCloud, this can be reached through CalDav (or through the HA integration – no examples yet)
+- iCloud calendar<br>
+  This can be reached through CalDav. See the instructions on [tasks.org](https://tasks.org/docs/caldav_icloud.html{:target="_blank"}).
 - Google calendar<br>
-This from early 2024 can also be reached via CalDav but has not been tested yet with V2G Liberty (if you've got experience with this, please let us know!). See [developers.google.com](https://developers.google.com/calendar/caldav/v2/guide).<br>
-The Google calendar is confirmed to work with the HA Google Calendar integration in Home Assistant (not to be confused with Google Assistant).
-
-- Office 365. Via non-official O365-HomeAssistant integration, see GitHub
+  This -from early 2024- should also be reachable via CalDav but has not been successfully tested yet with V2G Liberty. If you've got experience with this, please let us know! See [developers.google.com](https://developers.google.com/calendar/caldav/v2/guide).<br>
+  The Google calendar is confirmed to work with the HA Google Calendar integration in Home Assistant (not to be confused with Google Assistant).
+- Office 365. Via non-official [O365-HomeAssistant integration](https://github.com/RogerSelwyn/O365-HomeAssistant).
 - ICS Calendar (or iCalendar) integration, also non-official. It can be found on HACS.
 
 We recommend a separate calendar for your car reservations. The result must be that in Home Assistant only the events meant for the car are present.
