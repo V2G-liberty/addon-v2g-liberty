@@ -22,6 +22,30 @@ This section shows what the next release might include.
 - ?
 
 
+## 0.1.1 - 2024-05-28
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Fixed issue 14: Notification config not loading correctly
+- Fixed a minor bug where writing empty initial settings file lead to errors.
+- Fixed a minor bug in __handle_charger_state_change for case where old state is None.
+
+
+
+### Changed
+
+- None
+
+### Removed
+
+- 
+
+
 ## 0.1.0 - 2024-05-28
 
 ### Added
