@@ -300,6 +300,7 @@ class V2GLibertyGlobals(hass.Hass):
         await self.__retrieve_settings()
         await self.__initialise_devices()
         await self.__read_and_process_charger_settings()
+        await self.__read_and_process_notification_settings()
         await self.__read_and_process_calendar_settings()
         await self.__read_and_process_fm_client_settings()
         await self.__read_and_process_general_settings()
@@ -530,7 +531,7 @@ class V2GLibertyGlobals(hass.Hass):
         if not os.path.exists(self.settings_file_path):
             # self.log(f"__retrieve_settings, create settings file")
             with open(self.settings_file_path, 'w') as file:
-                file.write(" ")
+                file.write("{}")
         else:
             with open(self.settings_file_path, 'r') as file:
                 str_dict = json.load(file)

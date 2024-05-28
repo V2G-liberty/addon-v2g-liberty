@@ -487,7 +487,10 @@ class ModbusEVSEclient(hass.Hass):
             await self.__update_state(entity="input_text.charger_state", state=charger_state_text)
             self.log(f"__handle_charger_state_change, set state in text for UI = {charger_state_text}.")
 
-        old_charger_state = old.get("state", None)
+        if old is None:
+            old_charger_state = None
+        else:
+            old_charger_state = old.get("state", None)
         if old_charger_state is not None:
             old_charger_state = int(float(old_charger_state))
 
