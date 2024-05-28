@@ -21,7 +21,7 @@ RUN \
     && apk add --no-cache \
         py3-pip=23.3.1-r0 \
         py3-wheel=0.42.0-r0 \
-        python3=3.11.9-r0  \
+        python3=3.11.9-r0 \
     \
     && pip install -r /tmp/requirements.txt \
     \
