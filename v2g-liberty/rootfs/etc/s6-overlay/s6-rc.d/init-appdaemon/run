@@ -7,7 +7,7 @@
 
 # Creates initial AppDaemon configuration in case it is non-existing
 if ! bashio::fs.file_exists '/config/appdaemon.yaml'; then
-    cp -R /root/appdaemon/* /config/ \
+    cp -aR /root/appdaemon/* /config/ \
         || bashio::exit.nok 'Failed to create initial AppDaemon configuration'
 fi
 
@@ -15,7 +15,7 @@ fi
 mkdir -p /config/logs
 
 # Copy python files
-cp -Rv /root/v2g-liberty/appdaemon/* /config \
+cp -aRv /root/v2g-liberty/appdaemon/* /config \
     || bashio::exit.nok 'Failed to copy V2G-Liberty app'
 
 #Create packages folder if it does not exist yet
@@ -23,7 +23,7 @@ if ! bashio::fs.file_exists '/homeassistant/packages/v2g_liberty'; then
     mkdir -p /homeassistant/packages/v2g_liberty
 fi
 # Copy files to packages folder
-cp -Rv /root/v2g-liberty/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
+cp -aRv /root/v2g-liberty/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
     || bashio::exit.nok 'Failed to copy V2G-Liberty package'
 
 # Create folders for plugins if needed
@@ -34,17 +34,12 @@ if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/lovelace-card-mod'; 
     mkdir -p /homeassistant/www/v2g_liberty/lovelace-card-mod
 fi
 # Copy plugins
-cp -Rv /root/v2g-liberty/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
+cp -aRv /root/v2g-liberty/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
     || bashio::exit.nok 'Failed to copy apexchart-card plugin'
 
-cp -Rv /root/v2g-liberty/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
+cp -aRv /root/v2g-liberty/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
     || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'
 
-
-# Copy example files that are referred to in the configuration instructions, these are just templates
-cp -v /root/v2g-liberty/homeassistant/v2g_liberty_example_secrets.yaml /homeassistant/v2g_liberty_example_secrets.yaml \
-    || bashio::exit.nok 'Failed to copy v2g_liberty_example_secrets.yaml'
-
-cp -v /root/v2g-liberty/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
+cp -av /root/v2g-liberty/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
     || bashio::exit.nok 'Failed to copy v2g_liberty_example_configuration.yaml'
 
