@@ -1,6 +1,6 @@
 ### V2G Liberty constants ###
 
-# Date 2024-04-24 Configuration via UI instead of secrets.yaml
+# Date 2024-04-28 Configuration via UI instead of secrets.yaml
 V2G_LIBERTY_VERSION: str = "0.1.0"
 
 # For showing dates in UI

@@ -9,20 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This section shows what the next release might include.
 
-### Added
+### Adding
 
 - ?
 
-### Changed
+### Changing
 
 - ?
 
-### Removed
+### Removing
 
 - ?
- 
 
-## 0.1.0 - 2024-05-07
+
+## 0.1.0 - 2024-05-28
 
 ### Added
 
