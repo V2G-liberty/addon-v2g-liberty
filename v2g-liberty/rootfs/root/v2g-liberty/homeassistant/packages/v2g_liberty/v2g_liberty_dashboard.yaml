@@ -13,7 +13,7 @@ views:
               - entity: sensor.charger_real_charging_power
             content: >-
               <ha-icon icon="mdi:ev-station"></ha-icon>
-              <div title="Polling EVSE">&nbsp;{{ states('input_text.poll_refresh_indicator')}}</div>
+              <div title="Polling charger">&nbsp;{{ states('input_text.poll_refresh_indicator')}}</div>
               <table><tbody><tr><th>
               {{ states('input_text.charger_state') }}
               </th><td>
@@ -122,11 +122,11 @@ views:
 
                 2. Wait 5 minutes
 
-                3. Restart AppDaemon<br/>`Settings > Addons > AppDaemon > Restart`
+                3. Restart V2G Liberty add-on<br/>`Settings > Addons > V2G Liberty > Restart`
 
                 4. Wait 2 minutes
 
-                5. Switch chargemode to automatic
+                5. Switch charge mode to automatic
 
 
                 This should restore automatic charging functionality.
@@ -363,6 +363,7 @@ views:
 
       - type: vertical-stack
         title: Charge mode
+        # TODO: Use tile card for this??
         cards:
           - type: grid
             cards:
@@ -414,24 +415,78 @@ views:
               type: markdown
               content: >-
                 <ha-alert alert-type="warning" title="No car is connected">To start Max-charge-now, please connect the car to the charger.</ha-alert>
-          - type: calendar
+
+          - type: markdown
+            title: Reservations
             entities:
-              - calendar.car_reservation
-            initial_view: listWeek
-            title: Car reservations
+              - input_text.input_text.calendar_events
+            content: >-                
+                <div>Target SoC is read from the event summary, if not found a target of 100% used.</div> 
+                {% if state_attr('input_text.calendar_events', 'v2g_ui_event_calendar') == None %}
+                Calendar configuration seems invalid, please check settings.
+                {% else %}
+                {% if states.input_text.calendar_events.attributes.v2g_ui_event_calendar == [] %}
+                No reservations in the next seven days.
+                {% else %}
+                <table>
+                {% for cal_day in states.input_text.calendar_events.attributes.v2g_ui_event_calendar %}
+                <thead><tr><th colspan=3>{{ as_timestamp(cal_day.day) | timestamp_custom("%A") }}</th><td>{{ as_timestamp(cal_day.day) | timestamp_custom("%Y-%m-%d") }}</td></tr></thead>
+                {% for event in cal_day.events %}
+                <tbody><tr><td>{{ as_timestamp(event.start) | timestamp_custom("%H:%M") }}</td><td><span>-</span></td><td>{{ as_timestamp(event.end) | timestamp_custom("%H:%M") }}</td><th>{{ event.summary }}{% if event.description != "" %}<span>{{ event.description }}</span>{% endif %}</th></tr></tbody>
+                {% endfor %}
+                {% endfor %}
+                </table>
+                {% endif %}
+                {% endif %}
+
             card_mod:
-              style: |
-                ha-card.type-calendar {
-                  min-height: auto;
-                  height: 350px;
-                  overflow: hidden;
-                }
-                ha-card.type-calendar div.header:after {
-                  content: "Target SoC is 100% at start of each event.";
-                  font-size: 50%;
-                  color: #6f6f6f;
-                  display: block;
-                }
+              style:
+                ha-markdown$: |
+                  div {
+                    margin-top: -20px !important;
+                    margin-bottom: 24px !important;
+                    font-size: 90%;
+                    color: var(--secondary-text-color);
+                  }
+                  table {
+                    width: 100%;
+                    max-width: 100%;
+                  }
+                  thead * {
+                    vertical-align: top;
+                    font-weight: 400 !important;
+                    font-size: 16px;
+                    padding: 8px 0 12px 0;
+                  }
+                  tbody td span {
+                    padding: 0 6px;
+                  }
+                  thead th {
+                    text-align: left;
+                  }
+                  thead td {
+                    text-align: right;
+                  }
+                  thead td, thead th {
+                    border-top: 1px solid var(--divider-color);
+                  }
+                  tbody * {
+                    vertical-align: top;
+                    text-align: left;
+                    font-weight: 400 !important;
+                    font-size: 14px;
+                    padding: 0 0 12px 0;
+                  }
+                  tbody th {
+                    width: 90%;
+                    padding-left: 16px;
+                  }
+                  tbody th span{
+                    font-size: 90%;
+                    color: #797979;
+                    display: block;
+                    padding: 4px 0 0 0;
+                  }
 
           - type: conditional
             conditions:
@@ -472,24 +527,599 @@ views:
                   span {
                     font-weight: bold;
                   }
-
-  - title: Help
-    icon: mdi:help-box
+  # Settings tab
+  # TODO: Make this a separate dashboard:
+  # + that is not shown in the left menu
+  # + that is admin only
+  # + that is linked from the main page
+  # On the main page make all content conditional:
+  # if settings are not complete do not show them, only the link to settings.
+  - title: Settings
+    type: masonry
+    icon: mdi:cog
     cards:
-      - type: entities
-        entities:
-          - entity: sensor.unrecoverable_errors_register_high
-          - entity: sensor.unrecoverable_errors_register_low
-          - entity: sensor.recoverable_errors_register_high
-          - entity: sensor.recoverable_errors_register_low
-          - entity: sensor.serial_number_high
-          - entity: sensor.serial_number_low
-          - entity: sensor.firmware_version
-        title: "Quasar"
-      - type: entities
-        entities:
-          - input_text.v2g_liberty_version
-          - input_number.car_remaining_range
-          - input_number.car_state_of_charge
-          - input_select.charge_mode
-          - update.appdaemon_update
+      - type: vertical-stack
+        cards:
+        - type: entities
+          title: Optimisation
+          entities:
+            - entity: input_select.optimisation_mode
+              name: Optimisation mode
+              icon: mdi:chart-timeline-variant-shimmer
+              card_mod: !include info_icon_style.yaml
+            - entity: input_number.car_min_soc_in_percent
+              name: Schedule lower limit
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.car_max_soc_in_percent
+              name: Schedule upper limit
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.allowed_duration_above_max_soc_in_hrs
+              card_mod: !include input_number_style.yaml
+          card_mod:
+            style: |
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                content: "How should scheduling be optimised: \A + Maximise financial gains based on dynamic prices \A + Minimise emissions from CO₂ release in electricity production";
+              }
+              ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                content: "The scheduling will not discharge below this limit and, -if the car returns with and SoC below this value- will charge to this minimum a.s.a.p. before regular scheduling. \A \A A high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings. \A \A A lower value results in a (sometimes) smaller driving range available for un-planned drives but there is always more room for the schedule. \A \ A The setting must be between 10 and 30, default is 20.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(3):hover::after {
+                content: "The schedule will use this as an upper limit for regular scheduling. It can be used to further protect the battery from degradation as a 100% charge (for longer periods) may reduce battery health/lifetime. \A \A When a calendar item is present, the schedule will ignore this setting and try to charge to 100% (or if the calendar item has a target use that). \A \A A low setting reduces schedule flexibility and so the capability to earn money and reduce emissions. \A \A The setting must be between 60 and 100, default is 80.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(4):hover::after {
+                content: "When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum? \A \A A longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery. \A \A This duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions. \A \A The setting must be between 2 and 36, default is 12.";
+              }
+              ha-card.type-entities div.card-content div:hover::after {
+                white-space: pre-wrap;
+                font-size: 90%;
+                color: var(--primary-text-color);
+                position: absolute;
+                width: 300px;
+                right: 4px;
+                top: 44px;
+                background-color: var(--primary-background-color);
+                border: 1px solid var(--input-idle-line-color);
+                border-radius: 8px;
+                padding: 8px 16px;
+                z-index: 110;
+              }
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                top: auto !important;
+                bottom: 52px;
+              }
+
+        - type: entities
+          title: Charger
+          entities:
+            - entity: input_text.charger_host_url
+              card_mod: !include info_icon_style.yaml
+            - entity: input_number.charger_port
+              card_mod: !include input_number_style.yaml
+            - type: button
+              name: ' '
+              action_name: TEST
+              tap_action:
+                action: call-service
+                service: script.test_charger_connection
+                target: {}
+            - type: divider
+          card_mod:
+              style: |
+                ha-card {
+                  padding-bottom: 40px;
+                }
+                ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                  content: "The host URL (IP address) and port can be found in the Wallbox app. \A \A Connect with bluetooth and in the app go to Settings > Connectivity > Ethernet (or Wi-Fi).";
+                }
+                ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                  content: "By default the charger uses port 502.";
+                }
+                ha-card.type-entities div.card-content div:hover::after {
+                  white-space: pre-wrap;
+                  font-size: 90%;
+                  color: var(--primary-text-color);
+                  position: absolute;
+                  width: 300px;
+                  right: 4px;
+                  top: 44px;
+                  background-color: var(--primary-background-color);
+                  border: 1px solid var(--input-idle-line-color);
+                  border-radius: 8px;
+                  padding: 8px 16px;
+                  z-index: 110;
+                }
+        - type: markdown
+          entities:
+            - input_text.charger_connection_status
+            - input_text.charger_max_available_power
+          content: >-
+            {{ states("input_text.charger_connection_status")}} | 
+            {{ (now().timestamp() - states.input_text.charger_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+            <div>&nbsp;</div>
+            The charger is set to provide max. **{{ states("input_text.charger_max_available_power")}}**&nbsp;W
+          card_mod:
+            style:
+              .: |
+                ha-card {
+                  background-color: transparent;
+                  border: none;
+                  max-width: calc(100% - 100px);
+                  margin-top: -118px;
+                  margin-left: 12px;
+                  padding: 0 !important;
+                }
+              ha-markdown$: |
+                div {
+                  height: 16px !important;
+                  padding: 0;
+                  margin: 0;
+                }
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_text.charger_connection_status
+              state: "Successfully connected"
+          card:
+            type: entities
+            entities:
+              - entity: input_boolean.use_reduced_max_charge_power
+                name: Reduce max. (dis-)charge power
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -36px;
+                  padding-top: 0;
+                  padding-bottom: 0;
+                }
+                ha-card * {
+                  padding-top: 0;
+                }
+
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_text.charger_connection_status
+              state: "Successfully connected"
+            - condition: state
+              entity: input_boolean.use_reduced_max_charge_power
+              state: 'on'
+          card:
+            type: entities
+            entities:
+              - entity: input_number.charger_max_charging_power
+                name: Max charging power
+                card_mod: !include input_number_style.yaml
+              - entity: input_number.charger_max_discharging_power
+                name: Max discharging power
+                card_mod: !include input_number_style.yaml
+            card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -28px;
+                  }
+                  ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                    content: "Set this to reduce the maximum charge power that is set in the charger.";
+                  }
+                  ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                    content: "Set this to reduce the maximum discharge power. The charger has one max. charge power setting for both charge and discharge. \A \A Usually the discharge power is the same as the charge power. In some cases the charger or (gird operator) regulations require a different (lower) dis-charge power.";
+                  }
+                  ha-card.type-entities div.card-content div:hover::after {
+                    white-space: pre-wrap;
+                    font-size: 90%;
+                    color: var(--primary-text-color);
+                    position: absolute;
+                    width: 300px;
+                    right: 4px;
+                    top: 44px;
+                    background-color: var(--primary-background-color);
+                    border: 1px solid var(--input-idle-line-color);
+                    border-radius: 8px;
+                    padding: 8px 16px;
+                    z-index: 110;
+                  }
+                  ha-card.type-entities div.card-content::after {
+                    content: "It is recommended to use a load balancer (power-boost for WB). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.";
+                    white-space: pre-wrap;
+                    font-size: 90%;
+                    color: var(--primary-text-color);
+                    display: block;
+                    margin-top: 16px;
+                    margin-bottom: 8px;
+                    padding: 16px;
+                    background-color: var(--card-background-color);
+                  }
+        - type: markdown
+          content: >-
+            <ha-alert alert-type="info">Electric safety must be provided by the hardware, 
+            not this software! Please consult a certified electrician what maximum power can be set on the charger.
+            </ha-alert>
+          card_mod:
+            style: |
+              ha-card {
+                border-top: none;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                margin-top: -24px;
+              }
+
+        - type: entities
+          title: Administrator
+          entities:
+            - entity: input_select.admin_mobile_name
+            - entity: input_select.admin_mobile_platform
+          card_mod:
+            style: |
+              ha-card.type-entities div.card-content::before {
+                content: "High priority notifications get send to the administrators mobile device.";
+                white-space: pre-wrap;
+                color: var(--primary-text-color);
+                display: block;
+                padding: 8px 0px;
+                margin-bottom: 8px;
+                margin-top: -8px;
+              }
+
+
+      - type: vertical-stack
+        cards:
+        - type: entities
+          title: Car
+          entities:
+            - entity: input_number.car_max_capacity_in_kwh
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.charger_plus_car_roundtrip_efficiency
+              card_mod: !include input_number_style.yaml
+            - entity: input_number.car_consumption_wh_per_km
+              card_mod: !include input_number_style.yaml
+          card_mod:
+            style: |
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                content: "The usable energy storage capacity of the battery of the car. \A For the Nissan Leaf this is usually 21, 39 or 59 (advertised as 24, 40 and 62). \A See https://ev-database.org.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                content: "A typical EV + charger roundtrip efficient is around 85 %. \A Use an setting between 50 and 100.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(3):hover::after {
+                content: "The average electricity usage of your car in Watt-hour (Wh) per km \A In most cars you can find historical data in the menu's or see https://ev-database.org. \A \A Normally this is between 140 (very efficient) and 300 (rather in-efficient vans). \A \A Make sure you use the right 'unit of measure': Wh per km.";
+              }
+              ha-card.type-entities div.card-content div:hover::after {
+                white-space: pre-wrap;
+                font-size: 90%;
+                color: var(--primary-text-color);
+                position: absolute;
+                width: 300px;
+                right: 4px;
+                top: 44px;
+                background-color: var(--primary-background-color);
+                border: 1px solid var(--input-idle-line-color);
+                border-radius: 8px;
+                padding: 8px 16px;
+                z-index: 110;
+              }
+
+        - type: entities
+          title: Car reservation calendar
+          entities:
+            - entity: input_select.car_calendar_source
+              card_mod: !include info_icon_style.yaml
+          card_mod:
+            style: |
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                content: "Choose 'Direct caldav source' if you want to directly use your online calendar, without installing an integration. This provides more controle and calendar details. \A \A Choose 'Home Assistant integration' if you have a calendar integration installed that provides the car reservations. This is needed for Google calendars.";
+              }
+              ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                top: auto !important;
+                bottom: 52px;
+              }
+              ha-card.type-entities div.card-content div:hover::after {
+                white-space: pre-wrap;
+                font-size: 90%;
+                color: var(--primary-text-color);
+                position: absolute;
+                width: 300px;
+                right: 4px;
+                top: 44px;
+                background-color: var(--primary-background-color);
+                border: 1px solid var(--input-idle-line-color);
+                border-radius: 8px;
+                padding: 8px 16px;
+                z-index: 110;
+              }
+
+        - type: conditional
+          conditions:
+            - entity: input_select.car_calendar_source
+              state: 'Home Assistant integration'
+          card:
+            type: entities
+            entities:
+              - entity: input_select.integration_calendar_entity_name
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -24px;
+                  padding-bottom: 32px;
+                  margin-bottom: 8px;
+                }
+
+        - type: conditional
+          conditions:
+            - entity: input_select.car_calendar_source
+              state: 'Direct caldav source'
+          card:
+            type: entities
+            entities:
+              - entity: input_text.calendar_account_init_url
+              - entity: input_text.calendar_account_username
+              - entity: input_text.calendar_account_password
+              - type: button
+                name: ' '
+                action_name: TEST
+                tap_action:
+                  action: call-service
+                  service: script.test_calendar_connection
+                  target: {}
+            card_mod:
+              style: |
+                ha-card.type-entities div.card-content::before {
+                  content: "See documentation tab for more details.";
+                  white-space: pre-wrap;
+                  color: var(--primary-text-color);
+                  display: block;
+                  padding: 8px 0px;
+                  margin-bottom: 8px;
+                  margin-top: -8px;
+                }
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -24px;
+                }
+
+        - type: markdown
+          entity: input_text.calendar_account_connection_status
+          content: >-
+            {{ states("input_text.calendar_account_connection_status")}} |  
+            {{ (now().timestamp() - states.input_text.calendar_account_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+          card_mod:
+            style: |
+              ha-card {
+                background-color: transparent;
+                border: none;
+                max-width: calc(100% - 100px);
+                margin-top: -70px;
+                margin-left: 12px;
+                padding: 0 !important;
+              }
+
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_text.calendar_account_connection_status
+              state: "Successfully connected"
+            - condition: state
+              entity: input_select.car_calendar_source
+              state: 'Direct caldav source'
+          card:
+            type: entities
+            entities:
+              - entity: input_select.car_calendar_name
+            card_mod:
+              style: |
+                ha-card {
+                  border-top: none;
+                  border-top-left-radius: 0;
+                  border-top-right-radius: 0;
+                  margin-top: -36px;
+                  padding-top: 0;
+                  padding-bottom: 0;
+                }
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Energy contract
+            entities:
+              - entity: input_select.electricity_provider
+                name: Electricity provider
+                icon: mdi:office-building
+              - entity: input_boolean.use_vat_and_markup
+                icon: mdi:cash-edit
+            show_header_toggle: false
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.use_vat_and_markup
+                state: 'on'
+            card:
+              type: entities
+              entities:
+                - entity: input_number.energy_price_vat
+                  icon: mdi:close
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.energy_price_markup_per_kwh
+                  icon: mdi:plus
+                  card_mod: !include input_number_style.yaml
+              card_mod:
+                  style: |
+                    ha-card {
+                      border-top: none;
+                      border-top-left-radius: 0;
+                      border-top-right-radius: 0;
+                      margin-top: -16px;
+                      padding-left: 36px;
+                    }
+                    ha-card.type-entities div.card-content::before {
+                      content: "VAT / markup data is only taken into account for generic electricity providers, or in some cases, price data is self-provided. \A It is used for transforming the raw price data (from FM) to net price to be shown in UI: (market_price_per_kwh + markup_per_kwh) * VAT";
+                      white-space: pre-wrap;
+                      color: var(--primary-text-color);
+                      display: block;
+                      padding: 8px 0px;
+                      margin-bottom: 8px;
+                      margin-top: -8px;
+                    }
+                    ha-card.type-entities div.card-content div:first-child:hover::after {
+                      content: "Value Added Tax \A If you'd like to effectively 'not use VAT' you can set it to 0%.";
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                      content: "This is a markup in cents(!) per kWh, e.g. 14.539 is a normal markup in the Netherlands.";
+                    }
+                    ha-card.type-entities div.card-content div:hover::after {
+                      white-space: pre-wrap;
+                      font-size: 90%;
+                      color: var(--primary-text-color);
+                      position: absolute;
+                      width: 300px;
+                      right: 4px;
+                      top: 44px;
+                      background-color: var(--primary-background-color);
+                      border: 1px solid var(--input-idle-line-color);
+                      border-radius: 8px;
+                      padding: 8px 16px;
+                      z-index: 110;
+                    }
+
+          - type: entities
+            title: FlexMeasures account
+            entities:
+              - type: weblink
+                url: https://v2g-liberty.eu
+                new_tab: True
+                icon: ""
+              - entity: input_text.fm_account_username
+              - entity: input_text.fm_account_password
+              - entity: input_boolean.fm_show_option_to_change_url
+                secondary_info: none
+                icon: mdi:link-edit
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.fm_show_option_to_change_url
+                    state: 'on'
+                row:
+                  entity: input_text.fm_host_url
+              - type: button
+                name: ' '
+                action_name: TEST
+                tap_action:
+                  action: call-service
+                  service: script.test_fm_connection
+                  target: {}
+            card_mod:
+              style: |
+                ha-card.type-entities div.card-content div:nth-child(1) {
+                  margin-bottom: 12px !important;
+                  margin-left: 8px !important;
+                }
+                ha-card.type-entities div.card-content div:nth-child(1)::before {
+                  content: "An account for the default server can be requested at:";
+                  color: var(--primary-text-color);
+                  margin-left: 32px;
+                }
+
+          - type: markdown
+            entity: input_text.fm_connection_status
+            content: >-
+              {{ states("input_text.fm_connection_status")}} |  
+              {{ (now().timestamp() - states.input_text.fm_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+            card_mod:
+              style: |
+                  ha-card {
+                    background-color: transparent;
+                    border: none;
+                    max-width: calc(100% - 100px);
+                    margin-top: -70px;
+                    margin-left: 24px;
+                  }
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.electricity_provider
+                state_not: self_provided
+            card:
+              type: entities
+              title: FlexMeasures Sensor IDs
+              entities:
+                - entity: input_number.fm_account_power_sensor_id
+                  name: Power
+                  icon: mdi:lightning-bolt
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_soc_sensor_id
+                  name: State of charge
+                  icon: mdi:percent-outline
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_availability_sensor_id
+                  name: Availability
+                  icon: mdi:home-percent
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_cost_sensor_id
+                  name: Costs
+                  icon: mdi:currency-eur
+                  card_mod: !include input_number_style.yaml
+              card_mod:
+                style: |
+                    ha-card {
+                      margin-top: -8px;
+                    }
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.electricity_provider
+                state: self_provided
+            card:
+              type: entities
+              title: FlexMeasures self provided sensor IDs
+              entities:
+                - entity: input_number.fm_account_own_power_sensor_id
+                  name: Power
+                  icon: mdi:lightning-bolt
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_own_soc_sensor_id
+                  name: State of charge
+                  icon: mdi:percent-outline
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_own_availability_sensor_id
+                  name: Availability
+                  icon: mdi:home-percent
+                  card_mod: !include input_number_style.yaml
+                - entity: input_number.fm_account_own_cost_sensor_id
+                  name: Costs
+                  icon: mdi:currency-eur
+                  card_mod: !include input_number_style.yaml
+              card_mod:
+                style: |
+                    ha-card {
+                      margin-top: -8px;
+                    }
+
+          - type: entities
+            entities:
+              - type: button
+                name: ' '
+                action_name: Reset to factory defaults >>
+                tap_action:
+                  action: call-service
+                  confirmation:
+                    text: Are you sure you want to reset the settings to the factory defaults? This cannot be undone. Home Assistant will restart, this may take a few minutes.
+                  service: script.reset_to_factory_defaults
+                  target: {}
+            card_mod:
+              style: |
+                ha-card {
+                  border: none;
+                  margin: 0;
+                  padding: 0;
+                  background-color: transparent;
+                }
+

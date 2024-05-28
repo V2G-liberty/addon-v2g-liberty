@@ -84,9 +84,10 @@ class SetFMdata(hass.Hass):
 
     def initialize(self):
         self.log(f"Initializing SetFMdata.")
-        self.FM_ENTITY_ADDRESS_POWER = self.args["fm_base_entity_address_power"] + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-        self.FM_ENTITY_ADDRESS_AVAILABILITY = self.args["fm_base_entity_address_availability"] + str(c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID)
-        self.FM_ENTITY_ADDRESS_SOC =  self.args["fm_base_entity_address_soc"] + str(c.FM_ACCOUNT_SOC_SENSOR_ID)
+        # TODO: The sensor_id's can be dynamically set, these should also change then.
+        self.FM_ENTITY_ADDRESS_POWER = c.FM_BASE_ENTITY_ADDRESS_POWER + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
+        self.FM_ENTITY_ADDRESS_AVAILABILITY = c.FM_BASE_ENTITY_ADDRESS_AVAILABILITY + str(c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID)
+        self.FM_ENTITY_ADDRESS_SOC = c.FM_BASE_ENTITY_ADDRESS_SOC + str(c.FM_ACCOUNT_SOC_SENSOR_ID)
 
         self.evse_client = self.get_app("modbus_evse_client")
 
@@ -162,10 +163,13 @@ class SetFMdata(hass.Hass):
             Ignore states with string "unavailable".
             (This is not a value related to the availability that is recorded here)
         """
-        old = old.get('state', 'unavailable')
+        if old is None:
+            return
+        else:
+            old = old.get('state', 'unavailable')
         new = new.get('state', 'unavailable')
         if old == "unavailable" or new == "unavailable":
-            # Ignore state changes related to unavailable. These are not be of influence on availability of charger/car.
+            # Ignore state changes related to unavailable. These are not of influence on availability of charger/car.
             return
         self.record_availability()
 
@@ -422,10 +426,19 @@ class SetFMdata(hass.Hass):
         res = requests.post(
             c.FM_AUTHENTICATION_URL,
             json=dict(
-                email=self.args["fm_data_user_email"],
-                password=self.args["fm_data_user_password"],
+                email=c.FM_ACCOUNT_USERNAME,
+                password=c.FM_ACCOUNT_PASSWORD,
             ),
         )
         if not res.status_code == 200:
             self.log_failed_response(res, "requestAuthToken")
-        self.fm_token = res.json()["auth_token"]
+        json = res.json()
+        if json is None:
+            self.log(f"Authenticating failed, no valid json response.")
+            return False
+
+        self.fm_token = res.json().get("auth_token", None)
+        if self.fm_token is None:
+            self.log(f"Authenticating failed, no auth_token in json response: '{json}'.")
+            return False
+        return True

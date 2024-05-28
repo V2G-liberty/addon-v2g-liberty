@@ -40,11 +40,6 @@ cp -aRv /root/v2g-liberty/homeassistant/www/v2g_liberty/apexcharts-card/* /homea
 cp -aRv /root/v2g-liberty/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
     || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'
 
-
-# Copy example files that are referred to in the configuration instructions, these are just templates
-cp -av /root/v2g-liberty/homeassistant/v2g_liberty_example_secrets.yaml /homeassistant/v2g_liberty_example_secrets.yaml \
-    || bashio::exit.nok 'Failed to copy v2g_liberty_example_secrets.yaml'
-
 cp -av /root/v2g-liberty/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
     || bashio::exit.nok 'Failed to copy v2g_liberty_example_configuration.yaml'
 

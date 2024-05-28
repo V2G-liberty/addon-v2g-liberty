@@ -22,18 +22,15 @@ class FlexMeasuresClient(hass.Hass):
 
     # Constants
     FM_URL: str
-    FM_TIGGER_URL: str
+    FM_TRIGGER_URL: str
     FM_OPTIMISATION_CONTEXT: dict
     FM_SCHEDULE_DURATION: str
-    FM_USER_EMAIL: str
-    FM_USER_PASSWORD: str
     MAX_NUMBER_OF_REATTEMPTS: int
     DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
     DELAY_FOR_REATTEMPTS: int  # number of seconds
-    TZ: timezone
 
     # A slack for the constraint_relaxation_window in minutes
-    WINDOW_SLACK: int = 60
+    WINDOW_SLACK: int
 
     # FM Authentication token
     fm_token: str
@@ -63,20 +60,33 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_busy_getting_schedule = False
         self.fm_date_time_last_schedule = await self.get_now()
 
-        base_url = c.FM_SCHEDULE_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-        self.FM_URL = base_url + c.FM_SCHEDULE_SLUG
-        self.FM_TIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
-        self.FM_SCHEDULE_DURATION = self.args["fm_schedule_duration"]
-        self.FM_USER_EMAIL = self.args["fm_user_email"]
-        self.FM_USER_PASSWORD = self.args["fm_user_password"]
-        self.DELAY_FOR_REATTEMPTS = int(self.args["delay_for_reattempts_to_retrieve_schedule"])
-        self.MAX_NUMBER_OF_REATTEMPTS = int(self.args["max_number_of_reattempts_to_retrieve_schedule"])
-        self.DELAY_FOR_INITIAL_ATTEMPT = int(self.args["delay_for_initial_attempt_to_retrieve_schedule"])
-        self.TZ = pytz.timezone(self.get_timezone())
+        # Maybe add these to settings?
+        self.FM_SCHEDULE_DURATION = "PT27H"
+        self.DELAY_FOR_REATTEMPTS = 6
+        self.MAX_NUMBER_OF_REATTEMPTS = 15
+        self.DELAY_FOR_INITIAL_ATTEMPT = 20
+        self.WINDOW_SLACK = 60
 
         # Add an extra attempt to prevent the last attempt not being able to finish.
         self.fm_max_seconds_between_schedules = \
             self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1) + self.DELAY_FOR_INITIAL_ATTEMPT
+
+        await self.initialise_fm_settings()
+
+        # Ping every half hour. If offline a separate process will run to increase polling frequency.
+        self.connection_error_counter = 0
+        self.run_every(self.ping_server, "now", 30 * 60)
+        self.handle_for_repeater = ""
+        self.listen_event(self.initialise_fm_settings, "TEST_FM_CONNECTION")
+        self.log("Completed initializing FlexMeasuresClient")
+
+    async def initialise_fm_settings(self, event=None, data=None, kwargs=None):
+        self.log("initialise_fm_settings called")
+        keep_alive = {"keep_alive": await self.get_now()}
+        await self.set_state("input_text.fm_connection_status", state="Testing connection...", attributes=keep_alive)
+        base_url = c.FM_SCHEDULE_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
+        self.FM_URL = base_url + c.FM_SCHEDULE_SLUG
+        self.FM_TRIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
 
         if c.OPTIMISATION_MODE == "price":
             self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
@@ -86,14 +96,14 @@ class FlexMeasuresClient(hass.Hass):
             self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
                                             "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID}
         # self.log(f"Optimisation context: {self.FM_OPTIMISATION_CONTEXT}")
-        self.authenticate_with_fm()
-
-        # Ping every half hour. If offline a separate process will run to increase polling frequency.
-        self.connection_error_counter = 0
-        self.run_every(self.ping_server, "now", 30 * 60)
-        self.handle_for_repeater = ""
-
-        self.log("Completed initializing FlexMeasuresClient")
+        res = self.authenticate_with_fm()
+        now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
+        self.log(f"initialise_fm_settings, {res}, {now}.")
+        if res:
+            message = "Success!"
+        else:
+            message = "Failed to connect and login"
+        await self.set_state("input_text.fm_connection_status", state=message, attributes=keep_alive)
 
     async def ping_server(self, *args):
         """ Ping function to check if server is alive """
@@ -127,14 +137,28 @@ class FlexMeasuresClient(hass.Hass):
         res = requests.post(
             url,
             json=dict(
-                email=self.FM_USER_EMAIL,
-                password=self.FM_USER_PASSWORD,
+                email=c.FM_ACCOUNT_USERNAME,
+                password=c.FM_ACCOUNT_PASSWORD,
             ),
         )
-        self.check_deprecation_and_sunset(url, res)
+        now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
         if not res.status_code == 200:
             self.log_failed_response(res, url)
-        self.fm_token = res.json()["auth_token"]
+            message = f"Failed to connect/login at {now}."
+            self.set_state("input_text.fm_connection_status", state=message)
+            return False
+        json_response = res.json()
+        if json_response is None:
+            self.log(f"Authenticating failed, no valid json response.")
+            return False
+
+        self.fm_token = json_response.get("auth_token", None)
+        if self.fm_token is None:
+            self.log(f"Authenticating failed, no auth_token in json response: '{json_response}'.")
+            return False
+        message = f"Successful connect+login at {now}"
+        self.set_state("input_text.fm_connection_status", state=message)
+        return True
 
     def log_failed_response(self, res, endpoint: str):
         """Log failed response for a given endpoint."""
@@ -163,7 +187,8 @@ class FlexMeasuresClient(hass.Hass):
                     message += f" Link for further info: {content}"
             self.log(message)
 
-    async def get_new_schedule(self, target_soc_kwh: float, target_datetime: datetime, current_soc_kwh: float, back_to_max_soc: datetime):
+    async def get_new_schedule(self, target_soc_kwh: float, target_datetime: datetime, current_soc_kwh: float,
+                               back_to_max_soc: datetime):
         """Get a new schedule from FlexMeasures.
            But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
@@ -175,10 +200,10 @@ class FlexMeasuresClient(hass.Hass):
         """
         # self.log(f"get_new_schedule called with car_soc: {current_soc_kwh}kWh ({type(current_soc_kwh)}, back_to_max:  {back_to_max_soc} ({type(back_to_max_soc)}.")
 
-        now = datetime.now(tz=self.TZ)
+        now = datetime.now(tz=c.TZ)
         self.log(f"get_new_schedule: nu = {now.isoformat()}, ({type(now)}).")
         if self.fm_busy_getting_schedule:
-            self.log(f"get_new_schedule self.fm_date_time_last_schedule = {self.fm_date_time_last_schedule.isoformat()}, ({type(self.fm_date_time_last_schedule)}).")
+            self.log(f"get_new_schedule self.fm_date_time_last_schedule {self.fm_date_time_last_schedule.isoformat()}.")
             seconds_since_last_schedule = int((now - self.fm_date_time_last_schedule).total_seconds())
             if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
                 self.log(f"Retrieving previous schedule is taking too long ({seconds_since_last_schedule} sec.),"
@@ -261,7 +286,7 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_busy_getting_schedule = False
         await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
 
-        self.fm_date_time_last_schedule = datetime.now(tz=self.TZ)
+        self.fm_date_time_last_schedule = datetime.now(tz=c.TZ)
         self.log(f"get_schedule: self.fm_date_time_last_schedule set to now,"
                  f" {self.fm_date_time_last_schedule.isoformat()}, ({type(self.fm_date_time_last_schedule)}).")
 
@@ -284,8 +309,7 @@ class FlexMeasuresClient(hass.Hass):
         target_datetime = fnc_kwargs["target_datetime"]
         back_to_max_soc = fnc_kwargs["back_to_max_soc"]
         self.log(f"trigger_schedule called with current_soc_kwh: {current_soc_kwh} kWh.")
-        url = self.FM_TIGGER_URL
-
+        url = self.FM_TRIGGER_URL
 
         resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         start_relaxation_window = target_datetime
@@ -294,7 +318,8 @@ class FlexMeasuresClient(hass.Hass):
         # soc_maxima should be sent to allow the schedule to reach a target higher
         # than the CAR_MAX_SOC_IN_KWH.
         if target_soc_kwh > c.CAR_MAX_SOC_IN_KWH:
-            window_duration = math.ceil((target_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
+            window_duration = math.ceil(
+                (target_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
             start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
 
         ######## Setting the soc_maxima ##########
@@ -334,7 +359,7 @@ class FlexMeasuresClient(hass.Hass):
         #
         # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
 
-        now = datetime.now(tz=self.TZ)
+        now = datetime.now(tz=c.TZ)
         rounded_now = time_round(now, resolution)
         soc_maxima = []
 
@@ -347,12 +372,14 @@ class FlexMeasuresClient(hass.Hass):
             back_to_max_soc = fnc_kwargs["back_to_max_soc"]
             if isinstance(back_to_max_soc, datetime):
                 # There is a B2MS
-                minimum_discharge_window = math.ceil((current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_DIS_CHARGE_POWER / 1000) * 60)
-                end_minimum_discharge_window = time_round((rounded_now - timedelta(minutes=minimum_discharge_window)), resolution)
+                minimum_discharge_window = math.ceil(
+                    (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_DISCHARGE_POWER / 1000) * 60)
+                end_minimum_discharge_window = time_round((rounded_now - timedelta(minutes=minimum_discharge_window)),
+                                                          resolution)
                 if end_minimum_discharge_window > back_to_max_soc:
                     # Scenario A.
                     back_to_max_soc = end_minimum_discharge_window
-                
+
                 self.log(f"trigger_schedule, back_to_max_soc: '{back_to_max_soc}'.")
 
                 if back_to_max_soc >= start_relaxation_window:
@@ -361,9 +388,11 @@ class FlexMeasuresClient(hass.Hass):
                         {
                             "value": current_soc_kwh,
                             "datetime": dt.isoformat(),
-                        } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution) ]
+                        } for dt in [rounded_now + x * resolution for x in
+                                     range(0, (start_relaxation_window - rounded_now) // resolution)]
                     ]
-                    self.log("Strategy for soc_maxima: Maxima current_soc until Start of relaxation window (Scenario 2).")
+                    self.log(
+                        "Strategy for soc_maxima: Maxima current_soc until Start of relaxation window (Scenario 2).")
                 else:
                     # Scenario 1.
                     soc_maxima_higher_max_soc = []
@@ -380,19 +409,23 @@ class FlexMeasuresClient(hass.Hass):
                         {
                             "value": c.CAR_MAX_SOC_IN_KWH,
                             "datetime": dt.isoformat(),
-                        } for dt in [back_to_max_soc + x * resolution for x in range(0, (start_relaxation_window - back_to_max_soc) // resolution) ]
+                        } for dt in [back_to_max_soc + x * resolution for x in
+                                     range(0, (start_relaxation_window - back_to_max_soc) // resolution)]
                     ]
                     soc_maxima = soc_maxima_higher_max_soc + soc_maxima_original_max_soc
-                    self.log(f"Strategy for soc_maxima: Gradually decrease SoC to reach {c.CAR_MAX_SOC_IN_KWH}kWh (Scenario 1).")
+                    self.log(
+                        f"Strategy for soc_maxima: Gradually decrease SoC to reach {c.CAR_MAX_SOC_IN_KWH}kWh (Scenario 1).")
             else:
                 # Scenario 0.
                 soc_maxima = [
                     {
                         "value": c.CAR_MAX_SOC_IN_KWH,
                         "datetime": dt.isoformat(),
-                    } for dt in [rounded_now + x * resolution for x in range(0, (start_relaxation_window - rounded_now) // resolution) ]
+                    } for dt in [rounded_now + x * resolution for x in
+                                 range(0, (start_relaxation_window - rounded_now) // resolution)]
                 ]
-                self.log(f"Strategy for soc_maxima: Maxima CAR_MAX_SOC_IN_KWH until Start of relaxation window (Scenario 0).")
+                self.log(
+                    f"Strategy for soc_maxima: Maxima CAR_MAX_SOC_IN_KWH until Start of relaxation window (Scenario 0).")
 
         message = {
             "start": rounded_now.isoformat(),
@@ -408,7 +441,7 @@ class FlexMeasuresClient(hass.Hass):
                     }
                 ],
                 "soc-maxima": soc_maxima,
-                "roundtrip-efficiency": c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+                "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
                 "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
             },
             "flex-context": self.FM_OPTIMISATION_CONTEXT,

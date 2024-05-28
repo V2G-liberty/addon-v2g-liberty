@@ -50,6 +50,12 @@ completed steps 1 to 7, if so, skip them.
 7. The add-on page opens, click the `Install` button to install the add-on. This might take 
    quite a while as several files have to be copied.
 8. Consider activating `Watch dog` and `Automatic update`.
+9. Click `Start` to get the V2G Liberty add-on going.<br>
+   Have a look at the logs (most right tab on top of the page) to see if all went well.
+   The last line should say something like:
+
+   `s6-rc: info: service legacy-services successfully started`.
+
 
 Now the add-on needs to be configured before finishing the installation.
 
@@ -57,16 +63,12 @@ Now the add-on needs to be configured before finishing the installation.
 ## Configuration
 
 If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally 
-skip these configuration steps.
+skip the configuration steps.
 
-You'll need to edit some .yaml files, here we use the File Editor add-on, you can use an other one if you prefer.
+You'll need to edit some .yaml files, here we use the File Editor add-on, you can use another one if you prefer.
 
 1. Start the File Editor add-on `settings > add-ons > File Editor`. 
-2. The V2G Liberty add-on has copied two example files to the Home Assistant config root folder:<br>
-   `v2g_liberty_example_configuration.yaml` and `v2g_liberty_example_secrets.yaml`.<br>
-   These should be visible in the File Editor.
-3. Open `v2g_liberty_example_configuration.yaml` with the File Editor and copy the content (you can 
-   copy from here as well):
+2. Open `v2g_liberty_example_configuration.yaml` and paste this text:
    ```yaml
    homeassistant:
      packages:
@@ -75,50 +77,21 @@ You'll need to edit some .yaml files, here we use the File Editor add-on, you ca
    # Loads default set of integrations. Do not remove.
    default_config:
    ```
-   Now open the original `configuration.yaml` and paste the text:
     - If there is a section `homeassistant:` already, just add the lines `packages: ... .yaml` in there.
     - If there is a section `default_config:` already, leave it unchanged.
 
    Don't forget to save your changes.
 
-   You can now safely delete the `v2g_liberty_example_configuration.yaml` file to prevent mistakes in the future.
-4. The actual settings for the configuration are done in the `secrets.yaml` file.
-
-   Open `v2g_liberty_example_secrets.yaml` in File Editor and copy all text.
-
-   Now open the original `secrets.yaml` and paste the text. If there is text in this file more already,
-   just add the copied text underneath.
-
-5. Now please read the entire file very carefully! Take your time!
-
-   Alter all entries indicated with `## ALWAYS CHANGE ##` to you needs. All documentation on what to enter
-   is conveniently added in the file.
-
-   Also check the sections marked with `## ALWAYS CHECK / SOME TIMES CHANGE ##` to see if you would like to 
-   make changes.
-
-   Don't forget to save your changes.
-
-   You can now safely delete the `v2g_liberty_example_secrets.yaml` file to prevent mistakes in the future.
-6. Finally, restart Home Assistant by going to `settings > system` and in the top 
+3. Now restart Home Assistant by going to `settings > system` and in the top 
    right click the top right ⏼ menu and select `Restart Home Assistant`.
 
-   When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible.
-
-
-## Finish the installation
-
-1. Now again go to `settings > add-ons > V2G Liberty` and start V2G Liberty add-on by clicking the `Start` button.
-2. Have a look at the logs (most right tab on top of the page) to see if all went well.
-   The last line should say something like:
-
-   `s6-rc: info: service legacy-services successfully started`.
-
-This is the basic installation, you are ready to use the app!
+4. When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible, open this by clicking it.
+5. The UI shows but more configuration is needed, so go to the settings tab. 
+6. Review all sections of the page and complete the requested information as necessary.
 
 ## Tips & tricks
 
-Here some tips and tricks to make your V2G life even more enjoyable!
+Make your V2G life even more enjoyable!
 These are "out of the box" super handy Home Assistant features. These settings are optional but highly recommended.
 
 
