@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-04-28 Configuration via UI instead of secrets.yaml
-V2G_LIBERTY_VERSION: str = "0.1.0"
+# Date 2024-05-31 Minor update in documentation and this version number was incorrect
+V2G_LIBERTY_VERSION: str = "0.1.2"
 
 # For showing dates in UI
 DATE_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"

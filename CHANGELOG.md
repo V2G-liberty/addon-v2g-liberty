@@ -24,6 +24,28 @@ This section shows what the next release might include.
 
 
 
+## 0.1.2 - 2024-05-31
+
+### Added
+
+- Instructions for editing `secrets.yaml` to the docs.md file.
+- Corrected versionnumber in UI.
+
+
+### Fixed
+
+- None 
+
+### Changed
+
+- None
+
+### Removed
+
+- None
+
+
+
 ## 0.1.1 - 2024-05-28
 
 ### Added
