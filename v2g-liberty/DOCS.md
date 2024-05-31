@@ -50,25 +50,41 @@ completed steps 1 to 7, if so, skip them.
 7. The add-on page opens, click the `Install` button to install the add-on. This might take 
    quite a while as several files have to be copied.
 8. Consider activating `Watch dog` and `Automatic update`.
-9. Click `Start` to get the V2G Liberty add-on going.<br>
+
+Before proceeding to start the add-on a little more configuration is needed. You'll need to edit two .yaml files. For this guide we use the File Editor add-on, you can use another one if you prefer.
+
+9. The Start the File Editor add-on `settings > add-ons > File Editor`.
+10. Open `secrets.yaml` and add this text and edit the location, elevation and timezone settings:
+       ```yaml
+        #############   V2G LIBERTY CONFIGURATION  #############
+        # Provide the coordinates of your location.
+        # E.g. for the Netherlands typical values are: lat. 52.xxxxxx,  lon. 4.xxxxxx
+        ha_latitude: 0
+        ha_longitude: 0
+        
+        # Elevation in meters
+        ha_elevation: 0
+        
+        # Provide your timezone, e.g. Europe/Amsterdam, Europe/Greenwich, Australia/Sidney
+        ha_time_zone: Europe/Amsterdam
+        ```
+11. Click `Start` to get the V2G Liberty add-on going.<br>
    Have a look at the logs (most right tab on top of the page) to see if all went well.
    The last line should say something like:
 
    `s6-rc: info: service legacy-services successfully started`.
 
 
-Now the add-on needs to be configured before finishing the installation.
+Now you can move on to the last part: the configuration.
 
 
 ## Configuration
 
-If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally 
-skip the configuration steps.
+If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally skip steps 1 to 4.
 
-You'll need to edit some .yaml files, here we use the File Editor add-on, you can use another one if you prefer.
 
-1. Start the File Editor add-on `settings > add-ons > File Editor`. 
-2. Open `v2g_liberty_example_configuration.yaml` and paste this text:
+1. Go to the File Editor add-on `settings > add-ons > File Editor`. 
+2. Open `configuration.yaml` and add this text:
    ```yaml
    homeassistant:
      packages:
@@ -77,17 +93,19 @@ You'll need to edit some .yaml files, here we use the File Editor add-on, you ca
    # Loads default set of integrations. Do not remove.
    default_config:
    ```
-    - If there is a section `homeassistant:` already, just add the lines `packages: ... .yaml` in there.
-    - If there is a section `default_config:` already, leave it unchanged.
+    - If there is a section `homeassistant` already, just add the lines `packages: ... .yaml` in there.
+    - If there is a section `default_config` already, leave it unchanged.
 
    Don't forget to save your changes.
 
 3. Now restart Home Assistant by going to `settings > system` and in the top 
    right click the top right ⏼ menu and select `Restart Home Assistant`.
-
 4. When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible, open this by clicking it.
-5. The UI shows but more configuration is needed, so go to the settings tab. 
-6. Review all sections of the page and complete the requested information as necessary.
+5. Now go to the settings tab. 
+6. Review all sections of the page and complete the requested information as necessary*.
+
+*&nbsp;Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un touched.
+
 
 ## Tips & tricks
 

@@ -11,10 +11,6 @@ appdaemon:
     HASS:
       type: hass
 
-# Setting logging is optional but useful. The software is in use for quite some
-# time but not bullet-proof yet. So every now and then you'll need to see what
-# happened.
-# Make sure the "log" folder is created.
 logs:
   main_log:
     filename: /config/logs/appdaemon_main.log
