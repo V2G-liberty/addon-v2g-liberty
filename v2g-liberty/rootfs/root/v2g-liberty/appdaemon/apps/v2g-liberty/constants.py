@@ -1,7 +1,8 @@
 ### V2G Liberty constants ###
 
-# Date 2024-05-31 Minor update in documentation and this version number was incorrect
-V2G_LIBERTY_VERSION: str = "0.1.2"
+# Date 2024-06-03 Bug fix #19 SoC not updated in UI.
+V2G_LIBERTY_VERSION: str = "0.1.3"
+# TODO: Get version number from the add-on itself.
 
 # For showing dates in UI
 DATE_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"

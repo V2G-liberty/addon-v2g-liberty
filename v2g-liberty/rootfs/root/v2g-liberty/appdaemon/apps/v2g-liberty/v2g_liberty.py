@@ -745,6 +745,11 @@ class V2Gliberty(hass.Hass):
             self.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
+
+        # Cleaned_up SoC value for UI
+        # TODO: This is no longer needed, use input_number.charger_connected_car_state_of_charge in UI.
+        self.set_value("input_number.car_state_of_charge", self.connected_car_soc)
+
         self.connected_car_soc_kwh = round(reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
         remaining_range = int(round((self.connected_car_soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
         self.set_value("input_number.car_remaining_range", remaining_range)
