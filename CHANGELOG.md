@@ -24,6 +24,27 @@ This section shows what the next release might include.
 
 
 
+## 0.1.3 - 2024-06-03
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Bug fix: SoC does not get updated in UI (#19)
+
+### Changed
+
+- None
+
+### Removed
+
+- None
+
+
+
 ## 0.1.2 - 2024-05-31
 
 ### Added
