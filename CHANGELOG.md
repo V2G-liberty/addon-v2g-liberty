@@ -24,6 +24,30 @@ This section shows what the next release might include.
 
 
 
+## 0.1.4 - 2024-06-03
+
+### Added
+
+- Added nl_greenchoice to the list of possible energy providers.
+
+
+### Fixed
+
+- Bug fix: SoC above 100% (#21) due to wrong roundtrip efficiency (85 instead of 0.85)
+- Bug: Energy provider and optimisation mode not changing in UI when setting have changed (a restart was needed)
+- Bug: An empty settings file lead to errors and crashed V2G Liberty. Made more robust.
+- Bug: If no devices are registered for notifications, V2G Liberty stopped initialising.
+
+### Changed
+
+- Documentation on URL changed flexmeasures.seita.nl to seita.energy
+
+### Removed
+
+- None
+
+
+
 ## 0.1.3 - 2024-06-03
 
 ### Added

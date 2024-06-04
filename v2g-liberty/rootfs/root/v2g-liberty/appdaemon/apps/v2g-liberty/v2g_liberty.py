@@ -75,10 +75,8 @@ class V2Gliberty(hass.Hass):
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
 
-        # Show the settings in the UI
+        # Show the version in the UI
         self.set_textvalue("input_text.v2g_liberty_version", c.V2G_LIBERTY_VERSION)
-        self.set_textvalue("input_text.optimisation_mode", c.OPTIMISATION_MODE)
-        self.set_textvalue("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
 
         self.in_boost_to_reach_min_soc = False
         self.timer_handle_set_next_action = ""
@@ -129,13 +127,21 @@ class V2Gliberty(hass.Hass):
 
         current_soc = await self.get_state("sensor.charger_connected_car_state_of_charge")
         await self.__process_soc(current_soc)
-        await self.set_next_action(v2g_args="initialise")  # on initializing the app
+
+        await self.initialise_v2g_liberty(v2g_args="initialise")
 
         self.log("Completed Initializing V2Gliberty")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
+
+    async def initialise_v2g_liberty(self, v2g_args=None):
+        # Show the settings in the UI
+        self.set_textvalue("input_text.optimisation_mode", c.OPTIMISATION_MODE)
+        self.set_textvalue("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
+        await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
+
 
     def notify_user(self,
                       message: str,
@@ -156,12 +162,16 @@ class V2Gliberty(hass.Hass):
             When a new call to this function with the same tag is made, the previous message will be overwritten
             if it still exists.
         """
+        if c.ADMIN_MOBILE_NAME == "":
+            self.log("notify_user: No registered devices to notify, cancel notification.")
+            return
+
+        # All notifications always get sent to admin
+        to_notify = [c.ADMIN_MOBILE_NAME]
 
         # Use abbreviation to make more room for title itself.
         title = "V2G-L: " + title if title else "V2G Liberty"
 
-        # All notifications always get sent to admin
-        to_notify = [c.ADMIN_MOBILE_NAME]
         notification_data = {}
 
         # critical trumps send_to_all
@@ -666,10 +676,17 @@ class V2Gliberty(hass.Hass):
         await self.__reset_charging_timers(handles)
         # self.log(f"{len(handles)} charging timers set.")
 
-        exp_soc_values = list(accumulate([self.connected_car_soc] + convert_MW_to_percentage_points(values,
-                                                                                                    resolution,
-                                                                                                    c.CAR_MAX_CAPACITY_IN_KWH,
-                                                                                                    c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY)))
+        exp_soc_values = list(
+            accumulate(
+                [self.connected_car_soc] + convert_MW_to_percentage_points(
+                    values,
+                    resolution,
+                    c.CAR_MAX_CAPACITY_IN_KWH,
+                    c.ROUNDTRIP_EFFICIENCY_FACTOR
+                )
+            )
+        )
+
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
                                                    zip(exp_soc_values, exp_soc_datetimes)]

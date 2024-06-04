@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-03 Bug fix #19 SoC not updated in UI.
-V2G_LIBERTY_VERSION: str = "0.1.3"
+# Date 2024-06-03 Bug fix #21 SoC prognosis above 100%
+V2G_LIBERTY_VERSION: str = "0.1.4"
 # TODO: Get version number from the add-on itself.
 
 # For showing dates in UI
@@ -76,6 +76,7 @@ FM_SET_DATA_URL: str = ""
 DEFAULT_UTILITY_CONTEXTS = {
     "nl_generic": {"consumption-sensor": 14, "production-sensor": 14, "emissions-sensor": 27, "display-name": "EPEX Day ahead NL"},
     "nl_anwb_energie": {"consumption-sensor": 60, "production-sensor": 71, "emissions-sensor": 27, "display-name": "ANWB Energie"},
+    "nl_greenchoice": {"consumption-sensor": 129, "production-sensor": 130, "emissions-sensor": 27, "display-name": "Greenchoice"},
     "nl_next_energy": {"consumption-sensor": 90, "production-sensor": 91, "emissions-sensor": 27, "display-name": "NextEnergy"},
     "nl_tibber": {"consumption-sensor": 58, "production-sensor": 70, "emissions-sensor": 27, "display-name": "Tibber"},
     "no_generic": {"consumption-sensor": 14, "production-sensor": 14, "emissions-sensor": 27,  "display-name": "EPEX Day ahead NO"}

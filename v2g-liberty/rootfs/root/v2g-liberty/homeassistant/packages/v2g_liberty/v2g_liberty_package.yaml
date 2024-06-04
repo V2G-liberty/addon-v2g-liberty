@@ -65,6 +65,7 @@ input_select:
     options:
       - nl_generic
       - nl_anwb_energie
+      - nl_greenchoice
       - nl_next_energy
       - nl_tibber
       - no_generic
