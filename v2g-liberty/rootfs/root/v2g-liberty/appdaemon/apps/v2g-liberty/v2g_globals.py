@@ -298,11 +298,12 @@ class V2GLibertyGlobals(hass.Hass):
         self.log("__kick_off_settings called")
         # To be called from initialise or restart event
         await self.__retrieve_settings()
+        # TODO: Add a listener for changes in registered devices?
         await self.__initialise_devices()
         await self.__read_and_process_charger_settings()
+        await self.__read_and_process_fm_client_settings()
         await self.__read_and_process_notification_settings()
         await self.__read_and_process_calendar_settings()
-        await self.__read_and_process_fm_client_settings()
         await self.__read_and_process_general_settings()
 
     async def __reset_to_factory_defaults(self, event=None, data=None, kwargs=None):
@@ -314,7 +315,7 @@ class V2GLibertyGlobals(hass.Hass):
 
     async def __select_option(self, entity_id: str, option: str):
         """Helper function to select an option in an input_select. It should be used instead of self.select_option.
-           It overcomes the problem whereby the an error is raised if the option is not available.
+           It overcomes the problem whereby an error is raised if the option is not available.
            This sometimes kills the (web) server.
 
         Args:
@@ -494,7 +495,7 @@ class V2GLibertyGlobals(hass.Hass):
             message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant " \
                       f"for notifications.<br/>" \
                       f"It is highly recommended to do so. Please install the HA companion app on your mobile device " \
-                      f"and connect it to Home Assistant.<br/>"
+                      f"and connect it to Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
             self.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
             await self.create_persistent_notification(
@@ -527,21 +528,30 @@ class V2GLibertyGlobals(hass.Hass):
         """
         self.log(f"__retrieve_settings called")
 
-        str_dict = ""
         if not os.path.exists(self.settings_file_path):
-            # self.log(f"__retrieve_settings, create settings file")
-            with open(self.settings_file_path, 'w') as file:
-                file.write("{}")
-        else:
-            with open(self.settings_file_path, 'r') as file:
-                str_dict = json.load(file)
-            # self.log(f"__retrieve_settings, str_list: {str_dict}")
-        if str_dict is None or str_dict == "":
+            self.log(f"__retrieve_settings, no settings file found: creating")
             self.v2g_settings = {}
+            str_dict = json.dumps(self.v2g_settings)
+            self.__write_to_file(str_dict)
         else:
-            self.v2g_settings = json.loads(str_dict)
+            try:
+                with open(self.settings_file_path, 'r') as file:
+                    file_content = file.read()
+                    if not file_content.strip():
+                        # file is empty
+                        self.v2g_settings = {}
+                    else:
+                        loaded_json = json.loads(file_content)
+                        if isinstance(loaded_json, dict):
+                            self.v2g_settings = loaded_json
+                        else:
+                            self.log(f"__retrieve_settings, Error: Expected a dictionary, but got {type(loaded_json)}")
+                            self.v2g_settings = {}
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                self.log(f"__retrieve_settings, Error reading settings file: {e}")
+                self.v2g_settings = {}
 
-        # self.log(f"__retrieve_settings, self.v2g_settings: {self.v2g_settings}")
+        self.log(f"__retrieve_settings, self.v2g_settings: {self.v2g_settings}")
 
     async def __store_setting(self, entity_id: str, setting_value: any):
         """Store (overwrite or create) a setting in settings file.
@@ -786,20 +796,24 @@ class V2GLibertyGlobals(hass.Hass):
                                                        kwargs=None):
         callback_method = self.__read_and_process_notification_settings
 
-        c.ADMIN_MOBILE_NAME = await self.__process_setting(
-            setting_object=self.SETTING_ADMIN_MOBILE_NAME,
-            callback=callback_method
-        )
-        if c.ADMIN_MOBILE_NAME not in c.NOTIFICATION_RECIPIENTS:
-            message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not a registered.<br/>" \
-                      f"Please go to the settings view and choose one from the list."
-            self.log(f"Configuration error: {message}.")
-            # TODO: Research if showing this only to admin users is possible.
-            await self.create_persistent_notification(
-                title="Configuration error",
-                message=message,
-                notification_id="notification_config_error_no_admin"
+        if len(c.NOTIFICATION_RECIPIENTS) == 0:
+            # Persistent notification is set bij __init_devices
+            c.ADMIN_MOBILE_NAME = ""
+        else:
+            c.ADMIN_MOBILE_NAME = await self.__process_setting(
+                setting_object=self.SETTING_ADMIN_MOBILE_NAME,
+                callback=callback_method
             )
+            if c.ADMIN_MOBILE_NAME not in c.NOTIFICATION_RECIPIENTS:
+                message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not a registered.<br/>" \
+                          f"Please go to the settings view and choose one from the list."
+                self.log(f"Configuration error: {message}.")
+                # TODO: Research if showing this only to admin users is possible.
+                await self.create_persistent_notification(
+                    title="Configuration error",
+                    message=message,
+                    notification_id="notification_config_error_no_admin"
+                )
             c.ADMIN_MOBILE_NAME = c.NOTIFICATION_RECIPIENTS[0]
 
         c.ADMIN_MOBILE_PLATFORM = await self.__process_setting(
@@ -914,29 +928,29 @@ class V2GLibertyGlobals(hass.Hass):
         c.FM_BASE_API_URL = c.FM_BASE_URL + "/api/"
 
         # URL for checking if API is alive
-        # https://flexmeasures.seita.nl/api/ops/ping
+        # https://seita.energy/api/ops/ping
         c.FM_PING_URL = c.FM_BASE_API_URL + "ops/ping"
 
         # URL for authentication on FM
-        # https://flexmeasures.seita.nl/api/requestAuthToken
+        # https://seita.energy/api/requestAuthToken
         c.FM_AUTHENTICATION_URL = c.FM_BASE_API_URL + "requestAuthToken"
 
         # URL for retrieval of the schedules
-        # https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/trigger
-        # https://flexmeasures.seita.nl/api/v3_0/sensors/XX/schedules/SI
+        # https://seita.energy/api/v3_0/sensors/XX/schedules/trigger
+        # https://seita.energy/api/v3_0/sensors/XX/schedules/SI
         # Where XX is the sensor_id and SI is the schedule_id
         c.FM_SCHEDULE_URL = c.FM_BASE_API_URL + c.FM_API_VERSION + "/sensors/"
         c.FM_SCHEDULE_SLUG = "/schedules/"
         c.FM_SCHEDULE_TRIGGER_SLUG = c.FM_SCHEDULE_SLUG + "trigger"
 
         # URL for getting data for the chart:
-        # https://flexmeasures.seita.nl/api/dev/sensor/XX/chart_data/
+        # https://seita.energy/api/dev/sensor/XX/chart_data/
         # Where XX is the sensor_id
         c.FM_GET_DATA_URL = c.FM_BASE_API_URL + "dev/sensor/"
         c.FM_GET_DATA_SLUG = "/chart_data/"
 
         # URL for sending metering data to FM:
-        # https://flexmeasures.seita.nl/api/v3_0/sensors/data
+        # https://seita.energy/api/v3_0/sensors/data
         c.FM_SET_DATA_URL = c.FM_BASE_API_URL + c.FM_API_VERSION + "/sensors/data"
 
         c.FM_ACCOUNT_POWER_SENSOR_ID = await self.__process_setting(
@@ -1033,7 +1047,7 @@ class V2GLibertyGlobals(hass.Hass):
         await self.fm_client.initialise_fm_settings()
         await self.evse_client.initialise_charger(v2g_args="changed settings")
         await self.calendar_client.initialise_calendar()
-        await self.v2g_main_app.set_next_action(v2g_args="changed settings")
+        await self.v2g_main_app.initialise_v2g_liberty(v2g_args="changed settings")
 
     async def process_max_power_settings(self, min_acceptable_charge_power: int, max_available_charge_power: int):
         """To be called from modbus_evse_client to check if setting in the charger
