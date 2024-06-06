@@ -12,7 +12,7 @@ This section shows what the next release might include.
 
 ### Adding
 
-- ?
+- Hopefully add ping to server again. Needs research.
 
 ### Changing
 
@@ -21,6 +21,27 @@ This section shows what the next release might include.
 ### Removing
 
 - ?
+
+
+
+## 0.1.6 - 2024-06-06
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Bug: Reset to factory defaults (#28).  
+
+### Changed
+
+- None
+
+### Removed
+
+- (Temporarily) removed ping to flexmeasures as it seems to overload the client is some cases. Needs research
 
 
 

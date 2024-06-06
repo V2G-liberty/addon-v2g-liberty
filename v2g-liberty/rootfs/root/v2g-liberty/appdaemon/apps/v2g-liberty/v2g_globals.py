@@ -310,7 +310,7 @@ class V2GLibertyGlobals(hass.Hass):
         """Reset to factory defaults by emptying the settings file"""
         self.log("__reset_to_factory_defaults called")
         self.v2g_settings.clear()
-        self.__write_to_file(str_dict="")
+        self.__write_to_file(self.v2g_settings)
         await self.call_service("homeassistant/restart")
 
     async def __select_option(self, entity_id: str, option: str):
