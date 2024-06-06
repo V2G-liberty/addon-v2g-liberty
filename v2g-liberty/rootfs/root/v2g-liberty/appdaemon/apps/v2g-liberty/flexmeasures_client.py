@@ -75,7 +75,7 @@ class FlexMeasuresClient(hass.Hass):
 
         # Ping every half hour. If offline a separate process will run to increase polling frequency.
         self.connection_error_counter = 0
-        self.run_every(self.ping_server, "now", 30 * 60)
+        # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
         self.listen_event(self.initialise_fm_settings, "TEST_FM_CONNECTION")
         self.log("Completed initializing FlexMeasuresClient")
@@ -105,24 +105,24 @@ class FlexMeasuresClient(hass.Hass):
             message = "Failed to connect and login"
         await self.set_state("input_text.fm_connection_status", state=message, attributes=keep_alive)
 
-    async def ping_server(self, *args):
-        """ Ping function to check if server is alive """
-        res = requests.get(c.FM_PING_URL)
-        if res.status_code == 200:
-            if self.connection_error_counter > 0:
-                # There was an error before as the counter > 0
-                # So a timer must be running, but it is not needed any more, so cancel it.
-                await self.cancel_timer(self.handle_for_repeater, True)
-                await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", False)
-            self.connection_error_counter = 0
-        else:
-            self.connection_error_counter += 1
-
-        if self.connection_error_counter == 1:
-            # A first error occurred, retry in every minute now
-            self.handle_for_repeater = self.run_every(self.ping_server, "now+60", 60)
-            self.log("No communication with FM! Increase tracking frequency.")
-            await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", True)
+    # async def ping_server(self, *args):
+        # """ Ping function to check if server is alive """
+        # res = requests.get(c.FM_PING_URL)
+        # if res.status_code == 200:
+        #     if self.connection_error_counter > 0:
+        #         # There was an error before as the counter > 0
+        #         # So a timer must be running, but it is not needed any more, so cancel it.
+        #         await self.cancel_timer(self.handle_for_repeater, True)
+        #         await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", False)
+        #     self.connection_error_counter = 0
+        # else:
+        #     self.connection_error_counter += 1
+        #
+        # if self.connection_error_counter == 1:
+        #     # A first error occurred, retry in every minute now
+        #     self.handle_for_repeater = self.run_every(self.ping_server, "now+60", 60)
+        #     self.log("No communication with FM! Increase tracking frequency.")
+        #     await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", True)
 
     def authenticate_with_fm(self):
         """Authenticate with the FlexMeasures server and store the returned auth token.
