@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-03 Bug fix #21 SoC prognosis above 100%
-V2G_LIBERTY_VERSION: str = "0.1.4"
+# Date 2024-06-03 Bug fix #25 Sometimes settings get lost
+V2G_LIBERTY_VERSION: str = "0.1.5"
 # TODO: Get version number from the add-on itself.
 
 # For showing dates in UI

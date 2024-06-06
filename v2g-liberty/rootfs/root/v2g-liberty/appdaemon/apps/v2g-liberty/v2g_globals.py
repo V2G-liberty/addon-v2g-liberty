@@ -531,22 +531,13 @@ class V2GLibertyGlobals(hass.Hass):
         if not os.path.exists(self.settings_file_path):
             self.log(f"__retrieve_settings, no settings file found: creating")
             self.v2g_settings = {}
-            str_dict = json.dumps(self.v2g_settings)
-            self.__write_to_file(str_dict)
+            self.__write_to_file(self.v2g_settings)
         else:
             try:
-                with open(self.settings_file_path, 'r') as file:
-                    file_content = file.read()
-                    if not file_content.strip():
-                        # file is empty
-                        self.v2g_settings = {}
-                    else:
-                        loaded_json = json.loads(file_content)
-                        if isinstance(loaded_json, dict):
-                            self.v2g_settings = loaded_json
-                        else:
-                            self.log(f"__retrieve_settings, Error: Expected a dictionary, but got {type(loaded_json)}")
-                            self.v2g_settings = {}
+                with open(self.settings_file_path, 'r') as read_file:
+                    self.v2g_settings = json.load(read_file)
+                    if not isinstance(self.v2g_settings, dict):
+                        self.log(f"__retrieve_settings, loading file content error, no dict: '{self.v2g_settings}'.")
             except (json.JSONDecodeError, FileNotFoundError) as e:
                 self.log(f"__retrieve_settings, Error reading settings file: {e}")
                 self.v2g_settings = {}
@@ -562,14 +553,13 @@ class V2GLibertyGlobals(hass.Hass):
         """
         # self.log(f"__store_setting, entity_id: '{entity_id}' to value '{setting_value}'.")
         self.v2g_settings[entity_id] = setting_value
-        str_dict = json.dumps(self.v2g_settings)
-        self.__write_to_file(str_dict)
+        self.__write_to_file(self.v2g_settings)
 
-    def __write_to_file(self, str_dict):
-        self.log(f"__write_to_file, str_dict: '{str_dict}'.")
+    def __write_to_file(self, settings: dict):
+        self.log(f"__write_to_file, settings: '{settings}'.")
         # TODO: Make async?
         with open(self.settings_file_path, 'w') as write_file:
-            json.dump(str_dict, write_file)
+            json.dump(settings, write_file)
 
     async def __write_setting_to_ha(self, setting: dict, setting_value, min_allowed_value=None, max_allowed_value=None):
         """

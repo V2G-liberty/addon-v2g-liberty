@@ -107,14 +107,12 @@ class FlexMeasuresClient(hass.Hass):
 
     async def ping_server(self, *args):
         """ Ping function to check if server is alive """
-        url = c.FM_PING_URL
-
-        res = requests.get(url)
+        res = requests.get(c.FM_PING_URL)
         if res.status_code == 200:
             if self.connection_error_counter > 0:
                 # There was an error before as the counter > 0
-                # So a timer must be running, but it is not needed anymore, so cancel it.
-                self.cancel_timer(self.handle_for_repeater)
+                # So a timer must be running, but it is not needed any more, so cancel it.
+                await self.cancel_timer(self.handle_for_repeater, True)
                 await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", False)
             self.connection_error_counter = 0
         else:

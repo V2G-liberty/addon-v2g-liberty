@@ -395,17 +395,17 @@ class V2Gliberty(hass.Hass):
             self.no_schedule_errors[error_name] = False
         await self.__notify_no_new_schedule(reset=True)
 
-    async def __cancel_timer(self, timer):
+    async def __cancel_timer(self, timer_id: str):
         """Utility function to silently cancel a timer.
         Born because the "silent" flag in cancel_timer does not work and the
         logs get flooded with un_useful warnings.
 
         Args:
-            timer: timer_handle to cancel
+            timer_id: timer_handle to cancel
         """
-        if self.info_timer(timer):
+        if self.info_timer(timer_id):
             silent = True  # Does not really work
-            await self.cancel_timer(timer, silent)
+            await self.cancel_timer(timer_id, silent)
 
     async def __notify_no_new_schedule(self, reset: Optional[bool] = False):
         """ Check if notification of user about no new schedule available is needed,

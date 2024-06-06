@@ -6,7 +6,7 @@ appdaemon:
   longitude: !secret ha_longitude
   elevation: !secret ha_elevation
   time_zone: !secret ha_time_zone
-  production_mode: False
+  production_mode: True
   plugins:
     HASS:
       type: hass
