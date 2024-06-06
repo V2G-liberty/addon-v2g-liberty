@@ -24,6 +24,28 @@ This section shows what the next release might include.
 
 
 
+## 0.1.5 - 2024-06-06
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Bug: Settings get lost (#25)
+- Bug: flexmeasures ping increased timer was not canceled correctly (no await).  
+
+### Changed
+
+- Set production mode to true in appdaemon.yaml
+
+### Removed
+
+- None
+
+
+
 ## 0.1.4 - 2024-06-03
 
 ### Added

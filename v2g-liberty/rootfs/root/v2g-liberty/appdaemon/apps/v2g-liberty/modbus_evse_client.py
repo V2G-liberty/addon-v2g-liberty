@@ -706,6 +706,7 @@ class ModbusEVSEclient(hass.Hass):
         length = end - start + 1
         results = await self.__modbus_read(address=start, length=length, source="__get_and_process_registers")
         if results is None:
+            self.log(f"__get_and_process_registers: results is None, abort processing.")
             return
         for entity in entities:
             entity_name = f"sensor.{entity['ha_entity_name']}"
@@ -1033,7 +1034,6 @@ class ModbusEVSEclient(hass.Hass):
                 result = await self.client.read_holding_registers(register, count=1, slave=1)
             except ConnectionException as ce:
                 self.log(f"__force_get_register, no connection: ({ce}). Close & open connection to see it this helps..")
-                # TODO: check if client.close() should be awaited..
                 self.client.close()
                 await self.client.connect()
                 pass
@@ -1128,8 +1128,7 @@ class ModbusEVSEclient(hass.Hass):
             # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
             result = await self.client.read_holding_registers(address, length, slave=1)
         except ConnectionException as ce:
-            # The connection exceptions seem to occur after client.read_holding_registers instead of
-            # -as you would expect- after .connect().
+            # The connection exceptions occurs on client.read() instead of -as you would expect- on client.connect().
             # This variable is initiated at -1. At first successful connection this counter is set to 0
             # Until then do not trigger this counter, as most likely the user is still busy configuring
             if self.connection_failure_counter == -1:
@@ -1162,6 +1161,10 @@ class ModbusEVSEclient(hass.Hass):
             raise exc
         self.connection_failure_counter = 0
         self.dtm_connection_failure_since = None
+
+        if result is None:
+            self.log(f"__modbus_read: result is None for address '{address}' and length '{length}'.")
+            return
 
         await self.__disconnect_from_modbus_server(self.WAIT_AFTER_MODBUS_READ_IN_MS / 1000)
 
