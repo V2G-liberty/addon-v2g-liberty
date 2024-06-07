@@ -12,7 +12,7 @@ This section shows what the next release might include.
 
 ### Adding
 
-- Hopefully add ping to server again. Needs research.
+- Hopefully add ping to FM server again. Needs research.
 
 ### Changing
 
@@ -21,6 +21,28 @@ This section shows what the next release might include.
 ### Removing
 
 - ?
+
+
+
+## 0.1.7 - 2024-06-07
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Bug: Integration calendar not populated in settings screen (#27).
+  Temporary fix, removed input select. Only one local calendar is supported now.
+
+### Changed
+
+- None
+
+### Removed
+
+- None
 
 
 

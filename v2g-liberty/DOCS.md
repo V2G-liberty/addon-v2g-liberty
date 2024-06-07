@@ -27,7 +27,8 @@ Before installing or activation of V2G Liberty, please make sure:
  - The charging and discharging with the EV and Quasar charger works properly. Test this with the app supplied with the charger.
  - You have a FlexMeasures account
  - You have an electricity contract with dynamic prices (can be added later)
- - You have an online calendar
+ - You have an online calendar<br/>
+   A local Home Assistant calendar might be an easy way to start. An online (e.g. iCloud, Google) calendar has the benefit that it can be reached from everywhere and is easily shared with others.
 
 For details see [readme on GitHub](https://github.com/V2G-liberty/addon-v2g-liberty?tab=readme-ov-file#Preparation).
 
@@ -55,19 +56,20 @@ Before proceeding to start the add-on a little more configuration is needed. You
 
 9. The Start the File Editor add-on `settings > add-ons > File Editor`.
 10. Open `secrets.yaml` and add this text and edit the location, elevation and timezone settings:
+
        ```yaml
-        #############   V2G LIBERTY CONFIGURATION  #############
-        # Provide the coordinates of your location.
-        # E.g. for the Netherlands typical values are: lat. 52.xxxxxx,  lon. 4.xxxxxx
-        ha_latitude: 0
-        ha_longitude: 0
+       #############   V2G LIBERTY CONFIGURATION  #############
+       # Provide the coordinates of your location.
+       # E.g. for the Netherlands typical values are: lat. 52.xxxxxx,  lon. 4.xxxxxx
+       ha_latitude: 0
+       ha_longitude: 0
+       
+       # Elevation in meters
+       ha_elevation: 0
         
-        # Elevation in meters
-        ha_elevation: 0
-        
-        # Provide your timezone, e.g. Europe/Amsterdam, Europe/Greenwich, Australia/Sidney
-        ha_time_zone: Europe/Amsterdam
-        ```
+       # Provide your timezone, e.g. Europe/Amsterdam, Europe/Greenwich, Australia/Sidney
+       ha_time_zone: Europe/Amsterdam
+       ```
 11. Click `Start` to get the V2G Liberty add-on going.<br>
    Have a look at the logs (most right tab on top of the page) to see if all went well.
    The last line should say something like:
@@ -85,6 +87,7 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
 
 1. Go to the File Editor add-on `settings > add-ons > File Editor`. 
 2. Open `configuration.yaml` and add this text:
+
    ```yaml
    homeassistant:
      packages:
@@ -93,6 +96,7 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
    # Loads default set of integrations. Do not remove.
    default_config:
    ```
+
     - If there is a section `homeassistant` already, just add the lines `packages: ... .yaml` in there.
     - If there is a section `default_config` already, leave it unchanged.
 
@@ -102,9 +106,8 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
    right click the top right ⏼ menu and select `Restart Home Assistant`.
 4. When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible, open this by clicking it.
 5. Now go to the settings tab. 
-6. Review all sections of the page and complete the requested information as necessary*.
-
-*&nbsp;Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un touched.
+6. Review all sections of the page and complete the requested information as necessary.<br/>
+   Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un touched.
 
 
 ## Tips & tricks
@@ -132,18 +135,6 @@ Select the V2G Liberty dashboard row and click the link "SET AS DEFAULT IN THIS 
 
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!
-
-
-<style>
-  body {
-    max-width: 50em;
-    margin: 4em;
-  }
-  span.sub-text {
-     font-size: 90%;
-     color: #797979;
-  }
-</style>
 
 
 ## Changelog & Releases
@@ -234,3 +225,16 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 [python-packages]: https://pypi.org/
 [releases]: https://github.com/V2G-liberty/addon-v2g-liberty/releases
 [semver]: http://semver.org/spec/v2.0.0.htm
+
+<!--
+<style>
+  body {
+    max-width: 50em;
+    margin: 4em;
+  }
+  span.sub-text {
+     font-size: 90%;
+     color: #797979;
+  }
+</style>
+-->
