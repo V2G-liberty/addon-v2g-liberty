@@ -298,8 +298,9 @@ class V2GLibertyGlobals(hass.Hass):
         self.log("__kick_off_settings called")
         # To be called from initialise or restart event
         await self.__retrieve_settings()
-        # TODO: Add a listener for changes in registered devices?
+        # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
         await self.__initialise_devices()
+        await self.__populate_select_with_local_calendars()
         await self.__read_and_process_charger_settings()
         await self.__read_and_process_fm_client_settings()
         await self.__read_and_process_notification_settings()
@@ -309,7 +310,7 @@ class V2GLibertyGlobals(hass.Hass):
     async def __reset_to_factory_defaults(self, event=None, data=None, kwargs=None):
         """Reset to factory defaults by emptying the settings file"""
         self.log("__reset_to_factory_defaults called")
-        self.v2g_settings.clear()
+        self.v2g_settings = {}
         self.__write_to_file(self.v2g_settings)
         await self.call_service("homeassistant/restart")
 
@@ -327,6 +328,11 @@ class V2GLibertyGlobals(hass.Hass):
         """
 
         self.log(f"__select_option called")
+
+        if option == "Please choose an option":
+            self.log(f"__select_option aborted - to select option is 'Please choose an option'.")
+            return False
+
         if entity_id is None or entity_id[:13] != "input_select.":
             self.log(f"__select_option aborted - entity type is not input_select: '{entity_id[:13]}'.")
             return False
@@ -368,6 +374,7 @@ class V2GLibertyGlobals(hass.Hass):
             return False
 
         current_selected_option = await self.get_state(entity_id, None)
+        self.log(f"__set_select_options - current_selected_option: '{current_selected_option}'.")
         tmp = options.append(current_selected_option)
         # Remove duplicates if there are.
         options = list(set(options))
@@ -375,8 +382,15 @@ class V2GLibertyGlobals(hass.Hass):
         # Set a new list with the old option selected.
         await self.call_service("input_select/set_options", entity_id=entity_id, options=tmp)
 
+        # Just to be sure...
+        pcao = "Please choose an option"
+        if pcao in options:
+            options.remove(pcao)
+
         if selected_option in options:
             so = selected_option
+        elif current_selected_option in options:
+            so = current_selected_option
         else:
             so = options[0]
         # Select the desired option (and not the old one.)
@@ -404,8 +418,21 @@ class V2GLibertyGlobals(hass.Hass):
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected"
         await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
 
-        calendar_names = await self.calendar_client.get_calendar_names()
-        if len(calendar_names) == 0:
+        ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
+        # c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
+        #     setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
+        #     callback=self.__read_and_process_calendar_settings
+        # )
+
+        self.log("Completed __init_integration_calendar")
+
+    async def __populate_select_with_local_calendars(self):
+        self.log("__populate_select_with_local_calendars called")
+        calendar_names = await self.calendar_client.get_ha_calendar_names()
+        # At init this method is always called.
+        # Notify only when the source is actually "Home Assistant integration"
+
+        if len(calendar_names) == 0 and c.CAR_CALENDAR_SOURCE == "Home Assistant integration":
             message = f"No calendars from integration available. " \
                       f"A car reservation calendar is essential for V2G Liberty. " \
                       f"Please arrange for one.<br/>"
@@ -416,16 +443,24 @@ class V2GLibertyGlobals(hass.Hass):
                 message=message,
                 notification_id="calendar_config_error"
             )
-            calendar_names = ["No calenders found"]
 
-        await self.__set_select_options(entity_id="input_select.integration_calendar_entity_name",
-                                        options=calendar_names)
-        c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
-            setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
-            callback=self.__read_and_process_calendar_settings
-        )
+        ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
+        # elif len(calendar_names) == 1:
+        #     # The most likely situation, one local calendar
+        #     await self.__set_select_options(
+        #         entity_id = "input_select.integration_calendar_entity_name",
+        #         options = calendar_names,
+        #         selected_option = calendar_names[0]
+        #     )
+        #     c.INTEGRATION_CALENDAR_ENTITY_NAME = calendar_names[0]
 
-        self.log("Completed __init_integration_calendar")
+        else:
+            ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
+            # await self.__set_select_options(
+            #     entity_id = "input_select.integration_calendar_entity_name",
+            #     options = calendar_names
+            # )
+            c.INTEGRATION_CALENDAR_ENTITY_NAME = calendar_names[0]
 
 
     async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
@@ -451,7 +486,7 @@ class V2GLibertyGlobals(hass.Hass):
 
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
         await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
-        calendar_names = await self.calendar_client.get_calendar_names()
+        calendar_names = await self.calendar_client.get_dav_calendar_names()
         self.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
         if len(calendar_names) == 0:
             message = f"No calendars available on {c.CALENDAR_ACCOUNT_INIT_URL} " \
@@ -556,7 +591,7 @@ class V2GLibertyGlobals(hass.Hass):
         self.__write_to_file(self.v2g_settings)
 
     def __write_to_file(self, settings: dict):
-        self.log(f"__write_to_file, settings: '{settings}'.")
+        # self.log(f"__write_to_file, settings: '{settings}'.")
         # TODO: Make async?
         with open(self.settings_file_path, 'w') as write_file:
             json.dump(settings, write_file)
@@ -861,6 +896,8 @@ class V2GLibertyGlobals(hass.Hass):
             if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
                 await self.__cancel_setting_listener(self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME)
             else:
+                await self.__populate_select_with_local_calendars()
+
                 await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_INIT_URL)
                 await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_USERNAME)
                 await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_PASSWORD)
@@ -887,10 +924,11 @@ class V2GLibertyGlobals(hass.Hass):
             await self.__init_caldav_calendar()
 
         else:
-            c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
-                setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
-                callback=None
-            )  # Callback here is none as it will be set from __init_integration_calendar
+            ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
+            # c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
+            #     setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
+            #     callback=None
+            # )  # Callback here is none as it will be set from __init_integration_calendar
 
             await self.__init_integration_calendar()
 

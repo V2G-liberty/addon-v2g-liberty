@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-03 Bug fix #28 Reset to factory deafaults is broken.
-V2G_LIBERTY_VERSION: str = "0.1.6"
+# Date 2024-06-03 Bug fix #27  BUG: calenders from integration (e.g. Google) not found
+V2G_LIBERTY_VERSION: str = "0.1.7"
 # TODO: Get version number from the add-on itself.
 
 # For showing dates in UI

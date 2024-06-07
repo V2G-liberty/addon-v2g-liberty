@@ -832,24 +832,24 @@ views:
                 z-index: 110;
               }
 
-        - type: conditional
-          conditions:
-            - entity: input_select.car_calendar_source
-              state: 'Home Assistant integration'
-          card:
-            type: entities
-            entities:
-              - entity: input_select.integration_calendar_entity_name
-            card_mod:
-              style: |
-                ha-card {
-                  border-top: none;
-                  border-top-left-radius: 0;
-                  border-top-right-radius: 0;
-                  margin-top: -24px;
-                  padding-bottom: 32px;
-                  margin-bottom: 8px;
-                }
+#        - type: conditional
+#          conditions:
+#            - entity: input_select.car_calendar_source
+#              state: 'Home Assistant integration'
+#          card:
+#            type: entities
+#            entities:
+#              - entity: input_select.integration_calendar_entity_name
+#            card_mod:
+#              style: |
+#                ha-card {
+#                  border-top: none;
+#                  border-top-left-radius: 0;
+#                  border-top-right-radius: 0;
+#                  margin-top: -24px;
+#                  padding-bottom: 32px;
+#                  margin-bottom: 8px;
+#                }
 
         - type: conditional
           conditions:
@@ -886,21 +886,26 @@ views:
                   margin-top: -24px;
                 }
 
-        - type: markdown
-          entity: input_text.calendar_account_connection_status
-          content: >-
-            {{ states("input_text.calendar_account_connection_status")}} |  
-            {{ (now().timestamp() - states.input_text.calendar_account_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
-          card_mod:
-            style: |
-              ha-card {
-                background-color: transparent;
-                border: none;
-                max-width: calc(100% - 100px);
-                margin-top: -70px;
-                margin-left: 12px;
-                padding: 0 !important;
-              }
+        - type: conditional
+          conditions:
+            - entity: input_select.car_calendar_source
+              state: 'Direct caldav source'
+          card:
+            type: markdown
+            entity: input_text.calendar_account_connection_status
+            content: >-
+              {{ states("input_text.calendar_account_connection_status")}} |  
+              {{ (now().timestamp() - states.input_text.calendar_account_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+            card_mod:
+              style: |
+                ha-card {
+                  background-color: transparent;
+                  border: none;
+                  max-width: calc(100% - 100px);
+                  margin-top: -70px;
+                  margin-left: 12px;
+                  padding: 0 !important;
+                }
 
         - type: conditional
           conditions:

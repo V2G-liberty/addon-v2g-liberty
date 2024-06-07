@@ -54,6 +54,13 @@ class ReservationsClient(hass.Hass):
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             self.log(f"initialise_calendar called - Direct caldav source")
 
+            # Just to be sure: cancel the lister that could be active because the previous setting
+            # for c.CAR_CALENDAR_SOURCE was "Home Assistant Integration".
+            # For "Direct caldav source" no listener is used as the calendar gets polled.
+            if self.calender_listener_id != "":
+                await self.cancel_listen_state(self.calender_listener_id)
+                self.calender_listener_id = ""
+
             # A configuration has been made earlier, so it is expected the calendar can be
             # initialised and activated.
             # self.log(f"initialise_calendar, url: {c.CALENDAR_ACCOUNT_INIT_URL}, username: " \
@@ -87,22 +94,20 @@ class ReservationsClient(hass.Hass):
 
             if c.CAR_CALENDAR_NAME is not None and \
                     c.CAR_CALENDAR_NAME not in ["", "unknown", "Please choose an option"]:
-                # self.log(f"initialise_calendar, selected calendar: {c.CAR_CALENDAR_NAME}, activating calendar")
+                self.log(f"initialise_calendar, selected calendar: {c.CAR_CALENDAR_NAME}, activating calendar")
                 await self.activate_selected_calendar()
             else:
                 self.log(f"initialise_calendar: No calendar selected")
                 # TODO: Would be nice if it could say "Please choose a calendar"
-                return "Successfully connected"
 
-            if self.calender_listener_id != "":
-                await self.cancel_listen_state(self.calender_listener_id)
-                self.calender_listener_id = ""
+            return "Successfully connected"
+
         else:
             self.log(f"initialise_calendar called - HA Integration")
             if c.INTEGRATION_CALENDAR_ENTITY_NAME is not None and \
                     c.INTEGRATION_CALENDAR_ENTITY_NAME not in ["", "unknown", "Please choose an option"]:
-                self.log(
-                    f"initialise_calendar, selected calendar integration: {c.INTEGRATION_CALENDAR_ENTITY_NAME}, setting listener")
+                self.log(f"initialise_calendar, selected calendar integration: "
+                         f"{c.INTEGRATION_CALENDAR_ENTITY_NAME}, setting listener")
                 self.calender_listener_id = await self.listen_state(
                     self.__handle_calendar_integration_change,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
@@ -110,27 +115,35 @@ class ReservationsClient(hass.Hass):
                 )
                 new = await self.get_state(c.INTEGRATION_CALENDAR_ENTITY_NAME, attribute="all")
                 await self.__handle_calendar_integration_change(new=new)
+                return "Successfully connected"
             else:
                 self.log(f"initialise_calendar, No calendar integrations found")
                 return "No calendar integrations found"
-        return "success"
+        return "initialise_calendar: unexpected exit"
 
-    async def get_calendar_names(self):
-        # Called by globals to populate the input_select.
-        self.log("get_calendar_names called")
+    async def get_dav_calendar_names(self):
+        # For situation where c.CAR_CALENDAR_SOURCE == "Direct caldav source"
+        # Called by globals to populate the input_select after a connection to
+        # dav the calendar has been established.
+        self.log("get_dav_calendar_names called")
         cal_names = []
-        if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
-            if self.principal is None:
-                self.log(f"get_calendar_names principle is none")
-                return cal_names
-            for calendar in self.principal.calendars():
-                cal_names.append(calendar.name)
-        else:
-            calendar_states = await self.get_state("calendar")
-            self.log(f"get_calendar_names calendar states: {calendar_states}")
-            for calendar in calendar_states:
-                cal_names.append(calendar)
-        self.log(f"get_calendar_names, returning calendars: {cal_names}")
+        if self.principal is None:
+            self.log(f"get_dav_calendar_names principle is none")
+            return cal_names
+        for calendar in self.principal.calendars():
+            cal_names.append(calendar.name)
+        self.log(f"get_dav_calendar_names, returning calendars: {cal_names}")
+        return cal_names
+    async def get_ha_calendar_names(self):
+        # For situation where c.CAR_CALENDAR_SOURCE == "HA Integration"
+        # Called by globals to populate the input_select at init and when calendar source changes
+        self.log("get_ha_calendar_names called")
+        cal_names = []
+        calendar_states = await self.get_state("calendar")
+        # self.log(f"get_ha_calendar_names calendar states: {calendar_states}")
+        for calendar in calendar_states:
+            cal_names.append(calendar)
+        self.log(f"get_ha_calendar_names, returning calendars: {cal_names}")
         return cal_names
 
     async def activate_selected_calendar(self):
