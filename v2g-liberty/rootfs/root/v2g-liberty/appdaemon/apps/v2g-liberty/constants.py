@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-03 Bug fix #27  BUG: calenders from integration (e.g. Google) not found
-V2G_LIBERTY_VERSION: str = "0.1.7"
+# Date 2024-06-03 Bug fix #32 Local calendar only works if one calendar is present
+V2G_LIBERTY_VERSION: str = "0.1.8"
 # TODO: Get version number from the add-on itself.
 
 # For showing dates in UI

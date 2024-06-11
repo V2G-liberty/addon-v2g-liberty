@@ -1,11 +1,5 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-
 ## [Unreleased]
 
 This section shows what the next release might include.
@@ -21,6 +15,29 @@ This section shows what the next release might include.
 ### Removing
 
 - ?
+
+
+
+## 0.1.8 - 2024-06-11
+
+### Added
+
+- Added `try - except` across all code for calling other modules to increase stability.
+
+
+### Fixed
+
+- Bug: Local calendar only works if one calendar is present (#32).
+
+
+### Changed
+
+- None
+
+
+### Removed
+
+- None
 
 
 
@@ -254,3 +271,13 @@ This is the initial version
 ### Removed
 
 - Nothing
+
+
+## Format
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+

@@ -276,13 +276,20 @@ class FlexMeasuresClient(hass.Hass):
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
                 self.fm_busy_getting_schedule = False
-                await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+                try:
+                    await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+                except:
+                    self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (1).")
+            return False
 
             return
 
         self.log(f"GET schedule success: retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
-        await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
+        try:
+            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
+        except:
+            self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (2).")
 
         self.fm_date_time_last_schedule = datetime.now(tz=c.TZ)
         self.log(f"get_schedule: self.fm_date_time_last_schedule set to now,"
@@ -467,11 +474,19 @@ class FlexMeasuresClient(hass.Hass):
 
         if schedule_id is None:
             self.log_failed_response(res, url)
-            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+            try:
+                await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+            except:
+                self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (3).")
+
             return None
 
         self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
-        await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
+        try:
+            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
+        except:
+            self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (4).")
+
         return schedule_id
 
     async def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):

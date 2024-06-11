@@ -26,7 +26,7 @@ class ReservationsClient(hass.Hass):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
-    v2g_main_app: object
+    v2g_main_app: object = None
 
     async def initialize(self):
         self.log("initialise ReservationsClient")
@@ -51,15 +51,16 @@ class ReservationsClient(hass.Hass):
         # + constants have changed from UI.
         # self.log(f"initialise_calendar called")
 
+        # Cancel the lister that could be active because the previous setting
+        # for c.CAR_CALENDAR_SOURCE was "Home Assistant Integration".
+        # If source is "Direct caldav source" no listener is used as the calendar gets polled.
+        # If source is "Home Assistant Integration" the current listener should be removed to make place for the new one.
+        if self.calender_listener_id != "":
+            await self.cancel_listen_state(self.calender_listener_id)
+            self.calender_listener_id = ""
+
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             self.log(f"initialise_calendar called - Direct caldav source")
-
-            # Just to be sure: cancel the lister that could be active because the previous setting
-            # for c.CAR_CALENDAR_SOURCE was "Home Assistant Integration".
-            # For "Direct caldav source" no listener is used as the calendar gets polled.
-            if self.calender_listener_id != "":
-                await self.cancel_listen_state(self.calender_listener_id)
-                self.calender_listener_id = ""
 
             # A configuration has been made earlier, so it is expected the calendar can be
             # initialised and activated.
@@ -103,11 +104,10 @@ class ReservationsClient(hass.Hass):
             return "Successfully connected"
 
         else:
-            self.log(f"initialise_calendar called - HA Integration")
+            self.log(f"initialise_calendar called - HA Integration, name: '{c.INTEGRATION_CALENDAR_ENTITY_NAME}'.")
             if c.INTEGRATION_CALENDAR_ENTITY_NAME is not None and \
                     c.INTEGRATION_CALENDAR_ENTITY_NAME not in ["", "unknown", "Please choose an option"]:
-                self.log(f"initialise_calendar, selected calendar integration: "
-                         f"{c.INTEGRATION_CALENDAR_ENTITY_NAME}, setting listener")
+                self.log(f"initialise_calendar, setting listener")
                 self.calender_listener_id = await self.listen_state(
                     self.__handle_calendar_integration_change,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
@@ -187,18 +187,24 @@ class ReservationsClient(hass.Hass):
             Unfortunately the entity only holds one event: the next upcoming.
         """
         self.log(f"__handle_calendar_integration_change called with new: {new}.")
-        # TODO: Try get all events from the calendar somewhere along this line:
+        # # TODO: Try get all events from the calendar somewhere along this line:
         # start = await self.get_now()
         # end = (start + timedelta(days=7))
-        # calendar = self.get_entity(c.INTEGRATION_CALENDAR_ENTITY_NAME)
+        # # calendar = self.get_entity(c.INTEGRATION_CALENDAR_ENTITY_NAME)
         # # This does return a valid calendar entity.
         # # See: https://developers.home-assistant.io/docs/core/entity/calendar/
         # # This does not work yet:
-        # events = await calendar.call_service(
-        #     "get_events",
+        # # See: https://github.com/AppDaemon/appdaemon/issues/1837
+        # events = await self.call_service(
+        #     "calendar/get_events",
+        #     entity_id = c.INTEGRATION_CALENDAR_ENTITY_NAME,
         #     start_date=start,
         #     end_date=end,
+        #     return_result = True
         # )
+        # self.log(f"Events: {events}.")
+        # # A temporary workaround could be:
+        # # https://markusressel.de/blog/post/calendar-integration-between-home-assistant-and-appdaemon/
 
         self.v2g_events.clear()
         if new is not None:
@@ -228,6 +234,10 @@ class ReservationsClient(hass.Hass):
             self.log("__handle_calendar_integration_change aborted as new is None.")
 
         await self.__write_events_in_ui_entity()
+        try:
+            await self.v2g_main_app.set_next_action(v2g_args="changed HA calendar events")
+        except:
+            self.log("__handle_calendar_integration_change. Could not call v2g_main_app.set_next_action.")
 
     async def __poll_calendar(self, kwargs=None):
         # Get the items in from now to the next week from the calendar
@@ -271,7 +281,10 @@ class ReservationsClient(hass.Hass):
         self.v2g_events = remote_v2g_events
         self.log("__poll_calendar changed v2g_events")
         await self.__write_events_in_ui_entity()
-        await self.v2g_main_app.set_next_action(v2g_args="changed calendar events")
+        try:
+            await self.v2g_main_app.set_next_action(v2g_args="changed dav calendar events")
+        except:
+            self.log("__poll_calendar. Could not call v2g_main_app.set_next_action.")
 
     async def __write_events_in_ui_entity(self):
         # Prepare for rendering in the UI

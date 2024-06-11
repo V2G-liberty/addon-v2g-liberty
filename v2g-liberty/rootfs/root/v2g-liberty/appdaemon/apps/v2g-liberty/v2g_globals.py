@@ -294,6 +294,33 @@ class V2GLibertyGlobals(hass.Hass):
         self.collect_action_handle = ""
         self.log("Completed initializing V2GLibertyGlobals")
 
+
+
+    ######################################################################
+    #                         PUBLIC METHODS                             #
+    ######################################################################
+
+    async def process_max_power_settings(self, min_acceptable_charge_power: int, max_available_charge_power: int):
+        """To be called from modbus_evse_client to check if setting in the charger
+           is lower than the setting by the user.
+        """
+        self.log(f'process_max_power_settings called with power {max_available_charge_power}.')
+        self.SETTING_CHARGER_MAX_CHARGE_POWER['max'] = max_available_charge_power
+        self.SETTING_CHARGER_MAX_CHARGE_POWER['min'] = min_acceptable_charge_power
+        self.SETTING_CHARGER_MAX_DISCHARGE_POWER['max'] = max_available_charge_power
+        self.SETTING_CHARGER_MAX_DISCHARGE_POWER['min'] = min_acceptable_charge_power
+
+        # For showing this maximum in the UI.
+        await self.set_state("input_text.charger_max_available_power", state=max_available_charge_power)
+
+        kwargs = {'run_once': True}
+        await self.__read_and_process_charger_settings(kwargs=kwargs)
+
+
+    ######################################################################
+    #                    INITIALISATION METHODS                          #
+    ######################################################################
+
     async def __kick_off_settings(self):
         self.log("__kick_off_settings called")
         # To be called from initialise or restart event
@@ -307,12 +334,209 @@ class V2GLibertyGlobals(hass.Hass):
         await self.__read_and_process_calendar_settings()
         await self.__read_and_process_general_settings()
 
+
+    async def __populate_select_with_local_calendars(self):
+        self.log("__populate_select_with_local_calendars called")
+        try:
+            calendar_names = await self.calendar_client.get_ha_calendar_names()
+        except:
+            self.log("__populate_select_with_local_calendars. Could not call calendar_client.get_ha_calendar_names")
+            return
+
+        # At init this method is always called.
+        # Notify only when the source is actually "Home Assistant integration"
+
+        if len(calendar_names) == 0 and c.CAR_CALENDAR_SOURCE == "Home Assistant integration":
+            message = f"No calendars from integration available. " \
+                      f"A car reservation calendar is essential for V2G Liberty. " \
+                      f"Please arrange for one.<br/>"
+            self.log(f"Configuration error: {message}.")
+            # TODO: Research if showing this only to admin users is possible.
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="calendar_config_error"
+            )
+
+        elif len(calendar_names) == 1:
+            await self.__set_select_options(
+                entity_id = "input_select.integration_calendar_entity_name",
+                options = calendar_names,
+                selected_option = calendar_names[0]
+            )
+            c.INTEGRATION_CALENDAR_ENTITY_NAME = calendar_names[0]
+
+        else:
+            await self.__set_select_options(
+                entity_id = "input_select.integration_calendar_entity_name",
+                options = calendar_names
+            )
+
+
+    async def __initialise_devices(self):
+        # List of all the recipients to notify
+        # Check if Admin is configured correctly
+        # Warn user about bad config with persistent notification in UI.
+        self.log("Initializing devices configuration")
+
+        c.NOTIFICATION_RECIPIENTS.clear()
+        # Service "mobile_app_" seems more reliable than using get_trackers,
+        # as these names do not always match with the service.
+        for service in self.list_services():
+            if service["service"].startswith("mobile_app_"):
+                c.NOTIFICATION_RECIPIENTS.append(service["service"].replace("mobile_app_", ""))
+
+        if len(c.NOTIFICATION_RECIPIENTS) == 0:
+            message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant " \
+                      f"for notifications.<br/>" \
+                      f"It is highly recommended to do so. Please install the HA companion app on your mobile device " \
+                      f"and connect it to Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
+            self.log(f"Configuration error: {message}.")
+            # TODO: Research if showing this only to admin users is possible.
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="notification_config_error"
+            )
+        else:
+            self.log(f"__initialise_devices - recipients for notifications: {c.NOTIFICATION_RECIPIENTS}.")
+            await self.__set_select_options(entity_id="input_select.admin_mobile_name",
+                                            options=c.NOTIFICATION_RECIPIENTS)
+
+        self.log("Completed Initializing devices configuration")
+
+
+    ######################################################################
+    #                    CALLBACK METHODS FROM UI                        #
+    ######################################################################
+
+    async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
+        # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
+        # Get the possible calendars from the validated account
+        # if 0 set persistent notification
+        # if current one is not in list set persistent notification
+        # Populate the input_select input_select.car_calendar_name with possible calendars
+        # Select the right option
+        # Add a listener
+        self.log("__init_caldav_calendar called")
+
+        await self.set_state("input_text.calendar_account_connection_status", state="Getting calendars...")
+
+        # reset options in calendar_name select
+        calendar_names = []
+        try:
+            res = await self.calendar_client.initialise_calendar()
+        except:
+            self.log("__populate_select_with_local_calendars. Could not call calendar_client.initialise_calendar")
+            res = "Internal error"
+
+        if res != "Successfully connected":
+            await self.set_state("input_text.calendar_account_connection_status", state=res)
+            self.log(f"__init_caldav_calendar, res: {res}.")
+            return
+
+        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
+        await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
+        try:
+            calendar_names = await self.calendar_client.get_dav_calendar_names()
+        except:
+            self.log("__populate_select_with_local_calendars. Could not call calendar_client.get_dav_calendar_names")
+
+        self.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
+        if len(calendar_names) == 0:
+            message = f"No calendars available on {c.CALENDAR_ACCOUNT_INIT_URL} " \
+                      f"A car reservation calendar is essential for V2G Liberty. " \
+                      f"Please arrange for one.<br/>"
+            self.log(f"Configuration error: {message}.")
+            # TODO: Research if showing this only to admin users is possible.
+            await self.create_persistent_notification(
+                title="Configuration error",
+                message=message,
+                notification_id="calendar_config_error"
+            )
+            calendar_names = ["No calenders found"]
+
+        await self.__set_select_options(entity_id="input_select.car_calendar_name", options=calendar_names)
+        # TODO: If no stored_setting is found:
+        # try guess a good default by selecting the first option that has "car" or "auto" in it's name.
+        c.CAR_CALENDAR_NAME = await self.__process_setting(
+            setting_object=self.SETTING_CAR_CALENDAR_NAME,
+            callback=self.__read_and_process_calendar_settings
+        )
+        try:
+            await self.calendar_client.activate_selected_calendar()
+        except:
+            self.log("__populate_select_with_local_calendars. Could not call calendar_client.activate_selected_calendar")
+            return
+
+        self.log("Completed __init_caldav_calendar")
+
+
     async def __reset_to_factory_defaults(self, event=None, data=None, kwargs=None):
         """Reset to factory defaults by emptying the settings file"""
         self.log("__reset_to_factory_defaults called")
         self.v2g_settings = {}
         self.__write_to_file(self.v2g_settings)
         await self.call_service("homeassistant/restart")
+
+
+    async def __test_charger_connection(self, event, data, kwargs):
+        """ Tests the connection with the charger and processes the maximum charge power read from the charger
+            Called from the settings page."""
+        self.log("__test_charger_connection called")
+        # The url and port settings have been changed via the listener
+        await self.set_state("input_text.charger_connection_status", state="Trying to connect...")
+        if not await self.evse_client.initialise_charger():
+            await self.set_state("input_text.charger_connection_status", state="Failed to connect")
+            return
+        # min/max power is set self.evse_client.initialise_charger()
+        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
+        await self.set_state("input_text.charger_connection_status", state="Successfully connected")
+
+
+    ######################################################################
+    #                            HA METHODS                              #
+    ######################################################################
+
+    async def create_persistent_notification(self, message: str, title: str, notification_id: str):
+        await self.call_service(
+            'persistent_notification/create',
+            title=title,
+            message=message,
+            notification_id=notification_id
+        )
+
+
+    async def __write_setting_to_ha(self, setting: dict, setting_value, min_allowed_value=None, max_allowed_value=None):
+        """
+           This method writes the value to the HA entity.
+        """
+        entity_name = setting['entity_name']
+        entity_type = setting['entity_type']
+        entity_id = f"{entity_type}.{entity_name}"
+        self.log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
+
+        if setting_value is not None:
+            # setting_value has a relevant setting_value to set to HA
+            if entity_type == "input_select":
+                await self.__select_option(entity_id, setting_value)
+            elif entity_type == "input_boolean":
+                if setting_value is True:
+                    await self.turn_on(entity_id)
+                else:
+                    await self.turn_off(entity_id)
+            else:
+                # Unfortunately the UI does not pickup these new limits... from the attributes, so need to check locally.
+                # new_attributes = {}
+                # if min_allowed_value:
+                #     new_attributes["min"] = min_allowed_value
+                # if max_allowed_value:
+                #     new_attributes["max"] = max_allowed_value
+                # if new_attributes:
+                #     await self.set_state(entity_id, state=setting_value, attributes=new_attributes)
+                # else:
+                await self.set_state(entity_id, state=setting_value)
+
 
     async def __select_option(self, entity_id: str, option: str):
         """Helper function to select an option in an input_select. It should be used instead of self.select_option.
@@ -347,6 +571,7 @@ class V2GLibertyGlobals(hass.Hass):
             self.log(f"__select_option '{option}' not in possible options: {res}, adding it to the input_select.")
             self.__set_select_options(entity_id=entity_id, options=[option], selected_option=option)
         else:
+            # self.log(f"__select_option, option '{option}' selected.")
             await self.select_option(entity_id=entity_id, option=option)
         return True
 
@@ -400,163 +625,10 @@ class V2GLibertyGlobals(hass.Hass):
         await self.call_service("input_select/set_options", entity_id=entity_id, options=options)
         return True
 
-    async def __init_integration_calendar(self, event=None, data=None, kwargs=None):
-        # Get the possible calendars from ha scope "calendar"
-        # if 0 set persistent notification
-        # if current one is not in list set persistent notification
-        # Populate the input_select input_select.integration_calendar_entity_name with possible calendars
-        # Select the right option
-        # Add a listener
-        self.log("__init_integration_calendar called")
 
-        res = await self.calendar_client.initialise_calendar()
-        if res != "Successfully connected":
-            await self.set_state("input_text.calendar_account_connection_status", state=res)
-            self.log(f"__init_integration_calendar, res: {res}.")
-            return
-
-        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected"
-        await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
-
-        ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
-        # c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
-        #     setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
-        #     callback=self.__read_and_process_calendar_settings
-        # )
-
-        self.log("Completed __init_integration_calendar")
-
-    async def __populate_select_with_local_calendars(self):
-        self.log("__populate_select_with_local_calendars called")
-        calendar_names = await self.calendar_client.get_ha_calendar_names()
-        # At init this method is always called.
-        # Notify only when the source is actually "Home Assistant integration"
-
-        if len(calendar_names) == 0 and c.CAR_CALENDAR_SOURCE == "Home Assistant integration":
-            message = f"No calendars from integration available. " \
-                      f"A car reservation calendar is essential for V2G Liberty. " \
-                      f"Please arrange for one.<br/>"
-            self.log(f"Configuration error: {message}.")
-            # TODO: Research if showing this only to admin users is possible.
-            await self.create_persistent_notification(
-                title="Configuration error",
-                message=message,
-                notification_id="calendar_config_error"
-            )
-
-        ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
-        # elif len(calendar_names) == 1:
-        #     # The most likely situation, one local calendar
-        #     await self.__set_select_options(
-        #         entity_id = "input_select.integration_calendar_entity_name",
-        #         options = calendar_names,
-        #         selected_option = calendar_names[0]
-        #     )
-        #     c.INTEGRATION_CALENDAR_ENTITY_NAME = calendar_names[0]
-
-        else:
-            ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
-            # await self.__set_select_options(
-            #     entity_id = "input_select.integration_calendar_entity_name",
-            #     options = calendar_names
-            # )
-            c.INTEGRATION_CALENDAR_ENTITY_NAME = calendar_names[0]
-
-
-    async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
-        # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
-        # Get the possible calendars from the validated account
-        # if 0 set persistent notification
-        # if current one is not in list set persistent notification
-        # Populate the input_select input_select.car_calendar_name with possible calendars
-        # Select the right option
-        # Add a listener
-        self.log("__init_caldav_calendar called")
-
-        await self.set_state("input_text.calendar_account_connection_status", state="Getting calendars...")
-
-        # reset options in calendar_name select
-        calendar_names = []
-
-        res = await self.calendar_client.initialise_calendar()
-        if res != "Successfully connected":
-            await self.set_state("input_text.calendar_account_connection_status", state=res)
-            self.log(f"__init_caldav_calendar, res: {res}.")
-            return
-
-        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
-        await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
-        calendar_names = await self.calendar_client.get_dav_calendar_names()
-        self.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
-        if len(calendar_names) == 0:
-            message = f"No calendars available on {c.CALENDAR_ACCOUNT_INIT_URL} " \
-                      f"A car reservation calendar is essential for V2G Liberty. " \
-                      f"Please arrange for one.<br/>"
-            self.log(f"Configuration error: {message}.")
-            # TODO: Research if showing this only to admin users is possible.
-            await self.create_persistent_notification(
-                title="Configuration error",
-                message=message,
-                notification_id="calendar_config_error"
-            )
-            calendar_names = ["No calenders found"]
-
-        await self.__set_select_options(entity_id="input_select.car_calendar_name", options=calendar_names)
-        # TODO: If no stored_setting is found:
-        # try guess a good default by selecting the first option that has "car" or "auto" in it's name.
-        c.CAR_CALENDAR_NAME = await self.__process_setting(
-            setting_object=self.SETTING_CAR_CALENDAR_NAME,
-            callback=self.__read_and_process_calendar_settings
-        )
-
-        await self.calendar_client.activate_selected_calendar()
-        self.log("Completed __init_caldav_calendar")
-
-    async def __initialise_devices(self):
-        # List of all the recipients to notify
-        # Check if Admin is configured correctly
-        # Warn user about bad config with persistent notification in UI.
-        self.log("Initializing devices configuration")
-
-        c.NOTIFICATION_RECIPIENTS.clear()
-        # Service "mobile_app_" seems more reliable than using get_trackers,
-        # as these names do not always match with the service.
-        for service in self.list_services():
-            if service["service"].startswith("mobile_app_"):
-                c.NOTIFICATION_RECIPIENTS.append(service["service"].replace("mobile_app_", ""))
-                # TODO?? Get current selected option and set it again after populating
-
-        if len(c.NOTIFICATION_RECIPIENTS) == 0:
-            message = f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant " \
-                      f"for notifications.<br/>" \
-                      f"It is highly recommended to do so. Please install the HA companion app on your mobile device " \
-                      f"and connect it to Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
-            self.log(f"Configuration error: {message}.")
-            # TODO: Research if showing this only to admin users is possible.
-            await self.create_persistent_notification(
-                title="Configuration error",
-                message=message,
-                notification_id="notification_config_error"
-            )
-        else:
-            self.log(f"__initialise_devices - recipients for notifications: {c.NOTIFICATION_RECIPIENTS}.")
-            await self.__set_select_options(entity_id="input_select.admin_mobile_name",
-                                            options=c.NOTIFICATION_RECIPIENTS)
-
-        self.log("Completed Initializing devices configuration")
-
-    async def __test_charger_connection(self, event, data, kwargs):
-        """ Tests the connection with the charger and processes the maximum charge power read from the charger
-            Called from the settings page."""
-        self.log("__test_charger_connection called")
-        # The url and port settings have been changed via the listener
-        await self.set_state("input_text.charger_connection_status", state="Trying to connect...")
-        if not await self.evse_client.initialise_charger():
-            await self.set_state("input_text.charger_connection_status", state="Failed to connect")
-            return
-        # min/max power is set self.evse_client.initialise_charger()
-        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
-        await self.set_state("input_text.charger_connection_status", state="Successfully connected")
+    ######################################################################
+    #                METHODS FOR IO of SETTINGS FILE                     #
+    ######################################################################
 
     async def __retrieve_settings(self):
         """Retrieve all settings from the settings file
@@ -596,35 +668,10 @@ class V2GLibertyGlobals(hass.Hass):
         with open(self.settings_file_path, 'w') as write_file:
             json.dump(settings, write_file)
 
-    async def __write_setting_to_ha(self, setting: dict, setting_value, min_allowed_value=None, max_allowed_value=None):
-        """
-           This method writes the value to the HA entity.
-        """
-        entity_name = setting['entity_name']
-        entity_type = setting['entity_type']
-        entity_id = f"{entity_type}.{entity_name}"
-        # self.log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
 
-        if setting_value is not None:
-            # setting_value has a relevant setting_value to set to HA
-            if entity_type == "input_select":
-                await self.__select_option(entity_id, setting_value)
-            elif entity_type == "input_boolean":
-                if setting_value is True:
-                    await self.turn_on(entity_id)
-                else:
-                    await self.turn_off(entity_id)
-            else:
-                # Unfortunately the UI does not pickup these new limits... from the attributes, so need to check locally.
-                # new_attributes = {}
-                # if min_allowed_value:
-                #     new_attributes["min"] = min_allowed_value
-                # if max_allowed_value:
-                #     new_attributes["max"] = max_allowed_value
-                # if new_attributes:
-                #     await self.set_state(entity_id, state=setting_value, attributes=new_attributes)
-                # else:
-                await self.set_state(entity_id, state=setting_value)
+    ######################################################################
+    #                           CORE METHODS                             #
+    ######################################################################
 
     async def __process_setting(self, setting_object: dict, callback):
         """
@@ -705,73 +752,9 @@ class V2GLibertyGlobals(hass.Hass):
 
         return return_value
 
-    async def __check_and_convert_value(self, setting_object, value_to_convert):
-        """ Check number against min/max from setting object, altering to stay within these limits.
-            Convert to required type (in setting object)
-
-        Args:
-            setting_object (dict): dict with setting_object with entity_type/name and min/max
-            number_to_check (_type_): the number to check
-
-        Returns:
-            any: depending on the setting type
-        """
-        entity_id = f"{setting_object['entity_type']}.{setting_object['entity_name']}"
-        value_type = setting_object.get('value_type', "str")
-        has_changed = False
-        min_value = setting_object.get('min', None)
-        max_value = setting_object.get('max', None)
-        if value_type == "float":
-            return_value = float(value_to_convert)
-            rv = return_value
-            if min_value:
-                min_value = float(min_value)
-                rv = max(min_value, return_value)
-            if max_value:
-                max_value = float(max_value)
-                rv = min(max_value, return_value)
-            if rv != return_value:
-                has_changed = True
-                return_value = rv
-        elif value_type == "int":
-            # Assume int
-            return_value = int(float(value_to_convert))
-            rv = return_value
-            if min_value:
-                min_value = int(float(min_value))
-                rv = max(min_value, return_value)
-            if max_value:
-                max_value = int(float(max_value))
-                rv = min(max_value, return_value)
-            if rv != return_value:
-                has_changed = True
-                return_value = rv
-        elif value_type == "bool":
-            if value_to_convert in ['true', 'True', 'on']:
-                return_value = True
-            else:
-                return_value = False
-        elif value_type == "str":
-            return_value = str(value_to_convert)
-
-        if has_changed:
-            msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
-            ntf_id = f"auto_adjusted_setting_{entity_id}"
-            await self.create_persistent_notification(
-                message=msg,
-                title='Automatically adjusted setting',
-                notification_id=ntf_id
-            )
-            self.log(f"__check_and_convert_number {msg}")
-        return return_value, has_changed
-
-    async def __cancel_setting_listener(self, setting_object: dict):
-        listener_id = setting_object['lister']
-        if listener_id is not None and listener_id != "":
-            await self.cancel_listen_state(setting_object['lister'])
-            setting_object['lister'] = None
 
     async def __read_and_process_charger_settings(self, entity=None, attribute=None, old=None, new=None, kwargs=None):
+        self.log("__read_and_process_charger_settings called")
 
         callback_method = self.__read_and_process_charger_settings
 
@@ -819,6 +802,7 @@ class V2GLibertyGlobals(hass.Hass):
 
     async def __read_and_process_notification_settings(self, entity=None, attribute=None, old=None, new=None,
                                                        kwargs=None):
+        self.log("__read_and_process_notification_settings called")
         callback_method = self.__read_and_process_notification_settings
 
         if len(c.NOTIFICATION_RECIPIENTS) == 0:
@@ -854,6 +838,7 @@ class V2GLibertyGlobals(hass.Hass):
 
     async def __read_and_process_general_settings(self, entity=None, attribute=None, old=None, new=None, kwargs=None):
         callback_method = self.__read_and_process_general_settings
+        self.log("__read_and_process_general_settings called")
 
         c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
@@ -891,9 +876,9 @@ class V2GLibertyGlobals(hass.Hass):
             setting_object=self.SETTING_CAR_CALENDAR_SOURCE,
             callback=callback_method
         )
-        if c.CAR_CALENDAR_SOURCE != tmp:
-            c.CAR_CALENDAR_SOURCE = tmp
-            if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
+        if c.CAR_CALENDAR_SOURCE != "" and c.CAR_CALENDAR_SOURCE is not None and c.CAR_CALENDAR_SOURCE != tmp:
+            self.log(f"__read_and_process_calendar_settings: Calendar source has changed to '{tmp}'.")
+            if tmp == "Direct caldav source":
                 await self.__cancel_setting_listener(self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME)
             else:
                 await self.__populate_select_with_local_calendars()
@@ -902,6 +887,8 @@ class V2GLibertyGlobals(hass.Hass):
                 await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_USERNAME)
                 await self.__cancel_setting_listener(self.SETTING_CALENDAR_ACCOUNT_PASSWORD)
                 await self.__cancel_setting_listener(self.SETTING_CAR_CALENDAR_NAME)
+
+        c.CAR_CALENDAR_SOURCE = tmp
 
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             c.CALENDAR_ACCOUNT_INIT_URL = await self.__process_setting(
@@ -924,13 +911,15 @@ class V2GLibertyGlobals(hass.Hass):
             await self.__init_caldav_calendar()
 
         else:
-            ###### Temp. fix for BUG #27, just use first of available local calendars, do not use select  #####
-            # c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
-            #     setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
-            #     callback=None
-            # )  # Callback here is none as it will be set from __init_integration_calendar
-
-            await self.__init_integration_calendar()
+            c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
+                setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
+                callback=callback_method
+            )
+            try:
+                res = await self.calendar_client.initialise_calendar()
+                self.log(f"__read_and_process_calendar_settings: init HA calendar result: '{res}'.")
+            except:
+                self.log("__read_and_process_calendar_settings. Could not call calendar_client.initialise_calendar")
 
         await self.__collect_action_triggers(source="changed calendar settings")
 
@@ -1009,7 +998,7 @@ class V2GLibertyGlobals(hass.Hass):
 
         # If the price and emissions data is provided to FM by V2G Liberty (noe EPEX markets)
         # this is labelled as "self_provided".
-        # TODO: Cancel listers for none relevant items
+        # TODO: Cancel listeners for none relevant items
         if c.ELECTRICITY_PROVIDER == "self_provided":
             c.FM_PRICE_PRODUCTION_SENSOR_ID = await self.__process_setting(
                 setting_object=self.SETTING_FM_PRICE_PRODUCTION_SENSOR_ID,
@@ -1059,7 +1048,8 @@ class V2GLibertyGlobals(hass.Hass):
         await self.__collect_action_triggers(source="changed fm_settings")
 
     async def __collect_action_triggers(self, source: str):
-        # Prevent parallel calls to set_next_cation and always wait a little as
+        # When settings change the application needs partial restart.
+        # To prevent a restart for every detailed change always wait a little as
         # the user likely changes several settings at a time.
         # This also prevents calling V2G Liberty too early when it has not
         # completed initialisation yet.
@@ -1069,38 +1059,111 @@ class V2GLibertyGlobals(hass.Hass):
             return
         if self.info_timer(self.collect_action_handle):
             await self.cancel_timer(self.collect_action_handle, True)
-        self.collect_action_handle = await self.run_in(self.__collective_action, delay=15)
+        self.collect_action_handle = await self.run_in(self.__collective_action, delay=15, v2g_args=source)
 
     async def __collective_action(self, v2g_args=None):
-        await self.fm_client.initialise_fm_settings()
-        await self.evse_client.initialise_charger(v2g_args="changed settings")
-        await self.calendar_client.initialise_calendar()
-        await self.v2g_main_app.initialise_v2g_liberty(v2g_args="changed settings")
+        """ Provides partial restart of each module of the whole application
 
-    async def process_max_power_settings(self, min_acceptable_charge_power: int, max_available_charge_power: int):
-        """To be called from modbus_evse_client to check if setting in the charger
-           is lower than the setting by the user.
+        :param v2g_args: String for debugging only
+        :return: Nothing
         """
-        self.log(f'process_max_power_settings called with power {max_available_charge_power}.')
-        self.SETTING_CHARGER_MAX_CHARGE_POWER['max'] = max_available_charge_power
-        self.SETTING_CHARGER_MAX_CHARGE_POWER['min'] = min_acceptable_charge_power
-        self.SETTING_CHARGER_MAX_DISCHARGE_POWER['max'] = max_available_charge_power
-        self.SETTING_CHARGER_MAX_DISCHARGE_POWER['min'] = min_acceptable_charge_power
+        self.log(f"__collective_action, source: '{v2g_args}'.")
 
-        # For showing this maximum in the UI.
-        await self.set_state("input_text.charger_max_available_power", state=max_available_charge_power)
+        try:
+            await self.fm_client.initialise_fm_settings()
+        except:
+            self.log("__collective_action. Error, could not call fm_client.initialise_fm_settings")
 
-        kwargs = {'run_once': True}
-        await self.__read_and_process_charger_settings(kwargs=kwargs)
+        try:
+            await self.evse_client.initialise_charger(v2g_args=v2g_args)
+        except:
+            self.log("__collective_action. Error, could not call evse_client.initialise_charger")
 
-    async def create_persistent_notification(self, message: str, title: str, notification_id: str):
-        await self.call_service(
-            'persistent_notification/create',
-            title=title,
-            message=message,
-            notification_id=notification_id
-        )
+        try:
+            await self.calendar_client.initialise_calendar()
+        except:
+            self.log("__collective_action. Error, could not call calendar_client.initialise_calendar")
 
+        try:
+            await self.v2g_main_app.initialise_v2g_liberty(v2g_args=v2g_args)
+        except:
+            self.log("__collective_action. Error, could not call v2g_main_app.initialise_v2g_liberty")
+
+
+    ######################################################################
+    #                           UTIL METHODS                             #
+    ######################################################################
+
+    async def __check_and_convert_value(self, setting_object, value_to_convert):
+        """ Check number against min/max from setting object, altering to stay within these limits.
+            Convert to required type (in setting object)
+
+        Args:
+            setting_object (dict): dict with setting_object with entity_type/name and min/max
+            value_to_convert (any): the value to convert
+
+        Returns:
+            any: depending on the setting type
+        """
+        entity_id = f"{setting_object['entity_type']}.{setting_object['entity_name']}"
+        value_type = setting_object.get('value_type', "str")
+        has_changed = False
+        min_value = setting_object.get('min', None)
+        max_value = setting_object.get('max', None)
+        if value_type == "float":
+            return_value = float(value_to_convert)
+            rv = return_value
+            if min_value:
+                min_value = float(min_value)
+                rv = max(min_value, return_value)
+            if max_value:
+                max_value = float(max_value)
+                rv = min(max_value, return_value)
+            if rv != return_value:
+                has_changed = True
+                return_value = rv
+        elif value_type == "int":
+            # Assume int
+            return_value = int(float(value_to_convert))
+            rv = return_value
+            if min_value:
+                min_value = int(float(min_value))
+                rv = max(min_value, return_value)
+            if max_value:
+                max_value = int(float(max_value))
+                rv = min(max_value, return_value)
+            if rv != return_value:
+                has_changed = True
+                return_value = rv
+        elif value_type == "bool":
+            if value_to_convert in ['true', 'True', 'on']:
+                return_value = True
+            else:
+                return_value = False
+        elif value_type == "str":
+            return_value = str(value_to_convert)
+
+        if has_changed:
+            msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
+            ntf_id = f"auto_adjusted_setting_{entity_id}"
+            await self.create_persistent_notification(
+                message=msg,
+                title='Automatically adjusted setting',
+                notification_id=ntf_id
+            )
+            self.log(f"__check_and_convert_number {msg}")
+        return return_value, has_changed
+
+    async def __cancel_setting_listener(self, setting_object: dict):
+        listener_id = setting_object['lister']
+        if listener_id is not None and listener_id != "":
+            await self.cancel_listen_state(setting_object['lister'])
+            setting_object['lister'] = None
+
+
+######################################################################
+#                           UTIL FUNCTIONS                           #
+######################################################################
 
 def time_mod(time, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
