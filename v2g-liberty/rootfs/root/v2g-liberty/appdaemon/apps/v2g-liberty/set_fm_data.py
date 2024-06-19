@@ -74,21 +74,12 @@ class SetFMdata(hass.Hass):
     soc_readings: List[Union[int, None]]
     connected_car_soc: Union[int, None]
 
-    FM_ENTITY_ADDRESS_POWER: str
-    FM_ENTITY_ADDRESS_AVAILABILITY: str
-    FM_ENTITY_ADDRESS_SOC: str
-
     RESOLUTION_TIMEDELTA: datetime
 
     evse_client: object
 
     def initialize(self):
         self.log(f"Initializing SetFMdata.")
-        # TODO: The sensor_id's can be dynamically set, these should also change then.
-        self.FM_ENTITY_ADDRESS_POWER = c.FM_BASE_ENTITY_ADDRESS_POWER + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-        self.FM_ENTITY_ADDRESS_AVAILABILITY = c.FM_BASE_ENTITY_ADDRESS_AVAILABILITY + str(c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID)
-        self.FM_ENTITY_ADDRESS_SOC = c.FM_BASE_ENTITY_ADDRESS_SOC + str(c.FM_ACCOUNT_SOC_SENSOR_ID)
-
         self.evse_client = self.get_app("modbus_evse_client")
 
         local_now = self.get_now()
@@ -316,7 +307,7 @@ class SetFMdata(hass.Hass):
 
         message = {
             "type": "PostSensorDataRequest",
-            "sensor": self.FM_ENTITY_ADDRESS_SOC,
+            "sensor": c.FM_ENTITY_ADDRESS_SOC,
             "values": self.soc_readings,
             "start": self.hourly_soc_readings_since.isoformat(),
             "duration": str_duration,
@@ -351,7 +342,7 @@ class SetFMdata(hass.Hass):
 
         message = {
             "type": "PostSensorDataRequest",
-            "sensor": self.FM_ENTITY_ADDRESS_AVAILABILITY,
+            "sensor": c.FM_ENTITY_ADDRESS_AVAILABILITY,
             "values": self.availability_readings,
             "start": self.hourly_availability_readings_since.isoformat(),
             "duration": str_duration,
@@ -385,7 +376,7 @@ class SetFMdata(hass.Hass):
 
         message = {
             "type": "PostSensorDataRequest",
-            "sensor": self.FM_ENTITY_ADDRESS_POWER,
+            "sensor": c.FM_ENTITY_ADDRESS_POWER,
             "values": self.power_readings,
             "start": self.hourly_power_readings_since.isoformat(),
             "duration": str_duration,

@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-03 Bug fix #32 Local calendar only works if one calendar is present
-V2G_LIBERTY_VERSION: str = "0.1.8"
+# Date 2024-06-03 Feature: get sensor_id's from Fm instead of UI #34
+V2G_LIBERTY_VERSION: str = "0.1.9"
 # TODO: Get version number from the add-on itself.
 
 # For showing dates in UI
@@ -61,12 +61,15 @@ FM_API_VERSION = "v3_0"
 FM_BASE_API_URL: str = ""
 FM_PING_URL: str = ""
 FM_AUTHENTICATION_URL: str = ""
-FM_SCHEDULE_URL: str = ""
+FM_SENSOR_URL: str = ""
 FM_SCHEDULE_SLUG: str = ""
 FM_SCHEDULE_TRIGGER_SLUG: str = ""
 FM_GET_DATA_URL: str = ""
 FM_GET_DATA_SLUG: str = ""
 FM_SET_DATA_URL: str = ""
+FM_TRIGGER_URL: str = ""
+FM_GET_SCHEDULE_URL: str = ""
+FM_OPTIMISATION_CONTEXT: dict = {}
 
 # Utility context
 # The utility (or electricity provider) are represented by different sensor's.
@@ -83,25 +86,28 @@ DEFAULT_UTILITY_CONTEXTS = {
 }
 
 # FM ACCOUNT CONSTANTS
-# These don't have defaults. To allow a "not-initialised state we use str instead of int.
+# These don't have defaults.
 # They should asap be overwritten by v2g_globals with value from HA settings entities
+FM_ACCOUNT_USERNAME: str = ""
+FM_ACCOUNT_PASSWORD: str = ""
+
+# Key sensor for getting schedules and sending/retrieving data to/from FM
+FM_ACCOUNT_POWER_SENSOR_ID: int = 0
+# Sensors for sending data to FM
+FM_ACCOUNT_AVAILABILITY_SENSOR_ID: int = 0
+FM_ACCOUNT_SOC_SENSOR_ID: int = 0
+# Sensor for sending/retrieving data to/from FM
+FM_ACCOUNT_COST_SENSOR_ID: int = 0
+
+# Sensors for optimisation context, also in case prices are self_provided
 FM_PRICE_PRODUCTION_SENSOR_ID: int = 0
 FM_PRICE_CONSUMPTION_SENSOR_ID: int = 0
 FM_EMISSIONS_SENSOR_ID: int = 0
 UTILITY_CONTEXT_DISPLAY_NAME: int = 0
 
-FM_ACCOUNT_POWER_SENSOR_ID: int = 0
-FM_ACCOUNT_AVAILABILITY_SENSOR_ID: int = 0
-FM_ACCOUNT_SOC_SENSOR_ID: int = 0
-FM_ACCOUNT_COST_SENSOR_ID: int = 0
-
-# TODO: get from flexmeasures.
-FM_BASE_ENTITY_ADDRESS_POWER: str = "ea1.2022-03.nl.seita.flexmeasures:fm1."
-FM_BASE_ENTITY_ADDRESS_AVAILABILITY: str = "ea1.2022-03.nl.seita.flexmeasures:fm1."
-FM_BASE_ENTITY_ADDRESS_SOC: str = "ea1.2022-04.nl.seita.flexmeasures:fm1."
-
-FM_ACCOUNT_USERNAME: str = ""
-FM_ACCOUNT_PASSWORD: str = ""
+FM_ENTITY_ADDRESS_POWER: str = ""
+FM_ENTITY_ADDRESS_AVAILABILITY: str = ""
+FM_ENTITY_ADDRESS_SOC: str = ""
 
 # CHARGER CONSTANTS
 # IP address and port for charger modbus communication

@@ -107,7 +107,7 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
 4. When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible, open this by clicking it.
 5. Now go to the settings tab. 
 6. Review all sections of the page and complete the requested information as necessary.<br/>
-   Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un touched.
+   Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un-touched.
 
 
 ## Tips & tricks
@@ -116,16 +116,16 @@ Make your V2G life even more enjoyable!
 These are "out of the box" super handy Home Assistant features. These settings are optional but highly recommended.
 
 
-### Add additional users
-
-This lets more users (persons in the household) operate the charger and receive relevant notifications.
-
-
 ### Install the HA companion app on your mobile
 
 You can get it from the official app store of your phone platform.
 If you’ve added your HA instance and logged in you can manage the charging via the app and, 
 very conveniently, receive notifications about the charging on you mobile.
+
+
+### Add additional users
+
+This lets more users (persons in the household) operate the charger. This can be done in HA via `settings -> Persons -> Add new` and make sure to set the option to login. If the user wants to receive relevant notifications have them also install the companion app and login.
 
 
 ### Make V2G Liberty your default dashboard

@@ -8,11 +8,10 @@ import math
 import requests
 import constants as c
 from v2g_globals import time_round
-
 import appdaemon.plugins.hass.hassapi as hass
 
 
-class FlexMeasuresClient(hass.Hass):
+class FMClient(hass.Hass):
     """ This class manages the communication with the FlexMeasures platform, which delivers the charging schedules.
 
     - Saves charging schedule locally (input_text.chargeschedule)
@@ -21,9 +20,6 @@ class FlexMeasuresClient(hass.Hass):
     """
 
     # Constants
-    FM_URL: str
-    FM_TRIGGER_URL: str
-    FM_OPTIMISATION_CONTEXT: dict
     FM_SCHEDULE_DURATION: str
     MAX_NUMBER_OF_REATTEMPTS: int
     DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
@@ -51,6 +47,8 @@ class FlexMeasuresClient(hass.Hass):
     # For sending notifications to the user.
     v2g_main_app: object
 
+    client: object
+
     async def initialize(self):
         self.log("Initializing FlexMeasuresClient")
 
@@ -71,39 +69,92 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_max_seconds_between_schedules = \
             self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1) + self.DELAY_FOR_INITIAL_ATTEMPT
 
-        await self.initialise_fm_settings()
+        await self.initialise_and_test_fm_client()
 
         # Ping every half hour. If offline a separate process will run to increase polling frequency.
         self.connection_error_counter = 0
         # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
-        self.listen_event(self.initialise_fm_settings, "TEST_FM_CONNECTION")
         self.log("Completed initializing FlexMeasuresClient")
 
-    async def initialise_fm_settings(self, event=None, data=None, kwargs=None):
-        self.log("initialise_fm_settings called")
-        keep_alive = {"keep_alive": await self.get_now()}
-        await self.set_state("input_text.fm_connection_status", state="Testing connection...", attributes=keep_alive)
-        base_url = c.FM_SCHEDULE_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-        self.FM_URL = base_url + c.FM_SCHEDULE_SLUG
-        self.FM_TRIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
 
-        if c.OPTIMISATION_MODE == "price":
-            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                                            "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID}
-        else:
-            # Assumed optimisation = emissions
-            self.FM_OPTIMISATION_CONTEXT = {"consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
-                                            "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID}
-        # self.log(f"Optimisation context: {self.FM_OPTIMISATION_CONTEXT}")
-        res = self.authenticate_with_fm()
-        now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
-        self.log(f"initialise_fm_settings, {res}, {now}.")
-        if res:
-            message = "Success!"
-        else:
-            message = "Failed to connect and login"
-        await self.set_state("input_text.fm_connection_status", state=message, attributes=keep_alive)
+    async def initialise_and_test_fm_client(self) -> str:
+        self.log("initialise_and_test_fm_client called")
+        # Unusual place for the import, but it has to be in an async method otherwise it errors out
+        # with problems with the async loop.
+        from flexmeasures_client import FlexMeasuresClient
+        from flexmeasures_client.exceptions import EmailValidationError
+
+        host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
+        self.log(f"initialise_and_test_fm_client, host: '{host}', ssl: '{ssl}'.")
+        try:
+            self.client = FlexMeasuresClient(
+                host = host,
+                email = c.FM_ACCOUNT_USERNAME,
+                password = c.FM_ACCOUNT_PASSWORD,
+                ssl = ssl,
+            )
+        except ValueError as ve:
+            self.log(f"initialise_and_test_fm_client, CLIENT ERROR: {ve}.")
+            # ValueErrors:
+            # 'xxx'' is not an email address format string (= also for empty email)
+            # password cannot be empty
+            return ve
+        except EmailValidationError as eve:
+            self.log(f"initialise_and_test_fm_client, CLIENT ERROR: {eve}.")
+            return eve
+
+        self.log(f"initialise_and_test_fm_client, successfully initialised flexmeasures client")
+
+        try:
+            self.log("initialise_and_test_fm_client, getting access token...")
+            await self.client.get_access_token()
+        except ValueError as ve:
+            self.log(f"V2G ERROR: {ve}")
+            # ValueErrors:
+            # User with email 'xxx' does not exist
+            # User password does not match
+            return ve
+        except ConnectionError as ce:
+            self.log(f"CLIENT ERROR: {ce}")
+            # CommunicationErrors:
+            # Error occurred while communicating with the API
+            # = for invalid URL and none-fm-url
+            return "Communication error. Wrong URL?"
+
+        self.client.close()
+        if self.client.access_token is None:
+            self.log("initialise_and_test_fm_client, access token is None")
+            return "Unknown error with FlexMeasures"
+        self.log(f"initialise_and_test_fm_client, access token: {self.client.access_token}, "
+                 f"returning 'Successfully connected'.")
+
+        return "Successfully connected"
+
+    async def get_fm_assets(self):
+        self.log("get_fm_assets called")
+        return await self.client.get_assets()
+
+    async def get_fm_sensors(self, asset_id: int):
+        self.log("get_fm_sensors called")
+        fm_sensors = await self.client.get_sensors()
+        # Filter sensors to match the assets_id
+        sensors = [sensor for sensor in fm_sensors if sensor["generic_asset_id"] == asset_id]
+        return sensors
+    #
+    # async def initialise_fm_settings(self, event=None, data=None, kwargs=None):
+    #     '''
+    #     Set local vars based on global constants.
+    #     To be called at init and from globals if settings change.
+    #     '''
+    #     self.log("initialise_fm_settings called")
+    #     base_url = c.FM_SENSOR_URL + "/" + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
+    #     self.log(f"initialise_fm_settings base_url: {base_url}.")
+    #     c.FM_TRIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
+    #     self.log(f"initialise_fm_settings c.FM_TRIGGER_URL: {c.FM_TRIGGER_URL}.")
+    #     c.FM_GET_SCHEDULE_URL = base_url + c.FM_SCHEDULE_SLUG
+    #     self.log(f"initialise_fm_settings c.FM_GET_SCHEDULE_URL: {c.FM_GET_SCHEDULE_URL}.")
+
 
     # async def ping_server(self, *args):
         # """ Ping function to check if server is alive """
@@ -196,7 +247,8 @@ class FlexMeasuresClient(hass.Hass):
         current_soc_kwh: a soc that is as close as possible to the actual state of charge
         back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back at max soc. Can be None
         """
-        # self.log(f"get_new_schedule called with car_soc: {current_soc_kwh}kWh ({type(current_soc_kwh)}, back_to_max:  {back_to_max_soc} ({type(back_to_max_soc)}.")
+        self.log(f"get_new_schedule called with car_soc: {current_soc_kwh}kWh ({type(current_soc_kwh)}, "
+                 f"back_to_max: {back_to_max_soc} ({type(back_to_max_soc)}.")
 
         now = datetime.now(tz=c.TZ)
         self.log(f"get_new_schedule: nu = {now.isoformat()}, ({type(now)}).")
@@ -223,7 +275,6 @@ class FlexMeasuresClient(hass.Hass):
             current_soc_kwh=current_soc_kwh,
             back_to_max_soc=back_to_max_soc
         )
-        # self.log(f"XYZXYZ id={schedule_id}")
         if schedule_id is None:
             self.log("Failed to trigger new schedule, schedule ID is None. Cannot call get_schedule")
             self.fm_busy_getting_schedule = False
@@ -244,7 +295,7 @@ class FlexMeasuresClient(hass.Hass):
         self.fm_busy_getting_schedule = True
 
         schedule_id = kwargs["schedule_id"]
-        url = self.FM_URL + schedule_id
+        url = c.FM_GET_SCHEDULE_URL + schedule_id
         message = {
             "duration": self.FM_SCHEDULE_DURATION,
         }
@@ -314,7 +365,8 @@ class FlexMeasuresClient(hass.Hass):
         target_datetime = fnc_kwargs["target_datetime"]
         back_to_max_soc = fnc_kwargs["back_to_max_soc"]
         self.log(f"trigger_schedule called with current_soc_kwh: {current_soc_kwh} kWh.")
-        url = self.FM_TRIGGER_URL
+        url = c.FM_TRIGGER_URL
+        self.log(f"trigger_schedule, c.FM_TRIGGER_URL: '{c.FM_TRIGGER_URL}'.")
 
         resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         start_relaxation_window = target_datetime
@@ -449,14 +501,16 @@ class FlexMeasuresClient(hass.Hass):
                 "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
                 "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
             },
-            "flex-context": self.FM_OPTIMISATION_CONTEXT,
+            "flex-context": c.FM_OPTIMISATION_CONTEXT,
         }
-
-        res = requests.post(
-            url,
-            json=message,
-            headers={"Authorization": self.fm_token},
-        )
+        try:
+            res = requests.post(
+                url,
+                json=message,
+                headers={"Authorization": self.fm_token},
+            )
+        except:
+            self.log(f"Trigger_schedule on url '{url}' failed.")
 
         tmp = str(message)
         self.log(f"Trigger_schedule on url '{url}', with message: '{tmp[0:275]} . . . . . {tmp[-275:]}'.")
@@ -496,3 +550,24 @@ class FlexMeasuresClient(hass.Hass):
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
             await fnc(*fnc_args, **fnc_kwargs)
+
+
+def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
+    """Get the host and ssl from the url."""
+    if url.startswith("http://"):
+        ssl = False
+        host = url.removeprefix("http://")
+    elif url.startswith("https://"):
+        ssl = True
+        host = url.removeprefix("https://")
+    else:
+        # If no prefix is given in url
+        ssl = True
+        host = url
+
+    return host, ssl
+
+
+def get_keepalive():
+    now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
+    return {"keep_alive": now}

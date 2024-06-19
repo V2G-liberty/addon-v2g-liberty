@@ -142,9 +142,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         total_charging_cost_last_7_days = 0
         charging_cost_points = []
         for charging_cost in charging_costs:
-            data_point = {}
-            data_point['time'] = datetime.fromtimestamp(charging_cost['event_start'] / 1000).isoformat()
-            data_point['cost'] = round(float(charging_cost['event_value']), 2)
+            data_point = {'time': datetime.fromtimestamp(charging_cost['event_start'] / 1000).isoformat(),
+                          'cost': round(float(charging_cost['event_value']), 2)}
             total_charging_cost_last_7_days += data_point['cost']
             charging_cost_points.append(data_point)
         total_charging_cost_last_7_days = round(total_charging_cost_last_7_days, 2)
@@ -152,8 +151,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         # To make sure HA considers this as new info a datetime is added
         new_state = "Costs collected at " + now.isoformat()
-        result = {}
-        result['records'] = charging_cost_points
+        result = {'records': charging_cost_points}
         self.set_state("input_text.charging_costs", state=new_state, attributes=result)
         self.set_value("input_number.total_charging_cost_last_7_days", total_charging_cost_last_7_days)
 

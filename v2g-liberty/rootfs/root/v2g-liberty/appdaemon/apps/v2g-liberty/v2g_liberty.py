@@ -100,7 +100,7 @@ class V2Gliberty(hass.Hass):
         self.no_schedule_notification_is_planned = False
 
         self.evse_client = await self.get_app("modbus_evse_client")
-        self.fm_client = await self.get_app("flexmeasures-client")
+        self.fm_client = await self.get_app("fm_client")
         self.reservations_client = await self.get_app("reservations-client")
 
         self.listen_state(self.__update_charge_mode, "input_select.charge_mode", attribute="all")
@@ -601,6 +601,7 @@ class V2Gliberty(hass.Hass):
                  f"target_soc_kwh: {target_soc_kwh}kWh ({type(target_soc_kwh)}, "
                  f"back_to_max:  {self.back_to_max_soc} ({type(self.back_to_max_soc)}.")
         try:
+            self.log(f"__ask_for_new_schedule self.fm_client: {self.fm_client}.")
             await self.fm_client.get_new_schedule(
                 target_soc_kwh=target_soc_kwh,
                 target_datetime=target_datetime,

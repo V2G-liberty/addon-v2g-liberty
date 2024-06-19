@@ -1049,64 +1049,51 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: input_select.electricity_provider
-                state_not: self_provided
+                entity: input_text.fm_connection_status
+                state: Please select an asset
             card:
               type: entities
-              title: FlexMeasures Sensor IDs
               entities:
-                - entity: input_number.fm_account_power_sensor_id
-                  name: Power
-                  icon: mdi:lightning-bolt
-                  card_mod: !include input_number_style.yaml
-                - entity: input_number.fm_account_soc_sensor_id
-                  name: State of charge
-                  icon: mdi:percent-outline
-                  card_mod: !include input_number_style.yaml
-                - entity: input_number.fm_account_availability_sensor_id
-                  name: Availability
-                  icon: mdi:home-percent
-                  card_mod: !include input_number_style.yaml
-                - entity: input_number.fm_account_cost_sensor_id
-                  name: Costs
-                  icon: mdi:currency-eur
-                  card_mod: !include input_number_style.yaml
+                - entity: input_select.fm_asset
               card_mod:
                 style: |
                     ha-card {
-                      margin-top: -8px;
+                      border-top: none;
+                      border-top-left-radius: 0;
+                      border-top-right-radius: 0;
+                      margin-top: -28px;
                     }
-
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: input_select.electricity_provider
-                state: self_provided
-            card:
-              type: entities
-              title: FlexMeasures self provided sensor IDs
-              entities:
-                - entity: input_number.fm_account_own_power_sensor_id
-                  name: Power
-                  icon: mdi:lightning-bolt
-                  card_mod: !include input_number_style.yaml
-                - entity: input_number.fm_account_own_soc_sensor_id
-                  name: State of charge
-                  icon: mdi:percent-outline
-                  card_mod: !include input_number_style.yaml
-                - entity: input_number.fm_account_own_availability_sensor_id
-                  name: Availability
-                  icon: mdi:home-percent
-                  card_mod: !include input_number_style.yaml
-                - entity: input_number.fm_account_own_cost_sensor_id
-                  name: Costs
-                  icon: mdi:currency-eur
-                  card_mod: !include input_number_style.yaml
-              card_mod:
-                style: |
-                    ha-card {
-                      margin-top: -8px;
-                    }
+#
+#          - type: conditional
+#            conditions:
+#              - condition: state
+#                entity: input_select.electricity_provider
+#                state: self_provided
+#            card:
+#              type: entities
+#              title: FlexMeasures self provided sensor IDs
+#              entities:
+#                - entity: input_number.fm_account_own_power_sensor_id
+#                  name: Power
+#                  icon: mdi:lightning-bolt
+#                  card_mod: !include input_number_style.yaml
+#                - entity: input_number.fm_account_own_soc_sensor_id
+#                  name: State of charge
+#                  icon: mdi:percent-outline
+#                  card_mod: !include input_number_style.yaml
+#                - entity: input_number.fm_account_own_availability_sensor_id
+#                  name: Availability
+#                  icon: mdi:home-percent
+#                  card_mod: !include input_number_style.yaml
+#                - entity: input_number.fm_account_own_cost_sensor_id
+#                  name: Costs
+#                  icon: mdi:currency-eur
+#                  card_mod: !include input_number_style.yaml
+#              card_mod:
+#                style: |
+#                    ha-card {
+#                      margin-top: -8px;
+#                    }
 
           - type: entities
             entities:

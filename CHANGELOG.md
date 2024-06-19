@@ -2,19 +2,46 @@
 
 ## [Unreleased]
 
-This section shows what the next release might include.
+The next release might include:
 
 ### Adding
 
 - Hopefully add ping to FM server again. Needs research.
+- Hopefully add "self_provided" option again. Needs refactoring.
 
 ### Changing
 
-- ?
+- Use flexmeasures_client python library for all calls to FM
 
 ### Removing
 
 - ?
+
+
+
+## 0.1.9 - 2024-06-13
+
+### Added
+
+- None
+
+
+### Fixed
+
+- None.
+
+
+### Changed
+
+- Getting sensor_id's from FM instead of through UI (#34)
+- Introduced flexmeasures_client python library for stability and reduction of code complexity.
+- Minor improvements in documentation.
+- Made setting options in a select more robust
+
+
+### Removed
+
+- Temporary remover the option "self_provided" for energy prices as users for this functionality use another repository.
 
 
 
