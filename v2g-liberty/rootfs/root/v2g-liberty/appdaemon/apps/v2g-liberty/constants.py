@@ -1,7 +1,7 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-03 Feature: get sensor_id's from Fm instead of UI #34
-V2G_LIBERTY_VERSION: str = "0.1.9"
+# Date 2024-06-21 Bug #31 Make charger-has-crashend-notification not critical when no car is connected
+V2G_LIBERTY_VERSION: str = "0.1.10"
 # TODO: Get version number from the add-on itself.
 
 # For showing dates in UI

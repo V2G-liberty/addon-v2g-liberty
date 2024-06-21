@@ -19,6 +19,31 @@ The next release might include:
 
 
 
+## 0.1.10 - 2024-06-21
+
+### Added
+
+- None
+
+
+### Fixed
+
+- Make charger-has-crashend-notification not critical when no car is connected (#31)
+  This is hard to test as the real hardware reacts differently than the charger mock, it has been running on the test 
+  environment for a couple of days. Not so much on real hardware.
+
+
+### Changed
+
+- None
+
+
+### Removed
+
+- None
+
+
+
 ## 0.1.9 - 2024-06-13
 
 ### Added
@@ -41,7 +66,7 @@ The next release might include:
 
 ### Removed
 
-- Temporary remover the option "self_provided" for energy prices as users for this functionality use another repository.
+- Temporary removed the option "self_provided" for energy prices as users for this functionality use another repository.
 
 
 

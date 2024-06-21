@@ -235,19 +235,26 @@ class V2Gliberty(hass.Hass):
         """
         # Assume the charger has crashed.
         self.log(f"The charger probably crashed, notifying user")
-        title = "Modbus communication error"
+        title = "Charger communication error"
         message = "Automatic charging has been stopped. Please click this notification to open the V2G Liberty App " \
                   "and follow the steps to solve this problem."
+        # Do not send a critical warning if car was not connected.
+        critical = await self.evse_client.was_car_connected()
         self.notify_user(
             message=message,
             title=title,
-            tag="critical_error",
-            critical=True,
+            tag="charger_modbus_crashed",
+            critical=critical,
             send_to_all=False
         )
         await self.set_state("input_boolean.charger_modbus_communication_fault", state="on")
         self.__set_chargemode_in_ui("Stop")
         return
+
+    async def reset_charger_communication_fault(self):
+        await self.set_state("input_boolean.charger_modbus_communication_fault", state="off")
+        identification = {"recipient": c.ADMIN_MOBILE_NAME, "tag": "charger_modbus_crashed"}
+        self.__clear_notification(identification)
 
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
