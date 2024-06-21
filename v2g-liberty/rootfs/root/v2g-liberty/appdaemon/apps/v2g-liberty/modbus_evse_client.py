@@ -346,6 +346,19 @@ class ModbusEVSEclient(hass.Hass):
         state = int(float(state))
         return state in self.AVAILABILITY_STATES
 
+    async def was_car_connected(self) -> bool:
+        # Returns the last known "is_car_connected".
+        # Use whe modus communication with charger has failed, so the __get_charger_state() can not be called.
+        self.log("was_car_connected called")
+        charger_state = await self.get_state("sensor.charger_charger_state", attribute="state")
+        if charger_state is None:
+            # Unknown charger state, assume car was connected
+            return True
+        else:
+            charger_state = int(float(charger_state))
+
+        return charger_state != self.DISCONNECTED_STATE
+
     async def is_car_connected(self) -> bool:
         """Indicates if currently a car is connected to the charger."""
         is_connected = await self.__get_charger_state() != self.DISCONNECTED_STATE
@@ -1159,6 +1172,11 @@ class ModbusEVSEclient(hass.Hass):
         except ModbusException as exc:
             self.log(f"__modbus_write, Received ModbusException({exc}) from library")
             raise exc
+
+        # Successful read,and thus communication.
+        if self.connection_failure_counter > 0:
+            self.log(f"__modbus_write, there was an charger_communication_fault, now solved.")
+            self.v2g_main_app.reset_charger_communication_fault()
         self.connection_failure_counter = 0
         self.dtm_connection_failure_since = None
 
@@ -1169,6 +1187,7 @@ class ModbusEVSEclient(hass.Hass):
         await self.__disconnect_from_modbus_server(self.WAIT_AFTER_MODBUS_READ_IN_MS / 1000)
 
         return list(map(self.__get_2comp, result.registers))
+
 
     def __get_2comp(self, number):
         """ Util function to covert a modbus read value to in with two's complement values
