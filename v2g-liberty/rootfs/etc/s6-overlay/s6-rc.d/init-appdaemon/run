@@ -14,6 +14,9 @@ fi
 # Create directory where log files will be written
 mkdir -p /config/logs
 
+# Remove old flexmeasures_client.py as it has the same name as the pypi library
+rm -f /config/apps/v2g-liberty/flexmeasures_client.py
+
 # Copy python files
 cp -aRv /root/v2g-liberty/appdaemon/* /config \
     || bashio::exit.nok 'Failed to copy V2G-Liberty app'

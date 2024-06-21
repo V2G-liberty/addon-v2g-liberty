@@ -18,13 +18,13 @@ v2g_liberty:
   priority: 50
   dependencies:
     - v2g-globals
-    - flexmeasures-client
+    - fm_client
     - modbus_evse_client
     - reservations-client
 
-flexmeasures-client:
-  module: flexmeasures_client
-  class: FlexMeasuresClient
+fm_client:
+  module: fm_client
+  class: FMClient
   priority: 50
   dependencies:
     - v2g-globals
@@ -42,7 +42,7 @@ get_fm_data:
   priority: 100
   dependencies:
    - v2g-globals
-   - flexmeasures-client
+   - fm_client
 
 set_fm_data:
   module: set_fm_data

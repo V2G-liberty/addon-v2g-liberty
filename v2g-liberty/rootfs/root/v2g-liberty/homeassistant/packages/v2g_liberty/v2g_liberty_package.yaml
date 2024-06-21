@@ -28,6 +28,14 @@ lovelace:
 
 
 input_select:
+  # Options will be set through v2g_globals
+  fm_asset:
+    name: FlexMeasures asset
+    icon: mdi:format-list-bulleted-type
+    options:
+      - Please choose an option
+
+  # Options will be set through v2g_globals
   admin_mobile_name:
     name: The mobile of the administrator
     icon: mdi:shield-account
@@ -69,7 +77,8 @@ input_select:
       - nl_next_energy
       - nl_tibber
       - no_generic
-      - self_provided
+# This option is just not robust enough and current users are on another repository
+#      - self_provided
 
   optimisation_mode:
     options:
@@ -125,66 +134,6 @@ input_boolean:
     icon: mdi:battery-off
 
 input_number:
-  # Setting related entities
-  fm_account_power_sensor_id:
-    name: Power sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-  fm_account_soc_sensor_id:
-    name: State of charge sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-  fm_account_availability_sensor_id:
-    name: Availability sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-  fm_account_cost_sensor_id:
-    name: Costs sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-
-  # Sensor IDs for self-provided
-  fm_account_own_power_sensor_id:
-    name: Power sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-  fm_account_own_soc_sensor_id:
-    name: State of charge sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-  fm_account_own_availability_sensor_id:
-    name: Availability sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-  fm_account_own_cost_sensor_id:
-    name: Costs sensor ID
-    min: 1
-    max: 99999
-    step: 1
-    mode: box
-    unit_of_measurement: " "
-
   energy_price_vat:
     name: VAT
     min: 0
