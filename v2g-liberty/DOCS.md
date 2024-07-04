@@ -51,26 +51,7 @@ completed steps 1 to 7, if so, skip them.
 7. The add-on page opens, click the `Install` button to install the add-on. This might take 
    quite a while as several files have to be copied.
 8. Consider activating `Watch dog` and `Automatic update`.
-
-Before proceeding to start the add-on a little more configuration is needed. You'll need to edit two .yaml files. For this guide we use the File Editor add-on, you can use another one if you prefer.
-
-9. The Start the File Editor add-on `settings > add-ons > File Editor`.
-10. Open `secrets.yaml` and add this text and edit the location, elevation and timezone settings:
-
-       ```yaml
-       #############   V2G LIBERTY CONFIGURATION  #############
-       # Provide the coordinates of your location.
-       # E.g. for the Netherlands typical values are: lat. 52.xxxxxx,  lon. 4.xxxxxx
-       ha_latitude: 0
-       ha_longitude: 0
-       
-       # Elevation in meters
-       ha_elevation: 0
-        
-       # Provide your timezone, e.g. Europe/Amsterdam, Europe/Greenwich, Australia/Sidney
-       ha_time_zone: Europe/Amsterdam
-       ```
-11. Click `Start` to get the V2G Liberty add-on going.<br>
+9. Click `Start` to get the V2G Liberty add-on going.<br>
    Have a look at the logs (most right tab on top of the page) to see if all went well.
    The last line should say something like:
 
@@ -82,7 +63,7 @@ Now you can move on to the last part: the configuration.
 
 ## Configuration
 
-If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally skip steps 1 to 4.
+If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally skip steps 1 to 4 and keep your old secrets.yaml at hand as you can copy most of these settings to the new settings screen (step 6). After that you might want to clear the yaml file as it is no longer needed. 
 
 
 1. Go to the File Editor add-on `settings > add-ons > File Editor`. 
@@ -132,6 +113,12 @@ This lets more users (persons in the household) operate the charger. This can be
 
 To make the V2G Liberty dashboard your default go to `Settings > Dashboards`. 
 Select the V2G Liberty dashboard row and click the link "SET AS DEFAULT IN THIS DEVICE".
+
+### Timestamp of log entries
+
+This again is optional and only is relevant if you intend to (regularly) have a look at the logfiles.
+
+Change the default time_zone setting `Europe/Amsterdam` in the appdaemon.yaml to your local time_zone.
 
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!

@@ -1,9 +1,5 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-21 Bug #31 Make charger-has-crashend-notification not critical when no car is connected
-V2G_LIBERTY_VERSION: str = "0.1.10"
-# TODO: Get version number from the add-on itself.
-
 # For showing dates in UI
 DATE_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 # Timezone, untyped here..

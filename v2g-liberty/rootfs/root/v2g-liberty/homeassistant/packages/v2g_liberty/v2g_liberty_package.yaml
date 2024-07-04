@@ -6,7 +6,7 @@
 ################################################################################
 
 lovelace:
-  mode: yaml
+  mode: storage
   dashboards:
     lovelace-yaml:
       mode: yaml
@@ -15,16 +15,11 @@ lovelace:
       icon: mdi:car-electric
       show_in_sidebar: true
       require_admin: false
-  resources:
-    - url: /local/v2g_liberty/lovelace-card-mod/card-mod.js
-      type: module
-    - url: /local/v2g_liberty/apexcharts-card/apexcharts-card.js
-      type: module
-# TODO: see if this can speedup cardmod.
-# See: https://github.com/thomasloven/lovelace-card-mod#performance-improvements
-# frontend:
-#   extra_module_url:
-#     - /local/card-mod.js
+
+frontend:
+  extra_module_url:
+    - /local/v2g_liberty/lovelace-card-mod/card-mod.js
+    - /local/v2g_liberty/apexcharts-card/apexcharts-card.js
 
 
 input_select:
@@ -377,16 +372,6 @@ input_text:
   total_charge_time_last_7_days:
     name: Total charge time in last 7 days
 
-
-  # V2G Liberty version is set by V2G Liberty.py based upon constant.
-  # Used only for setting text in dashboard.
-  v2g_liberty_version:
-    name: V2G Liberty version
-    icon: mdi:identifier
-    max: 100
-    mode: text
-    min: 0
-
   # Helper, set by V2G Liberty.py based upon setting utility in secrets.
   # Used only for setting text in dashboard.
   utility_display_name:
@@ -448,6 +433,14 @@ input_text:
     mode: text
     min: 0
 
+  # Forms bar representing the duration of the calendar item at
+  # the desired %.
+  calender_item_in_chart:
+    name: Calendar item in chart
+    max: 10000
+    mode: text
+    min: 0
+
   # Used for setting an error in the UI when V2G Liberty app cannot retrieve EPEX data.
   epex_log:
     name: epex_log
@@ -455,6 +448,12 @@ input_text:
     min: 0
     mode: text
 
+template:
+  - sensor:
+    # To make the HA time_zone available to the V2G Liberty python code.
+    - name: Time Zone
+      unique_id: time_zone
+      state: "{{ now().tzinfo }}"
 
 script:
   reset_to_factory_defaults:
@@ -491,6 +490,39 @@ script:
       - event: DISCONNECT_CHARGER
         event_data: {}
     mode: single
+
+  call_service_with_response:
+    description: Calls a service and returns its response to AppDaemon
+    fields:
+      call_id:
+        name: Call id
+        default: 1
+        description: An id to uniquely identify the call
+        required: True
+        selector:
+          text:
+      service_name:
+        name: Service name
+        default: domain.some_service
+        description: The service to call
+        required: True
+        selector:
+          text:
+      service_data:
+        name: Service data
+        default: {}
+        description: Data to pass to the service
+        required: True
+        selector:
+          object:
+    sequence:
+      - service: "{{ service_name }}"
+        data: "{{ service_data }}"
+        response_variable: response
+      - event: call_service_with_response.finished    # event name cannot be templated unfortunately
+        event_data:
+          call_id: "{{ call_id }}"
+          response: "{{ response }}"
 
 automation:
   - id: "1633010017995"
@@ -585,37 +617,3 @@ automation:
           entity_id: input_boolean.chargemodemaxboostnow
         data: {}
     mode: single
-
-  # Remove this automation as the new polling prevents the none-int values.
-  # Replace 'sensor.charger_connected_car_state_of_charge' with 'sensor.car_state_of_charge'
-  # in the modbus_evse_client.py.
-  # In the package rename 'input_number.car_state_of_charge' to 'sensor.car_state_of_charge'
-  #  - id: "1626364003549"
-  #    alias: "Translate Quasar SoC change "
-  #    description: >-
-  #      Goal:
-  #      Provide sanitized Quasar SoC in % (in input_number.car_state_of_charge).
-  #
-  #      Special cases that are ignored:
-  #      + 0% (often when the charger is paused) that is never a correct value.
-  #      + The Modbus YAML code often shows "unavailable" for a little while.
-  #
-  #    trigger:
-  #      - platform: state
-  #        entity_id: sensor.charger_connected_car_state_of_charge
-  #    condition:
-  #      - condition: numeric_state
-  #        entity_id: sensor.charger_connected_car_state_of_charge
-  #        above: "0"
-  #      - condition: not
-  #        conditions:
-  #          - condition: state
-  #            entity_id: sensor.charger_connected_car_state_of_charge
-  #            state: unavailable
-  #    action:
-  #      - service: input_number.set_value
-  #        target:
-  #          entity_id: input_number.car_state_of_charge
-  #        data:
-  #          value: "{{states('sensor.charger_connected_car_state_of_charge') |int }}"
-  #    mode: single

@@ -1,11 +1,15 @@
 ---
-secrets: /homeassistant/secrets.yaml
-
 appdaemon:
-  latitude: !secret ha_latitude
-  longitude: !secret ha_longitude
-  elevation: !secret ha_elevation
-  time_zone: !secret ha_time_zone
+  # V2G Liberty does not use these location settings
+  # (even-though it is a very relevant place in the world)
+  latitude: 52.10561
+  longitude: 4.31780
+  elevation: 2
+
+  # V2G Liberty ignores this timezone, it uses the HA setting.
+  # If you would like your log timestamps to be in local time set it to the right timezone here.
+  time_zone: Europe/Amsterdam
+
   production_mode: True
   plugins:
     HASS:

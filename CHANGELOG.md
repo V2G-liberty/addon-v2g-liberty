@@ -6,8 +6,8 @@ The next release might include:
 
 ### Adding
 
-- Hopefully add ping to FM server again. Needs research.
 - Hopefully add "self_provided" option again. Needs refactoring.
+- Better detection and notification of charger communication crashes.
 
 ### Changing
 
@@ -16,6 +16,36 @@ The next release might include:
 ### Removing
 
 - ?
+
+
+
+## 0.1.11 - 2024-07-03
+
+### Added
+
+- Take multiple calendar items into account for the schedule (#36)
+- Show all calendar items in graph
+- Notify users of "car still connected during calendar item duration, want to: Keep or Dismiss?"
+  - if Dismiss: strikethrough in list of items, remove from graph and ask for new schedule.
+  - if Keep: show normal and keep same schedule
+- Simplified installation as changing the secrets.yaml file is no longer needed. 
+
+
+### Fixed
+
+- Minor fix: await fm_client close()
+- Handle installation of V2G Liberty in combination with other (HACS) resources.
+  E.g. lovelace mode set to 'storage' so V2G Liberty can work with other HACS resources
+- Minor fixes in fm_get_data module
+
+### Changed
+
+- None
+
+
+### Removed
+
+- Date-time from feedback on FM TEST button in settings page.
 
 
 

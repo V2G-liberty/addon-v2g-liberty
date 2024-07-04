@@ -5,6 +5,7 @@ import math
 import re
 import requests
 import time
+from v2g_globals import get_local_now
 import constants as c
 from typing import AsyncGenerator, List, Optional
 
@@ -58,28 +59,32 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.CHARGING_COST_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_COST_SENSOR_ID) + c.FM_GET_DATA_SLUG
         self.CHARGE_POWER_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID) + c.FM_GET_DATA_SLUG
 
+        initial_delay_sec = 150
         # Price data should normally be available just after 13:00 when data can be
         # retrieved from its original source (ENTSO-E) but sometimes there is a delay of several hours.
         self.first_try_time_price_data = "14:32:00"
         self.second_try_time_price_data = "18:32:00"
         self.run_daily(self.daily_kickoff_price_data, self.first_try_time_price_data)
         # At init also run this as (re-) start is not always around self.first_try_time
-        self.daily_kickoff_price_data()
+        # This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
 
         self.emission_intensities = {}
         self.first_try_time_emissions_data = "15:16:17"
         self.second_try_time_emissions_data = "19:18:17"
         self.run_daily(self.daily_kickoff_emissions_data, self.first_try_time_emissions_data)
         # At init also run this as (re-) start is not always around self.first_try_time
-        self.daily_kickoff_emissions_data()
+        # This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
 
         self.GET_CHARGING_DATA_AT = "01:15:00"
         self.run_daily(self.daily_kickoff_charging_data, self.GET_CHARGING_DATA_AT)
         # At init also run this as (re-) start is not always around self.first_try_time
-        self.daily_kickoff_charging_data()
+        # This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
 
-        self.log(
-            f"Completed initializing FlexMeasuresDataImporter: check daily at {self.first_try_time_price_data} for new price data with FM.")
+        self.log(f"Completed initializing FlexMeasuresDataImporter: "
+                 f"check daily at {self.first_try_time_price_data} for new price data with FM.")
 
     def daily_kickoff_charging_data(self, *args):
         """ This sets off the daily routine to check for charging cost."""
@@ -108,7 +113,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         Make costs total costs of this period available in HA by setting them in input_text.last week costs
         ToDo: Split cost in charging and dis-charging per day
         """
-        now = self.get_now()
+        now = get_local_now()
         self.authenticate_with_fm()
 
         # Getting data since a week ago so that user can look back a further than just current window.
@@ -163,7 +168,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         Make totals of charging and dis-charging per day and over the period
 
         """
-        now = self.get_now()
+        now = get_local_now()
         # Getting data since start of yesterday so that user can look back a little further than just current window.
 
         dt = str(now + timedelta(days=-7))
@@ -279,7 +284,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         Make prices available in HA by setting them in input_text.epex_prices
         Notify user if there will be negative prices for next day
         """
-        now = self.get_now()
+        now = get_local_now()
         self.authenticate_with_fm()
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
         dt = str(now + timedelta(days=-1))
@@ -326,16 +331,20 @@ class FlexMeasuresDataImporter(hass.Hass):
         conversion = 1 / 10
         vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
         epex_price_points = []
-        has_negative_prices = False
+        dt_first_future_negative_price = None
+        now = get_local_now()
+        self.log(f"get_epex_prices, now: {now}.")
         for price in prices:
+            dt = datetime.fromtimestamp(price['event_start'] / 1000).astimezone(c.TZ)
             data_point = {
-                'time': datetime.fromtimestamp(price['event_start'] / 1000).isoformat(),
+                'time': dt.isoformat(),
                 'price': round(((price['event_value'] * conversion) +
                                 c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
             }
-            # TODO: Also check if data point is in the future
-            if data_point['price'] < 0:
-                has_negative_prices = True
+            if dt_first_future_negative_price is None and data_point['price'] < 0:
+                if dt > now:
+                    self.log(f"get_epex_prices, negative price: {data_point['price']} at: {dt}.")
+                    dt_first_future_negative_price = dt
             epex_price_points.append(data_point)
 
         # To make sure HA considers this as new info a datetime is added
@@ -352,10 +361,11 @@ class FlexMeasuresDataImporter(hass.Hass):
                      f"Retry at {self.second_try_time_price_data}.")
             self.run_at(self.get_epex_prices, self.second_try_time_price_data)
         else:
-            if has_negative_prices:
+            if dt_first_future_negative_price is not None:
                 self.v2g_main_app.notify_user(
-                    message="Consider to check times in the app to optimize electricity usage.",
-                    title="Negative electricity prices upcoming",
+                    message=f"From {dt_first_future_negative_price.strftime(c.DATE_TIME_FORMAT)} "
+                            f"your electricity price is negative.",
+                    title="Negative electricity price",
                     tag="negative_energy_prices",
                     critical=False,
                     send_to_all=True,
@@ -372,7 +382,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log("FMdata: get_emission_intensities called")
 
-        now = self.get_now()
+        now = get_local_now()
         self.authenticate_with_fm()
         # Getting emissions since a week ago. This is needed for calculation of CO2 savings
         # and will be (more than) enough for the graph to show.

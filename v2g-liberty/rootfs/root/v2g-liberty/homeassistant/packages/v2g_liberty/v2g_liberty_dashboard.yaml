@@ -205,6 +205,10 @@ views:
                   margin-top: -52px;
                 }
           - type: custom:apexcharts-card
+            ###############################################################
+            #    If this code shows in a red error box in the browser:    #
+            #    Please clear the browsers cache and reload the page.     #
+            ###############################################################
             graph_span: 24h
             span:
               start: hour
@@ -231,6 +235,7 @@ views:
                 color: "#666666"
                 extend_to: false
                 stroke_width: 1
+                opacity: 0.8
                 curve: stepline
                 yaxis_id: EPEXprice
                 data_generator: |
@@ -241,6 +246,7 @@ views:
               - entity: input_text.co2_emissions
                 transform: "return x / 6;"
                 color: "#43a047"
+                opacity: 0.5
                 extend_to: false
                 stroke_width: 1
                 curve: stepline
@@ -256,6 +262,18 @@ views:
                 type: line
                 extend_to: now
                 yaxis_id: SoC
+
+              - entity: input_text.calender_item_in_chart
+                type: area
+                color: var(--dark-primary-color)
+                opacity: 0.2
+                stroke_width: 0
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
               - entity: input_text.soc_prognosis_boost
                 type: line
                 color: "#e48628"
@@ -420,30 +438,40 @@ views:
             title: Reservations
             entities:
               - input_text.input_text.calendar_events
-            content: >-                
-                <div>Target SoC is read from the event summary, if not found a target of 100% used.</div> 
+            content: >-
+                <div>Target SoC is read from the event summary, if not found, 100% is used.</div> 
                 {% if state_attr('input_text.calendar_events', 'v2g_ui_event_calendar') == None %}
                 Calendar configuration seems invalid, please check settings.
                 {% else %}
                 {% if states.input_text.calendar_events.attributes.v2g_ui_event_calendar == [] %}
                 No reservations in the next seven days.
                 {% else %}
-                <table>
-                {% for cal_day in states.input_text.calendar_events.attributes.v2g_ui_event_calendar %}
-                <thead><tr><th colspan=3>{{ as_timestamp(cal_day.day) | timestamp_custom("%A") }}</th><td>{{ as_timestamp(cal_day.day) | timestamp_custom("%Y-%m-%d") }}</td></tr></thead>
-                {% for event in cal_day.events %}
-                <tbody><tr><td>{{ as_timestamp(event.start) | timestamp_custom("%H:%M") }}</td><td><span>-</span></td><td>{{ as_timestamp(event.end) | timestamp_custom("%H:%M") }}</td><th>{{ event.summary }}{% if event.description != "" %}<span>{{ event.description }}</span>{% endif %}</th></tr></tbody>
-                {% endfor %}
-                {% endfor %}
-                </table>
+                <table>{% for cal_day in states.input_text.calendar_events.attributes.v2g_ui_event_calendar %}
+                <thead>
+                <tr>
+                <th colspan=4>{{ as_timestamp(cal_day.day) | timestamp_custom("%A") }}</th>
+                <td>{{ as_timestamp(cal_day.day) | timestamp_custom("%Y-%m-%d") }}</td>
+                </tr>
+                </thead>{% for event in cal_day.events %}<tbody><tr>
+                {% if event.dismissed == true %}
+                <td><s>{{ as_timestamp(event.start) | timestamp_custom("%H:%M") }}</s></td><td><span>-</span></td>
+                <td><s>{{ as_timestamp(event.end) | timestamp_custom("%H:%M") }}</s></td>
+                <td></td>
+                <th><s>{{ event.summary }}</s><b>(dismissed by user)</b> {% if event.description != "" %}<s><span>{{ event.description }}</span></s>{% endif %}</th>
+                {% else %}
+                <td>{{ as_timestamp(event.start) | timestamp_custom("%H:%M") }}</td><td><span>-</span></td>
+                <td>{{ as_timestamp(event.end) | timestamp_custom("%H:%M") }}</td>
+                <td><strong>●</strong></td>
+                <th>{{ event.summary }}{% if event.description != "" %}<span>{{ event.description }}</span>{% endif %}</th>
                 {% endif %}
-                {% endif %}
+                </tr>{% endfor %}
+                </tbody>{% endfor %}</table>{% endif %}{% endif %}
 
             card_mod:
               style:
                 ha-markdown$: |
                   div {
-                    margin-top: -20px !important;
+                    margin-top: 0px !important;
                     margin-bottom: 24px !important;
                     font-size: 90%;
                     color: var(--secondary-text-color);
@@ -458,8 +486,15 @@ views:
                     font-size: 16px;
                     padding: 8px 0 12px 0;
                   }
-                  tbody td span {
+                  td span {
                     padding: 0 6px;
+                  }
+                  td strong {
+                    padding-left: 16px;
+                    line-height: 0.6;
+                    font-size: 175%;
+                    color: var(--dark-primary-color);
+                    opacity: 0.3;
                   }
                   thead th {
                     text-align: left;
@@ -469,6 +504,9 @@ views:
                   }
                   thead td, thead th {
                     border-top: 1px solid var(--divider-color);
+                  }
+                  tbody s {
+                    color:  var(--secondary-text-color);
                   }
                   tbody * {
                     vertical-align: top;
@@ -513,7 +551,8 @@ views:
             entities:
               - input_text.v2g_liberty_version
             content: >-
-              Version <span>{{states("input_text.v2g_liberty_version")}}</span>
+              Version <span>{{ state_attr("update.v2g_liberty_update", "installed_version") }}</span>
+
             card_mod:
               style:
                 .: |

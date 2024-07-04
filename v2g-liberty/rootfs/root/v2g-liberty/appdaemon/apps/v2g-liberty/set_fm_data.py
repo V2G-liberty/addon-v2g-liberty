@@ -5,6 +5,7 @@ import math
 import requests
 import constants as c
 from typing import List, Union
+from v2g_globals import get_local_now
 import appdaemon.plugins.hass.hassapi as hass
 from v2g_globals import time_round, time_ceil
 
@@ -82,7 +83,7 @@ class SetFMdata(hass.Hass):
         self.log(f"Initializing SetFMdata.")
         self.evse_client = self.get_app("modbus_evse_client")
 
-        local_now = self.get_now()
+        local_now = get_local_now()
 
         # Power related initialisation
         self.current_power_since = local_now
@@ -170,7 +171,7 @@ class SetFMdata(hass.Hass):
             Use conclude_interval argument to conclude an interval (without changing the availablity)
         """
         if self.current_availability != self.is_available() or conclude_interval:
-            local_now = self.get_now()
+            local_now = get_local_now()
             duration = int((local_now - self.current_availability_since).total_seconds() * 1000)
 
             if conclude_interval:
@@ -199,7 +200,7 @@ class SetFMdata(hass.Hass):
 
     def proces_power_change(self, power):
         """Keep track of updated power changes within a regular interval."""
-        local_now = self.get_now()
+        local_now = get_local_now()
         duration = int((local_now - self.current_power_since).total_seconds())
         self.period_power_x_duration += (duration * power)
         self.power_period_duration += duration
@@ -259,7 +260,7 @@ class SetFMdata(hass.Hass):
             Called every hour
             Reset reading list/variables if sending was successful """
 
-        local_now = self.get_now()
+        local_now = get_local_now()
 
         start_from = time_round(local_now, self.RESOLUTION_TIMEDELTA)
         self.authenticate_with_fm()
