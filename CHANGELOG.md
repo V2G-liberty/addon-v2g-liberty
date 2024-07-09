@@ -6,8 +6,8 @@ The next release might include:
 
 ### Adding
 
+- **Better detection and notification of charger communication crashes.** Highest priority!
 - Hopefully add "self_provided" option again. Needs refactoring.
-- Better detection and notification of charger communication crashes.
 
 ### Changing
 
