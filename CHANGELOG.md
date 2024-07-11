@@ -28,7 +28,7 @@ The next release might include:
 - Notify users of "car still connected during calendar item duration, want to: Keep or Dismiss?"
   - if Dismiss: strikethrough in list of items, remove from graph and ask for new schedule.
   - if Keep: show normal and keep same schedule
-- Simplified installation as changing the secrets.yaml file is no longer needed. 
+- Remove location/timezone from secrets (#16)
 
 
 ### Fixed
