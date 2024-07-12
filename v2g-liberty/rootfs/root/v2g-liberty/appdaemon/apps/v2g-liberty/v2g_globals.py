@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import pytz
+import time
 import asyncio
 import json
 import os
@@ -163,6 +164,13 @@ class V2GLibertyGlobals(hass.Hass):
         "factory_default": 0,
         "listener_id": None
     }
+    SETTING_USE_VAT_AND_MARKUP = {
+        "entity_name": "use_vat_and_markup",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None
+    }
 
     # Settings related to notifications
     SETTING_ADMIN_MOBILE_NAME = {
@@ -231,7 +239,17 @@ class V2GLibertyGlobals(hass.Hass):
 
     async def initialize(self):
         self.log("Initializing V2GLibertyGlobals")
-        c.TZ = pytz.timezone(self.get_timezone())
+        # AppDaemon gets it's TZ from appdaemon.yaml. The user has set the right timezone in HA already.
+        # A separate setting for AppDaemon does not make sense? It is an extra setting with a possibility of mistakes.
+        # To get the HA timezone into AppDaemon a sensor in HA is created that is read here.
+        tz = await self.get_state('sensor.time_zone', attribute='state')
+        c.TZ = pytz.timezone(tz)
+
+        # It is recommended to always use the utility function get_local_now() from this module and
+        # not use self.get_now() as this depends on AppDaemon OS timezone,
+        # and that we have not been able to set from this code, this does not work:
+        # os.environ['TZ'] = tz
+        # time.tzset()
 
         self.v2g_main_app = await self.get_app("v2g_liberty")
         self.evse_client = await self.get_app("modbus_evse_client")
@@ -614,7 +632,7 @@ class V2GLibertyGlobals(hass.Hass):
     ######################################################################
     async def __set_fm_connection_status(self, state: str):
         self.log(f"__set_fm_connection_status, state: {state}.")
-        await self.set_state("input_text.fm_connection_status", state=state, attributes=self.__get_keepalive())
+        await self.set_state("input_text.fm_connection_status", state=state, attributes=get_keepalive())
 
     async def create_persistent_notification(self, message: str, title: str, notification_id: str):
         try:
@@ -634,7 +652,7 @@ class V2GLibertyGlobals(hass.Hass):
         entity_name = setting['entity_name']
         entity_type = setting['entity_type']
         entity_id = f"{entity_type}.{entity_name}"
-        self.log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
+        # self.log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
 
         if setting_value is not None:
             # setting_value has a relevant setting_value to set to HA
@@ -803,7 +821,6 @@ class V2GLibertyGlobals(hass.Hass):
                 self.log(f"__retrieve_settings, Error reading settings file: {e}")
                 self.v2g_settings = {}
 
-        self.log(f"__retrieve_settings, self.v2g_settings: {self.v2g_settings}")
 
     async def __store_setting(self, entity_id: str, setting_value: any):
         """Store (overwrite or create) a setting in settings file.
@@ -813,8 +830,11 @@ class V2GLibertyGlobals(hass.Hass):
             setting_value: the value to set.
         """
         # self.log(f"__store_setting, entity_id: '{entity_id}' to value '{setting_value}'.")
+        if setting_value in ["unknown", "Please choose an option"]:
+            return False
         self.v2g_settings[entity_id] = setting_value
         self.__write_to_file(self.v2g_settings)
+        return True
 
     def __write_to_file(self, settings: dict):
         # self.log(f"__write_to_file, settings: '{settings}'.")
@@ -1021,6 +1041,9 @@ class V2GLibertyGlobals(hass.Hass):
         c.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
         c.CAR_MAX_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
 
+        c.USAGE_PER_EVENT_TIME_INTERVAL = (c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000) /\
+                                          (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
+
         await self.__collect_action_triggers(source="changed general_settings")
         self.log("__read_and_process_general_settings completed")
 
@@ -1076,10 +1099,9 @@ class V2GLibertyGlobals(hass.Hass):
             try:
                 res = await self.calendar_client.initialise_calendar()
                 self.log(f"__read_and_process_calendar_settings: init HA calendar result: '{res}'.")
-            except:
-                self.log("__read_and_process_calendar_settings. "
-                         "Could not call calendar_client.initialise_calendar")
-
+            except Exception as e:
+                self.log(f"__read_and_process_calendar_settings. Could not call calendar_client.initialise_calendar. "
+                         f"Exception: {e}.")
         await self.__collect_action_triggers(source="changed calendar settings")
 
         self.log("__read_and_process_calendar_settings completed")
@@ -1183,7 +1205,14 @@ class V2GLibertyGlobals(hass.Hass):
         # For others, we expect netto prices (including VAT and Markup).
         # If self_provided data also includes VAT and markup the values can
         # be set to 1 and 0 respectively to achieve the same result as here.
-        if c.ELECTRICITY_PROVIDER in ["self_provided", "nl_generic", "no_generic"]:
+
+
+        use_vat_and_markup = await self.__process_setting(
+                setting_object=self.SETTING_USE_VAT_AND_MARKUP,
+                callback=callback_method
+            )
+        self.log(f"__read_and_process_optimisation_settings use_vat_and_markup: {use_vat_and_markup}.")
+        if use_vat_and_markup and c.ELECTRICITY_PROVIDER in ["self_provided", "nl_generic", "no_generic"]:
             c.ENERGY_PRICE_VAT = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,
                 callback=callback_method
@@ -1194,7 +1223,11 @@ class V2GLibertyGlobals(hass.Hass):
             )
         else:
             await self.__cancel_setting_listener(self.SETTING_ENERGY_PRICE_VAT)
+            c.ENERGY_PRICE_VAT = await self.__reset_to_factory_default(self.SETTING_ENERGY_PRICE_VAT)
             await self.__cancel_setting_listener(self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH)
+            c.ENERGY_PRICE_MARKUP_PER_KWH = await self.__reset_to_factory_default(
+                self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH
+            )
 
         await self.__collect_action_triggers(source="changed optimisation settings")
 
@@ -1207,6 +1240,22 @@ class V2GLibertyGlobals(hass.Hass):
     #         callback=callback_method
     #     )
     #     # TODO: the name of the entity that holds the price data
+
+    async def __reset_to_factory_default(self, setting_object):
+        entity_name = setting_object['entity_name']
+        entity_type = setting_object['entity_type']
+        entity_id = f"{entity_type}.{entity_name}"
+        factory_default = setting_object['factory_default']
+        if factory_default is None:
+            return_value = None
+        elif factory_default == "":
+            return_value = ""
+        else:
+            return_value, has_changed = await self.__check_and_convert_value(setting_object, factory_default)
+
+        await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+        await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
+        return return_value
 
     async def __set_fm_optimisation_context(self):
         # To be called after c.FM_PRICE_CONSUMPTION_SENSOR_ID, c.FM_PRICE_PRODUCTION_SENSOR_ID and
@@ -1226,7 +1275,7 @@ class V2GLibertyGlobals(hass.Hass):
     async def __collect_action_triggers(self, source: str):
         # When settings change the application needs partial restart.
         # To prevent a restart for every detailed change always wait a little as
-        # the user likely changes several settings at a time.
+        # the user likely changes several settings at a time_to_round.
         # This also prevents calling V2G Liberty too early when it has not
         # completed initialisation yet.
 
@@ -1252,18 +1301,18 @@ class V2GLibertyGlobals(hass.Hass):
 
         try:
             await self.evse_client.initialise_charger(v2g_args=v2g_args)
-        except:
-            self.log("__collective_action. Error, could not call evse_client.initialise_charger")
+        except Exception as e:
+            self.log(f"__collective_action. Error, could not call evse_client.initialise_charger. Exception: {e}.")
 
         try:
             await self.calendar_client.initialise_calendar()
-        except:
-            self.log("__collective_action. Error, could not call calendar_client.initialise_calendar")
+        except Exception as e:
+            self.log(f"__collective_action. Error, could not call calendar_client.initialise_calendar. Exception: {e}.")
 
         try:
             await self.v2g_main_app.initialise_v2g_liberty(v2g_args=v2g_args)
-        except:
-            self.log("__collective_action. Error, could not call v2g_main_app.initialise_v2g_liberty")
+        except Exception as e:
+            self.log(f"__collective_action. Error, could not call v2g_main_app.initialise_v2g_liberty. Exception: {e}.")
 
         self.log(f"__collective_action, completed.")
 
@@ -1271,10 +1320,6 @@ class V2GLibertyGlobals(hass.Hass):
     ######################################################################
     #                           UTIL METHODS                             #
     ######################################################################
-
-    def __get_keepalive(self):
-        now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
-        return {"keep_alive": now}
 
     async def __check_and_convert_value(self, setting_object, value_to_convert):
         """ Check number against min/max from setting object, altering to stay within these limits.
@@ -1347,24 +1392,47 @@ class V2GLibertyGlobals(hass.Hass):
 #                           UTIL FUNCTIONS                           #
 ######################################################################
 
-def time_mod(time, delta, epoch=None):
+def time_mod(time_to_mod, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
     if epoch is None:
-        epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
-    return (time - epoch) % delta
+        epoch = datetime(1970, 1, 1, tzinfo=time_to_mod.tzinfo)
+    return (time_to_mod - epoch) % delta
 
 
-def time_round(time, delta, epoch=None):
+# TODO: refactor to round_to_resolution where this function knows the resolution already and is not a parameter
+def time_round(time_to_round, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
-    mod = time_mod(time, delta, epoch)
+    mod = time_mod(time_to_round, delta, epoch)
     if mod < (delta / 2):
-        return time - mod
-    return time + (delta - mod)
+        return time_to_round - mod
+    return time_to_round + (delta - mod)
 
 
-def time_ceil(time, delta, epoch=None):
+def time_ceil(time_to_ceil, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
-    mod = time_mod(time, delta, epoch)
+    mod = time_mod(time_to_ceil, delta, epoch)
     if mod:
-        return time + (delta - mod)
-    return time
+        return time_to_ceil + (delta - mod)
+    return time_to_ceil
+
+
+def get_local_now():
+    return datetime.now(tz=c.TZ)
+
+
+def get_keepalive():
+    now = get_local_now().strftime(c.DATE_TIME_FORMAT)
+    return {"keep_alive": now}
+
+_html_escape_table = {
+    "&": "&amp;",
+    '"': "&quot;",
+    "'": "&apos;",
+    ">": "&gt;",
+    "<": "&lt;",
+}
+
+def he(text):
+     # 'he' is short for HTML Escape.
+     # Produce entities within text.
+     return "".join(_html_escape_table.get(c,c) for c in text)

@@ -1,9 +1,5 @@
 ### V2G Liberty constants ###
 
-# Date 2024-06-21 Bug #31 Make charger-has-crashend-notification not critical when no car is connected
-V2G_LIBERTY_VERSION: str = "0.1.10"
-# TODO: Get version number from the add-on itself.
-
 # For showing dates in UI
 DATE_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 # Timezone, untyped here..
@@ -40,6 +36,15 @@ CAR_MAX_SOC_IN_KWH: float = 0
 # Car consumption per km. Defaults to the Nissan Leaf average.
 CAR_CONSUMPTION_WH_PER_KM: int = 175
 
+# Average distance travelled for every hour that a calendar item lasts
+# E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
+# From this we derive an average usage.
+# TODO: Maybe make this a user setting?
+KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
+
+# Calculate as follows:
+# (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)
+USAGE_PER_EVENT_TIME_INTERVAL: float = None
 
 # Duration in hours, defaults to 12 should be between 2 and 36 hours
 ALLOWED_DURATION_ABOVE_MAX_SOC: int = 12

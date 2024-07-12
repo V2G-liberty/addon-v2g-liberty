@@ -7,7 +7,7 @@ import json
 import math
 import requests
 import constants as c
-from v2g_globals import time_round
+from v2g_globals import time_round, get_local_now
 import appdaemon.plugins.hass.hassapi as hass
 
 
@@ -20,13 +20,14 @@ class FMClient(hass.Hass):
     """
 
     # Constants
-    FM_SCHEDULE_DURATION: str
+    FM_SCHEDULE_DURATION: datetime
+    FM_SCHEDULE_DURATION_STR: str
     MAX_NUMBER_OF_REATTEMPTS: int
     DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
     DELAY_FOR_REATTEMPTS: int  # number of seconds
 
     # A slack for the constraint_relaxation_window in minutes
-    WINDOW_SLACK: int
+    WINDOW_SLACK_IN_MINUTES: int
 
     # FM Authentication token
     fm_token: str
@@ -48,6 +49,7 @@ class FMClient(hass.Hass):
     v2g_main_app: object
 
     client: object
+    resolution: timedelta
 
     async def initialize(self):
         self.log("Initializing FlexMeasuresClient")
@@ -56,14 +58,16 @@ class FMClient(hass.Hass):
 
         self.fm_token = ""
         self.fm_busy_getting_schedule = False
-        self.fm_date_time_last_schedule = await self.get_now()
+        self.fm_date_time_last_schedule = get_local_now()
+        self.resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
-        # Maybe add these to settings?
-        self.FM_SCHEDULE_DURATION = "PT27H"
+        # Maybe add these to constants / settings?
+        self.FM_SCHEDULE_DURATION_STR = "PT27H"
+        self.FM_SCHEDULE_DURATION = isodate.parse_duration(self.FM_SCHEDULE_DURATION_STR)
         self.DELAY_FOR_REATTEMPTS = 6
         self.MAX_NUMBER_OF_REATTEMPTS = 15
         self.DELAY_FOR_INITIAL_ATTEMPT = 20
-        self.WINDOW_SLACK = 60
+        self.WINDOW_SLACK_IN_MINUTES = 60
 
         # Add an extra attempt to prevent the last attempt not being able to finish.
         self.fm_max_seconds_between_schedules = \
@@ -122,7 +126,6 @@ class FMClient(hass.Hass):
             # = for invalid URL and none-fm-url
             return "Communication error. Wrong URL?"
 
-        self.client.close()
         if self.client.access_token is None:
             self.log("initialise_and_test_fm_client, access token is None")
             return "Unknown error with FlexMeasures"
@@ -181,7 +184,7 @@ class FMClient(hass.Hass):
         Hint:
         the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
         """
-        self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
+        # self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
         url = c.FM_AUTHENTICATION_URL
         res = requests.post(
             url,
@@ -190,7 +193,7 @@ class FMClient(hass.Hass):
                 password=c.FM_ACCOUNT_PASSWORD,
             ),
         )
-        now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
+        now = get_local_now().strftime(c.DATE_TIME_FORMAT)
         if not res.status_code == 200:
             self.log_failed_response(res, url)
             message = f"Failed to connect/login at {now}."
@@ -205,16 +208,19 @@ class FMClient(hass.Hass):
         if self.fm_token is None:
             self.log(f"Authenticating failed, no auth_token in json response: '{json_response}'.")
             return False
-        message = f"Successful connect+login at {now}"
+        message = f"Successful connect+login"
         self.set_state("input_text.fm_connection_status", state=message)
         return True
 
     def log_failed_response(self, res, endpoint: str):
         """Log failed response for a given endpoint."""
         try:
-            self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
+            tmp= str(res.json())
+            if len(tmp) > 500:
+                tmp = f"{tmp[0:350]}.....{tmp[-150:]}"
+            self.log(f'{endpoint} failed ({res.status_code}) with JSON response "{tmp}"')
         except json.decoder.JSONDecodeError:
-            self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
+            self.log(f"{endpoint} failed ({tmp.status_code}) with response {tmp}")
 
     def check_deprecation_and_sunset(self, url, res):
         """Log deprecation and sunset headers, along with info links.
@@ -236,22 +242,17 @@ class FMClient(hass.Hass):
                     message += f" Link for further info: {content}"
             self.log(message)
 
-    async def get_new_schedule(self, target_soc_kwh: float, target_datetime: datetime, current_soc_kwh: float,
-                               back_to_max_soc: datetime):
+    async def get_new_schedule(self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime):
         """Get a new schedule from FlexMeasures.
            But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         Params:
-        target_soc_kwh: if no calendar item is present use a SoC that represents 100%
-        target_date_time: if no calendar item is present use target in weeks time. It must be snapped to sensor resolution.
-        current_soc_kwh: a soc that is as close as possible to the actual state of charge
-        back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back at max soc. Can be None
+        targets: a list of targets (=dict with start, end, soc)
+        back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back at max soc.
+        Can be None.
         """
-        self.log(f"get_new_schedule called with car_soc: {current_soc_kwh}kWh ({type(current_soc_kwh)}, "
-                 f"back_to_max: {back_to_max_soc} ({type(back_to_max_soc)}.")
-
-        now = datetime.now(tz=c.TZ)
-        self.log(f"get_new_schedule: nu = {now.isoformat()}, ({type(now)}).")
+        self.log(f"get_new_schedule called.")
+        now = get_local_now()
         if self.fm_busy_getting_schedule:
             self.log(f"get_new_schedule self.fm_date_time_last_schedule {self.fm_date_time_last_schedule.isoformat()}.")
             seconds_since_last_schedule = int((now - self.fm_date_time_last_schedule).total_seconds())
@@ -270,10 +271,9 @@ class FMClient(hass.Hass):
 
         # Ask to compute a new schedule by posting flex constraints while triggering the scheduler
         schedule_id = await self.trigger_schedule(
-            target_soc_kwh=target_soc_kwh,
-            target_datetime=target_datetime,
-            current_soc_kwh=current_soc_kwh,
-            back_to_max_soc=back_to_max_soc
+            targets = targets,
+            current_soc_kwh = current_soc_kwh,
+            back_to_max_soc = back_to_max_soc
         )
         if schedule_id is None:
             self.log("Failed to trigger new schedule, schedule ID is None. Cannot call get_schedule")
@@ -283,6 +283,337 @@ class FMClient(hass.Hass):
         # Set a timer to get the schedule a little later
         self.log(f"Attempting to get schedule (id={schedule_id}) in {self.DELAY_FOR_INITIAL_ATTEMPT} seconds")
         self.run_in(self.get_schedule, delay=self.DELAY_FOR_INITIAL_ATTEMPT, schedule_id=schedule_id)
+
+
+    async def trigger_schedule(self, *args, **fnc_kwargs) -> str:
+        """Request a new schedule to be generated by calling the schedule triggering endpoint, while
+        POSTing flex constraints.
+        Return the schedule id for later retrieval of the asynchronously computed schedule.
+        """
+        current_soc_kwh = fnc_kwargs.get("current_soc_kwh", None)
+        if current_soc_kwh is None:
+            self.log(f"trigger_schedule: aborting as there is no current_soc_kwh.")
+            return
+
+        targets = fnc_kwargs.get("targets", None)
+        back_to_max_soc = fnc_kwargs.get("back_to_max_soc", None)
+        resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+        rounded_now = time_round(get_local_now(), resolution)
+
+        # The schedule duration, usually just over a day long.
+        schedule_end = time_round(rounded_now + self.FM_SCHEDULE_DURATION, resolution)
+
+        # Add a placeholder target with soc CAR_MAX_SOC_IN_KWH (usually ≈80%) one week from now.
+        # FM needs this to be able to produce a schedule whereby the influence of this placeholder is none.
+        # Added to the soc_minima later on
+        end_of_schedule_input_period = (rounded_now + timedelta(days=7))
+
+        soc_minima = []
+
+        # TODO: Add "soc-usage": soc_usage
+        # soc_usage = []
+        # The basis usage is 0 and can be lifted by adding other usage
+        # soc_usage.append({
+        #     "value": 0,
+        #     "start": rounded_now,
+        #     "end": schedule_end,
+        # })
+
+        if targets is not None:
+            # TODO: Add "soc-usage"
+            # usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
+
+            ##################################
+            #    Make a list of soc_minima   #
+            ##################################
+            self.log(f"Trigger_schedule. start generating soc_minima'.")
+            for target in targets:
+                target_start = target["start"]
+                target_end = target["end"]
+                # Only add targets with a start in the schedule duration
+                if target_start > schedule_end:
+                    # Assuming the targets list is sorted we can break (instead of continue)
+                    break
+                target_soc_kwh = target["target_soc_kwh"]
+                soc_minima.append({
+                    "value": target_soc_kwh,
+                    "start": target_start,
+                    "end": target_end,
+                })
+                # TODO: soc_usage
+                # soc_usage.append({
+                #     "value": c.USAGE_PER_EVENT_TIME_INTERVAL,
+                #     "start": target_start,
+                #     "end": target_end,
+                # })
+            # Always add a future target for scheduling to be made possible.
+            soc_minima.append({
+                'value': c.CAR_MAX_SOC_IN_KWH,
+                'start': end_of_schedule_input_period - self.resolution,
+                'end': end_of_schedule_input_period,
+            })
+            # Remove any overlap and use the maximum in overlapping periods.
+            soc_minima = self.consolidate_time_ranges(soc_minima)
+
+            # TODO: soc_usage
+            # soc_usage = self.consolidate_time_ranges(soc_usage)
+
+
+            ##################################
+            #   Make a list of soc_maxima    #
+            ##################################
+            self.log(f"Trigger_schedule. start generating soc_maxima'.")
+
+            # The basis maxima that can be lifted by adding other maxima
+            soc_maxima = [{
+                "value": c.CAR_MAX_SOC_IN_KWH,
+                "start": rounded_now,
+                "end": end_of_schedule_input_period,
+            }]
+
+            first_b2ms_reset_moment = schedule_end
+            for soc_minimum in soc_minima:
+                # Does this target need a relaxation window? This is the period before a calendar item where
+                # soc_maxima should be set to the value (target_soc_kwh to allow the schedule to reach a target higher
+                # than the CAR_MAX_SOC_IN_KWH.
+                soc_minimum_start = soc_minimum["start"]
+                soc_minimum_end = soc_minimum["end"]
+                minimum_soc_kwh = soc_minimum["value"]
+
+                if minimum_soc_kwh > c.CAR_MAX_SOC_IN_KWH:
+                    window_duration = math.ceil((minimum_soc_kwh - c.CAR_MAX_SOC_IN_KWH) /
+                                      (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK_IN_MINUTES
+                    self.log(f"trigger_schedule window_duration: {window_duration}.")
+                    # srw = start_relaxation_window, erw = end_relaxation_window
+                    srw = time_round((soc_minimum_start - timedelta(minutes=window_duration)), resolution)
+                    erw = time_round((soc_minimum_end + timedelta(minutes=window_duration)), resolution)
+                    if srw < rounded_now:
+                        # This is when the target SoC cannot be reached at the calendar-item_start, Scenario 3.
+                        srw = rounded_now
+                        # In this case it is never relevant to go back to max_soc
+                        back_to_max_soc = None
+                        self.log("Strategy for soc_maxima: Priority for calendar target (Scenario 3).")
+                    if srw < first_b2ms_reset_moment:
+                        first_b2ms_reset_moment = srw
+                    self.log(f"trigger_schedule srw: {srw}.")
+
+                    soc_maxima.append({
+                        "value": minimum_soc_kwh,
+                        "start": srw,
+                        "end": erw,
+                    })
+                self.log(f"Soc_minima processed, first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}.")
+
+
+        # Range where schedule should only discharge. This when the SoC is above the max (80%).
+        # This can be due to returning home and connection with a high SoC or when the car did not
+        # get disconnected during a reservation with a target > max_soc and the calendar item is dismissed.
+        # It is only added at the start (now) and not after future targets as we expect these to lead to a
+        # SoC below the max as the car is used for driving and thus losing SoC.
+
+        # If the current_soc is above the CAR_MAX_SOC_IN_KWH it need to be brought back below this max.
+        # The back_to_max_soc parameter indicates when this task should be finished.
+        #
+        # Assume:
+        # SRW  = Start of the relaxation window for the CTM, including the slack of 1 hour.
+        #        Only relevant for calendar items with a target SoC above the CAR_MAX_SOC_IN_KWH.
+        #        Relaxation refers to the fact that in this window the schedule does not get soc-maxima so that
+        #        it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher target SoC.
+        #        To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH, even if the current soc is higher.
+        # CTM  = Charge Target Moment which is the start of the first upcoming calendar item.
+        #        By default, if there is no calendar item, the CTM is one week from now. This gives the
+        #        schedule enough freedom for the coming 27 hours (total duration of the schedule).
+        # B2MS = The datetime at which the ALLOWED_DURATION_ABOVE_MAX_SOC ends, it cannot be in the past.
+        #        It serves as a target with a maximum SoC (where regular targets have a minimum).
+        #        The CTM has a higher priority than the B2MS.
+        # EMDW = End of Minimum Discharge Window. Minimum Discharge Window (MDW) = time needed to discharge from current
+        #        SoC to CAR_MAX_SOC_IN_KWH with available discharge power. EMDW = Now + MDW.
+        #        Scenario A: In case of EMDW > B2MS then the latter is extended to EMDW.
+        #
+        # The following scenarios need to be handled, they might in time flow from one into the other:
+        # 0. No B2MS
+        #    The soc-maxima are based on the CAR_MAX_SOC_IN_KWH and run from "now" up to SRW.
+        # 1. NOW < B2MS < SRW < CTM
+        #    The B2MS is not influenced by the first calendar item (or there is none)
+        #    SoC maxima are gradually lowered from current soc until B2MS from where they are set to CAR_MAX_SOC_IN_KWH.
+        # 2. NOW < SRW < B2MS < CTM and NOW < SRW < CTM < B2MS
+        #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the current SoC and
+        #    run from "now" up to SRW.
+        # 3. SRW < NOW < B2MS < CTM and SRW < NOW < CTM < B2MS
+        #    Here the priority is to reach the CTM and so do not set soc-maxima.
+        #
+        # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
+
+        b2ms_maxima = []
+        if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime):
+            self.log(f"trigger_schedule, back_to_max_soc: '{back_to_max_soc}'.")
+
+            # Postpone discharge till after current calendar item if target soc has not been fulfilled
+            start_b2ms = None
+            if targets is not None:
+                first_target = targets[0]
+                start = first_target.get('start', None)
+                end = first_target.get('end', None)
+                if start < rounded_now < end:
+                    target_soc_kwh = first_target.get('target_soc_kwh', None)
+                    if target_soc_kwh is not None and target_soc_kwh >= current_soc_kwh:
+                        start_b2ms = end
+            if start_b2ms is None:
+                start_b2ms = rounded_now
+
+            # Handle too high current_soc.
+            minimum_discharge_window = math.ceil(
+                (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_DISCHARGE_POWER / 1000) * 60)
+            end_minimum_discharge_window = time_round((start_b2ms - timedelta(minutes=minimum_discharge_window)),
+                                                      resolution)
+            if end_minimum_discharge_window > back_to_max_soc:
+                # Scenario A.
+                back_to_max_soc = end_minimum_discharge_window
+
+            if back_to_max_soc >= first_b2ms_reset_moment:
+                # Scenario 2.
+                soc_maxima.append({
+                    "value": current_soc_kwh,
+                    "start": rounded_now,
+                    "end": first_b2ms_reset_moment,
+                })
+                self.log("Strategy for soc_maxima: Maxima current_soc until Start of relaxation window (Scenario 2).")
+            else:
+                # Scenario 1: Gradually decrease SoC to reach c.CAR_MAX_SOC_IN_KWH by means of setting soc_maxima
+                # TODO: A drawback of the gradual approach is that there might be discharging with low power which
+                #       usually is less efficient. So, if the trigger message could handle the concept
+                #       "only discharge during this window" it would result in better schedules.
+                #       This should then replace the gradually lowered soc_maxima.
+                #       Use target = c.CAR_MAX_SOC_IN_KWH at back_to_max_soc in combination with dynamic power
+                #       constraint, production_power=0. See https://github.com/V2G-liberty/addon-v2g-liberty/issues/41.
+                number_of_steps = (back_to_max_soc - rounded_now) // resolution
+                if number_of_steps > 0:
+                    step_kwh = (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / number_of_steps
+                    for i in range(number_of_steps):
+                        b2ms_maxima.append({
+                            "value": current_soc_kwh - (i * step_kwh),
+                            "datetime": (rounded_now + i * resolution).isoformat()
+                        })
+                self.log(f"Strategy for soc_maxima: Gradually decrease SoC to "
+                         f"reach {c.CAR_MAX_SOC_IN_KWH}kWh (Scenario 1).")
+
+        soc_maxima = self.consolidate_time_ranges(soc_maxima)
+        soc_maxima = convert_dates_to_iso_format(soc_maxima)
+        soc_maxima += b2ms_maxima
+
+        soc_minima = convert_dates_to_iso_format(soc_minima)
+
+        # TODO: Add "soc-usage"
+        # soc_usage = convert_dates_to_iso_format(soc_usage)
+
+        message = {
+            "start": rounded_now.isoformat(),
+            "flex-model": {
+                "soc-at-start": current_soc_kwh,
+                "soc-unit": "kWh",
+                "soc-min": c.CAR_MIN_SOC_IN_KWH,
+                "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
+                "soc-minima": soc_minima,
+                "soc-maxima": soc_maxima,
+                "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
+                "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
+            },
+            "flex-context": c.FM_OPTIMISATION_CONTEXT,
+        }
+
+        url = c.FM_TRIGGER_URL
+        tmp = str(message)
+        self.log(f"Trigger_schedule with message: '{tmp}'.")
+        # self.log(f"Trigger_schedule on url '{url}', with message: '{tmp[0:300]} . . . . . {tmp[-250:]}'.")
+        res = requests.post(
+            url,
+            json=message,
+            headers={"Authorization": self.fm_token},
+        )
+
+        self.check_deprecation_and_sunset(url, res)
+
+        if res.status_code == 401:
+            self.log_failed_response(res, url)
+            await self.try_solve_authentication_error(res, url, self.trigger_schedule, *args, **fnc_kwargs)
+            return None
+
+        schedule_id = None
+        if res.status_code == 200:
+            schedule_id = res.json()["schedule"]  # can still be None in case something went wong
+
+        if schedule_id is None:
+            self.log_failed_response(res, url)
+            try:
+                await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+            except Exception as e:
+                self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (3). Exception: {e}.")
+
+            return None
+
+        self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
+        try:
+            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
+        except Exception as e:
+            self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (4). Exception: {e}.")
+
+        return schedule_id
+
+
+    def consolidate_time_ranges(self, ranges):
+        """ Processes a list of time-value ranges, merging overlapping intervals """
+        if len(ranges) == 0:
+            self.log("consolidate_time_ranges, ranges = [], aborting")
+            return []
+        elif len(ranges) == 1:
+            self.log("consolidate_time_ranges, only one range so nothing to consolidate, returning ranges untouched.")
+            return ranges
+        time_slots = self.generate_time_slots(ranges)
+        combined_ranges = self.combine_time_slots(time_slots)
+        return combined_ranges
+
+    def generate_time_slots(self, ranges):
+        """Generates a dictionary of time_slots at resolution with the maximum value for each time_slot."""
+        time_slots = {}
+        for time_range in ranges:
+            current_time = time_range['start']
+            end_time = time_range['end']
+            while current_time <= end_time:
+                if current_time not in time_slots:
+                    time_slots[current_time] = time_range['value']
+                else:
+                    time_slots[current_time] = max(time_slots[current_time], time_range['value'])
+                current_time += self.resolution
+        return time_slots
+
+    def combine_time_slots(self, time_slots):
+        """Merges time slots into non-overlapping intervals with the same value."""
+
+        combined_ranges = []
+        sorted_times = sorted(time_slots.keys())
+        current_start = sorted_times[0]
+        current_value = time_slots[current_start]
+
+        for i in range(1, len(sorted_times)):
+            current_time = sorted_times[i]
+            expected_time = sorted_times[i - 1] + self.resolution
+            # self.log(f"s: {current_start}, t: {current_time}, e: {expected_time}, c: {current_value}, v: {time_slots[current_time]}.")
+            if current_time != expected_time or time_slots[current_time] != current_value:
+                combined_ranges.append({
+                    'value': current_value,
+                    'start': current_start,
+                    'end': sorted_times[i - 1]
+                })
+                current_start = current_time
+                current_value = time_slots[current_time]
+
+        # Add the last range
+        combined_ranges.append({
+            'value': current_value,
+            'start': current_start,
+            'end': sorted_times[-1]
+        })
+        return combined_ranges
 
     async def get_schedule(self, kwargs, **fnc_kwargs):
         """GET a schedule message that has been requested by trigger_schedule.
@@ -297,7 +628,7 @@ class FMClient(hass.Hass):
         schedule_id = kwargs["schedule_id"]
         url = c.FM_GET_SCHEDULE_URL + schedule_id
         message = {
-            "duration": self.FM_SCHEDULE_DURATION,
+            "duration": self.FM_SCHEDULE_DURATION_STR,
         }
         res = requests.get(
             url,
@@ -329,20 +660,17 @@ class FMClient(hass.Hass):
                 self.fm_busy_getting_schedule = False
                 try:
                     await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
-                except:
-                    self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (1).")
+                except Exception as e:
+                    self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (1). Exception: {e}.")
             return False
-
-            return
-
-        self.log(f"GET schedule success: retrieved {res.status_code}")
+        # self.log(f"get_schedule. successfully retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
         try:
             await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
-        except:
-            self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (2).")
+        except Exception as e:
+            self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (2). Exception: {e}.")
 
-        self.fm_date_time_last_schedule = datetime.now(tz=c.TZ)
+        self.fm_date_time_last_schedule = get_local_now()
         self.log(f"get_schedule: self.fm_date_time_last_schedule set to now,"
                  f" {self.fm_date_time_last_schedule.isoformat()}, ({type(self.fm_date_time_last_schedule)}).")
 
@@ -353,195 +681,6 @@ class FMClient(hass.Hass):
                        state="ChargeScheduleAvailable" + self.fm_date_time_last_schedule.isoformat(),
                        attributes=schedule)
 
-    async def trigger_schedule(self, *args, **fnc_kwargs) -> str:
-        """Request a new schedule to be generated by calling the schedule triggering endpoint, while
-        POSTing flex constraints.
-        Return the schedule id for later retrieval of the asynchronously computed schedule.
-        """
-
-        # Prepare the SoC measurement to be sent along with the scheduling request
-        current_soc_kwh = fnc_kwargs["current_soc_kwh"]
-        target_soc_kwh = fnc_kwargs["target_soc_kwh"]
-        target_datetime = fnc_kwargs["target_datetime"]
-        back_to_max_soc = fnc_kwargs["back_to_max_soc"]
-        self.log(f"trigger_schedule called with current_soc_kwh: {current_soc_kwh} kWh.")
-        url = c.FM_TRIGGER_URL
-        self.log(f"trigger_schedule, c.FM_TRIGGER_URL: '{c.FM_TRIGGER_URL}'.")
-
-        resolution = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
-        start_relaxation_window = target_datetime
-
-        # The relaxation window is the period before a calendar item where no
-        # soc_maxima should be sent to allow the schedule to reach a target higher
-        # than the CAR_MAX_SOC_IN_KWH.
-        if target_soc_kwh > c.CAR_MAX_SOC_IN_KWH:
-            window_duration = math.ceil(
-                (target_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_CHARGE_POWER / 1000) * 60) + self.WINDOW_SLACK
-            start_relaxation_window = time_round((target_datetime - timedelta(minutes=window_duration)), resolution)
-
-        ######## Setting the soc_maxima ##########
-        # The soc_maxima are used to set the boundaries for the charge schedule. They are set per interval (resolution),
-        # and the schedule cannot go above them at that given interval.
-        #
-        # Assume:
-        # CTM  = Charge Target Moment which is the start of the first upcoming calendar item.
-        #        By default if there is no calendar item, the CTM is one week from now. This gives the
-        #        schedule enough freedom for the coming 27 hours (total duration of the schedule).
-        # SRW  = Start of the relaxation window for the CTM, including the slack of 1 hour.
-        #        Only relevant for calendar items with a target SoC above the CAR_MAX_SOC_IN_KWH.
-        #        Relaxation refers to the fact that in this window the schedule does not get soc-maxima so that
-        #        it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher target SoC.
-        #        To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH, even if the current soc is higher.
-        # B2MS = The datetime at which the ALLOWED_DURATION_ABOVE_MAX_SOC ends, it cannot be in the past.
-        #        It serves as a target with a maximum SoC (where regular targets have a minimum).
-        #        The CTM has a higher priority than the B2MS.
-        # EMDW = End of Minimum Discharge Window. Minimum Discharge Window (MDW) = time needed to discharge from current
-        #        SoC to CAR_MAX_SOC_IN_KWH with available discharge power. EMDW = Now + MDW.
-        #        Scenario A: In case of EMDW > B2MS then the latter is extended to EMDW.
-        #
-        # The following scenarios need to be handled, they might in time flow from one into the other:
-        # 0. No B2MS
-        #    The soc-maxima are based on the CAR_MAX_SOC_IN_KWH and run from "now" up to SRW.
-        # 1. NOW < B2MS < SRW < CTM
-        #    The B2MS is not influenced by the first calendar item (or there is none)
-        #    SoC maxima are gradually lowered from current soc until B2MS from where they are set to CAR_MAX_SOC_IN_KWH.
-        #    TODO: A drawback of the gradual approach is that there might be discharging with low power which usually is
-        #          less efficient. So, if the trigger message could handle the concept "only discharge during this window"
-        #          it would result in better schedules. This should then replace the gradually lowered soc_maxima.
-        # 2. NOW < SRW < B2MS < CTM and NOW < SRW < CTM < B2MS
-        #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the current SoC and
-        #    run from "now" up to SRW.
-        # 3. SRW < NOW < B2MS < CTM and SRW < NOW < CTM < B2MS
-        #    Here the priority is to reach the CTM and so not soc-maxima.
-        #
-        # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
-
-        now = datetime.now(tz=c.TZ)
-        rounded_now = time_round(now, resolution)
-        soc_maxima = []
-
-        if start_relaxation_window < rounded_now:
-            # This is when the target SoC cannot be reached at the calendar-item_start,
-            # Scenario 3.
-            soc_maxima = []
-            self.log("Strategy for soc_maxima: Priority for calendar target (Scenario 3), no soc_maxima.")
-        else:
-            back_to_max_soc = fnc_kwargs["back_to_max_soc"]
-            if isinstance(back_to_max_soc, datetime):
-                # There is a B2MS
-                minimum_discharge_window = math.ceil(
-                    (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / (c.CHARGER_MAX_DISCHARGE_POWER / 1000) * 60)
-                end_minimum_discharge_window = time_round((rounded_now - timedelta(minutes=minimum_discharge_window)),
-                                                          resolution)
-                if end_minimum_discharge_window > back_to_max_soc:
-                    # Scenario A.
-                    back_to_max_soc = end_minimum_discharge_window
-
-                self.log(f"trigger_schedule, back_to_max_soc: '{back_to_max_soc}'.")
-
-                if back_to_max_soc >= start_relaxation_window:
-                    # Scenario 2.
-                    soc_maxima = [
-                        {
-                            "value": current_soc_kwh,
-                            "datetime": dt.isoformat(),
-                        } for dt in [rounded_now + x * resolution for x in
-                                     range(0, (start_relaxation_window - rounded_now) // resolution)]
-                    ]
-                    self.log(
-                        "Strategy for soc_maxima: Maxima current_soc until Start of relaxation window (Scenario 2).")
-                else:
-                    # Scenario 1.
-                    soc_maxima_higher_max_soc = []
-                    number_of_steps = (back_to_max_soc - rounded_now) // resolution
-                    if number_of_steps > 0:
-                        step_kwh = (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / number_of_steps
-                        soc_maxima_higher_max_soc += [
-                            {
-                                "value": current_soc_kwh - (i * step_kwh),
-                                "datetime": (rounded_now + i * resolution).isoformat()
-                            } for i in range(number_of_steps)
-                        ]
-                    soc_maxima_original_max_soc = [
-                        {
-                            "value": c.CAR_MAX_SOC_IN_KWH,
-                            "datetime": dt.isoformat(),
-                        } for dt in [back_to_max_soc + x * resolution for x in
-                                     range(0, (start_relaxation_window - back_to_max_soc) // resolution)]
-                    ]
-                    soc_maxima = soc_maxima_higher_max_soc + soc_maxima_original_max_soc
-                    self.log(
-                        f"Strategy for soc_maxima: Gradually decrease SoC to reach {c.CAR_MAX_SOC_IN_KWH}kWh (Scenario 1).")
-            else:
-                # Scenario 0.
-                soc_maxima = [
-                    {
-                        "value": c.CAR_MAX_SOC_IN_KWH,
-                        "datetime": dt.isoformat(),
-                    } for dt in [rounded_now + x * resolution for x in
-                                 range(0, (start_relaxation_window - rounded_now) // resolution)]
-                ]
-                self.log(
-                    f"Strategy for soc_maxima: Maxima CAR_MAX_SOC_IN_KWH until Start of relaxation window (Scenario 0).")
-
-        message = {
-            "start": rounded_now.isoformat(),
-            "flex-model": {
-                "soc-at-start": current_soc_kwh,
-                "soc-unit": "kWh",
-                "soc-min": c.CAR_MIN_SOC_IN_KWH,
-                "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
-                "soc-minima": [
-                    {
-                        "value": target_soc_kwh,
-                        "datetime": target_datetime.isoformat(),
-                    }
-                ],
-                "soc-maxima": soc_maxima,
-                "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
-                "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
-            },
-            "flex-context": c.FM_OPTIMISATION_CONTEXT,
-        }
-        try:
-            res = requests.post(
-                url,
-                json=message,
-                headers={"Authorization": self.fm_token},
-            )
-        except:
-            self.log(f"Trigger_schedule on url '{url}' failed.")
-
-        tmp = str(message)
-        self.log(f"Trigger_schedule on url '{url}', with message: '{tmp[0:275]} . . . . . {tmp[-275:]}'.")
-
-        self.check_deprecation_and_sunset(url, res)
-
-        if res.status_code == 401:
-            self.log_failed_response(res, url)
-            await self.try_solve_authentication_error(res, url, self.trigger_schedule, *args, **fnc_kwargs)
-            return None
-
-        schedule_id = None
-        if res.status_code == 200:
-            schedule_id = res.json()["schedule"]  # can still be None in case something went wong
-
-        if schedule_id is None:
-            self.log_failed_response(res, url)
-            try:
-                await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
-            except:
-                self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (3).")
-
-            return None
-
-        self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
-        try:
-            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
-        except:
-            self.log("get_schedule. Could not call v2g_main_app.handle_no_new_schedule (4).")
-
-        return schedule_id
 
     async def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
@@ -569,5 +708,17 @@ def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
 
 
 def get_keepalive():
-    now = datetime.now(tz=c.TZ).strftime(c.DATE_TIME_FORMAT)
+    now = get_local_now().strftime(c.DATE_TIME_FORMAT)
     return {"keep_alive": now}
+
+
+def convert_dates_to_iso_format(data):
+    for entry in data:
+        dts = entry.get('start', None)
+        if dts is not None and isinstance(dts, datetime):
+            entry['start'] = dts.isoformat()
+        dte = entry.get('end', None)
+        if dte is not None and isinstance(dte, datetime):
+            entry['end'] = dte.isoformat()
+    return data
+
