@@ -235,10 +235,10 @@ class V2Gliberty(hass.Hass):
         self.no_schedule_errors[error_name] = error_state
         await self.__notify_no_new_schedule()
 
-    async def notify_user_of_charger_needs_restart(self):
+    async def notify_user_of_charger_needs_restart(self, was_car_connected: bool):
         """Notify admin with critical message of a presumably crashed modbus server
            module in the charger.
-           To be called from modbus evse client
+           To be called from modbus_evse_client module.
         """
         # Assume the charger has crashed.
         self.log(f"The charger probably crashed, notifying user")
@@ -247,7 +247,7 @@ class V2Gliberty(hass.Hass):
                   "Please click this notification to open the V2G Liberty App " \
                   "and follow the steps to solve this problem."
         # Do not send a critical warning if car was not connected.
-        critical = await self.evse_client.was_car_connected()
+        critical = was_car_connected
         self.notify_user(
             message=message,
             title=title,
@@ -260,6 +260,7 @@ class V2Gliberty(hass.Hass):
         return
 
     async def reset_charger_communication_fault(self):
+        self.log(f"reset_charger_communication_fault called")
         await self.set_state("input_boolean.charger_modbus_communication_fault", state="off")
         identification = {"recipient": c.ADMIN_MOBILE_NAME, "tag": "charger_modbus_crashed"}
         self.__clear_notification(identification)
