@@ -1268,7 +1268,7 @@ class ModbusEVSEclient(hass.Hass):
             self.log(f"{source}: Recurring connection exception. Exception: {connection_exception}.")
 
         # This is needed to prevent a lock due to self.modbus_connection_in_use
-        self.__disconnect_from_modbus_server()
+        await self.__disconnect_from_modbus_server()
 
         duration = (get_local_now() - self.dtm_connection_failure_since).total_seconds()
         if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
