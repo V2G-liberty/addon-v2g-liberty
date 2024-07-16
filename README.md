@@ -109,13 +109,23 @@ The installation of this add-on is pretty straightforward.
 
 Further steps in the proces of installation and configuration are explained in the installed add-on itself.
 
+
 ## Configuration
 
 Charging is fully automatic an optimised, so you can just connect your EV and forget about it.
 You can tweak the charging process by setting min- and max-limits, min- and max-charge power etc.
 
-#### Happy 🚘 ← ⚡ → 🏡 charging!
 
+## Updates
+
+After an update it is usually necessary to restart 'every thing':
+1. Restart Home Assistant by going to `settings > system` and in the top 
+   right click the top right ⏼ menu and select `Restart Home Assistant`.
+2. Restart *V2G&nbsp;Liberty* `settings -> Add-ons -> V2G Liberty -> Restart`.
+
+
+#### Happy 🚘 ← ⚡ → 🏡 charging!
+<!--
 <style>
   body {
     max-width: 50em;
@@ -126,6 +136,7 @@ You can tweak the charging process by setting min- and max-limits, min- and max-
      color: #797979;
   }
 </style>
+-->
 
 ## Changelog & Releases
 

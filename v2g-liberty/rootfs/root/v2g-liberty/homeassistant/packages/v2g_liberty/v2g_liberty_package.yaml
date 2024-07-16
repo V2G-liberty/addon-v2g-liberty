@@ -456,6 +456,13 @@ template:
       state: "{{ now().tzinfo }}"
 
 script:
+  restart_ha:
+    alias: RestartHomeAssistant
+    sequence:
+      - event: RESTART_HA
+        event_data: {}
+    mode: single
+
   reset_to_factory_defaults:
     alias: ResetToFactoryDefaults
     sequence:

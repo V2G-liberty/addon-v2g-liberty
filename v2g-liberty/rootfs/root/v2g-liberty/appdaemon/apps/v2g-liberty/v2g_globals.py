@@ -263,6 +263,7 @@ class V2GLibertyGlobals(hass.Hass):
         self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
         self.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
         self.listen_event(self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS")
+        self.listen_event(self.restart_v2g_liberty, "RESTART_HA")
 
         # Was None, which blocks processing during initialisation
         self.collect_action_handle = ""
@@ -301,11 +302,12 @@ class V2GLibertyGlobals(hass.Hass):
         await self.__retrieve_settings()
         # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
         await self.__initialise_devices()
+        await self.__read_and_process_notification_settings()
+
         await self.__populate_select_with_local_calendars()
 
         await self.__read_and_process_charger_settings()
         await self.__read_and_process_optimisation_settings()
-        await self.__read_and_process_notification_settings()
         await self.__read_and_process_calendar_settings()
         await self.__read_and_process_general_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
@@ -314,16 +316,15 @@ class V2GLibertyGlobals(hass.Hass):
 
     async def __populate_select_with_local_calendars(self):
         self.log("__populate_select_with_local_calendars called")
-        try:
+        if self.calendar_client is not None:
             calendar_names = await self.calendar_client.get_ha_calendar_names()
-        except:
+        else:
             self.log("__populate_select_with_local_calendars. "
                      "Could not call calendar_client.get_ha_calendar_names")
             return
 
         # At init this method is always called.
         # Notify only when the source is actually "Home Assistant integration"
-
         if len(calendar_names) == 0 and c.CAR_CALENDAR_SOURCE == "Home Assistant integration":
             message = f"No calendars from integration available. " \
                       f"A car reservation calendar is essential for V2G Liberty. " \
@@ -380,6 +381,8 @@ class V2GLibertyGlobals(hass.Hass):
                 notification_id="notification_config_error"
             )
         else:
+            c.NOTIFICATION_RECIPIENTS = list(set(c.NOTIFICATION_RECIPIENTS))  # Remove duplicates
+            c.NOTIFICATION_RECIPIENTS.sort()
             self.log(f"__initialise_devices - recipients for notifications: "
                      f"{c.NOTIFICATION_RECIPIENTS}.")
             await self.__set_select_options(entity_id="input_select.admin_mobile_name",
@@ -404,11 +407,9 @@ class V2GLibertyGlobals(hass.Hass):
 
         await self.set_state("input_text.calendar_account_connection_status", state="Getting calendars...")
 
-        # reset options in calendar_name select
-        calendar_names = []
-        try:
+        if self.calendar_client is not None:
             res = await self.calendar_client.initialise_calendar()
-        except:
+        else:
             self.log("__populate_select_with_local_calendars. "
                      "Could not call calendar_client.initialise_calendar")
             res = "Internal error"
@@ -418,14 +419,13 @@ class V2GLibertyGlobals(hass.Hass):
             self.log(f"__init_caldav_calendar, res: {res}.")
             return
 
+        # reset options in calendar_name select
+        calendar_names = []
+
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
         await self.set_state("input_text.calendar_account_connection_status", state="Successfully connected")
-        try:
-            calendar_names = await self.calendar_client.get_dav_calendar_names()
-        except:
-            self.log("__populate_select_with_local_calendars. "
-                     "Could not call calendar_client.get_dav_calendar_names")
 
+        calendar_names = await self.calendar_client.get_dav_calendar_names()
         self.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
         if len(calendar_names) == 0:
             message = f"No calendars available on {c.CALENDAR_ACCOUNT_INIT_URL} " \
@@ -447,13 +447,7 @@ class V2GLibertyGlobals(hass.Hass):
             setting_object=self.SETTING_CAR_CALENDAR_NAME,
             callback=self.__read_and_process_calendar_settings
         )
-        try:
-            await self.calendar_client.activate_selected_calendar()
-        except:
-            self.log("__populate_select_with_local_calendars. "
-                     "Could not call calendar_client.activate_selected_calendar")
-            return
-
+        await self.calendar_client.activate_selected_calendar()
         self.log("Completed __init_caldav_calendar")
 
 
@@ -462,7 +456,12 @@ class V2GLibertyGlobals(hass.Hass):
         self.log("__reset_to_factory_defaults called")
         self.v2g_settings = {}
         self.__write_to_file(self.v2g_settings)
+        await self.restart_v2g_liberty()
+
+    async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
+        self.log("restart_v2g_liberty called")
         await self.call_service("homeassistant/restart")
+        # This also results in the V2G Liberty python modules to be restarted.
 
 
     async def __test_charger_connection(self, event, data, kwargs):
@@ -486,22 +485,21 @@ class V2GLibertyGlobals(hass.Hass):
         self.log("__test_fm_connection called")
         await self.__set_fm_connection_status("Testing connection...")
 
-        try:
+        if self.fm_client is not None:
             res = await self.fm_client.initialise_and_test_fm_client()
-        except:
-            await self.__set_fm_connection_status("Problem connecting to FlexMeasures, please try again.")
-            return
+        else:
+            res = "Error: no fm_client available, please try again."
+            self.log("__test_fm_connection. Could not call initialise_and_test_fm_client on fm_client as it is None.")
 
         if res != "Successfully connected":
             await self.__set_fm_connection_status(res)
             return
 
-        try:
-            assets = await self.fm_client.get_fm_assets()
-        except:
+        assets = await self.fm_client.get_fm_assets()
+        if assets is None:
+            self.log(f"__test_fm_connection. Could not call fm_client.get_fm_assets")
             await self.__set_fm_connection_status("Problem getting asset(s) from FlexMeasures, please try again.")
             return
-
         if len(assets) == 0:
             await self.__set_fm_connection_status("Not assets in account, please check with administrator.")
             return
@@ -567,9 +565,15 @@ class V2GLibertyGlobals(hass.Hass):
 
     async def __get_and_process_fm_sensors(self, asset_id: int):
         self.log("__get_and_process_fm_sensors called")
-        try:
+        if self.fm_client is not None:
             sensors = await self.fm_client.get_fm_sensors(asset_id)
-        except:
+        else:
+            self.log("__get_and_process_fm_sensors. Could not call get_fm_sensors on fm_client as it is None.")
+            await self.__set_fm_connection_status(state="Problem getting sensors from FlexMeasures, please try again.")
+            return
+
+        if sensors is None:
+            self.log("__get_and_process_fm_sensors. get_fm_sensors('{}') returned None.")
             await self.__set_fm_connection_status(state="Problem getting sensors from FlexMeasures, please try again.")
             return
 
@@ -990,7 +994,9 @@ class V2GLibertyGlobals(hass.Hass):
                 callback=callback_method
             )
             if c.ADMIN_MOBILE_NAME not in c.NOTIFICATION_RECIPIENTS:
-                message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not a registered.<br/>" \
+                tmp = c.NOTIFICATION_RECIPIENTS[0]
+                message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not found in" \
+                          f"available mobiles for notification, instead ***{tmp}*** is used.<br/>" \
                           f"Please go to the settings view and choose one from the list."
                 self.log(f"Configuration error: admin mobile name not found.")
                 # TODO: Research if showing this only to admin users is possible.
@@ -999,7 +1005,7 @@ class V2GLibertyGlobals(hass.Hass):
                     message=message,
                     notification_id="notification_config_error_no_admin"
                 )
-            c.ADMIN_MOBILE_NAME = c.NOTIFICATION_RECIPIENTS[0]
+                c.ADMIN_MOBILE_NAME = tmp
 
         c.ADMIN_MOBILE_PLATFORM = await self.__process_setting(
             setting_object=self.SETTING_ADMIN_MOBILE_PLATFORM,
@@ -1096,12 +1102,12 @@ class V2GLibertyGlobals(hass.Hass):
                 setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
                 callback=callback_method
             )
-            try:
+            if self.calendar_client is not None:
                 res = await self.calendar_client.initialise_calendar()
                 self.log(f"__read_and_process_calendar_settings: init HA calendar result: '{res}'.")
-            except Exception as e:
-                self.log(f"__read_and_process_calendar_settings. Could not call calendar_client.initialise_calendar. "
-                         f"Exception: {e}.")
+            else:
+                self.log(f"__read_and_process_calendar_settings. Could not call initialise_calendar on calendar_client"
+                         f"as it is None.")
         await self.__collect_action_triggers(source="changed calendar settings")
 
         self.log("__read_and_process_calendar_settings completed")
@@ -1294,25 +1300,20 @@ class V2GLibertyGlobals(hass.Hass):
         """
         self.log(f"__collective_action, called with source: '{v2g_args}'.")
 
-        # try:
-        #     await self.fm_client.initialise_fm_settings()
-        # except:
-        #     self.log("__collective_action. Error, could not call fm_client.initialise_fm_settings")
-
-        try:
+        if self.evse_client is not None:
             await self.evse_client.initialise_charger(v2g_args=v2g_args)
-        except Exception as e:
-            self.log(f"__collective_action. Error, could not call evse_client.initialise_charger. Exception: {e}.")
+        else:
+            self.log(f"__collective_action. Could not call initialise_charger on evse_client as it is None.")
 
-        try:
+        if self.calendar_client is not None:
             await self.calendar_client.initialise_calendar()
-        except Exception as e:
-            self.log(f"__collective_action. Error, could not call calendar_client.initialise_calendar. Exception: {e}.")
+        else:
+            self.log(f"__collective_action. Could not call initialise_calendar on calendar_client as it is None.")
 
-        try:
+        if self.v2g_main_app is not None:
             await self.v2g_main_app.initialise_v2g_liberty(v2g_args=v2g_args)
-        except Exception as e:
-            self.log(f"__collective_action. Error, could not call v2g_main_app.initialise_v2g_liberty. Exception: {e}.")
+        else:
+            self.log(f"__collective_action. Could not call initialise_v2g_liberty on v2g_main_app as it is None.")
 
         self.log(f"__collective_action, completed.")
 

@@ -122,7 +122,7 @@ views:
 
                 2. Wait 5 minutes
 
-                3. Restart V2G Liberty add-on<br/>`Settings > Addons > V2G Liberty > Restart`
+                3. Restart V2G Liberty add-on<br/>`V2G Liberty > Settings > ↺ Restart V2G Liberty` (bottom right)
 
                 4. Wait 2 minutes
 
@@ -1136,6 +1136,15 @@ views:
 
           - type: entities
             entities:
+              - type: button
+                name: ' '
+                action_name: ↺ Restart V2G Liberty
+                tap_action:
+                  action: call-service
+                  confirmation:
+                    text: Restart Home Assistant and the V2G Liberty Add-on now? If you made any manual changes to the Home Assistant configuration make sure to check if it is valid.
+                  service: script.restart_ha
+                  target: {}
               - type: button
                 name: ' '
                 action_name: Reset to factory defaults >>

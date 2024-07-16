@@ -6,7 +6,6 @@ The next release might include:
 
 ### Adding
 
-- **Better detection and notification of charger communication crashes.** Highest priority!
 - Hopefully add "self_provided" option again. Needs refactoring.
 
 ### Changing
@@ -16,6 +15,32 @@ The next release might include:
 ### Removing
 
 - ?
+
+
+
+
+## 0.1.12 - 2024-07-15
+
+### Added
+
+- A function to restart V2G Liberty on the settings view and referenced this in the "how to fix the communication
+  fault instructions".
+
+
+### Fixed
+
+- Improved detection of communication failure with charger (#43)
+- Fixed "mistake" whereby the Admin mobile user setting was not used correctly.
+
+### Changed
+
+- Replaced `try - except` for code by `is None` test for code that calls methods in other modules. The caught exception 
+  was too wide and caught all (underlying) exceptions also from the other modules. This prevented propper debugging.
+
+
+### Removed
+
+- None.
 
 
 

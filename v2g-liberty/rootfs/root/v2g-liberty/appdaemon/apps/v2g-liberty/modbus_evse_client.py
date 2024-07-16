@@ -3,9 +3,9 @@ import asyncio
 import adbase as ad
 import time
 import constants as c
+from v2g_globals import get_local_now
 import pymodbus.client as modbusClient
-from pymodbus import ModbusException
-from pymodbus.exceptions import ConnectionException
+from pymodbus.exceptions import ModbusException, ModbusIOException, ConnectionException
 
 import appdaemon.plugins.hass.hassapi as hass
 
@@ -235,6 +235,10 @@ class ModbusEVSEclient(hass.Hass):
     dtm_connection_failure_since: datetime
     MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS: int = 300
 
+    # For (un)blocking of calls and keeping the client in-active when it should
+    # Set only(!) by set_inactive and set_active.
+    _am_i_active: bool = None
+
     async def initialize(self):
         self.log("Initializing ModbusEVSEclient")
         self.CHARGER_POLLING_ENTITIES = [
@@ -273,13 +277,14 @@ class ModbusEVSEclient(hass.Hass):
         self.client = modbusClient.AsyncModbusTcpClient(
             host=c.CHARGER_HOST_URL,
             port=c.CHARGER_PORT,
-            timeout=5,
-            retries=6,
-            reconnect_delay=1,
-            reconnect_delay_max=10,
+            timeout=3,
+            retries=3,
+            reconnect_delay=500,
+            reconnect_delay_max=1000,
             retry_on_empty=True,
         )
         await self.client.connect()
+        self.connection_failure_counter = 0
         if self.client.connected:
             await self.__process_min_max_charge_power()
             self.client.close()
@@ -290,6 +295,9 @@ class ModbusEVSEclient(hass.Hass):
 
     async def stop_charging(self):
         """Stop charging if it is in process and set charge power to 0."""
+        if not self._am_i_active:
+            self.log("stop_charging called while _am_i_active == False. Not blocking call to make stop reliable.")
+
         await self.__set_charger_action("stop", reason="stop called externally")
         await self.__set_charge_power(charge_power=0)
 
@@ -303,6 +311,10 @@ class ModbusEVSEclient(hass.Hass):
                 The kwargs dict should contain a "charge_power" key with a value in Watt.
         """
         # Check for automatic mode should be done by V2G Liberty app
+
+        if not self._am_i_active:
+            self.log("Not setting charge_rate: _am_i_active == False.")
+            return
 
         if not await self.is_car_connected():
             self.log("Not setting charge_rate: No car connected.")
@@ -322,10 +334,12 @@ class ModbusEVSEclient(hass.Hass):
         await self.stop_charging()
         await self.__cancel_polling(reason="Set inactive called")
         await self.__set_charger_control("give")
+        self._am_i_active = False
 
     async def set_active(self):
         """To be called when charge_mode in UI is switched to Automatic or Boost"""
         self.log("evse: set_active called")
+        self._am_i_active = True
         await self.__set_charger_control("take")
         await self.__get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self.__get_car_soc()
@@ -337,6 +351,11 @@ class ModbusEVSEclient(hass.Hass):
         This means the state is retrieved from HA instead of the charger and as a result
         can be as old as the maximum polling interval.
         """
+
+        if not self._am_i_active:
+            self.log("is_available_for_automated_charging called while _am_i_active == False. Returning False.")
+            return False
+
         state = self.get_state("sensor.charger_charger_state")
         if state is None:
             self.log("not relevant data yet for availability...")
@@ -346,32 +365,32 @@ class ModbusEVSEclient(hass.Hass):
         state = int(float(state))
         return state in self.AVAILABILITY_STATES
 
-    async def was_car_connected(self) -> bool:
-        # Returns the last known "is_car_connected".
-        # Use whe modus communication with charger has failed, so the __get_charger_state() can not be called.
-        self.log("was_car_connected called")
-        charger_state = await self.get_state("sensor.charger_charger_state", attribute="state")
-        if charger_state is None:
-            # Unknown charger state, assume car was connected
-            return True
-        else:
-            charger_state = int(float(charger_state))
-
-        return charger_state != self.DISCONNECTED_STATE
 
     async def is_car_connected(self) -> bool:
         """Indicates if currently a car is connected to the charger."""
+        if not self._am_i_active:
+            self.log("is_car_connected called while _am_i_active == False. Not blocking.")
+
         is_connected = await self.__get_charger_state() != self.DISCONNECTED_STATE
         self.log(f"is_car_connected called, returning: {is_connected}")
         return is_connected
 
+
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""
+        if not self._am_i_active:
+            self.log("is_charging called while _am_i_active == False. Not blocking.")
+
         return await self.__get_charger_state() == self.CHARGING_STATE
+
 
     async def is_discharging(self) -> bool:
         """Indicates if currently the connected car is discharging (not charging)"""
+        if not self._am_i_active:
+            self.log("is_discharging called while _am_i_active == False. Not blocking.")
+
         return await self.__get_charger_state() == self.DISCHARGING_STATE
+
 
     ######################################################################
     #                  INITIALISATION RELATED FUNCTIONS                  #
@@ -401,6 +420,9 @@ class ModbusEVSEclient(hass.Hass):
     async def __process_min_max_charge_power(self):
         """ Reads the maximum charge power setting from the charger."""
         self.log("__get_min_max_charge_power")
+        if not self._am_i_active:
+            self.log("__process_min_max_charge_power called while _am_i_active == False. Not blocking.")
+
         max_available_power_by_charger = await self.__force_get_register(
             register=self.MAX_AVAILABLE_POWER_REGISTER,
             min=self.CHARGE_POWER_LOWER_LIMIT,
@@ -431,6 +453,8 @@ class ModbusEVSEclient(hass.Hass):
             ValueError: if other than "take" or "give" is sent
 
         """
+        if not self._am_i_active:
+            self.log("__set_charger_control called while _am_i_active == False. Not blocking.")
 
         if take_or_give_control == "take":
             await self.__modbus_write(
@@ -479,6 +503,8 @@ class ModbusEVSEclient(hass.Hass):
     async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
         """Has a sister function in V2G Liberty that also handles this from there"""
         self.log("__handle_charger_state_change called")
+        if not self._am_i_active:
+            self.log("__handle_charger_state_change called while _am_i_active == False. Not blocking.")
 
         new_charger_state = new.get("state", None)
         if new_charger_state is None:
@@ -533,6 +559,20 @@ class ModbusEVSEclient(hass.Hass):
     #                    PRIVATE FUNCTIONAL METHODS                      #
     ######################################################################
 
+    async def __was_car_connected(self) -> bool:
+        # Returns the last known "is_car_connected".
+        # Used when modus communication with charger has failed, so the __get_charger_state() can not be called.
+        self.log("__was_car_connected called")
+        charger_state = await self.get_state("sensor.charger_charger_state", attribute="state")
+        if charger_state is None:
+            # Unknown charger state, assume car was connected
+            return_value = True
+        else:
+            charger_state = int(float(charger_state))
+            return_value = charger_state != self.DISCONNECTED_STATE
+        self.log(f"__was_car_connected returning '{return_value}'.")
+        return return_value
+
     async def __set_charger_action(self, action: str, reason: str = ""):
         """Set action to start/stop charging the charger.
            To be called from both this module and v2g-liberty.
@@ -550,6 +590,10 @@ class ModbusEVSEclient(hass.Hass):
         """
         if reason != "":
             reason = f" Reason for action: '{reason}'."
+
+        if not self._am_i_active:
+            self.log("__set_charger_action called while _am_i_active == False. Not blocking.")
+
         action_value = ""
         if not await self.is_car_connected():
             self.log(f"Not performing charger action '{action}': No car connected.{reason}")
@@ -572,6 +616,9 @@ class ModbusEVSEclient(hass.Hass):
         return
 
     async def __is_charging_or_discharging(self) -> bool:
+        if not self._am_i_active:
+            self.log("__is_charging_or_discharging called while _am_i_active == False. Not blocking.")
+
         state = await self.__get_charger_state()
         if state is None:
             # The connection to the charger probably is not setup yet.
@@ -589,6 +636,9 @@ class ModbusEVSEclient(hass.Hass):
             If the car is disconnected the latest known value will be returned (and thus be old).
         """
         # self.log("__get_car_soc called")
+        if not self._am_i_active:
+            self.log("__get_car_soc called while _am_i_active == False. Not blocking.")
+
         if not await self.is_car_connected():
             self.log("__get_car_soc called, no car connected, returning SoC = 0")
             return 0
@@ -607,8 +657,8 @@ class ModbusEVSEclient(hass.Hass):
             should_be_renewed = True
         else:
             lc = datetime.fromisoformat(state['last_changed'])
-            nu = await self.get_now()
-            should_be_renewed = (nu - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
+            now = get_local_now()
+            should_be_renewed = (now - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
         # self.log(f"__get_car_soc called, SoC state in HA: {state}. Needs to be renewed: {should_be_renewed}.")
 
         if should_be_renewed:
@@ -658,6 +708,9 @@ class ModbusEVSEclient(hass.Hass):
 
     async def __get_charger_state(self) -> int:
         self.log("__get_charger_state")
+        if not self._am_i_active:
+            self.log("__get_charger_state called while _am_i_active == False. Not blocking.")
+
         charger_state = await self.get_state("sensor.charger_charger_state", attribute="all")
         should_be_renewed = False
         if charger_state is None or not isinstance(charger_state, dict) or "last_changed" not in charger_state:
@@ -667,14 +720,15 @@ class ModbusEVSEclient(hass.Hass):
         else:
             # Check if charger_status is not too old
             lc = datetime.fromisoformat(charger_state['last_changed'])
-            nu = await self.get_now()
-            should_be_renewed = (nu - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
+            now = get_local_now()
+            should_be_renewed = (now - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
 
         if should_be_renewed:
             await self.__get_and_process_registers([self.ENTITY_CHARGER_STATE])
             charger_state = await self.get_state("sensor.charger_charger_state", attribute="all")
 
-        charger_state = charger_state.get('state', None)
+        if charger_state is not None:
+            charger_state = charger_state.get('state', None)
         if charger_state is not None:
             charger_state = int(float(charger_state))
         self.log(f"Returning charger_state: '{charger_state}' ({type(charger_state)}).")
@@ -682,6 +736,9 @@ class ModbusEVSEclient(hass.Hass):
 
     async def __get_charge_power(self) -> int:
         # self.log("__get_charge_power")
+        if not self._am_i_active:
+            self.log("__get_charge_power called while _am_i_active == False. Not blocking.")
+
         state = await self.get_state("sensor.charger_real_charging_power", attribute="all")
         should_be_renewed = False
         if state is None or not isinstance(state, dict) or "last_changed" not in state:
@@ -691,8 +748,8 @@ class ModbusEVSEclient(hass.Hass):
         else:
             # Check if charger_status ois not too old
             lc = datetime.fromisoformat(state['last_changed'])
-            nu = await self.get_now()
-            should_be_renewed = (nu - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
+            now = get_local_now()
+            should_be_renewed = (now - lc).total_seconds() > self.STATE_MAX_AGE_IN_SECONDS
 
         if should_be_renewed:
             # Charger_status older than STATUS_MAX_AGE_IN_SECONDS seconds, so refresh:
@@ -754,7 +811,10 @@ class ModbusEVSEclient(hass.Hass):
             attributes (any, optional): The value (can be dict) the attributes should be written
             with. Defaults to None.
         """
-        new_state = state
+        if state is None:
+            self.log("__update_state called with state is None, aborting.")
+            return
+
         new_attributes = None
         if self.entity_exists(entity):
             current_attributes = (await self.get_state(entity, attribute="all"))
@@ -766,9 +826,9 @@ class ModbusEVSEclient(hass.Hass):
             new_attributes = attributes
 
         if new_attributes is not None:
-            await self.set_state(entity, state=new_state, attributes=new_attributes)
+            await self.set_state(entity, state=state, attributes=new_attributes)
         else:
-            await self.set_state(entity, state=new_state)
+            await self.set_state(entity, state=state)
 
     async def __set_charge_power(self, charge_power: int, skip_min_soc_check: bool = False):
         """Private function to set desired (dis-)charge power in Watt in the charger.
@@ -783,6 +843,10 @@ class ModbusEVSEclient(hass.Hass):
                 boolean is used when the check for the minimum soc needs to be skipped.
                 This is used when this method is called from the __get_car_soc Defaults to False.
         """
+        if not self._am_i_active:
+            self.log("__set_charge_power called while _am_i_active == False. Return.")
+            return
+
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
             current_soc = await self.__get_car_soc()
@@ -837,6 +901,9 @@ class ModbusEVSEclient(hass.Hass):
             Base: Car is connected, poll for all info every 5 seconds
             When Charge mode is off, is handled by handle_charge_mode
         """
+        if not self._am_i_active:
+            self.log("__set_poll_strategy called while _am_i_active == False. Not blocking.")
+
         await self.__cancel_polling(reason="setting new polling strategy")
 
         if self.try_get_new_soc_in_process:
@@ -860,6 +927,8 @@ class ModbusEVSEclient(hass.Hass):
         Args:
             reason (str, optional): For debugging only
         """
+        if not self._am_i_active:
+            self.log("__cancel_polling called while _am_i_active == False. Not blocking.")
 
         self.log(f"__cancel_polling, reason: {reason}")
         if self.timer_running(self.poll_timer_handle):
@@ -869,6 +938,7 @@ class ModbusEVSEclient(hass.Hass):
         else:
             self.log("__cancel_polling: No timer to cancel")
         await self.__update_poll_indicator_in_ui(reset=True)
+
 
     async def __minimal_polling(self, kwargs):
         """ Should only be called from set_poll_strategy
@@ -881,6 +951,7 @@ class ModbusEVSEclient(hass.Hass):
         await self.__get_and_process_registers([self.ENTITY_CHARGER_STATE])
         await self.__get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
         await self.__update_poll_indicator_in_ui()
+
 
     async def __base_polling(self, kwargs):
         """Should only be called from set_poll_strategy
@@ -897,20 +968,6 @@ class ModbusEVSEclient(hass.Hass):
     ######################################################################
     #                   MODBUS RELATED FUNCTIONS                         #
     ######################################################################
-
-    async def __handle_modbus_failure(self, exception: object = None):
-        """Handle a failure of modbus (communication) that does not seem to auto restore:
-            - Cancel polling
-            - Notify the user via v2g-liberty module that a restart of the modbus server might be needed.
-              This also set charge mode to stop.
-
-        Args:
-            exception (object, optional): The exception that caused the problem for logging purposes.
-        """
-        self.log(f"Modbus failure. Exception: {exception}")
-        await self.__cancel_polling(reason="Modbus failure")
-        await self.v2g_main_app.notify_user_of_charger_needs_restart()
-        return
 
     async def __handle_no_modbus_connection(self):
         """Function to call when no connection with the modbus server could be made.
@@ -961,7 +1018,7 @@ class ModbusEVSEclient(hass.Hass):
             await asyncio.sleep(STEP)
             time_used += STEP
             if time_used >= TIMEOUT:
-                self.log("__connect_to_modbus_server, timeout: connection with server in use by other process.")
+                self.log(f"__connect_to_modbus_server, {source} timeout: connection in use by other process.")
                 return False
         if time_used > 5:
             # Only log if time_used is somewhat longer. Can occur while getting an SoC is in progress.
@@ -974,24 +1031,24 @@ class ModbusEVSEclient(hass.Hass):
             await self.client.connect()
             # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
             msg = "Successfully connected"
-        except ConnectionException as ce:
-            self.log(f"__connect_to_modbus_server: Connection exception while connecting to server '{ce}'.")
-            # TODO: Maybe try close + connect again?
-            await self.__handle_no_modbus_connection()
-            err = f"ConnectionException"
-            # raise ce
+        except (ConnectionException, ModbusIOException) as exc:
+            # Strangely enough the Connection Exception never occurs when connection but only when reading/writing.
+            # So it is implemented here, but it has never been called.
+            # For that reason the __reset_modbus_connection_exception is not called here after: no exception
+            # does not mean the reset should take place.
+            err = "ConnectionException"
+            await self.__handle_modbus_connection_exception(exc, "__connect_to_modbus_server")
             return_value = False
-        except ModbusException as exc:
-            self.log(f"__connect_to_modbus_server: Modbus exception while connecting to server: '{exc}'.")
-            # raise exc
-            err = f"ModbusException"
-            # raise ce
+        except ModbusException as me:
+            err = "ModbusException"
+            self.log(f"__connect_to_modbus_server, Received ModbusException({me}) from library")
             return_value = False
+
         if not self.client.connected:
             msg = f"Failed to connect ({err})."
             return_value = False
 
-        keep_alive = {"keep_alive": await self.get_now()}
+        keep_alive = {"keep_alive": get_local_now()}
         await self.__update_state("input_text.charger_connection_status", state=msg, attributes=keep_alive)
         return return_value
 
@@ -1020,14 +1077,17 @@ class ModbusEVSEclient(hass.Hass):
         self.modbus_connection_in_use = False
         return
 
+
     async def __force_get_register(self, register: int, min: int, max: int) -> int:
         """ When a 'realtime' reading from the modbus server is needed that is expected
         to be between min/max. We keep trying to get a reading that is within min - max range.
 
-        Of course there is a timeout. If this is reached we expect the modbus server to have crashed
+        Of course there is a timeout. If this is reached we expect the modbus server to have crashed,
         and we notify the user.
 
         """
+        if not self._am_i_active:
+            self.log("__force_get_register called while _am_i_active == False. Not blocking.")
 
         # Times in seconds
         total_time = 0
@@ -1036,7 +1096,7 @@ class ModbusEVSEclient(hass.Hass):
 
         res = await self.__connect_to_modbus_server(source="__force_get_register")
         if not res:
-            self.log(" __force_get_register: No connection!!!")
+            self.log(" __force_get_register: No connection.")
 
         # If the real SoC is not available yet, keep trying for max. two minutes
         while True:
@@ -1045,13 +1105,12 @@ class ModbusEVSEclient(hass.Hass):
                 # Only one register is read so count = 1, the charger expects slave to be 1.
                 # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
                 result = await self.client.read_holding_registers(register, count=1, slave=1)
-            except ConnectionException as ce:
-                self.log(f"__force_get_register, no connection: ({ce}). Close & open connection to see it this helps..")
-                self.client.close()
-                await self.client.connect()
-                pass
-            except ModbusException as exc:
-                self.log(f"__force_get_register, Received ModbusException({exc}) from library")
+            except (ConnectionException, ModbusIOException) as exc:
+                is_unrecoverable = await self.__handle_modbus_connection_exception(exc, "__force_get_register")
+                if is_unrecoverable:
+                    break
+            except ModbusException as me:
+                self.log(f"__force_get_register, Received ModbusException({me}) from library")
                 pass
 
             if result is not None:
@@ -1062,6 +1121,7 @@ class ModbusEVSEclient(hass.Hass):
                         result = result - self.MAX_USI
                     if min <= result <= max:
                         # Acceptable result retrieved
+                        self.log(f"__force_get_register. After {total_time} sec. value {result} was retrieved.")
                         break
                 except TypeError:
                     pass
@@ -1069,9 +1129,8 @@ class ModbusEVSEclient(hass.Hass):
 
             # We need to stop at some point
             if total_time > MAX_TOTAL_TIME:
-                txt = f"__force_get_register timed out, no relevant value was retrieved."
-                self.log(txt)
-                await self.__handle_modbus_failure(txt)
+                self.log(f"__force_get_register timed out. After {total_time} sec. no relevant value was retrieved.")
+                # Connection exception is handled elsewhere.
                 break
 
             await asyncio.sleep(DELAY_BETWEEN_READS)
@@ -1098,22 +1157,29 @@ class ModbusEVSEclient(hass.Hass):
         Returns:
             bool: if write was successful
         """
+
+        if not self._am_i_active:
+            self.log("__modbus_write called while _am_i_active == False. Not blocking.")
+
         if value < 0:
             # Modbus cannot handle negative values directly.
             value = self.MAX_USI + value
 
         await self.__connect_to_modbus_server(source=source)
+        result = None
         try:
             # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
             result = await self.client.write_register(address, value, slave=1)
-        except ModbusException as exc:
-            # TODO: Should the self.connection_failure_counter check be implemented here (see __modbus_read)
-            self.log(f"__modbus_write, Received ModbusException({exc}) from library")
-            await self.__disconnect_from_modbus_server()
-            raise exc
+        except (ConnectionException, ModbusIOException) as exc:
+            is_unrecoverable = await self.__handle_modbus_connection_exception(exc, "__modbus_write")
+            if is_unrecoverable:
+                return
+        except ModbusException as me:
+            self.log(f"__modbus_write, Received ModbusException({me}) from library")
+            raise me
 
-        if not result:
-            self.log(f"__modbus_write, Failed to write to modbus server ({result})")
+        if result is None:
+            self.log(f"__modbus_write, Failed to write to modbus server.")
 
         await self.__disconnect_from_modbus_server(self.WAIT_AFTER_MODBUS_WRITE_IN_MS / 1000)
         return result
@@ -1133,52 +1199,29 @@ class ModbusEVSEclient(hass.Hass):
         Returns:
             _type_: List of int values
         """
+
         res = await self.__connect_to_modbus_server(source=source)
         if not res:
             self.log(f"__modbus_read: no connection available.")
             return None
+
+        is_unrecoverable = None
+        result = None
         try:
             # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
             result = await self.client.read_holding_registers(address, length, slave=1)
-        except ConnectionException as ce:
-            # The connection exceptions occurs on client.read() instead of -as you would expect- on client.connect().
-            # This variable is initiated at -1. At first successful connection this counter is set to 0
-            # Until then do not trigger this counter, as most likely the user is still busy configuring
-            if self.connection_failure_counter == -1:
-                self.log(f"__modbus_read: Connection exception while reading holding register. "
-                         f"Configuration (not yet) invalid?")
-                await self.__handle_no_modbus_connection()
+        except (ConnectionException, ModbusIOException) as exc:
+            self.log(f"__modbus_read, Received ConnectionException, ModbusIOException from library")
+            is_unrecoverable = await self.__handle_modbus_connection_exception(exc, "__modbus_read")
+            if is_unrecoverable:
                 return
+        except ModbusException as me:
+            self.log(f"__modbus_read, Received ModbusException({me}) from library")
+            raise me
 
-            if self.connection_failure_counter == 0:
-                self.log(f"__modbus_read: First occurrence of connection_exception. "
-                         f"Try to 'reset' once by closing and opening connection.")
-                self.client.close()
-                await self.client.connect()
-                self.dtm_connection_failure_since = await self.get_now()
-
-            if self.connection_failure_counter > 0:
-                self.log(f"__modbus_read: Recurring connection exception while reading holding register.")
-                now = await self.get_now()
-                duration = (now - self.dtm_connection_failure_since).total_seconds()
-                if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
-                    txt = f"__modbus_read: Connection problems for more then " \
-                          f"{self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS} sec. Considered none-recoverable."
-                    self.log(txt)
-                    await self.__handle_modbus_failure(txt)
-
-            self.connection_failure_counter += 1
-            return
-        except ModbusException as exc:
-            self.log(f"__modbus_write, Received ModbusException({exc}) from library")
-            raise exc
-
-        # Successful read,and thus communication.
-        if self.connection_failure_counter > 0:
-            self.log(f"__modbus_write, there was an charger_communication_fault, now solved.")
-            self.v2g_main_app.reset_charger_communication_fault()
-        self.connection_failure_counter = 0
-        self.dtm_connection_failure_since = None
+        if is_unrecoverable is None:
+            # No connection exception, thus a successful read, and thus communication.
+            await self.__reset_modbus_connection_exception()
 
         if result is None:
             self.log(f"__modbus_read: result is None for address '{address}' and length '{length}'.")
@@ -1187,6 +1230,60 @@ class ModbusEVSEclient(hass.Hass):
         await self.__disconnect_from_modbus_server(self.WAIT_AFTER_MODBUS_READ_IN_MS / 1000)
 
         return list(map(self.__get_2comp, result.registers))
+
+    async def __reset_modbus_connection_exception(self):
+        # Works in conjunction with __handle_modbus_connection_exception.
+        # To be called when there has been a successful read/write.
+        # self.log("__reset_modbus_connection_exception called.")
+        if self.connection_failure_counter > 0:
+            self.log(f"__reset_modbus_connection_exception, there was an charger_communication_fault, now solved.")
+            self.v2g_main_app.reset_charger_communication_fault()
+        self.connection_failure_counter = 0
+        self.dtm_connection_failure_since = None
+
+    async def __handle_modbus_connection_exception(self, connection_exception, source):
+        # Modbus' connection exception occurs regularly with the Wallbox Quasar (e.g. bi-weekly) and
+        # is usually not self resolving. This method checks the severity of the connection problem and
+        # notifies the user if needed.
+        #
+        # This method is to be called from __modbus_read and __modbus_write methods as connection exceptions
+        # occurs on client.read() and client.write() instead of -as you would expect- on client.connect().
+        # This method is called from __modbus_connect but not reset.
+        #
+        # This variable is initiated at -1. At first successful connection this counter is set to 0.
+        # Until then do not trigger this counter, as most likely the user is still busy configuring.
+        self.log("__handle_modbus_connection_exception called.")
+
+        return_value = True
+        if self.connection_failure_counter < 0:
+            self.log(f"{source}: Connection exception. Configuration (not yet) invalid?")
+            await self.__handle_no_modbus_connection()
+            return
+
+        elif self.connection_failure_counter == 0:
+            self.log(f"{source}: First occurrence of connection exception. "
+                     f"Try to 'reset' once. Exception: {connection_exception}.")
+            self.client.close()
+            await self.client.connect()
+            self.dtm_connection_failure_since = get_local_now()
+        else:
+            # self.connection_failure_counter > 0:
+            self.log(f"{source}: Recurring connection exception.")
+            duration = (get_local_now() - self.dtm_connection_failure_since).total_seconds()
+            # TODO: Remove if TESTING went well.
+            #       The timeout should now be handled by the pymodbus library.
+            if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
+                self.log(f"Connection problems for {duration} sec. Considered none-recoverable.")
+                await self.__cancel_polling(reason="Modbus failure")
+                # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
+                self._am_i_active = False
+                await self.v2g_main_app.notify_user_of_charger_needs_restart(
+                    was_car_connected = await self.__was_car_connected()
+                )
+            return_value = False
+
+        self.connection_failure_counter += 1
+        return return_value
 
 
     def __get_2comp(self, number):
