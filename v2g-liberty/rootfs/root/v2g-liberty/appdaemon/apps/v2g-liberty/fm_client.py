@@ -144,20 +144,6 @@ class FMClient(hass.Hass):
         # Filter sensors to match the assets_id
         sensors = [sensor for sensor in fm_sensors if sensor["generic_asset_id"] == asset_id]
         return sensors
-    #
-    # async def initialise_fm_settings(self, event=None, data=None, kwargs=None):
-    #     '''
-    #     Set local vars based on global constants.
-    #     To be called at init and from globals if settings change.
-    #     '''
-    #     self.log("initialise_fm_settings called")
-    #     base_url = c.FM_SENSOR_URL + "/" + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-    #     self.log(f"initialise_fm_settings base_url: {base_url}.")
-    #     c.FM_TRIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
-    #     self.log(f"initialise_fm_settings c.FM_TRIGGER_URL: {c.FM_TRIGGER_URL}.")
-    #     c.FM_GET_SCHEDULE_URL = base_url + c.FM_SCHEDULE_SLUG
-    #     self.log(f"initialise_fm_settings c.FM_GET_SCHEDULE_URL: {c.FM_GET_SCHEDULE_URL}.")
-
 
     # async def ping_server(self, *args):
         # """ Ping function to check if server is alive """
@@ -544,18 +530,18 @@ class FMClient(hass.Hass):
 
         if schedule_id is None:
             self.log_failed_response(res, url)
-            try:
+            if self.v2g_main_app is not None:
                 await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
-            except Exception as e:
+            else:
                 self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (3). Exception: {e}.")
 
             return None
 
         self.log(f"Successfully triggered schedule. Schedule id: {schedule_id}")
-        try:
+        if self.v2g_main_app is not None:
             await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
-        except Exception as e:
-            self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (4). Exception: {e}.")
+        else:
+            self.log(f"get_schedule. Could not call handle_no_new_schedule (4) on v2g_main_app as it is None.")
 
         return schedule_id
 
@@ -658,17 +644,19 @@ class FMClient(hass.Hass):
             else:
                 self.log("Schedule cannot be retrieved. Any previous charging schedule will keep being followed.")
                 self.fm_busy_getting_schedule = False
-                try:
+
+                if self.v2g_main_app is not None:
                     await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
-                except Exception as e:
-                    self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (1). Exception: {e}.")
+                else:
+                    self.log(f"get_schedule. Could not call handle_no_new_schedule (1) on v2g_main_app as it is None.")
+
             return False
         # self.log(f"get_schedule. successfully retrieved {res.status_code}")
         self.fm_busy_getting_schedule = False
-        try:
+        if self.v2g_main_app is not None:
             await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
-        except Exception as e:
-            self.log(f"get_schedule. Could not call v2g_main_app.handle_no_new_schedule (2). Exception: {e}.")
+        else:
+            self.log(f"get_schedule. Could not call handle_no_new_schedule (2) on v2g_main_app as it is None.")
 
         self.fm_date_time_last_schedule = get_local_now()
         self.log(f"get_schedule: self.fm_date_time_last_schedule set to now,"

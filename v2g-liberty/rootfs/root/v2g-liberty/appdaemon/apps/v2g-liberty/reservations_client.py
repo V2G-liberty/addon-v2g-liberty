@@ -20,7 +20,7 @@ class ReservationsClient(ServiceResponseApp):
 
     # Stores the user reply to a notification "Car still connected during calendar item: keep / dismiss?"
     # It cannot be stored in the remote calendar item.
-    # When getting remote calendar items the dissmissed status is added from this "local store".
+    # When getting remote calendar items the dismissed status is added from this "local store".
     # Hash_id with True/False
     # Items are removed if v2g_events do not contain and event with this hash_id anymore.
     events_dismissed_statuses: dict = {}
@@ -35,7 +35,8 @@ class ReservationsClient(ServiceResponseApp):
         self.v2g_main_app = await self.get_app("v2g_liberty")
         self.principal = None
         self.poll_timer_id = ""
-        self.v2g_events = []
+        # To force a "change" even if the local/remote calendar is empty.
+        self.v2g_events = ["un-initiated"]
         await self.initialise_calendar()
         self.log(f"Completed initialise ReservationsClient")
 
@@ -320,7 +321,7 @@ class ReservationsClient(ServiceResponseApp):
         # ToDo: Add possibility to set target in km
         target_soc_percent = search_for_soc_target("%", text_to_search_in)
         if target_soc_percent is None or target_soc_percent > 100:
-            self.log(f"__add_target_soc: target soc {target_soc_percent} changed to 100%.")
+            # self.log(f"__add_target_soc: target soc {target_soc_percent} changed to 100%.")
             target_soc_percent = 100
         elif target_soc_percent < c.CAR_MIN_SOC_IN_PERCENT:
             self.log(f"__add_target_soc: target soc {target_soc_percent} below "
