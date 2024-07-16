@@ -1260,30 +1260,29 @@ class ModbusEVSEclient(hass.Hass):
             await self.__handle_no_modbus_connection()
             return
 
-        elif self.connection_failure_counter == 0:
-            self.log(f"{source}: First occurrence of connection exception. "
-                     f"Try to 'reset' once. Exception: {connection_exception}.")
-            self.client.close()
-            await self.client.connect()
+        if self.connection_failure_counter == 0:
+            self.log(f"{source}: First occurrence of connection exception. Exception: {connection_exception}.")
             self.dtm_connection_failure_since = get_local_now()
         else:
             # self.connection_failure_counter > 0:
-            self.log(f"{source}: Recurring connection exception.")
-            duration = (get_local_now() - self.dtm_connection_failure_since).total_seconds()
-            # TODO: Remove if TESTING went well.
-            #       The timeout should now be handled by the pymodbus library.
-            if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
-                self.log(f"Connection problems for {duration} sec. Considered none-recoverable.")
-                await self.__cancel_polling(reason="Modbus failure")
-                # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
-                self._am_i_active = False
-                await self.v2g_main_app.notify_user_of_charger_needs_restart(
-                    was_car_connected = await self.__was_car_connected()
-                )
-            return_value = False
+            self.log(f"{source}: Recurring connection exception. Exception: {connection_exception}.")
+
+        # This is needed to prevent a lock due to self.modbus_connection_in_use
+        self.__disconnect_from_modbus_server()
+
+        duration = (get_local_now() - self.dtm_connection_failure_since).total_seconds()
+        if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
+            self.log(f"Connection problems for {duration} sec. Considered none-recoverable.")
+            await self.__cancel_polling(reason="Modbus failure")
+            # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
+            self._am_i_active = False
+            await self.v2g_main_app.notify_user_of_charger_needs_restart(
+                was_car_connected = await self.__was_car_connected()
+            )
 
         self.connection_failure_counter += 1
-        return return_value
+
+        return False
 
 
     def __get_2comp(self, number):
