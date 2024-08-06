@@ -5,12 +5,6 @@
 # Configures V2G Liberty
 # ==============================================================================
 
-# Creates initial AppDaemon configuration in case it is non-existing
-if ! bashio::fs.file_exists '/config/appdaemon.yaml'; then
-    cp -aR /root/appdaemon/* /config/ \
-        || bashio::exit.nok 'Failed to create initial AppDaemon configuration'
-fi
-
 # Create directory where log files will be written
 mkdir -p /config/logs
 
