@@ -1,1 +1,53 @@
 ---
+v2g-globals:
+  module: v2g_globals
+  class: V2GLibertyGlobals
+  # This needs to load before all other modules
+  priority: 10
+
+modbus_evse_client:
+  module: modbus_evse_client
+  class: ModbusEVSEclient
+  priority: 20
+  dependencies:
+    - v2g-globals
+
+v2g_liberty:
+  module: v2g_liberty
+  class: V2Gliberty
+  priority: 50
+  dependencies:
+    - v2g-globals
+    - fm_client
+    - modbus_evse_client
+    - reservations-client
+
+fm_client:
+  module: fm_client
+  class: FMClient
+  priority: 50
+  dependencies:
+    - v2g-globals
+
+reservations-client:
+  module: reservations_client
+  class: ReservationsClient
+  priority: 50
+  dependencies:
+    - v2g-globals
+
+get_fm_data:
+  module: get_fm_data
+  class: FlexMeasuresDataImporter
+  priority: 100
+  dependencies:
+   - v2g-globals
+   - fm_client
+
+set_fm_data:
+  module: set_fm_data
+  class: SetFMdata
+  priority: 100
+  dependencies:
+    - v2g-globals
+    - modbus_evse_client
