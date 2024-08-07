@@ -436,7 +436,7 @@ class FMClient(hass.Hass):
 
             # Postpone discharge till after current calendar item if target soc has not been fulfilled
             start_b2ms = None
-            if targets is not None:
+            if targets is not None and len(targets) > 0:
                 first_target = targets[0]
                 start = first_target.get('start', None)
                 end = first_target.get('end', None)
