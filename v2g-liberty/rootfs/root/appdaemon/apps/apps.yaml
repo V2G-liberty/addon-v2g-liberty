@@ -12,16 +12,6 @@ modbus_evse_client:
   dependencies:
     - v2g-globals
 
-v2g_liberty:
-  module: v2g_liberty
-  class: V2Gliberty
-  priority: 50
-  dependencies:
-    - v2g-globals
-    - fm_client
-    - modbus_evse_client
-    - reservations-client
-
 fm_client:
   module: fm_client
   class: FMClient
@@ -36,6 +26,16 @@ reservations-client:
   dependencies:
     - v2g-globals
 
+v2g_liberty:
+  module: v2g_liberty
+  class: V2Gliberty
+  priority: 55
+  dependencies:
+    - v2g-globals
+    - fm_client
+    - modbus_evse_client
+    - reservations-client
+
 get_fm_data:
   module: get_fm_data
   class: FlexMeasuresDataImporter
@@ -47,7 +47,15 @@ get_fm_data:
 set_fm_data:
   module: set_fm_data
   class: SetFMdata
-  priority: 100
+  priority: 75
   dependencies:
     - v2g-globals
     - modbus_evse_client
+
+amber_price_data_manager:
+  module: amber_price_data_manager
+  class: ManageAmberPriceData
+  priority: 100
+  dependencies:
+    - v2g-globals
+    - set_fm_data

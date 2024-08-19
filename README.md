@@ -20,7 +20,7 @@ In addition, the EV's battery is used to:
 
 V2G&nbsp;Liberty is a practical local app that works in the browser and on your phone.
 
-![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2024/07/ui_v0_1_11.png)
+![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2024/08/ui_v0_1_13.png)
 
 The schedules are optimised to maximise revenues ór minimising emissions. The optimised schedules
 are produced by [FlexMeasures](https://flexmeasures.io/), our smart backend by Seita. While the price optimisation already 
@@ -28,7 +28,8 @@ decreases emissions significantly, you can also choose to take sustainability a 
 
 Most Dutch energy suppliers are listed and all 
 European energy prices (EPEX) are available for optimisation. For none European markets (e.g. UK, Australia) 
-there is an option to (automatically) upload price data to FlexMeasures.
+there is an option to (automatically) upload price data to FlexMeasures. Amber Electric is preconfigured and can be selected
+from a settings list.
 
 Read more about V2G&nbsp;Liberty on [v2g-liberty.eu](https://v2g-liberty.eu/) or [github.com](https://github.com/V2G-liberty/addon-v2g-liberty).
 

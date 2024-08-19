@@ -42,7 +42,7 @@ CAR_CONSUMPTION_WH_PER_KM: int = 175
 # TODO: Maybe make this a user setting?
 KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
 
-# Calculate as follows:
+# Assumed car consumption during a calendar event per time_interval, calculate as follows:
 # (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)
 USAGE_PER_EVENT_TIME_INTERVAL: float = None
 
@@ -96,23 +96,36 @@ DEFAULT_UTILITY_CONTEXTS = {
 FM_ACCOUNT_USERNAME: str = ""
 FM_ACCOUNT_PASSWORD: str = ""
 
-# Key sensor for getting schedules and sending/retrieving data to/from FM
+# Sensor entity for sending and id for retrieving data to/from FM
 FM_ACCOUNT_POWER_SENSOR_ID: int = 0
-# Sensors for sending data to FM
+FM_ENTITY_ADDRESS_POWER: str = ""
+
+# Sensor entity for sending and id for retrieving data to/from FM
 FM_ACCOUNT_AVAILABILITY_SENSOR_ID: int = 0
+FM_ENTITY_ADDRESS_AVAILABILITY: str = ""
+
+# Sensor entity for sending and id for retrieving data to/from FM
 FM_ACCOUNT_SOC_SENSOR_ID: int = 0
-# Sensor for sending/retrieving data to/from FM
+FM_ENTITY_ADDRESS_SOC: str = ""
+
+# Sensor_id for retrieving data from FM
 FM_ACCOUNT_COST_SENSOR_ID: int = 0
 
-# Sensors for optimisation context, also in case prices are self_provided
+# Sensors for optimisation context, also in case prices are self_provided (e.g. au_amber_electric)
+# Sensor entity for sending and id for retrieving data to/from FM
 FM_PRICE_PRODUCTION_SENSOR_ID: int = 0
+FM_PRICE_PRODUCTION_ENTITY_ADDRESS: str = ""
 FM_PRICE_CONSUMPTION_SENSOR_ID: int = 0
+FM_PRICE_CONSUMPTION_ENTITY_ADDRESS: str = ""
 FM_EMISSIONS_SENSOR_ID: int = 0
+FM_EMISSIONS_ENTITY_ADDRESS: str = ""
 UTILITY_CONTEXT_DISPLAY_NAME: int = 0
 
-FM_ENTITY_ADDRESS_POWER: str = ""
-FM_ENTITY_ADDRESS_AVAILABILITY: str = ""
-FM_ENTITY_ADDRESS_SOC: str = ""
+
+# The sensor (or entity) id's to which the third party integration
+# writes the Consumption- and Production Price (Forecasts)
+HA_OWN_CONSUMPTION_PRICE_ENTITY_ID: str = ""
+HA_OWN_PRODUCTION_PRICE_ENTITY_ID: str = ""
 
 # CHARGER CONSTANTS
 # IP address and port for charger modbus communication

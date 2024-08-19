@@ -1,5 +1,9 @@
-<h3>Last 7 days (approximations)</h3>
-<h4>Costs {{ '€ %.2f'|format(float(states("input_number.total_charging_cost_last_7_days"))/float(states("input_number.net_energy_last_7_days"))) }}/kWh</h4>
+<h3>Last 7 days (approximations)</h3><h4>Costs
+{% if float(states("input_number.net_energy_last_7_days")) == 0 %}
+€ -,--
+{% else %}
+{{ '€ %.2f'|format(float(states("input_number.total_charging_cost_last_7_days"))/float(states("input_number.net_energy_last_7_days"))) }}
+{% endif %}/kWh</h4>
 <table><thead>
 <tr>
 <th></th>

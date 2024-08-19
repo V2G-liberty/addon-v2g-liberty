@@ -221,6 +221,9 @@ class V2Gliberty(hass.Hass):
                 # Critical notifications should not auto clear.
                 self.run_in(self.__clear_notification, delay=ttl, recipient=recipient, tag=tag)
 
+    def clear_notification(self, tag: str):
+        """Wrapper methode for easy clearing of notifications"""
+        self.__clear_notification_for_all_recipients(tag = tag)
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """ Keep track of situations where no new schedules are available:
@@ -460,6 +463,7 @@ class V2Gliberty(hass.Hass):
         for error_name in self.no_schedule_errors:
             self.no_schedule_errors[error_name] = False
         await self.__notify_no_new_schedule(reset=True)
+
 
     async def __cancel_timer(self, timer_id: str):
         """Utility function to silently cancel a timer.
@@ -854,7 +858,7 @@ class V2Gliberty(hass.Hass):
     async def __start_max_charge_now(self):
         if self.evse_client is not None:
             # TODO: Check if .set_active() is really a good idea here?
-            #       If the client is not active there might be a good reason for that..
+            #       If the client is not active there might be a good reason for that...
             await self.evse_client.set_active()
             await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=c.CHARGER_MAX_CHARGE_POWER))
         else:

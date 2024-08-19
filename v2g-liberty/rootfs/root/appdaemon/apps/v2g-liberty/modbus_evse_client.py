@@ -302,7 +302,6 @@ class ModbusEVSEclient(hass.Hass):
         if self.client is not None:
             if self.client.connected:
                 self.client.close()
-            self.client = None
 
         self.client = modbusClient.AsyncModbusTcpClient(
             host=c.CHARGER_HOST_URL,

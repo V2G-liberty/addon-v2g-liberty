@@ -19,7 +19,7 @@ lovelace:
 frontend:
   extra_module_url:
     - /local/v2g_liberty/lovelace-card-mod/card-mod.js
-    - /local/v2g_liberty/apexcharts-card/apexcharts-card.js
+    - /local/v2g_liberty/apexcharts-card/apexcharts-card-v2-1-2.js
 
 
 input_select:
@@ -72,8 +72,7 @@ input_select:
       - nl_next_energy
       - nl_tibber
       - no_generic
-# This option is just not robust enough and current users are on another repository
-#      - self_provided
+      - au_amber_electric
 
   optimisation_mode:
     options:
@@ -228,7 +227,7 @@ input_number:
 
   # Used in both UI and in code.
   car_state_of_charge:
-    name: Car State of Charge
+    name: SoC history
     icon: mdi:battery-medium
     min: 0.0
     max: 100.0
@@ -365,6 +364,16 @@ input_text:
   fm_connection_status:
     mode: text
 
+  #############  self_provided settings related entities like au_amber_electric #############
+
+  own_production_price_entity_id:
+    icon: mdi:transmission-tower-import
+    mode: text
+    name: Source entity_id for self_provided production price
+  own_consumption_price_entity_id:
+    icon: mdi:transmission-tower-export
+    mode: text
+    name: Source entity_id for self_provided consumption price
 
   #############  UI statistics related entities #############
   total_discharge_time_last_7_days:
@@ -399,18 +408,27 @@ input_text:
     mode: text
     icon: mdi:calendar-multiselect
 
-  # Used to store the (serialized) list of hourly EPEX prices that is fetched by
-  # get_fm_data code from FM daily. This then is shown in the UI in the graph.
-  epex_prices:
-    name: EPEX prices
+  # Used to store the (serialized) list of dynamic consumption prices that is fetched by
+  # get_fm_data code from FM. This then is shown in the UI in the graph.
+  consumption_prices:
+    name: Buy price
     max: 10000
     min: 0
     mode: text
 
+  # Used to store the (serialized) list of dynamic consumption prices that is fetched by
+  # get_fm_data code from FM. This then is shown in the UI in the graph.
+  production_prices:
+    name: Sell price
+    max: 10000
+    min: 0
+    mode: text
+
+
   # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
   # get_fm_data code from FM daily. This then is shown in the UI in the graph.
   co2_emissions:
-    name: CO2 emissions
+    name: Emissions
     max: 10000
     min: 0
     mode: text
@@ -419,7 +437,7 @@ input_text:
   # calculated and this (serialised list) is stored in this variable. This is Used
   # in the graph, shown as yellow prognosis line.
   soc_prognosis:
-    name: SoC Prognosis
+    name: SoC schedule
     max: 10000
     mode: text
     min: 0
@@ -428,7 +446,7 @@ input_text:
   # This contains two values current SoC and min. SoC at expected time.
   # This is shown in the graph as a red prognosis line.
   soc_prognosis_boost:
-    name: SoC Prognosis Boost
+    name: SoC Boost
     max: 10000
     mode: text
     min: 0
