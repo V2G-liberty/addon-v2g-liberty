@@ -1314,18 +1314,20 @@ class V2GLibertyGlobals(hass.Hass):
             return
         if self.info_timer(self.collect_action_handle):
             await self.cancel_timer(self.collect_action_handle, True)
-        self.collect_action_handle = await self.run_in(self.__collective_action, delay=15, v2g_args=source)
+        self.collect_action_handle = await self.run_in(self.__collective_action, delay=15, v2g_args={'source': source})
 
-    async def __collective_action(self, v2g_args=None):
+    async def __collective_action(self, **v2g_args):
         """ Provides partial restart of each module of the whole application
 
         :param v2g_args: String for debugging only
         :return: Nothing
         """
-        self.log(f"__collective_action, called with source: '{v2g_args}'.")
+        source = v2g_args.get('source', 'collective_action')
+
+        self.log(f"__collective_action, called with source: '{source}'.")
 
         if self.evse_client is not None:
-            await self.evse_client.initialise_charger(v2g_args=v2g_args)
+            await self.evse_client.initialise_charger(v2g_args=source)
         else:
             self.log("__collective_action. Could not call initialise_charger on evse_client as it is None.")
 
@@ -1335,7 +1337,7 @@ class V2GLibertyGlobals(hass.Hass):
             self.log("__collective_action. Could not call initialise_calendar on calendar_client as it is None.")
 
         if self.v2g_main_app is not None:
-            await self.v2g_main_app.initialise_v2g_liberty(v2g_args=v2g_args)
+            await self.v2g_main_app.initialise_v2g_liberty(v2g_args=source)
         else:
             self.log("__collective_action. Could not call initialise_v2g_liberty on v2g_main_app as it is None.")
 
@@ -1349,7 +1351,7 @@ class V2GLibertyGlobals(hass.Hass):
                          "own_price_data_manager as it is None.")
 
         if self.fm_data_retrieve_client is not None:
-            await self.fm_data_retrieve_client.finalize_initialisation(v2g_args=v2g_args)
+            await self.fm_data_retrieve_client.finalize_initialisation(v2g_args=source)
         else:
             self.log("__collective_action. Could not call finalize_initialisation on "
                      "fm_data_retrieve_client as it is None.")

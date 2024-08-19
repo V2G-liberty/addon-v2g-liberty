@@ -95,13 +95,13 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.first_future_negative_production_price_point = None
 
         self.GET_CHARGING_DATA_AT = "01:15:00"
-        await self.run_daily(self.daily_kickoff_charging_data, self.GET_CHARGING_DATA_AT)
+        self.run_daily(self.daily_kickoff_charging_data, self.GET_CHARGING_DATA_AT)
 
         await self.finalize_initialisation("module initialize")
 
         self.log(f"Completed initializing FlexMeasuresDataImporter")
 
-    async def finalize_initialisation(self, v2g_args=None):
+    async def finalize_initialisation(self, v2g_args: str):
         # Finalize the initialisation. This is run from initialise and from globals when
         # settings have changed. This is separated :
         # - is not always around self.first_try_time (for day-ahead contracts)
@@ -130,7 +130,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         initial_delay_sec = 150
         await self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
         await self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
-        await self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
+        self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
 
 
     # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
@@ -147,25 +147,26 @@ class FlexMeasuresDataImporter(hass.Hass):
             await self.cancel_timer(timer_id, silent)
 
 
-    def daily_kickoff_price_data(self, *args):
+    async def daily_kickoff_price_data(self, *args):
         """
            This sets off the daily routine to check for new prices.
            Only called when is_price_update_interval_daily() is true.
         """
         self.log(f"daily_kickoff_price_data called")
-        self.get_consumption_prices()
-        self.get_production_prices()
+        await self.get_consumption_prices()
+        await self.get_production_prices()
 
 
-    def daily_kickoff_emissions_data(self, *args):
+    async def daily_kickoff_emissions_data(self, *args):
         """
            This sets off the daily routine to check for new emission data.
            Only called when is_price_update_interval_daily() is true.
         """
         self.log(f"daily_kickoff_emissions_data called")
-        self.get_emission_intensities()
+        await self.get_emission_intensities()
 
 
+    # TODO: make async
     def daily_kickoff_charging_data(self, *args):
         """ This sets off the daily routine to check for charging cost."""
         self.log(f"daily_kickoff_charging_data called")
@@ -173,6 +174,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.get_charged_energy()
 
 
+    # TODO: make async
     def get_charging_cost(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
 
@@ -228,6 +230,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.set_state("input_text.charging_costs", state=new_state, attributes=result)
         self.set_value("input_number.total_charging_cost_last_7_days", total_charging_cost_last_7_days)
 
+
+    # TODO: make async
     def get_charged_energy(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
 
@@ -339,6 +343,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.set_value("input_text.total_discharge_time_last_7_days", format_duration(total_minutes_discharged))
         self.set_value("input_text.total_charge_time_last_7_days", format_duration(total_minutes_charged))
+
 
     async def get_consumption_prices(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
@@ -559,6 +564,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         result = {'records': emission_points}
         await self.set_state("input_text.co2_emissions", state=new_state, attributes=result)
 
+
     def __check_negative_price_notification(self, price_point: dict, price_type: str):
         """ Method to check if the user needs to be notified about negative consumption
             and/or production prices in a combined message.
@@ -660,7 +666,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             if is_price_update_interval_daily():
                 if self.now_is_between(self.first_try_time_emissions_data, self.second_try_time_emissions_data):
                     self.log(f"Retry at {self.second_try_time_emissions_data}.")
-                    self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
+                    await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
             return
 
         results = res.json()
@@ -694,6 +700,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                 await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
                 return
         self.log(f"FM CO2 successfully retrieved.")
+
 
     def log_failed_response(self, res, endpoint: str):
         """Log failed response for a given endpoint."""
@@ -729,6 +736,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             return False
         return True
 
+
     def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
         if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
             self.log(f"Call to  {url} failed on authorization (possibly the token expired); "
@@ -736,7 +744,6 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.authenticate_with_fm()
             fnc_kwargs["retry_auth_once"] = False
             fnc(*fnc_args, **fnc_kwargs)
-
 
 
 def format_duration(duration_in_minutes: int):
