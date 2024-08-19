@@ -4,6 +4,7 @@ import time
 import asyncio
 import json
 import os
+import math
 import appdaemon.plugins.hass.hassapi as hass
 import constants as c
 
@@ -15,6 +16,8 @@ class V2GLibertyGlobals(hass.Hass):
     evse_client: object
     fm_client: object
     calendar_client: object
+    fm_data_retrieve_client: object
+    own_price_data_manager: object
 
     # Settings related to FlexMeasures
     SETTING_FM_ACCOUNT_USERNAME = {
@@ -59,6 +62,23 @@ class V2GLibertyGlobals(hass.Hass):
         "entity_type": "input_select",
         "value_type": "str",
         "factory_default": "nl_generic",
+        "listener_id": None
+    }
+
+    # The entity_name's to which the third party integration
+    # writes the Consumption- and Production Price (Forecasts)
+    SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID = {
+        "entity_name": "own_production_price_entity_id",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
+        "listener_id": None
+    }
+    SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID = {
+        "entity_name": "own_consumption_price_entity_id",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
         "listener_id": None
     }
 
@@ -247,14 +267,15 @@ class V2GLibertyGlobals(hass.Hass):
 
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
-        # and that we have not been able to set from this code, this does not work:
-        # os.environ['TZ'] = tz
-        # time.tzset()
+        # and that we have not been able to set from this code.
 
         self.v2g_main_app = await self.get_app("v2g_liberty")
         self.evse_client = await self.get_app("modbus_evse_client")
         self.fm_client = await self.get_app("fm_client")
         self.calendar_client = await self.get_app("reservations-client")
+        self.own_price_data_manager = await self.get_app("amber_price_data_manager")
+        self.fm_data_retrieve_client = await self.get_app("get_fm_data")
+        self.log(f"initialize fm_data_retrieve_client: {self.fm_data_retrieve_client}")
 
         await self.__kick_off_settings()
 
@@ -583,40 +604,42 @@ class V2GLibertyGlobals(hass.Hass):
             if "power" in sensor_name and "aggregate" not in sensor_name:
                 # E.g. "aggregate power" and "Nissan Leaf Power"
                 c.FM_ACCOUNT_POWER_SENSOR_ID = sensor["id"]
-                self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_POWER_SENSOR_ID: "
-                         f"{c.FM_ACCOUNT_POWER_SENSOR_ID}.")
                 c.FM_ENTITY_ADDRESS_POWER = sensor["entity_address"]
-                self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_POWER: "
-                         f"{c.FM_ENTITY_ADDRESS_POWER}.")
             elif "availability" in sensor_name:
                 c.FM_ENTITY_ADDRESS_AVAILABILITY = sensor["entity_address"]
-                self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_AVAILABILITY: "
-                         f"{c.FM_ENTITY_ADDRESS_AVAILABILITY}.")
             elif "state of charge" in sensor_name:
                 c.FM_ENTITY_ADDRESS_SOC = sensor["entity_address"]
-                self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_SOC: "
-                         f"{c.FM_ENTITY_ADDRESS_SOC}.")
             elif "charging cost" in sensor_name:
                 c.FM_ACCOUNT_COST_SENSOR_ID = sensor["id"]
-                self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_COST_SENSOR_ID: "
-                         f"{c.FM_ACCOUNT_COST_SENSOR_ID}.")
 
-            if c.ELECTRICITY_PROVIDER == "self_provided":
+            if c.ELECTRICITY_PROVIDER == "au_amber_electric":
+                self.log(f"__get_and_process_fm_sensors for au_amber_electric, sensor: '{sensor}'.")
                 if "consumption" in sensor_name:
                     # E.g. 'consumption price' or 'consumption tariff'
-                    c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["entity_address"]
-                    self.log(f"__get_and_process_fm_sensors, c.FM_PRICE_CONSUMPTION_SENSOR_ID: "
-                             f"{c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
+                    c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["id"]
+                    c.FM_PRICE_CONSUMPTION_ENTITY_ADDRESS = sensor["entity_address"]
                 elif "production" in sensor_name:
                     # E.g. 'production price' or 'production tariff'
-                    c.FM_PRICE_PRODUCTION_SENSOR_ID = sensor["entity_address"]
-                    self.log(f"__get_and_process_fm_sensors, c.FM_PRICE_PRODUCTION_SENSOR_ID: "
-                             f"{c.FM_PRICE_PRODUCTION_SENSOR_ID}.")
+                    c.FM_PRICE_PRODUCTION_SENSOR_ID = sensor["id"]
+                    c.FM_PRICE_PRODUCTION_ENTITY_ADDRESS = sensor["entity_address"]
                 elif "intensity" in sensor_name:
                     # E.g. 'Amber CO₂ intensity'
-                    c.FM_EMISSIONS_SENSOR_ID = sensor["entity_address"]
-                    self.log(f"__get_and_process_fm_sensors, c.FM_EMISSIONS_SENSOR_ID: "
-                             f"{c.FM_EMISSIONS_SENSOR_ID}.")
+                    c.FM_EMISSIONS_SENSOR_ID = sensor["id"]
+                    c.FM_EMISSIONS_ENTITY_ADDRESS = sensor["entity_address"]
+
+        self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_POWER_SENSOR_ID: {c.FM_ACCOUNT_POWER_SENSOR_ID}.")
+        self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_POWER: {c.FM_ENTITY_ADDRESS_POWER}.")
+        self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_AVAILABILITY: {c.FM_ENTITY_ADDRESS_AVAILABILITY}.")
+        self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_SOC: {c.FM_ENTITY_ADDRESS_SOC}.")
+        self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_COST_SENSOR_ID: {c.FM_ACCOUNT_COST_SENSOR_ID}.")
+
+        if c.ELECTRICITY_PROVIDER == "au_amber_electric":
+            self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_PRICE_CONSUMPTION_SENSOR_ID: "
+                     f"{c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
+            self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_PRICE_PRODUCTION_SENSOR_ID: "
+                     f"{c.FM_PRICE_PRODUCTION_SENSOR_ID}.")
+            self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_EMISSIONS_SENSOR_ID: "
+                     f"{c.FM_EMISSIONS_SENSOR_ID}.")
 
         # Remove when flexmeasures_client is fully implemented
         base_url = c.FM_SENSOR_URL + "/" + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
@@ -1189,7 +1212,17 @@ class V2GLibertyGlobals(hass.Hass):
             callback=callback_method
         )
 
-        if c.ELECTRICITY_PROVIDER != "self_provided":
+        if c.ELECTRICITY_PROVIDER == "au_amber_electric":
+            c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID = await self.__process_setting(
+                setting_object=self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID,
+                callback=callback_method
+            )
+            c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID = await self.__process_setting(
+                setting_object=self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID,
+                callback=callback_method
+            )
+            c.UTILITY_CONTEXT_DISPLAY_NAME = "Amber Electric"
+        else:
             context = c.DEFAULT_UTILITY_CONTEXTS.get(
                 c.ELECTRICITY_PROVIDER,
                 c.DEFAULT_UTILITY_CONTEXTS["nl_generic"],
@@ -1203,22 +1236,21 @@ class V2GLibertyGlobals(hass.Hass):
             self.log(f"v2g_globals FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
             self.log(f"v2g_globals FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.")
             self.log(f"v2g_globals UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}.")
-        # else: the CONSTANTS will be set from FlexMeasures by __get_and_process_sensors
+
+            await self.__cancel_setting_listener(self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID)
+            await self.__cancel_setting_listener(self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID)
 
         await self.__set_fm_optimisation_context()
-
-        # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
-        # For others, we expect netto prices (including VAT and Markup).
-        # If self_provided data also includes VAT and markup the values can
-        # be set to 1 and 0 respectively to achieve the same result as here.
-
 
         use_vat_and_markup = await self.__process_setting(
                 setting_object=self.SETTING_USE_VAT_AND_MARKUP,
                 callback=callback_method
             )
-        self.log(f"__read_and_process_optimisation_settings use_vat_and_markup: {use_vat_and_markup}.")
-        if use_vat_and_markup and c.ELECTRICITY_PROVIDER in ["self_provided", "nl_generic", "no_generic"]:
+        # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
+        # For others, we expect netto prices (including VAT and Markup).
+        # If self_provided data (e.g. au_amber_electric) also includes VAT and markup the values can
+        # be set to 1 and 0 respectively to achieve the same result as here.
+        if use_vat_and_markup and c.ELECTRICITY_PROVIDER in ["nl_generic", "no_generic"]:
             c.ENERGY_PRICE_VAT = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,
                 callback=callback_method
@@ -1237,15 +1269,6 @@ class V2GLibertyGlobals(hass.Hass):
 
         await self.__collect_action_triggers(source="changed optimisation settings")
 
-    # TODO: Activate in an upcoming version where the self_provided settings are finalised
-    # async def __read_and_process_self_provided_setting(self):
-    #     # Activate when c.ELECTRICITY_PROVIDER == "self_provided", deactivate otherwise.
-    #     callback_method = self.__read_and_process_self_provided_setting
-    #     c.UTILITY_CONTEXT_DISPLAY_NAME = await self.__process_setting(
-    #         setting_object=self.SETTING_UTILITY_CONTEXT_DISPLAY_NAME,
-    #         callback=callback_method
-    #     )
-    #     # TODO: the name of the entity that holds the price data
 
     async def __reset_to_factory_default(self, setting_object):
         entity_name = setting_object['entity_name']
@@ -1277,6 +1300,7 @@ class V2GLibertyGlobals(hass.Hass):
                 "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
                 "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID
             }
+        self.log(f"__set_fm_optimisation_context c.FM_OPTIMISATION_CONTEXT: '{c.FM_OPTIMISATION_CONTEXT}")
 
     async def __collect_action_triggers(self, source: str):
         # When settings change the application needs partial restart.
@@ -1303,17 +1327,32 @@ class V2GLibertyGlobals(hass.Hass):
         if self.evse_client is not None:
             await self.evse_client.initialise_charger(v2g_args=v2g_args)
         else:
-            self.log(f"__collective_action. Could not call initialise_charger on evse_client as it is None.")
+            self.log("__collective_action. Could not call initialise_charger on evse_client as it is None.")
 
         if self.calendar_client is not None:
             await self.calendar_client.initialise_calendar()
         else:
-            self.log(f"__collective_action. Could not call initialise_calendar on calendar_client as it is None.")
+            self.log("__collective_action. Could not call initialise_calendar on calendar_client as it is None.")
 
         if self.v2g_main_app is not None:
             await self.v2g_main_app.initialise_v2g_liberty(v2g_args=v2g_args)
         else:
-            self.log(f"__collective_action. Could not call initialise_v2g_liberty on v2g_main_app as it is None.")
+            self.log("__collective_action. Could not call initialise_v2g_liberty on v2g_main_app as it is None.")
+
+        if not is_price_update_interval_daily():
+            self.log("__collective_action. frequent price updates ")
+            if self.own_price_data_manager is not None:
+                self.log("__collective_action. Calling self.own_price_data_manager.kick_off_amber_price_management.")
+                await self.own_price_data_manager.kick_off_amber_price_management()
+            else:
+                self.log("__collective_action. Could not call kick_off_amber_price_management on "
+                         "own_price_data_manager as it is None.")
+
+        if self.fm_data_retrieve_client is not None:
+            await self.fm_data_retrieve_client.finalize_initialisation(v2g_args=v2g_args)
+        else:
+            self.log("__collective_action. Could not call finalize_initialisation on "
+                     "fm_data_retrieve_client as it is None.")
 
         self.log(f"__collective_action, completed.")
 
@@ -1382,16 +1421,24 @@ class V2GLibertyGlobals(hass.Hass):
             self.log(f"__check_and_convert_number {msg}")
         return return_value, has_changed
 
+
     async def __cancel_setting_listener(self, setting_object: dict):
         listener_id = setting_object['listener_id']
         if listener_id is not None and listener_id != "":
-            await self.cancel_listen_state(listener_id)
-            setting_object['listener_id'] = None
+            entity, attribute, kwargs = self.info_listen_state(listener_id)
+            self.log(f"__cancel_setting_listener, listener_id: {listener_id}, entity: {entity}.")
+            if entity is not None:
+                await self.cancel_listen_state(listener_id)
+        setting_object['listener_id'] = None
 
 
 ######################################################################
 #                           UTIL FUNCTIONS                           #
 ######################################################################
+
+def is_price_update_interval_daily() -> bool:
+    return c.ELECTRICITY_PROVIDER != "au_amber_electric"
+
 
 def time_mod(time_to_mod, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
@@ -1425,6 +1472,7 @@ def get_keepalive():
     now = get_local_now().strftime(c.DATE_TIME_FORMAT)
     return {"keep_alive": now}
 
+
 _html_escape_table = {
     "&": "&amp;",
     '"': "&quot;",
@@ -1432,8 +1480,19 @@ _html_escape_table = {
     ">": "&gt;",
     "<": "&lt;",
 }
-
 def he(text):
      # 'he' is short for HTML Escape.
      # Produce entities within text.
      return "".join(_html_escape_table.get(c,c) for c in text)
+
+def convert_to_duration_string(duration_in_minutes: int) -> str:
+    """
+    Args:
+        duration_in_minutes (int): duration in minutes to convert
+
+    Returns:
+        str: a duration string e.g. PT9H35M
+    """
+    hours = math.floor(duration_in_minutes / 60)
+    minutes = duration_in_minutes - hours * 60
+    return "PT" + str(hours) + "H" + str(minutes) + "M"

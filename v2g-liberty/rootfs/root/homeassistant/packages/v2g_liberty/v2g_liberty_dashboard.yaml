@@ -204,11 +204,37 @@ views:
                   border-top-right-radius: 0;
                   margin-top: -52px;
                 }
+
           - type: custom:apexcharts-card
-            ###############################################################
-            #    If this code shows in a red error box in the browser:    #
-            #    Please clear the browsers cache and reload the page.     #
-            ###############################################################
+            apex_config:
+              legend:
+                show: true
+                horizontalAlign: left
+                onItemHover:
+                  highlightDataSeries: false
+                itemMargin:
+                  vertical: 15
+                  horizontal: 8
+                inverseOrder: true
+              grid:
+                show: true,
+                borderColor: "#cfcfcf"
+                strokeDashArray: 1
+                position: 'back'
+              chart:
+                height: '400px'
+                zoom:
+                  enabled: true
+                # toolbar:
+                #   show: true
+                #   tools:
+                #     zoom: true
+                #     pan: true
+                #     reset: true
+            experimental:
+              color_threshold: true
+              hidden_by_default: true
+
             graph_span: 24h
             span:
               start: hour
@@ -218,52 +244,16 @@ views:
             header:
               show: true
               title: Car State of Charge (%)
-            apex_config:
-              legend:
-                show: false
-              chart:
-                zoom:
-                  enabled: true
-                toolbar:
-                  show: true
-                  tools:
-                    zoom: true
-                    pan: true
-                    reset: true
-            series:
-              - entity: input_text.epex_prices
-                color: "#666666"
-                extend_to: false
-                stroke_width: 1
-                opacity: 0.8
-                curve: stepline
-                yaxis_id: EPEXprice
-                data_generator: |
-                  return entity.attributes.records.map((record, index) => {
-                    return [new Date(record.time).getTime(), record.price];
-                  });
-                type: line
-              - entity: input_text.co2_emissions
-                transform: "return x / 6;"
-                color: "#43a047"
-                opacity: 0.5
-                extend_to: false
-                stroke_width: 1
-                curve: stepline
-                yaxis_id: EPEXprice
-                data_generator: |
-                  return entity.attributes.records.map((record, index) => {
-                    return [new Date(record.time).getTime(), record.emission];
-                  });
-                type: line
-              - entity: input_number.car_state_of_charge
-                color: "#009be5"
-                stroke_width: 2
-                type: line
-                extend_to: now
-                yaxis_id: SoC
 
+            series:
+              # Unfortunately the legend does not take the opacity into account for the markers (yet).
+              # So the colors for the series need to have an opacity of 1...
+              # Unfortunately zIndex also does not work (yet) on series. That is why the series are in
+              # 'reverse-order', so that SoC lines are rendered over the price lines.
+              # To have the legend items in the proper order (of 'importance'), the legend is set to inverseOrder.
               - entity: input_text.calender_item_in_chart
+                show:
+                  legend_value: false
                 type: area
                 color: var(--dark-primary-color)
                 opacity: 0.2
@@ -274,7 +264,10 @@ views:
                   return entity.attributes.records.map((record, index) => {
                     return [new Date(record.time).getTime(), record.soc];
                   });
+
               - entity: input_text.soc_prognosis_boost
+                show:
+                  legend_value: false
                 type: line
                 color: "#e48628"
                 stroke_width: 2
@@ -284,7 +277,72 @@ views:
                   return entity.attributes.records.map((record, index) => {
                     return [new Date(record.time).getTime(), record.soc];
                   });
+
+              - entity: input_text.co2_emissions
+                show:
+                  hidden_by_default: true
+                  legend_value: false
+                transform: "return x / 6;"
+                color: "#ADD6B2"
+                opacity: 1
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: ElectricityPriceAxis
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.emission];
+                  });
+                type: line
+
+              - entity: input_text.production_prices
+                show:
+                  hidden_by_default: true
+                  legend_value: false
+                color_threshold:
+                  - value: 0
+                    color: red
+                    opacity: 0.9
+                  - value: 1
+                    color: '#FBCCD6'
+                    opacity: 1
+                color: '#FBCCD6'
+                opacity: 1
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: ElectricityPriceAxis
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.price];
+                  });
+                type: line
+
+              - entity: input_text.consumption_prices
+                show:
+                  legend_value: false
+                color_threshold:
+                  - value: -100
+                    color: green
+                    opacity: 0.9
+                  - value: 0
+                    color: '#C393C5'
+                    opacity: 1
+                color: '#C393C5'
+                opacity: 1
+                extend_to: false
+                stroke_width: 1
+                curve: stepline
+                yaxis_id: ElectricityPriceAxis
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.price];
+                  });
+                type: line
+
               - entity: input_text.soc_prognosis
+                show:
+                  legend_value: false
                 type: line
                 color: "#fea602"
                 stroke_width: 2
@@ -294,6 +352,16 @@ views:
                   return entity.attributes.records.map((record, index) => {
                     return [new Date(record.time).getTime(), record.soc];
                   });
+
+              - entity: input_number.car_state_of_charge
+                show:
+                  legend_value: false
+                color: "#009be5"
+                stroke_width: 2
+                type: line
+                extend_to: now
+                yaxis_id: SoC
+
             yaxis:
               - id: SoC
                 min: 0
@@ -301,11 +369,37 @@ views:
                 decimals: 0
                 apex_config:
                   tickAmount: 5
-              - id: EPEXprice
+
+              - id: ElectricityPriceAxis
                 decimals: 0
+                apex_config:
+                  tickAmount: 5
+                  showAlways: true
+                  forceNiceScale: true
                 opposite: true
                 min: "|-2|"
                 max: "|+2|"
+            card_mod:
+              debug: true
+              style: |
+                ha-card:before {
+                  content: "¢ent/kWh";
+                  font-size: 90%;
+                  color: #797979;
+                  display: block;
+                  position: relative;
+                  width: calc(100% - 20px);
+                  text-align: right;
+                  top: 50px;
+                }
+                div[seriesname="Calendarxitemxinxchart"]{
+                  display: none;
+                }
+                div[seriesname="SoCxBoost"]{
+                  display: none;
+                }
+
+
           - type: markdown
             entities:
               - entity: input_text.optimisation_mode
@@ -323,7 +417,7 @@ views:
                     border-top: none;
                     border-top-left-radius: 0;
                     border-top-right-radius: 0;
-                    margin-top: -22px;
+                    margin-top: -25px;
                   }
                 ha-markdown$: |
                   table {
@@ -977,9 +1071,72 @@ views:
               - entity: input_select.electricity_provider
                 name: Electricity provider
                 icon: mdi:office-building
+            show_header_toggle: false
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.electricity_provider
+                state: au_amber_electric
+            card:
+              type: entities
+              entities:
+                - entity: input_text.own_consumption_price_entity_id
+                  card_mod: !include info_icon_style.yaml
+                - entity: input_text.own_production_price_entity_id
+                  card_mod: !include info_icon_style.yaml
+              card_mod:
+                style: |
+                    ha-card {
+                      border-top: none;
+                      border-top-left-radius: 0;
+                      border-top-right-radius: 0;
+                      margin-top: -24px;
+                    }
+                    ha-card.type-entities div.card-content::before {
+                      content: "For Amber Electric V2G Liberty supports self provided electricity prices via the Amber integration (later more to follow).";
+                      white-space: pre-wrap;
+                      color: var(--primary-text-color);
+                      display: block;
+                      padding: 8px 0px;
+                      margin-bottom: 8px;
+                      margin-top: -8px;
+                      border-top: 1px solid var(--input-idle-line-color);
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                      content: "Please enter the entity id (sensor.****_general_forecast) of the consumption entity that is populated by the Amber integration.";
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                      content: "Please enter the entity id (sensor.****_feed_in_forecast) of the production entity that is populated by the Amber integration.";
+                    }
+                    ha-card.type-entities div.card-content div:hover::after {
+                      white-space: pre-wrap;
+                      font-size: 90%;
+                      color: var(--primary-text-color);
+                      position: absolute;
+                      width: 300px;
+                      right: 4px;
+                      top: 44px;
+                      background-color: var(--primary-background-color);
+                      border: 1px solid var(--input-idle-line-color);
+                      border-radius: 8px;
+                      padding: 8px 16px;
+                      z-index: 110;
+                    }
+
+          - type: entities
+            entities:
+              - type: divider
               - entity: input_boolean.use_vat_and_markup
                 icon: mdi:cash-edit
-            show_header_toggle: false
+            card_mod:
+                style: |
+                  ha-card {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    margin-top: -24px;
+                  }
           - type: conditional
             conditions:
               - condition: state
@@ -1004,7 +1161,7 @@ views:
                       padding-left: 36px;
                     }
                     ha-card.type-entities div.card-content::before {
-                      content: "VAT / markup data is only taken into account for generic electricity providers, or in some cases, price data is self-provided. \A It is used for transforming the raw price data (from FM) to net price to be shown in UI: (market_price_per_kwh + markup_per_kwh) * VAT";
+                      content: "VAT / markup data is only taken into account for generic electricity providers or for self-provided. \A It is used for transforming the raw price data (from FM) to net price to be shown in UI: (market_price_per_kwh + markup_per_kwh) * VAT";
                       white-space: pre-wrap;
                       color: var(--primary-text-color);
                       display: block;
@@ -1102,37 +1259,6 @@ views:
                       border-top-right-radius: 0;
                       margin-top: -28px;
                     }
-#
-#          - type: conditional
-#            conditions:
-#              - condition: state
-#                entity: input_select.electricity_provider
-#                state: self_provided
-#            card:
-#              type: entities
-#              title: FlexMeasures self provided sensor IDs
-#              entities:
-#                - entity: input_number.fm_account_own_power_sensor_id
-#                  name: Power
-#                  icon: mdi:lightning-bolt
-#                  card_mod: !include input_number_style.yaml
-#                - entity: input_number.fm_account_own_soc_sensor_id
-#                  name: State of charge
-#                  icon: mdi:percent-outline
-#                  card_mod: !include input_number_style.yaml
-#                - entity: input_number.fm_account_own_availability_sensor_id
-#                  name: Availability
-#                  icon: mdi:home-percent
-#                  card_mod: !include input_number_style.yaml
-#                - entity: input_number.fm_account_own_cost_sensor_id
-#                  name: Costs
-#                  icon: mdi:currency-eur
-#                  card_mod: !include input_number_style.yaml
-#              card_mod:
-#                style: |
-#                    ha-card {
-#                      margin-top: -8px;
-#                    }
 
           - type: entities
             entities:
@@ -1162,4 +1288,3 @@ views:
                   padding: 0;
                   background-color: transparent;
                 }
-

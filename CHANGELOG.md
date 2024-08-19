@@ -6,7 +6,8 @@ The next release might include:
 
 ### Adding
 
-- Hopefully add "self_provided" option again. Needs refactoring.
+- Support for Octopus Energy contracts (GB).
+
 
 ### Changing
 
@@ -15,6 +16,45 @@ The next release might include:
 ### Removing
 
 - ?
+
+
+
+## 0.1.13 2024-08-19
+
+### Added
+
+- Re-introduced the option for self-provided price data for Amber Energy. This is based on the (deprecated) 'HA Manual install' repository (Issue #51).
+
+
+### Fixed
+
+- Bug (not numbered) that prevented the stats from showing properly in th UI if the charged energy is 0 (first day at least). Division by zero.
+
+
+### Changed
+
+- Yet another try to improve the stability of the modbus connection.
+  It seems to have good results, but we'll have to wait and see how it preforms. "Testing" this is really difficult / time-consuming. It has run for several days in 'production' 🤞 (Issue #48).<br/>
+  This action also strongly simplified the modbus related code:
+  - Removed mechanism to prevent 'parallel calls' to charger
+  - Removed closing the connection after every call
+- Upgraded (the L&F of) the chart:
+  - The chart is now larger (taller).
+  - The zoom/pan function has been replaced by a unit of measure, '¢ent/kWh.'
+  - Prices now align with the grid lines, which are less "dotty."
+  - A separate line for the 'Sell price' (also known as production price, feed-in price, or 'teruglever prijs' in Dutch) has been added. This is in preparation for the abolition of the Tax Arrangement (Salderingsregeling) in the Dutch market, where currently, the Buy and Sell prices are always the same.
+  - The price lines are now purple/pink for a fresher look.
+  - The line-color is dynamic: the Sell line turns red when negative, and the Buy line turns green.
+  - A legend has been added.
+  - One can now toggle the visibility of individual lines in the chart by clicking on the legend. For example, the Emissions line is hidden. The Sell price and Emissions are hidden by default.
+
+- Bumped ApexCharts-Card to version 2.1.2.
+- Improve charger-state storage and handling (Issue #50)
+
+
+### Removed
+
+- None.
 
 
 
