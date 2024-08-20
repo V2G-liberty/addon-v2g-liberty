@@ -225,12 +225,8 @@ views:
                 height: '400px'
                 zoom:
                   enabled: true
-                # toolbar:
-                #   show: true
-                #   tools:
-                #     zoom: true
-                #     pan: true
-                #     reset: true
+                animations:
+                  enabled: false
             experimental:
               color_threshold: true
               hidden_by_default: true
