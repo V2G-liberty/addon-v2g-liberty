@@ -1314,15 +1314,14 @@ class V2GLibertyGlobals(hass.Hass):
             return
         if self.info_timer(self.collect_action_handle):
             await self.cancel_timer(self.collect_action_handle, True)
-        self.collect_action_handle = await self.run_in(self.__collective_action, delay=15, v2g_args={'source': source})
+        self.collect_action_handle = await self.run_in(self.__collective_action, delay=15, source=source)
 
-    async def __collective_action(self, **v2g_args):
+    async def __collective_action(self, source: str):
         """ Provides partial restart of each module of the whole application
 
         :param v2g_args: String for debugging only
         :return: Nothing
         """
-        source = v2g_args.get('source', 'collective_action')
 
         self.log(f"__collective_action, called with source: '{source}'.")
 

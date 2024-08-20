@@ -5,6 +5,7 @@ import math
 import re
 import requests
 import time
+import asyncio
 from v2g_globals import get_local_now, is_price_update_interval_daily
 import constants as c
 from typing import AsyncGenerator, List, Optional
@@ -131,6 +132,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         await self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
         await self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
         self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
+        self.log("finalize_initialisation completed.")
 
 
     # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
@@ -152,9 +154,12 @@ class FlexMeasuresDataImporter(hass.Hass):
            This sets off the daily routine to check for new prices.
            Only called when is_price_update_interval_daily() is true.
         """
-        self.log(f"daily_kickoff_price_data called")
-        await self.get_consumption_prices()
-        await self.get_production_prices()
+        self.log(f"daily_kickoff_price_data called, args: {args}.")
+        res = await self.get_consumption_prices()
+        self.log(f"daily_kickoff_price_data get_consumption_prices returned: {res}.")
+        res = await self.get_production_prices()
+        self.log(f"daily_kickoff_price_data get_production_prices returned: {res}.")
+        self.log(f"daily_kickoff_price_data completed")
 
 
     async def daily_kickoff_emissions_data(self, *args):
@@ -163,7 +168,9 @@ class FlexMeasuresDataImporter(hass.Hass):
            Only called when is_price_update_interval_daily() is true.
         """
         self.log(f"daily_kickoff_emissions_data called")
-        await self.get_emission_intensities()
+        res = await self.get_emission_intensities()
+        self.log(f"daily_kickoff_price_data get_production_prices returned: {res}.")
+
 
 
     # TODO: make async
@@ -429,11 +436,14 @@ class FlexMeasuresDataImporter(hass.Hass):
             if date_latest_price < date_tomorrow:
                 self.log(f"FM consumption prices seem not renewed yet, latest price at: {date_latest_price}, "
                          f"Retry at {self.second_try_time_price_data}.")
-                self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
+                await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
                 return
 
-        self.log(f"FM consumption prices successfully retrieved.")
         self.__check_negative_price_notification(first_future_negative_price_point, "consumption_price_point")
+
+        self.log(f"FM consumption prices successfully retrieved.")
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        return "FM consumption prices successfully retrieved."
 
 
     async def get_production_prices(self, *args, **kwargs):
@@ -517,11 +527,14 @@ class FlexMeasuresDataImporter(hass.Hass):
                 self.log(f"FM production prices seem not renewed yet, latest price at: {date_latest_price}, "
                          f"Retry at {self.second_try_time_price_data}.")
                 self.run_at(self.get_production_prices, self.second_try_time_price_data)
-                return
-        self.log(f"FM production prices successfully retrieved.")
+                return "Retry tomorrow"
+
         # Not in use yet, see comments in __check_negative_price_notification
         # self.__check_negative_price_notification(first_future_negative_price_point, "production_price_point")
-        return
+
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        self.log(f"FM production prices successfully retrieved.")
+        return "FM production prices successfully retrieved."
 
 
     async def __set_production_prices_in_graph(self, production_price_points):
@@ -700,6 +713,8 @@ class FlexMeasuresDataImporter(hass.Hass):
                 await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
                 return
         self.log(f"FM CO2 successfully retrieved.")
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        return "FM CO2 successfully retrieved."
 
 
     def log_failed_response(self, res, endpoint: str):
