@@ -439,9 +439,11 @@ class FlexMeasuresDataImporter(hass.Hass):
                 await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
                 return
 
-        self.log(f"FM consumption prices successfully retrieved.")
         self.__check_negative_price_notification(first_future_negative_price_point, "consumption_price_point")
-        return "TESTTEST"
+
+        self.log(f"FM consumption prices successfully retrieved.")
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        return "FM consumption prices successfully retrieved."
 
 
     async def get_production_prices(self, *args, **kwargs):
@@ -525,11 +527,14 @@ class FlexMeasuresDataImporter(hass.Hass):
                 self.log(f"FM production prices seem not renewed yet, latest price at: {date_latest_price}, "
                          f"Retry at {self.second_try_time_price_data}.")
                 self.run_at(self.get_production_prices, self.second_try_time_price_data)
-                return
-        self.log(f"FM production prices successfully retrieved.")
+                return "Retry tomorrow"
+
         # Not in use yet, see comments in __check_negative_price_notification
         # self.__check_negative_price_notification(first_future_negative_price_point, "production_price_point")
-        return "TESTETS"
+
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        self.log(f"FM production prices successfully retrieved.")
+        return "FM production prices successfully retrieved."
 
 
     async def __set_production_prices_in_graph(self, production_price_points):
@@ -708,7 +713,8 @@ class FlexMeasuresDataImporter(hass.Hass):
                 await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
                 return
         self.log(f"FM CO2 successfully retrieved.")
-        return "UIUEWTHG"
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        return "FM CO2 successfully retrieved."
 
 
     def log_failed_response(self, res, endpoint: str):
