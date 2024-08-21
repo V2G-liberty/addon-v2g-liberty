@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-import isodate
+import datetime as dt
 import time
 import asyncio
 import re
@@ -8,7 +7,6 @@ import requests
 import constants as c
 from v2g_globals import time_round, he, get_local_now
 import caldav
-# import appdaemon.plugins.hass.hassapi as hass
 from service_response_app import ServiceResponseApp
 
 
@@ -219,7 +217,7 @@ class ReservationsClient(ServiceResponseApp):
 
         now = get_local_now()
         start = now.isoformat()
-        end = (now + timedelta(days=7)).isoformat()
+        end = (now + dt.timedelta(days=7)).isoformat()
         local_events = await self.call_service(
             "calendar.get_events",
             entity_id = c.INTEGRATION_CALENDAR_ENTITY_NAME,
@@ -234,10 +232,19 @@ class ReservationsClient(ServiceResponseApp):
 
         for local_event in local_events:
             # Create a v2g_liberty specific event based on the caldav event
-            # Add HTML escape he() to prevent HTML or script injection
+            start, is_all_day = self.__parse_to_tz_dt(local_event['start'])
+            end, is_all_day = self.__parse_to_tz_dt(local_event['end'])
+
+            if start is None or end is None:
+                continue
+
+            if is_all_day:
+                # This way the end date becomes 23:59 in the UI.
+                end = end + dt.timedelta(minutes=-1)
+
             v2g_event = {
-                'start': isodate.parse_datetime(local_event['start']).astimezone(c.TZ),
-                'end': isodate.parse_datetime(local_event['end']).astimezone(c.TZ),
+                'start': start,
+                'end': end,
                 'summary': str(local_event.get('summary', "")),
                 'description': str(local_event.get('description', "")),
             }
@@ -256,10 +263,37 @@ class ReservationsClient(ServiceResponseApp):
         await self.__process_calendar_change(v2g_args="changed HA calendar events")
 
 
+    def __parse_to_tz_dt(self, any_date_type: any):
+        """
+        Utility method to robustly convert a string into a dt.datetime object
+        String may contain only date info, then time will be set to 00:00:00
+        :param any_date_type: date or string
+        :return: dt.datetime object with the right timezone.
+        """
+
+        # All-day is detected by the fact that the any_date_type does not have a time.
+        is_all_day_event = False
+        if type(any_date_type) is str:
+            is_all_day_event = "T" not in any_date_type
+            try:
+                any_date_type = dt.datetime.fromisoformat(any_date_type)
+            except Exception as ex:
+                self.log(f"__parse_to_tz_dt, fromisoformat Error: {ex} while trying to parse string:"
+                         f" {any_date_type}, returning None.")
+                return None, None
+        if type(any_date_type) is dt.date:
+            # No time in date, this is the case for "all day" events, but for timezone we need this.
+            tm = dt.time(0, 0, 0)  # hr/min/sec
+            any_date_type = dt.datetime.combine(any_date_type, tm)
+            is_all_day_event = True
+        any_date_type = any_date_type.astimezone(c.TZ)
+        return any_date_type, is_all_day_event
+
+
     async def __poll_calendar(self, kwargs=None):
         # Get the items in from now to the next week from the calendar
         start = get_local_now()
-        end = (start + timedelta(days=7))
+        end = (start + dt.timedelta(days=7))
         # It is a bit strange this is not async... for now we'll live with it.
         # TODO: Optimise by use of sync_tokens so that only the updated events get sent
         caldav_events = self.car_reservation_calendar.search(
@@ -274,9 +308,17 @@ class ReservationsClient(ServiceResponseApp):
         for caldav_event in caldav_events:
             cdi = caldav_event.icalendar_component
             # Create a v2g_liberty specific event based on the caldav event
+            start, is_all_day = self.__parse_to_tz_dt(cdi['dtstart'].dt)
+            end, is_all_day = self.__parse_to_tz_dt(cdi['dtend'].dt)
+            if start is None or end is None:
+                continue
+            if is_all_day:
+                # This way the end date becomes 23:59 in the UI.
+                end = end + dt.timedelta(minutes=-1)
+
             v2g_event = {
-                'start': cdi['dtstart'].dt.astimezone(c.TZ),
-                'end': cdi['dtend'].dt.astimezone(c.TZ),
+                'start': start,
+                'end': end,
                 'summary': str(cdi.get('summary', "")),
                 'description': str(cdi.get('description', "")),
             }
@@ -360,7 +402,7 @@ class ReservationsClient(ServiceResponseApp):
         start = get_local_now()
         v2g_ui_event_calendar = []
         for n in range(7):
-            calendar_date = start + timedelta(days=n)
+            calendar_date = start + dt.timedelta(days=n)
             events_in_day = []
             for v2g_ui_event in self.v2g_events:
                 if v2g_ui_event["start"].date() == calendar_date.date():
@@ -385,7 +427,7 @@ class ReservationsClient(ServiceResponseApp):
             # There seems to be no way to hide the SoC series from the graph,
             # so it is filled with "empty" data, one record of 0.
             # Set it at a week from now, so it's not visible in the default view.
-            ci_chart_items = [dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
+            ci_chart_items = [dict(time=(now + dt.timedelta(days=7)).isoformat(), soc=None)]
         else:
             # TODO: deal with overlapping items
             ci_chart_items = []
@@ -398,7 +440,7 @@ class ReservationsClient(ServiceResponseApp):
                 ci_chart_items.append({'time': ci['start'].isoformat(), 'soc': ci['target_soc_percent']})
                 ci_chart_items.append({'time': ci['end'].isoformat(), 'soc': ci['target_soc_percent']})
                 # Add to create a gap between ci's in the graph.
-                ci_chart_items.append({'time': (ci['end'] + timedelta(minutes=1)).isoformat(), 'soc': None})
+                ci_chart_items.append({'time': (ci['end'] + dt.timedelta(minutes=1)).isoformat(), 'soc': None})
 
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = f"Calendar item available at {now.isoformat()}."
