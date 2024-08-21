@@ -19,6 +19,29 @@ The next release might include:
 
 
 
+
+## 0.1.14 2024-08-21
+
+### Added
+
+- None
+
+### Fixed
+
+- Bug #57: Calendar can now handle all-day events.
+- Bug (Unnumbered): Better handle empty calendar
+- Bug (unnumbered): More robust cancel_listener
+
+
+### Changed
+
+- None
+
+### Removed
+
+- None
+
+
 ## 0.1.13 2024-08-19
 
 ### Added
@@ -55,8 +78,6 @@ The next release might include:
 ### Removed
 
 - None.
-
-
 
 
 ## 0.1.12 - 2024-07-15

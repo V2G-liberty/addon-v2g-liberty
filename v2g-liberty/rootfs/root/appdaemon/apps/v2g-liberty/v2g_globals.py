@@ -275,7 +275,6 @@ class V2GLibertyGlobals(hass.Hass):
         self.calendar_client = await self.get_app("reservations-client")
         self.own_price_data_manager = await self.get_app("amber_price_data_manager")
         self.fm_data_retrieve_client = await self.get_app("get_fm_data")
-        self.log(f"initialize fm_data_retrieve_client: {self.fm_data_retrieve_client}")
 
         await self.__kick_off_settings()
 
@@ -1426,10 +1425,12 @@ class V2GLibertyGlobals(hass.Hass):
     async def __cancel_setting_listener(self, setting_object: dict):
         listener_id = setting_object['listener_id']
         if listener_id is not None and listener_id != "":
-            entity, attribute, kwargs = self.info_listen_state(listener_id)
-            self.log(f"__cancel_setting_listener, listener_id: {listener_id}, entity: {entity}.")
-            if entity is not None:
+            # It seems "info_listen_state" does not work async, so just always cancel
+            # the listener without first checking if it is still active.
+            try:
                 await self.cancel_listen_state(listener_id)
+            except:
+                pass
         setting_object['listener_id'] = None
 
 

@@ -593,7 +593,7 @@ class V2Gliberty(hass.Hass):
 
         targets = []
         is_first_reservation = True
-        if car_reservations is not None or len(car_reservations) > 0:
+        if car_reservations is not None and len(car_reservations) > 0:
             # Adding the target one week from now is FM specific, so this is done in the fm_client
             for car_reservation in car_reservations:
                 # Do not take dismissed car reservations into account for schedule.
