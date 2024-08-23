@@ -7,9 +7,11 @@ import os
 import math
 import appdaemon.plugins.hass.hassapi as hass
 import constants as c
+from service_response_app import ServiceResponseApp
 
 
-class V2GLibertyGlobals(hass.Hass):
+
+class V2GLibertyGlobals(ServiceResponseApp):
     v2g_settings: dict = {}
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
@@ -17,7 +19,8 @@ class V2GLibertyGlobals(hass.Hass):
     fm_client: object
     calendar_client: object
     fm_data_retrieve_client: object
-    own_price_data_manager: object
+    amber_price_data_manager: object
+    octopus_price_data_manager: object
 
     # Settings related to FlexMeasures
     SETTING_FM_ACCOUNT_USERNAME = {
@@ -77,6 +80,29 @@ class V2GLibertyGlobals(hass.Hass):
     SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID = {
         "entity_name": "own_consumption_price_entity_id",
         "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
+        "listener_id": None
+    }
+
+    # Settings related to Octopus Agile contracts
+    SETTING_OCTOPUS_IMPORT_CODE = {
+        "entity_name": "octopus_import_code",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
+        "listener_id": None
+    }
+    SETTING_OCTOPUS_EXPORT_CODE = {
+        "entity_name": "octopus_export_code",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
+        "listener_id": None
+    }
+    SETTING_GB_DNO_REGION = {
+        "entity_name": "gb_dno_region",
+        "entity_type": "input_select",
         "value_type": "str",
         "factory_default": None,
         "listener_id": None
@@ -273,7 +299,8 @@ class V2GLibertyGlobals(hass.Hass):
         self.evse_client = await self.get_app("modbus_evse_client")
         self.fm_client = await self.get_app("fm_client")
         self.calendar_client = await self.get_app("reservations-client")
-        self.own_price_data_manager = await self.get_app("amber_price_data_manager")
+        self.amber_price_data_manager = await self.get_app("amber_price_data_manager")
+        self.octopus_price_data_manager = await self.get_app("octopus_price_data_manager")
         self.fm_data_retrieve_client = await self.get_app("get_fm_data")
 
         await self.__kick_off_settings()
@@ -611,8 +638,8 @@ class V2GLibertyGlobals(hass.Hass):
             elif "charging cost" in sensor_name:
                 c.FM_ACCOUNT_COST_SENSOR_ID = sensor["id"]
 
-            if c.ELECTRICITY_PROVIDER == "au_amber_electric":
-                self.log(f"__get_and_process_fm_sensors for au_amber_electric, sensor: '{sensor}'.")
+            if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
+                self.log(f"__get_and_process_fm_sensors for au_amber_electric/gb_octopus_energy, sensor: '{sensor}'.")
                 if "consumption" in sensor_name:
                     # E.g. 'consumption price' or 'consumption tariff'
                     c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["id"]
@@ -632,7 +659,7 @@ class V2GLibertyGlobals(hass.Hass):
         self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_SOC: {c.FM_ENTITY_ADDRESS_SOC}.")
         self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_COST_SENSOR_ID: {c.FM_ACCOUNT_COST_SENSOR_ID}.")
 
-        if c.ELECTRICITY_PROVIDER == "au_amber_electric":
+        if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
             self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_PRICE_CONSUMPTION_SENSOR_ID: "
                      f"{c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
             self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_PRICE_PRODUCTION_SENSOR_ID: "
@@ -1221,6 +1248,29 @@ class V2GLibertyGlobals(hass.Hass):
                 callback=callback_method
             )
             c.UTILITY_CONTEXT_DISPLAY_NAME = "Amber Electric"
+
+            await self.__cancel_setting_listener(self.SETTING_OCTOPUS_IMPORT_CODE)
+            await self.__cancel_setting_listener(self.SETTING_OCTOPUS_EXPORT_CODE)
+            await self.__cancel_setting_listener(self.SETTING_GB_DNO_REGION)
+
+        elif c.ELECTRICITY_PROVIDER == "gb_octopus_energy":
+            c.OCTOPUS_IMPORT_CODE = await self.__process_setting(
+                setting_object=self.SETTING_OCTOPUS_IMPORT_CODE,
+                callback=callback_method
+            )
+            c.OCTOPUS_EXPORT_CODE = await self.__process_setting(
+                setting_object=self.SETTING_OCTOPUS_EXPORT_CODE,
+                callback=callback_method
+            )
+            c.GB_DNO_REGION = await self.__process_setting(
+                setting_object=self.SETTING_GB_DNO_REGION,
+                callback=callback_method
+            )
+            c.UTILITY_CONTEXT_DISPLAY_NAME = "Octopus Energy"
+
+            await self.__cancel_setting_listener(self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID)
+            await self.__cancel_setting_listener(self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID)
+
         else:
             context = c.DEFAULT_UTILITY_CONTEXTS.get(
                 c.ELECTRICITY_PROVIDER,
@@ -1238,6 +1288,9 @@ class V2GLibertyGlobals(hass.Hass):
 
             await self.__cancel_setting_listener(self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID)
             await self.__cancel_setting_listener(self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID)
+            await self.__cancel_setting_listener(self.SETTING_OCTOPUS_IMPORT_CODE)
+            await self.__cancel_setting_listener(self.SETTING_OCTOPUS_EXPORT_CODE)
+            await self.__cancel_setting_listener(self.SETTING_GB_DNO_REGION)
 
         await self.__set_fm_optimisation_context()
 
@@ -1247,7 +1300,7 @@ class V2GLibertyGlobals(hass.Hass):
             )
         # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
         # For others, we expect netto prices (including VAT and Markup).
-        # If self_provided data (e.g. au_amber_electric) also includes VAT and markup the values can
+        # If self_provided data (e.g. au_amber_electric, gb_octopus_energy) also includes VAT and markup the values can
         # be set to 1 and 0 respectively to achieve the same result as here.
         if use_vat_and_markup and c.ELECTRICITY_PROVIDER in ["nl_generic", "no_generic"]:
             c.ENERGY_PRICE_VAT = await self.__process_setting(
@@ -1339,14 +1392,20 @@ class V2GLibertyGlobals(hass.Hass):
         else:
             self.log("__collective_action. Could not call initialise_v2g_liberty on v2g_main_app as it is None.")
 
-        if not is_price_update_interval_daily():
-            self.log("__collective_action. frequent price updates ")
-            if self.own_price_data_manager is not None:
-                self.log("__collective_action. Calling self.own_price_data_manager.kick_off_amber_price_management.")
-                await self.own_price_data_manager.kick_off_amber_price_management()
+        if c.ELECTRICITY_PROVIDER == "au_amber_electric":
+            self.log("__collective_action. Amber Electric ")
+            if self.amber_price_data_manager is not None:
+                await self.amber_price_data_manager.kick_off_amber_price_management()
             else:
                 self.log("__collective_action. Could not call kick_off_amber_price_management on "
-                         "own_price_data_manager as it is None.")
+                         "amber_price_data_manager as it is None.")
+        elif c.ELECTRICITY_PROVIDER == "gb_octopus_energy":
+            self.log("__collective_action. Octopus Energy")
+            if self.octopus_price_data_manager is not None:
+                await self.octopus_price_data_manager.kick_off_octopus_price_management()
+            else:
+                self.log("__collective_action. Could not call kick_off_octopus_price_management on "
+                         "octopus_price_data_manager as it is None.")
 
         if self.fm_data_retrieve_client is not None:
             await self.fm_data_retrieve_client.finalize_initialisation(v2g_args=source)
@@ -1438,8 +1497,10 @@ class V2GLibertyGlobals(hass.Hass):
 #                           UTIL FUNCTIONS                           #
 ######################################################################
 
-def is_price_update_interval_daily() -> bool:
-    return c.ELECTRICITY_PROVIDER != "au_amber_electric"
+def is_price_epex_based() -> bool:
+    # Alle EPEX based electricity providers have a daily update frequency.
+    # This also applies to Octopus Energy
+    return c.ELECTRICITY_PROVIDER not in ["au_amber_electric", "gb_octopus_energy"]
 
 
 def time_mod(time_to_mod, delta, epoch=None):

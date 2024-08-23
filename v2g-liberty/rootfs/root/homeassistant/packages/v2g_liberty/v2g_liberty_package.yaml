@@ -23,6 +23,25 @@ frontend:
 
 
 input_select:
+  gb_dno_region:
+    name: Great Britain DNO region
+    icon: mdi:home-map-marker
+    options:
+      - Eastern England
+      - East Midlands
+      - London
+      - Merseyside and Northern Wales
+      - West Midlands
+      - North Eastern England
+      - North Western England
+      - Southern England
+      - South Eastern England
+      - Southern Wales
+      - South Western England
+      - Yorkshire
+      - Southern Scotland
+      - Northern Scotland
+
   # Options will be set through v2g_globals
   fm_asset:
     name: FlexMeasures asset
@@ -72,6 +91,7 @@ input_select:
       - nl_next_energy
       - nl_tibber
       - no_generic
+      - gb_octopus_energy
       - au_amber_electric
 
   optimisation_mode:
@@ -364,7 +384,9 @@ input_text:
   fm_connection_status:
     mode: text
 
-  #############  self_provided settings related entities like au_amber_electric #############
+  ###################################################################
+  #        self_provided settings related to au_amber_electric      #
+  ###################################################################
 
   own_production_price_entity_id:
     icon: mdi:transmission-tower-import
@@ -374,6 +396,27 @@ input_text:
     icon: mdi:transmission-tower-export
     mode: text
     name: Source entity_id for self_provided consumption price
+
+  ###################################################################
+  #        self_provided settings related to gb_octopus_energy      #
+  ###################################################################
+
+  octopus_import_code:
+    icon: mdi:transmission-tower-import
+    mode: text
+    name: Octopus Electric import code
+
+  octopus_export_code:
+    icon: mdi:transmission-tower-export
+    mode: text
+    name: Octopus Electric export code
+
+  octopus_region:
+    icon: mdi:home-map-marker
+    mode: text
+    name: Octopus Electric region
+    min: 1
+    max: 1
 
   #############  UI statistics related entities #############
   total_discharge_time_last_7_days:

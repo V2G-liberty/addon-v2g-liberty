@@ -59,3 +59,11 @@ amber_price_data_manager:
   dependencies:
     - v2g-globals
     - set_fm_data
+
+octopus_price_data_manager:
+  module: octopus_price_data_manager
+  class: ManageOctopusPriceData
+  priority: 100
+  dependencies:
+    - v2g-globals
+    - set_fm_data

@@ -127,6 +127,11 @@ UTILITY_CONTEXT_DISPLAY_NAME: int = 0
 HA_OWN_CONSUMPTION_PRICE_ENTITY_ID: str = ""
 HA_OWN_PRODUCTION_PRICE_ENTITY_ID: str = ""
 
+# Octopus Energy Agile contracts related settings:
+OCTOPUS_IMPORT_CODE: str = ""
+OCTOPUS_EXPORT_CODE: str = ""
+GB_DNO_REGION: str = ""
+
 # CHARGER CONSTANTS
 # IP address and port for charger modbus communication
 CHARGER_HOST_URL: str = ""
