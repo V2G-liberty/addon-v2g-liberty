@@ -6,7 +6,7 @@ The next release might include:
 
 ### Adding
 
-- Support for Octopus Energy contracts (GB).
+- None.
 
 
 ### Changing
@@ -18,6 +18,23 @@ The next release might include:
 - ?
 
 
+## 0.2.0 2024-08-??
+
+### Added
+
+- Support for Octopus Energy Agile contracts (GB).
+
+### Fixed
+
+- None
+
+### Changed
+
+- ⬆️ Update ghcr.io/hassio-addons/base Docker tag to v15.0.9
+
+### Removed
+
+- None
 
 
 ## 0.1.14 2024-08-21

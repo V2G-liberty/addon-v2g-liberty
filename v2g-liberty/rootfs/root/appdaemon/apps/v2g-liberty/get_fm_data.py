@@ -6,7 +6,7 @@ import re
 import requests
 import time
 import asyncio
-from v2g_globals import get_local_now, is_price_update_interval_daily
+from v2g_globals import get_local_now, is_price_epex_based
 import constants as c
 from typing import AsyncGenerator, List, Optional
 
@@ -117,7 +117,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             await self.__set_production_prices_in_graph(None)
             await self.__set_emissions_in_graph(None)
 
-        if is_price_update_interval_daily():
+        if is_price_epex_based():
             self.log("initialize: price update interval is daily")
             self.timer_id_daily_kickoff_price_data = await self.run_daily(
                 self.daily_kickoff_price_data, self.first_try_time_price_data)
@@ -152,7 +152,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     async def daily_kickoff_price_data(self, *args):
         """
            This sets off the daily routine to check for new prices.
-           Only called when is_price_update_interval_daily() is true.
+           Only called when is_price_epex_based() is true.
         """
         self.log(f"daily_kickoff_price_data called, args: {args}.")
         res = await self.get_consumption_prices()
@@ -165,7 +165,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     async def daily_kickoff_emissions_data(self, *args):
         """
            This sets off the daily routine to check for new emission data.
-           Only called when is_price_update_interval_daily() is true.
+           Only called when is_price_epex_based() is true.
         """
         self.log(f"daily_kickoff_emissions_data called")
         res = await self.get_emission_intensities()
@@ -385,7 +385,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "get_consumption_prices")
 
             # If interval is daily retry once at second_try_time.
-            if is_price_update_interval_daily():
+            if is_price_epex_based():
                 if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
                     self.log(f"Retry at {self.second_try_time_price_data}.")
                     await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
@@ -428,7 +428,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         await self.__set_consumption_prices_in_graph(consumption_price_points)
 
-        if is_price_update_interval_daily():
+        if is_price_epex_based():
             # FM returns all the prices it has, sometimes it has not retrieved new
             # prices yet, than it communicates the prices it does have.
             date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
@@ -478,7 +478,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "Get FM production prices")
 
             # If interval is daily retry once at second_try_time.
-            if  is_price_update_interval_daily():
+            if  is_price_epex_based():
                 if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
                     self.log(f"Retry at {self.second_try_time_price_data}.")
                     await self.run_at(self.get_production_prices, self.second_try_time_price_data)
@@ -518,7 +518,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         await self.__set_production_prices_in_graph(production_price_points)
 
-        if is_price_update_interval_daily():
+        if is_price_epex_based():
             # FM returns all the prices it has, sometimes it has not retrieved new
             # prices yet, than it communicates the prices it does have.
             date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
@@ -594,7 +594,7 @@ class FlexMeasuresDataImporter(hass.Hass):
               self.first_future_negative_consumption_price_point and self.first_future_negative_production_price_point
         """
         self.log("__check_negative_price_notification called")
-        if not is_price_update_interval_daily():
+        if not is_price_epex_based():
             return
         if price_type == "consumption_price_point":
             if price_point == self.first_future_negative_consumption_price_point:
@@ -676,7 +676,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log_failed_response(res, "Get FM CO2 emissions data")
 
             # If interval is daily retry once at second_try_time.
-            if is_price_update_interval_daily():
+            if is_price_epex_based():
                 if self.now_is_between(self.first_try_time_emissions_data, self.second_try_time_emissions_data):
                     self.log(f"Retry at {self.second_try_time_emissions_data}.")
                     await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
@@ -702,7 +702,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         await self.__set_emissions_in_graph(emission_points)
 
-        if is_price_update_interval_daily():
+        if is_price_epex_based():
             # FM returns all the prices it has, sometimes it has not retrieved new
             # prices yet, than it communicates the prices it does have.
             date_latest_emission = datetime.fromtimestamp(results[-1].get('event_start') / 1000).isoformat()

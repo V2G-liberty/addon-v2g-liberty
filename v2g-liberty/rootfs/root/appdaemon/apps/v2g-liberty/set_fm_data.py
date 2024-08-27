@@ -399,6 +399,8 @@ class SetFMdata(hass.Hass):
             return False
         return True
 
+
+    # TODO: Implement on FM client, not here.
     def post_data(self, fm_entity_address: str, values: list, start: datetime, duration: str, uom: str) -> bool:
         """General function to post data to FM.
 

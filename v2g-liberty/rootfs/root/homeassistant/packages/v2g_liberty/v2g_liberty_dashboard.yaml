@@ -1073,6 +1073,63 @@ views:
             conditions:
               - condition: state
                 entity: input_select.electricity_provider
+                state: gb_octopus_energy
+            card:
+              type: entities
+              entities:
+                - entity: input_text.octopus_import_code
+                  card_mod: !include info_icon_style.yaml
+                - entity: input_text.octopus_export_code
+                  card_mod: !include info_icon_style.yaml
+                - entity: input_select.gb_dno_region
+                  name: Your Great Britain DNO region
+
+              card_mod:
+                style: |
+                    ha-card {
+                      border-top: none;
+                      border-top-left-radius: 0;
+                      border-top-right-radius: 0;
+                      margin-top: -24px;
+                    }
+                    ha-card.type-entities div.card-content::before {
+                      content: "For Octopus Electric Agile contracts V2G Liberty supports self provided electricity prices.";
+                      white-space: pre-wrap;
+                      color: var(--primary-text-color);
+                      display: block;
+                      padding: 8px 0px;
+                      margin-bottom: 8px;
+                      margin-top: -8px;
+                      border-top: 1px solid var(--input-idle-line-color);
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(1):hover::after {
+                      content: "Please enter the import code, e.g. 'AGILE-FLEX-22-11-25'.";
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(2):hover::after {
+                      content: "Please enter the export code, e.g. 'AGILE-OUTGOING-19-05-13'.";
+                    }
+                    ha-card.type-entities div.card-content div:nth-child(3):hover::after {
+                      content: "Please enter region, a one-letter code, e.g. 'H'.";
+                    }
+                    ha-card.type-entities div.card-content div:hover::after {
+                      white-space: pre-wrap;
+                      font-size: 90%;
+                      color: var(--primary-text-color);
+                      position: absolute;
+                      width: 300px;
+                      right: 4px;
+                      top: 44px;
+                      background-color: var(--primary-background-color);
+                      border: 1px solid var(--input-idle-line-color);
+                      border-radius: 8px;
+                      padding: 8px 16px;
+                      z-index: 110;
+                    }
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_select.electricity_provider
                 state: au_amber_electric
             card:
               type: entities
@@ -1090,7 +1147,7 @@ views:
                       margin-top: -24px;
                     }
                     ha-card.type-entities div.card-content::before {
-                      content: "For Amber Electric V2G Liberty supports self provided electricity prices via the Amber integration (later more to follow).";
+                      content: "For Amber Electric V2G Liberty supports self provided electricity prices via the Amber integration.";
                       white-space: pre-wrap;
                       color: var(--primary-text-color);
                       display: block;

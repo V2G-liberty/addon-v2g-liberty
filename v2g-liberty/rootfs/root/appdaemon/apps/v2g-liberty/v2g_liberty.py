@@ -596,6 +596,12 @@ class V2Gliberty(hass.Hass):
         if car_reservations is not None and len(car_reservations) > 0:
             # Adding the target one week from now is FM specific, so this is done in the fm_client
             for car_reservation in car_reservations:
+                if car_reservation == 'un-initiated':
+                    self.log(f"__ask_for_new_schedule, reservation: {car_reservation}."
+                             f" The reservations_client module is not initiated yet. Stop processing")
+                    # The module reservations_client is not initiated yet. Stop processing
+                    continue
+
                 # Do not take dismissed car reservations into account for schedule.
                 if car_reservation['dismissed']:
                     continue
@@ -656,6 +662,7 @@ class V2Gliberty(hass.Hass):
             self.log(f"__ask_for_new_schedule. Could not call get_new_schedule on fm_client as it is None.")
 
         return
+
 
     async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
         self.log(f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}.")

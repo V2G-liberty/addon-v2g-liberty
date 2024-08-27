@@ -20,24 +20,21 @@ class ManageAmberPriceData(hass.Hass):
     % renewables:
     The data is expected to have the following structure:
     forecasts:
-      - per_kwh: 0.09
-        renewables: 32
+      - duration: 30
+        date: "2024-03-23"
+        nem_date: "2024-03-23T08:00:00+10:00"
+        per_kwh: 0.09
+        spot_per_kwh: 0.09
         start_time: "2024-03-22T21:30:01+00:00"
         end_time: "2024-03-22T22:00:00+00:00"
+        renewables: 32
+        spike_status: none
+        descriptor: high
+
+    This data is updated frequently (upto minutely) at irregular intervals.
+    This is why it is queried locally at fix interval of 5 minutes.
     """
 
-    # The data in foregoing constants has the following structure:
-    # forecasts:
-    #   - duration: 30
-    #     date: "2024-03-23"
-    #     nem_date: "2024-03-23T08:00:00+10:00"
-    #     per_kwh: 0.09
-    #     spot_per_kwh: 0.09
-    #     start_time: "2024-03-22T21:30:01+00:00"
-    #     end_time: "2024-03-22T22:00:00+00:00"
-    #     renewables: 32
-    #     spike_status: none
-    #     descriptor: high
     # To extract the right data the following constants are used.
     COLLECTION_NAME: str = "forecasts"
     PRICE_LABEL: str = "per_kwh"
@@ -113,6 +110,8 @@ class ManageAmberPriceData(hass.Hass):
 
         self.log(f"kick_off_amber_price_management completed")
 
+
+    # TODO: Make generic function in globals, it is copied to Octopus module.
     def parse_to_rounded_local_datetime(self, date_time: str) -> datetime:
         # self.log(f"parse_to_rounded_local_datetime, original: {date_time}.")
         date_time = date_time.replace(" ", "T")
