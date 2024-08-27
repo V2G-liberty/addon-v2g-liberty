@@ -409,7 +409,7 @@ class V2Gliberty(hass.Hass):
 
         # **** Handle connected:
         if new_charger_state != self.DISCONNECTED_STATE:
-            await self.set_next_action(v2g_args="handle_charger_state_change")
+            await self.set_next_action(v2g_args="__handle_charger_state_change")
             return
 
         # Handling errors is left to the evse_client as this knows what specific situations there are for
