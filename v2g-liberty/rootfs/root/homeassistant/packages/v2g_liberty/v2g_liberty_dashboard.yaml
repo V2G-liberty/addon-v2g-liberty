@@ -191,6 +191,24 @@ views:
                 color: var(--warning-color)
             needle: true
             unit: "%"
+            card_mod:
+              style: |
+                ha-card * {
+                  filter: saturate(
+                    {% if states('input_text.charger_state') == 'No car connected' %}
+                    0
+                    {% else %}
+                    1
+                    {% endif %}
+                    )
+                    brightness(
+                      {% if states('input_text.charger_state') == 'No car connected' %}
+                      1.3
+                      {% else %}
+                      1
+                      {% endif %}
+                      );
+                }
           - type: markdown
             entities:
               - entity: input_number.car_remaining_range
