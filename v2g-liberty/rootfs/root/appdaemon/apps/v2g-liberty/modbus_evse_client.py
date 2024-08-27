@@ -765,8 +765,6 @@ class ModbusEVSEclient(hass.Hass):
         if current_value != value:
             entity['current_value'] = value
             entity['previous_value'] = current_value
-            self.log(f"__update_entity value of {entity['ha_entity_name']} changed "
-                     f"from '{current_value}' to '{entity['current_value']}'.")
             #call handler if defined
             if 'change_handler' in entity.keys():
                 str_action = entity['change_handler']
