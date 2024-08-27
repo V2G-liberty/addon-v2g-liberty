@@ -600,7 +600,7 @@ class V2Gliberty(hass.Hass):
                     self.log(f"__ask_for_new_schedule, reservation: {car_reservation}."
                              f" The reservations_client module is not initiated yet. Stop processing")
                     # The module reservations_client is not initiated yet. Stop processing
-                    return
+                    continue
 
                 # Do not take dismissed car reservations into account for schedule.
                 if car_reservation['dismissed']:

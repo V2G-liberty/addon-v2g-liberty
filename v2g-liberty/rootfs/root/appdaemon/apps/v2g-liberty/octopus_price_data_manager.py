@@ -29,6 +29,7 @@ class ManageOctopusPriceData(hass.Hass):
 
     CURRENCY: str = "GBP"
     UOM: str = ""
+    EMISSIONS_UOM: str = "kg/MWh"
 
     # The data comes in pence/kWh and should be sent to FM in pound/MWh
     # Example: 20.5 pence/kWh = 0,205 pound/kWh = 205 pound/MWh, factor is 10
@@ -104,8 +105,7 @@ class ManageOctopusPriceData(hass.Hass):
             :return: Nothing
         """
         if c.ELECTRICITY_PROVIDER != "gb_octopus_energy":
-            self.log(f"Not kicking off ManageOctopusPriceData module. Electricity provider is not "
-                     f"'gb_octopus_energy' and/or price entity_id's are not populated (yet).")
+            self.log(f"Not kicking off ManageOctopusPriceData module. Electricity provider is not 'gb_octopus_energy'.")
             return
 
         un_initiated_values = ["unknown", "", "Please choose an option", None]
@@ -283,7 +283,7 @@ class ManageOctopusPriceData(hass.Hass):
             values=emission_intensities,
             start=start,
             duration=duration,
-            uom="kg/MWh"
+            uom=self.EMISSIONS_UOM
         )
 
         self.log(f"__get_gb_region_emissions res: {res}.")
