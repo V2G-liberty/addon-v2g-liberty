@@ -72,7 +72,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         self.log("Initializing FlexMeasuresDataImporter")
 
-        self.v2g_main_app = self.get_app("v2g_liberty")
+        self.v2g_main_app = await self.get_app("v2g_liberty")
 
         self.fm_token = ""
         self.CONSUMPTION_PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_CONSUMPTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
