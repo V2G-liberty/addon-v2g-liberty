@@ -86,7 +86,7 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
 3. Now restart Home Assistant by going to `settings > system` and in the top 
    right click the top right ⏼ menu and select `Restart Home Assistant`.
 4. When the restart finished the *V2G&nbsp;Liberty* menu item in the left menu should be visible, open this by clicking it.
-5. Now go to the settings tab. 
+5. Now go to the settings tab (⚙ icon in the blue top-bar)
 6. Review all sections of the page and complete the requested information as necessary.<br/>
    Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un-touched.
 
