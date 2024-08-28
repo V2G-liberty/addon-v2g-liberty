@@ -18,15 +18,17 @@ The next release might include:
 - ?
 
 
-## 0.2.0 2024-08-??
+## 0.2.0 2024-08-28
 
 ### Added
 
 - Support for Octopus Energy Agile contracts (GB).
+- Make UI "on hold" when car is disconnected (#60)
 
 ### Fixed
 
-- None
+- BUG: in get_fm_data the get_app call to v2g_liberty module is not awaited (#65)
+- BUG: sending data to FM is broken (#63)
 
 ### Changed
 
