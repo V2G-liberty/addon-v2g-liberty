@@ -66,9 +66,9 @@ If you prefer this option, please [contact us](https://v2g-liberty.eu).
 ### An electricity contract with dynamic prices
 
 As said, the software optimizes dynamic prices, so a contract of this type is the best option.
-There is no rush, though.
-You can try out V2G Liberty first and later on get the dynamic contract.
-In the Netherlands there are several suppliers, o.a. Eneco, Vattenfall, ANWB, Tibber, Zonneplan, Energy Zero, etc.
+There is no rush, though, you can try out V2G Liberty first and later on get the dynamic contract.
+
+In the Netherlands, almost all suppliers, such as Eneco and Vattenfall, offer dynamic contracts. Many newer, smaller companies, like Greenchoice, ANWB Energy, Tibber, Energy Zero, and Next Energy, also provide this type of agile pricing. Most of these can be selected from a pre-configured list in the V2G Liberty settings. However, any EPEX-based (so anywhere in Europe) contract is supported, as you can adjust the region, VAT and markup separately. V2G Liberty also fully supports agile contracts from Octopus Energy (Great Britain) and Amber Electric (Australia).
 
 A dynamic contract changes the way your electricity is priced and billed, so it is wise to find information and make sure you really understand what this means for your situation before making this change.
 
@@ -90,7 +90,7 @@ Options are, for example:
 - ICS Calendar (or iCalendar) integration, also non-official. It can be found on HACS.
 
 We recommend a separate calendar for your car reservations. The result must be that in Home Assistant only the events meant for the car are present.
-Preferably name the calendar (`car_reservation`). If you name(d) it otherwise, update the calendar name in the configuration of V2G Liberty secrets.yaml and in the v2g_liberty_dashboard.yaml
+Preferably name the calendar something like `car_reservation` so you can easily find it later.
 
 
 ## Installation
@@ -120,24 +120,11 @@ You can tweak the charging process by setting min- and max-limits, min- and max-
 ## Updates
 
 After an update it is usually necessary to restart 'every thing':
-1. Restart Home Assistant by going to `settings > system` and in the top 
-   right click the top right ⏼ menu and select `Restart Home Assistant`.
-2. Restart *V2G&nbsp;Liberty* `settings -> Add-ons -> V2G Liberty -> Restart`.
+
+Restart *V2G&nbsp;Liberty* `settings -> Add-ons -> V2G Liberty -> Restart`.
 
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!
-<!--
-<style>
-  body {
-    max-width: 50em;
-    margin: 4em;
-  }
-  .sub-text {
-     font-size: 90%;
-     color: #797979;
-  }
-</style>
--->
 
 ## Changelog & Releases
 
@@ -200,3 +187,17 @@ limitations under the License.
 [python-packages]: https://pypi.org/
 [releases]: https://github.com/V2G-liberty/addon-v2g-liberty/releases
 [semver]: http://semver.org/spec/v2.0.0.htm
+
+
+<!--
+<style>
+  body {
+    max-width: 50em;
+    margin: 4em;
+  }
+  .sub-text {
+     font-size: 90%;
+     color: #797979;
+  }
+</style>
+-->
