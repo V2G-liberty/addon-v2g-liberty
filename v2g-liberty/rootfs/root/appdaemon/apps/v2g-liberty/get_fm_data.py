@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
-import json
 import pytz
 import math
 import re
-import requests
 import time
 import asyncio
-from v2g_globals import get_local_now, is_price_epex_based
+from v2g_globals import time_ceil, time_floor, get_local_now, is_price_epex_based, convert_to_duration_string
 import constants as c
 from typing import AsyncGenerator, List, Optional
 
@@ -16,15 +14,9 @@ import isodate
 
 class FlexMeasuresDataImporter(hass.Hass):
     # CONSTANTS
-    EMISSIONS_URL: str
-    CONSUMPTION_PRICES_URL: str
-    PRODUCTION_PRICES_URL: str
-    CHARGING_COST_URL: str
-    CHARGE_POWER_URL: str
-    GET_CHARGING_DATA_AT: str  # Time string
+    DAYS_HISTORY: int = 7
 
     # Variables
-    fm_token: str
     first_try_time_price_data: str
     second_try_time_price_data: str
 
@@ -41,7 +33,9 @@ class FlexMeasuresDataImporter(hass.Hass):
     emission_intensities: dict
 
     # For sending notifications to the user.
-    v2g_main_app: object
+    v2g_main_app: object = None
+    # For getting data from FM server
+    fm_client_app: object = None
 
     first_future_negative_consumption_price_point: dict
     first_future_negative_production_price_point: dict
@@ -73,13 +67,10 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.log("Initializing FlexMeasuresDataImporter")
 
         self.v2g_main_app = await self.get_app("v2g_liberty")
+        self.fm_client_app = await self.get_app("fm_client")
 
-        self.fm_token = ""
-        self.CONSUMPTION_PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_CONSUMPTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
-        self.PRODUCTION_PRICES_URL = c.FM_GET_DATA_URL + str(c.FM_PRICE_PRODUCTION_SENSOR_ID) + c.FM_GET_DATA_SLUG
-        self.EMISSIONS_URL = c.FM_GET_DATA_URL + str(c.FM_EMISSIONS_SENSOR_ID) + c.FM_GET_DATA_SLUG
-        self.CHARGING_COST_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_COST_SENSOR_ID) + c.FM_GET_DATA_SLUG
-        self.CHARGE_POWER_URL = c.FM_GET_DATA_URL + str(c.FM_ACCOUNT_POWER_SENSOR_ID) + c.FM_GET_DATA_SLUG
+        # The number of days in the history for statistics
+        self.DAYS_HISTORY  = 7
 
         # Price data should normally be available just after 13:00 when data can be
         # retrieved from its original source (ENTSO-E) but sometimes there is a delay of several hours.
@@ -95,8 +86,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
 
-        self.GET_CHARGING_DATA_AT = "01:15:00"
-        self.run_daily(self.daily_kickoff_charging_data, self.GET_CHARGING_DATA_AT)
+        self.run_daily(self.daily_kickoff_charging_data, start = "01:15:00")
 
         await self.finalize_initialisation("module initialize")
 
@@ -120,17 +110,17 @@ class FlexMeasuresDataImporter(hass.Hass):
         if is_price_epex_based():
             self.log("initialize: price update interval is daily")
             self.timer_id_daily_kickoff_price_data = await self.run_daily(
-                self.daily_kickoff_price_data, self.first_try_time_price_data)
+                self.daily_kickoff_price_data, start = self.first_try_time_price_data)
 
             self.timer_id_daily_kickoff_emissions_data = await self.run_daily(
-                self.daily_kickoff_emissions_data, self.first_try_time_emissions_data)
+                self.daily_kickoff_emissions_data, start = self.first_try_time_emissions_data)
         else:
             await self.__cancel_timer(self.timer_id_daily_kickoff_price_data)
             await self.__cancel_timer(self.timer_id_daily_kickoff_emissions_data)
 
-        initial_delay_sec = 150
-        await self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
-        await self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
+        initial_delay_sec = 45
+        self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
+        self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
         self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
         self.log("finalize_initialisation completed.")
 
@@ -169,20 +159,17 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         self.log(f"daily_kickoff_emissions_data called")
         res = await self.get_emission_intensities()
-        self.log(f"daily_kickoff_price_data get_production_prices returned: {res}.")
+        self.log(f"daily_kickoff_price_data get_emission_intensities returned: {res}.")
 
 
-
-    # TODO: make async
-    def daily_kickoff_charging_data(self, *args):
+    async def daily_kickoff_charging_data(self, *args):
         """ This sets off the daily routine to check for charging cost."""
         self.log(f"daily_kickoff_charging_data called")
-        self.get_charging_cost()
-        self.get_charged_energy()
+        await self.get_charging_cost()
+        await self.get_charged_energy()
 
 
-    # TODO: make async
-    def get_charging_cost(self, *args, **kwargs):
+    async def get_charging_cost(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
 
         Request charging costs of last 7 days from the server
@@ -191,45 +178,47 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         self.log(f"get_charging_cost called")
         now = get_local_now()
-        self.authenticate_with_fm()
 
         # Getting data since a week ago so that user can look back a further than just current window.
-        dt = str(now + timedelta(days=-7))
-        start = dt[:10] + "T00:00:00" + dt[-6:]
+        start = time_floor(now + timedelta(days=-self.DAYS_HISTORY), timedelta(days=1))
+        duration = timedelta(days=self.DAYS_HISTORY) # Duration as timedelta
+        duration = round((duration.total_seconds()/60), 0)  # Duration in minutes
+        duration = convert_to_duration_string(duration) # Duration as iso string
+        if self.fm_client_app is not None:
+            charging_costs = await self.fm_client_app.get_sensor_data(
+                sensor_id = c.FM_ACCOUNT_COST_SENSOR_ID,
+                start = start.isoformat(),
+                duration = duration,
+                resolution = "P1D",
+                uom = c.CURRENCY,
+            )
+        else:
+            self.log(f"get_charging_cost. Could not call get_sensor_data on fm_client_app as it is None.")
+            return False
 
-        url_params = {
-            "event_starts_after": start,
-        }
+        self.log(f"get_charging_cost | sensor_id: {c.FM_ACCOUNT_COST_SENSOR_ID}, charging_costs: {charging_costs}.")
 
-        res = requests.get(
-            self.CHARGING_COST_URL,
-            params=url_params,
-            headers={"Authorization": self.fm_token},
-        )
-
-        # Authorisation error, retry
-        if res.status_code == 401:
-            self.log_failed_response(res, "Get FM CHARGING COST data")
-            self.try_solve_authentication_error(res, self.CHARGING_COST_URL, self.get_charging_cost, *args, **kwargs)
+        if charging_costs is None:
+            # TODO: When to retry?
             return
-
-        if res.status_code != 200:
-            self.log_failed_response(res, "Get FM CHARGING COST data")
-            # This might include situation where sensor_id is not correct (yet).
-            # Currently, there is no reason to retry as the server will not re-run scheduled script for cost calculation
-            return
-
-        charging_costs = res.json()
 
         total_charging_cost_last_7_days = 0
         charging_cost_points = []
-        for charging_cost in charging_costs:
-            data_point = {'time': datetime.fromtimestamp(charging_cost['event_start'] / 1000).isoformat(),
-                          'cost': round(float(charging_cost['event_value']), 2)}
+        resolution = timedelta(days = 1)
+        charging_costs = charging_costs['values']
+        for i, charging_cost in enumerate(charging_costs):
+            if charging_cost is None:
+                continue
+            self.log(f"charging_cost: '{charging_cost}'.")
+            data_point = {'time': (start + i * resolution).isoformat(),
+                          'cost': round(float(charging_cost), 2)}
             total_charging_cost_last_7_days += data_point['cost']
             charging_cost_points.append(data_point)
+        if len(charging_cost_points) == 0:
+            # TODO: All data points are None, what to do?
+            self.log("get_charging_cost. No charging cost data available")
         total_charging_cost_last_7_days = round(total_charging_cost_last_7_days, 2)
-        self.log(f"Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}")
+        self.log(f"get_charging_cost Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}")
 
         # To make sure HA considers this as new info a datetime is added
         new_state = "Costs collected at " + now.isoformat()
@@ -238,8 +227,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.set_value("input_number.total_charging_cost_last_7_days", total_charging_cost_last_7_days)
 
 
-    # TODO: make async
-    def get_charged_energy(self, *args, **kwargs):
+    async def get_charged_energy(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
 
         Request charging volumes of last 7 days from the server.
@@ -250,34 +238,32 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.log("get_charged_energy, called.")
 
         now = get_local_now()
-        # Getting data since start of yesterday so that user can look back a little further than just current window.
+        # Getting data since a week
+        start = time_floor(now - timedelta(days=self.DAYS_HISTORY), timedelta(days=1))
 
-        dt = str(now + timedelta(days=-7))
-        start_data_period = dt[:10] + "T00:00:00" + dt[-6:]
-        dt = str(now)
-        end_data_period = dt[:10] + "T00:00:00" + dt[-6:]
+        resolution = f"PT{c.FM_EVENT_RESOLUTION_IN_MINUTES}M"
+        duration = f"P{self.DAYS_HISTORY}D"
 
-        url_params = {
-            "event_starts_after": start_data_period,
-            "event_ends_before": end_data_period,
-        }
+        # TODO: change uom to kW, this way the server can do the conversion (more efficient?).
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.get_sensor_data(
+                sensor_id = c.FM_ACCOUNT_POWER_SENSOR_ID,
+                start = start.isoformat(),
+                duration = duration,
+                resolution = resolution,
+                uom = "MW",
+            )
+        else:
+            self.log(f"get_charged_energy. Could not call get_sensor_data on fm_client_app as it is None.")
+            return False
 
-        res = requests.get(
-            self.CHARGE_POWER_URL,
-            params=url_params,
-            headers={"Authorization": self.fm_token},
-        )
-
-        # Authorisation error, retry
-        if res.status_code == 401:
-            self.log_failed_response(res, "get_charged_energy")
-            self.try_solve_authentication_error(res, self.CHARGE_POWER_URL, self.get_charging_energy, *args, **kwargs)
-            return
-
-        if res.status_code != 200:
-            self.log_failed_response(res, "get_charged_energy")
-            # Currently there is no reason to retry as the server will not re-run scheduled script for cost calculation
-        charge_power_points = res.json()
+        # The res structure:
+        # 'duration': 'PT168H',
+        # 'start': '2024-09-02T00:00:00+02:00',
+        # 'unit': 'MW',
+        # 'values': [0.004321, None, ..., 0.005712]
+        self.log(f"get_charged_energy sensor_id: {c.FM_ACCOUNT_POWER_SENSOR_ID}, "
+                 f"charge power response: {str(res)[:175]} ... {str(res)[-75:]}.")
 
         total_charged_energy_last_7_days = 0
         total_discharged_energy_last_7_days = 0
@@ -286,33 +272,20 @@ class FlexMeasuresDataImporter(hass.Hass):
         total_minutes_charged = 0
         total_minutes_discharged = 0
         charging_energy_points = {}
-        resolution_in_milliseconds = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60 * 1000
 
-        for charge_power in charge_power_points:
-            # The API returns both actual and scheduled power, ignore the values from the schedules
-            if charge_power['source']['type'] == "scheduler":
+        charge_power_points = res['values']
+        self.log(f"charge_power_points length: '{len(charge_power_points)}'.")
+        for i, charge_power in enumerate(charge_power_points):
+            if charge_power is None:
                 continue
-
-            power = float(charge_power['event_value'])
-            key = charge_power['event_start']
+            power = float(charge_power)
+            key = start + timedelta(minutes = (i * c.FM_EVENT_RESOLUTION_IN_MINUTES))
             charging_energy_points[key] = power
-            if power is None:
-                continue
 
             # Look up the emission matching with power['event_start'], this will be a match every 3 items
             # as emission has a resolution of 15 minutes and power of 5 min.
             # ToDo: check if resolutions match X times, if not, raise an error.
-            emission_intensity = 0
-            i = 0
-            while i < 3:
-                em = self.emission_intensities.get(key, None)
-                if em is None:
-                    # Try a resolution step (5 min.) earlier
-                    key -= resolution_in_milliseconds
-                    i += 1
-                else:
-                    emission_intensity = em
-                    break
+            emission_intensity = self.emission_intensities.get(key, 0)
 
             if power < 0:
                 # Strangely we add power to energy... this is practical, we later convert this to energy.
@@ -350,7 +323,13 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.set_value("input_text.total_discharge_time_last_7_days", format_duration(total_minutes_discharged))
         self.set_value("input_text.total_charge_time_last_7_days", format_duration(total_minutes_charged))
-
+        self.log(f"get_charged_energy stats: \n"
+                 f"    total_discharged_energy_last_7_days: '{total_discharged_energy_last_7_days}' \n"
+                 f"    total_charged_energy_last_7_days: '{total_charged_energy_last_7_days}' \n"
+                 f"    total_saved_emissions_last_7_days: '{total_saved_emissions_last_7_days}' \n"
+                 f"    total_emissions_last_7_days: '{total_emissions_last_7_days}' \n"
+                 f"    total discharge time: '{format_duration(total_minutes_discharged)}' \n"
+                 f"    total charge time: '{format_duration(total_minutes_charged)}'")
 
     async def get_consumption_prices(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
@@ -360,30 +339,24 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         self.log("get_consumption_prices called")
         now = get_local_now()
-        self.authenticate_with_fm()
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
-        dt = str(now + timedelta(days=-1))
-        start_data_period = dt[:10] + "T00:00:00" + dt[-6:]
+        start = time_floor(now + timedelta(days=-1), timedelta(days=1))
 
-        url_params = {
-            "event_starts_after": start_data_period,
-        }
-        res = requests.get(
-            self.CONSUMPTION_PRICES_URL,
-            params=url_params,
-            headers={"Authorization": self.fm_token},
-        )
+        if self.fm_client_app is not None:
+            prices = await self.fm_client_app.get_sensor_data(
+                sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                start = start.isoformat(),
+                duration = "P2D",
+                resolution = f"PT{c.PRICE_RESOLUTION_MINUTES}M",
+                uom = f"{c.CURRENCY}/MWh",
+            )
+        else:
+            self.log(f"get_consumption_prices. Could not call get_sensor_data on fm_client_app as it is None.")
+            return False
 
-        # Authorisation error, retry
-        if res.status_code == 401:
-            self.log_failed_response(res, "get_consumption_prices")
-            self.try_solve_authentication_error(res, self.CONSUMPTION_PRICES_URL, self.get_consumption_prices,
-                                                *args, **kwargs)
-            return
+        self.log(f"get_consumption_prices sensor_id: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}, prices: {prices}.")
 
-        if res.status_code != 200:
-            self.log_failed_response(res, "get_consumption_prices")
-
+        if prices is None:
             # If interval is daily retry once at second_try_time.
             if is_price_epex_based():
                 if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
@@ -399,9 +372,8 @@ class FlexMeasuresDataImporter(hass.Hass):
                         send_to_all=True,
                         ttl=15 * 60
                     )
-                return
+                return False
 
-        prices = res.json()
 
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
@@ -409,14 +381,15 @@ class FlexMeasuresDataImporter(hass.Hass):
         vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
         consumption_price_points = []
         first_future_negative_price_point = None
-        now = get_local_now()
-        self.log(f"get_consumption_prices, now: {now}.")
-        for price in prices:
-            dt = datetime.fromtimestamp(price['event_start'] / 1000).astimezone(c.TZ)
+        prices = prices['values']
+
+        for i, price in enumerate(prices):
+            if price is None:
+                continue
+            dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
             data_point = {
                 'time': dt.isoformat(),
-                'price': round(((price['event_value'] * conversion) +
-                                c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
+                'price': round(((float(price) * conversion) + c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
             }
 
             if first_future_negative_price_point is None and data_point['price'] < 0:
@@ -431,13 +404,13 @@ class FlexMeasuresDataImporter(hass.Hass):
         if is_price_epex_based():
             # FM returns all the prices it has, sometimes it has not retrieved new
             # prices yet, than it communicates the prices it does have.
-            date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
-            date_tomorrow = (now + timedelta(days=1)).isoformat()
+            date_latest_price = start + timedelta(minutes = (len(prices) * c.PRICE_RESOLUTION_MINUTES))
+            date_tomorrow = (now + timedelta(days=1))
             if date_latest_price < date_tomorrow:
                 self.log(f"FM consumption prices seem not renewed yet, latest price at: {date_latest_price}, "
                          f"Retry at {self.second_try_time_price_data}.")
                 await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
-                return
+                return False
 
         self.__check_negative_price_notification(first_future_negative_price_point, "consumption_price_point")
 
@@ -453,48 +426,40 @@ class FlexMeasuresDataImporter(hass.Hass):
         Notify user if there will be negative prices for next day
         """
         now = get_local_now()
-        self.authenticate_with_fm()
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
-        dt = str(now + timedelta(days=-1))
-        start_data_period = dt[:10] + "T00:00:00" + dt[-6:]
+        start = time_floor(now + timedelta(days=-1), timedelta(days=1))
 
-        url_params = {
-            "event_starts_after": start_data_period,
-        }
-        res = requests.get(
-            self.PRODUCTION_PRICES_URL,
-            params=url_params,
-            headers={"Authorization": self.fm_token},
-        )
+        if self.fm_client_app is not None:
+            prices = await self.fm_client_app.get_sensor_data(
+                sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                start = start.isoformat(),
+                duration = "P2D",
+                resolution = f"PT{c.PRICE_RESOLUTION_MINUTES}M",
+                uom = f"{c.CURRENCY}/MWh",
+            )
+        else:
+            self.log(f"get_production_prices. Could not call get_sensor_data on fm_client_app as it is None.")
+            return False
 
-        # Authorisation error, retry
-        if res.status_code == 401:
-            self.log_failed_response(res, "Get FM production prices")
-            self.try_solve_authentication_error(res, self.PRODUCTION_PRICES_URL,
-                                                self.get_production_prices, *args, **kwargs)
-            return
-
-        if res.status_code != 200:
-            self.log_failed_response(res, "Get FM production prices")
-
+        if prices is None:
             # If interval is daily retry once at second_try_time.
-            if  is_price_epex_based():
+            if is_price_epex_based():
                 if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
                     self.log(f"Retry at {self.second_try_time_price_data}.")
-                    await self.run_at(self.get_production_prices, self.second_try_time_price_data)
+                    await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
                 else:
                     self.log("get_production_prices failed, retry tomorrow.")
                     self.v2g_main_app.notify_user(
-                        message="Could not get energy prices, retry tomorrow. Scheduling continues as normal.",
+                        message="Could not get (all) energy prices, retry tomorrow. Scheduling continues as normal.",
                         title=None,
                         tag="no_price_data",
                         critical=False,
                         send_to_all=True,
                         ttl=15 * 60
                     )
-            return
+                return False
 
-        prices = res.json()
+        self.log(f"get_production_prices. prices: {prices}.")
 
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
@@ -503,11 +468,14 @@ class FlexMeasuresDataImporter(hass.Hass):
         production_price_points = []
         first_future_negative_price_point = None
         now = get_local_now()
-        for price in prices:
-            dt = datetime.fromtimestamp(price['event_start'] / 1000).astimezone(c.TZ)
+        prices = prices['values']
+        for i, price in enumerate(prices):
+            if price is None:
+                continue
+            dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
             data_point = {
                 'time': dt.isoformat(),
-                'price': round(((price['event_value'] * conversion) +
+                'price': round(((float(price) * conversion) +
                                 c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
             }
             if first_future_negative_price_point is None and data_point['price'] < 0 and dt > now:
@@ -521,8 +489,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         if is_price_epex_based():
             # FM returns all the prices it has, sometimes it has not retrieved new
             # prices yet, than it communicates the prices it does have.
-            date_latest_price = datetime.fromtimestamp(prices[-1].get('event_start') / 1000).isoformat()
-            date_tomorrow = (now + timedelta(days=1)).isoformat()
+            date_latest_price = start + timedelta(minutes = (len(prices) * c.PRICE_RESOLUTION_MINUTES))
+            date_tomorrow = (now + timedelta(days=1))
             if date_latest_price < date_tomorrow:
                 self.log(f"FM production prices seem not renewed yet, latest price at: {date_latest_price}, "
                          f"Retry at {self.second_try_time_price_data}.")
@@ -535,6 +503,89 @@ class FlexMeasuresDataImporter(hass.Hass):
         # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
         self.log(f"FM production prices successfully retrieved.")
         return "FM production prices successfully retrieved."
+
+
+    async def get_emission_intensities(self, *args, **kwargs):
+        """ Communicate with FM server and check the results.
+
+        Request hourly CO2 emissions due to electricity production in NL from the server
+        Make values available in HA by setting them in input_text.co2_emissions
+        """
+
+        self.log("get_emission_intensities called")
+
+        now = get_local_now()
+
+        # Getting emissions since a week ago. This is needed for calculation of CO2 savings
+        # and will be (more than) enough for the graph to show.
+        start = time_floor(now - timedelta(days=self.DAYS_HISTORY), timedelta(days=1))
+        resolution = f"PT{c.FM_EVENT_RESOLUTION_IN_MINUTES}M"
+        duration = f"P{ self.DAYS_HISTORY + 1 }D"
+
+        if self.fm_client_app is not None:
+            emissions = await self.fm_client_app.get_sensor_data(
+                sensor_id = c.FM_EMISSIONS_SENSOR_ID,
+                start = start.isoformat(),
+                duration = duration,
+                resolution = resolution,
+                uom = c.EMISSIONS_UOM,
+            )
+        else:
+            self.log(f"get_emission_intensities. Could not call get_sensor_data on fm_client_app as it is None.")
+            return False
+
+        self.log(f"get_emission_intensities, emissions: {str(emissions)[:175]}...{str(emissions)[-75:]}.")
+
+        if emissions is None:
+            # If interval is daily retry once at second_try_time.
+            if is_price_epex_based():
+                if self.now_is_between(self.first_try_time_emissions_data, self.second_try_time_emissions_data):
+                    self.log(f"Retry get_emission_intensities at {self.second_try_time_emissions_data}.")
+                    await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
+            return False
+
+        # For use in graph
+        emission_points = []
+
+        # For use in calculations, it is cleared as we collect new values. previous values
+        self.emission_intensities.clear()
+
+        # We assume start and resolution match the request, and it is not necessary to retrieve these from the response.
+        emissions = emissions['values']
+        previous_value = None
+        show_in_graph_after = now + timedelta(hours=-5)
+        date_latest_emission = None  # Latest emission with value that is not None
+        for i, emission_value in enumerate(emissions):
+            if emission_value is None:
+                continue
+            # Set the real value for use in calculations later
+            emission_start = start + timedelta(minutes = i * c.FM_EVENT_RESOLUTION_IN_MINUTES)
+            date_latest_emission = emission_start
+            self.emission_intensities[emission_start] = emission_value
+
+            # Adapt value for showing in graph
+            # To optimise we only add points that are max 5 hours old and actually show a change
+            if emission_value != previous_value and emission_start > show_in_graph_after:
+                emission_value = int(round(float(emission_value) / 10, 0))
+                data_point = {'time': emission_start.isoformat(), 'emission': emission_value}
+                emission_points.append(data_point)
+            previous_value = emission_value
+
+        await self.__set_emissions_in_graph(emission_points)
+
+        if is_price_epex_based():
+            # FM returns all the emissions it has, sometimes it has not retrieved new
+            # emissions yet, than it communicates the emissions it does have.
+            date_tomorrow = time_ceil(now, timedelta(days=1))
+            self.log(f"date_latest_emission: {date_latest_emission}, date_tomorrow: {date_tomorrow}.")
+            if date_latest_emission < date_tomorrow:
+                self.log(f"FM CO2 emissions seem not renewed yet. {date_latest_emission}, "
+                         f"retry at {self.second_try_time_emissions_data}.")
+                await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
+                return
+        self.log(f"FM emissions successfully retrieved.")
+        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
+        return "FM emissions successfully retrieved."
 
 
     async def __set_production_prices_in_graph(self, production_price_points):
@@ -639,126 +690,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         return
 
 
-    async def get_emission_intensities(self, *args, **kwargs):
-        """ Communicate with FM server and check the results.
-
-        Request hourly CO2 emissions due to electricity production in NL from the server
-        Make values available in HA by setting them in input_text.co2_emissions
-        """
-
-        self.log("get_emission_intensities called")
-
-        now = get_local_now()
-
-        self.authenticate_with_fm()
-        # Getting emissions since a week ago. This is needed for calculation of CO2 savings
-        # and will be (more than) enough for the graph to show.
-        # Because we want to show it in the graph we do not use an end url_param.
-        dt = str(now + timedelta(days=-7))
-        start_data_period = dt[:10] + "T00:00:00" + dt[-6:]
-        url_params = {
-            "event_starts_after": start_data_period,
-        }
-
-        res = requests.get(
-            self.EMISSIONS_URL,
-            params=url_params,
-            headers={"Authorization": self.fm_token},
-        )
-
-        # Authorisation error, retry
-        if res.status_code == 401:
-            self.log_failed_response(res, "get CO2 emissions")
-            self.try_solve_authentication_error(res, self.EMISSIONS_URL, self.get_emission_intensities, *args, **kwargs)
-            return
-
-        if res.status_code != 200:
-            self.log_failed_response(res, "Get FM CO2 emissions data")
-
-            # If interval is daily retry once at second_try_time.
-            if is_price_epex_based():
-                if self.now_is_between(self.first_try_time_emissions_data, self.second_try_time_emissions_data):
-                    self.log(f"Retry at {self.second_try_time_emissions_data}.")
-                    await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
-            return
-
-        results = res.json()
-        # For use in graph
-        emission_points = []
-        # For use in calculations, it is cleared as we collect new values.
-        self.emission_intensities.clear()
-        for emission in results:
-            emission_value = emission['event_value']
-            if emission_value == "null" or emission_value is None:
-                continue
-            # Set the real value for use in calculations later
-            self.emission_intensities[emission['event_start']] = emission_value
-            # Adapt value for showing in graph
-            emission_value = int(round(float(emission_value) / 10, 0))
-            period_start = datetime.fromtimestamp(emission['event_start'] / 1000).isoformat()
-            # ToDO: only make and add data_point if less then 5 hours old this keeps the graph clean.
-            data_point = {'time': period_start, 'emission': emission_value}
-            emission_points.append(data_point)
-
-        await self.__set_emissions_in_graph(emission_points)
-
-        if is_price_epex_based():
-            # FM returns all the prices it has, sometimes it has not retrieved new
-            # prices yet, than it communicates the prices it does have.
-            date_latest_emission = datetime.fromtimestamp(results[-1].get('event_start') / 1000).isoformat()
-            date_tomorrow = (now + timedelta(days=1)).isoformat()
-            if date_latest_emission < date_tomorrow:
-                self.log(f"FM CO2 emissions seem not renewed yet. {date_latest_emission}, "
-                         f"retry at {self.second_try_time_emissions_data}.")
-                await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
-                return
-        self.log(f"FM CO2 successfully retrieved.")
-        # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
-        return "FM CO2 successfully retrieved."
-
-
-    def log_failed_response(self, res, endpoint: str):
-        """Log failed response for a given endpoint."""
-        try:
-            self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
-        except json.decoder.JSONDecodeError:
-            self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
-
-
-    def authenticate_with_fm(self):
-        """Authenticate with the FlexMeasures server and store the returned auth token.
-        Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
-        """
-        self.log(f"authenticate_with_fm")
-        res = requests.post(
-            c.FM_AUTHENTICATION_URL,
-            json=dict(
-                email=c.FM_ACCOUNT_USERNAME,
-                password=c.FM_ACCOUNT_PASSWORD,
-            ),
-        )
-        if not res.status_code == 200:
-            self.log_failed_response(res, "requestAuthToken")
-            return False
-        json = res.json()
-        if json is None:
-            self.log(f"Authenticating failed, no valid json response.")
-            return False
-
-        self.fm_token = res.json().get("auth_token", None)
-        if self.fm_token is None:
-            self.log(f"Authenticating failed, no auth_token in json response: '{json}'.")
-            return False
-        return True
-
-
-    def try_solve_authentication_error(self, res, url, fnc, *fnc_args, **fnc_kwargs):
-        if fnc_kwargs.get("retry_auth_once", True) and res.status_code == 401:
-            self.log(f"Call to  {url} failed on authorization (possibly the token expired); "
-                     f"attempting to re-authenticate once")
-            self.authenticate_with_fm()
-            fnc_kwargs["retry_auth_once"] = False
-            fnc(*fnc_args, **fnc_kwargs)
 
 
 def format_duration(duration_in_minutes: int):

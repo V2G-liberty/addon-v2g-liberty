@@ -6,16 +6,40 @@ The next release might include:
 
 ### Adding
 
-- None.
+- ?
 
 
 ### Changing
 
-- Use flexmeasures_client python library for all calls to FM
+- ?
 
 ### Removing
 
 - ?
+
+
+## 0.2.1 2024-09-??
+
+### Added
+
+- None
+
+### Fixed
+
+- 🪲 BUG: Too frequent fluctuating (scheduled) charge power (#74)
+
+
+### Changed
+
+- Use flexmeasures_client python library for all calls to FM
+  This makes getting schedules and other data (much) faster.
+- Made python dependencies in Dockerfile versionless.
+- Renamed set_fm_data to data_monitor, this reflects its function better.
+
+### Removed
+
+- None
+
 
 
 ## 0.2.0 2024-08-28

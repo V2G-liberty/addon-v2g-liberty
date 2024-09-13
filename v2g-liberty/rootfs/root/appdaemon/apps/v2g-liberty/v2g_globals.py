@@ -15,8 +15,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
     v2g_settings: dict = {}
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
-    evse_client: object
-    fm_client: object
+    evse_client_app: object
+    fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
     amber_price_data_manager: object
@@ -291,13 +291,15 @@ class V2GLibertyGlobals(ServiceResponseApp):
         tz = await self.get_state('sensor.time_zone', attribute='state')
         c.TZ = pytz.timezone(tz)
 
+        c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
 
         self.v2g_main_app = await self.get_app("v2g_liberty")
-        self.evse_client = await self.get_app("modbus_evse_client")
-        self.fm_client = await self.get_app("fm_client")
+        self.evse_client_app = await self.get_app("modbus_evse_client")
+        self.fm_client_app = await self.get_app("fm_client")
         self.calendar_client = await self.get_app("reservations-client")
         self.amber_price_data_manager = await self.get_app("amber_price_data_manager")
         self.octopus_price_data_manager = await self.get_app("octopus_price_data_manager")
@@ -517,11 +519,11 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.log("__test_charger_connection called")
         # The url and port settings have been changed via the listener
         await self.set_state("input_text.charger_connection_status", state="Trying to connect...")
-        if not await self.evse_client.initialise_charger():
+        if not await self.evse_client_app.initialise_charger():
             msg="Failed to connect"
         else:
             msg = "Successfully connected"
-        # min/max power is set self.evse_client.initialise_charger()
+        # min/max power is set self.evse_client_app.initialise_charger()
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
         await self.set_state("input_text.charger_connection_status", state=msg)
 
@@ -532,19 +534,19 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.log("__test_fm_connection called")
         await self.__set_fm_connection_status("Testing connection...")
 
-        if self.fm_client is not None:
-            res = await self.fm_client.initialise_and_test_fm_client()
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.initialise_and_test_fm_client()
         else:
-            res = "Error: no fm_client available, please try again."
-            self.log("__test_fm_connection. Could not call initialise_and_test_fm_client on fm_client as it is None.")
+            res = "Error: no fm_client_app available, please try again."
+            self.log("__test_fm_connection. Could not call initialise_and_test_fm_client on fm_client_app as it is None.")
 
         if res != "Successfully connected":
             await self.__set_fm_connection_status(res)
             return
 
-        assets = await self.fm_client.get_fm_assets()
+        assets = await self.fm_client_app.get_fm_assets()
         if assets is None:
-            self.log(f"__test_fm_connection. Could not call fm_client.get_fm_assets")
+            self.log(f"__test_fm_connection. Could not call fm_client_app.get_fm_assets")
             await self.__set_fm_connection_status("Problem getting asset(s) from FlexMeasures, please try again.")
             return
         if len(assets) == 0:
@@ -612,10 +614,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
     async def __get_and_process_fm_sensors(self, asset_id: int):
         self.log("__get_and_process_fm_sensors called")
-        if self.fm_client is not None:
-            sensors = await self.fm_client.get_fm_sensors(asset_id)
+        if self.fm_client_app is not None:
+            sensors = await self.fm_client_app.get_fm_sensors(asset_id)
         else:
-            self.log("__get_and_process_fm_sensors. Could not call get_fm_sensors on fm_client as it is None.")
+            self.log("__get_and_process_fm_sensors. Could not call get_fm_sensors on fm_client_app as it is None.")
             await self.__set_fm_connection_status(state="Problem getting sensors from FlexMeasures, please try again.")
             return
 
@@ -626,54 +628,40 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         for sensor in sensors:
             sensor_name = sensor["name"].lower()
-            self.log(f"__get_and_process_fm_sensors, name: {sensor_name}.")
+            # self.log(f"__get_and_process_fm_sensors, name: {sensor_name}.")
             if "power" in sensor_name and "aggregate" not in sensor_name:
                 # E.g. "aggregate power" and "Nissan Leaf Power"
                 c.FM_ACCOUNT_POWER_SENSOR_ID = sensor["id"]
-                c.FM_ENTITY_ADDRESS_POWER = sensor["entity_address"]
             elif "availability" in sensor_name:
-                c.FM_ENTITY_ADDRESS_AVAILABILITY = sensor["entity_address"]
+                c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID = sensor["id"]
             elif "state of charge" in sensor_name:
-                c.FM_ENTITY_ADDRESS_SOC = sensor["entity_address"]
+                c.FM_ACCOUNT_SOC_SENSOR_ID = sensor["id"]
             elif "charging cost" in sensor_name:
                 c.FM_ACCOUNT_COST_SENSOR_ID = sensor["id"]
 
             if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
-                self.log(f"__get_and_process_fm_sensors for au_amber_electric/gb_octopus_energy, sensor: '{sensor}'.")
+                # self.log(f"__get_and_process_fm_sensors for au_amber_electric/gb_octopus_energy, sensor: '{sensor}'.")
                 if "consumption" in sensor_name:
                     # E.g. 'consumption price' or 'consumption tariff'
                     c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["id"]
-                    c.FM_PRICE_CONSUMPTION_ENTITY_ADDRESS = sensor["entity_address"]
                 elif "production" in sensor_name:
                     # E.g. 'production price' or 'production tariff'
                     c.FM_PRICE_PRODUCTION_SENSOR_ID = sensor["id"]
-                    c.FM_PRICE_PRODUCTION_ENTITY_ADDRESS = sensor["entity_address"]
                 elif "intensity" in sensor_name:
                     # E.g. 'Amber CO₂ intensity'
                     c.FM_EMISSIONS_SENSOR_ID = sensor["id"]
-                    c.FM_EMISSIONS_ENTITY_ADDRESS = sensor["entity_address"]
 
-        self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_POWER_SENSOR_ID: {c.FM_ACCOUNT_POWER_SENSOR_ID}.")
-        self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_POWER: {c.FM_ENTITY_ADDRESS_POWER}.")
-        self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_AVAILABILITY: {c.FM_ENTITY_ADDRESS_AVAILABILITY}.")
-        self.log(f"__get_and_process_fm_sensors, c.FM_ENTITY_ADDRESS_SOC: {c.FM_ENTITY_ADDRESS_SOC}.")
-        self.log(f"__get_and_process_fm_sensors, c.FM_ACCOUNT_COST_SENSOR_ID: {c.FM_ACCOUNT_COST_SENSOR_ID}.")
+        self.log(f"__get_and_process_fm_sensors: \n"
+                 f"    c.FM_ACCOUNT_POWER_SENSOR_ID: {c.FM_ACCOUNT_POWER_SENSOR_ID}. \n"
+                 f"    c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID: {c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID}. \n"
+                 f"    c.FM_ACCOUNT_SOC_SENSOR_ID: {c.FM_ACCOUNT_SOC_SENSOR_ID}. \n"
+                 f"    c.FM_ACCOUNT_COST_SENSOR_ID: {c.FM_ACCOUNT_COST_SENSOR_ID}.")
 
         if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
-            self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_PRICE_CONSUMPTION_SENSOR_ID: "
-                     f"{c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
-            self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_PRICE_PRODUCTION_SENSOR_ID: "
-                     f"{c.FM_PRICE_PRODUCTION_SENSOR_ID}.")
-            self.log(f"__get_and_process_fm_sensors, (own_prices) c.FM_EMISSIONS_SENSOR_ID: "
-                     f"{c.FM_EMISSIONS_SENSOR_ID}.")
-
-        # Remove when flexmeasures_client is fully implemented
-        base_url = c.FM_SENSOR_URL + "/" + str(c.FM_ACCOUNT_POWER_SENSOR_ID)
-        self.log(f"__get_and_process_fm_sensors base_url: {base_url}.")
-        c.FM_TRIGGER_URL = base_url + c.FM_SCHEDULE_TRIGGER_SLUG
-        self.log(f"__get_and_process_fm_sensors c.FM_TRIGGER_URL: {c.FM_TRIGGER_URL}.")
-        c.FM_GET_SCHEDULE_URL = base_url + c.FM_SCHEDULE_SLUG
-        self.log(f"__get_and_process_fm_sensors c.FM_GET_SCHEDULE_URL: {c.FM_GET_SCHEDULE_URL}.")
+            self.log(f"__get_and_process_fm_sensors, (own_prices): \n"
+                     f"    c.FM_PRICE_CONSUMPTION_SENSOR_ID:  {c.FM_PRICE_CONSUMPTION_SENSOR_ID}. \n"
+                     f"    c.FM_PRICE_PRODUCTION_SENSOR_ID:  {c.FM_PRICE_PRODUCTION_SENSOR_ID}. \n"
+                     f"    c.FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.")
 
         await self.__set_fm_optimisation_context()
         await self.__collect_action_triggers(source="changed FM sensors")
@@ -695,8 +683,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 message=message,
                 notification_id=notification_id
             )
-        except:
-            self.log("create_persistent_notification failed!")
+        except Exception as e:
+            self.log(f"create_persistent_notification failed! Exception: '{e}'")
 
     async def __write_setting_to_ha(self, setting: dict, setting_value, min_allowed_value=None, max_allowed_value=None):
         """
@@ -1162,7 +1150,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.log("__read_and_process_calendar_settings completed")
 
     async def __read_and_process_fm_client_settings(self, entity=None, attribute=None, old=None, new=None, kwargs=None):
-        # Split for future when the python lib fm_client is used: that needs to be re-inited
+        # Split for future when the python lib fm_client_app is used: that needs to be re-inited
         self.log("__read_and_process_fm_client_settings called")
 
         callback_method = self.__read_and_process_fm_client_settings
@@ -1178,41 +1166,6 @@ class V2GLibertyGlobals(ServiceResponseApp):
             setting_object=self.SETTING_FM_BASE_URL,
             callback=callback_method
         )
-
-        ##### Can be removed of flexmeasures_client library is used everywhere #####
-        # Set all FM related constants based upon the base url
-        c.FM_BASE_API_URL = c.FM_BASE_URL + "/api/"
-
-        # URL for checking if API is alive
-        # https://seita.energy/api/ops/ping
-        c.FM_PING_URL = c.FM_BASE_API_URL + "ops/ping"
-
-        # URL for authentication on FM
-        # https://seita.energy/api/requestAuthToken
-        c.FM_AUTHENTICATION_URL = c.FM_BASE_API_URL + "requestAuthToken"
-
-        # URL for retrieval of the sensors
-        # https://seita.energy/api/v3_0/sensors
-        c.FM_SENSOR_URL = c.FM_BASE_API_URL + c.FM_API_VERSION + "/sensors"
-
-        # URL for retrieval of the schedules
-        # https://seita.energy/api/v3_0/sensors/XX/schedules/trigger
-        # https://seita.energy/api/v3_0/sensors/XX/schedules/SI
-        # Where XX is the sensor_id and SI is the schedule_id
-        # Please note that c.FM_SENSOR_URL has no trailing /, it must be added
-        c.FM_SCHEDULE_SLUG = "/schedules/"
-        c.FM_SCHEDULE_TRIGGER_SLUG = c.FM_SCHEDULE_SLUG + "trigger"
-
-        # URL for getting data for the chart:
-        # https://seita.energy/api/dev/sensor/XX/chart_data/
-        # Where XX is the sensor_id
-        c.FM_GET_DATA_URL = c.FM_BASE_API_URL + "dev/sensor/"
-        c.FM_GET_DATA_SLUG = "/chart_data/"
-
-        # URL for sending metering data to FM:
-        # https://seita.energy/api/v3_0/sensors/data
-        c.FM_SET_DATA_URL = c.FM_BASE_API_URL + c.FM_API_VERSION + "/sensors/data"
-        self.log(f"__read_and_process_fm_client_settings c.FM_SET_DATA_URL: {c.FM_SET_DATA_URL}.")
 
         # If the above settings change (through the UI) we need the user to re-test the FM connection
         # Do not set this at startup, tested by self.collect_action_handle is not None
@@ -1248,6 +1201,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 callback=callback_method
             )
             c.UTILITY_CONTEXT_DISPLAY_NAME = "Amber Electric"
+            c.EMISSIONS_UOM = "%"
+            c.CURRENCY = "AUD"
+            c.PRICE_RESOLUTION_MINUTES = 30
 
             await self.__cancel_setting_listener(self.SETTING_OCTOPUS_IMPORT_CODE)
             await self.__cancel_setting_listener(self.SETTING_OCTOPUS_EXPORT_CODE)
@@ -1267,6 +1223,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 callback=callback_method
             )
             c.UTILITY_CONTEXT_DISPLAY_NAME = "Octopus Energy"
+            c.EMISSIONS_UOM = "kg/MWh"
+            c.CURRENCY = "GBP"
+            c.PRICE_RESOLUTION_MINUTES = 30
 
             await self.__cancel_setting_listener(self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID)
             await self.__cancel_setting_listener(self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID)
@@ -1276,6 +1235,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 c.ELECTRICITY_PROVIDER,
                 c.DEFAULT_UTILITY_CONTEXTS["nl_generic"],
             )
+            c.EMISSIONS_UOM = "kg/MWh"
+            c.CURRENCY = "EUR"
+            c.PRICE_RESOLUTION_MINUTES = 60
             # TODO Notify user if fallback "nl_generic" is used..
             c.FM_PRICE_PRODUCTION_SENSOR_ID = context["production-sensor"]
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
@@ -1377,10 +1339,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         self.log(f"__collective_action, called with source: '{source}'.")
 
-        if self.evse_client is not None:
-            await self.evse_client.initialise_charger(v2g_args=source)
+        if self.evse_client_app is not None:
+            await self.evse_client_app.initialise_charger(v2g_args=source)
         else:
-            self.log("__collective_action. Could not call initialise_charger on evse_client as it is None.")
+            self.log("__collective_action. Could not call initialise_charger on evse_client_app as it is None.")
 
         if self.calendar_client is not None:
             await self.calendar_client.initialise_calendar()
@@ -1488,8 +1450,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
             # the listener without first checking if it is still active.
             try:
                 await self.cancel_listen_state(listener_id)
-            except:
-                pass
+            except Exception as e:
+                self.log(f"__cancel_setting_listener, exception: {e}")
         setting_object['listener_id'] = None
 
 
@@ -1526,6 +1488,10 @@ def time_ceil(time_to_ceil, delta, epoch=None):
         return time_to_ceil + (delta - mod)
     return time_to_ceil
 
+def time_floor(time_to_floor, delta, epoch=None):
+    mod = time_mod(time_to_floor, delta, epoch)
+    return time_to_floor - mod
+
 
 def get_local_now():
     return datetime.now(tz=c.TZ)
@@ -1556,6 +1522,14 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
     Returns:
         str: a duration string e.g. PT9H35M
     """
-    hours = math.floor(duration_in_minutes / 60)
-    minutes = duration_in_minutes - hours * 60
-    return "PT" + str(hours) + "H" + str(minutes) + "M"
+    duration_in_minutes = round(duration_in_minutes, c.FM_EVENT_RESOLUTION_IN_MINUTES)
+    MIH = 60 # Minutes In an Hour
+    MID = MIH * 24 # Minutes In a Day
+    days = math.floor(duration_in_minutes / MID)
+    hours = math.floor((duration_in_minutes - (days * MID)) / 60)
+    minutes = int(duration_in_minutes - (hours * MIH) - (days * MID))
+    if days > 0:
+        str_days = str(days) + "D"
+    else:
+        str_days = ""
+    return f"P{str_days}T{str(hours)}H{str(minutes)}M"

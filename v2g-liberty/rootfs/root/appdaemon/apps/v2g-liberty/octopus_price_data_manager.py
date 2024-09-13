@@ -19,9 +19,6 @@ class ManageOctopusPriceData(hass.Hass):
     https://github.com/badguy99/octoblock
 
     """
-    RESOLUTION_TIMEDELTA: timedelta
-
-
     COLLECTION_NAME: str = "results"
     PRICE_LABEL: str = "value_inc_vat"
     START_LABEL: str = "valid_from"
@@ -37,7 +34,7 @@ class ManageOctopusPriceData(hass.Hass):
 
     daily_timer_id: str = ""
 
-    set_fm_data_module: object = None
+    fm_client_app: object = None
     get_fm_data_module: object = None
 
     # Octopus price urls
@@ -82,9 +79,7 @@ class ManageOctopusPriceData(hass.Hass):
         # self.CURRENCY = "EUR"
         self.UOM = f"{self.CURRENCY}/MWh"
 
-        self.RESOLUTION_TIMEDELTA = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
-
-        self.set_fm_data_module = await self.get_app("set_fm_data")
+        self.fm_client_app = await self.get_app("fm_client")
         self.get_fm_data_module = await self.get_app("get_fm_data")
 
         # Emission data is calculated based on the production data and is therefore available a little later
@@ -140,7 +135,7 @@ class ManageOctopusPriceData(hass.Hass):
 
         if self.info_timer(self.daily_timer_id):
             await self.cancel_timer(self.daily_timer_id, True)
-        self.daily_timer_id = self.run_daily(self.__daily_kickoff_prices_emissions, self.first_try_time_get_data)
+        self.daily_timer_id = self.run_daily(self.__daily_kickoff_prices_emissions, start=self.first_try_time_get_data)
 
         # Always do the kickoff at startup.
         await self.__daily_kickoff_prices_emissions()
@@ -181,17 +176,23 @@ class ManageOctopusPriceData(hass.Hass):
                 round(float(price[self.PRICE_LABEL]) * self.PENCE_PER_KWH_TO_POUNDS_PER_MWH_FACTOR, 2)
             )
 
-        start = self.parse_to_rounded_local_datetime(prices[0][self.START_LABEL])
-        end = self.parse_to_rounded_local_datetime(prices[-1][self.END_LABEL])
+        start = parse_to_rounded_local_datetime(prices[0][self.START_LABEL])
+        end = parse_to_rounded_local_datetime(prices[-1][self.END_LABEL])
         duration = int(float(((end - start).total_seconds() / 60)))
         duration = convert_to_duration_string(duration)
-        res = self.set_fm_data_module.post_data(
-            fm_entity_address=c.FM_PRICE_CONSUMPTION_ENTITY_ADDRESS,
-            values=consumption_prices,
-            start=start,
-            duration=duration,
-            uom=self.UOM
-        )
+
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.post_measurements(
+                sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                values = consumption_prices,
+                start = start,
+                duration = duration,
+                uom = self.UOM,
+            )
+        else:
+            self.log(f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None.")
+            res = False
+
         self.log(f"__get_octopus_import_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
@@ -225,17 +226,23 @@ class ManageOctopusPriceData(hass.Hass):
                 round(float(price[self.PRICE_LABEL]) * self.PENCE_PER_KWH_TO_POUNDS_PER_MWH_FACTOR, 2)
             )
 
-        start = self.parse_to_rounded_local_datetime(prices[0][self.START_LABEL])
-        end = self.parse_to_rounded_local_datetime(prices[-1][self.END_LABEL])
+        start = parse_to_rounded_local_datetime(prices[0][self.START_LABEL])
+        end = parse_to_rounded_local_datetime(prices[-1][self.END_LABEL])
         duration = int(float(((end - start).total_seconds() / 60)))
         duration = convert_to_duration_string(duration)
-        res = self.set_fm_data_module.post_data(
-            fm_entity_address=c.FM_PRICE_PRODUCTION_ENTITY_ADDRESS,
-            values=production_prices,
-            start=start,
-            duration=duration,
-            uom=self.UOM
-        )
+
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.post_measurements(
+                sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                values = production_prices,
+                start = start,
+                duration = duration,
+                uom = self.UOM,
+            )
+        else:
+            self.log(f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None.")
+            res = False
+
         self.log(f"__get_octopus_export_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
@@ -273,18 +280,28 @@ class ManageOctopusPriceData(hass.Hass):
             self.log(f"__get_gb_region_emissions. exception reading JSON: {e}.")
             return
 
-        start = self.parse_to_rounded_local_datetime(emissions[0]['from'])
-        end = self.parse_to_rounded_local_datetime(emissions[-1]['to'])
+        start = parse_to_rounded_local_datetime(emissions[0]['from'])
+        end = parse_to_rounded_local_datetime(emissions[-1]['to'])
         duration = int(float(((end - start).total_seconds() / 60)))
         duration = convert_to_duration_string(duration)
 
-        res = self.set_fm_data_module.post_data(
-            fm_entity_address=c.FM_EMISSIONS_ENTITY_ADDRESS,
-            values=emission_intensities,
-            start=start,
-            duration=duration,
-            uom=self.EMISSIONS_UOM
-        )
+        ##########################################################################
+        # TESTDATA: Currency = EUR, moet GBP zijn! Wordt in class definitie al gezet.
+        ##########################################################################
+        # self.log(f"__get_gb_region_emissions, TESTDATA: self.EMISSIONS_UOM = %, moet kg/MWh zijn!", level="WARNING")
+        # self.EMISSIONS_UOM = "%"
+
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.post_measurements(
+                sensor_id = c.FM_EMISSIONS_SENSOR_ID,
+                values = emission_intensities,
+                start = start,
+                duration = duration,
+                uom = self.EMISSIONS_UOM,
+            )
+        else:
+            self.log(f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None.")
+            res = False
 
         self.log(f"__get_gb_region_emissions res: {res}.")
         if res:
@@ -295,9 +312,9 @@ class ManageOctopusPriceData(hass.Hass):
                          "get_fm_data_module as it is None.")
 
 
-    # TODO: Make generic function in globals, it is copied from Amber module.
-    def parse_to_rounded_local_datetime(self, date_time: str) -> datetime:
-        date_time = date_time.replace(" ", "T")
-        date_time = isodate.parse_datetime(date_time).astimezone(c.TZ)
-        date_time = time_round(date_time, self.RESOLUTION_TIMEDELTA)
-        return date_time
+# TODO: Make generic function in globals, it is copied from Amber module.
+def parse_to_rounded_local_datetime(date_time: str) -> datetime:
+    date_time = date_time.replace(" ", "T")
+    date_time = isodate.parse_datetime(date_time).astimezone(c.TZ)
+    date_time = time_round(date_time, c.EVENT_RESOLUTION)
+    return date_time
