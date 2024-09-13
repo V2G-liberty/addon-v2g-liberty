@@ -43,7 +43,6 @@ class ManageAmberPriceData(hass.Hass):
     START_LABEL: str = "start_time"
     END_LABEL: str = "end_time"
 
-    RESOLUTION_TIMEDELTA: timedelta
     POLLING_INTERVAL_SECONDS: int
     CURRENCY: str = "AUD"
 
@@ -55,9 +54,10 @@ class ManageAmberPriceData(hass.Hass):
 
     poll_timer_handle: object
 
-    set_fm_data_module: object
-    v2g_main_app: object
-    get_fm_data_module: object
+    v2g_main_app: object = None
+    get_fm_data_module: object = None
+    fm_client_app: object = None
+
 
     async def initialize(self):
         self.log(f"Initializing ManageAmberPriceData.")
@@ -68,9 +68,8 @@ class ManageAmberPriceData(hass.Hass):
         # self.log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!")
         # self.CURRENCY = "EUR"
 
-        self.RESOLUTION_TIMEDELTA = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         self.POLLING_INTERVAL_SECONDS = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
-        self.set_fm_data_module = await self.get_app("set_fm_data")
+        self.fm_client_app = await self.get_app("fm_client")
         self.v2g_main_app = await self.get_app("v2g_liberty")
         self.get_fm_data_module = await self.get_app("get_fm_data")
         self.poll_timer_handle = None
@@ -96,7 +95,7 @@ class ManageAmberPriceData(hass.Hass):
             self.log(f"kick_off_amber_price_management starting!")
 
         if initial:
-            self.__check_for_price_changes({'forced': True})
+            await self.__check_for_price_changes({'forced': True})
 
         if self.info_timer(self.poll_timer_handle):
             silent = True  # Does not really work
@@ -109,16 +108,6 @@ class ManageAmberPriceData(hass.Hass):
         )
 
         self.log(f"kick_off_amber_price_management completed")
-
-
-    # TODO: Make generic function in globals, it is copied to Octopus module.
-    def parse_to_rounded_local_datetime(self, date_time: str) -> datetime:
-        # self.log(f"parse_to_rounded_local_datetime, original: {date_time}.")
-        date_time = date_time.replace(" ", "T")
-        date_time = isodate.parse_datetime(date_time).astimezone(c.TZ)
-        date_time = time_round(date_time, self.RESOLUTION_TIMEDELTA)
-        # self.log(f"parse_to_rounded_local_datetime, with  TZ: {date_time.isoformat()}.")
-        return date_time
 
     async def __check_for_price_changes(self, kwargs):
         """ Checks if prices have changed.
@@ -147,19 +136,25 @@ class ManageAmberPriceData(hass.Hass):
 
         if consumption_prices != self.last_consumption_prices or forced:
             self.log("__check_for_price_changes: consumption_prices changed")
-            start_cpf = self.parse_to_rounded_local_datetime(collection_cpf[0][self.START_LABEL])
-            end_cpf = self.parse_to_rounded_local_datetime(collection_cpf[-1][self.END_LABEL])
+            start_cpf = parse_to_rounded_local_datetime(collection_cpf[0][self.START_LABEL])
+            end_cpf = parse_to_rounded_local_datetime(collection_cpf[-1][self.END_LABEL])
             duration_cpf = int(float(((end_cpf - start_cpf).total_seconds() / 60)))
             duration_cpf = convert_to_duration_string(duration_cpf)
             self.last_consumption_prices = list(consumption_prices)
             uom = f"{self.CURRENCY}/MWh"
-            res = self.set_fm_data_module.post_data(
-                fm_entity_address=c.FM_PRICE_CONSUMPTION_ENTITY_ADDRESS,
-                values=consumption_prices,
-                start=start_cpf,
-                duration=duration_cpf,
-                uom=uom
-            )
+
+            if self.fm_client_app is not None:
+                res = await self.fm_client_app.post_measurements(
+                    sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                    values = consumption_prices,
+                    start = start_cpf,
+                    duration = duration_cpf,
+                    unit = uom,
+                )
+            else:
+                self.log(f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None.")
+                res = False
+
             if res:
                 if self.get_fm_data_module is not None:
                     await self.get_fm_data_module.get_consumption_prices()
@@ -174,18 +169,24 @@ class ManageAmberPriceData(hass.Hass):
         if emissions != self.last_emissions or forced:
             self.log("__check_for_price_changes: emissions changed")
             # TODO: copied code from previous block, please prevent this.
-            start_cpf = self.parse_to_rounded_local_datetime(collection_cpf[0][self.START_LABEL])
-            end_cpf = self.parse_to_rounded_local_datetime(collection_cpf[-1][self.END_LABEL])
+            start_cpf = parse_to_rounded_local_datetime(collection_cpf[0][self.START_LABEL])
+            end_cpf = parse_to_rounded_local_datetime(collection_cpf[-1][self.END_LABEL])
             duration_cpf = int(float(((end_cpf - start_cpf).total_seconds() / 60)))  # convert sec. to min.
             duration_cpf = convert_to_duration_string(duration_cpf)
             self.last_emissions = list(emissions)
-            res = self.set_fm_data_module.post_data(
-                fm_entity_address=c.FM_EMISSIONS_ENTITY_ADDRESS,
-                values=emissions,
-                start=start_cpf,
-                duration=duration_cpf,
-                uom="%"
-            )
+
+            if self.fm_client_app is not None:
+                res = await self.fm_client_app.post_measurements(
+                    sensor_id = c.FM_EMISSIONS_SENSOR_ID,
+                    values = emissions,
+                    start = start_cpf,
+                    duration = duration_cpf,
+                    unit = "%",
+                )
+            else:
+                self.log(f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None.")
+                res = False
+
             if res:
                 if c.OPTIMISATION_MODE != "price":
                     new_schedule_needed = True
@@ -209,18 +210,24 @@ class ManageAmberPriceData(hass.Hass):
         if production_prices != self.last_production_prices or forced:
             self.log("__check_for_price_changes: production_prices changed")
             self.last_production_prices = list(production_prices)
-            start_ppf = self.parse_to_rounded_local_datetime(collection_ppf[0][self.START_LABEL])
-            end_ppf = self.parse_to_rounded_local_datetime(collection_ppf[-1][self.END_LABEL])
+            start_ppf = parse_to_rounded_local_datetime(collection_ppf[0][self.START_LABEL])
+            end_ppf = parse_to_rounded_local_datetime(collection_ppf[-1][self.END_LABEL])
             duration_ppf = int(float(((end_ppf - start_ppf).total_seconds() / 60)))
             duration_ppf = convert_to_duration_string(duration_ppf)
             uom = f"{self.CURRENCY}/MWh"
-            res = self.set_fm_data_module.post_data(
-                fm_entity_address=c.FM_PRICE_PRODUCTION_ENTITY_ADDRESS,
-                values=production_prices,
-                start=start_ppf,
-                duration=duration_ppf,
-                uom=uom
-            )
+
+            if self.fm_client_app is not None:
+                res = await self.fm_client_app.post_measurements(
+                    sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                    values = production_prices,
+                    start = start_ppf,
+                    duration = duration_ppf,
+                    unit = uom,
+                )
+            else:
+                self.log(f"__check_for_price_changes. 2 Could not call post_measurements on fm_client_app as it is None.")
+                res = False
+
             if res:
                 if self.get_fm_data_module is not None:
                     await self.get_fm_data_module.get_production_prices()
@@ -242,3 +249,10 @@ class ManageAmberPriceData(hass.Hass):
         else:
             self.log("__check_for_price_changes. Could not call set_next_action on v2g_main_app as it is None.")
 
+
+# TODO: Make generic function in globals, it is copied to Octopus module.
+def parse_to_rounded_local_datetime(date_time: str) -> datetime:
+    date_time = date_time.replace(" ", "T")
+    date_time = isodate.parse_datetime(date_time).astimezone(c.TZ)
+    date_time = time_round(date_time, c.EVENT_RESOLUTION)
+    return date_time

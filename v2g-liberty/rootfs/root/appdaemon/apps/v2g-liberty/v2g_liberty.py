@@ -16,7 +16,7 @@ class V2Gliberty(hass.Hass):
     """ This class manages the bi-directional charging process.
     For this it communicates with:
     + The EVSE client, that communicates with the EV
-    + The fm_client, that communicates with the FlexMeasures platform (which delivers the charging schedules).
+    + The fm_client_app, that communicates with the FlexMeasures platform (which delivers the charging schedules).
     + Retrieves the calendar items
 
     This class is the primarily responsible module for providing information to the UI. The EVSE client
@@ -26,8 +26,6 @@ class V2Gliberty(hass.Hass):
     # CONSTANTS
     # TODO: Move to EVSE client?
     DISCONNECTED_STATE: int = 0
-    # Fail-safe for processing schedules that might have schedule with too high update frequency
-    MIN_RESOLUTION: timedelta
     HA_NAME: str = ""
 
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
@@ -64,14 +62,13 @@ class V2Gliberty(hass.Hass):
     user_was_notified_of_no_schedule: bool
     no_schedule_notification_is_planned: bool
 
-    evse_client: object = None
-    fm_client: object = None
+    evse_client_app: object = None
+    fm_client_app: object = None
     reservations_client: object = None
 
     async def initialize(self):
         self.log("Initializing V2Gliberty")
 
-        self.MIN_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
         self.HA_NAME = await self.get_state("zone.home", attribute="friendly_name")
         self.log(f"Name of HA instance: '{self.HA_NAME}'.")
 
@@ -101,8 +98,8 @@ class V2Gliberty(hass.Hass):
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
 
-        self.evse_client = await self.get_app("modbus_evse_client")
-        self.fm_client = await self.get_app("fm_client")
+        self.evse_client_app = await self.get_app("modbus_evse_client")
+        self.fm_client_app = await self.get_app("fm_client")
         self.reservations_client = await self.get_app("reservations-client")
 
         self.listen_state(self.__update_charge_mode, "input_select.charge_mode", attribute="all")
@@ -117,24 +114,24 @@ class V2Gliberty(hass.Hass):
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__set_soc_prognosis_boost_in_ui()
-        await self.__set_soc_prognosis_in_ui()
+        self.__set_soc_prognosis_in_ui()
 
         ####### V2G Liberty init complete ################
-        if self.evse_client is not None:
-            await self.evse_client.complete_init()
+        if self.evse_client_app is not None:
+            await self.evse_client_app.complete_init()
         else:
-            self.log(f"initialize. Could not call evse_client.complete_init. evse_client is None, not init yet?")
+            self.log(f"initialize. Could not call evse_client_app.complete_init. evse_client_app is None, not init yet?")
 
         charge_mode = await self.get_state("input_select.charge_mode")
-        if self.evse_client is not None:
+        if self.evse_client_app is not None:
             if charge_mode == "Stop":
                 self.log("initialize. Charge_mode == 'Stop' -> Setting EVSE client to in_active!")
-                await self.evse_client.set_inactive()
+                await self.evse_client_app.set_inactive()
             else:
                 self.log("initialize.  Charge_mode != 'Stop' -> Setting EVSE client to active!")
-                await self.evse_client.set_active()
+                await self.evse_client_app.set_active()
         else:
-            self.log(f"initialize. Could not call set_(in)active on evse_client as it is None, not init yet?")
+            self.log(f"initialize. Could not call set_(in)active on evse_client_app as it is None, not init yet?")
 
         current_soc = await self.get_state("sensor.charger_connected_car_state_of_charge")
         await self.__process_soc(current_soc)
@@ -232,7 +229,7 @@ class V2Gliberty(hass.Hass):
             - no communication with FM
             They can occur simultaneously/overlapping, so they are accumulated in
             the dictionary self.no_schedule_errors.
-            To be called from fm_client.
+            To be called from fm_client_app.
         """
 
         if error_name in self.no_schedule_errors:
@@ -246,7 +243,7 @@ class V2Gliberty(hass.Hass):
     async def notify_user_of_charger_needs_restart(self, was_car_connected: bool):
         """Notify admin with critical message of a presumably crashed modbus server
            module in the charger.
-           To be called from modbus_evse_client module.
+           To be called from evse_client_app.
         """
         # Assume the charger has crashed.
         self.log(f"The charger probably crashed, notifying user")
@@ -308,10 +305,10 @@ class V2Gliberty(hass.Hass):
         if old_state == 'Max boost now' and new_state == 'Automatic':
             # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
             # Let schedule (later) decide if starting is needed
-            if self.evse_client is not None:
-                await self.evse_client.stop_charging()
+            if self.evse_client_app is not None:
+                await self.evse_client_app.stop_charging()
             else:
-                self.log("__update_charge_mode. Could not call stop_charging on evse_client as it is None.")
+                self.log("__update_charge_mode. Could not call stop_charging on evse_client_app as it is None.")
 
         if old_state != 'Stop' and new_state == 'Stop':
             # New mode "Stop" is handled by set_next_action
@@ -319,16 +316,16 @@ class V2Gliberty(hass.Hass):
             # Cancel previous scheduling timers
             await self.__cancel_charging_timers()
             self.in_boost_to_reach_min_soc = False
-            if self.evse_client is not None:
-                await self.evse_client.set_inactive()
+            if self.evse_client_app is not None:
+                await self.evse_client_app.set_inactive()
             else:
-                self.log("__update_charge_mode. Could not call set_inactive on evse_client as it is None.")
+                self.log("__update_charge_mode. Could not call set_inactive on evse_client_app as it is None.")
 
         if old_state == 'Stop' and new_state != 'Stop':
-            if self.evse_client is not None:
-                await self.evse_client.set_active()
+            if self.evse_client_app is not None:
+                await self.evse_client_app.set_active()
             else:
-                self.log("__update_charge_mode. Could not call set_active on evse_client as it is None.")
+                self.log("__update_charge_mode. Could not call set_active on evse_client_app as it is None.")
 
         await self.set_next_action(v2g_args="__update_charge_mode")
         return
@@ -350,12 +347,12 @@ class V2Gliberty(hass.Hass):
         self.log("************* Disconnect charger requested *************")
         await self.__reset_no_new_schedule()
 
-        if self.evse_client is not None:
-            await self.evse_client.stop_charging()
+        if self.evse_client_app is not None:
+            await self.evse_client_app.stop_charging()
             message="Charger is disconnected"
         else:
             message="Charger cloud not be disconnected, please check the app."
-            self.log("__disconnect_charger. Could not call stop_charging on evse_client as it is None.")
+            self.log("__disconnect_charger. Could not call stop_charging on evse_client_app as it is None.")
 
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
         self.notify_user(
@@ -412,8 +409,8 @@ class V2Gliberty(hass.Hass):
             await self.set_next_action(v2g_args="__handle_charger_state_change")
             return
 
-        # Handling errors is left to the evse_client as this knows what specific situations there are for
-        # the charger. If the charger needs a restart the evse_client calls notify_user_of_charger_needs_restart
+        # Handling errors is left to the evse_client_app as this knows what specific situations there are for
+        # the charger. If the charger needs a restart the evse_client_app calls notify_user_of_charger_needs_restart
         return
 
     ######################################################################
@@ -594,7 +591,7 @@ class V2Gliberty(hass.Hass):
         targets = []
         is_first_reservation = True
         if car_reservations is not None and len(car_reservations) > 0:
-            # Adding the target one week from now is FM specific, so this is done in the fm_client
+            # Adding the target one week from now is FM specific, so this is done in the fm_client_app
             for car_reservation in car_reservations:
                 if car_reservation == 'un-initiated':
                     self.log(f"__ask_for_new_schedule, reservation: {car_reservation}."
@@ -606,8 +603,8 @@ class V2Gliberty(hass.Hass):
                 if car_reservation['dismissed']:
                     continue
 
-                target_start = time_round(car_reservation['start'], self.MIN_RESOLUTION)
-                target_end = time_round(car_reservation['end'], self.MIN_RESOLUTION)
+                target_start = time_round(car_reservation['start'], c.EVENT_RESOLUTION)
+                target_end = time_round(car_reservation['end'], c.EVENT_RESOLUTION)
                 target_soc_kwh = round(float(car_reservation['target_soc_percent'])
                                        / 100 * c.CAR_MAX_CAPACITY_IN_KWH, 2)
                 # Check target_soc above max_capacity and below min_soc is done in reservations_client
@@ -651,15 +648,15 @@ class V2Gliberty(hass.Hass):
             # End for car_reservation loop
         # self.log(f"__ask_for_new_schedule, targets: '{targets}'.")
 
-        # self.log(f"__ask_for_new_schedule calling get_new_schedule on self.fm_client: {self.fm_client}.")
-        if self.fm_client is not None:
-            await self.fm_client.get_new_schedule(
+        # self.log(f"__ask_for_new_schedule calling get_new_schedule on self.fm_client_app: {self.fm_client_app}.")
+        if self.fm_client_app is not None:
+            await self.fm_client_app.get_new_schedule(
                 targets=targets,
                 current_soc_kwh=self.connected_car_soc_kwh,
                 back_to_max_soc=self.back_to_max_soc
             )
         else:
-            self.log(f"__ask_for_new_schedule. Could not call get_new_schedule on fm_client as it is None.")
+            self.log(f"__ask_for_new_schedule. Could not call get_new_schedule on fm_client_app as it is None.")
 
         return
 
@@ -668,10 +665,10 @@ class V2Gliberty(hass.Hass):
         self.log(f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}.")
 
         is_car_connected = True
-        if self.evse_client is not None:
-            is_car_connected = await self.evse_client.is_car_connected()
+        if self.evse_client_app is not None:
+            is_car_connected = await self.evse_client_app.is_car_connected()
         else:
-            self.log(f"__ask_user_dismiss_event_or_not. Could not call is_car_connected on evse_client as it is None.")
+            self.log(f"__ask_user_dismiss_event_or_not. Could not call is_car_connected on evse_client_app as it is None.")
 
         if is_car_connected:
             v2g_event = v2g_event['v2g_event']
@@ -721,10 +718,10 @@ class V2Gliberty(hass.Hass):
         """
         self.log("__process_schedule called, triggered by change in input_text.chargeschedule.")
 
-        if self.evse_client is not None:
-            is_car_connected = await self.evse_client.is_car_connected()
+        if self.evse_client_app is not None:
+            is_car_connected = await self.evse_client_app.is_car_connected()
         else:
-            self.log(f"__process_schedule. Could not call is_car_connected on evse_client as it is None.")
+            self.log(f"__process_schedule. Could not call is_car_connected on evse_client_app as it is None.")
             return
 
         if not is_car_connected:
@@ -756,9 +753,9 @@ class V2Gliberty(hass.Hass):
         start = isodate.parse_datetime(start)
 
         # Check against expected control signal resolution
-        if resolution < self.MIN_RESOLUTION:
+        if resolution < c.EVENT_RESOLUTION:
             self.log(f"__process_schedule aborted: the resolution ({resolution}) is below "
-                     f"the set minimum ({self.MIN_RESOLUTION}).")
+                     f"the set minimum ({c.EVENT_RESOLUTION}).")
             await self.handle_no_new_schedule("invalid_schedule", True)
             return
 
@@ -782,13 +779,13 @@ class V2Gliberty(hass.Hass):
             if t > now:
                 # AJO 17-10-2021
                 # ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
-                h = await self.run_at(self.evse_client.start_charge_with_power, t, charge_power=value * MW_TO_W_FACTOR)
+                h = await self.run_at(self.evse_client_app.start_charge_with_power, t, charge_power=value * MW_TO_W_FACTOR)
                 # self.log(f"Timer info: {self.info_timer(h)}, handle type: {type(h)}.")
                 handles.append(h)
             else:
                 # self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}."
                 #          f" Setting it immediately instead.")
-                await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=value * MW_TO_W_FACTOR))
+                await self.evse_client_app.start_charge_with_power(kwargs=dict(charge_power=value * MW_TO_W_FACTOR))
 
         # This also cancels previous timers
         await self.__reset_charging_timers(handles)
@@ -797,13 +794,13 @@ class V2Gliberty(hass.Hass):
         exp_soc_values = list(
             accumulate(
                 [self.connected_car_soc] + convert_MW_to_percentage_points(
-                    values,
-                    resolution,
-                    c.CAR_MAX_CAPACITY_IN_KWH,
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR
+                        values,
+                        resolution,
+                        c.CAR_MAX_CAPACITY_IN_KWH,
+                        c.ROUNDTRIP_EFFICIENCY_FACTOR
+                    )
                 )
             )
-        )
 
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
@@ -863,13 +860,13 @@ class V2Gliberty(hass.Hass):
         await self.set_state("input_text.soc_prognosis_boost", state=new_state, attributes=result)
 
     async def __start_max_charge_now(self):
-        if self.evse_client is not None:
+        if self.evse_client_app is not None:
             # TODO: Check if .set_active() is really a good idea here?
             #       If the client is not active there might be a good reason for that...
-            await self.evse_client.set_active()
-            await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=c.CHARGER_MAX_CHARGE_POWER))
+            await self.evse_client_app.set_active()
+            await self.evse_client_app.start_charge_with_power(kwargs=dict(charge_power=c.CHARGER_MAX_CHARGE_POWER))
         else:
-            self.log(f"__start_max_charge_now. Could not call methods on evse_client as it is None.")
+            self.log(f"__start_max_charge_now. Could not call methods on evse_client_app as it is None.")
 
 
     async def __process_soc(self, reported_soc: str) -> bool:
@@ -897,10 +894,10 @@ class V2Gliberty(hass.Hass):
         self.log(f"New SoC processed, self.connected_car_soc_kwh is now set to: {self.connected_car_soc_kwh}kWh.")
         self.log(f"New SoC processed, car_remaining_range is now set to: {remaining_range} km.")
 
-        if self.evse_client is not None:
-            is_charging = await self.evse_client.is_charging()
+        if self.evse_client_app is not None:
+            is_charging = await self.evse_client_app.is_charging()
         else:
-            self.log(f"__process_soc. Could not call is_charging on evse_client as it is None.")
+            self.log(f"__process_soc. Could not call is_charging on evse_client_app as it is None.")
             return False
         # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge while charging (not dis-charging).
         if is_charging and self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT:
@@ -933,14 +930,10 @@ class V2Gliberty(hass.Hass):
             source = "unknown"
         self.log(f"Set next action called from source: {source}.")
 
-        # Make sure this function gets called every x minutes to prevent a "frozen" app.
-        if self.timer_handle_set_next_action:
-            await self.__cancel_timer(self.timer_handle_set_next_action)
-
-        if self.evse_client is not None:
-            is_car_connected = await self.evse_client.is_car_connected()
+        if self.evse_client_app is not None:
+            is_car_connected = await self.evse_client_app.is_car_connected()
         else:
-            self.log(f"set_next_action. Can not call is_car_connected on evse_client, is None. Try again in 15s")
+            self.log(f"set_next_action. Can not call is_car_connected on evse_client_app, is None. Try again in 15s")
             # Retry in 15 seconds
             self.timer_handle_set_next_action = await self.run_in(
                 self.set_next_action,
@@ -957,14 +950,14 @@ class V2Gliberty(hass.Hass):
             self.log("No car connected or error, stopped setting next action.")
             return
 
-        if self.evse_client is not None:
-            try_get_new_soc_in_process = self.evse_client.try_get_new_soc_in_process
+        if self.evse_client_app is not None:
+            try_get_new_soc_in_process = self.evse_client_app.try_get_new_soc_in_process
         else:
-            self.log(f"set_next_action. Could not call try_get_new_soc_in_process on evse_client as it is None.")
+            self.log(f"set_next_action. Could not call try_get_new_soc_in_process on evse_client_app as it is None.")
             return
 
         if try_get_new_soc_in_process:
-            self.log("set_next_action: evse_client.try_get_new_soc_in_process, stopped setting next action.")
+            self.log("set_next_action: evse_client_app.try_get_new_soc_in_process, stopped setting next action.")
             return
 
         if self.connected_car_soc == 0:
@@ -977,7 +970,7 @@ class V2Gliberty(hass.Hass):
         if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
             now = get_local_now()
             self.back_to_max_soc = time_round((now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
-                                              self.MIN_RESOLUTION)
+                                              c.EVENT_RESOLUTION)
             self.log(
                 f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
         elif (self.back_to_max_soc is not None) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
@@ -1033,11 +1026,11 @@ class V2Gliberty(hass.Hass):
 
             if self.connected_car_soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.log(f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost.")
-                if self.evse_client is not None:
-                    await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=0))
+                if self.evse_client_app is not None:
+                    await self.evse_client_app.start_charge_with_power(kwargs=dict(charge_power=0))
                 else:
                     self.log(f"set_next_action. Could not call start_charge_with_power to stop max_boost "
-                             f"on evse_client as it is None.")
+                             f"on evse_client_app as it is None.")
                     return
                 self.log(f"Stopping max charge now.")
                 self.in_boost_to_reach_min_soc = False
@@ -1048,17 +1041,17 @@ class V2Gliberty(hass.Hass):
                 # Fail-safe, this should not happen...
                 # Assume discharging to be safe
                 is_discharging = True
-                if self.evse_client is not None:
-                    is_discharging = await self.evse_client.is_discharging()
+                if self.evse_client_app is not None:
+                    is_discharging = await self.evse_client_app.is_discharging()
                 else:
-                    self.log(f"set_next_action. Could not call is_discharging on evse_client as it is None.")
+                    self.log(f"set_next_action. Could not call is_discharging on evse_client_app as it is None.")
                 if is_discharging:
                     self.log(f"Discharging while SoC has reached minimum ({c.CAR_MIN_SOC_IN_PERCENT}%).")
-                    if self.evse_client is not None:
-                        await self.evse_client.start_charge_with_power(kwargs=dict(charge_power=0))
+                    if self.evse_client_app is not None:
+                        await self.evse_client_app.start_charge_with_power(kwargs=dict(charge_power=0))
                     else:
                         self.log(f"set_next_action. "
-                                 f"Could not call start_charge_with_power on evse_client as it is None.")
+                                 f"Could not call start_charge_with_power on evse_client_app as it is None.")
 
             # Not checking for > max charge (97%) because we could also want to discharge based on schedule
             await self.__ask_for_new_schedule()

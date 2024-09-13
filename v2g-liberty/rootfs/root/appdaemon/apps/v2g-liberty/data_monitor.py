@@ -13,9 +13,10 @@ from v2g_globals import time_round, time_ceil
 # TODO:
 # Start times of Posting data sometimes seem incorrect, it is recommended to research them.
 
-class SetFMdata(hass.Hass):
+class DataMonitor(hass.Hass):
     """
-    App accounts and sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
+    This module monitors data changes, collects this data and formats in the right way.
+    It sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
     + Average charge power in kW
     + Availability of car and charger for automatic charging (% of time)
     + SoC of the car battery
@@ -39,11 +40,6 @@ class SetFMdata(hass.Hass):
     """
 
     # CONSTANTS
-
-    # Variables
-    # Access token for FM
-    # TODO: use fm_client instead.
-    fm_token: str = ""
 
     # Data for separate is sent in separate calls.
     # As a call might fail we keep track of when the data (times-) series has started
@@ -76,15 +72,13 @@ class SetFMdata(hass.Hass):
     soc_readings: List[Union[int, None]] = []
     connected_car_soc: Union[int, None] = None
 
-    RESOLUTION_TIMEDELTA: timedelta
-
-    evse_client: object
+    fm_client_app: object = None
+    evse_client_app: object = None
 
     async def initialize(self):
         self.log(f"Initializing SetFMdata.")
-        self.evse_client = await self.get_app("modbus_evse_client")
-
-        self.RESOLUTION_TIMEDELTA = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+        self.evse_client_app = await self.get_app("modbus_evse_client")
+        self.fm_client_app = await self.get_app("fm_client")
 
         local_now = get_local_now()
 
@@ -98,7 +92,6 @@ class SetFMdata(hass.Hass):
 
         self.listen_state(self.__handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
         self.listen_state(self.__handle_charge_mode_change, "input_select.charge_mode", attribute="all")
-
 
         # Power related initialisation
         power = await self.get_state("sensor.charger_real_charging_power", "state")
@@ -120,20 +113,17 @@ class SetFMdata(hass.Hass):
         self.listen_state(self.__handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         soc = await self.get_state("sensor.charger_connected_car_state_of_charge", "state")
         self.log(f"init soc: {soc}.")
-        if soc != "unavailable":
-            # Ignore a state change to 'unavailable'
+        if soc is not None and soc != "unavailable":
+            # Ignore a state None or 'unavailable'
             soc = int(float(soc))
             await self.__process_soc_change(soc)
 
-        self.authenticate_with_fm()
-
-        runtime = time_ceil(local_now, self.RESOLUTION_TIMEDELTA)
+        runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         self.hourly_power_readings_since = runtime
         self.hourly_availability_readings_since = runtime
         self.hourly_soc_readings_since = runtime
         self.run_every(self.__conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60)
 
-        # Reuse variables for starting hourly "send data to FM"
         resolution = timedelta(minutes=60)
         runtime = time_ceil(runtime, resolution)
         self.run_hourly(self.__try_send_data, runtime)
@@ -152,6 +142,7 @@ class SetFMdata(hass.Hass):
             reported_soc = int(round(float(reported_soc), 0))
             await self.__process_soc_change(reported_soc)
 
+
     async def __process_soc_change(self, soc: int):
         if soc == 0:
             self.connected_car_soc = None
@@ -161,10 +152,12 @@ class SetFMdata(hass.Hass):
         self.connected_car_soc = soc
         await self.__record_availability()
 
+
     async def __handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """ Handle changes in charger (car) state (eg automatic or not)"""
         self.log(f"__handle_charge_mode_change called.")
         await self.__record_availability()
+
 
     async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
         """ Handle changes in charger (car) state (eg connected or not)
@@ -181,6 +174,7 @@ class SetFMdata(hass.Hass):
             # Ignore state changes related to unavailable. These are not of influence on availability of charger/car.
             return
         await self.__record_availability()
+
 
     async def __record_availability(self, conclude_interval=False):
         """ Record (non_)availability durations of time in current interval.
@@ -207,6 +201,7 @@ class SetFMdata(hass.Hass):
 
             self.current_availability_since = local_now
 
+
     async def __handle_charge_power_change(self, entity, attribute, old, new, kwargs):
         """Handle a state change in the power sensor."""
         power = new['state']
@@ -216,6 +211,7 @@ class SetFMdata(hass.Hass):
         power = int(float(power))
         await self.__process_power_change(power)
 
+
     async def __process_power_change(self, power: int):
         """Keep track of updated power changes within a regular interval."""
         local_now = get_local_now()
@@ -224,6 +220,7 @@ class SetFMdata(hass.Hass):
         self.power_period_duration += duration
         self.current_power_since = local_now
         self.current_power = power
+
 
     async def __conclude_interval(self, *args):
         """ Conclude a regular interval.
@@ -277,15 +274,14 @@ class SetFMdata(hass.Hass):
         self.availability_duration_in_current_interval = 0
         self.un_availability_duration_in_current_interval = 0
 
+
     async def __try_send_data(self, *args):
         """ Central function for sending all readings to FM.
             Called every hour
             Reset reading list/variables if sending was successful """
         self.log(f"__try_send_data called.")
 
-        self.authenticate_with_fm()
-
-        start_from = time_round(get_local_now(), self.RESOLUTION_TIMEDELTA)
+        start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
         res = await self.__post_power_data()
         if res is True:
             self.log(f"Power data successfully sent, resetting readings")
@@ -306,12 +302,6 @@ class SetFMdata(hass.Hass):
 
         return
 
-    def log_failed_response(self, res, endpoint: str):
-        """Log failed response for a given endpoint."""
-        try:
-            self.log(f"{endpoint} failed ({res.status_code}) with JSON response {res.json()}")
-        except json.decoder.JSONDecodeError:
-            self.log(f"{endpoint} failed ({res.status_code}) with response {res}")
 
     async def __post_soc_data(self, *args, **kwargs):
         """ Try to Post SoC readings to FM.
@@ -324,31 +314,21 @@ class SetFMdata(hass.Hass):
             self.log("List of soc readings is 0 length..")
             return False
 
-        # TODO: Use generic post_data function
-        duration = len(self.soc_readings) * c.FM_EVENT_RESOLUTION_IN_MINUTES
-        hours = math.floor(duration / 60)
-        minutes = duration - hours * 60
-        str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
+        str_duration = len_to_iso_duration(len(self.soc_readings))
 
-        message = {
-            "type": "PostSensorDataRequest",
-            "sensor": c.FM_ENTITY_ADDRESS_SOC,
-            "values": self.soc_readings,
-            "start": self.hourly_soc_readings_since.isoformat(),
-            "duration": str_duration,
-            "unit": "%"
-        }
-        self.log(f"Post_soc_data message: {message}")
-        res = requests.post(
-            c.FM_SET_DATA_URL,
-            json=message,
-            headers={"Authorization": self.fm_token},
-        )
-        if res.status_code != 200:
-            self.log_failed_response(res, "PostSensorData for SoC")
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.post_measurements(
+                sensor_id=c.FM_ACCOUNT_SOC_SENSOR_ID,
+                values=self.soc_readings,
+                start=self.hourly_soc_readings_since.isoformat(),
+                duration=str_duration,
+                uom="%",
+            )
+        else:
+            self.log(f"__post_soc_data. Could not call post_measurements on fm_client_app as it is None.")
             return False
+        return res
 
-        return True
 
     async def __post_availability_data(self, *args, **kwargs):
         """ Try to Post Availability readings to FM.
@@ -361,30 +341,21 @@ class SetFMdata(hass.Hass):
             self.log("List of availability readings is 0 length..")
             return False
 
-        # TODO: Use generic post_data function
-        duration = len(self.availability_readings) * c.FM_EVENT_RESOLUTION_IN_MINUTES
-        hours = math.floor(duration / 60)
-        minutes = duration - hours * 60
-        str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
+        str_duration = len_to_iso_duration(len(self.availability_readings))
 
-        message = {
-            "type": "PostSensorDataRequest",
-            "sensor": c.FM_ENTITY_ADDRESS_AVAILABILITY,
-            "values": self.availability_readings,
-            "start": self.hourly_availability_readings_since.isoformat(),
-            "duration": str_duration,
-            "unit": "%"
-        }
-        # self.log(f"Post_availability_data message: {message}")
-        res = requests.post(
-            c.FM_SET_DATA_URL,
-            json=message,
-            headers={"Authorization": self.fm_token},
-        )
-        if res.status_code != 200:
-            self.log_failed_response(res, "PostSensorData for Availability")
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.post_measurements(
+                sensor_id = c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID,
+                values = self.availability_readings,
+                start = self.hourly_availability_readings_since.isoformat(),
+                duration = str_duration,
+                uom = "%",
+            )
+        else:
+            self.log(f"__post_availability_data. Could not call post_measurements on fm_client_app as it is None.")
             return False
-        return True
+        return res
+
 
     async def __post_power_data(self, *args, **kwargs):
         """ Try to Post power readings to FM.
@@ -393,78 +364,26 @@ class SetFMdata(hass.Hass):
 
         self.log(f"__post_power_data called.")
 
-        # TODO: Use generic post_data function
         # If self.power_readings is empty there is nothing to send.
         if len(self.power_readings) == 0:
             self.log("List of power readings is 0 length..")
             return False
 
-        duration = len(self.power_readings) * c.FM_EVENT_RESOLUTION_IN_MINUTES
-        hours = math.floor(duration / 60)
-        minutes = duration - hours * 60
-        str_duration = "PT" + str(hours) + "H" + str(minutes) + "M"
+        str_duration = len_to_iso_duration(len(self.power_readings))
 
-        message = {
-            "type": "PostSensorDataRequest",
-            "sensor": c.FM_ENTITY_ADDRESS_POWER,
-            "values": self.power_readings,
-            "start": self.hourly_power_readings_since.isoformat(),
-            "duration": str_duration,
-            "unit": "MW"
-        }
-        self.log(message)
-        res = requests.post(
-            c.FM_SET_DATA_URL,
-            json=message,
-            headers={"Authorization": self.fm_token},
-        )
-        if res.status_code != 200:
-            self.log_failed_response(res, "PostSensorData for Power")
+        if self.fm_client_app is not None:
+            res = await self.fm_client_app.post_measurements(
+                sensor_id = c.FM_ACCOUNT_POWER_SENSOR_ID,
+                values = self.power_readings,
+                start = self.hourly_power_readings_since.isoformat(),
+                duration = str_duration,
+                uom = "MW",
+            )
+        else:
+            self.log(f"__post_power_data. Could not call post_measurements on fm_client_app as it is None.")
             return False
-        return True
+        return res
 
-
-    # TODO: Implement on FM client, not here.
-    def post_data(self, fm_entity_address: str, values: list, start: datetime, duration: str, uom: str) -> bool:
-        """General function to post data to FM.
-
-        Args:
-            fm_entity_address (str): FM entity address
-            values (list): list of values to send
-            start (datetime): start date-time of first value
-            duration (str): duration for which the values are relevant in format PT12H35M
-            uom (str): unit of measure, eg MW, EUR/kWh, etc.
-
-        Returns:
-            bool: weather or not sending was successful
-        """
-        self.log(f"post_data called.")
-
-        # If self.power_readings is empty there is nothing to send.
-        if len(values) == 0:
-            self.log(f"Value list 0 length, not sending data to {fm_entity_address}.")
-            return False
-
-        message = {
-            "type": "PostSensorDataRequest",
-            "sensor": fm_entity_address,
-            "values": values,
-            "start": start.isoformat(),
-            "duration": duration,
-            "unit": uom
-        }
-        self.log(f"post_data, message: '{message}'.")
-
-        # TODO: use  flexmeasures-client instead
-        res = requests.post(
-            c.FM_SET_DATA_URL,
-            json=message,
-            headers={"Authorization": self.fm_token},
-        )
-        if res.status_code != 200:
-            self.log_failed_response(res, "PostSensorData for Power")
-            return False
-        return True
 
     async def __is_available(self):
         """ Check if car and charger are available for automatic charging. """
@@ -472,7 +391,7 @@ class SetFMdata(hass.Hass):
         # How to take an upcoming calendar item in to account?
         charge_mode = await self.get_state("input_select.charge_mode")
         # Forced charging in progress if SoC is below the minimum SoC setting
-        is_evse_and_car_available = self.evse_client.is_available_for_automated_charging()
+        is_evse_and_car_available = self.evse_client_app.is_available_for_automated_charging()
         if is_evse_and_car_available and charge_mode == "Automatic":
             if self.connected_car_soc is None:
                 # SoC is unknown, assume availability
@@ -481,28 +400,10 @@ class SetFMdata(hass.Hass):
                 return self.connected_car_soc >= c.CAR_MIN_SOC_IN_PERCENT
         return False
 
-    def authenticate_with_fm(self):
-        """Authenticate with the FlexMeasures server and store the returned auth token.
-        Hint: the lifetime of the token is limited, so also call this method whenever the server returns a 401 status code.
-        """
-        # TODO: Use flexmeasures-client instead.
-        self.log(f"Authenticating with FlexMeasures on URL '{c.FM_AUTHENTICATION_URL}'.")
-        res = requests.post(
-            c.FM_AUTHENTICATION_URL,
-            json=dict(
-                email=c.FM_ACCOUNT_USERNAME,
-                password=c.FM_ACCOUNT_PASSWORD,
-            ),
-        )
-        if not res.status_code == 200:
-            self.log_failed_response(res, "requestAuthToken")
-        tmp = res.json()
-        if tmp is None:
-            self.log(f"Authenticating failed, no valid json response.")
-            return False
 
-        self.fm_token = res.json().get("auth_token", None)
-        if self.fm_token is None:
-            self.log(f"Authenticating failed, no auth_token in json response: '{json}'.")
-            return False
-        return True
+def len_to_iso_duration(nr_of_intervals: int) -> str:
+    duration = nr_of_intervals * c.FM_EVENT_RESOLUTION_IN_MINUTES
+    hours = math.floor(duration / 60)
+    minutes = duration - hours * 60
+    str_duration = f"PT{hours}H{minutes}M"
+    return str_duration

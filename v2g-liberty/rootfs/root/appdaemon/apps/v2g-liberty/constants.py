@@ -51,29 +51,19 @@ ALLOWED_DURATION_ABOVE_MAX_SOC: int = 12
 
 OPTIMISATION_MODE: str = "price"
 ELECTRICITY_PROVIDER: str = "nl_generic"
+EMISSIONS_UOM: str = "kg/MWh"    # For some ELECTRICITY_PROVIDER-s this can be %
+CURRENCY: str = "EUR"            # For some ELECTRICITY_PROVIDER-s this can be different, e.g. GBP or AUD.
+PRICE_RESOLUTION_MINUTES: int = 60  # For some ELECTRICITY_PROVIDER-s this can be 30
 
 # FlexMeasures settings
 
 # This represents how often schedules should refresh. Keep at this setting.
-FM_EVENT_RESOLUTION_IN_MINUTES = 5
+FM_EVENT_RESOLUTION_IN_MINUTES: int = 5
+EVENT_RESOLUTION: object # Should be timedelta but do not want to import that here, see globals.
 
 # CONSTANTS for FM URL's
 FM_BASE_URL = "https://seita.energy"
-FM_API_VERSION = "v3_0"
-
-# Set through globals based on FM_BASE_URL
-# TODO: Use fm_client so than many of these do not need to be administered here any more.
-FM_BASE_API_URL: str = ""
-FM_PING_URL: str = ""
-FM_AUTHENTICATION_URL: str = ""
-FM_SENSOR_URL: str = ""
-FM_SCHEDULE_SLUG: str = ""
-FM_SCHEDULE_TRIGGER_SLUG: str = ""
-FM_GET_DATA_URL: str = ""
-FM_GET_DATA_SLUG: str = ""
-FM_SET_DATA_URL: str = ""
-FM_TRIGGER_URL: str = ""
-FM_GET_SCHEDULE_URL: str = ""
+# Based on ELECTRICITY_PROVIDER
 FM_OPTIMISATION_CONTEXT: dict = {}
 
 # Utility context
@@ -98,27 +88,15 @@ FM_ACCOUNT_PASSWORD: str = ""
 
 # Sensor entity for sending and id for retrieving data to/from FM
 FM_ACCOUNT_POWER_SENSOR_ID: int = 0
-FM_ENTITY_ADDRESS_POWER: str = ""
-
-# Sensor entity for sending and id for retrieving data to/from FM
 FM_ACCOUNT_AVAILABILITY_SENSOR_ID: int = 0
-FM_ENTITY_ADDRESS_AVAILABILITY: str = ""
-
-# Sensor entity for sending and id for retrieving data to/from FM
 FM_ACCOUNT_SOC_SENSOR_ID: int = 0
-FM_ENTITY_ADDRESS_SOC: str = ""
-
-# Sensor_id for retrieving data from FM
 FM_ACCOUNT_COST_SENSOR_ID: int = 0
 
 # Sensors for optimisation context, also in case prices are self_provided (e.g. au_amber_electric)
 # Sensor entity for sending and id for retrieving data to/from FM
 FM_PRICE_PRODUCTION_SENSOR_ID: int = 0
-FM_PRICE_PRODUCTION_ENTITY_ADDRESS: str = ""
 FM_PRICE_CONSUMPTION_SENSOR_ID: int = 0
-FM_PRICE_CONSUMPTION_ENTITY_ADDRESS: str = ""
 FM_EMISSIONS_SENSOR_ID: int = 0
-FM_EMISSIONS_ENTITY_ADDRESS: str = ""
 UTILITY_CONTEXT_DISPLAY_NAME: int = 0
 
 

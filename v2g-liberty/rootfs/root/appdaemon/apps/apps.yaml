@@ -36,6 +36,14 @@ v2g_liberty:
     - modbus_evse_client
     - reservations-client
 
+data_monitor:
+  module: data_monitor
+  class: DataMonitor
+  priority: 75
+  dependencies:
+    - v2g-globals
+    - modbus_evse_client
+
 get_fm_data:
   module: get_fm_data
   class: FlexMeasuresDataImporter
@@ -44,21 +52,13 @@ get_fm_data:
    - v2g-globals
    - fm_client
 
-set_fm_data:
-  module: set_fm_data
-  class: SetFMdata
-  priority: 75
-  dependencies:
-    - v2g-globals
-    - modbus_evse_client
-
 amber_price_data_manager:
   module: amber_price_data_manager
   class: ManageAmberPriceData
   priority: 100
   dependencies:
     - v2g-globals
-    - set_fm_data
+    - fm_client
 
 octopus_price_data_manager:
   module: octopus_price_data_manager
@@ -66,4 +66,4 @@ octopus_price_data_manager:
   priority: 100
   dependencies:
     - v2g-globals
-    - set_fm_data
+    - fm_client

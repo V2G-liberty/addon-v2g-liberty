@@ -381,7 +381,7 @@ class ModbusEVSEclient(hass.Hass):
             return False
 
         # The method self.__get_charger_state() cannot be used as it is async and this
-        # method should not be as it is called from sync code (set_fm_data.py).
+        # method should not be as it is called from sync code (data_monitor.py).
         return self.ENTITY_CHARGER_STATE['current_value'] in self.AVAILABILITY_STATES
 
 
