@@ -314,7 +314,7 @@ class V2Gliberty(hass.Hass):
             # New mode "Stop" is handled by set_next_action
             self.log("Stop charging (if in action) and give control based on chargemode = Stop")
             # Cancel previous scheduling timers
-            await self.__cancel_charging_timers()
+            self.__cancel_charging_timers()
             self.in_boost_to_reach_min_soc = False
             if self.evse_client_app is not None:
                 await self.evse_client_app.set_inactive()
@@ -388,7 +388,7 @@ class V2Gliberty(hass.Hass):
             self.back_to_max_soc = None
 
             # Cancel current scheduling timers
-            await self.__cancel_charging_timers()
+            self.__cancel_charging_timers()
 
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             charge_mode = await self.get_state("input_select.charge_mode", None)
@@ -462,7 +462,7 @@ class V2Gliberty(hass.Hass):
         await self.__notify_no_new_schedule(reset=True)
 
 
-    async def __cancel_timer(self, timer_id: str):
+    def __cancel_timer(self, timer_id: str):
         """Utility function to silently cancel a timer.
         Born because the "silent" flag in cancel_timer does not work and the
         logs get flooded with useless warnings.
@@ -472,7 +472,7 @@ class V2Gliberty(hass.Hass):
         """
         if self.info_timer(timer_id):
             silent = True  # Does not really work
-            await self.cancel_timer(timer_id, silent)
+            self.cancel_timer(timer_id, silent)
 
 
     async def __notify_no_new_schedule(self, reset: Optional[bool] = False):
@@ -622,7 +622,7 @@ class V2Gliberty(hass.Hass):
                     if target_end < now:
                         self.log(f"__ask_for_new_schedule first_reservation event is in the (recent) past, skipping")
                         # Not needed as the timer_id == ""
-                        # await self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
+                        # self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
                         # self.timer_id_event_wait_to_disconnect = ""
                     else:
                         # Only set the dismissal timer when start of the reservation is near.
@@ -633,7 +633,7 @@ class V2Gliberty(hass.Hass):
                             # If still connected, ask user via notification if the item can be dismissed.
 
                             # Not needed as the timer_id == ""
-                            # await self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
+                            # self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
                             # self.timer_id_event_wait_to_disconnect = ""
 
                             ask_at = target_start + self.MAX_EVENT_WAIT_TO_DISCONNECT
@@ -694,19 +694,19 @@ class V2Gliberty(hass.Hass):
             self.log(f"__ask_user_dismiss_event_or_not, unexpected call for event with hash_id '{v2g_event['hash_id']}' "
                      f"as car is already disconnected.")
 
-    async def __cancel_charging_timers(self):
-        # self.log(f"cancel_charging_timers - scheduling_timer_handles length: {len(self.scheduling_timer_handles)}.")
+    def __cancel_charging_timers(self):
+        self.log(f"cancel_charging_timers - scheduling_timer_handles length: {len(self.scheduling_timer_handles)}.")
         for h in self.scheduling_timer_handles:
-            await self.__cancel_timer(h)
+            self.__cancel_timer(h)
         self.scheduling_timer_handles = []
         # Also remove any visible schedule from the graph in the UI..
-        await self.__set_soc_prognosis_in_ui(None)
-        # self.log(f"Canceled all charging timers.")
+        self.__set_soc_prognosis_in_ui(None)
+        self.log(f"Canceled all charging timers.")
 
-    async def __reset_charging_timers(self, handles):
+    def __reset_charging_timers(self, handles):
         self.log(f"__reset_charging_timers: cancel current and set {len(handles)} new charging timers.")
         # We need to be sure no now timers are added unless the old are removed
-        await self.__cancel_charging_timers()
+        self.__cancel_charging_timers()
         self.scheduling_timer_handles = handles
         # self.log("finished __reset_charging_timers")
 
@@ -788,7 +788,7 @@ class V2Gliberty(hass.Hass):
                 await self.evse_client_app.start_charge_with_power(kwargs=dict(charge_power=value * MW_TO_W_FACTOR))
 
         # This also cancels previous timers
-        await self.__reset_charging_timers(handles)
+        self.__reset_charging_timers(handles)
         # self.log(f"{len(handles)} charging timers set.")
 
         exp_soc_values = list(
@@ -805,9 +805,9 @@ class V2Gliberty(hass.Hass):
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [dict(time=t.isoformat(), soc=round(v, 2)) for v, t in
                                                    zip(exp_soc_values, exp_soc_datetimes)]
-        await self.__set_soc_prognosis_in_ui(expected_soc_based_on_scheduled_charges)
+        self.__set_soc_prognosis_in_ui(expected_soc_based_on_scheduled_charges)
 
-    async def __set_soc_prognosis_in_ui(self, records: Optional[dict] = None):
+    def __set_soc_prognosis_in_ui(self, records: Optional[dict] = None):
         """Write or remove SoC prognosis in graph via HA entity input_text.soc_prognosis
 
             If records = None the SoC line will be removed from the graph,
@@ -829,7 +829,7 @@ class V2Gliberty(hass.Hass):
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = "SoC prognosis based on schedule available at " + now.isoformat()
         result = dict(records=records)
-        await self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
+        self.set_state("input_text.soc_prognosis", state=new_state, attributes=result)
 
     async def __set_soc_prognosis_boost_in_ui(self, records: Optional[dict] = None):
         """Write or remove SoC prognosis boost in graph via HA entity input_text.soc_prognosis_boost
@@ -941,6 +941,9 @@ class V2Gliberty(hass.Hass):
             )
             return
 
+        # Make sure this function gets called every x minutes to prevent a "frozen" app.
+        if self.timer_handle_set_next_action:
+            self.__cancel_timer(self.timer_handle_set_next_action)
         self.timer_handle_set_next_action = await self.run_in(
             self.set_next_action,
             delay=self.call_next_action_at_least_every,
@@ -990,7 +993,7 @@ class V2Gliberty(hass.Hass):
                 # this is why the battery should be charged to this minimum asap.
                 # Cancel previous scheduling timers as they might have discharging instructions as well
                 self.log(f"set_next_action, soc: {self.connected_car_soc}")
-                await self.__cancel_charging_timers()
+                self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
                 self.in_boost_to_reach_min_soc = True
 
