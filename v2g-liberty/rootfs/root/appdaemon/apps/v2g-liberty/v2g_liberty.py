@@ -1000,10 +1000,10 @@ class V2Gliberty(hass.Hass):
                 # Create a minimal schedule to show in graph that gives user an estimation of when the min. SoC will
                 # be reached. The schedule starts now with current SoC
                 now = get_local_now()
-                boost_schedule = [dict(time=(now).isoformat(), soc=self.connected_car_soc)]
+                boost_schedule = [dict(time=now.isoformat(), soc=self.connected_car_soc)]
 
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
-                # For % /100, for kwh to wh * 1000 results in *10..
+                # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_min_soc_wh = (c.CAR_MIN_SOC_IN_PERCENT - self.connected_car_soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
                 delta_to_min_soc_wh = delta_to_min_soc_wh / (c.ROUNDTRIP_EFFICIENCY_FACTOR ** 0.5)
 
