@@ -953,12 +953,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
-        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to"
+        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to "
         mode = setting_entity["attributes"].get("mode", 'none').lower()
         if mode == "password":
             message = f"{message} ********"
         else:
-            message = f"{message} '{return_value}'"
+            message = f"{message} {return_value}"
 
         uom = setting_entity['attributes'].get('unit_of_measurement')
         if uom:
@@ -1243,12 +1243,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
             c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
             c.UTILITY_CONTEXT_DISPLAY_NAME = context["display-name"]
-            self.log(f"__read_and_process_optimisation_settings: \n"
-                     f"    FM_PRICE_PRODUCTION_SENSOR_ID: '{c.FM_PRICE_PRODUCTION_SENSOR_ID}' \n"
-                     f"    FM_PRICE_CONSUMPTION_SENSOR_ID: '{c.FM_PRICE_CONSUMPTION_SENSOR_ID}' \n"
-                     f"    FM_EMISSIONS_SENSOR_ID: '{c.FM_EMISSIONS_SENSOR_ID}' \n"
-                     f"    UTILITY_CONTEXT_DISPLAY_NAME: '{c.UTILITY_CONTEXT_DISPLAY_NAME}' \n"
-                     f"    PRICE_RESOLUTION_MINUTES: '{c.PRICE_RESOLUTION_MINUTES}'")
+            self.log(f"v2g_globals FM_PRICE_PRODUCTION_SENSOR_ID: {c.FM_PRICE_PRODUCTION_SENSOR_ID}.")
+            self.log(f"v2g_globals FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
+            self.log(f"v2g_globals FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.")
+            self.log(f"v2g_globals UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}.")
 
             await self.__cancel_setting_listener(self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID)
             await self.__cancel_setting_listener(self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID)
