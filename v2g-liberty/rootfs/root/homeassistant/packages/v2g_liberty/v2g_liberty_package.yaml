@@ -494,6 +494,15 @@ input_text:
     mode: text
     min: 0
 
+  # Based on the current SoC and Max Charge Now function (from the Charge Mode buttons).
+  # This contains two values current SoC and 100%. SoC at expected time.
+  # This is shown in the graph as a dashed prognosis line.
+  soc_prognosis_max_charge_now:
+    name: SoC Max Charge Now
+    max: 10000
+    mode: text
+    min: 0
+
   # Forms bar representing the duration of the calendar item at
   # the desired %.
   calender_item_in_chart:
