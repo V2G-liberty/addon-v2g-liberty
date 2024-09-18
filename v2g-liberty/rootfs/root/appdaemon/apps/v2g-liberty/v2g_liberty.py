@@ -122,15 +122,7 @@ class V2Gliberty(hass.Hass):
         self.scheduling_timer_handles = []
 
         # Set to initial 'empty' values, makes rendering of graph faster.
-        await self.__clear_schedule_from_chart()
-        await self.__set_soc_prognosis_in_chart(
-            chart_line_name = ChartLine.BOOST,
-            records = None
-        )
-        await self.__set_soc_prognosis_in_chart(
-            chart_line_name = ChartLine.MAX_CHARGE_NOW,
-            records = None
-        )
+        await self.__clear_all_soc_chart_lines()
 
         ####### V2G Liberty init complete ################
         if self.evse_client_app is not None:
@@ -155,6 +147,7 @@ class V2Gliberty(hass.Hass):
         await self.initialise_v2g_liberty(v2g_args="initialise")
 
         self.log("Completed Initializing V2Gliberty")
+
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -331,6 +324,7 @@ class V2Gliberty(hass.Hass):
             self.log("Stop charging (if in action) and give control based on chargemode = Stop")
             # Cancel previous scheduling timers
             self.__cancel_charging_timers()
+            await self.__clear_all_soc_chart_lines()
             self.in_boost_to_reach_min_soc = False
             if self.evse_client_app is not None:
                 await self.evse_client_app.set_inactive()
@@ -405,6 +399,7 @@ class V2Gliberty(hass.Hass):
 
             # Cancel current scheduling timers
             self.__cancel_charging_timers()
+            await self.__clear_all_soc_chart_lines()
 
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             charge_mode = await self.get_state("input_select.charge_mode", None)
@@ -714,17 +709,10 @@ class V2Gliberty(hass.Hass):
 
 
     def __cancel_charging_timers(self):
-        self.log(f"cancel_charging_timers - scheduling_timer_handles length: {len(self.scheduling_timer_handles)}.")
         for h in self.scheduling_timer_handles:
             self.__cancel_timer(h)
         self.scheduling_timer_handles = []
-        # Also remove any visible schedule from the graph in the UI...
-        # Trick to keep this method sync and call an async function, use run_in:
-        self.run_in(
-            self.__clear_schedule_from_chart,
-            delay=0.001,
-        )
-        self.log(f"Canceled all charging timers.")
+        self.log(f"Canceled all {len(self.scheduling_timer_handles)} charging timers.")
 
 
     def __reset_charging_timers(self, handles):
@@ -741,7 +729,6 @@ class V2Gliberty(hass.Hass):
         If appropriate, also starts a charge directly.
         Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
         """
-        self.log("__process_schedule called, triggered by change in input_text.chargeschedule.")
 
         if self.evse_client_app is not None:
             is_car_connected = await self.evse_client_app.is_car_connected()
@@ -795,6 +782,8 @@ class V2Gliberty(hass.Hass):
         else:
             await self.handle_no_new_schedule("invalid_schedule", False)
 
+        self.log(f"__process_schedule | valid schedule")
+
         # Create new scheduling timers, to send a control signal for each value
         handles = []
         now = get_local_now()
@@ -805,16 +794,11 @@ class V2Gliberty(hass.Hass):
                 # AJO 17-10-2021
                 # ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
                 h = await self.run_at(self.evse_client_app.start_charge_with_power, t, charge_power=value * MW_TO_W_FACTOR)
-                # self.log(f"Timer info: {self.info_timer(h)}, handle type: {type(h)}.")
                 handles.append(h)
             else:
-                # self.log(f"Cannot time a charging scheduling in the past, specifically, at {t}."
-                #          f" Setting it immediately instead.")
                 await self.evse_client_app.start_charge_with_power(kwargs=dict(charge_power=value * MW_TO_W_FACTOR))
 
-        # This also cancels previous timers
-        self.__reset_charging_timers(handles)
-        # self.log(f"{len(handles)} charging timers set.")
+        self.__reset_charging_timers(handles) # This also cancels previous timers
 
         exp_soc_values = list(
             accumulate(
@@ -836,10 +820,17 @@ class V2Gliberty(hass.Hass):
         )
 
 
-    async def __clear_schedule_from_chart(self, *args):
-        # Wrapper for easy call from cancel_timers
+    async def __clear_all_soc_chart_lines(self):
         await self.__set_soc_prognosis_in_chart(
             chart_line_name = ChartLine.SCHEDULE,
+            records = None
+        )
+        await self.__set_soc_prognosis_in_chart(
+            chart_line_name = ChartLine.BOOST,
+            records = None
+        )
+        await self.__set_soc_prognosis_in_chart(
+            chart_line_name = ChartLine.MAX_CHARGE_NOW,
             records = None
         )
 
@@ -859,7 +850,10 @@ class V2Gliberty(hass.Hass):
             Returns:
                 Nothing
         """
-
+        # tmp = str(records)
+        # if len(tmp) > 75:
+        #     tmp = f"{tmp[:50]} ... {tmp[-25:]}"
+        # self.log(f"__set_soc_prognosis_in_chart called | chart_line_name: '{chart_line_name}', records: {tmp}.")
         now = get_local_now()
 
         # There seems to be no way to hide the SoC series from the graph,
@@ -873,16 +867,17 @@ class V2Gliberty(hass.Hass):
         if records is None:
             await self.set_state(f"input_text.{self.chart_line_entity[chart_line_name]}",
                                  state=new_state, attributes=clear_line_records)
+            self.log(f"__set_soc_prognosis_in_chart chart_line_name: '{chart_line_name}' cleared.")
         else:
             for chart_line in (ChartLine):
                 if chart_line == chart_line_name:
                     result = dict(records=records)
                 else:
                     result = clear_line_records
-                self.log(f"chart line: {chart_line}, entity: {self.chart_line_entity[chart_line]}, result: {result}")
-
-                await self.set_state(f"input_text.{self.chart_line_entity[chart_line]}",
-                                     state=new_state, attributes=result)
+                entity = f"input_text.{self.chart_line_entity[chart_line]}"
+                await self.set_state(entity, state=new_state, attributes=result)
+                self.log(f"__set_soc_prognoses_in_chart | entity: '{entity}', state: '{new_state}', "
+                         f"attributes: {str(result)[:50]} ... {str(result)[-25:]}.")
 
 
     async def __start_max_charge_now(self):
@@ -1020,7 +1015,8 @@ class V2Gliberty(hass.Hass):
                 # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
                 # Cancel previous scheduling timers as they might have discharging instructions as well
-                self.log(f"set_next_action, soc: {self.connected_car_soc}")
+                self.log(f"set_next_action | start Boost charge as soc '{self.connected_car_soc}' is "
+                         f"below minimum '{c.CAR_MIN_SOC_IN_PERCENT}'.")
                 self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
                 self.in_boost_to_reach_min_soc = True
@@ -1039,6 +1035,8 @@ class V2Gliberty(hass.Hass):
                 minutes_to_reach_min_soc = int(math.ceil((delta_to_min_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60)))
                 expected_min_soc_time = (now + timedelta(minutes=minutes_to_reach_min_soc)).isoformat()
                 boost_schedule.append(dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT))
+
+                # This also clears other soc lines
                 await self.__set_soc_prognosis_in_chart(
                     chart_line_name=ChartLine.BOOST,
                     records=boost_schedule
