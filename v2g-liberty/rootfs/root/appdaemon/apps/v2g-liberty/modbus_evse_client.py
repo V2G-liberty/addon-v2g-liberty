@@ -75,14 +75,6 @@ class ModbusEVSEclient(hass.Hass):
         'previous_value': None,
         'ha_entity_name': 'unrecoverable_errors_register_high'
     }
-    ENTITY_ERROR_1 = {
-        'modbus_address': 539,
-        'minimum_value': 0,
-        'maximum_value': 65535,
-        'current_value': None,
-        'previous_value': None,
-        'ha_entity_name': 'unrecoverable_errors_register_high'
-    }
     ENTITY_ERROR_2 = {
         'modbus_address': 540,
         'minimum_value': 0,
@@ -346,9 +338,9 @@ class ModbusEVSEclient(hass.Hass):
         charge_power_in_watt = int(float(kwargs["charge_power"]))
         await self.__set_charger_control("take")
         if charge_power_in_watt == 0:
-            await self.__set_charger_action("stop", reason="start_charge_with_power externally called with power = 0")
+            await self.__set_charger_action(action="stop", reason="start_charge_with_power externally called with power = 0")
         else:
-            await self.__set_charger_action("start", reason="start_charge_with_power externally called with power <> 0")
+            await self.__set_charger_action(action="start", reason="start_charge_with_power externally called with power <> 0")
         self.log(f"start_charge_with_power: calling __set_charge_power with power {charge_power_in_watt}.")
         await self.__set_charge_power(charge_power=charge_power_in_watt)
 
@@ -532,7 +524,7 @@ class ModbusEVSEclient(hass.Hass):
 
         # TODO: Move to v2g-liberty.py?
         # YES, because:
-        # + It is only for the UI, the functional names are not perse related to a charger (type).
+        # + It is only for the UI, the functional names are not per se related to a charger (type).
         # + this is the only place where self.CHARGER_STATES is used!
         # NO, because:
         # + self.try_get_new_soc_in_process is not available there...
@@ -540,7 +532,7 @@ class ModbusEVSEclient(hass.Hass):
         # Also make a text version of the state available in the UI
         charger_state_text = self.CHARGER_STATES[new_charger_state]
         if charger_state_text is not None and not self.try_get_new_soc_in_process:
-            # self.try_get_new_soc_in_process should not happen as polling is stopped, just to be safe..
+            # self.try_get_new_soc_in_process should not happen as polling is stopped, just to be safe...
             await self.__update_state(entity_id="input_text.charger_state", state=charger_state_text)
             self.log(f"__handle_charger_state_change, set state in text for UI = {charger_state_text}.")
 
@@ -935,7 +927,7 @@ class ModbusEVSEclient(hass.Hass):
         """Should only be called from set_poll_strategy
             Base polling strategy:
             When car is connected
-            Poll for soc, state, power, lock etc..
+            Poll for soc, state, power, lock etc...
         """
         # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
