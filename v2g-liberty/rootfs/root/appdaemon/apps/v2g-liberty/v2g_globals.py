@@ -961,12 +961,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
-        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to "
+        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to"
         mode = setting_entity["attributes"].get("mode", 'none').lower()
         if mode == "password":
             message = f"{message} ********"
         else:
-            message = f"{message} {return_value}"
+            message = f"{message} '{return_value}'"
 
         uom = setting_entity['attributes'].get('unit_of_measurement')
         if uom:

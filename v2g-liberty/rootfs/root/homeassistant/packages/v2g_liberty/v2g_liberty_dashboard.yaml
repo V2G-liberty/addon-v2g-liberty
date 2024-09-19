@@ -279,10 +279,26 @@ views:
                     return [new Date(record.time).getTime(), record.soc];
                   });
 
+              - entity: input_text.soc_prognosis_max_charge_now
+                show:
+                  legend_value: false
+                type: line
+                color: "#fea602"
+                stroke_width: 2
+                stroke_dash: 2
+                curve: straight
+                extend_to: false
+                yaxis_id: SoC
+                data_generator: |
+                  return entity.attributes.records.map((record, index) => {
+                    return [new Date(record.time).getTime(), record.soc];
+                  });
+
               - entity: input_text.soc_prognosis_boost
                 show:
                   legend_value: false
                 type: line
+                curve: straight
                 color: "#e48628"
                 stroke_width: 2
                 extend_to: false
@@ -291,6 +307,7 @@ views:
                   return entity.attributes.records.map((record, index) => {
                     return [new Date(record.time).getTime(), record.soc];
                   });
+                # ToDo? use color_threshold feature
 
               - entity: input_text.co2_emissions
                 show:
@@ -406,10 +423,9 @@ views:
                   text-align: right;
                   top: 50px;
                 }
-                div[seriesname="Calendarxitemxinxchart"]{
-                  display: none;
-                }
-                div[seriesname="SoCxBoost"]{
+                div[seriesname="Calendarxitemxinxchart"], 
+                div[seriesname="SoCxBoost"], 
+                div[seriesname="input_textxsoc_prognosis_max_charge_now"]{
                   display: none;
                 }
 

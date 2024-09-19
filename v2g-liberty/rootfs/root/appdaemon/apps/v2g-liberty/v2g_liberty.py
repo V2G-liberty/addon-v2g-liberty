@@ -1042,7 +1042,6 @@ class V2Gliberty(hass.Hass):
 
                 # This also clears other soc lines
                 await self.set_records_in_chart(chart_line_name = ChartLine.BOOST, records = boost_schedule)
-
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low.\n" \
                           f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) is reached.\n" \
                           f"This is expected around {expected_min_soc_time}."
