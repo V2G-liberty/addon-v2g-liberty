@@ -11,22 +11,26 @@ The next release might include:
 
 ### Changing
 
-- ?
+- Support for uni-directional charging
 
 ### Removing
 
 - ?
 
 
-## 0.2.1 2024-09-??
+## 0.3.0 2024-09-20
 
 ### Added
 
-- None
+- An expected SoC line (dashed) in the chart for "Max charge now".
 
 ### Fixed
 
-- 🪲 BUG: Too frequent fluctuating (scheduled) charge power (#74)
+🪲 Bugfixes:
+- 'Reduce max(dis-) charge power' setting not preserved (#71)
+- Too frequent fluctuating (scheduled) charge power (#74)
+- Sometimes the SoC does not get renewed after car gets connected (#77)
+- Notification "retry getting EPEX prices" not sent when call completly fails (#79)
 
 
 ### Changed
@@ -34,7 +38,8 @@ The next release might include:
 - Use flexmeasures_client python library for all calls to FM
   This makes getting schedules and other data (much) faster.
 - Made python dependencies in Dockerfile versionless.
-- Renamed set_fm_data to data_monitor, this reflects its function better.
+- Renamed set_fm_data to data_monitor
+  This reflects its function better now that all data is sent through the fm_client.
 
 ### Removed
 
