@@ -19,6 +19,7 @@ class FlexMeasuresDataImporter(hass.Hass):
     # For converting raw EPEX prices from FM to user_friendly UI values
     price_conversion_factor: float = 1 / 10
     vat_factor: float = 1
+    markup_per_kwh: float = 0
 
     # Variables
     first_try_time_price_data: str
@@ -108,7 +109,13 @@ class FlexMeasuresDataImporter(hass.Hass):
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
         self.price_conversion_factor = 1 / 10
-        self.vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
+        # This way the markup/vat can be retained "underwater" in the settings and do not have to be reset
+        if c.USE_VAT_AND_MARKUP:
+            self.vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
+            self.markup_per_kwh = c.ENERGY_PRICE_MARKUP_PER_KWH
+        else:
+            self.vat_factor = 1
+            self.markup_per_kwh = 0
 
         if v2g_args != "module initialize":
             # New settings must result in refreshing the price data.
@@ -273,7 +280,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # 'unit': 'MW',
         # 'values': [0.004321, None, ..., 0.005712]
         self.log(f"get_charged_energy sensor_id: {c.FM_ACCOUNT_POWER_SENSOR_ID}, "
-                 f"charge power response: {str(res)[:175]} ... {str(res)[-75:]}.")
+                 f"charge power response: {str(res)[:75]} ... {str(res)[-25:]}.")
 
         total_charged_energy_last_7_days = 0
         total_discharged_energy_last_7_days = 0
@@ -284,7 +291,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         charging_energy_points = {}
 
         charge_power_points = res['values']
-        self.log(f"charge_power_points length: '{len(charge_power_points)}'.")
         for i, charge_power in enumerate(charge_power_points):
             if charge_power is None:
                 continue
@@ -381,7 +387,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                 dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
                 data_point = {
                     'time': dt.isoformat(),
-                    'price': round(((float(price) * self.price_conversion_factor) + c.ENERGY_PRICE_MARKUP_PER_KWH)
+                    'price': round(((float(price) * self.price_conversion_factor) + self.markup_per_kwh)
                                    * self.vat_factor, 2)
                 }
 
@@ -465,7 +471,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                 data_point = {
                     'time': dt.isoformat(),
                     'price': round(((float(price) * self.price_conversion_factor) +
-                                    c.ENERGY_PRICE_MARKUP_PER_KWH) * self.vat_factor, 2)
+                                    self.markup_per_kwh) * self.vat_factor, 2)
                 }
                 if first_future_negative_price_point is None and data_point['price'] < 0 and dt > now:
                     self.log(f"get_production_prices, negative price: {data_point['price']} at: {dt}.")

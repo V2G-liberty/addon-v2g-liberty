@@ -1041,11 +1041,7 @@ class V2Gliberty(hass.Hass):
                 boost_schedule.append(dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT))
 
                 # This also clears other soc lines
-                await self.set_records_in_chart(
-                    chart_line_name=ChartLine.BOOST,
-                    records=boost_schedule
-                )
-
+                await self.set_records_in_chart(chart_line_name = ChartLine.BOOST, records = boost_schedule)
                 message = f"Car battery state of charge ({self.connected_car_soc}%) is too low.\n" \
                           f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) is reached.\n" \
                           f"This is expected around {expected_min_soc_time}."
@@ -1070,7 +1066,7 @@ class V2Gliberty(hass.Hass):
                 self.log(f"Stopping max charge now.")
                 self.in_boost_to_reach_min_soc = False
                 # Remove "boost schedule" from graph.
-                await self.set_records_in_chart(chart_line_name=ChartLine.BOOST, records=None)
+                await self.set_records_in_chart(chart_line_name = ChartLine.BOOST, records = None)
 
             if self.connected_car_soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1):
                 # Fail-safe, this should not happen...
