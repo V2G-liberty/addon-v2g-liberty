@@ -425,7 +425,7 @@ views:
                 }
                 div[seriesname="Calendarxitemxinxchart"], 
                 div[seriesname="SoCxBoost"], 
-                div[seriesname="input_textxsoc_prognosis_max_charge_now"]{
+                div[seriesname="SoCxMaxxChargexNow"] {
                   display: none;
                 }
 
