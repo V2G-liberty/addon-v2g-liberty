@@ -37,6 +37,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
         "factory_default": None,
         "listener_id": None
     }
+    SETTING_USE_OTHER_FM_BASE_URL = {
+        "entity_name": "fm_show_option_to_change_url",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None
+    }
     SETTING_FM_BASE_URL = {
         "entity_name": "fm_host_url",
         "entity_type": "input_text",
@@ -459,8 +466,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         if self.calendar_client is not None:
             res = await self.calendar_client.initialise_calendar()
         else:
-            self.log("__populate_select_with_local_calendars. "
-                     "Could not call calendar_client.initialise_calendar")
+            self.log("__populate_select_with_local_calendars. Could not call calendar_client.initialise_calendar")
             res = "Internal error"
 
         if res != "Successfully connected":
@@ -507,10 +513,11 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.__write_to_file(self.v2g_settings)
         await self.restart_v2g_liberty()
 
+
     async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
         self.log("restart_v2g_liberty called")
         await self.call_service("homeassistant/restart")
-        # This also results in the V2G Liberty python modules to be restarted.
+        # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
 
     async def __test_charger_connection(self, event, data, kwargs):
@@ -526,6 +533,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # min/max power is set self.evse_client_app.initialise_charger()
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
         await self.set_state("input_text.charger_connection_status", state=msg)
+
 
     async def __test_fm_connection(self, event = None, data = None, kwargs = None):
         # Tests the connection with FlexMeasures
@@ -678,10 +686,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
     async def create_persistent_notification(self, message: str, title: str, notification_id: str):
         try:
             await self.call_service(
-                'persistent_notification/create',
-                title=title,
-                message=message,
-                notification_id=notification_id
+                service = 'persistent_notification/create',
+                title = title,
+                message = message,
+                notification_id = notification_id
             )
         except Exception as e:
             self.log(f"create_persistent_notification failed! Exception: '{e}'")
@@ -953,12 +961,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
-        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to "
+        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to"
         mode = setting_entity["attributes"].get("mode", 'none').lower()
         if mode == "password":
             message = f"{message} ********"
         else:
-            message = f"{message} {return_value}"
+            message = f"{message} '{return_value}'"
 
         uom = setting_entity['attributes'].get('unit_of_measurement')
         if uom:
@@ -974,6 +982,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.log("__read_and_process_charger_settings called")
 
         callback_method = self.__read_and_process_charger_settings
+
+        # If the modbus_evse_client has read the max_charge_power from the charger (in process_max_power_settings()
+        # method), it calls this method. Then the max_power has been processed.
+        max_power_processed = kwargs is not None and kwargs.get('run_once', False)
 
         c.CHARGER_HOST_URL = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL,
@@ -1009,10 +1021,18 @@ class V2GLibertyGlobals(ServiceResponseApp):
             # cancel callbacks for SETTINGS.
             await self.__cancel_setting_listener(self.SETTING_CHARGER_MAX_CHARGE_POWER)
             await self.__cancel_setting_listener(self.SETTING_CHARGER_MAX_DISCHARGE_POWER)
-            c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
-            c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"]
+            if max_power_processed:
+                c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
+                c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"]
+                self.log(f"__read_and_process_charger_settings \n"
+                         f"    c.CHARGER_MAX_CHARGE_POWER: {c.CHARGER_MAX_CHARGE_POWER}.\n"
+                         f"    c.CHARGER_MAX_DISCHARGE_POWER: {c.CHARGER_MAX_DISCHARGE_POWER}.")
+            else:
+                # This normally is temporary (fallback) and so it is not logged.
+                c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["factory_default"]
+                c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER["factory_default"]
 
-        if kwargs is not None and kwargs.get('run_once', False):
+        if max_power_processed:
             # To prevent a loop
             return
         await self.__collect_action_triggers(source="changed charger_settings")
@@ -1162,10 +1182,18 @@ class V2GLibertyGlobals(ServiceResponseApp):
             setting_object=self.SETTING_FM_ACCOUNT_PASSWORD,
             callback=callback_method
         )
-        c.FM_BASE_URL = await self.__process_setting(
-            setting_object=self.SETTING_FM_BASE_URL,
+        use_other_url = await self.__process_setting(
+            setting_object=self.SETTING_USE_OTHER_FM_BASE_URL,
             callback=callback_method
         )
+        if use_other_url:
+            c.FM_BASE_URL = await self.__process_setting(
+                setting_object=self.SETTING_FM_BASE_URL,
+                callback=callback_method
+            )
+        else:
+            c.FM_BASE_URL = self.SETTING_FM_BASE_URL["factory_default"]
+            await self.__cancel_setting_listener(self.SETTING_FM_BASE_URL)
 
         # If the above settings change (through the UI) we need the user to re-test the FM connection
         # Do not set this at startup, tested by self.collect_action_handle is not None
@@ -1243,10 +1271,11 @@ class V2GLibertyGlobals(ServiceResponseApp):
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
             c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
             c.UTILITY_CONTEXT_DISPLAY_NAME = context["display-name"]
-            self.log(f"v2g_globals FM_PRICE_PRODUCTION_SENSOR_ID: {c.FM_PRICE_PRODUCTION_SENSOR_ID}.")
-            self.log(f"v2g_globals FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.")
-            self.log(f"v2g_globals FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.")
-            self.log(f"v2g_globals UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}.")
+            self.log(f"__read_and_process_optimisation_settings:\n"
+                     f"    FM_PRICE_PRODUCTION_SENSOR_ID: {c.FM_PRICE_PRODUCTION_SENSOR_ID}.\n"
+                     f"    FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.\n"
+                     f"    FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.\n"
+                     f"    UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}.")
 
             await self.__cancel_setting_listener(self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID)
             await self.__cancel_setting_listener(self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID)
@@ -1256,15 +1285,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         await self.__set_fm_optimisation_context()
 
-        use_vat_and_markup = await self.__process_setting(
+        c.USE_VAT_AND_MARKUP = await self.__process_setting(
                 setting_object=self.SETTING_USE_VAT_AND_MARKUP,
                 callback=callback_method
             )
-        # Only for these electricity_providers do we take the VAT and markup from the secrets into account.
-        # For others, we expect netto prices (including VAT and Markup).
-        # If self_provided data (e.g. au_amber_electric, gb_octopus_energy) also includes VAT and markup the values can
-        # be set to 1 and 0 respectively to achieve the same result as here.
-        if use_vat_and_markup and c.ELECTRICITY_PROVIDER in ["nl_generic", "no_generic"]:
+        # Only relevant for electricity_providers "generic" and possibly for none EPEX,
+        # for others we expect netto prices (including VAT and Markup).
+        # If self_provided data (e.g. au_amber_electric, gb_octopus_energy) also includes VAT and markup.
+        if c.USE_VAT_AND_MARKUP:
             c.ENERGY_PRICE_VAT = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,
                 callback=callback_method
@@ -1274,12 +1302,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 callback=callback_method
             )
         else:
+            # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based on USE_VAT_AND_MARKUP
             await self.__cancel_setting_listener(self.SETTING_ENERGY_PRICE_VAT)
-            c.ENERGY_PRICE_VAT = await self.__reset_to_factory_default(self.SETTING_ENERGY_PRICE_VAT)
             await self.__cancel_setting_listener(self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH)
-            c.ENERGY_PRICE_MARKUP_PER_KWH = await self.__reset_to_factory_default(
-                self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH
-            )
 
         await self.__collect_action_triggers(source="changed optimisation settings")
 
@@ -1424,7 +1449,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 has_changed = True
                 return_value = rv
         elif value_type == "bool":
-            if value_to_convert in ['true', 'True', 'on']:
+            if value_to_convert in [True, 'true', 'True', 'on', 1]:
                 return_value = True
             else:
                 return_value = False

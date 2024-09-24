@@ -12,6 +12,7 @@ PRIORITY_NOTIFICATION_CONFIG: str = ""
 
 # FM in some cases returns gross prices that need conversion for the UI.
 # VAT and Markup are initialised with "no effect value".
+USE_VAT_AND_MARKUP: bool = False
 ENERGY_PRICE_VAT: int = 0
 # Usually a markup per kWh for transport and sustainability
 ENERGY_PRICE_MARKUP_PER_KWH: int = 0

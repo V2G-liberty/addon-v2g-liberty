@@ -6,8 +6,8 @@ import time
 import asyncio
 from v2g_globals import time_ceil, time_floor, get_local_now, is_price_epex_based, convert_to_duration_string
 import constants as c
+from v2g_liberty import ChartLine
 from typing import AsyncGenerator, List, Optional
-
 import appdaemon.plugins.hass.hassapi as hass
 import isodate
 
@@ -15,6 +15,11 @@ import isodate
 class FlexMeasuresDataImporter(hass.Hass):
     # CONSTANTS
     DAYS_HISTORY: int = 7
+
+    # For converting raw EPEX prices from FM to user_friendly UI values
+    price_conversion_factor: float = 1 / 10
+    vat_factor: float = 1
+    markup_per_kwh: float = 0
 
     # Variables
     first_try_time_price_data: str
@@ -100,19 +105,31 @@ class FlexMeasuresDataImporter(hass.Hass):
         # This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
 
         self.log(f"finalize_initialisation called from source: {v2g_args}.")
+
+        # From FM format (€/MWh) to user desired format (€ct/kWh)
+        # = * 100/1000 = 1/10.
+        self.price_conversion_factor = 1 / 10
+        # This way the markup/vat can be retained "underwater" in the settings and do not have to be reset
+        if c.USE_VAT_AND_MARKUP:
+            self.vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
+            self.markup_per_kwh = c.ENERGY_PRICE_MARKUP_PER_KWH
+        else:
+            self.vat_factor = 1
+            self.markup_per_kwh = 0
+
         if v2g_args != "module initialize":
             # New settings must result in refreshing the price data.
             # Clear price data
-            await self.__set_consumption_prices_in_graph(None)
-            await self.__set_production_prices_in_graph(None)
-            await self.__set_emissions_in_graph(None)
+            await self.v2g_main_app.set_records_in_chart(chart_line_name = ChartLine.CONSUMPTION_PRICE, records = None)
+            await self.v2g_main_app.set_records_in_chart(chart_line_name = ChartLine.PRODUCTION_PRICE, records = None)
+            await self.v2g_main_app.set_records_in_chart(chart_line_name = ChartLine.EMISSION, records = None)
 
         if is_price_epex_based():
             self.log("initialize: price update interval is daily")
-            self.timer_id_daily_kickoff_price_data = await self.run_daily(
+            self.timer_id_daily_kickoff_price_data = self.run_daily(
                 self.daily_kickoff_price_data, start = self.first_try_time_price_data)
 
-            self.timer_id_daily_kickoff_emissions_data = await self.run_daily(
+            self.timer_id_daily_kickoff_emissions_data = self.run_daily(
                 self.daily_kickoff_emissions_data, start = self.first_try_time_emissions_data)
         else:
             await self.__cancel_timer(self.timer_id_daily_kickoff_price_data)
@@ -263,7 +280,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # 'unit': 'MW',
         # 'values': [0.004321, None, ..., 0.005712]
         self.log(f"get_charged_energy sensor_id: {c.FM_ACCOUNT_POWER_SENSOR_ID}, "
-                 f"charge power response: {str(res)[:175]} ... {str(res)[-75:]}.")
+                 f"charge power response: {str(res)[:75]} ... {str(res)[-25:]}.")
 
         total_charged_energy_last_7_days = 0
         total_discharged_energy_last_7_days = 0
@@ -274,7 +291,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         charging_energy_points = {}
 
         charge_power_points = res['values']
-        self.log(f"charge_power_points length: '{len(charge_power_points)}'.")
         for i, charge_power in enumerate(charge_power_points):
             if charge_power is None:
                 continue
@@ -331,6 +347,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                  f"    total discharge time: '{format_duration(total_minutes_discharged)}' \n"
                  f"    total charge time: '{format_duration(total_minutes_charged)}'")
 
+
     async def get_consumption_prices(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
         Request prices from the server
@@ -356,63 +373,60 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log(f"get_consumption_prices sensor_id: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}, prices: {prices}.")
 
+        failure_message = ""
         if prices is None:
-            # If interval is daily retry once at second_try_time.
+            failure_message = "get_consumption_prices failed"
+        else:
+            consumption_price_points = []
+            first_future_negative_price_point = None
+            prices = prices['values']
+
+            for i, price in enumerate(prices):
+                if price is None:
+                    continue
+                dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
+                data_point = {
+                    'time': dt.isoformat(),
+                    'price': round(((float(price) * self.price_conversion_factor) + self.markup_per_kwh)
+                                   * self.vat_factor, 2)
+                }
+
+                if first_future_negative_price_point is None and data_point['price'] < 0:
+                    if dt > now:
+                        self.log(f"get_consumption_prices, negative price: {data_point['price']} at: {dt}.")
+                        # We cannot reuse data_point here as we need a date object...
+                        first_future_negative_price_point = {'time': dt, 'price': data_point['price']}
+                consumption_price_points.append(data_point)
+
+            await self.v2g_main_app.set_records_in_chart(
+                chart_line_name = ChartLine.CONSUMPTION_PRICE,
+                records = consumption_price_points
+            )
+
+            self.__check_negative_price_notification(first_future_negative_price_point, "consumption_price_point")
+
             if is_price_epex_based():
-                if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
-                    self.log(f"Retry at {self.second_try_time_price_data}.")
-                    await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
-                else:
-                    self.log("get_consumption_prices failed, retry tomorrow.")
-                    self.v2g_main_app.notify_user(
-                        message="Could not get (all) energy prices, retry tomorrow. Scheduling continues as normal.",
-                        title=None,
-                        tag="no_price_data",
-                        critical=False,
-                        send_to_all=True,
-                        ttl=15 * 60
-                    )
-                return False
+                # FM returns all the prices it has, sometimes it has not retrieved new
+                # prices yet, than it communicates the prices it does have.
+                date_latest_price = start + timedelta(minutes = (len(prices) * c.PRICE_RESOLUTION_MINUTES))
+                date_tomorrow = time_ceil(now, timedelta(days=1))
+                # to give some slack, subtract 2x resolution
+                date_tomorrow -= timedelta(minutes=2 * c.FM_EVENT_RESOLUTION_IN_MINUTES)
+                self.log(f"Checking consumption prices for renewal; "
+                         f"date_latest_price: {date_latest_price}, date_tomorrow: {date_tomorrow}.")
+                if date_latest_price < date_tomorrow:
+                    failure_message = (f"FM consumption prices seem not renewed yet, "
+                                       f"date_latest_price: {date_latest_price}, date_tomorrow: {date_tomorrow}.")
 
-
-        # From FM format (€/MWh) to user desired format (€ct/kWh)
-        # = * 100/1000 = 1/10.
-        conversion = 1 / 10
-        vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
-        consumption_price_points = []
-        first_future_negative_price_point = None
-        prices = prices['values']
-
-        for i, price in enumerate(prices):
-            if price is None:
-                continue
-            dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
-            data_point = {
-                'time': dt.isoformat(),
-                'price': round(((float(price) * conversion) + c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
-            }
-
-            if first_future_negative_price_point is None and data_point['price'] < 0:
-                if dt > now:
-                    self.log(f"get_consumption_prices, negative price: {data_point['price']} at: {dt}.")
-                    # We cannot reuse data_point here as we need a date object...
-                    first_future_negative_price_point = {'time': dt, 'price': data_point['price']}
-            consumption_price_points.append(data_point)
-
-        await self.__set_consumption_prices_in_graph(consumption_price_points)
-
-        if is_price_epex_based():
-            # FM returns all the prices it has, sometimes it has not retrieved new
-            # prices yet, than it communicates the prices it does have.
-            date_latest_price = start + timedelta(minutes = (len(prices) * c.PRICE_RESOLUTION_MINUTES))
-            date_tomorrow = (now + timedelta(days=1))
-            if date_latest_price < date_tomorrow:
-                self.log(f"FM consumption prices seem not renewed yet, latest price at: {date_latest_price}, "
-                         f"Retry at {self.second_try_time_price_data}.")
+        # If interval is daily retry once at second_try_time.
+        if failure_message != "" and is_price_epex_based():
+            if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
+                self.log(f"{failure_message}, retry at {self.second_try_time_price_data}.")
                 await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
-                return False
-
-        self.__check_negative_price_notification(first_future_negative_price_point, "consumption_price_point")
+            else:
+                self.log(f"{failure_message}, retry tomorrow.")
+                await self.__send_cannot_get_prices_notification()
+            return False
 
         self.log(f"FM consumption prices successfully retrieved.")
         # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
@@ -428,6 +442,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         now = get_local_now()
         # Getting prices since start of yesterday so that user can look back a little further than just current window.
         start = time_floor(now + timedelta(days=-1), timedelta(days=1))
+        failure_message = ""
 
         if self.fm_client_app is not None:
             prices = await self.fm_client_app.get_sensor_data(
@@ -441,69 +456,72 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log(f"get_production_prices. Could not call get_sensor_data on fm_client_app as it is None.")
             return False
 
+        self.log(f"get_production_prices | sensor_id: {c.FM_PRICE_PRODUCTION_SENSOR_ID}, prices: {prices}.")
+
         if prices is None:
-            # If interval is daily retry once at second_try_time.
-            if is_price_epex_based():
-                if self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data):
-                    self.log(f"Retry at {self.second_try_time_price_data}.")
-                    await self.run_at(self.get_consumption_prices, self.second_try_time_price_data)
-                else:
-                    self.log("get_production_prices failed, retry tomorrow.")
-                    self.v2g_main_app.notify_user(
-                        message="Could not get (all) energy prices, retry tomorrow. Scheduling continues as normal.",
-                        title=None,
-                        tag="no_price_data",
-                        critical=False,
-                        send_to_all=True,
-                        ttl=15 * 60
-                    )
-                return False
+            failure_message = "get_production_prices failed"
+        else:
+            production_price_points = []
+            first_future_negative_price_point = None
+            prices = prices['values']
+            for i, price in enumerate(prices):
+                if price is None:
+                    continue
+                dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
+                data_point = {
+                    'time': dt.isoformat(),
+                    'price': round(((float(price) * self.price_conversion_factor) +
+                                    self.markup_per_kwh) * self.vat_factor, 2)
+                }
+                if first_future_negative_price_point is None and data_point['price'] < 0 and dt > now:
+                    self.log(f"get_production_prices, negative price: {data_point['price']} at: {dt}.")
+                    # We cannot reuse data_point here as we need a date object...
+                    first_future_negative_price_point = {'time': dt, 'price': data_point['price']}
+                production_price_points.append(data_point)
 
-        self.log(f"get_production_prices. prices: {prices}.")
-
-        # From FM format (€/MWh) to user desired format (€ct/kWh)
-        # = * 100/1000 = 1/10.
-        conversion = 1 / 10
-        vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
-        production_price_points = []
-        first_future_negative_price_point = None
-        now = get_local_now()
-        prices = prices['values']
-        for i, price in enumerate(prices):
-            if price is None:
-                continue
-            dt = start + timedelta(minutes = (i * c.PRICE_RESOLUTION_MINUTES))
-            data_point = {
-                'time': dt.isoformat(),
-                'price': round(((float(price) * conversion) +
-                                c.ENERGY_PRICE_MARKUP_PER_KWH) * vat_factor, 2)
-            }
-            if first_future_negative_price_point is None and data_point['price'] < 0 and dt > now:
-                self.log(f"get_production_prices, negative price: {data_point['price']} at: {dt}.")
-                # We cannot reuse data_point here as we need a date object...
-                first_future_negative_price_point = {'time': dt, 'price': data_point['price']}
-            production_price_points.append(data_point)
-
-        await self.__set_production_prices_in_graph(production_price_points)
+        await self.v2g_main_app.set_records_in_chart(
+            chart_line_name=ChartLine.PRODUCTION_PRICE,
+            records=production_price_points
+        )
+        # Not in use yet, see comments in __check_negative_price_notification
+        # self.__check_negative_price_notification(first_future_negative_price_point, "production_price_point")
 
         if is_price_epex_based():
             # FM returns all the prices it has, sometimes it has not retrieved new
             # prices yet, than it communicates the prices it does have.
             date_latest_price = start + timedelta(minutes = (len(prices) * c.PRICE_RESOLUTION_MINUTES))
-            date_tomorrow = (now + timedelta(days=1))
+            date_tomorrow = time_ceil(now, timedelta(days=1))
+            # to give some slack, subtract 2x resolution
+            date_tomorrow -= timedelta(minutes=2*c.FM_EVENT_RESOLUTION_IN_MINUTES)
             if date_latest_price < date_tomorrow:
-                self.log(f"FM production prices seem not renewed yet, latest price at: {date_latest_price}, "
-                         f"Retry at {self.second_try_time_price_data}.")
-                self.run_at(self.get_production_prices, self.second_try_time_price_data)
-                return "Retry tomorrow"
+                failure_message = (f"FM production prices seem not renewed yet,"
+                                   f"date_latest_price: {date_latest_price}, date_tomorrow: {date_tomorrow}.")
 
-        # Not in use yet, see comments in __check_negative_price_notification
-        # self.__check_negative_price_notification(first_future_negative_price_point, "production_price_point")
+        # If interval is daily retry once at second_try_time.
+        if failure_message != "":
+            if (is_price_epex_based() and
+                self.now_is_between(self.first_try_time_price_data, self.second_try_time_price_data)
+               ):
+                self.log(f"{failure_message}, retry at {self.second_try_time_price_data}.")
+                await self.run_at(self.get_production_prices, self.second_try_time_price_data)
+            else:
+                self.log(f"{failure_message}, retry later/tomorrow.")
+                await self.__send_cannot_get_prices_notification()
+            return False
 
         # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
         self.log(f"FM production prices successfully retrieved.")
         return "FM production prices successfully retrieved."
 
+    async def __send_cannot_get_prices_notification(self):
+        self.v2g_main_app.notify_user(
+            message="Could not get (all) energy prices/emissions to show in graph, retry later. Scheduling continues as normal.",
+            title=None,
+            tag="no_price_data",
+            critical=False,
+            send_to_all=True,
+            ttl=15 * 60
+        )
 
     async def get_emission_intensities(self, *args, **kwargs):
         """ Communicate with FM server and check the results.
@@ -571,62 +589,22 @@ class FlexMeasuresDataImporter(hass.Hass):
                 emission_points.append(data_point)
             previous_value = emission_value
 
-        await self.__set_emissions_in_graph(emission_points)
+        await self.v2g_main_app.set_records_in_chart(chart_line_name=ChartLine.EMISSION, records=emission_points)
 
         if is_price_epex_based():
             # FM returns all the emissions it has, sometimes it has not retrieved new
             # emissions yet, than it communicates the emissions it does have.
             date_tomorrow = time_ceil(now, timedelta(days=1))
-            self.log(f"date_latest_emission: {date_latest_emission}, date_tomorrow: {date_tomorrow}.")
+            # to give some slack, subtract 2x resolution
+            date_tomorrow += timedelta(minutes= -(2*c.FM_EVENT_RESOLUTION_IN_MINUTES))
             if date_latest_emission < date_tomorrow:
-                self.log(f"FM CO2 emissions seem not renewed yet. {date_latest_emission}, "
-                         f"retry at {self.second_try_time_emissions_data}.")
+                self.log(f"FM CO2 emissions | seem not renewed yet: date_latest_emission: {date_latest_emission}, "
+                         f"date_tomorrow: {date_tomorrow}. Retry at {self.second_try_time_emissions_data}.")
                 await self.run_at(self.get_emission_intensities, self.second_try_time_emissions_data)
                 return
         self.log(f"FM emissions successfully retrieved.")
         # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
         return "FM emissions successfully retrieved."
-
-
-    async def __set_production_prices_in_graph(self, production_price_points):
-        # To make sure HA considers this as new info a datetime is added
-        now = get_local_now()
-        new_state = "Production prices collected at " + now.isoformat()
-        if production_price_points is None:
-            # There seems to be no way to hide the SoC series from the graph,
-            # so it is filled with "empty" data, one record of 0.
-            # Set it at a week from now, so it's not visible in the default view.
-            production_price_points = [dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
-        result = {'records': production_price_points}
-        await self.set_state("input_text.production_prices", state=new_state, attributes=result)
-
-
-    async def __set_consumption_prices_in_graph(self, consumption_price_points):
-        # To make sure HA considers this as new info a datetime is added
-        now=get_local_now()
-        new_state = "Consumption prices collected at " + now.isoformat()
-        if consumption_price_points is None:
-            # There seems to be no way to hide the SoC series from the graph,
-            # so it is filled with "empty" data, one record of 0.
-            # Set it at a week from now, so it's not visible in the default view.
-            consumption_price_points = [dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
-        result = {'records': consumption_price_points}
-        await self.set_state("input_text.consumption_prices", state=new_state, attributes=result)
-
-
-
-    async def __set_emissions_in_graph(self, emission_points):
-        # To make sure HA considers this as new info a datetime is added
-        now=get_local_now()
-        new_state = "Emissions collected at " + now.isoformat()
-        if emission_points is None:
-            # There seems to be no way to hide the SoC series from the graph,
-            # so it is filled with "empty" data, one record of 0.
-            # Set it at a week from now, so it's not visible in the default view.
-            emission_points = [dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
-
-        result = {'records': emission_points}
-        await self.set_state("input_text.co2_emissions", state=new_state, attributes=result)
 
 
     def __check_negative_price_notification(self, price_point: dict, price_type: str):
@@ -640,7 +618,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                   consumption prices.
 
             In preparation to the forgoing to-do:
-            - this method is called with a price_type (where √ is not used yet)
+            - this method is called with a price_type (where production_price_point is not used yet)
             - the price_points are stored in separate variables:
               self.first_future_negative_consumption_price_point and self.first_future_negative_production_price_point
         """
@@ -688,8 +666,6 @@ class FlexMeasuresDataImporter(hass.Hass):
             )
         self.log(f"__check_negative_price_notification, notify user with message: {msg}.")
         return
-
-
 
 
 def format_duration(duration_in_minutes: int):
