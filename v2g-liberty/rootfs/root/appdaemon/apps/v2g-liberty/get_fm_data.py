@@ -363,7 +363,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             prices = await self.fm_client_app.get_sensor_data(
                 sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
                 start = start.isoformat(),
-                duration = "P2D",
+                duration = "P3D",
                 resolution = f"PT{c.PRICE_RESOLUTION_MINUTES}M",
                 uom = f"{c.CURRENCY}/MWh",
             )
@@ -448,7 +448,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             prices = await self.fm_client_app.get_sensor_data(
                 sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
                 start = start.isoformat(),
-                duration = "P2D",
+                duration = "P3D",
                 resolution = f"PT{c.PRICE_RESOLUTION_MINUTES}M",
                 uom = f"{c.CURRENCY}/MWh",
             )
@@ -538,7 +538,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         # and will be (more than) enough for the graph to show.
         start = time_floor(now - timedelta(days=self.DAYS_HISTORY), timedelta(days=1))
         resolution = f"PT{c.FM_EVENT_RESOLUTION_IN_MINUTES}M"
-        duration = f"P{ self.DAYS_HISTORY + 1 }D"
+        duration = f"P{ self.DAYS_HISTORY + 2 }D"
 
         if self.fm_client_app is not None:
             emissions = await self.fm_client_app.get_sensor_data(
