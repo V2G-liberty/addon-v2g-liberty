@@ -205,10 +205,11 @@ class ManageOctopusPriceData(hass.Hass):
         self.log(f"__get_octopus_export_prices called.")
         res = requests.get(self.export_url)
         if res.status_code != 200:
-            self.log(f"__get_octopus_export_prices. Error {res.status_code}, res: {res.text}.")
+            self.log(f"__get_octopus_export_prices. Error getting export prices at {self.export_url}, "
+                     f"status_code: {res.status_code}, res: {res.text}.")
             if self.now_is_between(self.first_try_time_get_data, self.second_try_time_get_data):
                 self.log(f"__get_octopus_export_prices, retry once at {self.second_try_time_get_data}.")
-                await self.run_at(self.__get_octopus_export_prices, start=self.second_try_time_price_data)
+                await self.run_at(self.__get_octopus_export_prices, start=self.second_try_time_get_data)
             return
 
         try:
