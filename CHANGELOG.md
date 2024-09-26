@@ -17,6 +17,25 @@ The next release might include:
 
 - ?
 
+## 0.3.1 2024-09-25
+
+### Added
+
+- None
+
+### Fixed
+
+- 🪲 BUG: Price and emission data for tomorrow does not get loaded. #92
+
+### Changed
+
+- None
+
+### Removed
+
+- None
+
+
 
 ## 0.3.0 2024-09-20
 
