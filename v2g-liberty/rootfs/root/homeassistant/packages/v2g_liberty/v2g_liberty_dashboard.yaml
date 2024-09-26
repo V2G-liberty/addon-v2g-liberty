@@ -179,7 +179,7 @@ views:
             min: 0
             max: 100
             name: Car SoC
-            # TODO: Base these values on user settings min/max charge (in secrets).
+            # TODO: Base these values on user settings min/max charge settings.
             segments:
               - from: 0
                 color: var(--error-color)

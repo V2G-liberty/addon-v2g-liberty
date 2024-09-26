@@ -212,7 +212,7 @@ class ModbusEVSEclient(hass.Hass):
         0: 'No car connected',
         1: 'Charging',
         2: 'Connected: waiting for car demand',
-        3: 'Connected: controlled by EVSE App',
+        3: 'Connected: controlled by Wallbox App',
         4: 'Connected: not charging (paused)',
         5: 'Connected: end of schedule',
         6: 'No car connected and charger locked',
