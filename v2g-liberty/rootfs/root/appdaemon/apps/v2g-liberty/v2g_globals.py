@@ -1454,7 +1454,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
             else:
                 return_value = False
         elif value_type == "str":
-            return_value = str(value_to_convert)
+            # Convert to string and strip leading and trailing whitespace chars.
+            return_value = str(value_to_convert).strip()
 
         if has_changed:
             msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
