@@ -829,8 +829,8 @@ class ModbusEVSEclient(hass.Hass):
                 This is used when this method is called from the __get_car_soc Defaults to False.
         """
         if not self._am_i_active:
-            self.log("__set_charge_power called while _am_i_active == False. Return.")
-            return
+            self.log("__set_charge_power called while _am_i_active == False. Not blocking.")
+            # return
 
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
