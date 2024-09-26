@@ -1022,6 +1022,8 @@ class ModbusEVSEclient(hass.Hass):
                         # Acceptable result retrieved
                         self.log(f"__force_get_register. After {total_time} sec. value {result} was retrieved.")
                         break
+                    else:
+                        self.log(f"__force_get_register. Value '{result}' not valid, retrying.")
                 except TypeError:
                     pass
             total_time += DELAY_BETWEEN_READS
@@ -1029,7 +1031,11 @@ class ModbusEVSEclient(hass.Hass):
             # We need to stop at some point
             if total_time > MAX_TOTAL_TIME:
                 self.log(f"__force_get_register timed out. After {total_time} sec. no relevant value was retrieved.")
-                # Connection exception is handled elsewhere.
+                # This does not always trigger a connection exception, but we can assume the connection is down.
+                await self.__handle_modbus_connection_exception(
+                    connection_exception = "timeout",
+                    source = "__force_get_register"
+                )
                 break
 
             await asyncio.sleep(DELAY_BETWEEN_READS)

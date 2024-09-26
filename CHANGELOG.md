@@ -8,7 +8,6 @@ The next release might include:
 
 - ?
 
-
 ### Changing
 
 - Support for uni-directional charging
@@ -16,6 +15,27 @@ The next release might include:
 ### Removing
 
 - ?
+
+
+## 0.3.2 2024-10-??
+
+### Added
+
+- #96 FEATURE: Strip leading and trailing whitespace from user input
+
+### Fixed
+
+- 🪲 BUG:  Timeout on __force_get_register on modbus_evse_client not handled (#98)
+
+### Changed
+
+- None
+
+### Removed
+
+- None
+
+
 
 ## 0.3.1 2024-09-25
 
