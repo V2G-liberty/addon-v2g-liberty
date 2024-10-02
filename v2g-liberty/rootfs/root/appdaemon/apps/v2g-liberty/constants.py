@@ -5,6 +5,8 @@ DATE_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 # Timezone, untyped here..
 TZ = ""
 
+HA_NAME: str = ""
+
 NOTIFICATION_RECIPIENTS: list = []
 ADMIN_MOBILE_NAME: str = ""
 ADMIN_MOBILE_PLATFORM: str = ""

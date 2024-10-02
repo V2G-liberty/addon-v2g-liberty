@@ -33,7 +33,6 @@ class V2Gliberty(hass.Hass):
     # CONSTANTS
     # TODO: Move to EVSE client?
     DISCONNECTED_STATE: int = 0
-    HA_NAME: str = ""
 
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
@@ -83,9 +82,6 @@ class V2Gliberty(hass.Hass):
 
     async def initialize(self):
         self.log("Initializing V2Gliberty")
-
-        self.HA_NAME = await self.get_state("zone.home", attribute="friendly_name")
-        self.log(f"Name of HA instance: '{self.HA_NAME}'.")
 
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
@@ -214,7 +210,7 @@ class V2Gliberty(hass.Hass):
         if actions:
             notification_data['actions'] = actions
 
-        message = message + " [" + self.HA_NAME + "]"
+        message = message + " [" + c.HA_NAME + "]"
 
         self.log(f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}.")
         for recipient in to_notify:
