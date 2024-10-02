@@ -18,7 +18,7 @@ In addition, the EV's battery is used to:
   (e.g. hourly changing) electricity prices.<br/>
   At the time of writing, October 2024 we are testing with new CCS2 chargers and compatible cars. 
   We hope to announce new compatible chargers and cars soon.</span>
-
+ 
 V2G&nbsp;Liberty is a practical local app that works in the browser and on your phone.
 
 ![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2024/08/ui_v0_1_13.png)

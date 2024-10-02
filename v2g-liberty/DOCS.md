@@ -104,7 +104,7 @@ If you’ve added your HA instance and logged in you can manage the charging via
 very conveniently, receive notifications about the charging on you mobile.
 
 
-### Add additional users
+### Add additional users 
 
 This lets more users (persons in the household) operate the charger. This can be done in HA via `Settings -> Persons -> Add new` and make sure to set the option to login. If the user wants to receive relevant notifications have them also install the companion app and login.
 
@@ -120,7 +120,6 @@ Select the V2G Liberty dashboard row and click the link `SET AS DEFAULT IN THIS 
 By default, your Home Assistant can only be reached from within your home network. So when away from home you cannot access V2G Liberty. Having said that, you probably can set calendar reservations if you use an online calendar.
 
 Anyway, remote access is nice, here's <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/docs/remote_support.md" target="_blank">step-by-step guide to configure remote access</a> ⧉.
-
 
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!

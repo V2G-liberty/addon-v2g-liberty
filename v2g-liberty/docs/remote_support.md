@@ -18,7 +18,7 @@ In overview this is how:
 
 4. Send the HA account and Tailscale share link to us
 
-5. Remote support session with the V2G Liberty team
+5. Remote support session with the V2G Liberty team 
 
 6. Withdraw access (temporarily)
 

@@ -43,6 +43,7 @@ The next release might include:
 
 - Documentation for getting remote access / remote support (#104)
 
+
 ### Fixed
 
 - 🪲 BUG: Price and emission data for tomorrow does not get loaded. #92
