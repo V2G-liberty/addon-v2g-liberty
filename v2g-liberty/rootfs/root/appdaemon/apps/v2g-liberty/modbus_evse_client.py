@@ -353,7 +353,7 @@ class ModbusEVSEclient(hass.Hass):
         """To be called when charge_mode in UI is (switched to) Stop"""
         self.log("evse: set_inactive called")
         await self.stop_charging()
-        await self.__cancel_polling(reason="Set inactive called")
+        # await self.__cancel_polling(reason="Set inactive called")
         await self.__set_charger_control("give")
         self._am_i_active = False
 
@@ -873,8 +873,8 @@ class ModbusEVSEclient(hass.Hass):
     ######################################################################
 
     async def __update_poll_indicator_in_ui(self, reset: bool = False):
-        # This can be shown directly as text in the UI (or use ⏲ ⟳ 🔃 🔄?) but,
-        # as the "last_changed" attribute also changes, an "age" could be shown based on this as well
+        # Toggles the char in the UI to indicate polling activity,
+        # as the "last_changed" attribute also changes, an "age" could be shown based on this as well.
         self.poll_update_text = "↺" if self.poll_update_text != "↺" else "↻"
         if reset:
             self.poll_update_text = ""
@@ -1190,6 +1190,7 @@ class ModbusEVSEclient(hass.Hass):
         await self.__cancel_polling(reason="un_recoverable modbus error")
         # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
         self._am_i_active = False
+        await self.__cancel_polling()
         await self.v2g_main_app.notify_user_of_charger_needs_restart(
             was_car_connected=await self.is_car_connected()
         )

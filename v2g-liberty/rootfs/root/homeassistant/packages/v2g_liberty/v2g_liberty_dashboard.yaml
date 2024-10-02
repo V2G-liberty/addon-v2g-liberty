@@ -535,7 +535,8 @@ views:
                       padding: 10% 0 !important;
                     }
               - type: button
-                name: "Off"
+                name: "Pause"
+                icon: mdi:pause-box-outline
                 hold_action:
                   action: none
                 entity: input_boolean.chargemodeoff
@@ -543,10 +544,31 @@ views:
                 show_state: false
                 card_mod:
                   style: |
+                    # Overflow is needed as otherwise the popup is cut-off outside of the button (and then useless).
+                    :host * {
+                      overflow: visible !important;
+                    }
                     ha-card {
                       padding: 10% 0 !important;
                     }
+                    ha-card:hover::before {
+                      content: "Pause scheduled charging and give control to the charger. \A Want to stop V2G Liberty completely? Use the link on the settings tab in the top bar.";
+                      text-align: left;
+                      white-space: pre-wrap;
+                      font-size: 80%;
+                      color: var(--primary-text-color);
+                      position: absolute !important;
+                      width: 240px;
+                      right: 12px;
+                      top: 96px;
+                      background-color: var(--primary-background-color);
+                      border: 1px solid var(--input-idle-line-color);
+                      border-radius: 8px;
+                      padding: 8px 16px;
+                      z-index: 110;
+                    }
             square: false
+
           - type: conditional
             conditions:
               - entity: input_text.charger_state
@@ -1351,7 +1373,7 @@ views:
             entities:
               - type: button
                 name: ' '
-                action_name: ↺ Restart V2G Liberty
+                action_name: 🔄 Restart V2G Liberty ››
                 tap_action:
                   action: call-service
                   confirmation:
@@ -1360,7 +1382,16 @@ views:
                   target: {}
               - type: button
                 name: ' '
-                action_name: Reset to factory defaults >>
+                action_name: 🛑 Stop V2G Liberty ››
+                tap_action:
+                  action: call-service
+                  confirmation:
+                    text: The only way to stop V2G Liberty is to stop the add-on. Goto Settings -> Add-ons -> V2G Liberty -> Stop
+                  service: script.stop_v2g_liberty
+                  target: {}
+              - type: button
+                name: ' '
+                action_name: 🏭 Reset to factory defaults ››
                 tap_action:
                   action: call-service
                   confirmation:
