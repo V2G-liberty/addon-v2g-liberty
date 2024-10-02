@@ -21,7 +21,7 @@ The next release might include:
 
 ### Added
 
-- #96 FEATURE: Strip leading and trailing whitespace from user input
+- FEATURE: Strip leading and trailing whitespace from user input (#96)
 - Documentation for getting remote access / remote support (#104)
 
 ### Fixed
@@ -32,7 +32,7 @@ The next release might include:
 
 - 🛠️ FR: Charge mode "Off" now keeps polling the charger and is renamed to Pause (#100)
 - TECH: Use get_plugin_config() instead of template sensor TZ in package.yaml (#103
-
+- REFACTOR: Restructure code in set_next_action (#108)
 
 ### Removed
 

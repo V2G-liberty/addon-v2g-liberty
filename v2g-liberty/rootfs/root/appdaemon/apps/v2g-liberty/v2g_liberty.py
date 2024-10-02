@@ -984,31 +984,30 @@ class V2Gliberty(hass.Hass):
             self.log("set_next_action: evse_client_app.try_get_new_soc_in_process, stopped setting next action.")
             return
 
-        if self.connected_car_soc == 0:
-            self.log("SoC is 0, stopped setting next action.")
-            # Maybe (but it is dangerous) do try_get_soc??
-            return
+        charge_mode = await self.get_state("input_select.charge_mode", attribute="state")
+        self.log(f"Setting next action based on charge_mode '{charge_mode}'.")
 
         # Needed in many of the cases further in this method
         now = get_local_now()
 
-        # If the SoC of the car is higher than the max-soc (intended for battery protection)
-        # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
-        if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
-            self.back_to_max_soc = time_round((now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
-                                              c.EVENT_RESOLUTION)
-            self.log(
-                f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
-        elif (self.back_to_max_soc is not None) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
-            self.back_to_max_soc = None
-            self.log(f"SoC was below max-soc, has been restored.")
-
-        charge_mode = await self.get_state("input_select.charge_mode", attribute="state")
-        self.log(f"Setting next action based on charge_mode '{charge_mode}'.")
-
         if charge_mode == "Automatic":
-            # This should be handled by update_charge_mode
-            # self.set_charger_control("take")
+            # update_charge_mode takes charger control already, not needed here.
+
+            if self.connected_car_soc == 0:
+                self.log("SoC is 0, stopped setting next action.")
+                # Maybe (but it is dangerous) do try_get_soc??
+                return
+
+            # If the SoC of the car is higher than the max-soc (intended for battery protection)
+            # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
+            if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
+                self.back_to_max_soc = time_round((now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
+                                                  c.EVENT_RESOLUTION)
+                self.log(
+                    f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
+            elif (self.back_to_max_soc is not None) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
+                self.back_to_max_soc = None
+                self.log(f"SoC was below max-soc, has been restored.")
 
             if self.connected_car_soc < c.CAR_MIN_SOC_IN_PERCENT and not self.in_boost_to_reach_min_soc:
                 # Intended for the situation where the car returns from a trip with a low battery.
