@@ -292,11 +292,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
     async def initialize(self):
         self.log("Initializing V2GLibertyGlobals")
-        # AppDaemon gets it's TZ from appdaemon.yaml. The user has set the right timezone in HA already.
-        # A separate setting for AppDaemon does not make sense? It is an extra setting with a possibility of mistakes.
-        # To get the HA timezone into AppDaemon a sensor in HA is created that is read here.
-        tz = await self.get_state('sensor.time_zone', attribute='state')
-        c.TZ = pytz.timezone(tz)
+        config = await self.get_plugin_config()
+        # Use the HA time_zone, and not the TZ from appdaemon.yaml that AD uses.
+        c.TZ = pytz.timezone(config['time_zone'])
+        # For footer of notifications
+        c.HA_NAME = config['location_name']
+        # The currency is dictated by the energy provider so it is not retrieved from the config here.
+        self.log(f"initialize | {c.HA_NAME=}, {c.TZ=}, local_now: {get_local_now()}.")
 
         c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
