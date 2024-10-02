@@ -1,6 +1,6 @@
 ---
 name: V2G Liberty
-version: 0.3.2
+version: 0.3.1
 slug: v2g-liberty
 description: The V2G Liberty add-on delivers full automatic and optimised control over Vehicle to Grid (V2G) / bidirectional charging of your electric vehicle.
 url: https://github.com/V2G-liberty/addon-v2g-liberty
