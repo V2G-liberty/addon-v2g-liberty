@@ -41,7 +41,7 @@ The next release might include:
 
 ### Added
 
-- None
+- Documentation for getting remote access / remote support (#104)
 
 ### Fixed
 
@@ -49,7 +49,7 @@ The next release might include:
 
 ### Changed
 
-- None
+- 🛠️ FR: Charge mode "Off" now keeps polling the charger and is renamed to Pause (#100)
 
 ### Removed
 

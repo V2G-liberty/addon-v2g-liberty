@@ -10,13 +10,14 @@ In addition, the EV's battery is used to:
 
 *Liberty* in the name refers to:
 - V2G&nbsp;Liberty strives for you to be independent of the make/type of charger & car.
- 
-  <span class="sub-text">The truth now is that only the Wallbox Quasar charger offers (affordable) bidirectional charging.
-  As it is equipped with a CHAdeMo connector, so currently only cars with this connector are supported, see [prerequisites](#Prerequisites).</span>
+  <span class="sub-text">Currently only the Wallbox Quasar charger offers affordable bidirectional charging
+  in combination with Nissan Leaf / Evalia cars.</span>
 - V2G&nbsp;Liberty strives for you to be independent of power company.
  
   <span class="sub-text">You can choose any contract but V2G is only relevant for contracts with dynamic 
-  (e.g. hourly changing) electricity prices.</span>
+  (e.g. hourly changing) electricity prices.<br/>
+  At the time of writing, October 2024 we are testing with new CCS2 chargers and compatible cars. 
+  We hope to announce new compatible chargers and cars soon.</span>
 
 V2G&nbsp;Liberty is a practical local app that works in the browser and on your phone.
 
@@ -38,15 +39,9 @@ Read more about FlexMeasures on [flexMeasures.io](https://flexmeasures.io/), [se
 
 ## Prerequisites
  
-As said, at the time of writing, 2024-04, only the [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger) is supported.
-This is a [CHAdeMO](https://www.chademo.com/) compatible charger.
+As said, we've fine-tuned our software over the last 4 years for the (only) bidirectional [Wallbox Quasar 1 charger](https://wallbox.com/en_uk/quasar-dc-charger).
 
-Compatible cars that can do V2G with this protocol are the [Nissan Leaf](https://ev-database.org/car/1657/Nissan-Leaf-eplus) (also earlier models) and [Nissan Evalia](https://ev-database.org/car/1117/Nissan-e-NV200-Evalia).
-
-When the [Wallbox Quasar 2](https://wallbox.com/en_catalog/quasar-2-bidirectional-ev-charger) is available we expect V2G Liberty to be compatible with this hardware "out of the box".
-Then also CCS V2G capable cars can be managed with V2G Liberty.
-
-We expect to add new chargers to V2G&nbsp;Liberty soon
+Compatible cars that can do V2G with this charger are the [Nissan Leaf](https://ev-database.org/car/1657/Nissan-Leaf-eplus) (also earlier models) and [Nissan Evalia](https://ev-database.org/car/1117/Nissan-e-NV200-Evalia).
 
 
 ## Preparation
@@ -100,7 +95,7 @@ The installation of this add-on is pretty straightforward.
 1. Copy this URL: `https://github.com/V2G-liberty/addon-v2g-liberty.git`
 2. In home assistant got to `settings > add-ons`.
 3. Hit the big blue button in the bottom right `add-on shop`.
-4. Open the menu in the top right with the ⋮-icon and select the option `repostitories`.
+4. Open the menu in the top right with the ⋮-icon and select the option `repositories`.
 5. Paste the URL of step 1 and click `ADD`, wait a little and click `Close`.
 6. Scroll down to the bottom of the page, the V2G&nbsp;Liberty add-on should be visible there.
    If not, refresh the page. Click the add-on.
@@ -108,7 +103,7 @@ The installation of this add-on is pretty straightforward.
    quite a while as several some files.
 8. Consider activating `Watch dog` and `Automatic update`.
 
-Further steps in the proces of installation and configuration are explained in the installed add-on itself.
+Further steps in the proces of installation and configuration are explained in the documentation tab of the add-on.
 
 
 ## Configuration
@@ -126,6 +121,20 @@ Restart *V2G&nbsp;Liberty* `settings -> Add-ons -> V2G Liberty -> Restart`.
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!
 
+
+## Need help / got questions?
+
+You have several options to get help or your questions answered:
+
+- Get [remote (live) support from the V2G Liberty team](docs/remote_support.md).
+- The [Home Assistant Community Add-ons Discord chat server][discord] for add-on
+  support and feature requests.
+- The [Home Assistant Discord chat server][discord-ha] for general Home
+  Assistant discussions and questions.
+
+You could also [open an issue][issue] on GitHub.
+
+
 ## Changelog & Releases
 
 This repository keeps a change log using [GitHub's releases][releases]
@@ -139,18 +148,6 @@ based on the following:
 - `MAJOR`: Incompatible or major changes.
 - `MINOR`: Backwards-compatible new features and enhancements.
 - `PATCH`: Backwards-compatible bugfixes and package updates.
-
-
-## Got questions?
-
-You have several options to get them answered:
-
-- The [Home Assistant Community Add-ons Discord chat server][discord] for add-on
-  support and feature requests.
-- The [Home Assistant Discord chat server][discord-ha] for general Home
-  Assistant discussions and questions.
-
-You could also [open an issue][issue] on GitHub.
 
 
 ## Authors & contributors
