@@ -33,6 +33,7 @@ The next release might include:
 - 🛠️ FR: Charge mode "Off" now keeps polling the charger and is renamed to Pause (#100)
 - TECH: Use get_plugin_config() instead of template sensor TZ in package.yaml (#103
 - REFACTOR: Restructure code in set_next_action (#108)
+- Bumped flexmeasures_client library to version 0.2.4 (#110)
 
 ### Removed
 
