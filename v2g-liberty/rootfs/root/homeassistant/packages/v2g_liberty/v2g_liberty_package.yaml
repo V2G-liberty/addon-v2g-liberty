@@ -230,7 +230,7 @@ input_number:
   car_max_soc_in_percent:
     name: Car battery max. soc
     min: 60
-    max: 100
+    max: 95
     step: 1
     icon: mdi:chart-sankey
     mode: box
