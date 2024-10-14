@@ -76,6 +76,7 @@ class ManageAmberPriceData(hass.Hass):
         await self.kick_off_amber_price_management(initial=True)
         self.log(f"Completed Initializing ManageAmberPriceData.")
 
+
     async def kick_off_amber_price_management(self, initial: bool = False):
         """
            'Second stage' of initialisation.
@@ -85,14 +86,15 @@ class ManageAmberPriceData(hass.Hass):
             :param initial: Only for the first call from the initialisation of the module.
             :return: Nothing
         """
-        if c.ELECTRICITY_PROVIDER != "au_amber_electric" and \
-           c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID is not None and \
-           c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID is not None:
-            self.log(f"Not kicking off ManageAmberPriceData module. Electricity provider is not "
-                     f"'au_amber_electric' and/or price entity_id's are not populated (yet).")
+        if c.ELECTRICITY_PROVIDER != "au_amber_electric":
+            self.log(f"Not kicking off ManageAmberPriceData module. Electricity provider is not 'au_amber_electric'.")
             return
-        else:
-            self.log(f"kick_off_amber_price_management starting!")
+
+        if c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID is None or c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID is None:
+            self.log(f"Not kicking off ManageAmberPriceData module, price entity_id's are not populated (yet).")
+            return
+
+        self.log(f"kick_off_amber_price_management starting!")
 
         if initial:
             await self.__check_for_price_changes({'forced': True})

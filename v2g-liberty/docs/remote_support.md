@@ -72,7 +72,8 @@ However, if you intend to use it for remote access for yourself, the first two a
 8. Login to connect \
 Tailscale uses other cloud services (Google, Microsoft, Apple, etc.) for login on a Tailscale account, so you are presented a list of so called identity providers (ID-P’s). \
 You most likely do not have a Tailscale account yet, no problem, just use your favourite ID-P to login and an account is created automatically. \
-If you don’t have an account for any of the ID-P’s we suggest you create a Github account at https://github.com/join. Do this before you proceed here.
+If you don’t have an account for any of the ID-P’s we suggest you create a Github account at https://github.com/join. Do this before you proceed here.\
+It is advisable to use a private account for the ID-P's, not a work account for this.
 
 9. Once you have logged in your asked to connect the device. Do this by clicking the button `Connect`
 

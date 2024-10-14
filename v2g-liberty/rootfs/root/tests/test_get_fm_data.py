@@ -87,6 +87,25 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         await self.finalize_initialisation("module initialize")
 
+        ########## TESTDATA ############
+        # # TESTING
+        # test_cases = [
+        #     ("15:00:00", "13:30:00", "18:30:00", True),
+        #     ("19:00:00", "13:30:00", "23:59:59", True),
+        #     ("19:00:00", "13:30:00", "00:00:00", False),
+        #     ("10:00:00", "13:30:00", "23:59:59", False),
+        #     ("10:00:00", "13:30:00", "15:30:00", False),
+        #     ("19:00:00", "13:30:00", "15:30:00", False),
+        #     ("12:00:00", "13:30:00", "11:30:00", False),
+        #     (None, "13:30:00", "11:30:00", True),
+        #     ("16:45:45", self.GET_PRICES_TIME, "23:59:59", True),
+        #     ("12:45:45", self.GET_PRICES_TIME, self.TRY_UNTIL, False),
+        # ]
+        #
+        # for now_time, start_time, end_time, expected in test_cases:
+        #    result = is_local_now_between(start_time, end_time, now_time)
+        #    self.log(f"Test: {start_time=}, {end_time=}, {now_time=}, assert: {result == expected}.")
+
         self.log(f"Completed initializing FlexMeasuresDataImporter")
 
 
@@ -122,21 +141,41 @@ class FlexMeasuresDataImporter(hass.Hass):
         await self.__cancel_timer(self.timer_id_daily_kickoff_emissions_data)
         await self.__cancel_timer(self.timer_id_daily_check_is_data_up_to_date)
 
+        ########## TESTDATA ############
+        self.log("TESTDATA for getting price data", level="WARNING")
+
+        self.CHECK_RESOLUTION_SECONDS = 3 * 60  # Delay between checks when no data was found
+
+        soon = get_local_now() + timedelta(seconds=15)
+        self.GET_PRICES_TIME = f"{add0(soon.hour)}:{add0(soon.minute)}:{add0(soon.second)}"
+        soon = get_local_now() + timedelta(seconds=20)
+        self.GET_EMISSIONS_TIME = f"{add0(soon.hour)}:{add0(soon.minute)}:{add0(soon.second)}"
+        soon = get_local_now() + timedelta(minutes=10)
+        self.CHECK_DATA_STATUS_TIME = f"{add0(soon.hour)}:{add0(soon.minute)}:{add0(soon.second)}"
+        soon = get_local_now() + timedelta(minutes=20)
+        self.TRY_UNTIL = f"{add0(soon.hour)}:{add0(soon.minute)}:{add0(soon.second)}"
+        self.log(f"TESTDATA altered data: {self.CHECK_RESOLUTION_SECONDS=}, {self.CHECK_DATA_STATUS_TIME=}",
+                 level="WARNING")
+
+        ########## TESTDATA ############
+
         if is_price_epex_based():
             self.log("initialize: price update interval is daily")
-            self.timer_id_daily_kickoff_price_data = await self.run_daily(
+            self.timer_id_daily_kickoff_price_data = self.run_daily(
                 self.daily_kickoff_price_data, start = self.GET_PRICES_TIME)
 
-            self.timer_id_daily_kickoff_emissions_data = await self.run_daily(
+            self.timer_id_daily_kickoff_emissions_data = self.run_daily(
                 self.daily_kickoff_emissions_data, start = self.GET_EMISSIONS_TIME)
 
-            self.timer_id_daily_check_is_data_up_to_date = await self.run_daily(
+            self.timer_id_daily_check_is_data_up_to_date = self.run_daily(
                 self.__check_if_prices_are_up_to_date, start = self.CHECK_DATA_STATUS_TIME)
 
-        initial_delay_sec = 45
-        await self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
-        await self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
-        await self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
+        ########## TESTDATA ############
+        self.log("TESTDATA cancelled initial get dat to test timers", level="WARNING")
+        # initial_delay_sec = 45
+        # await self.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
+        # await self.run_in(self.daily_kickoff_emissions_data, delay=initial_delay_sec)
+        # await self.run_in(self.daily_kickoff_charging_data, delay=initial_delay_sec)
         self.log("finalize_initialisation completed.")
 
     # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
@@ -443,7 +482,6 @@ class FlexMeasuresDataImporter(hass.Hass):
         # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
         return "emissions successfully retrieved."
 
-
     async def get_prices(self, parameters: dict):
         """
         Gets consumption / production prices from the server via the fm_client.
@@ -503,9 +541,26 @@ class FlexMeasuresDataImporter(hass.Hass):
                 first_future_negative_price_point = None
                 prices = prices['values']
 
+                ########## TESTDATA ############
+                if is_local_now_between("09:00:00", "10:45:00"):
+                    stop_at = int(len(prices) * 0.4)
+                    self.log(f"TESTDATA stop_at: '{stop_at}', len(prices) = '{len(prices)}'.", level="WARNING")
+                else:
+                    stop_at = len(prices) + 10
+                    self.log(f"TESTDATA reset stop_at: '{stop_at}', len(prices) = '{len(prices)}'.", level="WARNING")
+                ########## TESTDATA ############
+
+
                 for i, price in enumerate(prices):
                     if price is None:
                         continue
+
+                    ########## TESTDATA ############
+                    if i >= stop_at:
+                        break
+                        self.log(f"TESTDATA Breaking loop at iteration '{i}', date_latest_price: '{date_latest_price}'.", level="WARNING")
+                    ########## TESTDATA ############
+
                     dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
                     date_latest_price = dt
                     data_point = {
@@ -708,6 +763,11 @@ class FlexMeasuresDataImporter(hass.Hass):
         self.log(f"__check_negative_price_notification, notify user with message: {msg}.")
         return
 
+#### TESTDATA #####
+# Function only for testing
+def add0(number: int) -> str:
+    return "{:02d}".format(number)
+
 
 def format_duration(duration_in_minutes: int):
     MINUTES_IN_A_DAY = 60 * 24
@@ -718,8 +778,9 @@ def format_duration(duration_in_minutes: int):
 
 
 def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -> bool:
-    # Replacement for (and based upon) AppDaemon the now_is_between function, this had a problem with timezones.
+    # Get today's date
     today_date = datetime.today().date()
+
     if now_time is None:
         now = get_local_now()
     else:
@@ -728,9 +789,11 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
 
     time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
     start_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+
     time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
     end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
 
+    # Comparisons
     if end_dt < start_dt:
         # self.log(f"is_local_now_between, end_dt < start_dt ...")
         # Start and end time backwards, so it spans midnight.
@@ -738,10 +801,13 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
         # This will be true if we are currently after start_dt
         end_dt += timedelta(days=1)
         if now < start_dt and now < end_dt:
-            # If both times are now in the future, we crossed into a new day and things changed.
-            # Now all times have shifted relative to the new day, shift backand set start_dt and end_dt back a day.
+            # Well, it's complicated, we crossed into a new day and things changed.
+            # Now all times have shifted relative to the new day, so we need to look at it differently
+            # If both times are now in the future, we now actually need to set start_dt and end_dt back a day.
             start_dt -= timedelta(days=1)
             end_dt -= timedelta(days=1)
 
     result = (start_dt <= now <= end_dt)
+    # print(f"is_local_now_between start: {start_dt.isoformat()}, end: {end_dt.isoformat()},"
+    #       f" now: {now.isoformat()} => result: {result}.")
     return result
