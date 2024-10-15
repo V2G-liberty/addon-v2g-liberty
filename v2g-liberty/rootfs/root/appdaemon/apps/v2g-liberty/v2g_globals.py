@@ -696,9 +696,21 @@ class V2GLibertyGlobals(ServiceResponseApp):
         except Exception as e:
             self.log(f"create_persistent_notification failed! Exception: '{e}'")
 
-    async def __write_setting_to_ha(self, setting: dict, setting_value, min_allowed_value=None, max_allowed_value=None):
+    async def __write_setting_to_ha(self,
+            setting: dict,
+            setting_value: any,
+            source: str,
+            min_allowed_value:int|float = None,
+            max_allowed_value:int|float = None,
+        ):
         """
-           This method writes the value to the HA entity.
+        This method writes the value to the HA entity.
+        :param setting: A setting object, o.a. containing the entity_id
+        :param setting_value: The actual value to write
+        :param source: user_input, settings, factory_default, ha. Needed for the "initialised" attribute in the entity.
+        :param min_allowed_value:
+        :param max_allowed_value:
+        :return: Nothing
         """
         entity_name = setting['entity_name']
         entity_type = setting['entity_type']
@@ -715,16 +727,17 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 else:
                     await self.turn_off(entity_id)
             else:
-                # Unfortunately the UI does not pickup these new limits... from the attributes, so need to check locally.
-                # new_attributes = {}
-                # if min_allowed_value:
-                #     new_attributes["min"] = min_allowed_value
-                # if max_allowed_value:
-                #     new_attributes["max"] = max_allowed_value
-                # if new_attributes:
-                #     await self.set_state(entity_id, state=setting_value, attributes=new_attributes)
-                # else:
-                await self.set_state(entity_id, state=setting_value)
+                initialised_sourced = ["user_input", "settings"]
+                new_attributes = {"initialised": (source in initialised_sourced)}
+
+                # Unfortunately the UI does not pick up these new limits from the attributes (maybe in a new version?),
+                # so need to check locally also.
+                if min_allowed_value:
+                    new_attributes["min"] = min_allowed_value
+                if max_allowed_value:
+                    new_attributes["max"] = max_allowed_value
+                # self.log(f"__write_setting_to_ha, attributes: {new_attributes}.")
+                await self.set_state(entity_id, state=setting_value, attributes=new_attributes)
 
 
     async def __select_option(self, entity_id: str, option: str):
@@ -926,7 +939,11 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     #          f"Set constant and UI to factory_default: {return_value} "
                     #          f"{type(return_value)}.")
                     await self.__store_setting(entity_id=entity_id, setting_value=return_value)
-                    await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
+                    await self.__write_setting_to_ha(
+                        setting=setting_object,
+                        setting_value=return_value,
+                        source="factory_default"
+                    )
                 else:
                     # This most likely is the situation after a re-install or "reset to factory defaults": no stored
                     # setting. Then there might be relevant information stored in the entity (in the UI).
@@ -945,7 +962,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 return_value, has_changed = await self.__check_and_convert_value(setting_object, stored_setting_value)
                 # self.log(f"__process_setting, Initial call. Relevant v2g_setting: {return_value}, "
                 #          f"write this to HA entity '{entity_id}'.")
-                await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
+                await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value, source="settings")
 
             if callback is not None:
                 setting_object['listener_id'] = self.listen_state(callback, entity_id, attribute="all")
@@ -957,8 +974,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return_value, has_changed = await self.__check_and_convert_value(setting_object, state)
             # self.log(f"__process_setting. Triggered by changes in UI. "
             #          f"Write value '{return_value}' to store '{entity_id}'.")
-            if has_changed:
-                await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
+            # We need to write to HA entity even if has_changed == False as we have to add the source.
+            await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value, source="user_input")
             await self.__store_setting(entity_id=entity_id, setting_value=return_value)
 
         # Just for logging
@@ -1324,7 +1341,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return_value, has_changed = await self.__check_and_convert_value(setting_object, factory_default)
 
         await self.__store_setting(entity_id=entity_id, setting_value=return_value)
-        await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value)
+        await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value, source="factory_default")
         return return_value
 
     async def __set_fm_optimisation_context(self):
