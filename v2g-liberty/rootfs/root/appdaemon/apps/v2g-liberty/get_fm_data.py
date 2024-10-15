@@ -23,7 +23,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
     # Price data should normally be available just after 13:00 when data can be
     # retrieved from its original source (ENTSO-E) but sometimes there is a delay of several hours.
-    GET_PRICES_TIME: str = "13:32:21"         # When to start check for prices.
+    GET_PRICES_TIME: str = "13:35:51"         # When to start check for prices.
     GET_EMISSIONS_TIME: str = "13:45:26"      # When to start check for emissions.
     TRY_UNTIL: str = "11:22:33"               # If not successful retry every x minutes until this time (the next day)
     CHECK_DATA_STATUS_TIME: str = "18:34:52"  # When to check if price data is up to date, and if not notify the user.

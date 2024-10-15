@@ -26,7 +26,9 @@ The next release might include:
 
 ### Fixed
 
-- 🪲 BUG:  Timeout on __force_get_register on modbus_evse_client not handled (#98)
+- 🪲 BUG: Timeout on __force_get_register on modbus_evse_client not handled (#98)
+- 🪲 BUG: Changelog not available from add-on screen in HA (un-numbered)
+- 🩹 PATCH: Delay starttime of getting prices (#117)
 
 ### Changed
 
