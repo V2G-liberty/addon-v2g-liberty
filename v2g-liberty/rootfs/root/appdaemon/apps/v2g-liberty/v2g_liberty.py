@@ -33,7 +33,6 @@ class V2Gliberty(hass.Hass):
     # CONSTANTS
     # TODO: Move to EVSE client?
     DISCONNECTED_STATE: int = 0
-    HA_NAME: str = ""
 
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
@@ -84,9 +83,6 @@ class V2Gliberty(hass.Hass):
     async def initialize(self):
         self.log("Initializing V2Gliberty")
 
-        self.HA_NAME = await self.get_state("zone.home", attribute="friendly_name")
-        self.log(f"Name of HA instance: '{self.HA_NAME}'.")
-
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
 
@@ -108,7 +104,7 @@ class V2Gliberty(hass.Hass):
             "no_communication_with_fm": False
         }
         # Reset at init
-        self.turn_off("input_boolean.charger_modbus_communication_fault")
+        await self.turn_off("input_boolean.charger_modbus_communication_fault")
 
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
@@ -117,13 +113,13 @@ class V2Gliberty(hass.Hass):
         self.fm_client_app = await self.get_app("fm_client")
         self.reservations_client = await self.get_app("reservations-client")
 
-        self.listen_state(self.__update_charge_mode, "input_select.charge_mode", attribute="all")
-        self.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
-        self.listen_event(self.__handle_phone_action, event="mobile_app_notification_action")
+        await self.listen_state(self.__update_charge_mode, "input_select.charge_mode", attribute="all")
+        await self.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
+        await self.listen_event(self.__handle_phone_action, event="mobile_app_notification_action")
 
-        self.listen_state(self.__handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
-        self.listen_state(self.__handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
-        self.listen_state(self.__process_schedule, "input_text.chargeschedule", attribute="all")
+        await self.listen_state(self.__handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
+        await self.listen_state(self.__handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
+        await self.listen_state(self.__process_schedule, "input_text.chargeschedule", attribute="all")
 
         self.scheduling_timer_handles = []
 
@@ -161,8 +157,8 @@ class V2Gliberty(hass.Hass):
 
     async def initialise_v2g_liberty(self, v2g_args=None):
         # Show the settings in the UI
-        self.set_textvalue("input_text.optimisation_mode", c.OPTIMISATION_MODE)
-        self.set_textvalue("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
+        await self.set_textvalue("input_text.optimisation_mode", c.OPTIMISATION_MODE)
+        await self.set_textvalue("input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME)
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
 
@@ -214,7 +210,7 @@ class V2Gliberty(hass.Hass):
         if actions:
             notification_data['actions'] = actions
 
-        message = message + " [" + self.HA_NAME + "]"
+        message = message + " [" + c.HA_NAME + "]"
 
         self.log(f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}.")
         for recipient in to_notify:
@@ -910,11 +906,11 @@ class V2Gliberty(hass.Hass):
 
         # Cleaned_up SoC value for UI
         # TODO: This is no longer needed, use input_number.charger_connected_car_state_of_charge in UI.
-        self.set_value("input_number.car_state_of_charge", self.connected_car_soc)
+        await self.set_value(entity_id="input_number.car_state_of_charge", value=self.connected_car_soc)
 
         self.connected_car_soc_kwh = round(reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
         remaining_range = int(round((self.connected_car_soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
-        self.set_value("input_number.car_remaining_range", remaining_range)
+        await self.set_value(entity_id="input_number.car_remaining_range", value=remaining_range)
         self.log(f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%.")
         self.log(f"New SoC processed, self.connected_car_soc_kwh is now set to: {self.connected_car_soc_kwh}kWh.")
         self.log(f"New SoC processed, car_remaining_range is now set to: {remaining_range} km.")
@@ -988,31 +984,30 @@ class V2Gliberty(hass.Hass):
             self.log("set_next_action: evse_client_app.try_get_new_soc_in_process, stopped setting next action.")
             return
 
-        if self.connected_car_soc == 0:
-            self.log("SoC is 0, stopped setting next action.")
-            # Maybe (but it is dangerous) do try_get_soc??
-            return
+        charge_mode = await self.get_state("input_select.charge_mode", attribute="state")
+        self.log(f"Setting next action based on charge_mode '{charge_mode}'.")
 
         # Needed in many of the cases further in this method
         now = get_local_now()
 
-        # If the SoC of the car is higher than the max-soc (intended for battery protection)
-        # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
-        if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
-            self.back_to_max_soc = time_round((now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
-                                              c.EVENT_RESOLUTION)
-            self.log(
-                f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
-        elif (self.back_to_max_soc is not None) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
-            self.back_to_max_soc = None
-            self.log(f"SoC was below max-soc, has been restored.")
-
-        charge_mode = await self.get_state("input_select.charge_mode", attribute="state")
-        self.log(f"Setting next action based on charge_mode '{charge_mode}'.")
-
         if charge_mode == "Automatic":
-            # This should be handled by update_charge_mode
-            # self.set_charger_control("take")
+            # update_charge_mode takes charger control already, not needed here.
+
+            if self.connected_car_soc == 0:
+                self.log("SoC is 0, stopped setting next action.")
+                # Maybe (but it is dangerous) do try_get_soc??
+                return
+
+            # If the SoC of the car is higher than the max-soc (intended for battery protection)
+            # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
+            if (self.back_to_max_soc is None) and (self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH):
+                self.back_to_max_soc = time_round((now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
+                                                  c.EVENT_RESOLUTION)
+                self.log(
+                    f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}.")
+            elif (self.back_to_max_soc is not None) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
+                self.back_to_max_soc = None
+                self.log(f"SoC was below max-soc, has been restored.")
 
             if self.connected_car_soc < c.CAR_MIN_SOC_IN_PERCENT and not self.in_boost_to_reach_min_soc:
                 # Intended for the situation where the car returns from a trip with a low battery.
@@ -1130,7 +1125,7 @@ class V2Gliberty(hass.Hass):
         By setting the UI switch an event will also be fired. So other code will run due to this setting.
 
         Parameters:
-        setting (str): Automatic, MaxBoostNow or Stop (=Off))
+        setting (str): Automatic, MaxBoostNow or Stop (=Off)
 
         Returns:
         nothing.

@@ -212,7 +212,7 @@ class ModbusEVSEclient(hass.Hass):
         0: 'No car connected',
         1: 'Charging',
         2: 'Connected: waiting for car demand',
-        3: 'Connected: controlled by EVSE App',
+        3: 'Connected: controlled by Wallbox App',
         4: 'Connected: not charging (paused)',
         5: 'Connected: end of schedule',
         6: 'No car connected and charger locked',
@@ -353,7 +353,7 @@ class ModbusEVSEclient(hass.Hass):
         """To be called when charge_mode in UI is (switched to) Stop"""
         self.log("evse: set_inactive called")
         await self.stop_charging()
-        await self.__cancel_polling(reason="Set inactive called")
+        # await self.__cancel_polling(reason="Set inactive called")
         await self.__set_charger_control("give")
         self._am_i_active = False
 
@@ -873,8 +873,8 @@ class ModbusEVSEclient(hass.Hass):
     ######################################################################
 
     async def __update_poll_indicator_in_ui(self, reset: bool = False):
-        # This can be shown directly as text in the UI (or use ⏲ ⟳ 🔃 🔄?) but,
-        # as the "last_changed" attribute also changes, an "age" could be shown based on this as well
+        # Toggles the char in the UI to indicate polling activity,
+        # as the "last_changed" attribute also changes, an "age" could be shown based on this as well.
         self.poll_update_text = "↺" if self.poll_update_text != "↺" else "↻"
         if reset:
             self.poll_update_text = ""
@@ -959,28 +959,10 @@ class ModbusEVSEclient(hass.Hass):
     #                   MODBUS RELATED FUNCTIONS                         #
     ######################################################################
 
-    async def __handle_no_modbus_connection(self):
-        """Function to call when no connection with the modbus server could be made.
-        This is only expected at startup.
-        A persistent notification will be set pointing out that the configuration might not be ok.
-        Polling is canceled as this is pointless without a connection.
-        """
-
-        # TODO:
-        # Should be handled in a UI-flow with steps, not in persistent notification
-
-        self.v2g_globals.create_persistent_notification(
-            title="Error in charger configuration",
-            message="Please check if charger is powered, has IP connection and if Host/Port are correct in configuration.",
-            id="no_comm_with_evse"
-        )
-        await self.__cancel_polling(reason="no modbus connection")
-
-
     async def __update_charger_connection_state(self, is_alive: bool = True):
         keep_alive = {"keep_alive": get_local_now()}
         msg = "Successfully connected" if is_alive else "Connection error"
-        await self.__update_state("input_text.charger_connection_status", state=msg, attributes=keep_alive)
+        await self.__update_state(entity_id="input_text.charger_connection_status", state=msg, attributes=keep_alive)
 
 
     async def __force_get_register(self, register: int, min_value: int, max_value: int) -> int:
@@ -1008,11 +990,11 @@ class ModbusEVSEclient(hass.Hass):
                 # I hate using the word 'slave', this should be 'server' but pyModbus has not changed this yet
                 result = await self.client.read_holding_registers(register, count=1, slave=1)
             except (ConnectionException, ModbusIOException) as exc:
-                is_unrecoverable = await self.__handle_modbus_connection_exception(exc, "__force_get_register")
+                is_unrecoverable = await self.__handle_modbus_connection_exception(exc, source="__force_get_register")
                 if is_unrecoverable:
                     break
             except ModbusException as me:
-                self.log(f"__force_get_register, Received ModbusException({me}) from library")
+                self.log(f"__force_get_register, Received ModbusException '{me}' from library")
                 pass
 
             if result is not None:
@@ -1022,6 +1004,8 @@ class ModbusEVSEclient(hass.Hass):
                         # Acceptable result retrieved
                         self.log(f"__force_get_register. After {total_time} sec. value {result} was retrieved.")
                         break
+                    else:
+                        self.log(f"__force_get_register. Value '{result}' not valid, retrying.")
                 except TypeError:
                     pass
             total_time += DELAY_BETWEEN_READS
@@ -1029,7 +1013,11 @@ class ModbusEVSEclient(hass.Hass):
             # We need to stop at some point
             if total_time > MAX_TOTAL_TIME:
                 self.log(f"__force_get_register timed out. After {total_time} sec. no relevant value was retrieved.")
-                # Connection exception is handled elsewhere.
+                # This does not always trigger a connection exception, but we can assume the connection is down.
+                await self.__modbus_un_recoverable_error(
+                    reason = "timeout",
+                    source = "__force_get_register"
+                )
                 break
 
             await asyncio.sleep(DELAY_BETWEEN_READS)
@@ -1143,6 +1131,24 @@ class ModbusEVSEclient(hass.Hass):
         self.dtm_connection_failure_since = None
 
 
+    async def __handle_no_modbus_connection(self):
+        """Function to call when no connection with the modbus server could be made.
+        This is only expected at startup.
+        A persistent notification will be set pointing out that the configuration might not be ok.
+        Polling is canceled as this is pointless without a connection.
+        """
+
+        # TODO:
+        # Should be handled in a UI-flow with steps, not in persistent notification
+
+        self.v2g_globals.create_persistent_notification(
+            title="Error in charger configuration",
+            message="Please check if charger is powered, has IP connection and if Host/Port are correct in configuration.",
+            id="no_comm_with_evse"
+        )
+        await self.__cancel_polling(reason="no modbus connection")
+
+
     async def __handle_modbus_connection_exception(self, connection_exception, source):
         # Modbus' connection exception occurs regularly with the Wallbox Quasar (e.g. bi-weekly) and
         # is usually not self resolving. This method checks the severity of the connection problem and
@@ -1171,18 +1177,24 @@ class ModbusEVSEclient(hass.Hass):
 
         duration = (get_local_now() - self.dtm_connection_failure_since).total_seconds()
         if duration > self.MAX_CONNECTION_FAILURE_DURATION_IN_SECONDS:
-            self.log(f"Connection problems for {duration} sec. Considered none-recoverable.")
-            await self.__cancel_polling(reason="Modbus failure")
-            # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
-            self._am_i_active = False
-            await self.v2g_main_app.notify_user_of_charger_needs_restart(
-                was_car_connected = await self.is_car_connected()
-            )
-            await self.__update_charger_connection_state(False)
+            reason = f"Connection problems for {duration} sec."
+            await self.__modbus_un_recoverable_error(reason=reason, source="__handle_modbus_connection_exception")
 
         self.connection_failure_counter += 1
 
         return False
+
+
+    async def __modbus_un_recoverable_error(self, reason: str = None, source:str = None):
+        self.log(f"__modbus_un_recoverable_error | {source=}, {reason=}.")
+        await self.__cancel_polling(reason="un_recoverable modbus error")
+        # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
+        self._am_i_active = False
+        await self.__cancel_polling()
+        await self.v2g_main_app.notify_user_of_charger_needs_restart(
+            was_car_connected=await self.is_car_connected()
+        )
+        await self.__update_charger_connection_state(False)
 
 
     def __get_2comp(self, number):

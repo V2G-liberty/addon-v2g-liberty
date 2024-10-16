@@ -6,22 +6,51 @@ The next release might include:
 
 ### Adding
 
-- ?
-
+- Support for uni-directional charging
 
 ### Changing
 
-- Support for uni-directional charging
+-  Do not (dis-)charge during calendar item (#41)
 
 ### Removing
 
 - ?
+
+
+## 0.3.2 2024-10-??
+
+### Added
+
+- FEATURE: Strip leading and trailing whitespace from user input (#96)
+- Documentation for getting remote access / remote support (#104)
+
+### Fixed
+
+- 🪲 BUG: Timeout on __force_get_register on modbus_evse_client not handled (#98)
+- 🪲 BUG: Changelog not available from add-on screen in HA (un-numbered)
+- 🩹 PATCH: Delay start time of getting prices (#117)
+
+### Changed
+
+- 🛠️ FR: Charge mode "Off" is renamed to "Pause" and now keeps polling the charger (#100)
+- 🛠️ FR: Make getting prices more robust (#115)
+- TECH: Use get_plugin_config() instead of template sensor TZ in package.yaml (#103)
+- TECH: Add "initialised" attribute to settings entities (=preparation for UI improvements) #113 
+- REFACTOR: Restructure code in set_next_action (#108)
+- Bumped flexmeasures_client library to version 0.2.4 (#110)
+
+### Removed
+
+- None
+
+
 
 ## 0.3.1 2024-09-25
 
 ### Added
 
 - None
+
 
 ### Fixed
 

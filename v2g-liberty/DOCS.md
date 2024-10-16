@@ -44,7 +44,7 @@ completed steps 1 to 7, if so, skip them.
 1. Copy this URL: `https://github.com/V2G-liberty/addon-v2g-liberty.git`
 2. In home assistant got to `settings > add-ons`.
 3. Hit the big blue button in the bottom right `add-on shop`.
-4. Open the menu in the top right with the ⋮-icon and select the option `repostitories`.
+4. Open the menu in the top right with the ⋮-icon and select the option `repositories`.
 5. Paste the URL of step 1 and click `ADD`, wait a little and click `Close`.
 6. Scroll down to the bottom of the page, the V2G Liberty add-on should be visible there.
    If not, refresh the page. Click the add-on.
@@ -104,25 +104,39 @@ If you’ve added your HA instance and logged in you can manage the charging via
 very conveniently, receive notifications about the charging on you mobile.
 
 
-### Add additional users
+### Add additional users 
 
-This lets more users (persons in the household) operate the charger. This can be done in HA via `settings -> Persons -> Add new` and make sure to set the option to login. If the user wants to receive relevant notifications have them also install the companion app and login.
+This lets more users (persons in the household) operate the charger. This can be done in HA via `Settings -> Persons -> Add new` and make sure to set the option to login. If the user wants to receive relevant notifications have them also install the companion app and login.
 
 
 ### Make V2G Liberty your default dashboard
 
 To make the V2G Liberty dashboard your default go to `Settings > Dashboards`. 
-Select the V2G Liberty dashboard row and click the link "SET AS DEFAULT IN THIS DEVICE".
+Select the V2G Liberty dashboard row and click the link `SET AS DEFAULT IN THIS DEVICE`.
 
-### Timestamp of log entries
 
-This again is optional and only is relevant if you intend to (regularly) have a look at the logfiles.
+### Get access to V2G Liberty from outside your home network
 
-Change the default time_zone setting `Europe/Amsterdam` in the appdaemon.yaml to your local time_zone.
+By default, your Home Assistant can only be reached from within your home network. So when away from home you cannot access V2G Liberty. Having said that, you probably can set calendar reservations if you use an online calendar.
+
+Anyway, remote access is nice, here's <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/docs/remote_support.md" target="_blank">step-by-step guide to configure remote access</a> ⧉.
 
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!
 
+
+
+## Need help / got questions?
+
+You have several options to get help or your questions answered:
+
+- Get <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/docs/remote_support.md" target="_blank">remote (live) support from the V2G Liberty team</a> ⧉.
+- The [Home Assistant Community Add-ons Discord chat server][discord] for add-on
+  support and feature requests.
+- The [Home Assistant Discord chat server][discord-ha] for general Home
+  Assistant discussions and questions.
+
+You could also [open an issue][issue] on GitHub.
 
 ## Changelog & Releases
 
@@ -138,16 +152,6 @@ based on the following:
 - `MINOR`: Backwards-compatible new features and enhancements.
 - `PATCH`: Backwards-compatible bugfixes and package updates.
 
-## Got questions?
-
-You have several options to get them answered:
-
-- The [Home Assistant Community Add-ons Discord chat server][discord] for add-on
-  support and feature requests.
-- The [Home Assistant Discord chat server][discord-ha] for general Home
-  Assistant discussions and questions.
-
-You could also [open an issue][issue] on GitHub.
 
 ## Authors & contributors
 
