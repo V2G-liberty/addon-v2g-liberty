@@ -17,7 +17,7 @@ The next release might include:
 - ?
 
 
-## 0.3.2 2024-10-??
+## 0.3.2 2024-10-16
 
 ### Added
 
