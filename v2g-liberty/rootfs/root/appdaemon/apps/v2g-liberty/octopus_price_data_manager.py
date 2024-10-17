@@ -73,9 +73,9 @@ class ManageOctopusPriceData(hass.Hass):
         self.log(f"Initializing ManageOctopusPriceData.")
 
         ##########################################################################
-        # TESTDATA: Currency = EUR, moet GBP zijn! Wordt in class definitie al gezet.
+        # TESTDATA: Currency = EUR, should be GBP! Is set in class definition.
         ##########################################################################
-        # self.log(f"initialize, TESTDATA: Currency = EUR, moet GBP zijn!", level="WARNING")
+        # self.log(f"initialize, TESTDATA: Currency = EUR, should be GBP!", level="WARNING")
         # self.CURRENCY = "EUR"
         self.UOM = f"{self.CURRENCY}/MWh"
 
@@ -134,7 +134,7 @@ class ManageOctopusPriceData(hass.Hass):
         self.emission_region_slug = f"/fw48h/regionid/{region_index}"
 
         if self.info_timer(self.daily_timer_id):
-            await self.cancel_timer(self.daily_timer_id, True)
+            await self.cancel_timer(self.daily_timer_id, silent = True)
         self.daily_timer_id = self.run_daily(self.__daily_kickoff_prices_emissions, start=self.first_try_time_get_data)
 
         # Always do the kickoff at startup.
@@ -143,7 +143,7 @@ class ManageOctopusPriceData(hass.Hass):
         self.log(f"kick_off_octopus_price_management completed")
 
 
-    async def __daily_kickoff_prices_emissions(self):
+    async def __daily_kickoff_prices_emissions(self, *args):
         self.log(f"__daily_kickoff_prices_emissions called")
         await self.__get_octopus_import_prices()
         await self.__get_octopus_export_prices()
@@ -158,7 +158,7 @@ class ManageOctopusPriceData(hass.Hass):
             self.log(f"__get_octopus_import_prices. Error {res.status_code}, res: {res.text}.")
             if self.now_is_between(self.first_try_time_get_data, self.second_try_time_get_data):
                 self.log(f"__get_octopus_import_prices, retry once at {self.second_try_time_get_data}.")
-                await self.run_at(self.__get_octopus_import_prices, start=self.second_try_time_price_data)
+                await self.run_at(self.__get_octopus_import_prices, start=self.second_try_time_get_data)
             return
 
         try:
@@ -267,7 +267,7 @@ class ManageOctopusPriceData(hass.Hass):
             self.log(f"__get_gb_region_emissions. Error {res.status_code}, res: {res.text}.")
             if self.now_is_between(self.first_try_time_get_data, self.second_try_time_get_data):
                 self.log(f"__get_gb_region_emissions, retry once at {self.second_try_time_get_data}.")
-                await self.run_at(self.__get_gb_region_emissions, start=self.second_try_time_price_data)
+                await self.run_at(self.__get_gb_region_emissions, start=self.second_try_time_get_data)
             return
 
         try:

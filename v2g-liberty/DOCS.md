@@ -119,7 +119,7 @@ Select the V2G Liberty dashboard row and click the link `SET AS DEFAULT IN THIS 
 
 By default, your Home Assistant can only be reached from within your home network. So when away from home you cannot access V2G Liberty. Having said that, you probably can set calendar reservations if you use an online calendar.
 
-Anyway, remote access is nice, here's <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/docs/remote_support.md" target="_blank">step-by-step guide to configure remote access</a> ⧉.
+Anyway, remote access is nice, here's <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/v2g-liberty/docs/remote_support.md" target="_blank">step-by-step guide to configure remote access</a> ⧉.
 
 
 #### Happy 🚘 ← ⚡ → 🏡 charging!
@@ -130,7 +130,7 @@ Anyway, remote access is nice, here's <a href="https://github.com/V2G-liberty/ad
 
 You have several options to get help or your questions answered:
 
-- Get <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/docs/remote_support.md" target="_blank">remote (live) support from the V2G Liberty team</a> ⧉.
+- Get <a href="https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/v2g-liberty/docs/remote_support.md" target="_blank">remote (live) support from the V2G Liberty team</a> ⧉.
 - The [Home Assistant Community Add-ons Discord chat server][discord] for add-on
   support and feature requests.
 - The [Home Assistant Discord chat server][discord-ha] for general Home
