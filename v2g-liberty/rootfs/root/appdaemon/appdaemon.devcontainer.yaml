@@ -19,9 +19,9 @@ appdaemon:
 
 logs:
   main_log:
-    filename: ./logs/appdaemon_main.log
+    filename: /config/logs/appdaemon_main.log
   error_log:
-    filename: ./logs/appdaemon_error.log
+    filename: /config/logs/appdaemon_error.log
 
 http:
   url: http://127.0.0.1:5050
