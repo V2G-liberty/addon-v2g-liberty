@@ -20,6 +20,7 @@ frontend:
   extra_module_url:
     - /local/v2g_liberty/lovelace-card-mod/card-mod.js
     - /local/v2g_liberty/apexcharts-card/apexcharts-card-v2-1-2.js
+    - /local/v2g-liberty-cards/v2g-liberty-cards.js
 
 
 input_select:

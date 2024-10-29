@@ -14,3 +14,26 @@ views:
     icon: mdi:cog
     cards:
       !include settings_view.yaml
+
+  - path: cards
+    type: masonry
+    title: Cards
+    icon: mdi:cog
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: custom:v2g-liberty-optimisation-settings-card
+          - type: custom:v2g-liberty-charger-settings-card
+          - type: custom:v2g-liberty-administrator-settings-card
+
+      - type: vertical-stack
+        cards:
+          - type: custom:v2g-liberty-car-settings-card
+          - type: custom:v2g-liberty-car-reservation-calendar-settings-card
+
+      - type: vertical-stack
+        cards:
+          - type: custom:v2g-liberty-electricity-contract-settings-card
+          - type: custom:v2g-liberty-schedule-settings-card
+          - type: markdown
+            content: " "
