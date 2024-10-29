@@ -1,20 +1,14 @@
-# Changelog
+# Changelog of all releases
 
-## [Unreleased]
+A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
+That file also contains possible changes that the next release might include.
 
-The next release might include:
+## 0.3.3 2024-10-17
 
-### Adding
+### Fixed
 
-- Support for uni-directional charging
+-  🪲 BUG: admin_mobile name select is changing several times per second #124 
 
-### Changing
-
--  Do not (dis-)charge during calendar item (#41)
-
-### Removing
-
-- ?
 
 
 ## 0.3.2 2024-10-16
