@@ -1,0 +1,13 @@
+FROM mcr.microsoft.com/devcontainers/python:1-3.11
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Install Python dependencies from requirements
+WORKDIR /tmp
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
+WORKDIR /workspaces
+
+# Set the default shell to bash instead of sh
+ENV SHELL /bin/bash
