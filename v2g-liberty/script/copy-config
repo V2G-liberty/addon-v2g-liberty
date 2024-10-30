@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+
+# Stop on errors
+set -e
+
+cd "$(dirname "$0")/.."
+
+mkdir -p .devcontainer/config/{packages,www}
+
+cp -avR rootfs/root/homeassistant/packages/* .devcontainer/config/packages/
+cp -avR rootfs/root/homeassistant/www/* .devcontainer/config/www/
+cp -av  rootfs/root/homeassistant/v2g_liberty_example_configuration.yaml .devcontainer/config/configuration.yaml
