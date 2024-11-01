@@ -757,8 +757,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.log(f"__select_option called")
 
         if option == "Please choose an option":
-            self.log(f"__select_option - option to select == 'Please choose an option'.")
-
+            self.log(f"__select_option - option to select == 'Please choose an option'.", level="WARNING")
+            return False
         if entity_id is None or entity_id[:13] != "input_select.":
             self.log(f"__select_option aborted - entity type is not input_select: '{entity_id[:13]}'.")
             return False
@@ -799,13 +799,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.log(f"__set_select_options called, entity_id: '{entity_id}', options: {options},"
                  f"option_to_select: {option_to_select}, pcao: {pcao}.")
         if entity_id is None or entity_id[:13] != "input_select.":
-            self.log(f"__set_select_options - entity type is not input_select: '{entity_id[:13]}'.")
+            self.log(f"__set_select_options - entity type is not input_select: '{entity_id[:13]}'.", level="WARNING")
             return False
         if not self.entity_exists(entity_id):
-            self.log(f"__set_select_options - entity_id does not exist: '{entity_id}'.")
+            self.log(f"__set_select_options - entity_id does not exist: '{entity_id}'.", level="WARNING")
             return False
         if options is None or len(options) == 0:
-            self.log(f"__set_select_options - invalid options: '{options}'.")
+            self.log(f"__set_select_options - invalid options: '{options}'.", level="WARNING")
             return False
 
         current_selected_option = await self.get_state(entity_id, None)
@@ -825,12 +825,18 @@ class V2GLibertyGlobals(ServiceResponseApp):
             options.remove(None)
         if pcao_option in options:
             options.remove(pcao_option)
-        # self.log(f"__set_select_options options, removed duplicates, pcao and None values"
-        #          f" and sorted: {options}")
+        self.log(f"__set_select_options options, removed duplicates, pcao and None values"
+                 f" and sorted: {options}")
 
         if pcao:
-            options.insert(0, pcao_option)
+            pass
+            # options.insert(0, pcao_option)
             # self.log(f"__set_select_options options, added pcao again: {options}")
+
+        if current_selected_option == pcao_option:
+            self.log(f"__set_select_options temporary BUGFIX, "
+                     f"hard remove 'Please choose an option' option.", level="WARNING")
+            current_selected_option = options[0]
 
         tmp = ""
         if current_selected_option is not None and current_selected_option not in options:
@@ -1070,19 +1076,19 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 setting_object=self.SETTING_ADMIN_MOBILE_NAME,
                 callback=callback_method
             )
-            if c.ADMIN_MOBILE_NAME not in c.NOTIFICATION_RECIPIENTS:
-                tmp = c.NOTIFICATION_RECIPIENTS[0]
-                message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not found in" \
-                          f"available mobiles for notification, instead ***{tmp}*** is used.<br/>" \
-                          f"Please go to the settings view and choose one from the list."
-                self.log(f"Configuration error: admin mobile name not found.")
-                # TODO: Research if showing this only to admin users is possible.
-                await self.create_persistent_notification(
-                    title="Configuration error",
-                    message=message,
-                    notification_id="notification_config_error_no_admin"
-                )
-                c.ADMIN_MOBILE_NAME = tmp
+            # if c.ADMIN_MOBILE_NAME not in c.NOTIFICATION_RECIPIENTS:
+            #     tmp = c.NOTIFICATION_RECIPIENTS[0]
+            #     message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not found in" \
+            #               f"available mobiles for notification, instead ***{tmp}*** is used.<br/>" \
+            #               f"Please go to the settings view and choose one from the list."
+            #     self.log(f"Configuration error: admin mobile name not found.")
+            #     # TODO: Research if showing this only to admin users is possible.
+            #     await self.create_persistent_notification(
+            #         title="Configuration error",
+            #         message=message,
+            #         notification_id="notification_config_error_no_admin"
+            #     )
+            #     c.ADMIN_MOBILE_NAME = tmp
 
         c.ADMIN_MOBILE_PLATFORM = await self.__process_setting(
             setting_object=self.SETTING_ADMIN_MOBILE_PLATFORM,
