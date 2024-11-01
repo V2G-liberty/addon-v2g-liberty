@@ -4,7 +4,11 @@
 
 ### Added
 
--  Do not (dis-)charge during calendar item (#41)
+- Do not (dis-)charge during calendar item (#41)
+
+### Changed
+
+-  Feature Request: Make chart two columns wide on desktop (#128).
 
 ### Removed
 
