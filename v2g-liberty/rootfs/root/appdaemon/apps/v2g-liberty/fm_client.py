@@ -98,7 +98,7 @@ class FMClient(hass.Hass):
         except ValueError as ve:
             self.log(f"initialise_and_test_fm_client, CLIENT ERROR: {ve}.")
             # ValueErrors:
-            # 'xxx'' is not an email address format string (= also for empty email)
+            # 'xxx' is not an email address format string (= also for empty email)
             # password cannot be empty
             return ve
         except EmailValidationError as eve:
@@ -289,6 +289,21 @@ class FMClient(hass.Hass):
         #     "end": schedule_end,
         # })
 
+        # The schedule should not take into account that during calendar items it cannot charge/discharge.
+        # Further, if a b2ms is set, the schedule should not charge (but can dis-charge) until b2ms.
+        # These power capacities are collected in the max_consumption_power_ranges and idle_ranges_production.
+        max_consumption_power_ranges = [{
+            "value": c.CHARGER_MAX_CHARGE_POWER,
+            "start": rounded_now,
+            "end": schedule_end,
+        }]
+        max_production_power_ranges = [{
+            "value": c.CHARGER_MAX_DISCHARGE_POWER,
+            "start": rounded_now,
+            "end": schedule_end,
+        }]
+
+
         if targets is not None:
             # TODO: Add "soc-usage"
             # usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
@@ -310,6 +325,17 @@ class FMClient(hass.Hass):
                     "start": target_start,
                     "end": target_end,
                 })
+                max_consumption_power_ranges.append({
+                    "value": 0,
+                    "start": target_start,
+                    "end": target_end,
+                })
+                max_production_power_ranges.append({
+                    "value": 0,
+                    "start": target_start,
+                    "end": target_end,
+                })
+
                 # TODO: soc_usage
                 # soc_usage.append({
                 #     "value": c.USAGE_PER_EVENT_TIME_INTERVAL,
@@ -330,7 +356,6 @@ class FMClient(hass.Hass):
             # TODO: soc_usage
             # soc_usage = self.consolidate_time_ranges(soc_usage)
 
-
             ##################################
             #   Make a list of soc_maxima    #
             ##################################
@@ -346,7 +371,7 @@ class FMClient(hass.Hass):
             first_b2ms_reset_moment = schedule_end
             for soc_minimum in soc_minima:
                 # Does this target need a relaxation window? This is the period before a calendar item where
-                # soc_maxima should be set to the value (target_soc_kwh to allow the schedule to reach a target higher
+                # soc_maxima should be set to the value target_soc_kwh to allow the schedule to reach a target higher
                 # than the CAR_MAX_SOC_IN_KWH.
                 soc_minimum_start = soc_minimum["start"]
                 soc_minimum_end = soc_minimum["end"]
@@ -410,7 +435,9 @@ class FMClient(hass.Hass):
         #    The soc-maxima are based on the CAR_MAX_SOC_IN_KWH and run from "now" up to SRW.
         # 1. NOW < B2MS < SRW < CTM
         #    The B2MS is not influenced by the first calendar item (or there is none)
-        #    SoC maxima are gradually lowered from current soc until B2MS from where they are set to CAR_MAX_SOC_IN_KWH.
+        #    The SoC maxima are based upon the CURRENT_SOC and run from "now" up to B2MS, from where they are
+        #    set to CAR_MAX_SOC_IN_KWH. Furthermore, the schedule should not charge during this period. So this
+        #    period should be added to the max_consumption_power_ranges.
         # 2. NOW < SRW < B2MS < CTM and NOW < SRW < CTM < B2MS
         #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the current SoC and
         #    run from "now" up to SRW.
@@ -419,7 +446,6 @@ class FMClient(hass.Hass):
         #
         # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
 
-        b2ms_maxima = []
         if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime):
             self.log(f"get_new_schedule, back_to_max_soc: '{back_to_max_soc}'.")
 
@@ -455,30 +481,31 @@ class FMClient(hass.Hass):
                 self.log("get_new_schedule, strategy for soc_maxima: "
                          "Maxima current_soc until Start of relaxation window (Scenario 2).")
             else:
-                # Scenario 1: Gradually decrease SoC to reach c.CAR_MAX_SOC_IN_KWH by means of setting soc_maxima
-                # TODO: A drawback of the gradual approach is that there might be discharging with low power which
-                #       usually is less efficient. So, if the trigger message could handle the concept
-                #       "only discharge during this window" it would result in better schedules.
-                #       This should then replace the gradually lowered soc_maxima.
-                #       Use target = c.CAR_MAX_SOC_IN_KWH at back_to_max_soc in combination with dynamic power
-                #       constraint, production_power=0. See https://github.com/V2G-liberty/addon-v2g-liberty/issues/41.
-                number_of_steps = (back_to_max_soc - rounded_now) // c.EVENT_RESOLUTION
-                if number_of_steps > 0:
-                    step_kwh = (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH) / number_of_steps
-                    for i in range(number_of_steps):
-                        b2ms_maxima.append({
-                            "value": current_soc_kwh - (i * step_kwh),
-                            "datetime": (rounded_now + i * c.EVENT_RESOLUTION).isoformat()
-                        })
-                self.log(f"get_new_schedule, strategy for soc_maxima: Gradually decrease SoC to "
-                         f"reach {c.CAR_MAX_SOC_IN_KWH}kWh (Scenario 1).")
+                # Scenario 1:
+                soc_maxima.append({
+                    "value": current_soc_kwh,
+                    "start": rounded_now,
+                    "end": back_to_max_soc,
+                })
+                max_consumption_power_ranges.append({
+                    "value": 0,
+                    "start": rounded_now,
+                    "end": back_to_max_soc,
+                })
         # -- End if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime) --
 
         soc_maxima = consolidate_time_ranges(soc_maxima)
         soc_maxima = convert_dates_to_iso_format(soc_maxima)
-        soc_maxima += b2ms_maxima
 
         soc_minima = convert_dates_to_iso_format(soc_minima)
+
+        max_consumption_power_ranges = consolidate_time_ranges(max_consumption_power_ranges, min_or_max="min")
+        max_consumption_power_ranges = add_unit_to_values(max_consumption_power_ranges, unit = "W")
+        max_consumption_power_ranges = convert_dates_to_iso_format(max_consumption_power_ranges)
+
+        max_production_power_ranges = consolidate_time_ranges(max_production_power_ranges, min_or_max="min")
+        max_production_power_ranges = add_unit_to_values(max_production_power_ranges, unit="W")
+        max_production_power_ranges = convert_dates_to_iso_format(max_production_power_ranges)
 
         # TODO: convert soc_usage
         # soc_usage = convert_dates_to_iso_format(soc_usage)
@@ -492,7 +519,8 @@ class FMClient(hass.Hass):
                 "soc-minima": soc_minima,
                 "soc-maxima": soc_maxima,
                 "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
-                "power-capacity": str(c.CHARGER_MAX_CHARGE_POWER) + "W"
+                "consumption-capacity": max_consumption_power_ranges,
+                "production-capacity": max_production_power_ranges,
             }
         self.log(f"get_new_schedule | flex_model: {flex_model}.")
         schedule = {}
@@ -531,7 +559,7 @@ class FMClient(hass.Hass):
         self.log(f"get_new_schedule, schedule: {schedule}")
 
         # To trigger state change we add the date to the state. State change is not triggered by attributes.
-        self.set_state(
+        await self.set_state(
             entity_id = "input_text.chargeschedule",
             state = "ChargeScheduleAvailable" + self.fm_date_time_last_schedule.isoformat(),
             attributes = schedule
@@ -553,63 +581,135 @@ def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
 
     return host, ssl
 
+# See separate unit tests
+def consolidate_time_ranges(ranges, min_or_max: str = 'max'):
+    """
+    Make ranges non-overlapping and, for the overlapping parts, use min or max value from the ranges.
 
-def combine_time_slots(time_slots):
-    """Merges time slots into non-overlapping intervals with the same value."""
+    :param ranges: dicts with start(datetime), end(datetime) and value (int)
+                   The start and end must be snapped to the resolution.
+    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values should be used for
+                       the overlapping parts.
+    :return: a list of dicts with start(datetime), end(datetime) and value (int) that are none-overlapping,
+             but possibly 'touching' (end of A = start of B).
 
-    combined_ranges = []
-    sorted_times = sorted(time_slots.keys())
-    current_start = sorted_times[0]
-    current_value = time_slots[current_start]
-
-    for i in range(1, len(sorted_times)):
-        current_time = sorted_times[i]
-        expected_time = sorted_times[i - 1] + c.EVENT_RESOLUTION
-        # self.log(f"s: {current_start}, t: {current_time}, e: {expected_time}, c: {current_value}, v: {time_slots[current_time]}.")
-        if current_time != expected_time or time_slots[current_time] != current_value:
-            combined_ranges.append({
-                'value': current_value,
-                'start': current_start,
-                'end': sorted_times[i - 1]
-            })
-            current_start = current_time
-            current_value = time_slots[current_time]
-
-    # Add the last range
-    combined_ranges.append({
-        'value': current_value,
-        'start': current_start,
-        'end': sorted_times[-1]
-    })
-    return combined_ranges
-
-
-def generate_time_slots(ranges):
-    """Generates a dictionary of time_slots at resolution with the maximum value for each time_slot."""
-    time_slots = {}
-    for time_range in ranges:
-        current_time = time_range['start']
-        end_time = time_range['end']
-        while current_time <= end_time:
-            if current_time not in time_slots:
-                time_slots[current_time] = time_range['value']
-            else:
-                time_slots[current_time] = max(time_slots[current_time], time_range['value'])
-            current_time += c.EVENT_RESOLUTION
-    return time_slots
-
-
-def consolidate_time_ranges(ranges):
-    """ Processes a list of time-value ranges, merging overlapping intervals """
+    Note!
+    It is not possible yet to correctly process non-overlapping ranges with a one-resolution distance
+    As this is very rare in this context, and it's impact relatively small it has not been solved yet
+    and accepted as a not-perfect output.
+    """
     if len(ranges) == 0:
         # self.log("consolidate_time_ranges, ranges = [], aborting")
         return []
     elif len(ranges) == 1:
         # self.log("consolidate_time_ranges, only one range so nothing to consolidate, returning ranges untouched.")
         return ranges
-    time_slots = generate_time_slots(ranges)
-    combined_ranges = combine_time_slots(time_slots)
+
+    generated_slots = __generate_time_slots(ranges)
+    return __combine_time_slots(generated_slots, min_or_max=min_or_max)
+
+
+# See separate unit tests
+def __generate_time_slots(ranges):
+    """
+    Based on the ranges this function generates a dictionary of time slots with the minimum or maximum value.
+    key: [min, max] where key is a datetime and min/max are int values.
+    The key must be snapped to the resolution.
+    There can be gaps in the keys, the datetime values do not have to be successive.
+
+    :param ranges: dicts with start(datetime), end(datetime) and value (int)
+                   The start and end must be snapped to the resolution.
+    :return: dict, with the format:
+             key: [min, max] where key is a datetime and min/max are int values
+    """
+    time_slots = {}
+    sorted_ranges = sorted(ranges, key=lambda r: r['start'])
+
+    for time_range in sorted_ranges:
+        current_time = time_range['start']
+        end_time = time_range['end']
+        current_value = time_range['value']
+
+        while current_time <= end_time:
+            if current_time not in time_slots:
+                time_slots[current_time] = [current_value, current_value]
+            else:
+                min_value_to_add = min(time_slots[current_time][0], current_value)
+                max_value_to_add = max(time_slots[current_time][1], current_value)
+                time_slots[current_time] = [min_value_to_add, max_value_to_add]
+
+            current_time += c.EVENT_RESOLUTION
+
+    return time_slots
+
+
+# See separate unit tests
+def __combine_time_slots(time_slots: dict, min_or_max: str = 'max'):
+    """
+    Merges time slots into ranges with a constant value. The value to use is based on min_or_max parameter.
+
+    :param time_slots: dict, with the format:
+                       key: [min, max] where key is a datetime and min/max are int values
+    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values should be used for
+                       the overlapping parts.
+    :return: dicts with start(datetime), end(datetime) and value (int) that are none-overlapping,
+             but possibly 'touching' (end of A = start of B).
+    """
+
+    combined_ranges = []
+    sorted_times = sorted(time_slots.keys())
+
+    min_max_index = 1 if min_or_max == 'max' else 0
+
+    # Initialize the first time slot
+    current_range_start = sorted_times[0]
+
+    # Choose the first value based on min or max
+    current_range_value = time_slots[current_range_start][min_max_index]
+
+    for i in range(1, len(sorted_times)):
+        current_time = sorted_times[i]
+        expected_time = sorted_times[i - 1] + c.EVENT_RESOLUTION
+
+        # Determine the current value based on min or max
+        time_slot_value = time_slots[current_time][min_max_index]
+
+        # If there's a break in the range times, close the current range
+        if current_time != expected_time:
+            combined_ranges.append({
+                'start': current_range_start,
+                'end': sorted_times[i - 1],
+                'value': current_range_value
+            })
+            # Start a new range
+            current_range_start = current_time
+            current_range_value = time_slot_value
+
+        # If there's a break in the range value changes, close the current range
+        elif time_slot_value != current_range_value:
+            range_end_time = current_time
+            if ((min_or_max != 'max' and time_slot_value > current_range_value)
+               or (min_or_max == 'max' and time_slot_value < current_range_value)):
+                 range_end_time = sorted_times[i - 1]
+
+            combined_ranges.append({
+                'start': current_range_start,
+                'end': range_end_time,
+                'value': current_range_value
+            })
+            # Start a new range
+            current_range_start = range_end_time
+            current_range_value = time_slot_value
+
+    # Add the last range
+    combined_ranges.append({
+        'start': current_range_start,
+        'end': sorted_times[-1],
+        'value': current_range_value
+    })
+
     return combined_ranges
+
 
 def get_keepalive():
     """ Generate a unique string to be used in setting entity states. So, even when the
@@ -626,5 +726,13 @@ def convert_dates_to_iso_format(data):
         dte = entry.get('end', None)
         if dte is not None and isinstance(dte, datetime):
             entry['end'] = dte.isoformat()
+    return data
+
+
+def add_unit_to_values(data, unit: str):
+    for entry in data:
+        value = entry.get('value', None)
+        if value is not None:
+            entry['value'] = f"{value} {unit}"
     return data
 
