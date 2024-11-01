@@ -103,8 +103,10 @@ class V2Gliberty(hass.Hass):
             "timeouts_on_schedule": False,
             "no_communication_with_fm": False
         }
+
         # Reset at init
         await self.turn_off("input_boolean.charger_modbus_communication_fault")
+        await self.set_price_is_up_to_date(is_up_to_date=True)
 
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
@@ -154,6 +156,12 @@ class V2Gliberty(hass.Hass):
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
+
+    async def set_price_is_up_to_date(self, is_up_to_date: bool):
+        if is_up_to_date:
+            await self.turn_on("input_boolean.error_epex_prices_cannot_be_retrieved")
+        else:
+            await self.turn_off("input_boolean.error_epex_prices_cannot_be_retrieved")
 
     async def initialise_v2g_liberty(self, v2g_args=None):
         # Show the settings in the UI
@@ -229,9 +237,11 @@ class V2Gliberty(hass.Hass):
                 # Critical notifications should not auto clear.
                 self.run_in(self.__clear_notification, delay=ttl, recipient=recipient, tag=tag)
 
+
     def clear_notification(self, tag: str):
         """Wrapper methode for easy clearing of notifications"""
         self.__clear_notification_for_all_recipients(tag = tag)
+
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """ Keep track of situations where no new schedules are available:
@@ -251,13 +261,18 @@ class V2Gliberty(hass.Hass):
         self.no_schedule_errors[error_name] = error_state
         await self.__notify_no_new_schedule()
 
+
     async def notify_user_of_charger_needs_restart(self, was_car_connected: bool):
         """Notify admin with critical message of a presumably crashed modbus server
            module in the charger.
            To be called from evse_client_app.
         """
-        # Assume the charger has crashed.
-        self.log(f"The charger probably crashed, notifying user")
+        self.log(f"The charger probably crashed: Stop charging, set Error in UI and notify user")
+        await self.__set_chargemode_in_ui("Stop")
+
+        await self.set_state("input_boolean.charger_modbus_communication_fault", state="on")
+        await self.set_textvalue("input_text.charger_state", "Error")
+
         title = "Charger communication error"
         message = "Automatic charging has been stopped!\n" \
                   "Please click this notification to open the V2G Liberty App " \
@@ -271,15 +286,15 @@ class V2Gliberty(hass.Hass):
             critical=critical,
             send_to_all=False
         )
-        await self.set_state("input_boolean.charger_modbus_communication_fault", state="on")
-        await self.__set_chargemode_in_ui("Stop")
         return
+
 
     async def reset_charger_communication_fault(self):
         self.log(f"reset_charger_communication_fault called")
         await self.set_state("input_boolean.charger_modbus_communication_fault", state="off")
         identification = {"recipient": c.ADMIN_MOBILE_NAME, "tag": "charger_modbus_crashed"}
         self.__clear_notification(identification)
+
 
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
