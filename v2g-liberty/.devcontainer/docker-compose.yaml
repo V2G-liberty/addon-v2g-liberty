@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  v2g-liberty:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    ports:
+      - 5050:5050
+    volumes:
+      - ../..:/workspaces:cached
+      - ./config:/homeassistant
+      - ../data:/data
+      - ../logs:/config/logs
+    command: sleep infinity
+
+  homeassistant:
+    image: homeassistant/home-assistant:2024.10
+    restart: unless-stopped
+    ports:
+      - 8123:8123
+    volumes:
+      - ./config:/config
+    depends_on:
+      - v2g-liberty
