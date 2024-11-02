@@ -6,10 +6,10 @@ ha-markdown$: |
     padding-bottom: 0;
   }
   h4 {
-    font-weigth: normal;
-    font-size: 150%;
+    font-weight: 400;
+    font-size: 24px;
     line-height: 90%;
-    margin-top: -5px;
+    margin-top: 0;
     margin-bottom: 2px;
   }
   table {
