@@ -677,14 +677,22 @@
             }
 
     - type: markdown
-      content: >-
-        !include v2g_liberty_ui_module_stats.yaml
       layout_options:
         grid_columns: full
+      entities:
+        - entity: input_number.total_charging_cost_last_7_days
+        - entity: input_number.net_energy_last_7_days
+        - entity: input_text.total_charge_time_last_7_days
+        - entity: input_number.total_emissions_last_7_days
+        - entity: input_number.total_charged_energy_last_7_days
+        - entity: input_text.total_discharge_time_last_7_days
+        - entity: input_number.total_saved_emissions_last_7_days
+        - entity: input_number.total_discharged_energy_last_7_days
+        - entity: input_number.net_emissions_last_7_days
+        - entity: input_number.net_energy_last_7_days
+      content: !include v2g_liberty_ui_module_stats.yaml
       card_mod:
-        style:
-          !include table_style.yaml
-
+        style: !include table_style.yaml
 
     - type: markdown
       layout_options:
