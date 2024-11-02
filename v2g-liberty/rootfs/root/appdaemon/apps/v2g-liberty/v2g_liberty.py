@@ -159,9 +159,9 @@ class V2Gliberty(hass.Hass):
 
     async def set_price_is_up_to_date(self, is_up_to_date: bool):
         if is_up_to_date:
-            await self.turn_on("input_boolean.error_epex_prices_cannot_be_retrieved")
-        else:
             await self.turn_off("input_boolean.error_epex_prices_cannot_be_retrieved")
+        else:
+            await self.turn_on("input_boolean.error_epex_prices_cannot_be_retrieved")
 
     async def initialise_v2g_liberty(self, v2g_args=None):
         # Show the settings in the UI
