@@ -29,8 +29,8 @@
         "python.testing.pytestArgs": ["--no-cov"],
         "pylint.importStrategy": "fromEnvironment",
         "editor.formatOnPaste": false,
-        "editor.formatOnSave": true,
-        "editor.formatOnType": true,
+        "editor.formatOnSave": false,
+        "editor.formatOnType": false,
         "files.trimTrailingWhitespace": true,
         "terminal.integrated.profiles.linux": {
           "zsh": {
