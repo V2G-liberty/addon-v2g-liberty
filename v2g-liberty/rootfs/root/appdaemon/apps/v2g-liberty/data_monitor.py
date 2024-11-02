@@ -90,8 +90,8 @@ class DataMonitor(hass.Hass):
         self.current_availability_since = local_now
         await self.__record_availability(True)
 
-        self.listen_state(self.__handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
-        self.listen_state(self.__handle_charge_mode_change, "input_select.charge_mode", attribute="all")
+        await self.listen_state(self.__handle_charger_state_change, "sensor.charger_charger_state", attribute="all")
+        await self.listen_state(self.__handle_charge_mode_change, "input_select.charge_mode", attribute="all")
 
         # Power related initialisation
         power = await self.get_state("sensor.charger_real_charging_power", "state")
@@ -99,18 +99,18 @@ class DataMonitor(hass.Hass):
         self.power_period_duration = 0
         self.period_power_x_duration = 0
         self.power_readings = []
-        if power != "unavailable":
-            # Ignore a state change to 'unavailable'
+        if power not in ["unavailable", None]:
+            # Ignore a state change to 'unavailable' and None
             self.current_power = int(float(power))
         else:
             self.current_power = 0
-        self.listen_state(self.__handle_charge_power_change, "sensor.charger_real_charging_power", attribute="all")
+        await self.listen_state(self.__handle_charge_power_change, "sensor.charger_real_charging_power", attribute="all")
 
 
         # SoC related
         self.connected_car_soc = None
         self.soc_readings = []
-        self.listen_state(self.__handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
+        await self.listen_state(self.__handle_soc_change, "sensor.charger_connected_car_state_of_charge", attribute="all")
         soc = await self.get_state("sensor.charger_connected_car_state_of_charge", "state")
         self.log(f"init soc: {soc}.")
         if soc is not None and soc != "unavailable":
@@ -122,11 +122,11 @@ class DataMonitor(hass.Hass):
         self.hourly_power_readings_since = runtime
         self.hourly_availability_readings_since = runtime
         self.hourly_soc_readings_since = runtime
-        self.run_every(self.__conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60)
+        await self.run_every(self.__conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60)
 
         resolution = timedelta(minutes=60)
         runtime = time_ceil(runtime, resolution)
-        self.run_hourly(self.__try_send_data, runtime)
+        await self.run_hourly(self.__try_send_data, runtime)
         self.log("Completed initializing SetFMdata")
 
 
