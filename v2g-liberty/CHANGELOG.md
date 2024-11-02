@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 2024-10-30
+## 0.4.0 2024-11-??
 
 ### Added
 
@@ -9,6 +9,10 @@
 ### Changed
 
 -  Feature Request: Make chart two columns wide on desktop (#128).
+
+### Fixed
+
+- 🪲 BUG: Alert in UI for "Price and/or emission data incomplete" never shown (#130) 
 
 ### Removed
 
