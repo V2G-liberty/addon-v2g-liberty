@@ -10,9 +10,21 @@
       "problemMatcher": []
     },
     {
+      "label": "Stop V2G-Liberty app",
+      "type": "shell",
+      "command": "kill -9 $(ps -ef | grep \"python -m appdaemon\" | grep -v grep | cut -c 10-17)",
+      "problemMatcher": []
+    },
+    {
       "label": "Copy V2G-Liberty homeassistant files to config",
       "type": "shell",
       "command": "script/copy-config",
+      "problemMatcher": []
+    },
+    {
+      "label": "pytest",
+      "type": "shell",
+      "command": "pytest",
       "problemMatcher": []
     }
   ]
