@@ -3,6 +3,28 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.4.0 2024-11-02
+
+### Added
+
+- Do not (dis-)charge during calendar item (#41)
+
+### Changed
+
+-  Feature Request: Make chart two columns wide on desktop (#128).
+-  🛠️ REFACTOR: rename folder v2g-liberty to v2g_liberty, general refactor of data_monitor.py
+- Feature Request: Make allowed range for min / max soc settins wider (#139).
+
+### Fixed
+
+- 🪲 BUG: Alert in UI for "Price and/or emission data incomplete" never shown (#130) 
+
+### Removed
+
+- Template sensor for timezone, old unused code (unnumbered).
+
+
+
 ## 0.3.3 2024-10-17
 
 ### Fixed

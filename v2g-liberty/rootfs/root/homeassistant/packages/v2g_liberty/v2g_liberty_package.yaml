@@ -221,7 +221,7 @@ input_number:
   car_min_soc_in_percent:
     name: Car battery min. soc
     min: 10
-    max: 30
+    max: 55
     step: 1
     icon: mdi:chart-bell-curve-cumulative
     mode: box
