@@ -20,7 +20,7 @@ frontend:
   extra_module_url:
     - /local/v2g_liberty/lovelace-card-mod/card-mod.js
     - /local/v2g_liberty/apexcharts-card/apexcharts-card-v2-1-2.js
-    - /local/v2g-liberty-cards/v2g-liberty-cards.js
+    - /local/v2g_liberty/v2g-liberty-cards/v2g-liberty-cards.js
 
 
 input_select:
@@ -51,11 +51,6 @@ input_select:
       - Please choose an option
 
   # Options will be set through v2g_globals
-  admin_mobile_name:
-    name: The mobile of the administrator
-    icon: mdi:shield-account
-    options:
-      - Please choose an option
   admin_mobile_platform:
     name: The operation system of the mobile of the administrator
     icon: mdi:cellphone-cog
@@ -110,6 +105,9 @@ input_select:
     icon: mdi:battery-charging-medium
 
 input_boolean:
+  admin_settings_initialised:
+    name: Administrator settings are initialised
+
   # Settings related entities
   use_reduced_max_charge_power:
     name: Change default (dis-)charge power
@@ -331,6 +329,10 @@ input_number:
 
 
 input_text:
+  admin_mobile_name:
+    name: The mobile of the administrator
+    icon: mdi:shield-account
+
   #############  calendar related entities #############
   calendar_account_init_url:
     name: Calendar host URL

@@ -229,11 +229,18 @@ class V2GLibertyGlobals(ServiceResponseApp):
     }
 
     # Settings related to notifications
+    ADMIN_SETTINGS_INITIALISED = {
+        "entity_name": "admin_settings_initialised",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None
+    }
     SETTING_ADMIN_MOBILE_NAME = {
         "entity_name": "admin_mobile_name",
-        "entity_type": "input_select",
+        "entity_type": "input_text",
         "value_type": "str",
-        "factory_default": None,
+        "factory_default": "",
         "listener_id": None
     }
     SETTING_ADMIN_MOBILE_PLATFORM = {
@@ -320,6 +327,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         await self.__kick_off_settings()
 
+        self.listen_event(self.__save_administrator_settings, "save_administrator_settings")
         # Listen to [TEST] buttons
         self.listen_event(self.__test_charger_connection, "TEST_CHARGER_CONNECTION")
         self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
@@ -447,8 +455,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
             c.NOTIFICATION_RECIPIENTS.sort()
             self.log(f"__initialise_devices - recipients for notifications: "
                      f"{c.NOTIFICATION_RECIPIENTS}.")
-            await self.__set_select_options(entity_id="input_select.admin_mobile_name",
-                                            options=c.NOTIFICATION_RECIPIENTS)
+            # await self.__set_select_options(entity_id="input_select.admin_mobile_name",
+            #                                 options=c.NOTIFICATION_RECIPIENTS)
 
         self.log("Completed Initializing devices configuration")
 
@@ -456,6 +464,16 @@ class V2GLibertyGlobals(ServiceResponseApp):
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
     ######################################################################
+
+    async def __save_administrator_settings(self, event, data, kwargs):
+        self.__store_setting("input_text.admin_mobile_name", data["mobileName"])
+        self.__store_setting("input_select.admin_mobile_platform", data["mobilePlatform"])
+        self.__store_setting("input_boolean.admin_settings_initialised", True)
+        await self.__process_setting(self.SETTING_ADMIN_MOBILE_NAME, None)
+        await self.__process_setting(self.SETTING_ADMIN_MOBILE_PLATFORM, None)
+        await self.__process_setting(self.ADMIN_SETTINGS_INITIALISED, None)
+        await self.__read_and_process_notification_settings()
+        self.fire_event('save_administrator_settings.result')
 
     async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
         # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
@@ -945,8 +963,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 #          f"write this to HA entity '{entity_id}'.")
                 await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value, source="settings")
 
-            if callback is not None:
-                setting_object['listener_id'] = self.listen_state(callback, entity_id, attribute="all")
+            # if callback is not None:
+            #     setting_object['listener_id'] = self.listen_state(callback, entity_id, attribute="all")
 
         else:
             # Not the initial call, so this is triggered by changed value in UI

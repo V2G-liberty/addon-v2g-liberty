@@ -1,3 +1,4 @@
+import json
 import pytest
 from unittest.mock import ANY, Mock, mock_open, patch
 from apps.v2g_liberty.settings_manager import SettingsManager
@@ -41,6 +42,22 @@ class TestRetrieveSettings:
         settings_manager.retrieve_settings()
         # Assert
         assert settings_manager.settings == {"key": "value"}
+
+    @patch('os.path.exists', lambda _: True)
+    def test_upgrade(self, settings_manager):
+        # Arrange
+        saved_settings = json.dumps({
+            "input_select.admin_mobile_name": "mobile_name",
+            # "input_select.admin_mobile_platform": "mobile_platform"
+        })
+        with patch('builtins.open', mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert settings_manager.settings == {
+            "input_text.admin_mobile_name": "mobile_name",
+            # "input_text.admin_mobile_platform": "mobile_platform"
+        }
 
 
 @patch('builtins.open', mock_open())

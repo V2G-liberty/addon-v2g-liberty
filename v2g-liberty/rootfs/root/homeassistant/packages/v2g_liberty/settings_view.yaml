@@ -105,7 +105,7 @@
       - input_text.charger_connection_status
       - input_text.charger_max_available_power
     content: >-
-      {{ states("input_text.charger_connection_status")}} | 
+      {{ states("input_text.charger_connection_status")}} |
       {{ (now().timestamp() - states.input_text.charger_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
       <div>&nbsp;</div>
       The charger is set to provide max. **{{ states("input_text.charger_max_available_power")}}**&nbsp;W
@@ -208,7 +208,7 @@
             }
   - type: markdown
     content: >-
-      <ha-alert alert-type="info">Electric safety must be provided by the hardware, 
+      <ha-alert alert-type="info">Electric safety must be provided by the hardware,
       not this software! Please consult a certified electrician what maximum power can be set on the charger.
       </ha-alert>
     card_mod:
@@ -223,7 +223,7 @@
   - type: entities
     title: Administrator
     entities:
-      - entity: input_select.admin_mobile_name
+      - entity: input_text.admin_mobile_name
       - entity: input_select.admin_mobile_platform
     card_mod:
       style: |
@@ -366,7 +366,7 @@
       type: markdown
       entity: input_text.calendar_account_connection_status
       content: >-
-        {{ states("input_text.calendar_account_connection_status")}} |  
+        {{ states("input_text.calendar_account_connection_status")}} |
         {{ (now().timestamp() - states.input_text.calendar_account_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
       card_mod:
         style: |
@@ -626,7 +626,7 @@
     - type: markdown
       entity: input_text.fm_connection_status
       content: >-
-        {{ states("input_text.fm_connection_status")}} |  
+        {{ states("input_text.fm_connection_status")}} |
         {{ (now().timestamp() - states.input_text.fm_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
       card_mod:
         style: |

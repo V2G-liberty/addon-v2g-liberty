@@ -23,12 +23,23 @@ class SettingsManager:
                 with open(self.settings_file_path, 'r', encoding='utf-8') as read_file:
                     settings = json.load(read_file)
                     if isinstance(settings, dict):
-                        self.settings = settings
+                        self.settings = self.__upgrade(settings)
                     else:
                         self.log(f"retrieve_settings, loading file content error, "
                                  f"no dict: '{settings}'.")
             except (json.JSONDecodeError, FileNotFoundError) as e:
                 self.log(f"__retrieve_settings, Error reading settings file: {e}")
+
+    def __upgrade(self, settings: dict):
+        for obsolete, new in {
+            "input_select.admin_mobile_name": "input_text.admin_mobile_name",
+            # "input_select.admin_mobile_platform": "input_text.admin_mobile_platform"
+        }.items():
+            if obsolete in settings:
+                value = settings.get(obsolete)
+                settings.update({new: value})
+                settings.pop(obsolete)
+        return settings
 
     def store_setting(self, entity_id: str, value: any):
         """Store (overwrite or create) a setting in settings file.
