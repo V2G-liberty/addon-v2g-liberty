@@ -9,12 +9,13 @@
 ### Changed
 
 - Feature Request: Make chart two columns wide on desktop (#128).
--  🛠️ REFACTOR: rename folder v2g-liberty to v2g_liberty, general refactor of data_monitor.py
-- Feature Request: Make allowed range for min / max soc settins wider (#139).
+- 🛠️ REFACTOR: rename folder v2g-liberty to v2g_liberty, general refactor of data_monitor.py
+- Feature Request: Make allowed range for min / max soc settin9s wider (#139).
 
 ### Fixed
 
 - 🪲 BUG: Alert in UI for "Price and/or emission data incomplete" never shown (#130)
+- 🪲 BUG: Legend of chart not clickable #141 
 
 ### Removed
 

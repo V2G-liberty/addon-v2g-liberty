@@ -311,7 +311,7 @@
         disable_config_validation: true
       layout_options:
         grid_columns: full
-        grid_rows: 6
+        grid_rows: 8
       apex_config:
         legend:
           show: true
@@ -510,7 +510,7 @@
         - entity: input_text.optimisation_mode
         - entity: input_text.utility_display_name
       content: >-
-        <table><tbody><tr><th> Optimised on
+        <table><tbody><tr><th>Optimised on 
         <span>{{states("input_text.optimisation_mode")}}</span> </th><td>
         {{states("input_text.utility_display_name")}}
         </td></tr></tbody></table>
@@ -518,16 +518,15 @@
         style:
           .: |
             ha-card {
+              margin-top: -64px;
               border-top: none;
               border-top-left-radius: 0;
               border-top-right-radius: 0;
-              margin-top: 60px;
             }
           ha-markdown$: |
             table {
               width: 100%;
               max-width: 100%;
-              margin: 8px 0;
             }
             th {
               font-weight: normal;
