@@ -1,3 +1,7 @@
+v2g-liberty/.devcontainer/config/
+v2g-liberty/data/
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

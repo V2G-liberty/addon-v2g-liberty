@@ -1,0 +1,10 @@
+#!/usr/bin/bash -x
+
+# Stop on errors
+set -e
+
+cd "$(dirname "$0")/../.devcontainer"
+
+if [ ! -x config ]; then mkdir config; fi
+rm -rf config/.* config/*
+cp -avR init-config/.* init-config/* config

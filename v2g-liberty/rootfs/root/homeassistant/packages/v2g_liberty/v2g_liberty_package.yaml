@@ -221,7 +221,7 @@ input_number:
   car_min_soc_in_percent:
     name: Car battery min. soc
     min: 10
-    max: 30
+    max: 55
     step: 1
     icon: mdi:chart-bell-curve-cumulative
     mode: box
@@ -238,8 +238,8 @@ input_number:
 
   allowed_duration_above_max_soc_in_hrs:
     name: Allowed duration above max soc
-    min: 2
-    max: 36
+    min: 1
+    max: 12
     step: 1
     icon: mdi:timer-lock-outline
     mode: box
@@ -518,12 +518,6 @@ input_text:
     min: 0
     mode: text
 
-template:
-  - sensor:
-    # To make the HA time_zone available to the V2G Liberty python code.
-    - name: Time Zone
-      unique_id: time_zone
-      state: "{{ now().tzinfo }}"
 
 script:
   restart_ha:

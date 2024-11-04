@@ -1,0 +1,22 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "V2G-Liberty",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "appdaemon",
+      "args": [
+        "-c",
+        "rootfs/root/appdaemon",
+        "-C",
+        "appdaemon.devcontainer.yaml",
+        "-D",
+        "INFO"
+      ]
+    }
+  ]
+}

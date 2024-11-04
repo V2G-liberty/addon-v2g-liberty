@@ -449,6 +449,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         Gets consumption / production prices from the server via the fm_client.
 
         Check if prices are up to date, if not:
+         - show a message in UI by calling set_price_is_up_to_date() on main app.
          - repeat this methode every x minutes
          - set class variable consumption_price_is_up_to_date / production_price_is_up_to_date to False
            (for notification to user, see __check_if_prices_are_up_to_date() ).
@@ -542,6 +543,11 @@ class FlexMeasuresDataImporter(hass.Hass):
                     expected_price_dt -= timedelta(minutes=65)
                     self.log(f"get_prices, set expected_price_dt D {expected_price_dt=}.")
                     is_up_to_date = date_latest_price > expected_price_dt
+                    if not is_up_to_date:
+                        # Set it in th UI right away, no matter which price type it is.
+                        # Notification is done later via __check_if_prices_are_up_to_date()
+                        await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=False)
+
                     self.log(f"get_prices ({price_type}): is up to date: '{is_up_to_date}' based on "
                              f"latest_price ({date_latest_price}) > expected_price_dt ({expected_price_dt}).")
                     price_is_up_to_date = (self.consumption_price_is_up_to_date if price_type == "consumption"
@@ -630,6 +636,7 @@ class FlexMeasuresDataImporter(hass.Hass):
         """
         self.log("__check_if_prices_are_up_to_date_again called")
         if self.consumption_price_is_up_to_date and self.consumption_price_is_up_to_date:
+            await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
             self.v2g_main_app.clear_notification(tag = "no_price_data")
             self.log("__check_if_prices_are_up_to_date_again, prices up to date again: notification cleared.")
         else:

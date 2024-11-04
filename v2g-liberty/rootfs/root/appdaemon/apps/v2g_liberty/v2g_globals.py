@@ -173,7 +173,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
         "entity_name": "allowed_duration_above_max_soc_in_hrs",
         "entity_type": "input_number",
         "value_type": "int",
-        "factory_default": 12,
+        "factory_default": 4,
+        "min": 1,
+        "max": 12,
         "listener_id": None
     }
     SETTING_USE_REDUCED_MAX_CHARGE_POWER = {
@@ -326,7 +328,6 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # Was None, which blocks processing during initialisation
         self.collect_action_handle = ""
         self.log("Completed initializing V2GLibertyGlobals")
-
 
 
     ######################################################################

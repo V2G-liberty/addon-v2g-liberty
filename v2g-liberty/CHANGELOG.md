@@ -1,12 +1,25 @@
 # Changelog
 
-## 0.3.3 2024-10-17
+## 0.4.0 2024-11-04
 
-A patch release for fixing a bug.
+### Added
+
+- Do not (dis-)charge during calendar item (#41)
+
+### Changed
+
+- Feature Request: Make chart two columns wide on desktop (#128).
+- 🛠️ REFACTOR: rename folder v2g-liberty to v2g_liberty, general refactor of data_monitor.py
+- Feature Request: Make allowed range for min / max soc settings wider (#139).
 
 ### Fixed
 
--  🪲 BUG: admin_mobile name select is changing several times per second #124 
+- 🪲 BUG: Alert in UI for "Price and/or emission data incomplete" never shown (#130)
+- 🪲 BUG: Legend of chart not clickable #141 
+
+### Removed
+
+- Template sensor for timezone, old unused code (unnumbered).
 
 
 
@@ -17,11 +30,10 @@ The next release **might (!)** include:
 ### Adding
 
 - Support for uni-directional charging
-- New frontend for the settings page
 
 ### Changing
 
--  Do not (dis-)charge during calendar item (#41)
+- New frontend for the settings page
 
 ### Removing
 
