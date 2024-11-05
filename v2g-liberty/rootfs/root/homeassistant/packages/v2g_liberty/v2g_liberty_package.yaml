@@ -108,6 +108,9 @@ input_boolean:
   admin_settings_initialised:
     name: Administrator settings are initialised
 
+  charger_settings_initialised:
+    name: Charger settings are initialised
+
   # Settings related entities
   use_reduced_max_charge_power:
     name: Change default (dis-)charge power
@@ -541,13 +544,6 @@ script:
     alias: TestCalendarConnection
     sequence:
       - event: TEST_CALENDAR_CONNECTION
-        event_data: {}
-    mode: single
-
-  test_charger_connection:
-    alias: TestChargerConnection
-    sequence:
-      - event: TEST_CHARGER_CONNECTION
         event_data: {}
     mode: single
 

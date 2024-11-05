@@ -292,6 +292,28 @@ class ModbusEVSEclient(hass.Hass):
     #                     PUBLIC FUNCTIONAL METHODS                      #
     ######################################################################
 
+    async def test_charger_connection(self, host, port):
+        self.log(f"Testing Modbus EVSE client at {host}:{port}")
+
+        client = modbusClient.AsyncModbusTcpClient(
+            host=host,
+            port=port,
+        )
+        try:
+            await client.connect()
+            if client.connected:
+                max_available_power = await self.__get_max_available_power(client)
+                return True, max_available_power
+            else:
+                return False, None
+        finally:
+            client.close()
+
+    async def __get_max_available_power(self, client):
+        result = await client.read_holding_registers(self.MAX_AVAILABLE_POWER_REGISTER, 1, slave=1)
+        return result.registers[0]
+
+
     async def initialise_charger(self, v2g_args=None):
         self.log(f"Configuring Modbus EVSE client at {c.CHARGER_HOST_URL}:{c.CHARGER_PORT}, reason: {v2g_args}")
 

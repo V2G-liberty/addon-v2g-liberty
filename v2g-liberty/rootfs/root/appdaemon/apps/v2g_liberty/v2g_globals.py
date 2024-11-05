@@ -117,6 +117,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
     }
 
     # Settings related to charger
+    CHARGER_SETTINGS_INITIALISED = {
+        "entity_name": "charger_settings_initialised",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None
+    }
     SETTING_CHARGER_HOST_URL = {
         "entity_name": "charger_host_url",
         "entity_type": "input_text",
@@ -328,8 +335,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
         await self.__kick_off_settings()
 
         self.listen_event(self.__save_administrator_settings, "save_administrator_settings")
+        self.listen_event(self.__save_charger_settings, "save_charger_settings")
         # Listen to [TEST] buttons
-        self.listen_event(self.__test_charger_connection, "TEST_CHARGER_CONNECTION")
+        self.listen_event(self.__test_charger_connection, "test_charger_connection")
         self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
         self.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
         self.listen_event(self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS")
@@ -475,6 +483,26 @@ class V2GLibertyGlobals(ServiceResponseApp):
         await self.__read_and_process_notification_settings()
         self.fire_event('save_administrator_settings.result')
 
+    async def __save_charger_settings(self, event, data, kwargs):
+        self.__store_setting("input_text.charger_host_url", data["host"])
+        self.__store_setting("input_number.charger_port", data["port"])
+        self.__store_setting("input_boolean.use_reduced_max_charge_power", data["useReducedMaxChargePower"])
+        if (data["useReducedMaxChargePower"]):
+            self.__store_setting("input_number.charger_max_charging_power", data["maxChargingPower"])
+            self.__store_setting("input_number.charger_max_discharging_power", data["maxDischargingPower"])
+        self.__store_setting("input_boolean.charger_settings_initialised", True)
+
+        await self.__process_setting(self.SETTING_CHARGER_HOST_URL, None)
+        await self.__process_setting(self.SETTING_CHARGER_PORT, None)
+        await self.__process_setting(self.SETTING_USE_REDUCED_MAX_CHARGE_POWER, None)
+        if (data["useReducedMaxChargePower"]):
+            await self.__process_setting(self.SETTING_CHARGER_MAX_CHARGE_POWER, None)
+            await self.__process_setting(self.SETTING_CHARGER_MAX_DISCHARGE_POWER, None)
+        await self.__process_setting(self.CHARGER_SETTINGS_INITIALISED, None)
+
+        await self.__read_and_process_charger_settings()
+        self.fire_event('save_charger_settings.result')
+
     async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
         # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
         # Get the possible calendars from the validated account
@@ -547,16 +575,16 @@ class V2GLibertyGlobals(ServiceResponseApp):
         """ Tests the connection with the charger and processes the maximum charge power read from the charger
             Called from the settings page."""
         self.log("__test_charger_connection called")
-        # The url and port settings have been changed via the listener
-        await self.set_state("input_text.charger_connection_status", state="Trying to connect...")
-        if not await self.evse_client_app.initialise_charger():
-            msg="Failed to connect"
-        else:
-            msg = "Successfully connected"
-        # min/max power is set self.evse_client_app.initialise_charger()
-        # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
-        await self.set_state("input_text.charger_connection_status", state=msg)
-
+        host = data["host"]
+        port = data["port"]
+        success, max_available_power = await self.evse_client_app.test_charger_connection(host, port)
+        msg = "Successfully connected" if success else "Failed to connect"
+        self.log(f"__test_charger_connection result: \"{msg}\", {max_available_power}")
+        self.fire_event(
+            "test_charger_connection.result",
+            msg=msg,
+            max_available_power=max_available_power
+        )
 
     async def __test_fm_connection(self, event = None, data = None, kwargs = None):
         # Tests the connection with FlexMeasures
