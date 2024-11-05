@@ -12,6 +12,8 @@ services:
       - ../data:/data
       - ../logs:/config/logs
     command: sleep infinity
+    healthcheck:
+      test: ['CMD', '/workspaces/v2g-liberty/script/is-container-ready']
 
   homeassistant:
     image: homeassistant/home-assistant:2024.10
@@ -21,4 +23,5 @@ services:
     volumes:
       - ./config:/config
     depends_on:
-      - v2g-liberty
+      v2g-liberty:
+        condition: service_healthy
