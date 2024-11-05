@@ -2,8 +2,8 @@
   "name": "V2G-Liberty App Dev",
   "dockerComposeFile": "docker-compose.yaml",
   "service": "v2g-liberty",
-  "workspaceFolder": "/workspaces/v2g-liberty",
-  "postCreateCommand": "script/init-config",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "onCreateCommand": "script/init-config",
   "containerEnv": {
     "PYTHONASYNCIODEBUG": "1"
   },
