@@ -1,13 +1,24 @@
 # Running the V2G-Liberty application in a devcontainer
 
-# # Set-up the devcontainer development environment
+These instractions are specific to Visual Studio Code (VSC) IDE.
 
-1. Open the `v2g-liberty` folder in VScode
+## Set-up the devcontainer development environment
+
+1. Get the repository on your machine:
+
+   - Open a terminal and open the folder in which you want the code to be stored
+   - Clone the repository by typing the command:<br/>
+     `git clone https://github.com/V2G-liberty/addon-v2g-liberty.git`<br>
+     This will create all the files and folders on your local machine.
+
+2. Start VSC and open the `v2g-liberty` folder that has just been created on your machine.<br/>
    (note: this is not the `addon-v2g-liberty` repo root folder)
 
-2. When asked, or from the Commands menu (Cmd-Shift-P) run
-   "Dev Containers: Reopen in Container"
-   This will create and start two devcontainers:
+3. VSC wil detect there is a dev container in this folder and thus should ask
+   `Dev Containers: Reopen in Container?` click Yes.<br/>
+   If this question does not popup, run the commands menu (Cmd-Shift-P) and run the above command.
+
+4. This will automaticaly create and start two devcontainers:
    - One running the vanilla Home Assistant core
    - The other is for running the V2G-Liberty appdaemon
 
@@ -17,7 +28,7 @@ This also includes a long-lived access token shared with the appdaemon.
 
 Home Assistant is available on http://localhost:8123/
 
-# # Running V2G-Liberty
+## Running V2G-Liberty
 
 Open the Commands menu (Cmd-Shift-P) and select "Tasks: Run Task" and then
 "Run V2G-Liberty app".
@@ -25,11 +36,11 @@ Open the Commands menu (Cmd-Shift-P) and select "Tasks: Run Task" and then
 Alternatively, from the VScode main menu select "Run" / "Run Without Debugging"
 (shortcut Ctrl-F5).
 
-# # Debugging V2G-Liberty
+## Debugging V2G-Liberty
 
 From the VScode main menu select "Run" / "Start Debugging" (shortcut F5).
 
-# # Copying V2G-Liberty package files to Home Assistant configuration folder
+## Copying V2G-Liberty package files to Home Assistant configuration folder
 
 To update the V2G-Liberty packages files and www folders in the Home Assistant
 configuration folder , select "Tasks: Run Task" and then
