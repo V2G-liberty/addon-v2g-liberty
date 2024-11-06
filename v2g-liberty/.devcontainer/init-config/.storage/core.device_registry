@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "minor_version": 8,
+  "key": "core.device_registry",
+  "data": {
+    "devices": [
+      {"area_id":null,"config_entries":["01JBYTQB70ADEVRP3T42SYDV7N"],"configuration_url":null,"connections":[],"created_at":"2024-11-05T18:52:19.554780+00:00","disabled_by":null,"entry_type":"service","hw_version":null,"id":"9922bee71054025c2a3cbe350d91ce7d","identifiers":[["sun","01JBYTQB70ADEVRP3T42SYDV7N"]],"labels":[],"manufacturer":null,"model":null,"model_id":null,"modified_at":"2024-11-05T18:52:19.554833+00:00","name_by_user":null,"name":"Sun","primary_config_entry":"01JBYTQB70ADEVRP3T42SYDV7N","serial_number":null,"sw_version":null,"via_device_id":null}
+    ],
+    "deleted_devices": []
+  }
+}
