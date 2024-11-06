@@ -1,0 +1,9 @@
+#!/usr/bin/bash -x
+
+# Stop on errors
+set -e
+
+cd "$(dirname "$0")/../.devcontainer"
+
+[ -e config/.ready ]
+exit $?
