@@ -3,6 +3,14 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+
+## 0.4.1 2024-11-07
+
+### Fixed
+
+- 🪲 BUG-FIX release 0.4.1: Better cleanup of the old renamed v2g-liberty folder.
+
+
 ## 0.4.0 2024-11-04
 
 ### Added
