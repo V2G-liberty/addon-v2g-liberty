@@ -9,6 +9,7 @@
 mkdir -p /config/logs
 
 # Remove old v2g-liberty folder as it is renamed to v2g_liberty
+# Bug-fix release 0.4.1
 rm -rf /config/apps/v2g-liberty
 
 # Copy python files
