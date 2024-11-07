@@ -8,11 +8,8 @@
 # Create directory where log files will be written
 mkdir -p /config/logs
 
-# Remove old flexmeasures_client.py as it has the same name as the pypi library
-rm -f /config/apps/v2g-liberty/flexmeasures_client.py
-
-# V0.2.1 2024-089-10 Remove old set_fm_data.py as it has been renamed to data_monitor.py
-rm -f /config/apps/v2g-liberty/set_fm_data.py
+# Remove old v2g-liberty folder as it is renamed to v2g_liberty
+rm -rf /config/apps/v2g-liberty
 
 # Copy python files
 cp -aRv /root/appdaemon/* /config \
@@ -33,6 +30,7 @@ fi
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/lovelace-card-mod'; then
     mkdir -p /homeassistant/www/v2g_liberty/lovelace-card-mod
 fi
+
 # Copy plugins
 cp -aRv /root/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
     || bashio::exit.nok 'Failed to copy apexchart-card plugin'
