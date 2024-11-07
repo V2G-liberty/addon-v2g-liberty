@@ -496,6 +496,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             self.log(f"get_prices  ({price_type}) | sensor_id: {sensor_id}, prices: {prices}.")
 
             date_latest_price = None
+            net_price = None
 
             if prices is None:
                 failure_message = f"get_prices failed for {price_type}"
@@ -509,16 +510,27 @@ class FlexMeasuresDataImporter(hass.Hass):
                         continue
                     dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
                     date_latest_price = dt
+                    net_price = round(((float(price) * self.price_conversion_factor) + self.markup_per_kwh) *
+                                      self.vat_factor, 2)
                     data_point = {
                         'time': dt.isoformat(),
-                        'price': round(
-                            ((float(price) * self.price_conversion_factor) + self.markup_per_kwh) * self.vat_factor, 2)
+                        'price': net_price
                     }
-
+                    price_points.append(data_point)
                     if first_future_negative_price_point is None and data_point['price'] < 0 and dt > now:
                         self.log(f"get_prices ({price_type}), negative price: {data_point['price']} at: {dt}.")
                         first_future_negative_price_point = {'time': dt, 'price': data_point['price']}
-                    price_points.append(data_point)
+
+                # To make the step-line in the chart extend to the end of the last (half)hour (or what the resolution
+                # might be), a value is added at the end. Not an ideal solution but the chart does not have the option
+                # to do this.
+                data_point = {
+                    'time': (dt + timedelta(minutes=c.PRICE_RESOLUTION_MINUTES)).isoformat(),
+                    'price': net_price
+                }
+
+                price_points.append(data_point)
+
 
                 await self.v2g_main_app.set_records_in_chart(
                     chart_line_name = ChartLine.CONSUMPTION_PRICE if price_type == "consumption" else ChartLine.PRODUCTION_PRICE,
