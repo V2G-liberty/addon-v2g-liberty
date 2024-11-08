@@ -227,7 +227,7 @@
         service_data: {}
         target: {}
       entity: ''
-      name: Disconnect
+      name: Unplug
       layout_options:
         grid_columns: 1
         grid_rows: 2
@@ -241,53 +241,56 @@
 - type: grid
   column_span: 1
   cards:
-    - type: horizontal-stack
-      layout_options:
-        grid_columns: full
-        grid_rows: 2
-      cards:
-        - type: button
-          name: Automatic
-          hold_action:
-            action: none
-          entity: input_boolean.chargemodeautomatic
-          show_state: false
-          icon_height: 40px
-        - type: button
-          name: Charge Now
-          icon: mdi:battery-alert
-          hold_action:
-            action: none
-          entity: input_boolean.chargemodemaxboostnow
-          show_state: false
-          icon_height: 40px
-        - type: button
-          name: Pause
-          icon: mdi:pause-box-outline
-          hold_action:
-            action: none
-          entity: input_boolean.chargemodeoff
-          icon_height: 40px
-          show_state: false
-          card_mod:
-            style: |
-              :host(:hover)::before {
-                content: "Pause scheduled charging and give control to the charger. \A Want to stop V2G Liberty completely? Use the link on the settings tab in the top bar.";
-                text-align: left;
-                white-space: pre-wrap;
-                font-size: 80%;
-                color: var(--primary-text-color);
-                position: absolute !important;
-                width: calc(66% - 10px);
-                left: 10px;
-                top: 10px;
-                background-color: var(--primary-background-color);
-                border: 1px solid var(--input-idle-line-color);
-                border-radius: 8px;
-                padding: 8px 16px;
-                z-index: 110;
-              }
-      square: false
+    - type: button
+      grid_options:
+        columns: 4
+        rows: 2
+      name: Automatic
+      hold_action:
+        action: none
+      entity: input_boolean.chargemodeautomatic
+      show_state: false
+      icon_height: 40px
+    - type: button
+      grid_options:
+        columns: 4
+        rows: 2
+      name: Charge Now
+      icon: mdi:battery-alert
+      hold_action:
+        action: none
+      entity: input_boolean.chargemodemaxboostnow
+      show_state: false
+      icon_height: 40px
+    - type: button
+      grid_options:
+        columns: 4
+        rows: 2
+      name: Pause
+      icon: mdi:pause-box-outline
+      hold_action:
+        action: none
+      entity: input_boolean.chargemodeoff
+      icon_height: 40px
+      show_state: false
+      card_mod:
+        style: |
+          :host(:hover)::before {
+            content: "Pause scheduled charging and give control to the charger. \A Want to stop V2G Liberty completely? Use the link on the settings tab in the top bar.";
+            text-align: left;
+            white-space: pre-wrap;
+            font-size: 80%;
+            color: var(--primary-text-color);
+            position: absolute !important;
+            width: calc(66% - 10px);
+            left: 10px;
+            top: 10px;
+            background-color: var(--primary-background-color);
+            border: 1px solid var(--input-idle-line-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            z-index: 110;
+          }
     - type: conditional
       conditions:
         - entity: input_text.charger_state
@@ -298,7 +301,7 @@
         type: markdown
         content: >-
           <ha-alert alert-type="warning" title="No car is connected">To
-          start Max-charge-now, please connect the car to the
+          start Max-charge, please connect the car to the
           charger.</ha-alert>
         layout_options:
           grid_columns: full
