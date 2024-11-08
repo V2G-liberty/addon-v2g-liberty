@@ -36,6 +36,10 @@ CAR_MAX_SOC_IN_PERCENT: int = 80
 # Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
 CAR_MAX_SOC_IN_KWH: float = 0
 
+# A practical absolute max. capacity of the car battery in percent.
+# E.g. a Quasar + Nissan Leaf will never charge higher than 97%.
+CAR_MAX_CAPACITY_IN_PERCENT: int = 97
+
 # Car consumption per km. Defaults to the Nissan Leaf average.
 CAR_CONSUMPTION_WH_PER_KM: int = 175
 
