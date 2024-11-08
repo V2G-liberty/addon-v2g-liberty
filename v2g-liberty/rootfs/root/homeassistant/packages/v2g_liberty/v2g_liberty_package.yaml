@@ -137,7 +137,6 @@ input_boolean:
   chargemodeautomatic:
     name: ChargeModeAutomatic
     icon: mdi:battery-charging-80
-    initial: true
 
   chargemodemaxboostnow:
     name: ChargeModeMaxBoostNow
