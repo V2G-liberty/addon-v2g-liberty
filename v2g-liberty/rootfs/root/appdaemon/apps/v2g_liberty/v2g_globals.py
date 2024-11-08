@@ -8,11 +8,12 @@ import math
 import appdaemon.plugins.hass.hassapi as hass
 import constants as c
 from service_response_app import ServiceResponseApp
+from settings_manager import SettingsManager
 
 
 
 class V2GLibertyGlobals(ServiceResponseApp):
-    v2g_settings: dict = {}
+    v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
     evse_client_app: object
@@ -315,6 +316,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.amber_price_data_manager = await self.get_app("amber_price_data_manager")
         self.octopus_price_data_manager = await self.get_app("octopus_price_data_manager")
         self.fm_data_retrieve_client = await self.get_app("get_fm_data")
+        self.v2g_settings = SettingsManager(log=self.log)
 
         await self.__kick_off_settings()
 
@@ -356,9 +358,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
     ######################################################################
 
     async def __kick_off_settings(self):
-        self.log("__kick_off_settings called")
         # To be called from initialise or restart event
-        await self.__retrieve_settings()
+        self.log("__kick_off_settings called")
+
+        self.v2g_settings.retrieve_settings()
         # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
         await self.__initialise_devices()
         await self.__read_and_process_notification_settings()
@@ -512,8 +515,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
     async def __reset_to_factory_defaults(self, event=None, data=None, kwargs=None):
         """Reset to factory defaults by emptying the settings file"""
         self.log("__reset_to_factory_defaults called")
-        self.v2g_settings = {}
-        self.__write_to_file(self.v2g_settings)
+        self.v2g_settings.reset()
         await self.restart_v2g_liberty()
 
 
@@ -565,7 +567,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return
 
         asset_entity_id = f"{self.SETTING_FM_ASSET['entity_type']}.{self.SETTING_FM_ASSET['entity_name']}"
-        current_asset_setting = self.v2g_settings.get("asset_entity_id", None)
+        current_asset_setting = self.v2g_settings.get("asset_entity_id")
         self.log(f"__test_fm_connection, current_asset_setting: {current_asset_setting} "
                  f"(asset_entity_id={asset_entity_id}).")
         if len(assets) == 1:
@@ -580,7 +582,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 await self.__set_fm_connection_status(f"Succes! Using new asset '{asset_name}'.")
             else:
                 await self.__set_fm_connection_status(f"Succes! Using '{asset_name}'.")
-            await self.__store_setting(asset_entity_id, asset_name)
+            self.__store_setting(asset_entity_id, asset_name)
             await self.__get_and_process_fm_sensors(asset_id=asset_id)
         else:
             # Populate and show input_select and let user pick
@@ -872,28 +874,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
     #                METHODS FOR IO of SETTINGS FILE                     #
     ######################################################################
 
-    async def __retrieve_settings(self):
-        """Retrieve all settings from the settings file
-        """
-        self.log(f"__retrieve_settings called")
-
-        if not os.path.exists(self.settings_file_path):
-            self.log(f"__retrieve_settings, no settings file found: creating")
-            self.v2g_settings = {}
-            self.__write_to_file(self.v2g_settings)
-        else:
-            try:
-                with open(self.settings_file_path, 'r') as read_file:
-                    self.v2g_settings = json.load(read_file)
-                    if not isinstance(self.v2g_settings, dict):
-                        self.log(f"__retrieve_settings, loading file content error, "
-                                 f"no dict: '{self.v2g_settings}'.")
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                self.log(f"__retrieve_settings, Error reading settings file: {e}")
-                self.v2g_settings = {}
-
-
-    async def __store_setting(self, entity_id: str, setting_value: any):
+    def __store_setting(self, entity_id: str, setting_value: any):
         """Store (overwrite or create) a setting in settings file.
 
         Args:
@@ -903,15 +884,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # self.log(f"__store_setting, entity_id: '{entity_id}' to value '{setting_value}'.")
         if setting_value in ["unknown", "Please choose an option"]:
             return False
-        self.v2g_settings[entity_id] = setting_value
-        self.__write_to_file(self.v2g_settings)
+        self.v2g_settings.store_setting(entity_id, setting_value)
         return True
-
-    def __write_to_file(self, settings: dict):
-        # self.log(f"__write_to_file, settings: '{settings}'.")
-        # TODO: Make async?
-        with open(self.settings_file_path, 'w') as write_file:
-            json.dump(settings, write_file)
 
 
     ######################################################################
@@ -931,7 +905,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         setting_entity = await self.get_state(entity_id, attribute="all")
 
         # Get the setting from store
-        stored_setting_value = self.v2g_settings.get(entity_id, None)
+        stored_setting_value = self.v2g_settings.get(entity_id)
 
         # At first initial run the listener_id is filled with a callback handler.
         if setting_object['listener_id'] is None:
@@ -945,7 +919,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     # self.log(f"__process_setting, Initial call. No relevant v2g_setting. "
                     #          f"Set constant and UI to factory_default: {return_value} "
                     #          f"{type(return_value)}.")
-                    await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+                    self.__store_setting(entity_id=entity_id, setting_value=return_value)
                     await self.__write_setting_to_ha(
                         setting=setting_object,
                         setting_value=return_value,
@@ -958,7 +932,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     # for input_select entities).
                     return_value = setting_entity.get('state', None)
                     if return_value is not None and return_value not in ["", "unknown", "Please choose an option"]:
-                        await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+                        self.__store_setting(entity_id=entity_id, setting_value=return_value)
                     else:
                         # There is no relevant default to set...
                         self.log(f"__process_setting: setting '{entity_id}' has no stored value, "
@@ -983,7 +957,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             #          f"Write value '{return_value}' to store '{entity_id}'.")
             # We need to write to HA entity even if has_changed == False as we have to add the source.
             await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value, source="user_input")
-            await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+            self.__store_setting(entity_id=entity_id, setting_value=return_value)
 
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
@@ -1347,7 +1321,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         else:
             return_value, has_changed = await self.__check_and_convert_value(setting_object, factory_default)
 
-        await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+        self.__store_setting(entity_id=entity_id, setting_value=return_value)
         await self.__write_setting_to_ha(setting=setting_object, setting_value=return_value, source="factory_default")
         return return_value
 
