@@ -186,7 +186,7 @@ class FlexMeasuresDataImporter:
         parameters = {"price_type": "production"}
         await self.get_prices(parameters)
 
-        self.hass.log(f"daily_kickoff_price_data completed")
+        self.hass.log("daily_kickoff_price_data completed")
 
     async def daily_kickoff_emissions_data(self, *args):
         """
@@ -667,21 +667,23 @@ class FlexMeasuresDataImporter:
                         start_time=self.GET_PRICES_TIME, end_time="23:59:59"
                     ):
                         expected_price_dt = now + timedelta(days=1)
-                        self.hass.log(f"get_prices, set expected_price_dt is tomorrow.")
+                        # self.hass.log(f"get_prices, set expected_price_dt is tomorrow.")
                     else:
                         expected_price_dt = now
-                        self.hass.log(f"get_prices, set expected_price_dt is today.")
+                        # self.hass.log(f"get_prices, set expected_price_dt is today.")
                     # Round it to the end of the day
                     expected_price_dt = time_ceil(expected_price_dt, timedelta(days=1))
+
                     # self.hass.log(
                     #     f"get_prices, set expected_price_dt C {expected_price_dt=}."
                     # )
+
                     # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to subtract one hour
                     # and a little extra to give it some slack.
                     expected_price_dt -= timedelta(minutes=65)
-                    self.hass.log(
-                        f"get_prices, set expected_price_dt D {expected_price_dt=}."
-                    )
+                    # self.hass.log(
+                    #     f"get_prices, set expected_price_dt D {expected_price_dt=}."
+                    # )
                     is_up_to_date = date_latest_price > expected_price_dt
                     if not is_up_to_date:
                         # Set it in th UI right away, no matter which price type it is.
