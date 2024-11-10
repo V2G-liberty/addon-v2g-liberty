@@ -5,9 +5,8 @@ from itertools import accumulate
 import math
 import asyncio
 from v2g_globals import time_round, get_local_now
-from v2g_globals import V2GLibertyGlobals
 import constants as c
-import appdaemon.plugins.hass.hassapi as hass
+from appdaemon.plugins.hass.hassapi import Hass
 import enum
 
 
@@ -23,7 +22,7 @@ class ChartLine(enum.Enum):
     EMISSION = 6
 
 
-class V2Gliberty(hass.Hass):
+class V2Gliberty:
     """This class manages the bi-directional charging process.
     For this it communicates with:
     + The EVSE client, that communicates with the EV
@@ -83,9 +82,13 @@ class V2Gliberty(hass.Hass):
     evse_client_app: object = None
     fm_client_app: object = None
     reservations_client: object = None
+    hass: Hass = None
+
+    def __init__(self, hass: Hass):
+        self.hass = hass
 
     async def initialize(self):
-        self.log("Initializing V2Gliberty")
+        self.hass.log("Initializing V2Gliberty")
 
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
@@ -109,35 +112,31 @@ class V2Gliberty(hass.Hass):
         }
 
         # Reset at init
-        await self.turn_off("input_boolean.charger_modbus_communication_fault")
+        await self.hass.turn_off("input_boolean.charger_modbus_communication_fault")
         await self.set_price_is_up_to_date(is_up_to_date=True)
 
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
 
-        self.evse_client_app = await self.get_app("modbus_evse_client")
-        self.fm_client_app = await self.get_app("fm_client")
-        self.reservations_client = await self.get_app("reservations-client")
-
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__update_charge_mode, "input_select.charge_mode", attribute="all"
         )
-        await self.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
-        await self.listen_event(
+        await self.hass.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
+        await self.hass.listen_event(
             self.__handle_phone_action, event="mobile_app_notification_action"
         )
 
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__handle_charger_state_change,
             "sensor.charger_charger_state",
             attribute="all",
         )
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__handle_soc_change,
             "sensor.charger_connected_car_state_of_charge",
             attribute="all",
         )
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__process_schedule, "input_text.chargeschedule", attribute="all"
         )
 
@@ -150,35 +149,35 @@ class V2Gliberty(hass.Hass):
         if self.evse_client_app is not None:
             await self.evse_client_app.complete_init()
         else:
-            self.log(
+            self.hass.log(
                 f"initialize. Could not call evse_client_app.complete_init. evse_client_app is None, not init yet?"
             )
 
-        charge_mode = await self.get_state("input_select.charge_mode")
+        charge_mode = await self.hass.get_state("input_select.charge_mode")
         if self.evse_client_app is not None:
             if charge_mode == "Stop":
-                self.log(
+                self.hass.log(
                     "initialize. Charge_mode == 'Stop' -> Setting EVSE client to in_active!"
                 )
                 await self.evse_client_app.set_inactive()
             else:
-                self.log(
+                self.hass.log(
                     "initialize.  Charge_mode != 'Stop' -> Setting EVSE client to active!"
                 )
                 await self.evse_client_app.set_active()
         else:
-            self.log(
+            self.hass.log(
                 f"initialize. Could not call set_(in)active on evse_client_app as it is None, not init yet?"
             )
 
-        current_soc = await self.get_state(
+        current_soc = await self.hass.get_state(
             "sensor.charger_connected_car_state_of_charge"
         )
         await self.__process_soc(current_soc)
 
         await self.initialise_v2g_liberty(v2g_args="initialise")
 
-        self.log("Completed Initializing V2Gliberty")
+        self.hass.log("Completed Initializing V2Gliberty")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -186,14 +185,20 @@ class V2Gliberty(hass.Hass):
 
     async def set_price_is_up_to_date(self, is_up_to_date: bool):
         if is_up_to_date:
-            await self.turn_off("input_boolean.error_epex_prices_cannot_be_retrieved")
+            await self.hass.turn_off(
+                "input_boolean.error_epex_prices_cannot_be_retrieved"
+            )
         else:
-            await self.turn_on("input_boolean.error_epex_prices_cannot_be_retrieved")
+            await self.hass.turn_on(
+                "input_boolean.error_epex_prices_cannot_be_retrieved"
+            )
 
     async def initialise_v2g_liberty(self, v2g_args=None):
         # Show the settings in the UI
-        await self.set_textvalue("input_text.optimisation_mode", c.OPTIMISATION_MODE)
-        await self.set_textvalue(
+        await self.hass.set_textvalue(
+            "input_text.optimisation_mode", c.OPTIMISATION_MODE
+        )
+        await self.hass.set_textvalue(
             "input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME
         )
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
@@ -221,7 +226,7 @@ class V2Gliberty(hass.Hass):
         if it still exists.
         """
         if c.ADMIN_MOBILE_NAME == "":
-            self.log(
+            self.hass.log(
                 "notify_user: No registered devices to notify, cancel notification."
             )
             return
@@ -236,11 +241,11 @@ class V2Gliberty(hass.Hass):
 
         # critical trumps send_to_all
         if critical:
-            self.log(f"notify_user: Critical! Send to: {to_notify}.")
+            self.hass.log(f"notify_user: Critical! Send to: {to_notify}.")
             notification_data = c.PRIORITY_NOTIFICATION_CONFIG
 
         if send_to_all and not critical:
-            self.log(
+            self.hass.log(
                 f"notify_user: Send to all and not critical! Send to: {to_notify}."
             )
             to_notify = c.NOTIFICATION_RECIPIENTS
@@ -253,20 +258,20 @@ class V2Gliberty(hass.Hass):
 
         message = message + " [" + c.HA_NAME + "]"
 
-        self.log(
+        self.hass.log(
             f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}."
         )
         for recipient in to_notify:
             service = "notify/mobile_app_" + recipient
             try:
                 if notification_data:
-                    self.call_service(
+                    self.hass.call_service(
                         service, title=title, message=message, data=notification_data
                     )
                 else:
-                    self.call_service(service, title=title, message=message)
+                    self.hass.call_service(service, title=title, message=message)
             except Exception as e:
-                self.log(
+                self.hass.log(
                     f"notify_user. Could not notify: exception on {recipient}. Exception: {e}."
                 )
 
@@ -274,7 +279,7 @@ class V2Gliberty(hass.Hass):
                 # Remove the notification after a time-to-live.
                 # A tag is required for clearing.
                 # Critical notifications should not auto clear.
-                self.run_in(
+                self.hass.run_in(
                     self.__clear_notification, delay=ttl, recipient=recipient, tag=tag
                 )
 
@@ -293,11 +298,11 @@ class V2Gliberty(hass.Hass):
         """
 
         if error_name in self.no_schedule_errors:
-            self.log(
+            self.hass.log(
                 f"handle_no_valid_schedule called with {error_name}: {error_state}."
             )
         else:
-            self.log(
+            self.hass.log(
                 f"handle_no_valid_schedule called unknown error_name: '{error_name}'."
             )
             return
@@ -309,15 +314,15 @@ class V2Gliberty(hass.Hass):
         module in the charger.
         To be called from evse_client_app.
         """
-        self.log(
+        self.hass.log(
             f"The charger probably crashed: Stop charging, set Error in UI and notify user"
         )
         await self.__set_chargemode_in_ui("Stop")
 
-        await self.set_state(
+        await self.hass.set_state(
             "input_boolean.charger_modbus_communication_fault", state="on"
         )
-        await self.set_textvalue("input_text.charger_state", "Error")
+        await self.hass.set_textvalue("input_text.charger_state", "Error")
 
         title = "Charger communication error"
         message = (
@@ -337,8 +342,8 @@ class V2Gliberty(hass.Hass):
         return
 
     async def reset_charger_communication_fault(self):
-        self.log(f"reset_charger_communication_fault called")
-        await self.set_state(
+        self.hass.log(f"reset_charger_communication_fault called")
+        await self.hass.set_state(
             "input_boolean.charger_modbus_communication_fault", state="off"
         )
         identification = {
@@ -352,7 +357,7 @@ class V2Gliberty(hass.Hass):
     ######################################################################
 
     async def __handle_phone_action(self, event_name, data, kwargs):
-        self.log(f"__handle_phone_action, called.")
+        self.hass.log(f"__handle_phone_action, called.")
         action_parts = str(data["action"]).split("~")
         action = action_parts[0]
         hid = action_parts[1]
@@ -361,7 +366,9 @@ class V2Gliberty(hass.Hass):
         elif action == "keep_event":
             dismiss = False
         else:
-            self.log(f"__handle_phone_action, aborting: unknown action: '{action}'.")
+            self.hass.log(
+                f"__handle_phone_action, aborting: unknown action: '{action}'."
+            )
             return
 
         if self.reservations_client is not None:
@@ -369,12 +376,12 @@ class V2Gliberty(hass.Hass):
                 event_hash_id=hid, status=dismiss
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__handle_phone_action. "
                 f"Could not call set_event_dismissed_status on reservations_client as it is None."
             )
             return
-        self.log(f"__handle_phone_action, completed set hid: {hid} to {dismiss}.")
+        self.hass.log(f"__handle_phone_action, completed set hid: {hid} to {dismiss}.")
 
     async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
         """Handle changes in the charge mode
@@ -383,7 +390,7 @@ class V2Gliberty(hass.Hass):
         """
         new_state = new.get("state", None)
         old_state = old.get("state", None)
-        self.log(
+        self.hass.log(
             f"__update_charge_mode: Charge mode has changed from '{old_state}' to '{new_state}'"
         )
 
@@ -393,12 +400,12 @@ class V2Gliberty(hass.Hass):
             if self.evse_client_app is not None:
                 await self.evse_client_app.stop_charging()
             else:
-                self.log(
+                self.hass.log(
                     "__update_charge_mode. Could not call stop_charging on evse_client_app as it is None."
                 )
 
         if old_state == "Automatic" and new_state == "Max boost now":
-            self.log(
+            self.hass.log(
                 "__update_charge_mode: Charge mode changed from Automatic to Max boost now, "
                 "cancel timer and start charging."
             )
@@ -406,7 +413,7 @@ class V2Gliberty(hass.Hass):
 
         if old_state != "Stop" and new_state == "Stop":
             # New mode "Stop" is handled by set_next_action
-            self.log(
+            self.hass.log(
                 "__update_charge_mode: Stop charging (if in action) and give control based on chargemode = Stop"
             )
             # Cancel previous scheduling timers
@@ -416,7 +423,7 @@ class V2Gliberty(hass.Hass):
             if self.evse_client_app is not None:
                 await self.evse_client_app.set_inactive()
             else:
-                self.log(
+                self.hass.log(
                     "__update_charge_mode. Could not call set_inactive on evse_client_app as it is None."
                 )
 
@@ -424,7 +431,7 @@ class V2Gliberty(hass.Hass):
             if self.evse_client_app is not None:
                 await self.evse_client_app.set_active()
             else:
-                self.log(
+                self.hass.log(
                     "__update_charge_mode. Could not call set_active on evse_client_app as it is None."
                 )
 
@@ -434,7 +441,7 @@ class V2Gliberty(hass.Hass):
     async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
         """Function to handle updates in the car SoC"""
         reported_soc = new["state"]
-        self.log(f"__handle_soc_change called with raw SoC: {reported_soc}")
+        self.hass.log(f"__handle_soc_change called with raw SoC: {reported_soc}")
         res = await self.__process_soc(reported_soc)
         if not res:
             return
@@ -445,7 +452,7 @@ class V2Gliberty(hass.Hass):
         """Function te disconnect the charger.
         Reacts to button in UI that fires DISCONNECT_CHARGER event.
         """
-        self.log("************* Disconnect charger requested *************")
+        self.hass.log("************* Disconnect charger requested *************")
         await self.__reset_no_new_schedule()
 
         if self.evse_client_app is not None:
@@ -453,7 +460,7 @@ class V2Gliberty(hass.Hass):
             message = "Charger is disconnected"
         else:
             message = "Charger cloud not be disconnected, please check the app."
-            self.log(
+            self.hass.log(
                 "__disconnect_charger. Could not call stop_charging on evse_client_app as it is None."
             )
 
@@ -494,7 +501,7 @@ class V2Gliberty(hass.Hass):
             await self.__clear_all_soc_chart_lines()
 
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
-            charge_mode = await self.get_state("input_select.charge_mode", None)
+            charge_mode = await self.hass.get_state("input_select.charge_mode", None)
             if charge_mode == "Max boost now":
                 await self.__set_chargemode_in_ui("Automatic")
                 self.notify_user(
@@ -526,25 +533,27 @@ class V2Gliberty(hass.Hass):
             self.__clear_notification(identification)
 
     def __clear_notification(self, identification: dict):
-        self.log(f"Clearing notification. Data: {identification}")
+        self.hass.log(f"Clearing notification. Data: {identification}")
         recipient = identification["recipient"]
         if recipient == "" or recipient is None:
-            self.log(f"Cannot clear notification, recipient is empty '{recipient}'.")
+            self.hass.log(
+                f"Cannot clear notification, recipient is empty '{recipient}'."
+            )
             return
         tag = identification["tag"]
         if tag == "" or tag is None:
-            self.log(f"Cannot clear notification, tag is empty '{tag}'.")
+            self.hass.log(f"Cannot clear notification, tag is empty '{tag}'.")
             return
 
         # Clear the notification
         try:
-            self.call_service(
+            self.hass.call_service(
                 "notify/mobile_app_" + recipient,
                 message="clear_notification",
                 data={"tag": tag},
             )
         except Exception as e:
-            self.log(
+            self.hass.log(
                 f"__clear_notification. Could not clear notification: exception on {recipient}. Exception: {e}."
             )
 
@@ -573,9 +582,9 @@ class V2Gliberty(hass.Hass):
         Args:
             timer_id: timer_handle to cancel
         """
-        if self.info_timer(timer_id):
+        if self.hass.info_timer(timer_id):
             silent = True  # Does not really work
-            self.cancel_timer(timer_id, silent)
+            self.hass.cancel_timer(timer_id, silent)
 
     async def __notify_no_new_schedule(self, reset: Optional[bool] = False):
         """Check if notification of user about no new schedule available is needed,
@@ -601,14 +610,14 @@ class V2Gliberty(hass.Hass):
         """
 
         if reset:
-            if self.info_timer(self.notification_timer_handle):
-                res = await self.cancel_timer(self.notification_timer_handle)
-                self.log(
+            if self.hass.info_timer(self.notification_timer_handle):
+                res = await self.hass.cancel_timer(self.notification_timer_handle)
+                self.hass.log(
                     f"__notify_no_new_schedule, notification timer cancelled: {res}."
                 )
             self.no_schedule_notification_is_planned = False
             self.__clear_notification_for_all_recipients(tag="no_new_schedule")
-            await self.set_state(
+            await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="off"
             )
             return
@@ -620,26 +629,26 @@ class V2Gliberty(hass.Hass):
                 break
 
         if any_errors:
-            await self.set_state(
+            await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="on"
             )
-            await self.set_value(
+            await self.hass.set_value(
                 "input_text.fm_connection_status", "Failed to connect/login."
             )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
-                self.notification_timer_handle = await self.run_in(
+                self.notification_timer_handle = await self.hass.run_in(
                     self.no_new_schedule_notification, delay=60 * 60
                 )
                 self.no_schedule_notification_is_planned = True
         else:
-            await self.set_state(
+            await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="off"
             )
-            canceled_before_run = await self.cancel_timer(
+            canceled_before_run = await self.hass.cancel_timer(
                 self.notification_timer_handle, True
             )
-            self.log(
+            self.hass.log(
                 f"__notify_no_new_schedule, notification timer cancelled before run: {canceled_before_run}."
             )
             if self.no_schedule_notification_is_planned and not canceled_before_run:
@@ -662,7 +671,7 @@ class V2Gliberty(hass.Hass):
 
     def no_new_schedule_notification(self, v2g_args=None):
         # Work-around to have this in a separate function (without arguments) and not inline in handle_no_new_schedule
-        # This is needed because self.run_in() with kwargs does not really work well and results in this app crashing
+        # This is needed because self.hass.run_in() with kwargs does not really work well and results in this app crashing
         title = "No new schedules available"
         message = (
             f"The current schedule will remain active.\n"
@@ -676,7 +685,7 @@ class V2Gliberty(hass.Hass):
             critical=False,
             send_to_all=True,
         )
-        self.log("Notification 'No new schedules' sent.")
+        self.hass.log("Notification 'No new schedules' sent.")
 
     ######################################################################
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
@@ -689,12 +698,12 @@ class V2Gliberty(hass.Hass):
         - charger state updates
         - every 15 minutes if none of the above
         """
-        self.log("__ask_for_new_schedule called")
+        self.hass.log("__ask_for_new_schedule called")
 
         # Check whether we're in automatic mode
-        charge_mode = await self.get_state("input_select.charge_mode")
+        charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode != "Automatic":
-            self.log(
+            self.hass.log(
                 f"__ask_for_new_schedule Not getting new schedule. "
                 f"Charge mode is not 'Automatic' but '{charge_mode}'."
             )
@@ -702,7 +711,7 @@ class V2Gliberty(hass.Hass):
 
         # Check whether we're not in boost mode.
         if self.in_boost_to_reach_min_soc:
-            self.log(
+            self.hass.log(
                 f"__ask_for_new_schedule Not getting new schedule. "
                 f"SoC below minimum, boosting to reach that first."
             )
@@ -712,7 +721,7 @@ class V2Gliberty(hass.Hass):
         if self.reservations_client is not None:
             car_reservations = await self.reservations_client.get_v2g_events()
         else:
-            self.log(
+            self.hass.log(
                 f"__ask_for_new_schedule. Could not call get_v2g_events on reservations_client as it is None."
             )
 
@@ -722,7 +731,7 @@ class V2Gliberty(hass.Hass):
             # Adding the target one week from now is FM specific, so this is done in the fm_client_app
             for car_reservation in car_reservations:
                 if car_reservation == "un-initiated":
-                    self.log(
+                    self.hass.log(
                         f"__ask_for_new_schedule, reservation: {car_reservation}."
                         f" The reservations_client module is not initiated yet. Stop processing"
                     )
@@ -755,9 +764,11 @@ class V2Gliberty(hass.Hass):
                     and self.timer_id_event_wait_to_disconnect == ""
                 ):
                     now = get_local_now()
-                    self.log(f"__ask_for_new_schedule is_first_reservation == True.")
+                    self.hass.log(
+                        f"__ask_for_new_schedule is_first_reservation == True."
+                    )
                     if target_end < now:
-                        self.log(
+                        self.hass.log(
                             f"__ask_for_new_schedule first_reservation event is in the (recent) past, skipping"
                         )
                         # Not needed as the timer_id == ""
@@ -766,7 +777,7 @@ class V2Gliberty(hass.Hass):
                     else:
                         # Only set the dismissal timer when start of the reservation is near.
                         if (now + self.MAX_EVENT_WAIT_TO_DISCONNECT) > target_start:
-                            self.log(
+                            self.hass.log(
                                 f"__ask_for_new_schedule first_reservation almost starting."
                             )
                             # Set a timer for MAX_EVENT_WAIT_TO_DISCONNECT (15) min. after the start of
@@ -781,20 +792,22 @@ class V2Gliberty(hass.Hass):
                             if ask_at < now:
                                 # A last minute added event(?) Inform immediately, give some slack for processing time.
                                 ask_at = now + timedelta(seconds=5)
-                            self.timer_id_event_wait_to_disconnect = await self.run_at(
-                                callback=self.__ask_user_dismiss_event_or_not,
-                                start=ask_at,
-                                v2g_event=car_reservation,
+                            self.timer_id_event_wait_to_disconnect = (
+                                await self.hass.run_at(
+                                    callback=self.__ask_user_dismiss_event_or_not,
+                                    start=ask_at,
+                                    v2g_event=car_reservation,
+                                )
                             )
-                            self.log(
+                            self.hass.log(
                                 f"__ask_for_new_schedule: __ask_user_dismiss_event_or_not is set "
                                 f"to run at {ask_at.isoformat()}."
                             )
                 is_first_reservation = False
             # End for car_reservation loop
-        # self.log(f"__ask_for_new_schedule, targets: '{targets}'.")
+        # self.hass.log(f"__ask_for_new_schedule, targets: '{targets}'.")
 
-        # self.log(f"__ask_for_new_schedule calling get_new_schedule on self.fm_client_app: {self.fm_client_app}.")
+        # self.hass.log(f"__ask_for_new_schedule calling get_new_schedule on self.fm_client_app: {self.fm_client_app}.")
         if self.fm_client_app is not None:
             await self.fm_client_app.get_new_schedule(
                 targets=targets,
@@ -802,14 +815,14 @@ class V2Gliberty(hass.Hass):
                 back_to_max_soc=self.back_to_max_soc,
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__ask_for_new_schedule. Could not call get_new_schedule on fm_client_app as it is None."
             )
 
         return
 
     async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
-        self.log(
+        self.hass.log(
             f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}."
         )
 
@@ -817,7 +830,7 @@ class V2Gliberty(hass.Hass):
         if self.evse_client_app is not None:
             is_car_connected = await self.evse_client_app.is_car_connected()
         else:
-            self.log(
+            self.hass.log(
                 f"__ask_user_dismiss_event_or_not. Could not call is_car_connected on evse_client_app as it is None."
             )
 
@@ -828,7 +841,9 @@ class V2Gliberty(hass.Hass):
             )
             if len(identification) > 25:
                 identification = identification[0:25] + "..."
-            self.log(f"__ask_user_dismiss_event_or_not, event_title: {identification}.")
+            self.hass.log(
+                f"__ask_user_dismiss_event_or_not, event_title: {identification}."
+            )
             # Will be cancelled when car gets disconnected.
             hid = v2g_event["hash_id"]
             message = (
@@ -846,7 +861,7 @@ class V2Gliberty(hass.Hass):
                 actions=user_actions,
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__ask_user_dismiss_event_or_not, unexpected call for event with hash_id '{v2g_event['hash_id']}' "
                 f"as car is already disconnected."
             )
@@ -855,16 +870,18 @@ class V2Gliberty(hass.Hass):
         for h in self.scheduling_timer_handles:
             self.__cancel_timer(h)
         self.scheduling_timer_handles = []
-        self.log(f"Canceled all {len(self.scheduling_timer_handles)} charging timers.")
+        self.hass.log(
+            f"Canceled all {len(self.scheduling_timer_handles)} charging timers."
+        )
 
     def __reset_charging_timers(self, handles):
-        self.log(
+        self.hass.log(
             f"__reset_charging_timers: cancel current and set {len(handles)} new charging timers."
         )
         # We need to be sure no now timers are added unless the old are removed
         self.__cancel_charging_timers()
         self.scheduling_timer_handles = handles
-        # self.log("finished __reset_charging_timers")
+        # self.hass.log("finished __reset_charging_timers")
 
     async def __process_schedule(self, entity, attribute, old, new, kwargs):
         """Process a schedule by setting timers to start charging the EVSE.
@@ -875,33 +892,33 @@ class V2Gliberty(hass.Hass):
         if self.evse_client_app is not None:
             is_car_connected = await self.evse_client_app.is_car_connected()
         else:
-            self.log(
+            self.hass.log(
                 f"__process_schedule. Could not call is_car_connected on evse_client_app as it is None."
             )
             return
 
         if not is_car_connected:
-            self.log("__process_schedule aborted: car is not connected")
+            self.hass.log("__process_schedule aborted: car is not connected")
             return
 
         schedule = new.get("attributes", None)
         if schedule is None:
-            self.log("__process_schedule aborted: no schedule found.")
+            self.hass.log("__process_schedule aborted: no schedule found.")
             return
 
         values = schedule.get("values", None)
         if values is None:
-            self.log("__process_schedule aborted: no values found.")
+            self.hass.log("__process_schedule aborted: no values found.")
             return
 
         duration = schedule.get("duration", None)
         if duration is None:
-            self.log("__process_schedule aborted: no duration found.")
+            self.hass.log("__process_schedule aborted: no duration found.")
             return
 
         start = schedule.get("start", None)
         if start is None:
-            self.log("__process_schedule aborted: no start datetime found.")
+            self.hass.log("__process_schedule aborted: no start datetime found.")
             return
 
         duration = isodate.parse_duration(duration)
@@ -910,7 +927,7 @@ class V2Gliberty(hass.Hass):
 
         # Check against expected control signal resolution
         if resolution < c.EVENT_RESOLUTION:
-            self.log(
+            self.hass.log(
                 f"__process_schedule aborted: the resolution ({resolution}) is below "
                 f"the set minimum ({c.EVENT_RESOLUTION})."
             )
@@ -923,7 +940,7 @@ class V2Gliberty(hass.Hass):
             schedule["scheduler_info"]["scheduler"] == "StorageFallbackScheduler"
         )
         if is_fallback and (all(val == values[0] for val in values)):
-            self.log(
+            self.hass.log(
                 f"Invalid fallback schedule, all values are the same: {values[0]}. Stopped processing."
             )
             await self.handle_no_new_schedule("invalid_schedule", True)
@@ -932,7 +949,7 @@ class V2Gliberty(hass.Hass):
         else:
             await self.handle_no_new_schedule("invalid_schedule", False)
 
-        self.log(f"__process_schedule | valid schedule")
+        self.hass.log(f"__process_schedule | valid schedule")
 
         # Create new scheduling timers, to send a control signal for each value
         handles = []
@@ -947,7 +964,7 @@ class V2Gliberty(hass.Hass):
             if t > now:
                 # AJO 17-10-2021
                 # ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
-                h = await self.run_at(
+                h = await self.hass.run_at(
                     self.evse_client_app.start_charge_with_power,
                     t,
                     charge_power=value * MW_TO_W_FACTOR,
@@ -1011,7 +1028,7 @@ class V2Gliberty(hass.Hass):
         # tmp = str(records)
         # if len(tmp) > 75:
         #     tmp = f"{tmp[:50]} ... {tmp[-25:]}"
-        # self.log(f"__set_soc_prognosis_in_chart called | chart_line_name: '{chart_line_name}', records: {tmp}.")
+        # self.hass.log(f"__set_soc_prognosis_in_chart called | chart_line_name: '{chart_line_name}', records: {tmp}.")
         now = get_local_now()
 
         # There seems to be no way to hide the SoC series from the graph,
@@ -1026,14 +1043,16 @@ class V2Gliberty(hass.Hass):
         entity = f"input_text.{self.chart_line_entity[chart_line_name]}"
 
         if records is None:
-            await self.set_state(entity, state=new_state, attributes=clear_line_records)
-            self.log(
+            await self.hass.set_state(
+                entity, state=new_state, attributes=clear_line_records
+            )
+            self.hass.log(
                 f"set_records_in_chart | chart_line_name '{chart_line_name}' cleared."
             )
         else:
             result = {"records": records}
-            await self.set_state(entity, state=new_state, attributes=result)
-            self.log(
+            await self.hass.set_state(entity, state=new_state, attributes=result)
+            self.hass.log(
                 f"set_records_in_chart | entity: '{entity}', "
                 f"attributes: {str(result)[:50]} ... {str(result)[-25:]}."
             )
@@ -1041,17 +1060,17 @@ class V2Gliberty(hass.Hass):
             # If a soc line is set, clear the others
             soc_lines = [ChartLine.SCHEDULE, ChartLine.BOOST, ChartLine.MAX_CHARGE_NOW]
             if chart_line_name in soc_lines:
-                self.log(
+                self.hass.log(
                     f"set_records_in_chart | chart_line_name '{chart_line_name}' in soc_lines, clear others."
                 )
                 for chart_line in soc_lines:
                     if chart_line == chart_line_name:
                         continue
                     entity = f"input_text.{self.chart_line_entity[chart_line]}"
-                    await self.set_state(
+                    await self.hass.set_state(
                         entity, state=new_state, attributes=clear_line_records
                     )
-                    self.log(
+                    self.hass.log(
                         f"set_records_in_chart | chart_line_name '{chart_line}' cleared."
                     )
 
@@ -1067,7 +1086,7 @@ class V2Gliberty(hass.Hass):
                 )
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__start_max_charge_now. Could not call methods on evse_client_app as it is None."
             )
 
@@ -1081,13 +1100,13 @@ class V2Gliberty(hass.Hass):
             reported_soc = float(reported_soc)
             assert 0 < reported_soc <= 100
         except (TypeError, AssertionError, ValueError):
-            self.log(f"New SoC '{reported_soc}' ignored.")
+            self.hass.log(f"New SoC '{reported_soc}' ignored.")
             return False
         self.connected_car_soc = round(reported_soc, 0)
 
         # Cleaned_up SoC value for UI
         # TODO: This is no longer needed, use input_number.charger_connected_car_state_of_charge in UI.
-        await self.set_value(
+        await self.hass.set_value(
             entity_id="input_number.car_state_of_charge", value=self.connected_car_soc
         )
 
@@ -1097,23 +1116,23 @@ class V2Gliberty(hass.Hass):
         remaining_range = int(
             round((self.connected_car_soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0)
         )
-        await self.set_value(
+        await self.hass.set_value(
             entity_id="input_number.car_remaining_range", value=remaining_range
         )
-        self.log(
+        self.hass.log(
             f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%."
         )
-        self.log(
+        self.hass.log(
             f"New SoC processed, self.connected_car_soc_kwh is now set to: {self.connected_car_soc_kwh}kWh."
         )
-        self.log(
+        self.hass.log(
             f"New SoC processed, car_remaining_range is now set to: {remaining_range} km."
         )
 
         if self.evse_client_app is not None:
             is_charging = await self.evse_client_app.is_charging()
         else:
-            self.log(
+            self.hass.log(
                 f"__process_soc. Could not call is_charging on evse_client_app as it is None."
             )
             return False
@@ -1146,16 +1165,16 @@ class V2Gliberty(hass.Hass):
             source = v2g_args
         else:
             source = "unknown"
-        self.log(f"Set next action called from source: {source}.")
+        self.hass.log(f"Set next action called from source: {source}.")
 
         if self.evse_client_app is not None:
             is_car_connected = await self.evse_client_app.is_car_connected()
         else:
-            self.log(
+            self.hass.log(
                 f"set_next_action. Can not call is_car_connected on evse_client_app, is None. Try again in 15s"
             )
             # Retry in 15 seconds
-            self.timer_handle_set_next_action = await self.run_in(
+            self.timer_handle_set_next_action = await self.hass.run_in(
                 self.set_next_action,
                 delay=15,
             )
@@ -1164,33 +1183,33 @@ class V2Gliberty(hass.Hass):
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
             self.__cancel_timer(self.timer_handle_set_next_action)
-        self.timer_handle_set_next_action = await self.run_in(
+        self.timer_handle_set_next_action = await self.hass.run_in(
             self.set_next_action,
             delay=self.call_next_action_at_least_every,
         )
 
         if not is_car_connected:
-            self.log("No car connected or error, stopped setting next action.")
+            self.hass.log("No car connected or error, stopped setting next action.")
             return
 
         if self.evse_client_app is not None:
             try_get_new_soc_in_process = self.evse_client_app.try_get_new_soc_in_process
         else:
-            self.log(
+            self.hass.log(
                 f"set_next_action. Could not call try_get_new_soc_in_process on evse_client_app as it is None."
             )
             return
 
         if try_get_new_soc_in_process:
-            self.log(
+            self.hass.log(
                 "set_next_action: evse_client_app.try_get_new_soc_in_process, stopped setting next action."
             )
             return
 
-        charge_mode = await self.get_state(
+        charge_mode = await self.hass.get_state(
             "input_select.charge_mode", attribute="state"
         )
-        self.log(f"Setting next action based on charge_mode '{charge_mode}'.")
+        self.hass.log(f"Setting next action based on charge_mode '{charge_mode}'.")
 
         # Needed in many of the cases further in this method
         now = get_local_now()
@@ -1199,7 +1218,7 @@ class V2Gliberty(hass.Hass):
             # update_charge_mode takes charger control already, not needed here.
 
             if self.connected_car_soc == 0:
-                self.log("SoC is 0, stopped setting next action.")
+                self.hass.log("SoC is 0, stopped setting next action.")
                 # Maybe (but it is dangerous) do try_get_soc??
                 return
 
@@ -1212,14 +1231,14 @@ class V2Gliberty(hass.Hass):
                     (now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
                     c.EVENT_RESOLUTION,
                 )
-                self.log(
+                self.hass.log(
                     f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}."
                 )
             elif (
                 self.back_to_max_soc is not None
             ) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
                 self.back_to_max_soc = None
-                self.log(f"SoC was below max-soc, has been restored.")
+                self.hass.log(f"SoC was below max-soc, has been restored.")
 
             if (
                 self.connected_car_soc < c.CAR_MIN_SOC_IN_PERCENT
@@ -1229,7 +1248,7 @@ class V2Gliberty(hass.Hass):
                 # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
                 # Cancel previous scheduling timers as they might have discharging instructions as well
-                self.log(
+                self.hass.log(
                     f"set_next_action | start Boost charge as soc '{self.connected_car_soc}' is "
                     f"below minimum '{c.CAR_MIN_SOC_IN_PERCENT}'."
                 )
@@ -1289,7 +1308,7 @@ class V2Gliberty(hass.Hass):
                 self.connected_car_soc > c.CAR_MIN_SOC_IN_PERCENT
                 and self.in_boost_to_reach_min_soc
             ):
-                self.log(
+                self.hass.log(
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
                 )
                 if self.evse_client_app is not None:
@@ -1300,12 +1319,12 @@ class V2Gliberty(hass.Hass):
                         )
                     )
                 else:
-                    self.log(
+                    self.hass.log(
                         f"set_next_action. Could not call start_charge_with_power to stop max_boost "
                         f"on evse_client_app as it is None."
                     )
                     return
-                self.log(f"Stopping max charge now.")
+                self.hass.log(f"Stopping max charge now.")
                 self.in_boost_to_reach_min_soc = False
                 # Remove "boost schedule" from graph.
                 await self.set_records_in_chart(
@@ -1319,11 +1338,11 @@ class V2Gliberty(hass.Hass):
                 if self.evse_client_app is not None:
                     is_discharging = await self.evse_client_app.is_discharging()
                 else:
-                    self.log(
+                    self.hass.log(
                         f"set_next_action. Could not call is_discharging on evse_client_app as it is None."
                     )
                 if is_discharging:
-                    self.log(
+                    self.hass.log(
                         f"Discharging while SoC has reached minimum ({c.CAR_MIN_SOC_IN_PERCENT}%)."
                     )
                     if self.evse_client_app is not None:
@@ -1334,7 +1353,7 @@ class V2Gliberty(hass.Hass):
                             )
                         )
                     else:
-                        self.log(
+                        self.hass.log(
                             f"set_next_action. "
                             f"Could not call start_charge_with_power on evse_client_app as it is None."
                         )
@@ -1346,13 +1365,15 @@ class V2Gliberty(hass.Hass):
             # self.set_charger_control("take")
             # If charger_state = "not connected", the UI shows an (error) message.
             if self.connected_car_soc >= c.CAR_MAX_CAPACITY_IN_PERCENT:
-                self.log(
+                self.hass.log(
                     f"Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
                 # TODO: Wait 15 min, than ask user if they want to postpone scheduled charging or not.
                 await self.__set_chargemode_in_ui("Automatic")
             else:
-                self.log("Starting max charge now based on charge_mode = Max boost now")
+                self.hass.log(
+                    "Starting max charge now based on charge_mode = Max boost now"
+                )
                 await self.__start_max_charge_now()
 
                 max_charge_now_prognoses = [
@@ -1408,16 +1429,16 @@ class V2Gliberty(hass.Hass):
 
         if setting == "Automatic":
             # Used when car gets disconnected and ChargeMode was MaxBoostNow.
-            await self.turn_on("input_boolean.chargemodeautomatic")
+            await self.hass.turn_on("input_boolean.chargemodeautomatic")
         elif setting == "MaxBoostNow":
             # Not used for now, just here for completeness.
             # The situation with SoC below the set minimum is handled without setting the UI to MaxBoostNow
-            await self.turn_on("input_boolean.chargemodemaxboostnow")
+            await self.hass.turn_on("input_boolean.chargemodemaxboostnow")
         elif setting == "Stop":
             # Used when charger crashes to stop further processing
-            await self.turn_on("input_boolean.chargemodeoff")
+            await self.hass.turn_on("input_boolean.chargemodeoff")
         else:
-            self.log(f"In valid charge_mode in UI setting: '{setting}'.")
+            self.hass.log(f"In valid charge_mode in UI setting: '{setting}'.")
             return
 
 
