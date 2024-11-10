@@ -1,12 +1,9 @@
 from datetime import datetime, timedelta
-import time
-import json
 import math
-import requests
 import constants as c
 from typing import List, Union
 from v2g_globals import get_local_now
-import appdaemon.plugins.hass.hassapi as hass
+from appdaemon.plugins.hass.hassapi import Hass
 from v2g_globals import time_round, time_ceil
 
 
@@ -14,7 +11,7 @@ from v2g_globals import time_round, time_ceil
 # Start times of Posting data sometimes seem incorrect, it is recommended to research them.
 
 
-class DataMonitor(hass.Hass):
+class DataMonitor:
     """
     This module monitors data changes, collects this data and formats in the right way.
     It sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
@@ -75,11 +72,13 @@ class DataMonitor(hass.Hass):
 
     fm_client_app: object = None
     evse_client_app: object = None
+    hass: Hass = None
+
+    def __init__(self, hass: Hass):
+        self.hass = hass
 
     async def initialize(self):
-        self.log(f"Initializing SetFMdata.")
-        self.evse_client_app = await self.get_app("modbus_evse_client")
-        self.fm_client_app = await self.get_app("fm_client")
+        self.hass.log(f"Initializing SetFMdata.")
 
         local_now = get_local_now()
 
@@ -91,19 +90,19 @@ class DataMonitor(hass.Hass):
         self.current_availability_since = local_now
         await self.__record_availability(True)
 
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__handle_charger_state_change,
             "sensor.charger_charger_state",
             attribute="all",
         )
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__handle_charge_mode_change,
             "input_select.charge_mode",
             attribute="all",
         )
 
         # Power related initialisation
-        power = await self.get_state("sensor.charger_real_charging_power", "state")
+        power = await self.hass.get_state("sensor.charger_real_charging_power", "state")
         self.current_power_since = local_now
         self.power_period_duration = 0
         self.period_power_x_duration = 0
@@ -113,7 +112,7 @@ class DataMonitor(hass.Hass):
             self.current_power = int(float(power))
         else:
             self.current_power = 0
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__handle_charge_power_change,
             "sensor.charger_real_charging_power",
             attribute="all",
@@ -122,15 +121,15 @@ class DataMonitor(hass.Hass):
         # SoC related
         self.connected_car_soc = None
         self.soc_readings = []
-        await self.listen_state(
+        await self.hass.listen_state(
             self.__handle_soc_change,
             "sensor.charger_connected_car_state_of_charge",
             attribute="all",
         )
-        soc = await self.get_state(
+        soc = await self.hass.get_state(
             "sensor.charger_connected_car_state_of_charge", "state"
         )
-        self.log(f"init soc: {soc}.")
+        self.hass.log(f"init soc: {soc}.")
         if soc is not None and soc != "unavailable":
             # Ignore a state None or 'unavailable'
             soc = int(float(soc))
@@ -140,19 +139,19 @@ class DataMonitor(hass.Hass):
         self.hourly_power_readings_since = runtime
         self.hourly_availability_readings_since = runtime
         self.hourly_soc_readings_since = runtime
-        await self.run_every(
+        await self.hass.run_every(
             self.__conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
         )
 
         resolution = timedelta(minutes=60)
         runtime = time_ceil(runtime, resolution)
-        await self.run_hourly(self.__try_send_data, runtime)
-        self.log("Completed initializing SetFMdata")
+        await self.hass.run_hourly(self.__try_send_data, runtime)
+        self.hass.log("Completed initializing SetFMdata")
 
     async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
         """Handle changes in the car's state_of_charge"""
         reported_soc = new["state"]
-        self.log(f"__handle_soc_change called with raw SoC: {reported_soc}")
+        self.hass.log(f"__handle_soc_change called with raw SoC: {reported_soc}")
         if isinstance(reported_soc, str):
             if not reported_soc.isnumeric():
                 # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
@@ -166,7 +165,7 @@ class DataMonitor(hass.Hass):
             self.connected_car_soc = None
             return
 
-        self.log(
+        self.hass.log(
             f"Processed reported SoC, self.connected_car_soc is now set to: {soc}%."
         )
         self.connected_car_soc = soc
@@ -174,7 +173,7 @@ class DataMonitor(hass.Hass):
 
     async def __handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """Handle changes in charger (car) state (eg automatic or not)"""
-        self.log(f"__handle_charge_mode_change called.")
+        self.hass.log(f"__handle_charge_mode_change called.")
         await self.__record_availability()
 
     async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
@@ -182,7 +181,7 @@ class DataMonitor(hass.Hass):
         Ignore states with string "unavailable".
         (This is not a value related to the availability that is recorded here)
         """
-        self.log(f"__handle_charger_state_change called.")
+        self.hass.log(f"__handle_charger_state_change called.")
         if old is None:
             return
         else:
@@ -198,7 +197,7 @@ class DataMonitor(hass.Hass):
         Called at charge_mode_change and charger_status_change
         Use __conclude_interval argument to conclude an interval (without changing the availability)
         """
-        self.log(
+        self.hass.log(
             f"record_availability called __conclude_interval: {conclude_interval}."
         )
         if (
@@ -211,9 +210,9 @@ class DataMonitor(hass.Hass):
             )
 
             if conclude_interval:
-                self.log("Conclude interval for availability")
+                self.hass.log("Conclude interval for availability")
             else:
-                self.log("Availability changed, process it.")
+                self.hass.log("Availability changed, process it.")
 
             if self.current_availability:
                 self.availability_duration_in_current_interval += duration
@@ -247,7 +246,7 @@ class DataMonitor(hass.Hass):
         """Conclude a regular interval.
         Called every c.FM_EVENT_RESOLUTION_IN_MINUTES minutes (usually 5 minutes)
         """
-        self.log(f"__conclude_interval called.")
+        self.hass.log(f"__conclude_interval called.")
 
         await self.__process_power_change(self.current_power)
         await self.__record_availability(True)
@@ -273,7 +272,7 @@ class DataMonitor(hass.Hass):
                 self.power_readings.append(average_period_power)
 
             # Availability related processing
-            self.log(
+            self.hass.log(
                 f"Concluded availability interval, un_/availability was: "
                 f"{self.un_availability_duration_in_current_interval} / "
                 f"{self.availability_duration_in_current_interval} ms."
@@ -295,13 +294,13 @@ class DataMonitor(hass.Hass):
             # SoC does not change very quickly, so we just read it at conclude time and do not do any calculation.
             self.soc_readings.append(self.connected_car_soc)
 
-            self.log(
+            self.hass.log(
                 f"Conclude called. Average power in this period: {average_period_power} MW, "
                 f"Availability: {percentile_availability}%, SoC: {self.connected_car_soc}%."
             )
 
         else:
-            self.log(
+            self.hass.log(
                 f"Period duration too short: {self.power_period_duration} s, discarding this reading."
             )
 
@@ -317,24 +316,24 @@ class DataMonitor(hass.Hass):
         """Central function for sending all readings to FM.
         Called every hour
         Reset reading list/variables if sending was successful"""
-        self.log(f"__try_send_data called.")
+        self.hass.log(f"__try_send_data called.")
 
         start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
         res = await self.__post_power_data()
         if res is True:
-            self.log(f"Power data successfully sent, resetting readings")
+            self.hass.log(f"Power data successfully sent, resetting readings")
             self.hourly_power_readings_since = start_from
             self.power_readings.clear()
 
         res = await self.__post_availability_data()
         if res is True:
-            self.log(f"Availability data successfully sent, resetting readings")
+            self.hass.log(f"Availability data successfully sent, resetting readings")
             self.hourly_availability_readings_since = start_from
             self.availability_readings.clear()
 
         res = await self.__post_soc_data()
         if res is True:
-            self.log(f"SoC data successfully sent, resetting readings")
+            self.hass.log(f"SoC data successfully sent, resetting readings")
             self.hourly_soc_readings_since = start_from
             self.soc_readings.clear()
 
@@ -344,11 +343,11 @@ class DataMonitor(hass.Hass):
         """Try to Post SoC readings to FM.
 
         Return false if un-successful"""
-        self.log(f"__post_soc_data called.")
+        self.hass.log(f"__post_soc_data called.")
 
         # If self.soc_readings is empty there is nothing to send.
         if len(self.soc_readings) == 0:
-            self.log("List of soc readings is 0 length..")
+            self.hass.log("List of soc readings is 0 length..")
             return False
 
         str_duration = len_to_iso_duration(len(self.soc_readings))
@@ -362,7 +361,7 @@ class DataMonitor(hass.Hass):
                 uom="%",
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__post_soc_data. Could not call post_measurements on fm_client_app as it is None."
             )
             return False
@@ -372,11 +371,11 @@ class DataMonitor(hass.Hass):
         """Try to Post Availability readings to FM.
 
         Return false if un-successful"""
-        self.log(f"__post_availability_data called.")
+        self.hass.log(f"__post_availability_data called.")
 
         # If self.availability_readings is empty there is nothing to send.
         if len(self.availability_readings) == 0:
-            self.log("List of availability readings is 0 length..")
+            self.hass.log("List of availability readings is 0 length..")
             return False
 
         str_duration = len_to_iso_duration(len(self.availability_readings))
@@ -390,7 +389,7 @@ class DataMonitor(hass.Hass):
                 uom="%",
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__post_availability_data. Could not call post_measurements on fm_client_app as it is None."
             )
             return False
@@ -401,11 +400,11 @@ class DataMonitor(hass.Hass):
 
         Return false if un-successful"""
 
-        self.log(f"__post_power_data called.")
+        self.hass.log(f"__post_power_data called.")
 
         # If self.power_readings is empty there is nothing to send.
         if len(self.power_readings) == 0:
-            self.log("List of power readings is 0 length..")
+            self.hass.log("List of power readings is 0 length..")
             return False
 
         str_duration = len_to_iso_duration(len(self.power_readings))
@@ -419,7 +418,7 @@ class DataMonitor(hass.Hass):
                 uom="MW",
             )
         else:
-            self.log(
+            self.hass.log(
                 f"__post_power_data. Could not call post_measurements on fm_client_app as it is None."
             )
             return False
@@ -429,7 +428,7 @@ class DataMonitor(hass.Hass):
         """Check if car and charger are available for automatic charging."""
         # TODO:
         # How to take an upcoming calendar item in to account?
-        charge_mode = await self.get_state("input_select.charge_mode")
+        charge_mode = await self.hass.get_state("input_select.charge_mode")
         # Forced charging in progress if SoC is below the minimum SoC setting
         is_evse_and_car_available = (
             self.evse_client_app.is_available_for_automated_charging()

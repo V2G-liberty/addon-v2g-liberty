@@ -5,7 +5,7 @@ import asyncio
 import json
 import os
 import math
-import appdaemon.plugins.hass.hassapi as hass
+from appdaemon.plugins.hass.hassapi import Hass
 import constants as c
 from service_response_app import ServiceResponseApp
 from settings_manager import SettingsManager
@@ -292,45 +292,46 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
     fm_assets: dict = {}
 
+    hass: Hass = None
+
+    def __init__(self, hass: Hass):
+        self.hass = hass
+
     async def initialize(self):
-        self.log("Initializing V2GLibertyGlobals")
-        config = await self.get_plugin_config()
+        self.hass.log("Initializing V2GLibertyGlobals")
+        config = await self.hass.get_plugin_config()
         # Use the HA time_zone, and not the TZ from appdaemon.yaml that AD uses.
         c.TZ = pytz.timezone(config["time_zone"])
         # For footer of notifications
         c.HA_NAME = config["location_name"]
         # The currency is dictated by the energy provider so it is not retrieved from the config here.
-        self.log(f"initialize | {c.HA_NAME=}, {c.TZ=}, local_now: {get_local_now()}.")
+        self.hass.log(
+            f"initialize | {c.HA_NAME=}, {c.TZ=}, local_now: {get_local_now()}."
+        )
 
         c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
-
-        self.v2g_main_app = await self.get_app("v2g_liberty")
-        self.evse_client_app = await self.get_app("modbus_evse_client")
-        self.fm_client_app = await self.get_app("fm_client")
-        self.calendar_client = await self.get_app("reservations-client")
-        self.amber_price_data_manager = await self.get_app("amber_price_data_manager")
-        self.octopus_price_data_manager = await self.get_app(
-            "octopus_price_data_manager"
-        )
-        self.fm_data_retrieve_client = await self.get_app("get_fm_data")
         self.v2g_settings = SettingsManager(log=self.log)
 
         await self.__kick_off_settings()
 
         # Listen to [TEST] buttons
-        self.listen_event(self.__test_charger_connection, "TEST_CHARGER_CONNECTION")
-        self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
-        self.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
-        self.listen_event(self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS")
-        self.listen_event(self.restart_v2g_liberty, "RESTART_HA")
+        self.hass.listen_event(
+            self.__test_charger_connection, "TEST_CHARGER_CONNECTION"
+        )
+        self.hass.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
+        self.hass.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
+        self.hass.listen_event(
+            self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
+        )
+        self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
 
         # Was None, which blocks processing during initialisation
         self.collect_action_handle = ""
-        self.log("Completed initializing V2GLibertyGlobals")
+        self.hass.log("Completed initializing V2GLibertyGlobals")
 
     ######################################################################
     #                         PUBLIC METHODS                             #
@@ -342,7 +343,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         """To be called from modbus_evse_client to check if setting in the charger
         is lower than the setting by the user.
         """
-        self.log(
+        self.hass.log(
             f"process_max_power_settings called with power {max_available_charge_power}."
         )
         self.SETTING_CHARGER_MAX_CHARGE_POWER["max"] = max_available_charge_power
@@ -351,7 +352,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self.SETTING_CHARGER_MAX_DISCHARGE_POWER["min"] = min_acceptable_charge_power
 
         # For showing this maximum in the UI.
-        await self.set_state(
+        await self.hass.set_state(
             "input_text.charger_max_available_power", state=max_available_charge_power
         )
 
@@ -364,7 +365,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
     async def __kick_off_settings(self):
         # To be called from initialise or restart event
-        self.log("__kick_off_settings called")
+        self.hass.log("__kick_off_settings called")
 
         self.v2g_settings.retrieve_settings()
         # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
@@ -381,11 +382,11 @@ class V2GLibertyGlobals(ServiceResponseApp):
         await self.__read_and_process_fm_client_settings()
 
     async def __populate_select_with_local_calendars(self):
-        self.log("__populate_select_with_local_calendars called")
+        self.hass.log("__populate_select_with_local_calendars called")
         if self.calendar_client is not None:
             calendar_names = await self.calendar_client.get_ha_calendar_names()
         else:
-            self.log(
+            self.hass.log(
                 "__populate_select_with_local_calendars. "
                 "Could not call calendar_client.get_ha_calendar_names"
             )
@@ -402,7 +403,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 f"A car reservation calendar is essential for V2G Liberty. "
                 f"Please arrange for one.<br/>"
             )
-            self.log(f"Configuration error: {message}.")
+            self.hass.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
             await self.create_persistent_notification(
                 title="Configuration error",
@@ -411,7 +412,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             )
 
         elif len(calendar_names) == 1:
-            self.log(
+            self.hass.log(
                 f"__populate_select_with_local_calendars one calendar found: '{calendar_names[0]}', "
                 f"this will be used."
             )
@@ -423,7 +424,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             c.INTEGRATION_CALENDAR_ENTITY_NAME = calendar_names[0]
 
         else:
-            self.log(
+            self.hass.log(
                 f"__populate_select_with_local_calendars > 1 calendar found: populate select."
             )
             await self.__set_select_options(
@@ -435,12 +436,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # List of all the recipients to notify
         # Check if Admin is configured correctly
         # Warn user about bad config with persistent notification in UI.
-        self.log("Initializing devices configuration")
+        self.hass.log("Initializing devices configuration")
 
         c.NOTIFICATION_RECIPIENTS.clear()
         # Service "mobile_app_" seems more reliable than using get_trackers,
         # as these names do not always match with the service.
-        for service in self.list_services():
+        for service in self.hass.list_services():
             if service["service"].startswith("mobile_app_"):
                 c.NOTIFICATION_RECIPIENTS.append(
                     service["service"].replace("mobile_app_", "")
@@ -453,7 +454,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 f"It is highly recommended to do so. Please install the HA companion app on your mobile device "
                 f"and connect it to Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
             )
-            self.log(f"Configuration error: {message}.")
+            self.hass.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
             await self.create_persistent_notification(
                 title="Configuration error",
@@ -465,7 +466,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 set(c.NOTIFICATION_RECIPIENTS)
             )  # Remove duplicates
             c.NOTIFICATION_RECIPIENTS.sort()
-            self.log(
+            self.hass.log(
                 f"__initialise_devices - recipients for notifications: "
                 f"{c.NOTIFICATION_RECIPIENTS}."
             )
@@ -474,7 +475,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 options=c.NOTIFICATION_RECIPIENTS,
             )
 
-        self.log("Completed Initializing devices configuration")
+        self.hass.log("Completed Initializing devices configuration")
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -488,9 +489,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # Populate the input_select input_select.car_calendar_name with possible calendars
         # Select the right option
         # Add a listener
-        self.log("__init_caldav_calendar called")
+        self.hass.log("__init_caldav_calendar called")
 
-        await self.set_state(
+        await self.hass.set_state(
             "input_text.calendar_account_connection_status",
             state="Getting calendars...",
         )
@@ -498,36 +499,36 @@ class V2GLibertyGlobals(ServiceResponseApp):
         if self.calendar_client is not None:
             res = await self.calendar_client.initialise_calendar()
         else:
-            self.log(
+            self.hass.log(
                 "__populate_select_with_local_calendars. Could not call calendar_client.initialise_calendar"
             )
             res = "Internal error"
 
         if res != "Successfully connected":
-            await self.set_state(
+            await self.hass.set_state(
                 "input_text.calendar_account_connection_status", state=res
             )
-            self.log(f"__init_caldav_calendar, res: {res}.")
+            self.hass.log(f"__init_caldav_calendar, res: {res}.")
             return
 
         # reset options in calendar_name select
         calendar_names = []
 
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
-        await self.set_state(
+        await self.hass.set_state(
             "input_text.calendar_account_connection_status",
             state="Successfully connected",
         )
 
         calendar_names = await self.calendar_client.get_dav_calendar_names()
-        self.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
+        self.hass.log(f"__init_caldav_calendar, calendar_names: {calendar_names}.")
         if len(calendar_names) == 0:
             message = (
                 f"No calendars available on {c.CALENDAR_ACCOUNT_INIT_URL} "
                 f"A car reservation calendar is essential for V2G Liberty. "
                 f"Please arrange for one.<br/>"
             )
-            self.log(f"Configuration error: {message}.")
+            self.hass.log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
             await self.create_persistent_notification(
                 title="Configuration error",
@@ -546,25 +547,25 @@ class V2GLibertyGlobals(ServiceResponseApp):
             callback=self.__read_and_process_calendar_settings,
         )
         await self.calendar_client.activate_selected_calendar()
-        self.log("Completed __init_caldav_calendar")
+        self.hass.log("Completed __init_caldav_calendar")
 
     async def __reset_to_factory_defaults(self, event=None, data=None, kwargs=None):
         """Reset to factory defaults by emptying the settings file"""
-        self.log("__reset_to_factory_defaults called")
+        self.hass.log("__reset_to_factory_defaults called")
         self.v2g_settings.reset()
         await self.restart_v2g_liberty()
 
     async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
-        self.log("restart_v2g_liberty called")
-        await self.call_service("homeassistant/restart")
+        self.hass.log("restart_v2g_liberty called")
+        await self.hass.call_service("homeassistant/restart")
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
     async def __test_charger_connection(self, event, data, kwargs):
         """Tests the connection with the charger and processes the maximum charge power read from the charger
         Called from the settings page."""
-        self.log("__test_charger_connection called")
+        self.hass.log("__test_charger_connection called")
         # The url and port settings have been changed via the listener
-        await self.set_state(
+        await self.hass.set_state(
             "input_text.charger_connection_status", state="Trying to connect..."
         )
         if not await self.evse_client_app.initialise_charger():
@@ -573,20 +574,20 @@ class V2GLibertyGlobals(ServiceResponseApp):
             msg = "Successfully connected"
         # min/max power is set self.evse_client_app.initialise_charger()
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
-        await self.set_state("input_text.charger_connection_status", state=msg)
+        await self.hass.set_state("input_text.charger_connection_status", state=msg)
 
     async def __test_fm_connection(self, event=None, data=None, kwargs=None):
         # Tests the connection with FlexMeasures
         # to be called at initialisation and from the event "TEST_FM_CONNECTION" UI event
 
-        self.log("__test_fm_connection called")
+        self.hass.log("__test_fm_connection called")
         await self.__set_fm_connection_status("Testing connection...")
 
         if self.fm_client_app is not None:
             res = await self.fm_client_app.initialise_and_test_fm_client()
         else:
             res = "Error: no fm_client_app available, please try again."
-            self.log(
+            self.hass.log(
                 "__test_fm_connection. Could not call initialise_and_test_fm_client on fm_client_app as it is None."
             )
 
@@ -596,7 +597,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         assets = await self.fm_client_app.get_fm_assets()
         if assets is None:
-            self.log(
+            self.hass.log(
                 f"__test_fm_connection. Could not call fm_client_app.get_fm_assets"
             )
             await self.__set_fm_connection_status(
@@ -610,7 +611,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return
 
         asset_entity_id = f"{self.SETTING_FM_ASSET['entity_type']}.{self.SETTING_FM_ASSET['entity_name']}"
-        current_asset_setting = self.v2g_settings.get("asset_entity_id")
+        current_asset_setting = self.v2g_settings.get("asset_entity_id", None)
         self.log(
             f"__test_fm_connection, current_asset_setting: {current_asset_setting} "
             f"(asset_entity_id={asset_entity_id})."
@@ -619,11 +620,11 @@ class V2GLibertyGlobals(ServiceResponseApp):
             # Most common scenario
             asset_name = assets[0]["name"]
             asset_id = assets[0]["id"]
-            self.log(
+            self.hass.log(
                 f"__test_fm_connection, found one asset in FM: {asset_name}, id: {asset_id}."
             )
             if current_asset_setting != asset_name:
-                self.log(
+                self.hass.log(
                     f"__test_fm_connection: v2g_stored_asset_name and "
                     f"fm_retrieved_asset_name differ."
                 )
@@ -639,10 +640,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
             # Populate and show input_select and let user pick
             for asset_specs in assets:
                 self.fm_assets[asset_specs["name"]] = asset_specs["id"]
-            self.log(f"__test_fm_connection, > 1 assets: {self.fm_assets}")
+            self.hass.log(f"__test_fm_connection, > 1 assets: {self.fm_assets}")
             asset_options = list(self.fm_assets.keys())
             if current_asset_setting not in asset_options:
-                self.log(
+                self.hass.log(
                     f"__test_fm_connection, current_asset: {current_asset_setting} not in assets"
                 )
                 current_asset_setting = None
@@ -654,14 +655,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
             )
             await self.__read_and_process_fm_asset()
             await self.__set_fm_connection_status("Please select an asset")
-        self.log("__test_fm_connection completed")
+        self.hass.log("__test_fm_connection completed")
 
     async def __read_and_process_fm_asset(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
         # Split from __read_and_process_fm_client_settings because this is only optional for situation where > 1
         # assets are registered in FM.
-        self.log("__read_and_process_fm_asset called")
+        self.hass.log("__read_and_process_fm_asset called")
 
         callback_method = self.__read_and_process_fm_asset
         asset_name = await self.__process_setting(
@@ -669,7 +670,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         )
         asset_id = self.fm_assets.get(asset_name, None)
         if asset_id is None:
-            self.log(
+            self.hass.log(
                 f"__read_and_process_fm_asset aborted, asset_name '{asset_name}' "
                 f"not in fm_assets {self.fm_assets}, could not get asset_id."
             )
@@ -678,14 +679,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
             asset_id = int(float(asset_id))
 
         await self.__get_and_process_fm_sensors(asset_id=asset_id)
-        self.log("__read_and_process_fm_asset completed")
+        self.hass.log("__read_and_process_fm_asset completed")
 
     async def __get_and_process_fm_sensors(self, asset_id: int):
-        self.log("__get_and_process_fm_sensors called")
+        self.hass.log("__get_and_process_fm_sensors called")
         if self.fm_client_app is not None:
             sensors = await self.fm_client_app.get_fm_sensors(asset_id)
         else:
-            self.log(
+            self.hass.log(
                 "__get_and_process_fm_sensors. Could not call get_fm_sensors on fm_client_app as it is None."
             )
             await self.__set_fm_connection_status(
@@ -694,7 +695,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return
 
         if sensors is None:
-            self.log(
+            self.hass.log(
                 "__get_and_process_fm_sensors. get_fm_sensors('{}') returned None."
             )
             await self.__set_fm_connection_status(
@@ -704,7 +705,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         for sensor in sensors:
             sensor_name = sensor["name"].lower()
-            # self.log(f"__get_and_process_fm_sensors, name: {sensor_name}.")
+            # self.hass.log(f"__get_and_process_fm_sensors, name: {sensor_name}.")
             if "power" in sensor_name and "aggregate" not in sensor_name:
                 # E.g. "aggregate power" and "Nissan Leaf Power"
                 c.FM_ACCOUNT_POWER_SENSOR_ID = sensor["id"]
@@ -716,7 +717,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 c.FM_ACCOUNT_COST_SENSOR_ID = sensor["id"]
 
             if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
-                # self.log(f"__get_and_process_fm_sensors for au_amber_electric/gb_octopus_energy, sensor: '{sensor}'.")
+                # self.hass.log(f"__get_and_process_fm_sensors for au_amber_electric/gb_octopus_energy, sensor: '{sensor}'.")
                 if "consumption" in sensor_name:
                     # E.g. 'consumption price' or 'consumption tariff'
                     c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["id"]
@@ -727,7 +728,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     # E.g. 'Amber CO₂ intensity'
                     c.FM_EMISSIONS_SENSOR_ID = sensor["id"]
 
-        self.log(
+        self.hass.log(
             f"__get_and_process_fm_sensors: \n"
             f"    c.FM_ACCOUNT_POWER_SENSOR_ID: {c.FM_ACCOUNT_POWER_SENSOR_ID}. \n"
             f"    c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID: {c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID}. \n"
@@ -736,7 +737,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         )
 
         if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
-            self.log(
+            self.hass.log(
                 f"__get_and_process_fm_sensors, (own_prices): \n"
                 f"    c.FM_PRICE_CONSUMPTION_SENSOR_ID:  {c.FM_PRICE_CONSUMPTION_SENSOR_ID}. \n"
                 f"    c.FM_PRICE_PRODUCTION_SENSOR_ID:  {c.FM_PRICE_PRODUCTION_SENSOR_ID}. \n"
@@ -745,14 +746,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         await self.__set_fm_optimisation_context()
         await self.__collect_action_triggers(source="changed FM sensors")
-        self.log("__get_and_process_fm_sensors completed")
+        self.hass.log("__get_and_process_fm_sensors completed")
 
     ######################################################################
     #                            HA METHODS                              #
     ######################################################################
     async def __set_fm_connection_status(self, state: str):
-        self.log(f"__set_fm_connection_status, state: {state}.")
-        await self.set_state(
+        self.hass.log(f"__set_fm_connection_status, state: {state}.")
+        await self.hass.set_state(
             "input_text.fm_connection_status", state=state, attributes=get_keepalive()
         )
 
@@ -760,14 +761,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
         self, message: str, title: str, notification_id: str
     ):
         try:
-            await self.call_service(
+            await self.hass.call_service(
                 service="persistent_notification/create",
                 title=title,
                 message=message,
                 notification_id=notification_id,
             )
         except Exception as e:
-            self.log(f"create_persistent_notification failed! Exception: '{e}'")
+            self.hass.log(f"create_persistent_notification failed! Exception: '{e}'")
 
     async def __write_setting_to_ha(
         self,
@@ -789,7 +790,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         entity_name = setting["entity_name"]
         entity_type = setting["entity_type"]
         entity_id = f"{entity_type}.{entity_name}"
-        # self.log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
+        # self.hass.log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
 
         if setting_value is not None:
             # setting_value has a relevant setting_value to set to HA
@@ -797,9 +798,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 await self.__select_option(entity_id, setting_value)
             elif entity_type == "input_boolean":
                 if setting_value is True:
-                    await self.turn_on(entity_id)
+                    await self.hass.turn_on(entity_id)
                 else:
-                    await self.turn_off(entity_id)
+                    await self.hass.turn_off(entity_id)
             else:
                 initialised_sourced = ["user_input", "settings"]
                 new_attributes = {"initialised": (source in initialised_sourced)}
@@ -810,13 +811,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     new_attributes["min"] = min_allowed_value
                 if max_allowed_value:
                     new_attributes["max"] = max_allowed_value
-                # self.log(f"__write_setting_to_ha, attributes: {new_attributes}.")
-                await self.set_state(
+                # self.hass.log(f"__write_setting_to_ha, attributes: {new_attributes}.")
+                await self.hass.set_state(
                     entity_id, state=setting_value, attributes=new_attributes
                 )
 
     async def __select_option(self, entity_id: str, option: str):
-        """Helper function to select an option in an input_select. It should be used instead of self.select_option.
+        """Helper function to select an option in an input_select. It should be used instead of self.hass.select_option.
            It overcomes the problem whereby an error is raised if the option is not available.
            This sometimes kills the (web) server.
 
@@ -828,27 +829,27 @@ class V2GLibertyGlobals(ServiceResponseApp):
             bool: If option was successfully selected or not
         """
 
-        self.log(f"__select_option called")
+        self.hass.log(f"__select_option called")
 
         if option == "Please choose an option":
-            self.log(
+            self.hass.log(
                 f"__select_option - option to select == 'Please choose an option'.",
                 level="WARNING",
             )
             return False
         if entity_id is None or entity_id[:13] != "input_select.":
-            self.log(
+            self.hass.log(
                 f"__select_option aborted - entity type is not input_select: '{entity_id[:13]}'."
             )
             return False
-        if not self.entity_exists(entity_id):
-            self.log(
+        if not self.hass.entity_exists(entity_id):
+            self.hass.log(
                 f"__select_option aborted - entity_id does not exist: '{entity_id}'."
             )
             return False
-        res = await self.get_state(entity_id=entity_id, attribute="options")
+        res = await self.hass.get_state(entity_id=entity_id, attribute="options")
         if res is None or option not in res:
-            self.log(f"__select_option, option '{option}' not in options {res}.")
+            self.hass.log(f"__select_option, option '{option}' not in options {res}.")
             # This is the only way of handling this error situation, try - except fails...
             # As we expect this to be a sort of race condition we just add this one option and
             # assume the list will be completed later with this option selected. Risky?
@@ -856,8 +857,8 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 entity_id=entity_id, options=[option], option_to_select=option
             )
         else:
-            # self.log(f"__select_option, option '{option}' selected.")
-            await self.select_option(entity_id=entity_id, option=option)
+            # self.hass.log(f"__select_option, option '{option}' selected.")
+            await self.hass.select_option(entity_id=entity_id, option=option)
         return True
 
     async def __set_select_options(
@@ -885,30 +886,30 @@ class V2GLibertyGlobals(ServiceResponseApp):
                = False, will be removed (if existing)
                = None, leave list untouched
         """
-        self.log(
+        self.hass.log(
             f"__set_select_options called, entity_id: '{entity_id}', options: {options},"
             f"option_to_select: {option_to_select}, pcao: {pcao}."
         )
         if entity_id is None or entity_id[:13] != "input_select.":
-            self.log(
+            self.hass.log(
                 f"__set_select_options - entity type is not input_select: '{entity_id[:13]}'.",
                 level="WARNING",
             )
             return False
-        if not self.entity_exists(entity_id):
-            self.log(
+        if not self.hass.entity_exists(entity_id):
+            self.hass.log(
                 f"__set_select_options - entity_id does not exist: '{entity_id}'.",
                 level="WARNING",
             )
             return False
         if options is None or len(options) == 0:
-            self.log(
+            self.hass.log(
                 f"__set_select_options - invalid options: '{options}'.", level="WARNING"
             )
             return False
 
-        current_selected_option = await self.get_state(entity_id, None)
-        self.log(
+        current_selected_option = await self.hass.get_state(entity_id, None)
+        self.hass.log(
             f"__set_select_options - current_selected_option: '{current_selected_option}'."
         )
 
@@ -917,7 +918,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # If a pcao option is required it has to be the first option.
         pcao_option = "Please choose an option"
         if pcao is None and (pcao_option in options):
-            self.log(
+            self.hass.log(
                 f"__set_select_options pcao is None but in current options, keeping it."
             )
             pcao = True
@@ -928,7 +929,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             options.remove(None)
         if pcao_option in options:
             options.remove(pcao_option)
-        self.log(
+        self.hass.log(
             f"__set_select_options options, removed duplicates, pcao and None values"
             f" and sorted: {options}"
         )
@@ -936,10 +937,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
         if pcao:
             pass
             # options.insert(0, pcao_option)
-            # self.log(f"__set_select_options options, added pcao again: {options}")
+            # self.hass.log(f"__set_select_options options, added pcao again: {options}")
 
         if current_selected_option == pcao_option:
-            self.log(
+            self.hass.log(
                 f"__set_select_options temporary BUGFIX, "
                 f"hard remove 'Please choose an option' option.",
                 level="WARNING",
@@ -953,18 +954,18 @@ class V2GLibertyGlobals(ServiceResponseApp):
         ):
             tmp = options.append(current_selected_option)
             # Set a new list with the old option selected to prevent an error, it will be removed later.
-            await self.call_service(
+            await self.hass.call_service(
                 "input_select/set_options", entity_id=entity_id, options=tmp
             )
-            self.log(
+            self.hass.log(
                 f"__set_select_options options, current_selected_option {current_selected_option} added "
                 f"to prevent HA error."
             )
         else:
-            await self.call_service(
+            await self.hass.call_service(
                 "input_select/set_options", entity_id=entity_id, options=options
             )
-            self.log(f"__set_select_options options, new options set in select.")
+            self.hass.log(f"__set_select_options options, new options set in select.")
 
         if option_to_select in options:
             so = option_to_select
@@ -972,17 +973,17 @@ class V2GLibertyGlobals(ServiceResponseApp):
             so = current_selected_option
         else:
             so = options[0]
-        # self.log(f"__set_select_options options, to select option is: {so}")
+        # self.hass.log(f"__set_select_options options, to select option is: {so}")
 
         # Select the desired option.
-        await self.select_option(entity_id=entity_id, option=so)
+        await self.hass.select_option(entity_id=entity_id, option=so)
 
         if tmp != "":
             # If added, remove the current_selected_option
-            await self.call_service(
+            await self.hass.call_service(
                 "input_select/set_options", entity_id=entity_id, options=options
             )
-            # self.log(f"__set_select_options options, removed original selected option")
+            # self.hass.log(f"__set_select_options options, removed original selected option")
 
         return True
 
@@ -990,18 +991,45 @@ class V2GLibertyGlobals(ServiceResponseApp):
     #                METHODS FOR IO of SETTINGS FILE                     #
     ######################################################################
 
-    def __store_setting(self, entity_id: str, setting_value: any):
+    async def __retrieve_settings(self):
+        """Retrieve all settings from the settings file"""
+        self.log(f"__retrieve_settings called")
+
+        if not os.path.exists(self.settings_file_path):
+            self.log(f"__retrieve_settings, no settings file found: creating")
+            self.v2g_settings = {}
+            self.__write_to_file(self.v2g_settings)
+        else:
+            try:
+                with open(self.settings_file_path, "r") as read_file:
+                    self.v2g_settings = json.load(read_file)
+                    if not isinstance(self.v2g_settings, dict):
+                        self.log(
+                            f"__retrieve_settings, loading file content error, "
+                            f"no dict: '{self.v2g_settings}'."
+                        )
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                self.log(f"__retrieve_settings, Error reading settings file: {e}")
+                self.v2g_settings = {}
+
+    async def __store_setting(self, entity_id: str, setting_value: any):
         """Store (overwrite or create) a setting in settings file.
 
         Args:
             entity_id (str): setting name = the full entity_id from HA
             setting_value: the value to set.
         """
-        # self.log(f"__store_setting, entity_id: '{entity_id}' to value '{setting_value}'.")
+        # self.hass.log(f"__store_setting, entity_id: '{entity_id}' to value '{setting_value}'.")
         if setting_value in ["unknown", "Please choose an option"]:
             return False
         self.v2g_settings.store_setting(entity_id, setting_value)
         return True
+
+    def __write_to_file(self, settings: dict):
+        # self.log(f"__write_to_file, settings: '{settings}'.")
+        # TODO: Make async?
+        with open(self.settings_file_path, "w") as write_file:
+            json.dump(settings, write_file)
 
     ######################################################################
     #                           CORE METHODS                             #
@@ -1017,7 +1045,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         entity_name = setting_object["entity_name"]
         entity_type = setting_object["entity_type"]
         entity_id = f"{entity_type}.{entity_name}"
-        setting_entity = await self.get_state(entity_id, attribute="all")
+        setting_entity = await self.hass.get_state(entity_id, attribute="all")
 
         # Get the setting from store
         stored_setting_value = self.v2g_settings.get(entity_id)
@@ -1033,10 +1061,10 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     return_value, has_changed = await self.__check_and_convert_value(
                         setting_object, factory_default
                     )
-                    # self.log(f"__process_setting, Initial call. No relevant v2g_setting. "
+                    # self.hass.log(f"__process_setting, Initial call. No relevant v2g_setting. "
                     #          f"Set constant and UI to factory_default: {return_value} "
                     #          f"{type(return_value)}.")
-                    self.__store_setting(
+                    await self.__store_setting(
                         entity_id=entity_id, setting_value=return_value
                     )
                     await self.__write_setting_to_ha(
@@ -1055,12 +1083,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
                         "unknown",
                         "Please choose an option",
                     ]:
-                        self.__store_setting(
+                        await self.__store_setting(
                             entity_id=entity_id, setting_value=return_value
                         )
                     else:
                         # There is no relevant default to set...
-                        self.log(
+                        self.hass.log(
                             f"__process_setting: setting '{entity_id}' has no stored value, "
                             f"no factory_default, no value in UI."
                         )
@@ -1070,7 +1098,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 return_value, has_changed = await self.__check_and_convert_value(
                     setting_object, stored_setting_value
                 )
-                # self.log(f"__process_setting, Initial call. Relevant v2g_setting: {return_value}, "
+                # self.hass.log(f"__process_setting, Initial call. Relevant v2g_setting: {return_value}, "
                 #          f"write this to HA entity '{entity_id}'.")
                 await self.__write_setting_to_ha(
                     setting=setting_object,
@@ -1079,7 +1107,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 )
 
             if callback is not None:
-                setting_object["listener_id"] = self.listen_state(
+                setting_object["listener_id"] = self.hass.listen_state(
                     callback, entity_id, attribute="all"
                 )
 
@@ -1090,13 +1118,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return_value, has_changed = await self.__check_and_convert_value(
                 setting_object, state
             )
-            # self.log(f"__process_setting. Triggered by changes in UI. "
+            # self.hass.log(f"__process_setting. Triggered by changes in UI. "
             #          f"Write value '{return_value}' to store '{entity_id}'.")
             # We need to write to HA entity even if has_changed == False as we have to add the source.
             await self.__write_setting_to_ha(
                 setting=setting_object, setting_value=return_value, source="user_input"
             )
-            self.__store_setting(entity_id=entity_id, setting_value=return_value)
+            await self.__store_setting(entity_id=entity_id, setting_value=return_value)
 
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
@@ -1112,14 +1140,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
             message = f"{message} {uom}."
         else:
             message = f"{message}."
-        self.log(message)
+        self.hass.log(message)
 
         return return_value
 
     async def __read_and_process_charger_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
-        self.log("__read_and_process_charger_settings called")
+        self.hass.log("__read_and_process_charger_settings called")
 
         callback_method = self.__read_and_process_charger_settings
 
@@ -1168,7 +1196,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 c.CHARGER_MAX_DISCHARGE_POWER = (
                     self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"]
                 )
-                self.log(
+                self.hass.log(
                     f"__read_and_process_charger_settings \n"
                     f"    c.CHARGER_MAX_CHARGE_POWER: {c.CHARGER_MAX_CHARGE_POWER}.\n"
                     f"    c.CHARGER_MAX_DISCHARGE_POWER: {c.CHARGER_MAX_DISCHARGE_POWER}."
@@ -1190,7 +1218,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
     async def __read_and_process_notification_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
-        self.log("__read_and_process_notification_settings called")
+        self.hass.log("__read_and_process_notification_settings called")
         callback_method = self.__read_and_process_notification_settings
 
         if len(c.NOTIFICATION_RECIPIENTS) == 0:
@@ -1205,7 +1233,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             #     message = f"The admin mobile name ***{c.ADMIN_MOBILE_NAME}*** in configuration is not found in" \
             #               f"available mobiles for notification, instead ***{tmp}*** is used.<br/>" \
             #               f"Please go to the settings view and choose one from the list."
-            #     self.log(f"Configuration error: admin mobile name not found.")
+            #     self.hass.log(f"Configuration error: admin mobile name not found.")
             #     # TODO: Research if showing this only to admin users is possible.
             #     await self.create_persistent_notification(
             #         title="Configuration error",
@@ -1225,13 +1253,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
             c.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
 
         # These settings do not require any re-init, so do not call __collect_action_triggers()
-        self.log("__read_and_process_notification_settings completed")
+        self.hass.log("__read_and_process_notification_settings completed")
 
     async def __read_and_process_general_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
         callback_method = self.__read_and_process_general_settings
-        self.log("__read_and_process_general_settings called")
+        self.hass.log("__read_and_process_general_settings called")
 
         c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
@@ -1264,12 +1292,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
         ) / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
         await self.__collect_action_triggers(source="changed general_settings")
-        self.log("__read_and_process_general_settings completed")
+        self.hass.log("__read_and_process_general_settings completed")
 
     async def __read_and_process_calendar_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
-        self.log("__read_and_process_calendar_settings called")
+        self.hass.log("__read_and_process_calendar_settings called")
 
         callback_method = self.__read_and_process_calendar_settings
 
@@ -1281,7 +1309,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             and c.CAR_CALENDAR_SOURCE is not None
             and c.CAR_CALENDAR_SOURCE != tmp
         ):
-            self.log(
+            self.hass.log(
                 f"__read_and_process_calendar_settings: Calendar source has changed to '{tmp}'."
             )
             if tmp == "Direct caldav source":
@@ -1330,23 +1358,23 @@ class V2GLibertyGlobals(ServiceResponseApp):
             )
             if self.calendar_client is not None:
                 res = await self.calendar_client.initialise_calendar()
-                self.log(
+                self.hass.log(
                     f"__read_and_process_calendar_settings: init HA calendar result: '{res}'."
                 )
             else:
-                self.log(
+                self.hass.log(
                     f"__read_and_process_calendar_settings. Could not call initialise_calendar on calendar_client"
                     f"as it is None."
                 )
         await self.__collect_action_triggers(source="changed calendar settings")
 
-        self.log("__read_and_process_calendar_settings completed")
+        self.hass.log("__read_and_process_calendar_settings completed")
 
     async def __read_and_process_fm_client_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
         # Split for future when the python lib fm_client_app is used: that needs to be re-inited
-        self.log("__read_and_process_fm_client_settings called")
+        self.hass.log("__read_and_process_fm_client_settings called")
 
         callback_method = self.__read_and_process_fm_client_settings
         c.FM_ACCOUNT_USERNAME = await self.__process_setting(
@@ -1375,12 +1403,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
         else:
             await self.__test_fm_connection()
 
-        self.log("__read_and_process_fm_client_settings completed")
+        self.hass.log("__read_and_process_fm_client_settings completed")
 
     async def __read_and_process_optimisation_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
-        self.log("__read_and_process_optimisation_settings called")
+        self.hass.log("__read_and_process_optimisation_settings called")
         callback_method = self.__read_and_process_optimisation_settings
 
         c.OPTIMISATION_MODE = await self.__process_setting(
@@ -1446,7 +1474,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
             c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
             c.UTILITY_CONTEXT_DISPLAY_NAME = context["display-name"]
-            self.log(
+            self.hass.log(
                 f"__read_and_process_optimisation_settings:\n"
                 f"    FM_PRICE_PRODUCTION_SENSOR_ID: {c.FM_PRICE_PRODUCTION_SENSOR_ID}.\n"
                 f"    FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.\n"
@@ -1503,7 +1531,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 setting_object, factory_default
             )
 
-        self.__store_setting(entity_id=entity_id, setting_value=return_value)
+        await self.__store_setting(entity_id=entity_id, setting_value=return_value)
         await self.__write_setting_to_ha(
             setting=setting_object, setting_value=return_value, source="factory_default"
         )
@@ -1523,7 +1551,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
                 "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
             }
-        self.log(
+        self.hass.log(
             f"__set_fm_optimisation_context c.FM_OPTIMISATION_CONTEXT: '{c.FM_OPTIMISATION_CONTEXT}"
         )
 
@@ -1537,9 +1565,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
         if self.collect_action_handle is None:
             # This is the initial, init has not finished yet
             return
-        if self.info_timer(self.collect_action_handle):
-            await self.cancel_timer(self.collect_action_handle, True)
-        self.collect_action_handle = await self.run_in(
+        if self.hass.info_timer(self.collect_action_handle):
+            await self.hass.cancel_timer(self.collect_action_handle, True)
+        self.collect_action_handle = await self.hass.run_in(
             self.__collective_action, delay=15, source=source
         )
 
@@ -1550,46 +1578,46 @@ class V2GLibertyGlobals(ServiceResponseApp):
         :return: Nothing
         """
 
-        self.log(f"__collective_action, called with source: '{source}'.")
+        self.hass.log(f"__collective_action, called with source: '{source}'.")
 
         if self.evse_client_app is not None:
             await self.evse_client_app.initialise_charger(v2g_args=source)
         else:
-            self.log(
+            self.hass.log(
                 "__collective_action. Could not call initialise_charger on evse_client_app as it is None."
             )
 
         if self.calendar_client is not None:
             await self.calendar_client.initialise_calendar()
         else:
-            self.log(
+            self.hass.log(
                 "__collective_action. Could not call initialise_calendar on calendar_client as it is None."
             )
 
         if self.v2g_main_app is not None:
             await self.v2g_main_app.initialise_v2g_liberty(v2g_args=source)
         else:
-            self.log(
+            self.hass.log(
                 "__collective_action. Could not call initialise_v2g_liberty on v2g_main_app as it is None."
             )
 
         if c.ELECTRICITY_PROVIDER == "au_amber_electric":
-            self.log("__collective_action. Amber Electric ")
+            self.hass.log("__collective_action. Amber Electric ")
             if self.amber_price_data_manager is not None:
                 await self.amber_price_data_manager.kick_off_amber_price_management()
             else:
-                self.log(
+                self.hass.log(
                     "__collective_action. Could not call kick_off_amber_price_management on "
                     "amber_price_data_manager as it is None."
                 )
         elif c.ELECTRICITY_PROVIDER == "gb_octopus_energy":
-            self.log("__collective_action. Octopus Energy")
+            self.hass.log("__collective_action. Octopus Energy")
             if self.octopus_price_data_manager is not None:
                 await (
                     self.octopus_price_data_manager.kick_off_octopus_price_management()
                 )
             else:
-                self.log(
+                self.hass.log(
                     "__collective_action. Could not call kick_off_octopus_price_management on "
                     "octopus_price_data_manager as it is None."
                 )
@@ -1597,12 +1625,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
         if self.fm_data_retrieve_client is not None:
             await self.fm_data_retrieve_client.finalize_initialisation(v2g_args=source)
         else:
-            self.log(
+            self.hass.log(
                 "__collective_action. Could not call finalize_initialisation on "
                 "fm_data_retrieve_client as it is None."
             )
 
-        self.log(f"__collective_action, completed.")
+        self.hass.log(f"__collective_action, completed.")
 
     ######################################################################
     #                           UTIL METHODS                             #
@@ -1666,7 +1694,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 title="Automatically adjusted setting",
                 notification_id=ntf_id,
             )
-            self.log(f"__check_and_convert_number {msg}")
+            self.hass.log(f"__check_and_convert_number {msg}")
         return return_value, has_changed
 
     async def __cancel_setting_listener(self, setting_object: dict):
@@ -1675,9 +1703,9 @@ class V2GLibertyGlobals(ServiceResponseApp):
             # It seems "info_listen_state" does not work async, so just always cancel
             # the listener without first checking if it is still active.
             try:
-                await self.cancel_listen_state(listener_id)
+                await self.hass.cancel_listen_state(listener_id)
             except Exception as e:
-                self.log(f"__cancel_setting_listener, exception: {e}")
+                self.hass.log(f"__cancel_setting_listener, exception: {e}")
         setting_object["listener_id"] = None
 
 
