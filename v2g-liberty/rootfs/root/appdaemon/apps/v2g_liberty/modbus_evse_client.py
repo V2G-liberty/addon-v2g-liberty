@@ -309,7 +309,7 @@ class ModbusEVSEclient:
                 "stop_charging called while _am_i_active == False. Not blocking call to make stop reliable."
             )
 
-        await self.__set_charger_action("stop", reason="stop_charging")
+        await self.__set_charger_action("stop", reason="stop called externally")
         await self.__set_charge_power(charge_power=0, source="stop_charging")
 
     async def start_charge_with_power(self, kwargs: dict, *args, **fnc_kwargs):
@@ -336,17 +336,17 @@ class ModbusEVSEclient:
         if charge_power_in_watt == 0:
             await self.__set_charger_action(
                 action="stop",
-                reason=f"start_charge_with_power called from {source} with power = 0",
+                reason="start_charge_with_power externally called with power = 0",
             )
         else:
             await self.__set_charger_action(
                 action="start",
-                reason=f"start_charge_with_power called from {source} with {charge_power_in_watt=}",
+                reason="start_charge_with_power externally called with power <> 0",
             )
-        await self.__set_charge_power(
-            charge_power=charge_power_in_watt,
-            source=f"{source} => start_charge_with_power",
+        self.hass.log(
+            f"start_charge_with_power: calling __set_charge_power with power {charge_power_in_watt}."
         )
+        await self.__set_charge_power(charge_power=charge_power_in_watt)
 
     async def set_inactive(self):
         """To be called when charge_mode in UI is (switched to) Stop"""
@@ -729,7 +729,7 @@ class ModbusEVSEclient:
                 )
                 # Setting things back to normal
                 await self.__set_charge_power(
-                    charge_power=0, skip_min_soc_check=True, source="get_car_soc"
+                    charge_power=0, skip_min_soc_check=True
                 )  # This also sets action to stop
                 await self.__set_charger_action("stop", reason="try_get_new_soc")
 
@@ -868,7 +868,7 @@ class ModbusEVSEclient:
             await self.hass.set_state(entity_id, state=state)
 
     async def __set_charge_power(
-        self, charge_power: int, skip_min_soc_check: bool = False, source: str = None
+        self, charge_power: int, skip_min_soc_check: bool = False
     ):
         """Private function to set desired (dis-)charge power in Watt in the charger.
            Check in place not to discharge below the set minimum.
@@ -884,9 +884,11 @@ class ModbusEVSEclient:
             source (str, optional):
               For logging purposes.
         """
-        self.hass.log(
-            f"__set_charge_power called from {source=}, while {self._am_i_active=}. Not blocking."
-        )
+        if not self._am_i_active:
+            self.hass.log(
+                "__set_charge_power called while _am_i_active == False. Not blocking."
+            )
+            # return
 
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
@@ -894,7 +896,7 @@ class ModbusEVSEclient:
             if current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
                 # Fail-safe, this should never happen...
                 self.hass.log(
-                    f"A discharge is attempted from {source=}, while the current SoC is below the "
+                    f"A discharge is attempted while the current SoC is below the "
                     f"minimum ({c.CAR_MIN_SOC_IN_PERCENT})%. Stopping discharging."
                 )
                 charge_power = 0
@@ -911,15 +913,15 @@ class ModbusEVSEclient:
 
         if current_charge_power == charge_power:
             self.hass.log(
-                f"New-charge-power-setting from {source=} is same as current-charge-power-setting: {charge_power} "
-                f"Watt. Not writing to charger."
+                f"New-charge-power-setting is same as current-charge-power-setting: {charge_power} Watt. "
+                f"Not writing to charger."
             )
             return
 
         res = await self.__modbus_write(
             address=self.CHARGER_SET_CHARGE_POWER_REGISTER,
             value=charge_power,
-            source=f"set_charge_power, from {source}",
+            source="set_charge_power",
         )
 
         if not res:
