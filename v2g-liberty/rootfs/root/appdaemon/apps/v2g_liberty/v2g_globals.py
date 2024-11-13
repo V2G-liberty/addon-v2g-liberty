@@ -611,7 +611,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return
 
         asset_entity_id = f"{self.SETTING_FM_ASSET['entity_type']}.{self.SETTING_FM_ASSET['entity_name']}"
-        current_asset_setting = self.v2g_settings.get("asset_entity_id", None)
+        current_asset_setting = self.v2g_settings.get("asset_entity_id")
         self.log(
             f"__test_fm_connection, current_asset_setting: {current_asset_setting} "
             f"(asset_entity_id={asset_entity_id})."
@@ -991,28 +991,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
     #                METHODS FOR IO of SETTINGS FILE                     #
     ######################################################################
 
-    async def __retrieve_settings(self):
-        """Retrieve all settings from the settings file"""
-        self.log(f"__retrieve_settings called")
-
-        if not os.path.exists(self.settings_file_path):
-            self.log(f"__retrieve_settings, no settings file found: creating")
-            self.v2g_settings = {}
-            self.__write_to_file(self.v2g_settings)
-        else:
-            try:
-                with open(self.settings_file_path, "r") as read_file:
-                    self.v2g_settings = json.load(read_file)
-                    if not isinstance(self.v2g_settings, dict):
-                        self.log(
-                            f"__retrieve_settings, loading file content error, "
-                            f"no dict: '{self.v2g_settings}'."
-                        )
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                self.log(f"__retrieve_settings, Error reading settings file: {e}")
-                self.v2g_settings = {}
-
-    async def __store_setting(self, entity_id: str, setting_value: any):
+    def __store_setting(self, entity_id: str, setting_value: any):
         """Store (overwrite or create) a setting in settings file.
 
         Args:
@@ -1024,12 +1003,6 @@ class V2GLibertyGlobals(ServiceResponseApp):
             return False
         self.v2g_settings.store_setting(entity_id, setting_value)
         return True
-
-    def __write_to_file(self, settings: dict):
-        # self.log(f"__write_to_file, settings: '{settings}'.")
-        # TODO: Make async?
-        with open(self.settings_file_path, "w") as write_file:
-            json.dump(settings, write_file)
 
     ######################################################################
     #                           CORE METHODS                             #
@@ -1064,7 +1037,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                     # self.hass.log(f"__process_setting, Initial call. No relevant v2g_setting. "
                     #          f"Set constant and UI to factory_default: {return_value} "
                     #          f"{type(return_value)}.")
-                    await self.__store_setting(
+                    self.__store_setting(
                         entity_id=entity_id, setting_value=return_value
                     )
                     await self.__write_setting_to_ha(
@@ -1083,7 +1056,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                         "unknown",
                         "Please choose an option",
                     ]:
-                        await self.__store_setting(
+                        self.__store_setting(
                             entity_id=entity_id, setting_value=return_value
                         )
                     else:
@@ -1124,7 +1097,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
             await self.__write_setting_to_ha(
                 setting=setting_object, setting_value=return_value, source="user_input"
             )
-            await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+            self.__store_setting(entity_id=entity_id, setting_value=return_value)
 
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
@@ -1531,7 +1504,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
                 setting_object, factory_default
             )
 
-        await self.__store_setting(entity_id=entity_id, setting_value=return_value)
+        self.__store_setting(entity_id=entity_id, setting_value=return_value)
         await self.__write_setting_to_ha(
             setting=setting_object, setting_value=return_value, source="factory_default"
         )
