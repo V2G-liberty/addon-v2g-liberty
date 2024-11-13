@@ -624,17 +624,8 @@ class FlexMeasuresDataImporter:
                         * self.vat_factor,
                         2,
                     )
-                    data_point = {
-                        "time": dt.isoformat(),
-                        "price": round(
-                            (
-                                (float(price) * self.price_conversion_factor)
-                                + self.markup_per_kwh
-                            )
-                            * self.vat_factor,
-                            2,
-                        ),
-                    }
+                    data_point = {"time": dt.isoformat(), "price": net_price}
+                    price_points.append(data_point)
 
                     if (
                         first_future_negative_price_point is None
@@ -648,6 +639,17 @@ class FlexMeasuresDataImporter:
                             "time": dt,
                             "price": data_point["price"],
                         }
+
+                # To make the step-line in the chart extend to the end of the last (half)hour (or what the resolution
+                # might be), a value is added at the end. Not an ideal solution but the chart does not have the option
+                # to do this.
+                if net_price is not None:
+                    data_point = {
+                        "time": (
+                            dt + timedelta(minutes=c.PRICE_RESOLUTION_MINUTES)
+                        ).isoformat(),
+                        "price": net_price,
+                    }
                     price_points.append(data_point)
 
                 await self.v2g_main_app.set_records_in_chart(
