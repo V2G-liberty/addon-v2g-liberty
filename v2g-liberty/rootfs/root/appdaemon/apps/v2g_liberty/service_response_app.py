@@ -6,6 +6,7 @@ import hassapi as hass
 # With special thanks to chatziko, the creator of this code:
 # https://gist.github.com/chatziko/74a5eacad3fd934d2ec734dab17aa4c0
 
+
 class ServiceResponseApp(hass.Hass):
     def call_service(self, service, return_result=False, **kwargs):
         # standard call

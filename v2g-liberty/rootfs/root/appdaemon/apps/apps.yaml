@@ -49,8 +49,8 @@ get_fm_data:
   class: FlexMeasuresDataImporter
   priority: 100
   dependencies:
-   - v2g-globals
-   - fm_client
+    - v2g-globals
+    - fm_client
 
 amber_price_data_manager:
   module: amber_price_data_manager

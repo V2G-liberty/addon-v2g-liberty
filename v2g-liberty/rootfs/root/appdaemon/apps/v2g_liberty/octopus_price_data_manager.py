@@ -19,6 +19,7 @@ class ManageOctopusPriceData(hass.Hass):
     https://github.com/badguy99/octoblock
 
     """
+
     COLLECTION_NAME: str = "results"
     PRICE_LABEL: str = "value_inc_vat"
     START_LABEL: str = "valid_from"
@@ -45,7 +46,7 @@ class ManageOctopusPriceData(hass.Hass):
     BASE_EMISSIONS_URL: str = "https://api.carbonintensity.org.uk/regional/intensity/"
     emission_region_slug: str = ""
 
-    first_try_time_get_data : str = ""
+    first_try_time_get_data: str = ""
     second_try_time_get_data: str = ""
 
     # For more details about the regions see:
@@ -92,56 +93,73 @@ class ManageOctopusPriceData(hass.Hass):
 
     async def kick_off_octopus_price_management(self, initial: bool = False):
         """
-           'Second stage' of initialisation.
-           To be called from 'initialize' and from the globals module collective_action()
-           when the settings have changed.
+        'Second stage' of initialisation.
+        To be called from 'initialize' and from the globals module collective_action()
+        when the settings have changed.
 
-            :param initial: Only for the first call from the initialisation of the module.
-            :return: Nothing
+         :param initial: Only for the first call from the initialisation of the module.
+         :return: Nothing
         """
         if c.ELECTRICITY_PROVIDER != "gb_octopus_energy":
-            self.log(f"Not kicking off ManageOctopusPriceData module. Electricity provider is not 'gb_octopus_energy'.")
+            self.log(
+                f"Not kicking off ManageOctopusPriceData module. Electricity provider is not 'gb_octopus_energy'."
+            )
             return
 
         un_initiated_values = ["unknown", "", "Please choose an option", None]
         if c.GB_DNO_REGION in un_initiated_values:
-            self.log(f"Not kicking off ManageOctopusPriceData module. c.GB_DNO_REGION ('{c.GB_DNO_REGION}') is not "
-                     f"populated (yet).")
+            self.log(
+                f"Not kicking off ManageOctopusPriceData module. c.GB_DNO_REGION ('{c.GB_DNO_REGION}') is not "
+                f"populated (yet)."
+            )
             return
 
         if c.OCTOPUS_IMPORT_CODE in un_initiated_values:
-            self.log(f"Not kicking off ManageOctopusPriceData module. c.OCTOPUS_IMPORT_CODE "
-                     f"('{c.OCTOPUS_IMPORT_CODE}') is not populated (yet).")
+            self.log(
+                f"Not kicking off ManageOctopusPriceData module. c.OCTOPUS_IMPORT_CODE "
+                f"('{c.OCTOPUS_IMPORT_CODE}') is not populated (yet)."
+            )
             return
 
         if c.OCTOPUS_EXPORT_CODE in un_initiated_values:
-            self.log(f"Not kicking off ManageOctopusPriceData module. c.OCTOPUS_EXPORT_CODE "
-                     f"('{c.OCTOPUS_EXPORT_CODE}') is not populated (yet).")
+            self.log(
+                f"Not kicking off ManageOctopusPriceData module. c.OCTOPUS_EXPORT_CODE "
+                f"('{c.OCTOPUS_EXPORT_CODE}') is not populated (yet)."
+            )
             return
 
         self.log(f"kick_off_octopus_price_management starting!")
 
         region_char, region_index = self.gb_dno_regions.get(c.GB_DNO_REGION)
 
-        self.import_url = f"{self.BASE_URL}{c.OCTOPUS_IMPORT_CODE}/electricity-tariffs/" \
-                          f"E-1R-{c.OCTOPUS_IMPORT_CODE}-{region_char}/standard-unit-rates/"
-        self.log(f"kick_off_octopus_price_management self.import_url: {self.import_url}.")
+        self.import_url = (
+            f"{self.BASE_URL}{c.OCTOPUS_IMPORT_CODE}/electricity-tariffs/"
+            f"E-1R-{c.OCTOPUS_IMPORT_CODE}-{region_char}/standard-unit-rates/"
+        )
+        self.log(
+            f"kick_off_octopus_price_management self.import_url: {self.import_url}."
+        )
 
-        self.export_url = f"{self.BASE_URL}{c.OCTOPUS_EXPORT_CODE}/electricity-tariffs/E-1R-" \
-                          f"{c.OCTOPUS_EXPORT_CODE}-{region_char}/standard-unit-rates/"
-        self.log(f"kick_off_octopus_price_management self.export_url: {self.export_url}.")
+        self.export_url = (
+            f"{self.BASE_URL}{c.OCTOPUS_EXPORT_CODE}/electricity-tariffs/E-1R-"
+            f"{c.OCTOPUS_EXPORT_CODE}-{region_char}/standard-unit-rates/"
+        )
+        self.log(
+            f"kick_off_octopus_price_management self.export_url: {self.export_url}."
+        )
 
         self.emission_region_slug = f"/fw48h/regionid/{region_index}"
 
         if self.info_timer(self.daily_timer_id):
-            await self.cancel_timer(self.daily_timer_id, silent = True)
-        self.daily_timer_id = self.run_daily(self.__daily_kickoff_prices_emissions, start=self.first_try_time_get_data)
+            await self.cancel_timer(self.daily_timer_id, silent=True)
+        self.daily_timer_id = self.run_daily(
+            self.__daily_kickoff_prices_emissions, start=self.first_try_time_get_data
+        )
 
         # Always do the kickoff at startup.
         await self.__daily_kickoff_prices_emissions()
 
         self.log(f"kick_off_octopus_price_management completed")
-
 
     async def __daily_kickoff_prices_emissions(self, *args):
         self.log(f"__daily_kickoff_prices_emissions called")
@@ -150,15 +168,23 @@ class ManageOctopusPriceData(hass.Hass):
         await self.__get_gb_region_emissions()
         self.log(f"__daily_kickoff_prices_emissions completed")
 
-
     async def __get_octopus_import_prices(self, *args):
         self.log(f"__get_octopus_import_prices called.")
         res = requests.get(self.import_url)
         if res.status_code != 200:
-            self.log(f"__get_octopus_import_prices. Error {res.status_code}, res: {res.text}.")
-            if self.now_is_between(self.first_try_time_get_data, self.second_try_time_get_data):
-                self.log(f"__get_octopus_import_prices, retry once at {self.second_try_time_get_data}.")
-                await self.run_at(self.__get_octopus_import_prices, start=self.second_try_time_get_data)
+            self.log(
+                f"__get_octopus_import_prices. Error {res.status_code}, res: {res.text}."
+            )
+            if self.now_is_between(
+                self.first_try_time_get_data, self.second_try_time_get_data
+            ):
+                self.log(
+                    f"__get_octopus_import_prices, retry once at {self.second_try_time_get_data}."
+                )
+                await self.run_at(
+                    self.__get_octopus_import_prices,
+                    start=self.second_try_time_get_data,
+                )
             return
 
         try:
@@ -173,7 +199,11 @@ class ManageOctopusPriceData(hass.Hass):
         consumption_prices = []
         for price in prices:
             consumption_prices.append(
-                round(float(price[self.PRICE_LABEL]) * self.PENCE_PER_KWH_TO_POUNDS_PER_MWH_FACTOR, 2)
+                round(
+                    float(price[self.PRICE_LABEL])
+                    * self.PENCE_PER_KWH_TO_POUNDS_PER_MWH_FACTOR,
+                    2,
+                )
             )
 
         start = parse_to_rounded_local_datetime(prices[0][self.START_LABEL])
@@ -183,14 +213,16 @@ class ManageOctopusPriceData(hass.Hass):
 
         if self.fm_client_app is not None:
             res = await self.fm_client_app.post_measurements(
-                sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                values = consumption_prices,
-                start = start,
-                duration = duration,
-                uom = self.UOM,
+                sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                values=consumption_prices,
+                start=start,
+                duration=duration,
+                uom=self.UOM,
             )
         else:
-            self.log(f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None.")
+            self.log(
+                f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None."
+            )
             res = False
 
         self.log(f"__get_octopus_import_prices res: {res}.")
@@ -198,18 +230,29 @@ class ManageOctopusPriceData(hass.Hass):
             if self.get_fm_data_module is not None:
                 await self.get_fm_data_module.get_consumption_prices()
             else:
-                self.log("__check_for_price_changes. Could not call get_consumption_prices on "
-                         "get_fm_data_module as it is None.")
+                self.log(
+                    "__check_for_price_changes. Could not call get_consumption_prices on "
+                    "get_fm_data_module as it is None."
+                )
 
     async def __get_octopus_export_prices(self, *args):
         self.log(f"__get_octopus_export_prices called.")
         res = requests.get(self.export_url)
         if res.status_code != 200:
-            self.log(f"__get_octopus_export_prices. Error getting export prices at {self.export_url}, "
-                     f"status_code: {res.status_code}, res: {res.text}.")
-            if self.now_is_between(self.first_try_time_get_data, self.second_try_time_get_data):
-                self.log(f"__get_octopus_export_prices, retry once at {self.second_try_time_get_data}.")
-                await self.run_at(self.__get_octopus_export_prices, start=self.second_try_time_get_data)
+            self.log(
+                f"__get_octopus_export_prices. Error getting export prices at {self.export_url}, "
+                f"status_code: {res.status_code}, res: {res.text}."
+            )
+            if self.now_is_between(
+                self.first_try_time_get_data, self.second_try_time_get_data
+            ):
+                self.log(
+                    f"__get_octopus_export_prices, retry once at {self.second_try_time_get_data}."
+                )
+                await self.run_at(
+                    self.__get_octopus_export_prices,
+                    start=self.second_try_time_get_data,
+                )
             return
 
         try:
@@ -224,7 +267,11 @@ class ManageOctopusPriceData(hass.Hass):
         production_prices = []
         for price in prices:
             production_prices.append(
-                round(float(price[self.PRICE_LABEL]) * self.PENCE_PER_KWH_TO_POUNDS_PER_MWH_FACTOR, 2)
+                round(
+                    float(price[self.PRICE_LABEL])
+                    * self.PENCE_PER_KWH_TO_POUNDS_PER_MWH_FACTOR,
+                    2,
+                )
             )
 
         start = parse_to_rounded_local_datetime(prices[0][self.START_LABEL])
@@ -234,14 +281,16 @@ class ManageOctopusPriceData(hass.Hass):
 
         if self.fm_client_app is not None:
             res = await self.fm_client_app.post_measurements(
-                sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
-                values = production_prices,
-                start = start,
-                duration = duration,
-                uom = self.UOM,
+                sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                values=production_prices,
+                start=start,
+                duration=duration,
+                uom=self.UOM,
             )
         else:
-            self.log(f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None.")
+            self.log(
+                f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None."
+            )
             res = False
 
         self.log(f"__get_octopus_export_prices res: {res}.")
@@ -249,9 +298,10 @@ class ManageOctopusPriceData(hass.Hass):
             if self.get_fm_data_module is not None:
                 await self.get_fm_data_module.get_production_prices()
             else:
-                self.log("__check_for_price_changes. Could not call get_production_prices on "
-                         "get_fm_data_module as it is None.")
-
+                self.log(
+                    "__check_for_price_changes. Could not call get_production_prices on "
+                    "get_fm_data_module as it is None."
+                )
 
     async def __get_gb_region_emissions(self, *args):
         self.log(f"__get_gb_region_emissions called.")
@@ -264,25 +314,35 @@ class ManageOctopusPriceData(hass.Hass):
 
         res = requests.get(emissions_url)
         if res.status_code != 200:
-            self.log(f"__get_gb_region_emissions. Error {res.status_code}, res: {res.text}.")
-            if self.now_is_between(self.first_try_time_get_data, self.second_try_time_get_data):
-                self.log(f"__get_gb_region_emissions, retry once at {self.second_try_time_get_data}.")
-                await self.run_at(self.__get_gb_region_emissions, start=self.second_try_time_get_data)
+            self.log(
+                f"__get_gb_region_emissions. Error {res.status_code}, res: {res.text}."
+            )
+            if self.now_is_between(
+                self.first_try_time_get_data, self.second_try_time_get_data
+            ):
+                self.log(
+                    f"__get_gb_region_emissions, retry once at {self.second_try_time_get_data}."
+                )
+                await self.run_at(
+                    self.__get_gb_region_emissions, start=self.second_try_time_get_data
+                )
             return
 
         try:
             # The data structure might not be valid so a little extra care for reading values
             emissions = json.loads(res.text)
-            emissions = emissions['data']['data']
+            emissions = emissions["data"]["data"]
 
             # Extracting the 'forecast' values
-            emission_intensities = [entry['intensity']['forecast'] for entry in emissions]
+            emission_intensities = [
+                entry["intensity"]["forecast"] for entry in emissions
+            ]
         except Exception as e:
             self.log(f"__get_gb_region_emissions. exception reading JSON: {e}.")
             return
 
-        start = parse_to_rounded_local_datetime(emissions[0]['from'])
-        end = parse_to_rounded_local_datetime(emissions[-1]['to'])
+        start = parse_to_rounded_local_datetime(emissions[0]["from"])
+        end = parse_to_rounded_local_datetime(emissions[-1]["to"])
         duration = int(float(((end - start).total_seconds() / 60)))
         duration = convert_to_duration_string(duration)
 
@@ -294,14 +354,16 @@ class ManageOctopusPriceData(hass.Hass):
 
         if self.fm_client_app is not None:
             res = await self.fm_client_app.post_measurements(
-                sensor_id = c.FM_EMISSIONS_SENSOR_ID,
-                values = emission_intensities,
-                start = start,
-                duration = duration,
-                uom = self.EMISSIONS_UOM,
+                sensor_id=c.FM_EMISSIONS_SENSOR_ID,
+                values=emission_intensities,
+                start=start,
+                duration=duration,
+                uom=self.EMISSIONS_UOM,
             )
         else:
-            self.log(f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None.")
+            self.log(
+                f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None."
+            )
             res = False
 
         self.log(f"__get_gb_region_emissions res: {res}.")
@@ -309,8 +371,10 @@ class ManageOctopusPriceData(hass.Hass):
             if self.get_fm_data_module is not None:
                 await self.get_fm_data_module.get_emission_intensities()
             else:
-                self.log("__get_gb_region_emissions. Could not call get_gb_region_emissions on "
-                         "get_fm_data_module as it is None.")
+                self.log(
+                    "__get_gb_region_emissions. Could not call get_gb_region_emissions on "
+                    "get_fm_data_module as it is None."
+                )
 
 
 # TODO: Make generic function in globals, it is copied from Amber module.
