@@ -296,6 +296,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
     def __init__(self, hass: Hass):
         self.hass = hass
+        self.v2g_settings = SettingsManager(log=self.hass.log)
 
     async def initialize(self):
         self.hass.log("Initializing V2GLibertyGlobals")
@@ -314,7 +315,6 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
-        self.v2g_settings = SettingsManager(log=self.log)
 
         await self.__kick_off_settings()
 
