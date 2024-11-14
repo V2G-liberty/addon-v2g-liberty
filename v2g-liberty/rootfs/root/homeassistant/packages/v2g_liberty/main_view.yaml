@@ -55,9 +55,9 @@
     - type: conditional
       conditions:
         - entity: input_text.charger_state
-          state: 'Connected: controlled by Wallbox App'
+          state: "Connected: controlled by Wallbox App"
         - entity: input_boolean.chargemodeoff
-          state: 'off'
+          state: "off"
       card:
         type: markdown
         layout_options:
@@ -82,13 +82,12 @@
 
           Remove the time-schedule for charging from the Wallbox app.
 
-
     - type: conditional
       conditions:
         - entity: sensor.charger_charger_state
-          state: '0'
+          state: "0"
         - entity: sensor.charger_locked
-          state: '1'
+          state: "1"
       card:
         type: markdown
         layout_options:
@@ -106,14 +105,14 @@
           Liberty cannot charge</ha-alert>
 
           **You can fix this:**
-          
+
           Unlock the charger manually via the Wallbox app or -if used- the
           RFID card.
 
     - type: conditional
       conditions:
         - entity: input_boolean.charger_modbus_communication_fault
-          state: 'on'
+          state: "on"
       card:
         type: markdown
         layout_options:
@@ -143,7 +142,6 @@
           4. Wait 2 minutes
 
           5. Switch charge mode to automatic
-
 
 - type: grid
   cards:
@@ -226,7 +224,7 @@
         service: script.disconnectnow
         service_data: {}
         target: {}
-      entity: ''
+      entity: ""
       name: Unplug
       layout_options:
         grid_columns: 1
@@ -296,7 +294,7 @@
         - entity: input_text.charger_state
           state: No car connected
         - entity: input_boolean.chargemodemaxboostnow
-          state: 'on'
+          state: "on"
       card:
         type: markdown
         content: >-
@@ -334,7 +332,7 @@
             hideEmptySeries: true
         grid:
           show: true,
-          borderColor: '#cfcfcf'
+          borderColor: "#cfcfcf"
           strokeDashArray: 1
           position: back
         chart:
@@ -346,7 +344,7 @@
       graph_span: 24h
       span:
         start: hour
-        offset: '-4h'
+        offset: "-4h"
       now:
         show: true
       header:
@@ -370,7 +368,7 @@
           show:
             legend_value: false
           type: line
-          color: '#fea602'
+          color: "#fea602"
           stroke_width: 2
           stroke_dash: 2
           curve: straight
@@ -385,7 +383,7 @@
             legend_value: false
           type: line
           curve: straight
-          color: '#e48628'
+          color: "#e48628"
           stroke_width: 2
           extend_to: false
           yaxis_id: SoC
@@ -398,7 +396,7 @@
             hidden_by_default: true
             legend_value: false
           transform: return x / 6;
-          color: '#ADD6B2'
+          color: "#ADD6B2"
           opacity: 1
           extend_to: false
           stroke_width: 1
@@ -418,9 +416,9 @@
               color: red
               opacity: 0.9
             - value: 1
-              color: '#FBCCD6'
+              color: "#FBCCD6"
               opacity: 1
-          color: '#FBCCD6'
+          color: "#FBCCD6"
           opacity: 1
           extend_to: false
           stroke_width: 1
@@ -439,9 +437,9 @@
               color: green
               opacity: 0.9
             - value: 0
-              color: '#C393C5'
+              color: "#C393C5"
               opacity: 1
-          color: '#C393C5'
+          color: "#C393C5"
           opacity: 1
           extend_to: false
           stroke_width: 1
@@ -456,7 +454,7 @@
           show:
             legend_value: false
           type: line
-          color: '#fea602'
+          color: "#fea602"
           stroke_width: 2
           extend_to: false
           yaxis_id: SoC
@@ -467,7 +465,7 @@
         - entity: input_number.car_state_of_charge
           show:
             legend_value: false
-          color: '#009be5'
+          color: "#009be5"
           stroke_width: 2
           type: line
           extend_to: now
@@ -486,8 +484,8 @@
             showAlways: true
             forceNiceScale: true
           opposite: true
-          min: '|-2|'
-          max: '|+2|'
+          min: "|-2|"
+          max: "|+2|"
       card_mod:
         debug: true
         style: |
@@ -513,7 +511,7 @@
         - entity: input_text.optimisation_mode
         - entity: input_text.utility_display_name
       content: >-
-        <table><tbody><tr><th>Optimised on 
+        <table><tbody><tr><th>Optimised on
         <span>{{states("input_text.optimisation_mode")}}</span> </th><td>
         {{states("input_text.utility_display_name")}}
         </td></tr></tbody></table>
@@ -545,7 +543,7 @@
     - type: conditional
       conditions:
         - entity: input_boolean.error_no_new_schedule_available
-          state: 'on'
+          state: "on"
       layout_options:
         grid_columns: full
       card:
@@ -569,7 +567,7 @@
     - type: conditional
       conditions:
         - entity: input_boolean.error_epex_prices_cannot_be_retrieved
-          state: 'on'
+          state: "on"
       layout_options:
         grid_columns: full
       card:
