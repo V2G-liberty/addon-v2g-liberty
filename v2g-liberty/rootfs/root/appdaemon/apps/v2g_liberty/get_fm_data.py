@@ -94,14 +94,17 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         await self.finalize_initialisation("module initialize")
 
-        self.log(f"Completed initializing FlexMeasuresDataImporter")
+        self.log("Completed initializing FlexMeasuresDataImporter")
+
 
     async def finalize_initialisation(self, v2g_args: str):
-        # Finalize the initialisation. This is run from initialise and from globals when
-        # settings have changed. This is separated :
-        # - is not always around self.first_try_time (for day-ahead contracts)
-        # - the data-changed might not fire at startup (external HA integration provided data)
-        # This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        """
+        Finalize the initialisation. This is run from initialise and from globals when
+        settings have changed. This is separated :
+        - is not always around self.first_try_time (for day-ahead contracts)
+        - the data-changed might not fire at startup (external HA integration provided data)
+        This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        """
 
         self.log(f"finalize_initialisation called from source: {v2g_args}.")
 
@@ -182,7 +185,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         parameters = {"price_type": "production"}
         await self.get_prices(parameters)
 
-        self.log(f"daily_kickoff_price_data completed")
+        self.log("daily_kickoff_price_data completed")
+
 
     async def daily_kickoff_emissions_data(self, *args):
         """
@@ -320,8 +324,8 @@ class FlexMeasuresDataImporter(hass.Hass):
         # 'unit': 'MW',
         # 'values': [0.004321, None, ..., 0.005712]
         self.log(
-            f"get_charged_energy | sensor_id: {c.FM_ACCOUNT_POWER_SENSOR_ID}, "
-            f"charge power response: {str(res)[:100]} ... {str(res)[-25:]}."
+            f"get_charged_energy sensor_id: {c.FM_ACCOUNT_POWER_SENSOR_ID}, "
+            f"charge power response: {str(res)[:75]} ... {str(res)[-25:]}."
         )
 
         total_charged_energy_last_7_days = 0
@@ -666,6 +670,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                         # self.log(f"get_prices, set expected_price_dt is today.")
                     # Round it to the end of the day
                     expected_price_dt = time_ceil(expected_price_dt, timedelta(days=1))
+
                     # self.log(f"get_prices, set expected_price_dt C {expected_price_dt=}.")
                     # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to subtract one hour
                     # and a little extra to give it some slack.
