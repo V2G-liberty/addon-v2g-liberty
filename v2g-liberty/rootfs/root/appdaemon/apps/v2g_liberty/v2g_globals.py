@@ -612,7 +612,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         asset_entity_id = f"{self.SETTING_FM_ASSET['entity_type']}.{self.SETTING_FM_ASSET['entity_name']}"
         current_asset_setting = self.v2g_settings.get("asset_entity_id")
-        self.log(
+        self.hass.log(
             f"__test_fm_connection, current_asset_setting: {current_asset_setting} "
             f"(asset_entity_id={asset_entity_id})."
         )
