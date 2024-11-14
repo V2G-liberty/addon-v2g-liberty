@@ -324,11 +324,15 @@ class ModbusEVSEclient:
         # Check for automatic mode should be done by V2G Liberty app
         source = kwargs.get("source", "unknown source")
         if not self._am_i_active:
-            self.hass.log("Not setting charge_rate: _am_i_active == False.")
+            self.hass.log(
+                f"Not setting charge_rate: _am_i_active == False. Requested by {source}."
+            )
             return
 
         if not await self.is_car_connected():
-            self.hass.log("Not setting charge_rate: No car connected.")
+            self.hass.log(
+                f"Not setting charge_rate: No car connected. Requested by {source}."
+            )
             return
 
         charge_power_in_watt = int(float(kwargs["charge_power"]))
@@ -349,7 +353,9 @@ class ModbusEVSEclient:
         )
 
     async def set_inactive(self):
-        """To be called when charge_mode in UI is (switched to) Stop"""
+        """To be called when charge_mode in UI is (switched to) Stop
+        Do not cancel polling, the information is still relevant.
+        """
         self.hass.log("evse: set_inactive called")
         await self.stop_charging()
         await self.__set_charger_control("give")
@@ -1258,6 +1264,7 @@ class ModbusEVSEclient:
         # Until then do not trigger this counter, as most likely the user is still busy configuring.
         self.hass.log("__handle_modbus_connection_exception called.")
 
+        return_value = True
         if self.connection_failure_counter < 0:
             self.hass.log(
                 f"{source}: Connection exception. Configuration (not yet) invalid?"
