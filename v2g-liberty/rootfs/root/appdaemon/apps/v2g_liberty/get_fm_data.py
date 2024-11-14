@@ -96,6 +96,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log("Completed initializing FlexMeasuresDataImporter")
 
+
     async def finalize_initialisation(self, v2g_args: str):
         """
         Finalize the initialisation. This is run from initialise and from globals when
@@ -186,6 +187,7 @@ class FlexMeasuresDataImporter(hass.Hass):
 
         self.log("daily_kickoff_price_data completed")
 
+
     async def daily_kickoff_emissions_data(self, *args):
         """
         This sets off the daily routine to check for new emission data.
@@ -235,6 +237,11 @@ class FlexMeasuresDataImporter(hass.Hass):
         )
 
         if charging_costs is None:
+            self.log(
+                "get_charging_cost, get_sensor_data on fm_client_app returned None,"
+                " aborting.",
+                level="WARNING",
+            )
             # TODO: When to retry?
             return
 
@@ -302,6 +309,14 @@ class FlexMeasuresDataImporter(hass.Hass):
                 f"get_charged_energy. Could not call get_sensor_data on fm_client_app as it is None."
             )
             return False
+
+        if res is None:
+            self.log(
+                "get_charged_energy | get_sensor_data on fm_client_app returned None,"
+                " aborting.",
+                level="WARNING",
+            )
+            return
 
         # The res structure:
         # 'duration': 'PT168H',
@@ -487,7 +502,7 @@ class FlexMeasuresDataImporter(hass.Hass):
                     # emissions yet, than it communicates the emissions it does have.
                     date_tomorrow = now + timedelta(days=1)
                     date_tomorrow = time_ceil(date_tomorrow, timedelta(days=1))
-                    # As the price is for the hour 23:00 - 23:59:59 we need to
+                    # As the emission is for the hour 23:00 - 23:59:59 we need to
                     # subtract one hour and, to give some slack, 1x resolution
                     date_tomorrow += timedelta(
                         minutes=-(60 + c.FM_EVENT_RESOLUTION_IN_MINUTES)
@@ -585,6 +600,7 @@ class FlexMeasuresDataImporter(hass.Hass):
             )
 
             date_latest_price = None
+            net_price = None
 
             if prices is None:
                 failure_message = f"get_prices failed for {price_type}"
@@ -598,18 +614,16 @@ class FlexMeasuresDataImporter(hass.Hass):
                         continue
                     dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
                     date_latest_price = dt
-                    data_point = {
-                        "time": dt.isoformat(),
-                        "price": round(
-                            (
-                                (float(price) * self.price_conversion_factor)
-                                + self.markup_per_kwh
-                            )
-                            * self.vat_factor,
-                            2,
-                        ),
-                    }
-
+                    net_price = round(
+                        (
+                            (float(price) * self.price_conversion_factor)
+                            + self.markup_per_kwh
+                        )
+                        * self.vat_factor,
+                        2,
+                    )
+                    data_point = {"time": dt.isoformat(), "price": net_price}
+                    price_points.append(data_point)
                     if (
                         first_future_negative_price_point is None
                         and data_point["price"] < 0
@@ -622,6 +636,17 @@ class FlexMeasuresDataImporter(hass.Hass):
                             "time": dt,
                             "price": data_point["price"],
                         }
+
+                # To make the step-line in the chart extend to the end of the last (half)hour (or what the resolution
+                # might be), a value is added at the end. Not an ideal solution but the chart does not have the option
+                # to do this.
+                if net_price is not None:
+                    data_point = {
+                        "time": (
+                            dt + timedelta(minutes=c.PRICE_RESOLUTION_MINUTES)
+                        ).isoformat(),
+                        "price": net_price,
+                    }
                     price_points.append(data_point)
 
                 await self.v2g_main_app.set_records_in_chart(
@@ -639,21 +664,18 @@ class FlexMeasuresDataImporter(hass.Hass):
                         start_time=self.GET_PRICES_TIME, end_time="23:59:59"
                     ):
                         expected_price_dt = now + timedelta(days=1)
-                        self.log(f"get_prices, set expected_price_dt is tomorrow.")
+                        # self.log(f"get_prices, set expected_price_dt is tomorrow.")
                     else:
                         expected_price_dt = now
-                        self.log(f"get_prices, set expected_price_dt is today.")
+                        # self.log(f"get_prices, set expected_price_dt is today.")
                     # Round it to the end of the day
                     expected_price_dt = time_ceil(expected_price_dt, timedelta(days=1))
-                    self.log(
-                        f"get_prices, set expected_price_dt C {expected_price_dt=}."
-                    )
+
+                    # self.log(f"get_prices, set expected_price_dt C {expected_price_dt=}.")
                     # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to subtract one hour
                     # and a little extra to give it some slack.
                     expected_price_dt -= timedelta(minutes=65)
-                    self.log(
-                        f"get_prices, set expected_price_dt D {expected_price_dt=}."
-                    )
+                    # self.log(f"get_prices, set expected_price_dt D {expected_price_dt=}.")
                     is_up_to_date = date_latest_price > expected_price_dt
                     if not is_up_to_date:
                         # Set it in th UI right away, no matter which price type it is.

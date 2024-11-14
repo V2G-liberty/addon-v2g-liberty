@@ -381,10 +381,15 @@ class V2Gliberty(hass.Hass):
         self.log(f"__handle_phone_action, completed set hid: {hid} to {dismiss}.")
 
     async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
-        """Function to handle updates in the charge mode"""
-        new_state = new["state"]
-        old_state = old.get("state")
-        self.log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
+        """Handle changes in the charge mode
+        Here only the change from one to another mode is handled.
+        Set_next_action regularly checks what to do based on the current state (=the new state here)
+        """
+        new_state = new.get("state", None)
+        old_state = old.get("state", None)
+        self.log(
+            f"__update_charge_mode: Charge mode has changed from '{old_state}' to '{new_state}'"
+        )
 
         if old_state == "Max boost now" and new_state == "Automatic":
             # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
@@ -395,11 +400,17 @@ class V2Gliberty(hass.Hass):
                 self.log(
                     "__update_charge_mode. Could not call stop_charging on evse_client_app as it is None."
                 )
+        if old_state == "Automatic" and new_state == "Max boost now":
+            self.log(
+                "__update_charge_mode: Charge mode changed from Automatic to Max boost now, "
+                "cancel timer and start charging."
+            )
+            self.__cancel_charging_timers()
 
         if old_state != "Stop" and new_state == "Stop":
             # New mode "Stop" is handled by set_next_action
             self.log(
-                "Stop charging (if in action) and give control based on chargemode = Stop"
+                "__update_charge_mode: Stop charging (if in action) and give control based on chargemode = Stop"
             )
             # Cancel previous scheduling timers
             self.__cancel_charging_timers()
@@ -864,7 +875,6 @@ class V2Gliberty(hass.Hass):
         If appropriate, also starts a charge directly.
         Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
         """
-
         if self.evse_client_app is not None:
             is_car_connected = await self.evse_client_app.is_car_connected()
         else:
@@ -930,6 +940,8 @@ class V2Gliberty(hass.Hass):
         # Create new scheduling timers, to send a control signal for each value
         handles = []
         now = get_local_now()
+        # To be able to differentiate between different schedules the time is added.
+        str_source = f'__process_schedule @ {now.strftime("%H:%M:%S")}'
         timer_datetimes = [start + i * resolution for i in range(len(values))]
         MW_TO_W_FACTOR = (
             1000000  # convert from MegaWatt from schedule to Watt for charger
@@ -942,11 +954,12 @@ class V2Gliberty(hass.Hass):
                     self.evse_client_app.start_charge_with_power,
                     t,
                     charge_power=value * MW_TO_W_FACTOR,
+                    source=str_source,
                 )
                 handles.append(h)
             else:
                 await self.evse_client_app.start_charge_with_power(
-                    kwargs=dict(charge_power=value * MW_TO_W_FACTOR)
+                    kwargs=dict(charge_power=value * MW_TO_W_FACTOR, source=str_source)
                 )
 
         self.__reset_charging_timers(handles)  # This also cancels previous timers
@@ -1051,7 +1064,10 @@ class V2Gliberty(hass.Hass):
             #       If the client is not active there might be a good reason for that...
             await self.evse_client_app.set_active()
             await self.evse_client_app.start_charge_with_power(
-                kwargs=dict(charge_power=c.CHARGER_MAX_CHARGE_POWER)
+                kwargs=dict(
+                    charge_power=c.CHARGER_MAX_CHARGE_POWER,
+                    source="__start_max_charge_now",
+                )
             )
         else:
             self.log(
@@ -1191,7 +1207,7 @@ class V2Gliberty(hass.Hass):
                 return
 
             # If the SoC of the car is higher than the max-soc (intended for battery protection)
-            # a target is to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
+            # a target is set to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
             if (self.back_to_max_soc is None) and (
                 self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH
             ):
@@ -1281,7 +1297,10 @@ class V2Gliberty(hass.Hass):
                 )
                 if self.evse_client_app is not None:
                     await self.evse_client_app.start_charge_with_power(
-                        kwargs=dict(charge_power=0)
+                        kwargs=dict(
+                            charge_power=0,
+                            source="set_next_action: end_of_boost_to_min_soc",
+                        )
                     )
                 else:
                     self.log(
@@ -1312,7 +1331,10 @@ class V2Gliberty(hass.Hass):
                     )
                     if self.evse_client_app is not None:
                         await self.evse_client_app.start_charge_with_power(
-                            kwargs=dict(charge_power=0)
+                            kwargs=dict(
+                                charge_power=0,
+                                source="set_next_action: discharge while SoC < min_soc",
+                            )
                         )
                     else:
                         self.log(
@@ -1326,8 +1348,7 @@ class V2Gliberty(hass.Hass):
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
             # If charger_state = "not connected", the UI shows an (error) message.
-
-            if self.connected_car_soc >= 100:
+            if self.connected_car_soc >= c.CAR_MAX_CAPACITY_IN_PERCENT:
                 self.log(
                     f"Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
@@ -1344,7 +1365,9 @@ class V2Gliberty(hass.Hass):
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
                 # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_max_soc_wh = (
-                    (100 - self.connected_car_soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
+                    (c.CAR_MAX_CAPACITY_IN_PERCENT - self.connected_car_soc)
+                    * c.CAR_MAX_CAPACITY_IN_KWH
+                    * 10
                 )
                 delta_to_max_soc_wh = delta_to_max_soc_wh / (
                     c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
@@ -1359,7 +1382,7 @@ class V2Gliberty(hass.Hass):
                     now + timedelta(minutes=minutes_to_reach_max_soc)
                 ).isoformat()
                 max_charge_now_prognoses.append(
-                    dict(time=expected_max_soc_time, soc=100)
+                    dict(time=expected_max_soc_time, soc=c.CAR_MAX_CAPACITY_IN_PERCENT)
                 )
                 await self.set_records_in_chart(
                     chart_line_name=ChartLine.MAX_CHARGE_NOW,
