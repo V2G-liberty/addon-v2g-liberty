@@ -95,11 +95,13 @@ class FlexMeasuresDataImporter:
         self.hass.log(f"Completed initializing FlexMeasuresDataImporter")
 
     async def finalize_initialisation(self, v2g_args: str):
-        # Finalize the initialisation. This is run from initialise and from globals when
-        # settings have changed. This is separated :
-        # - is not always around self.first_try_time (for day-ahead contracts)
-        # - the data-changed might not fire at startup (external HA integration provided data)
-        # This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        """
+        Finalize the initialisation. This is run from initialise and from globals when
+        settings have changed. This is separated :
+        - is not always around self.first_try_time (for day-ahead contracts)
+        - the data-changed might not fire at startup (external HA integration provided data)
+        This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
+        """
 
         self.hass.log(f"finalize_initialisation called from source: {v2g_args}.")
 
@@ -671,9 +673,9 @@ class FlexMeasuresDataImporter:
                         self.hass.log(f"get_prices, set expected_price_dt is today.")
                     # Round it to the end of the day
                     expected_price_dt = time_ceil(expected_price_dt, timedelta(days=1))
-                    self.hass.log(
-                        f"get_prices, set expected_price_dt C {expected_price_dt=}."
-                    )
+                    # self.hass.log(
+                    #     f"get_prices, set expected_price_dt C {expected_price_dt=}."
+                    # )
                     # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to subtract one hour
                     # and a little extra to give it some slack.
                     expected_price_dt -= timedelta(minutes=65)

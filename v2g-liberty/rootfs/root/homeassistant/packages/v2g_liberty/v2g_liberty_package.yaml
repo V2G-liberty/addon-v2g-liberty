@@ -589,6 +589,7 @@ script:
           call_id: "{{ call_id }}"
           response: "{{ response }}"
 
+
 automation:
   - id: "1633010017995"
     alias: Chargemode to Automatic
@@ -603,7 +604,6 @@ automation:
       the corresponding item in the input_select and switches the other toggles to off.
 
       If these seem not to work, check in the settings > automations to see if they are active.'
-
     triggers:
       - trigger: state
         entity_id:
@@ -626,6 +626,7 @@ automation:
             - input_boolean.chargemodemaxboostnow
             - input_boolean.chargemodeoff
     mode: single
+
 
   - id: "1633010167089"
     alias: Chargemode to Max boost now
@@ -652,6 +653,7 @@ automation:
             - input_boolean.chargemodeautomatic
             - input_boolean.chargemodeoff
     mode: single
+
 
   - id: "1633010384766"
     alias: Chargemode to Off
