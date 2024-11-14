@@ -58,15 +58,19 @@ ALLOWED_DURATION_ABOVE_MAX_SOC: int = 12
 
 OPTIMISATION_MODE: str = "price"
 ELECTRICITY_PROVIDER: str = "nl_generic"
-EMISSIONS_UOM: str = "kg/MWh"    # For some ELECTRICITY_PROVIDER-s this can be %
-CURRENCY: str = "EUR"            # For some ELECTRICITY_PROVIDER-s this can be different, e.g. GBP or AUD.
+EMISSIONS_UOM: str = "kg/MWh"  # For some ELECTRICITY_PROVIDER-s this can be %
+CURRENCY: str = (
+    "EUR"  # For some ELECTRICITY_PROVIDER-s this can be different, e.g. GBP or AUD.
+)
 PRICE_RESOLUTION_MINUTES: int = 60  # For some ELECTRICITY_PROVIDER-s this can be 30
 
 # FlexMeasures settings
 
 # This represents how often schedules should refresh. Keep at this setting.
 FM_EVENT_RESOLUTION_IN_MINUTES: int = 5
-EVENT_RESOLUTION: object # Should be timedelta but do not want to import that here, see globals.
+EVENT_RESOLUTION: (
+    object  # Should be timedelta but do not want to import that here, see globals.
+)
 
 # CONSTANTS for FM URL's
 FM_BASE_URL = "https://seita.energy"
@@ -79,12 +83,42 @@ FM_OPTIMISATION_CONTEXT: dict = {}
 # These are the also used for fetching data from FM to show in the graph.
 # ToDo: Add EPEX NO and Emissions NO sensors
 DEFAULT_UTILITY_CONTEXTS = {
-    "nl_generic": {"consumption-sensor": 14, "production-sensor": 14, "emissions-sensor": 27, "display-name": "EPEX Day ahead NL"},
-    "nl_anwb_energie": {"consumption-sensor": 60, "production-sensor": 71, "emissions-sensor": 27, "display-name": "ANWB Energie"},
-    "nl_greenchoice": {"consumption-sensor": 129, "production-sensor": 130, "emissions-sensor": 27, "display-name": "Greenchoice"},
-    "nl_next_energy": {"consumption-sensor": 90, "production-sensor": 91, "emissions-sensor": 27, "display-name": "NextEnergy"},
-    "nl_tibber": {"consumption-sensor": 58, "production-sensor": 70, "emissions-sensor": 27, "display-name": "Tibber"},
-    "no_generic": {"consumption-sensor": 14, "production-sensor": 14, "emissions-sensor": 27,  "display-name": "EPEX Day ahead NO"}
+    "nl_generic": {
+        "consumption-sensor": 14,
+        "production-sensor": 14,
+        "emissions-sensor": 27,
+        "display-name": "EPEX Day ahead NL",
+    },
+    "nl_anwb_energie": {
+        "consumption-sensor": 60,
+        "production-sensor": 71,
+        "emissions-sensor": 27,
+        "display-name": "ANWB Energie",
+    },
+    "nl_greenchoice": {
+        "consumption-sensor": 129,
+        "production-sensor": 130,
+        "emissions-sensor": 27,
+        "display-name": "Greenchoice",
+    },
+    "nl_next_energy": {
+        "consumption-sensor": 90,
+        "production-sensor": 91,
+        "emissions-sensor": 27,
+        "display-name": "NextEnergy",
+    },
+    "nl_tibber": {
+        "consumption-sensor": 58,
+        "production-sensor": 70,
+        "emissions-sensor": 27,
+        "display-name": "Tibber",
+    },
+    "no_generic": {
+        "consumption-sensor": 14,
+        "production-sensor": 14,
+        "emissions-sensor": 27,
+        "display-name": "EPEX Day ahead NO",
+    },
 }
 
 # FM ACCOUNT CONSTANTS
