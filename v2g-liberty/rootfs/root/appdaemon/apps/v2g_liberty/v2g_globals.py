@@ -1686,7 +1686,6 @@ class V2GLibertyGlobals(ServiceResponseApp):
 #                           UTIL FUNCTIONS                           #
 ######################################################################
 
-
 def is_price_epex_based() -> bool:
     # Alle EPEX based electricity providers have a daily update frequency.
     # This also applies to Octopus Energy
