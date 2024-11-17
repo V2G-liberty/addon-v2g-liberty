@@ -2,7 +2,7 @@ import datetime as dt
 import re
 import requests
 import constants as c
-import inspect
+import log_wrapper
 from v2g_globals import he, get_local_now
 import caldav
 from service_response_app import ServiceResponseApp
@@ -30,6 +30,7 @@ class ReservationsClient:
 
     def __init__(self, hass: Hass):
         self.hass = hass
+        self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("initialise ReservationsClient")
@@ -233,20 +234,6 @@ class ReservationsClient:
     ######################################################################
     #                   PRIVATE (CALLBACK) FUNCTIONS                     #
     ######################################################################
-
-    def __log(self, msg:str, level:str=""):
-        info = inspect.stack()[1][0]
-        the_class = info.f_locals["self"].__class__.__name__[:20]
-        the_method = info.f_code.co_name[:20]
-        # The current custom is to add the method name to the message, this is not needed any more as
-        # it is added here already. So, if it is in the message, remove it.
-        msg = msg.replace(old=f"{the_method} ", new="")
-        line_no = info.f_lineno
-        if level=="":
-            level="INFO"
-        msg =f"{the_class} ({line_no}) > {the_method} > {msg}"
-        self.hass.log(msg=msg, level=level)
-
 
     async def __handle_calendar_integration_change(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import isodate
 import constants as c
+import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
 from v2g_globals import time_round, convert_to_duration_string
 
@@ -56,20 +57,21 @@ class ManageAmberPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
+        self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
-        self.hass.log(f"Initializing ManageAmberPriceData.")
+        self.__log(f"Initializing ManageAmberPriceData.")
 
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
         ##########################################################################
-        # self.hass.log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!")
+        # self.__log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!")
         # self.CURRENCY = "EUR"
 
         self.POLLING_INTERVAL_SECONDS = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
         self.poll_timer_handle = None
         await self.kick_off_amber_price_management(initial=True)
-        self.hass.log(f"Completed Initializing ManageAmberPriceData.")
+        self.__log(f"Completed Initializing ManageAmberPriceData.")
 
     async def kick_off_amber_price_management(self, initial: bool = False):
         """
@@ -81,7 +83,7 @@ class ManageAmberPriceData:
          :return: Nothing
         """
         if c.ELECTRICITY_PROVIDER != "au_amber_electric":
-            self.hass.log(
+            self.__log(
                 f"Not kicking off ManageAmberPriceData module. Electricity provider is not 'au_amber_electric'."
             )
             return
@@ -90,12 +92,12 @@ class ManageAmberPriceData:
             c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID is None
             or c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID is None
         ):
-            self.hass.log(
+            self.__log(
                 f"Not kicking off ManageAmberPriceData module, price entity_id's are not populated (yet)."
             )
             return
 
-        self.hass.log(f"kick_off_amber_price_management starting!")
+        self.__log(f"kick_off_amber_price_management starting!")
 
         if initial:
             await self.__check_for_price_changes({"forced": True})
@@ -110,7 +112,7 @@ class ManageAmberPriceData:
             interval=self.POLLING_INTERVAL_SECONDS,
         )
 
-        self.hass.log(f"kick_off_amber_price_management completed")
+        self.__log(f"kick_off_amber_price_management completed")
 
     async def __check_for_price_changes(self, kwargs):
         """Checks if prices have changed.
@@ -120,7 +122,7 @@ class ManageAmberPriceData:
         + Request a new schedule
         """
         forced = kwargs.get("forced", False)
-        self.hass.log(f"__check_for_price_changes, forced: {forced}.")
+        self.__log(f"__check_for_price_changes, forced: {forced}.")
 
         new_schedule_needed = False
 
@@ -142,7 +144,7 @@ class ManageAmberPriceData:
             emissions.append(100 - int(float(item[self.EMISSION_LABEL])))
 
         if consumption_prices != self.last_consumption_prices or forced:
-            self.hass.log("__check_for_price_changes: consumption_prices changed")
+            self.__log("__check_for_price_changes: consumption_prices changed")
             start_cpf = parse_to_rounded_local_datetime(
                 collection_cpf[0][self.START_LABEL]
             )
@@ -163,7 +165,7 @@ class ManageAmberPriceData:
                     unit=uom,
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None."
                 )
                 res = False
@@ -172,19 +174,19 @@ class ManageAmberPriceData:
                 if self.get_fm_data_module is not None:
                     await self.get_fm_data_module.get_consumption_prices()
                 else:
-                    self.hass.log(
+                    self.__log(
                         "__check_for_price_changes. Could not call get_consumption_prices on "
                         "get_fm_data_module as it is None."
                     )
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
-                self.hass.log(
+                self.__log(
                     f"__check_for_price_changes, res: {res}, "
                     f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}"
                 )
 
         if emissions != self.last_emissions or forced:
-            self.hass.log("__check_for_price_changes: emissions changed")
+            self.__log("__check_for_price_changes: emissions changed")
             # TODO: copied code from previous block, please prevent this.
             start_cpf = parse_to_rounded_local_datetime(
                 collection_cpf[0][self.START_LABEL]
@@ -207,7 +209,7 @@ class ManageAmberPriceData:
                     unit="%",
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None."
                 )
                 res = False
@@ -219,12 +221,12 @@ class ManageAmberPriceData:
                 if self.get_fm_data_module is not None:
                     await self.get_fm_data_module.get_emission_intensities()
                 else:
-                    self.hass.log(
+                    self.__log(
                         "__check_for_price_changes. Could not call get_emission_intensities on "
                         "get_fm_data_module as it is None."
                     )
 
-            self.hass.log(
+            self.__log(
                 f"__check_for_price_changes, res: {res}, "
                 f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}"
             )
@@ -241,7 +243,7 @@ class ManageAmberPriceData:
             )
 
         if production_prices != self.last_production_prices or forced:
-            self.hass.log("__check_for_price_changes: production_prices changed")
+            self.__log("__check_for_price_changes: production_prices changed")
             self.last_production_prices = list(production_prices)
             start_ppf = parse_to_rounded_local_datetime(
                 collection_ppf[0][self.START_LABEL]
@@ -262,7 +264,7 @@ class ManageAmberPriceData:
                     unit=uom,
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"__check_for_price_changes. 2 Could not call post_measurements on fm_client_app as it is None."
                 )
                 res = False
@@ -271,26 +273,26 @@ class ManageAmberPriceData:
                 if self.get_fm_data_module is not None:
                     await self.get_fm_data_module.get_production_prices()
                 else:
-                    self.hass.log(
+                    self.__log(
                         "__check_for_price_changes. Could not call get_production_prices on "
                         "get_fm_data_module as it is None."
                     )
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
-            self.hass.log(
+            self.__log(
                 f"__check_for_price_changes, res: {res}, opt_mod: {c.OPTIMISATION_MODE}, "
                 f"new_schedule: {new_schedule_needed}"
             )
 
         if not new_schedule_needed:
-            self.hass.log("__check_for_price_changes: not any changes")
+            self.__log("__check_for_price_changes: not any changes")
             return
 
         msg = f"changed Amber {c.OPTIMISATION_MODE}s"
         if self.v2g_main_app is not None:
             await self.v2g_main_app.set_next_action(v2g_args=msg)
         else:
-            self.hass.log(
+            self.__log(
                 "__check_for_price_changes. Could not call set_next_action on v2g_main_app as it is None."
             )
 
