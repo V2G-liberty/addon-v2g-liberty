@@ -8,6 +8,7 @@ from v2g_globals import (
     convert_to_duration_string,
 )
 import constants as c
+import log_wrapper
 from v2g_liberty import ChartLine
 from typing import List
 from appdaemon.plugins.hass.hassapi import Hass
@@ -58,6 +59,7 @@ class FlexMeasuresDataImporter:
 
     def __init__(self, hass: Hass):
         self.hass = hass
+        self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
         """
@@ -82,7 +84,7 @@ class FlexMeasuresDataImporter:
         The cost data is, independent of price_type of provider contract, fetched daily in the early morning.
 
         """
-        self.hass.log("Initializing FlexMeasuresDataImporter")
+        self.__log("Initializing FlexMeasuresDataImporter")
 
         self.emission_intensities = {}
         self.first_future_negative_consumption_price_point = None
@@ -92,7 +94,7 @@ class FlexMeasuresDataImporter:
 
         await self.finalize_initialisation("module initialize")
 
-        self.hass.log("Completed initializing FlexMeasuresDataImporter")
+        self.__log("Completed initializing FlexMeasuresDataImporter")
 
     async def finalize_initialisation(self, v2g_args: str):
         """
@@ -103,7 +105,7 @@ class FlexMeasuresDataImporter:
         This is delayed as it's not high priority and gives globals the time to get all settings loaded correctly.
         """
 
-        self.hass.log(f"finalize_initialisation called from source: {v2g_args}.")
+        self.__log(f"finalize_initialisation called from source: {v2g_args}.")
 
         # From FM format (€/MWh) to user desired format (€ct/kWh)
         # = * 100/1000 = 1/10.
@@ -135,7 +137,7 @@ class FlexMeasuresDataImporter:
         await self.__cancel_timer(self.timer_id_daily_check_is_data_up_to_date)
 
         if is_price_epex_based():
-            self.hass.log("initialize: price update interval is daily")
+            self.__log("initialize: price update interval is daily")
             self.timer_id_daily_kickoff_price_data = await self.hass.run_daily(
                 self.daily_kickoff_price_data, start=self.GET_PRICES_TIME
             )
@@ -156,7 +158,7 @@ class FlexMeasuresDataImporter:
         await self.hass.run_in(
             self.daily_kickoff_charging_data, delay=initial_delay_sec
         )
-        self.hass.log("finalize_initialisation completed.")
+        self.__log("finalize_initialisation completed.")
 
     # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
     async def __cancel_timer(self, timer_id: str):
@@ -176,7 +178,7 @@ class FlexMeasuresDataImporter:
         This sets off the daily routine to check for new prices.
         Only called when is_price_epex_based() is true.
         """
-        self.hass.log(f"daily_kickoff_price_data called, args: {args}.")
+        self.__log(f"daily_kickoff_price_data called, args: {args}.")
 
         self.consumption_price_is_up_to_date = None
         parameters = {"price_type": "consumption"}
@@ -186,22 +188,22 @@ class FlexMeasuresDataImporter:
         parameters = {"price_type": "production"}
         await self.get_prices(parameters)
 
-        self.hass.log("daily_kickoff_price_data completed")
+        self.__log("daily_kickoff_price_data completed")
 
     async def daily_kickoff_emissions_data(self, *args):
         """
         This sets off the daily routine to check for new emission data.
         Only called when is_price_epex_based() is true.
         """
-        self.hass.log(f"daily_kickoff_emissions_data called")
+        self.__log(f"daily_kickoff_emissions_data called")
         res = await self.get_emission_intensities()
-        self.hass.log(
+        self.__log(
             f"daily_kickoff_price_data get_emission_intensities returned: {res}."
         )
 
     async def daily_kickoff_charging_data(self, *args):
         """This sets off the daily routine to check for charging cost."""
-        self.hass.log(f"daily_kickoff_charging_data called")
+        self.__log(f"daily_kickoff_charging_data called")
         await self.get_charging_cost()
         await self.get_charged_energy()
 
@@ -212,7 +214,7 @@ class FlexMeasuresDataImporter:
         Make costs total costs of this period available in HA by setting them in input_text.last week costs
         ToDo: Split cost in charging and dis-charging per day
         """
-        self.hass.log(f"get_charging_cost called")
+        self.__log(f"get_charging_cost called")
         now = get_local_now()
 
         # Getting data since a week ago so that user can look back a further than just current window.
@@ -229,17 +231,17 @@ class FlexMeasuresDataImporter:
                 uom=c.CURRENCY,
             )
         else:
-            self.hass.log(
+            self.__log(
                 f"get_charging_cost. Could not call get_sensor_data on fm_client_app as it is None."
             )
             return False
 
-        self.hass.log(
+        self.__log(
             f"get_charging_cost | sensor_id: {c.FM_ACCOUNT_COST_SENSOR_ID}, charging_costs: {charging_costs}."
         )
 
         if charging_costs is None:
-            self.hass.log(
+            self.__log(
                 "get_charging_cost, get_sensor_data on fm_client_app returned None,"
                 " aborting.",
                 level="WARNING",
@@ -254,7 +256,7 @@ class FlexMeasuresDataImporter:
         for i, charging_cost in enumerate(charging_costs):
             if charging_cost is None:
                 continue
-            self.hass.log(f"charging_cost: '{charging_cost}'.")
+            self.__log(f"charging_cost: '{charging_cost}'.")
             data_point = {
                 "time": (start + i * resolution).isoformat(),
                 "cost": round(float(charging_cost), 2),
@@ -263,9 +265,9 @@ class FlexMeasuresDataImporter:
             charging_cost_points.append(data_point)
         if len(charging_cost_points) == 0:
             # TODO: All data points are None, what to do?
-            self.hass.log("get_charging_cost. No charging cost data available")
+            self.__log("get_charging_cost. No charging cost data available")
         total_charging_cost_last_7_days = round(total_charging_cost_last_7_days, 2)
-        self.hass.log(
+        self.__log(
             f"get_charging_cost Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}"
         )
 
@@ -288,7 +290,7 @@ class FlexMeasuresDataImporter:
         Make totals of charging and dis-charging per day and over the period
 
         """
-        self.hass.log("get_charged_energy, called.")
+        self.__log("get_charged_energy, called.")
 
         now = get_local_now()
         # Getting data since a week
@@ -307,13 +309,13 @@ class FlexMeasuresDataImporter:
                 uom="MW",
             )
         else:
-            self.hass.log(
+            self.__log(
                 f"get_charged_energy. Could not call get_sensor_data on fm_client_app as it is None."
             )
             return False
 
         if res is None:
-            self.hass.log(
+            self.__log(
                 "get_charged_energy | get_sensor_data on fm_client_app returned None,"
                 " aborting.",
                 level="WARNING",
@@ -325,7 +327,7 @@ class FlexMeasuresDataImporter:
         # 'start': '2024-09-02T00:00:00+02:00',
         # 'unit': 'MW',
         # 'values': [0.004321, None, ..., 0.005712]
-        self.hass.log(
+        self.__log(
             f"get_charged_energy sensor_id: {c.FM_ACCOUNT_POWER_SENSOR_ID}, "
             f"charge power response: {str(res)[:75]} ... {str(res)[-25:]}."
         )
@@ -416,7 +418,7 @@ class FlexMeasuresDataImporter:
             "input_text.total_charge_time_last_7_days",
             format_duration(total_minutes_charged),
         )
-        self.hass.log(
+        self.__log(
             f"get_charged_energy stats: \n"
             f"    total_discharged_energy_last_7_days: '{total_discharged_energy_last_7_days}' \n"
             f"    total_charged_energy_last_7_days: '{total_charged_energy_last_7_days}' \n"
@@ -433,7 +435,7 @@ class FlexMeasuresDataImporter:
         Make values available in HA by setting them in input_text.co2_emissions
         """
 
-        self.hass.log("get_emission_intensities called")
+        self.__log("get_emission_intensities called")
         now = get_local_now()
         # Getting emissions since a week ago. This is needed for calculation of CO2 savings
         # and will be (more than) enough for the graph to show.
@@ -451,7 +453,7 @@ class FlexMeasuresDataImporter:
                 uom=c.EMISSIONS_UOM,
             )
 
-            self.hass.log(
+            self.__log(
                 f"get_emission_intensities, emissions: {str(emissions)[:175]}...{str(emissions)[-75:]}."
             )
             if emissions is None:
@@ -512,7 +514,7 @@ class FlexMeasuresDataImporter:
                     if date_latest_emission < date_tomorrow:
                         failure_message = "emissions are not up to date"
         else:
-            self.hass.log(
+            self.__log(
                 f"get_emission_intensities. Could not call get_sensor_data on fm_client_app as it is None."
             )
             failure_message = "fm_client not available yet"
@@ -520,25 +522,25 @@ class FlexMeasuresDataImporter:
         if failure_message != "":
             if not is_price_epex_based():
                 pass
-                # self.hass.log(f"get_emission_intensities: {failure_message}, not EPEX based: not retrying.")
+                # self.__log(f"get_emission_intensities: {failure_message}, not EPEX based: not retrying.")
             elif is_local_now_between(
                 start_time=self.GET_EMISSIONS_TIME, end_time=self.TRY_UNTIL
             ):
                 await self.hass.run_in(
                     self.get_emission_intensities, delay=self.CHECK_RESOLUTION_SECONDS
                 )
-                self.hass.log(
+                self.__log(
                     f"get_emission_intensities: {failure_message}, "
                     f"try again in '{self.CHECK_RESOLUTION_SECONDS}' sec."
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"get_emission_intensities: {failure_message}, 'now' is out of time bounds "
                     f"start: '{self.GET_EMISSIONS_TIME}' - end: '{self.TRY_UNTIL}', not retrying."
                 )
             return False
 
-        self.hass.log(f"emissions successfully retrieved.")
+        self.__log(f"emissions successfully retrieved.")
         # A bit of a hack, the method needs to return something for the awaited calls to this method to work...
         return "emissions successfully retrieved."
 
@@ -565,13 +567,13 @@ class FlexMeasuresDataImporter:
         price_type = parameters.get("price_type", None)
 
         if price_type not in ["consumption", "production"]:
-            self.hass.log(
+            self.__log(
                 f"get_prices called with unknown price_type: '{price_type}'.",
                 level="WARNING",
             )
             return False
 
-        self.hass.log(f"get_prices called for {price_type}")
+        self.__log(f"get_prices called for {price_type}")
 
         failure_message = ""
         now = get_local_now()
@@ -581,7 +583,7 @@ class FlexMeasuresDataImporter:
             days_back = 1
         else:
             days_back = 2
-        self.hass.log(f"{days_back=}")
+        self.__log(f"{days_back=}")
         start = time_floor(now - timedelta(days=days_back), timedelta(days=1))
         if self.fm_client_app is not None:
             sensor_id = (
@@ -597,7 +599,7 @@ class FlexMeasuresDataImporter:
                 uom=f"{c.CURRENCY}/MWh",
             )
 
-            self.hass.log(
+            self.__log(
                 f"get_prices  ({price_type}) | sensor_id: {sensor_id}, prices: {prices}."
             )
 
@@ -632,7 +634,7 @@ class FlexMeasuresDataImporter:
                         and data_point["price"] < 0
                         and dt > now
                     ):
-                        self.hass.log(
+                        self.__log(
                             f"get_prices ({price_type}), negative price: {data_point['price']} at: {dt}."
                         )
                         first_future_negative_price_point = {
@@ -667,21 +669,21 @@ class FlexMeasuresDataImporter:
                         start_time=self.GET_PRICES_TIME, end_time="23:59:59"
                     ):
                         expected_price_dt = now + timedelta(days=1)
-                        # self.hass.log(f"get_prices, set expected_price_dt is tomorrow.")
+                        # self.__log(f"get_prices, set expected_price_dt is tomorrow.")
                     else:
                         expected_price_dt = now
-                        # self.hass.log(f"get_prices, set expected_price_dt is today.")
+                        # self.__log(f"get_prices, set expected_price_dt is today.")
                     # Round it to the end of the day
                     expected_price_dt = time_ceil(expected_price_dt, timedelta(days=1))
 
-                    # self.hass.log(
+                    # self.__log(
                     #     f"get_prices, set expected_price_dt C {expected_price_dt=}."
                     # )
 
                     # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to subtract one hour
                     # and a little extra to give it some slack.
                     expected_price_dt -= timedelta(minutes=65)
-                    # self.hass.log(
+                    # self.__log(
                     #     f"get_prices, set expected_price_dt D {expected_price_dt=}."
                     # )
                     is_up_to_date = date_latest_price > expected_price_dt
@@ -692,7 +694,7 @@ class FlexMeasuresDataImporter:
                             is_up_to_date=False
                         )
 
-                    self.hass.log(
+                    self.__log(
                         f"get_prices ({price_type}): is up to date: '{is_up_to_date}' based on "
                         f"latest_price ({date_latest_price}) > expected_price_dt ({expected_price_dt})."
                     )
@@ -709,22 +711,22 @@ class FlexMeasuresDataImporter:
 
                     if not is_up_to_date:
                         failure_message = "prices not up to date"
-                        self.hass.log(f"get_prices ({price_type}), {failure_message}.")
+                        self.__log(f"get_prices ({price_type}), {failure_message}.")
 
                     if needs_update_check:
-                        self.hass.log(
+                        self.__log(
                             f"get_prices, {price_type} prices are up to date again."
                         )
                         await self.__check_if_prices_are_up_to_date_again(run_once=True)
         else:
-            self.hass.log(
+            self.__log(
                 f"get_prices ({price_type}). Could not call get_sensor_data on fm_client_app as it is None."
             )
             failure_message = "fm_client not available yet"
 
         if failure_message != "":
             if not is_price_epex_based():
-                self.hass.log(
+                self.__log(
                     f"get_prices ({price_type}): {failure_message}, not EPEX based: not retrying."
                 )
             elif is_local_now_between(
@@ -735,18 +737,18 @@ class FlexMeasuresDataImporter:
                     delay=self.CHECK_RESOLUTION_SECONDS,
                     price_type=price_type,
                 )
-                self.hass.log(
+                self.__log(
                     f"get_prices ({price_type}): {failure_message}, "
                     f"try again in '{self.CHECK_RESOLUTION_SECONDS}' sec."
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"get_prices ({price_type}): {failure_message}, 'now' is out of time bounds "
                     f"start: '{self.GET_PRICES_TIME}' - end: '{self.TRY_UNTIL}', not retrying."
                 )
             return False
 
-        self.hass.log(f"{price_type} prices successfully retrieved.")
+        self.__log(f"{price_type} prices successfully retrieved.")
         return f"prices successfully retrieved."
 
     async def __check_if_prices_are_up_to_date(self, *args):
@@ -758,7 +760,7 @@ class FlexMeasuresDataImporter:
         enough to give user a chance to take measures.
         :return: Nothing
         """
-        self.hass.log("__check_if_prices_are_up_to_date called")
+        self.__log("__check_if_prices_are_up_to_date called")
         unavailable = ""
         if not self.consumption_price_is_up_to_date:
             unavailable = "Consumption"
@@ -769,7 +771,7 @@ class FlexMeasuresDataImporter:
             and not self.production_price_is_up_to_date
         ):
             unavailable = "Consumption and production"
-        self.hass.log(f"__check_if_prices_are_up_to_date, {unavailable=}.")
+        self.__log(f"__check_if_prices_are_up_to_date, {unavailable=}.")
         if unavailable != "":
             self.v2g_main_app.notify_user(
                 message=f"{unavailable} price not available, cloud not check for negative prices. "
@@ -802,26 +804,26 @@ class FlexMeasuresDataImporter:
         :param args: Not used, only for compatibility with 'run_in' method.
         :return: None
         """
-        self.hass.log("__check_if_prices_are_up_to_date_again called")
+        self.__log("__check_if_prices_are_up_to_date_again called")
         if (
             self.consumption_price_is_up_to_date
             and self.consumption_price_is_up_to_date
         ):
             await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
             self.v2g_main_app.clear_notification(tag="no_price_data")
-            self.hass.log(
+            self.__log(
                 "__check_if_prices_are_up_to_date_again, prices up to date again: notification cleared."
             )
         else:
             if run_once:
-                self.hass.log(
+                self.__log(
                     "__check_if_prices_are_up_to_date_again prices not up to date but, "
                     "called with 'run_once': no re-run."
                 )
             elif is_local_now_between(
                 start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
             ):
-                self.hass.log(
+                self.__log(
                     "__check_if_prices_are_up_to_date_again prices not up to date yet: rerun."
                 )
                 await self.hass.run_in(
@@ -830,7 +832,7 @@ class FlexMeasuresDataImporter:
                     delay=self.CHECK_RESOLUTION_SECONDS,
                 )
             else:
-                self.hass.log(
+                self.__log(
                     "__check_if_prices_are_up_to_date_again prices not up to date but,"
                     "'now' is out of time bounds, no re-run."
                 )
@@ -850,7 +852,7 @@ class FlexMeasuresDataImporter:
         - the price_points are stored in separate variables:
           self.first_future_negative_consumption_price_point and self.first_future_negative_production_price_point
         """
-        self.hass.log("__check_negative_price_notification called")
+        self.__log("__check_negative_price_notification called")
         if not is_price_epex_based():
             return
         if price_type == "consumption_price_point":
@@ -866,7 +868,7 @@ class FlexMeasuresDataImporter:
             self.first_future_negative_production_price_point = price_point
 
         else:
-            self.hass.log(
+            self.__log(
                 f"check_negative_price_notification, unknown price_point type: {price_type}."
             )
             return
@@ -884,7 +886,7 @@ class FlexMeasuresDataImporter:
 
         if msg == " ":
             self.v2g_main_app.clear_notification(tag="negative_energy_prices")
-            self.hass.log(
+            self.__log(
                 "__check_negative_price_notification, clearing negative price notification"
             )
         else:
@@ -896,7 +898,7 @@ class FlexMeasuresDataImporter:
                 send_to_all=True,
                 ttl=12 * 60 * 60,
             )
-        self.hass.log(
+        self.__log(
             f"__check_negative_price_notification, notify user with message: {msg}."
         )
         return
@@ -925,7 +927,7 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
     end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
 
     if end_dt < start_dt:
-        # self.hass.log(f"is_local_now_between, end_dt < start_dt ...")
+        # self.__log(f"is_local_now_between, end_dt < start_dt ...")
         # Start and end time backwards, so it spans midnight.
         # Let's start by assuming end_dt is wrong and should be tomorrow.
         # This will be true if we are currently after start_dt

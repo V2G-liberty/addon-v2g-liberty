@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import isodate
 import math
 import constants as c
+import log_wrapper
 from v2g_globals import time_round, get_local_now
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -48,9 +49,10 @@ class FMClient:
 
     def __init__(self, hass: Hass):
         self.hass = hass
+        self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
-        self.hass.log("Initializing FlexMeasuresClient")
+        self.__log("Initializing FlexMeasuresClient")
 
         self.fm_token = ""
         self.fm_busy_getting_schedule = False
@@ -78,17 +80,17 @@ class FMClient:
         self.connection_error_counter = 0
         # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
-        self.hass.log("Completed initializing FlexMeasuresClient")
+        self.__log("Completed initializing FlexMeasuresClient")
 
     async def initialise_and_test_fm_client(self) -> str:
-        self.hass.log("initialise_and_test_fm_client called")
+        self.__log("initialise_and_test_fm_client called")
         # Unusual place for the import, but it has to be in an async method otherwise it errors out
         # with problems with the async loop.
         from flexmeasures_client import FlexMeasuresClient
         from flexmeasures_client.exceptions import EmailValidationError
 
         host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
-        self.hass.log(f"initialise_and_test_fm_client, host: '{host}', ssl: '{ssl}'.")
+        self.__log(f"initialise_and_test_fm_client, host: '{host}', ssl: '{ssl}'.")
         try:
             self.client = FlexMeasuresClient(
                 host=host,
@@ -97,39 +99,39 @@ class FMClient:
                 ssl=ssl,
             )
         except ValueError as ve:
-            self.hass.log(f"initialise_and_test_fm_client, CLIENT ERROR: {ve}.")
+            self.__log(f"initialise_and_test_fm_client, CLIENT ERROR: {ve}.")
             # ValueErrors:
             # 'xxx' is not an email address format string (= also for empty email)
             # password cannot be empty
             return ve
         except EmailValidationError as eve:
-            self.hass.log(f"initialise_and_test_fm_client, CLIENT ERROR: {eve}.")
+            self.__log(f"initialise_and_test_fm_client, CLIENT ERROR: {eve}.")
             return eve
 
-        self.hass.log(
+        self.__log(
             f"initialise_and_test_fm_client, successfully initialised flexmeasures client"
         )
 
         try:
-            self.hass.log("initialise_and_test_fm_client, getting access token...")
+            self.__log("initialise_and_test_fm_client, getting access token...")
             await self.client.get_access_token()
         except ValueError as ve:
-            self.hass.log(f"V2G ERROR: {ve}")
+            self.__log(f"V2G ERROR: {ve}")
             # ValueErrors:
             # User with email 'xxx' does not exist
             # User password does not match
             return ve
         except ConnectionError as ce:
-            self.hass.log(f"CLIENT ERROR: {ce}")
+            self.__log(f"CLIENT ERROR: {ce}")
             # CommunicationErrors:
             # Error occurred while communicating with the API
             # = for invalid URL and none-fm-url
             return "Communication error. Wrong URL?"
 
         if self.client.access_token is None:
-            self.hass.log("initialise_and_test_fm_client, access token is None")
+            self.__log("initialise_and_test_fm_client, access token is None")
             return "Unknown error with FlexMeasures"
-        self.hass.log(
+        self.__log(
             f"initialise_and_test_fm_client, access token: {self.client.access_token}, "
             f"returning 'Successfully connected'."
         )
@@ -137,11 +139,11 @@ class FMClient:
         return "Successfully connected"
 
     async def get_fm_assets(self):
-        self.hass.log("get_fm_assets called")
+        self.__log("get_fm_assets called")
         return await self.client.get_assets()
 
     async def get_fm_sensors(self, asset_id: int):
-        self.hass.log("get_fm_sensors called")
+        self.__log("get_fm_sensors called")
         fm_sensors = await self.client.get_sensors()
         # Filter sensors to match the assets_id
         sensors = [
@@ -165,7 +167,7 @@ class FMClient:
     # if self.connection_error_counter == 1:
     #     # A first error occurred, retry in every minute now
     #     self.handle_for_repeater = self.run_every(self.ping_server, "now+60", 60)
-    #     self.hass.log("No communication with FM! Increase tracking frequency.")
+    #     self.__log("No communication with FM! Increase tracking frequency.")
     #     await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", True)
 
     async def get_sensor_data(
@@ -190,7 +192,7 @@ class FMClient:
                     'unit': 'MW'
                 }
         """
-        self.hass.log(f"get_sensor_data called for sensor_id: {sensor_id}.")
+        self.__log(f"get_sensor_data called for sensor_id: {sensor_id}.")
         try:
             res = await self.client.get_sensor_data(
                 sensor_id=sensor_id,
@@ -201,7 +203,7 @@ class FMClient:
             )
         except Exception as e:
             # ContentTypeError, ValueError, timeout, no data??:
-            self.hass.log(
+            self.__log(
                 f"get_sensor_data for sensor_id: '{sensor_id}', start: '{start}', duration: '{duration}', "
                 f"unit: '{uom}',  resolution: '{resolution}' failed, client returned exception: '{e}'."
             )
@@ -229,9 +231,9 @@ class FMClient:
         Returns:
             bool: weather or not sending was successful
         """
-        self.hass.log(f"post_measurements called.")
+        self.__log(f"post_measurements called.")
         if len(values) == 0:
-            self.hass.log(
+            self.__log(
                 f"post_measurements, value list 0 length, not sending data to sensor_id '{sensor_id}'."
             )
             return False
@@ -246,7 +248,7 @@ class FMClient:
             )
         except Exception as e:
             # ContentTypeError, ValueError, timeout??:
-            self.hass.log(
+            self.__log(
                 f"post_measurements failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
                 f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'."
             )
@@ -265,29 +267,27 @@ class FMClient:
         back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back at max soc.
         Can be None.
         """
-        self.hass.log(f"get_new_schedule called.")
+        self.__log(f"get_new_schedule called.")
         now = get_local_now()
         if self.fm_busy_getting_schedule:
-            self.hass.log(
+            self.__log(
                 f"get_new_schedule, busy with prior request since: {self.fm_date_time_last_schedule.isoformat()}."
             )
             seconds_since_last_schedule = int(
                 (now - self.fm_date_time_last_schedule).total_seconds()
             )
             if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
-                self.hass.log(
+                self.__log(
                     f"Retrieving previous schedule is taking too long ({seconds_since_last_schedule} sec.),"
                     " assuming call got 'lost'. Getting new schedule."
                 )
             else:
-                self.hass.log(
+                self.__log(
                     "Not getting new schedule, still processing previous request."
                 )
                 return
         else:
-            self.hass.log(
-                "get_new_schedule: Was not busy getting schedule, but i am now!"
-            )
+            self.__log("get_new_schedule: Was not busy getting schedule, but i am now!")
 
         # This has to be set here instead of in get_schedule because that function is called with a delay
         # and during this delay this get_new_schedule could be called.
@@ -341,7 +341,7 @@ class FMClient:
             ##################################
             #    Make a list of soc_minima   #
             ##################################
-            self.hass.log(f"get_new_schedule, start generating soc_minima'.")
+            self.__log(f"get_new_schedule, start generating soc_minima'.")
             for target in targets:
                 target_start = target["start"]
                 target_end = target["end"]
@@ -397,7 +397,7 @@ class FMClient:
             ##################################
             #   Make a list of soc_maxima    #
             ##################################
-            self.hass.log(f"get_new_schedule, start generating soc_maxima'.")
+            self.__log(f"get_new_schedule, start generating soc_maxima'.")
 
             # The basis maxima that can be lifted by adding other maxima
             soc_maxima = [
@@ -426,9 +426,7 @@ class FMClient:
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
                     )
-                    self.hass.log(
-                        f"get_new_schedule window_duration: {window_duration}."
-                    )
+                    self.__log(f"get_new_schedule window_duration: {window_duration}.")
                     # srw = start_relaxation_window, erw = end_relaxation_window
                     srw = time_round(
                         (soc_minimum_start - timedelta(minutes=window_duration)),
@@ -443,13 +441,13 @@ class FMClient:
                         srw = rounded_now
                         # In this case it is never relevant to go back to max_soc
                         back_to_max_soc = None
-                        self.hass.log(
+                        self.__log(
                             "get_new_schedule, strategy for soc_maxima: "
                             "Priority for calendar target (Scenario 3)."
                         )
                     if srw < first_b2ms_reset_moment:
                         first_b2ms_reset_moment = srw
-                    self.hass.log(f"get_new_schedule srw: {srw}.")
+                    self.__log(f"get_new_schedule srw: {srw}.")
 
                     soc_maxima.append(
                         {
@@ -458,7 +456,7 @@ class FMClient:
                             "end": erw,
                         }
                     )
-                self.hass.log(
+                self.__log(
                     f"get_new_schedule, soc_minima processed - "
                     f"first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}."
                 )
@@ -507,7 +505,7 @@ class FMClient:
         # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
 
         if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime):
-            self.hass.log(f"get_new_schedule, back_to_max_soc: '{back_to_max_soc}'.")
+            self.__log(f"get_new_schedule, back_to_max_soc: '{back_to_max_soc}'.")
 
             # Postpone discharge till after current calendar item if target soc has not been fulfilled
             start_b2ms = None
@@ -545,7 +543,7 @@ class FMClient:
                         "end": first_b2ms_reset_moment,
                     }
                 )
-                self.hass.log(
+                self.__log(
                     "get_new_schedule, strategy for soc_maxima: "
                     "Maxima current_soc until Start of relaxation window (Scenario 2)."
                 )
@@ -607,7 +605,7 @@ class FMClient:
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }
-        self.hass.log(f"get_new_schedule | flex_model: {flex_model}.")
+        self.__log(f"get_new_schedule | flex_model: {flex_model}.")
         schedule = {}
         try:
             schedule = await self.client.trigger_and_get_schedule(
@@ -619,7 +617,7 @@ class FMClient:
             )
         except Exception as e:
             # ContentTypeError, ValueError, timeout??:
-            self.hass.log(
+            self.__log(
                 f"get_new_schedule, failed to get schedule, client returned exception: {e}."
             )
             self.fm_busy_getting_schedule = False
@@ -628,7 +626,7 @@ class FMClient:
                     "timeouts_on_schedule", True
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"get_new_schedule. "
                     f"Could not call handle_no_new_schedule on v2g_main_app as it is None."
                 )
@@ -637,13 +635,13 @@ class FMClient:
         self.fm_busy_getting_schedule = False
 
         if schedule == {}:
-            self.hass.log(f"get_new_schedule, schedule is empty")
+            self.__log(f"get_new_schedule, schedule is empty")
             if self.v2g_main_app is not None:
                 await self.v2g_main_app.handle_no_new_schedule(
                     "timeouts_on_schedule", True
                 )
             else:
-                self.hass.log(
+                self.__log(
                     f"get_new_schedule. "
                     f"Could not call handle_no_new_schedule on v2g_main_app as it is None."
                 )
@@ -651,7 +649,7 @@ class FMClient:
 
         await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
         self.fm_date_time_last_schedule = get_local_now()
-        self.hass.log(f"get_new_schedule, schedule: {schedule}")
+        self.__log(f"get_new_schedule, schedule: {schedule}")
 
         # To trigger state change we add the date to the state. State change is not triggered by attributes.
         await self.hass.set_state(
@@ -696,10 +694,10 @@ def consolidate_time_ranges(ranges, min_or_max: str = "max"):
     and accepted as a not-perfect output.
     """
     if len(ranges) == 0:
-        # self.hass.log("consolidate_time_ranges, ranges = [], aborting")
+        # self.__log("consolidate_time_ranges, ranges = [], aborting")
         return []
     elif len(ranges) == 1:
-        # self.hass.log("consolidate_time_ranges, only one range so nothing to consolidate, returning ranges untouched.")
+        # self.__log("consolidate_time_ranges, only one range so nothing to consolidate, returning ranges untouched.")
         return ranges
 
     generated_slots = __generate_time_slots(ranges)
