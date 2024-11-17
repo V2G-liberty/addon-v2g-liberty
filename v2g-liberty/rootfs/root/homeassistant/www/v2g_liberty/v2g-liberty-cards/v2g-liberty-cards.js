@@ -2851,7 +2851,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_select":{"electricity_provider":"Electricity contract"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"settings":{"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work.","usable-capacity-description":"This is the the maximum usable energy storage capacity.\\nThis often is lower than the advertised capacity."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the wanted state of charge at exactly the right time at the lowest cost.","select-name":"Calendar type","Direct caldav source-description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.","Home Assistant integration-description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid IP-address.","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis-)charge at max. **%{value}** W.","safety-info":"**Electric safety must be provided by the hardware, not this software!**\\nPlease consult a certified electrician what maximum power can be set on the charger.","do-not-reduce-max-power-description":"Do not reduce max. (dis-)charge power.","reduce-max-power-description":"Reduce max. (dis-)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven’t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis-)charge at max. **%{value}** W.\\n\\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\\n\\n---","reduce-max-power-description":"Use this to further limit the (dis-)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\\n*E.g:*\\n*The SoH is 11/12 and the original usable capacity was 56kWh use a value of 51kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometre.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh per km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"**Effects on automated charging**\\nThe automated schedule will never discharge below this value.\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower.\\n\\n**Boundaries**\\nThe default is 20% and has to be between 10 and 30%."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"**Effects on earnings**\\nThe schedule will use this limit for regular automated /scheduled charging.\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present, the schedule will ignore this limit and try to charge the battery to 100% at the start of the calendar item (or if the calendar item has a target use that).\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days).\\n\\n**Odd car behaviour**\\nIn some cars the SoC drops 1% in short time when idle above a certain SoC (e.g. 95%). This results in a toggling charge behaviour, try setting this limit to a lower value.\\n\\n**Boundaries**\\nThe default is 80%. The value has to be between 60 and 100%. Some cars will never charge above 97% so this could be a relevant boundary as well."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO₂ emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation"},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"!!!No communication with charger, please check connection.","use-default-server":"Use default server","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_select":{"electricity_provider":"Electricity contract"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"settings":{"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work.","usable-capacity-description":"This is the the maximum usable energy storage capacity.\\nThis often is lower than the advertised capacity."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the wanted state of charge at exactly the right time at the lowest cost.","select-name":"Calendar type","Direct caldav source-description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.","Home Assistant integration-description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid IP-address.","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis-)charge at max. **%{value}** W.","safety-info":"**Electric safety must be provided by the hardware, not this software!**\\nPlease consult a certified electrician what maximum power can be set on the charger.","do-not-reduce-max-power-description":"Do not reduce max. (dis-)charge power.","reduce-max-power-description":"Reduce max. (dis-)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven’t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis-)charge at max. **%{value}** W.\\n\\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\\n\\n---","reduce-max-power-description":"Use this to further limit the (dis-)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\\n*E.g:*\\n*The SoH is 11/12 and the original usable capacity was 56kWh use a value of 51kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometre.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh per km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"**Effects on automated charging**\\nThe automated schedule will never discharge below this value.\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower.\\n\\n**Boundaries**\\nThe default is 20% and has to be between 10 and 30%."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"**Effects on earnings**\\nThe schedule will use this limit for regular automated /scheduled charging.\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present, the schedule will ignore this limit and try to charge the battery to 100% at the start of the calendar item (or if the calendar item has a target use that).\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days).\\n\\n**Odd car behaviour**\\nIn some cars the SoC drops 1% in short time when idle above a certain SoC (e.g. 95%). This results in a toggling charge behaviour, try setting this limit to a lower value.\\n\\n**Boundaries**\\nThe default is 80%. The value has to be between 60 and 100%. Some cars will never charge above 97% so this could be a relevant boundary as well."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO₂ emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation"},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"!!!No communication with charger, please check connection.","use-default-server":"Use default server","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
@@ -11234,7 +11234,7 @@ function $4dbea3927e6cdc74$export$4554bf7c8c968942(option, label, isChecked, cha
     </div>
   `;
 }
-function $4dbea3927e6cdc74$export$1bc2b02519e65ffd(stateObj, currentValue, changedCallback, options) {
+function $4dbea3927e6cdc74$export$1bc2b02519e65ffd(currentValue, stateObj, changedCallback, options) {
     options = options ?? stateObj.attributes.options;
     const groupName = stateObj.entity_id;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -11270,7 +11270,7 @@ function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallb
     </ha-settings-row>
   `;
 }
-function $4dbea3927e6cdc74$export$bc401cf358a8ff27(stateObj, changedCallback) {
+function $4dbea3927e6cdc74$export$bc401cf358a8ff27(value, stateObj, changedCallback) {
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
       <span slot="heading">
@@ -11279,9 +11279,21 @@ function $4dbea3927e6cdc74$export$bc401cf358a8ff27(stateObj, changedCallback) {
       >
       <ha-textfield
         pattern="[\\w_]+\\.[\\d\\w_]+"
-        .value=${stateObj.state}
+        .value=${value}
         @change=${changedCallback}
       >
+      </ha-textfield
+    ></ha-settings-row>
+  `;
+}
+function $4dbea3927e6cdc74$export$bb1d970f9960d2ec(value, stateObj, changedCallback) {
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-settings-row>
+      <span slot="heading">
+        <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
+        ${stateObj.attributes.friendly_name}</span
+      >
+      <ha-textfield type="password" .value=${value} @change=${changedCallback}>
       </ha-textfield
     ></ha-settings-row>
   `;
@@ -11301,7 +11313,6 @@ function $942308f826de48c4$var$isUninitialised(stateObj) {
 }
 class $942308f826de48c4$export$569e42c9a98af7b7 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     async showDialog() {
-        console.log(this.supervisor);
         this.isOpen = true;
     }
     closeDialog() {
@@ -11316,11 +11327,6 @@ class $942308f826de48c4$export$569e42c9a98af7b7 extends (0, $ab210b2da7b39b9d$ex
         attribute: false
     })
 ], $942308f826de48c4$export$569e42c9a98af7b7.prototype, "hass", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $9cd908ed2625c047$export$d541bacb2bda4494)({
-        attribute: false
-    })
-], $942308f826de48c4$export$569e42c9a98af7b7.prototype, "supervisor", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $942308f826de48c4$export$569e42c9a98af7b7.prototype, "isOpen", void 0);
@@ -11340,6 +11346,7 @@ const $755a87c9ee93218f$export$9f5a291b67022977 = "input_text.calendar_account_p
 const $755a87c9ee93218f$export$b324c5213ab1689e = "input_text.calendar_account_connection_status";
 const $755a87c9ee93218f$export$7caca1b153da5c06 = "input_select.car_calendar_name";
 const $755a87c9ee93218f$export$500ee9ae1b823337 = "input_select.integration_calendar_entity_name";
+const $755a87c9ee93218f$export$2b7224725565ef34 = "input_boolean.charger_settings_initialised";
 const $755a87c9ee93218f$export$2ca8418123f63d6c = "input_text.charger_host_url";
 const $755a87c9ee93218f$export$6b510d2e1eeb3e11 = "input_number.charger_port";
 const $755a87c9ee93218f$export$daa3d3280ce4a564 = "input_text.charger_connection_status";
@@ -11359,12 +11366,13 @@ const $755a87c9ee93218f$export$29a786ee773985a = "input_select.optimisation_mode
 const $755a87c9ee93218f$export$a81a922cb2dc8458 = "input_number.car_min_soc_in_percent";
 const $755a87c9ee93218f$export$e39cc2ab91dbbf48 = "input_number.car_max_soc_in_percent";
 const $755a87c9ee93218f$export$bcf5813544a68726 = "input_number.allowed_duration_above_max_soc_in_hrs";
+const $755a87c9ee93218f$export$bcc5761a4d7674a4 = "input_boolean.schedule_settings_initialised";
 const $755a87c9ee93218f$export$e3ef81d1214ac426 = "input_text.fm_account_username";
 const $755a87c9ee93218f$export$4b92bff470c6dd52 = "input_text.fm_account_password";
 const $755a87c9ee93218f$export$c7d1877b110c2f09 = "input_boolean.fm_show_option_to_change_url";
 const $755a87c9ee93218f$export$f1a0886b70e9e963 = "input_text.fm_host_url";
 const $755a87c9ee93218f$export$82372843d513f2af = "input_text.fm_connection_status";
-const $755a87c9ee93218f$export$7df7f7ac9cecee8f = "input_select.fm_asset";
+const $755a87c9ee93218f$export$7df7f7ac9cecee8f = "input_text.fm_asset";
 
 
 function $1288c864b62d557b$export$d883fbf232f0d35a(hass, eventName, args, timeoutInMillsec = 60000) {
@@ -11409,9 +11417,9 @@ let $8be8b3713888253d$var$EditAdministratorSettingsDialog = class EditAdministra
         .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $8be8b3713888253d$var$tp("header"))}
       >
         <p><ha-markdown breaks .content=${$8be8b3713888253d$var$tp("sub-header")}></ha-markdown></p>
-        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(mobileNameStateObj, this._mobileNameValue, (evt)=>this._mobileNameValue = evt.target.value, mobileApps)}
+        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobileNameValue, mobileNameStateObj, (evt)=>this._mobileNameValue = evt.target.value, mobileApps)}
         ${this._renderError(this._mobileNameValue)}
-        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(mobilePlatformStateObj, this._mobilePlatformValue, (evt)=>this._mobilePlatformValue = evt.target.value)}
+        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobilePlatformValue, mobilePlatformStateObj, (evt)=>this._mobilePlatformValue = evt.target.value)}
         ${this._renderError(this._mobilePlatformValue)}
         <mwc-button @click=${this._save} slot="primaryAction">
           ${this.hass.localize("ui.common.save")}
@@ -11582,9 +11590,9 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         const calendarAccountPasswordStateObj = this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(calendarAccountUrlStateObj, (evt)=>this._calendarAccountUrlValue = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(calendarAccountUsernameStateObj, (evt)=>this._calendarAccountUsernameValue = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(calendarAccountPasswordStateObj, (evt)=>this._calendarAccountPasswordValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountUrlValue, calendarAccountUrlStateObj, (evt)=>this._calendarAccountUrlValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountUsernameValue, calendarAccountUsernameStateObj, (evt)=>this._calendarAccountUsernameValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountPasswordValue, calendarAccountPasswordStateObj, (evt)=>this._calendarAccountPasswordValue = evt.target.value)}
       ${this._renderConnectionError()}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
@@ -11650,7 +11658,7 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         // TODO: render select with filtered options
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(carCalendarNameValueStateObj, this._carCalendarNameValue, (evt)=>this._carCalendarNameValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarNameValue, carCalendarNameValueStateObj, (evt)=>this._carCalendarNameValue = evt.target.value)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11680,7 +11688,7 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         const integrationCalendarEntityNameStateObj = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(integrationCalendarEntityNameStateObj, this._integrationCalendarEntityNameValue, (evt)=>this._integrationCalendarEntityNameValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._integrationCalendarEntityNameValue, integrationCalendarEntityNameStateObj, (evt)=>this._integrationCalendarEntityNameValue = evt.target.value)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11840,12 +11848,11 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
     `;
     }
     _renderConnectionError() {
-        const error = $4163850e13316b31$var$tp("connection-error");
-        const hasConnectionError = this._chargerConnectionStatus == $4163850e13316b31$var$ConnectionStatus.Failed;
+        const hasConnectionError = this._chargerConnectionStatus == $4163850e13316b31$var$ConnectionStatus.Failed || this._chargerConnectionStatus == $4163850e13316b31$var$ConnectionStatus.TimedOut;
         return hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <p>
             <ha-alert test-id="connection-error" alert-type="error">
-              ${error}
+              ${$4163850e13316b31$var$tp("connection-error")}
             </ha-alert>
           </p>
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
@@ -11870,9 +11877,8 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
         return this._chargerConnectionStatus === $4163850e13316b31$var$ConnectionStatus.Connecting;
     }
     _renderChargerDetails() {
-        const maxAvailablePower = this.hass.states[$755a87c9ee93218f$export$2afa365a5af4c631].state;
         const description = $4163850e13316b31$var$tp("charger-details.description", {
-            value: maxAvailablePower
+            value: this._maxAvailablePowerValue
         });
         const info = $4163850e13316b31$var$tp("safety-info");
         const useReducedMaxPowerStateObj = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2];
@@ -11897,6 +11903,8 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
         const reduceMaxPowerDescription = $4163850e13316b31$var$tp("charger-details.reduce-max-power-description");
         const chargerMaxChargingPowerStateObj = this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6];
         const chargerMaxDischargingPowerStateObj = this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913];
+        chargerMaxChargingPowerStateObj.attributes.max = this._maxAvailablePowerValue;
+        chargerMaxDischargingPowerStateObj.attributes.max = this._maxAvailablePowerValue;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${reduceMaxPowerDescription}></ha-markdown>
       ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerMaxChargingPowerValue, chargerMaxChargingPowerStateObj, (evt)=>this._chargerMaxChargingPowerValue = evt.target.value, "[0-9]+")}
@@ -11951,23 +11959,27 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_charger_connection", {
                 host: this._chargerHostValue,
                 port: this._chargerPortValue
-            });
+            }, 5000);
             this._chargerConnectionStatus = result.msg;
             if (this._isConnected()) {
                 this._maxAvailablePowerValue = result.max_available_power;
-                this._chargerMaxChargingPowerValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6], this._maxAvailablePowerValue);
-                this._chargerMaxDischargingPowerValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913], this._maxAvailablePowerValue);
+                this._chargerMaxChargingPowerValue = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6], this._maxAvailablePowerValue);
+                this._chargerMaxDischargingPowerValue = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913], this._maxAvailablePowerValue);
+            }
+            function defaultMaxPower(stateObj, defaultValue) {
+                return parseInt(stateObj.state, 10) === 1380 || stateObj.state === "unknown" ? defaultValue : stateObj.state;
             }
         } catch (err) {
             this._chargerConnectionStatus = $4163850e13316b31$var$ConnectionStatus.TimedOut;
         }
     }
     async _save() {
+        // TODO: Add validation
         const isUsingReducedMaxPower = this._useReducedMaxPowerValue === "on";
         const args = {
             host: this._chargerHostValue,
             port: this._chargerPortValue,
-            useReducedMaxPower: isUsingReducedMaxPower,
+            useReducedMaxChargePower: isUsingReducedMaxPower,
             ...isUsingReducedMaxPower ? {
                 maxChargingPower: this._chargerMaxChargingPowerValue,
                 maxDischargingPower: this._chargerMaxDischargingPowerValue
@@ -12274,16 +12286,24 @@ $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = (0, $24c52f343453d
 
 const $ba2cc41e8ffaff3b$export$45e0b80f1e500bd4 = "edit-schedule-settings-dialog";
 const $ba2cc41e8ffaff3b$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)("settings.schedule");
+var $ba2cc41e8ffaff3b$var$ConnectionStatus;
+(function(ConnectionStatus) {
+    ConnectionStatus["Connected"] = "Successfully connected";
+    ConnectionStatus["Connecting"] = "Trying to connect...";
+    ConnectionStatus["Failed"] = "Failed to connect";
+    ConnectionStatus["TimedOut"] = "Timed out";
+})($ba2cc41e8ffaff3b$var$ConnectionStatus || ($ba2cc41e8ffaff3b$var$ConnectionStatus = {}));
 let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
-        this._fmAccountUsernameValue = this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426].state;
-        this._fmAccountPasswordValue = this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52].state;
+        this._fmAccountUsernameValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426], "");
+        this._fmAccountPasswordValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52], "");
         this._fmUseOtherServerValue = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09].state;
-        this._fmHostUrlValue = this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963].state;
+        this._fmHostUrlValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963], "");
         this._fmAssetValue = this.hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f].state;
-        this._fmConnectionStatus = this.hass.states[$755a87c9ee93218f$export$82372843d513f2af];
+        this._fmConnectionStatus = "";
         this._hasTriedToConnect = false;
+        this._hasTriedToSave = false;
         await this.updateComplete;
     }
     render() {
@@ -12301,15 +12321,10 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     `;
     }
     _isConnected() {
-        const status = this._getConnectionStatus();
-        return status.startsWith("Succes") || status.startsWith("Not assets in account") || status === "Please select an asset";
+        return this._fmConnectionStatus === $ba2cc41e8ffaff3b$var$ConnectionStatus.Connected;
     }
     _isBusyConnecting() {
-        return this._getConnectionStatus() === "Testing connection...";
-    }
-    _getConnectionStatus() {
-        const stateObj = this.hass.states[$755a87c9ee93218f$export$82372843d513f2af];
-        return stateObj.state;
+        return this._fmConnectionStatus === $ba2cc41e8ffaff3b$var$ConnectionStatus.Connecting;
     }
     _renderAccountDetails() {
         const description = $ba2cc41e8ffaff3b$var$tp("account-description");
@@ -12317,17 +12332,14 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
         const fmAccountPasswordStateObj = this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52];
         const fmUseOtherServerStateObj = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
         const fmHostUrlStateObj = this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963];
-        const usernameChanged = (evt)=>this._fmAccountUsernameValue = evt.target.value;
-        const passwordChanged = (evt)=>this._fmAccountPasswordValue = evt.target.value;
         const useOtherServerChanged = (evt)=>this._fmUseOtherServerValue = evt.target.checked ? "on" : "off";
-        const hostUrlChanged = (evt)=>this._fmHostUrlValue = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(fmAccountUsernameStateObj, usernameChanged)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(fmAccountPasswordStateObj, passwordChanged)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._fmAccountUsernameValue, fmAccountUsernameStateObj, (evt)=>this._fmAccountUsernameValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bb1d970f9960d2ec)(this._fmAccountPasswordValue, fmAccountPasswordStateObj, (evt)=>this._fmAccountPasswordValue = evt.target.value)}
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(fmUseOtherServerStateObj, useOtherServerChanged)}
-      ${this._fmUseOtherServerValue === "on" ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(fmHostUrlStateObj, hostUrlChanged) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._fmUseOtherServerValue === "on" ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._fmHostUrlValue, fmHostUrlStateObj, (evt)=>this._fmHostUrlValue = evt.target.value) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
             <ha-circular-progress
               size="small"
@@ -12343,12 +12355,11 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     }
     _renderConnectionError() {
         const error = $ba2cc41e8ffaff3b$var$tp("connection-error");
-        const hasConnectionError = this._getConnectionStatus() == "Failed to connect";
+        const hasConnectionError = this._fmConnectionStatus === $ba2cc41e8ffaff3b$var$ConnectionStatus.Failed;
         return hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderAssetDetails() {
-        const status = this._getConnectionStatus();
-        return status.startsWith("Not assets in account") ? this._renderNoAssets() : status.startsWith("Succes! Using ") ? this._renderOneAsset() : status === "Please select an asset" ? this._renderMultipleAssets() : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`ERROR`;
+        return this._fmAssets?.length === 0 ? this._renderNoAssets() : this._fmAssets?.length === 1 ? this._renderOneAsset() : this._fmAssets?.length > 1 ? this._renderMultipleAssets() : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`ERROR`;
     }
     _renderNoAssets() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -12368,12 +12379,11 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     `;
     }
     _renderOneAsset() {
-        const status = this._getConnectionStatus();
-        const asset = status.match(/Succes! Using '([^']+)'/)[1];
+        this._fmAssetValue = this._fmAssets[0].name;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <strong>Asset</strong>
-      <div>${asset}</div>
+      <div>${this._fmAssetValue}</div>
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12385,10 +12395,12 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     _renderMultipleAssets() {
         const description = $ba2cc41e8ffaff3b$var$tp("multiple-asset-description");
         const fmAssetStateObj = this.hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f];
+        const options = this._fmAssets.map((asset)=>asset.name);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
       <strong>Asset</strong>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(fmAssetStateObj, this._fmAssetValue, (evt)=>this._fmAssetValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._fmAssetValue, fmAssetStateObj, (evt)=>this._fmAssetValue = evt.target.value, options)}
+      ${this._renderNoAssetSelectedError()}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12397,26 +12409,56 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
       </mwc-button>
     `;
     }
-    async _continue() {
-        await (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$e3ef81d1214ac426, this._fmAccountUsernameValue);
-        await (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$4b92bff470c6dd52, this._fmAccountPasswordValue);
-        if (this._fmUseOtherServerValue === "on") await (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$f1a0886b70e9e963, this._fmHostUrlValue);
-        await (0, $b9d6215527d806db$export$2c06c6218dca00de)(this.hass, $755a87c9ee93218f$export$c7d1877b110c2f09, this._fmUseOtherServerValue);
-        // TODO: call service with parameters?
-        this.hass.callService("script", "test_fm_connection");
-        this._hasTriedToConnect = true;
+    _renderNoAssetSelectedError() {
+        return this._hasTriedToSave && !this._isAssetValid() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div class="error">${$ba2cc41e8ffaff3b$var$tp("no-asset-selected-error")}</div> ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    }
+    _isAssetValid() {
+        return this._fmAssets.some((asset)=>asset.name === this._fmAssetValue);
     }
     _back() {
         this._hasTriedToConnect = false;
     }
-    _save() {
-        (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, $755a87c9ee93218f$export$7df7f7ac9cecee8f, this._fmAssetValue);
+    async _continue() {
+        this._hasTriedToConnect = true;
+        // TODO: Add validation
+        try {
+            const args = this._getConnectionArgs();
+            this._fmConnectionStatus = $ba2cc41e8ffaff3b$var$ConnectionStatus.Connecting;
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_schedule_connection", args, 5000);
+            this._fmAssets = result.assets;
+            this._fmConnectionStatus = result.msg;
+        } catch (err) {
+            this._fmConnectionStatus = $ba2cc41e8ffaff3b$var$ConnectionStatus.TimedOut;
+        }
+    }
+    async _save() {
+        this._hasTriedToSave = true;
+        if (!this._isAssetValid()) return;
+        const args = {
+            ...this._getConnectionArgs(),
+            asset: this._fmAssetValue
+        };
+        const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_schedule_settings", args);
         this.closeDialog();
+    }
+    _getConnectionArgs() {
+        const isUsingOtherServer = this._fmUseOtherServerValue === "on";
+        return {
+            username: this._fmAccountUsernameValue,
+            password: this._fmAccountPasswordValue,
+            useOtherServer: isUsingOtherServer,
+            ...isUsingOtherServer ? {
+                host: this._fmHostUrlValue
+            } : {}
+        };
     }
     static #_ = (()=>{
         this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
     .name {
       font-weight: bold;
+    }
+    .error {
+      color: var(--error-color);
     }
 
     .success ha-svg-icon {
@@ -12452,6 +12494,9 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_hasTriedToConnect", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_hasTriedToSave", void 0);
 $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($ba2cc41e8ffaff3b$export$45e0b80f1e500bd4)
 ], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog);
@@ -12967,6 +13012,7 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        this._stateChargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
         this._stateChargerHost = hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c];
         this._stateChargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
         this._stateChargerConnectionStatus = hass.states[$755a87c9ee93218f$export$daa3d3280ce4a564];
@@ -12976,7 +13022,7 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
     }
     render() {
         const header = $8462057a459186b4$var$tp("header");
-        const isInitialised = this._stateChargerHost.attributes.initialised && this._stateChargerPort.attributes.initialised;
+        const isInitialised = this._stateChargerSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
@@ -13082,6 +13128,9 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
   `;
     })();
 };
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerHost", void 0);
@@ -13335,8 +13384,8 @@ let $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = class ScheduleSettingsCard exten
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        this._stateScheduleSettingsInitialised = hass.states[$755a87c9ee93218f$export$bcc5761a4d7674a4];
         this._stateFmAccountUsername = hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
-        this._stateFmAccountPassword = hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52];
         this._stateFmUseOtherServer = hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
         this._stateFmHostUrl = hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963];
         this._stateFmConnectionStatus = hass.states[$755a87c9ee93218f$export$82372843d513f2af];
@@ -13344,7 +13393,7 @@ let $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = class ScheduleSettingsCard exten
     }
     render() {
         const header = $8fab4e1af811a2cc$var$tp("header");
-        const isInitialised = this._stateFmAccountUsername.attributes.initialised && this._stateFmAsset.attributes.initialised;
+        const isInitialised = this._stateScheduleSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
@@ -13395,10 +13444,10 @@ let $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = class ScheduleSettingsCard exten
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmAccountUsername", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateScheduleSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmAccountPassword", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmAccountUsername", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmUseOtherServer", void 0);

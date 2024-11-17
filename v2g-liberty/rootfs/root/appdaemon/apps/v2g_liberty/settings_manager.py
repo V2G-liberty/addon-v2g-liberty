@@ -34,6 +34,7 @@ class SettingsManager:
         for obsolete, new in {
             "input_select.admin_mobile_name": "input_text.admin_mobile_name",
             # "input_select.admin_mobile_platform": "input_text.admin_mobile_platform"
+            "input_select.fm_asset": "input_text.fm_asset"
         }.items():
             if obsolete in settings:
                 value = settings.get(obsolete)

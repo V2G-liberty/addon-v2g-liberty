@@ -48,7 +48,7 @@ class TestRetrieveSettings:
         # Arrange
         saved_settings = json.dumps({
             "input_select.admin_mobile_name": "mobile_name",
-            # "input_select.admin_mobile_platform": "mobile_platform"
+            "input_select.fm_asset": "asset",
         })
         with patch('builtins.open', mock_open(read_data=saved_settings)):
             # Act
@@ -56,7 +56,7 @@ class TestRetrieveSettings:
         # Assert
         assert settings_manager.settings == {
             "input_text.admin_mobile_name": "mobile_name",
-            # "input_text.admin_mobile_platform": "mobile_platform"
+            "input_text.fm_asset": "asset",
         }
 
 

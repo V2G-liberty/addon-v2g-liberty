@@ -24,6 +24,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
     octopus_price_data_manager: object
 
     # Settings related to FlexMeasures
+    SCHEDULE_SETTINGS_INITIALISED = {
+        "entity_name": "schedule_settings_initialised",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None
+    }
     SETTING_FM_ACCOUNT_USERNAME = {
         "entity_name": "fm_account_username",
         "entity_type": "input_text",
@@ -54,7 +61,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
     }
     SETTING_FM_ASSET = {
         "entity_name": "fm_asset",
-        "entity_type": "input_select",
+        "entity_type": "input_text",
         "value_type": "str",
         "factory_default": None,
         "listener_id": None
@@ -336,8 +343,12 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         self.listen_event(self.__save_administrator_settings, "save_administrator_settings")
         self.listen_event(self.__save_charger_settings, "save_charger_settings")
+        self.listen_event(self.__save_schedule_settings, "save_schedule_settings")
         # Listen to [TEST] buttons
         self.listen_event(self.__test_charger_connection, "test_charger_connection")
+        self.listen_event(self.__test_caldav_connection, "test_caldav_connection")
+        self.listen_event(self.__test_schedule_connection, "test_schedule_connection")
+
         self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
         self.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
         self.listen_event(self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS")
@@ -503,6 +514,28 @@ class V2GLibertyGlobals(ServiceResponseApp):
         await self.__read_and_process_charger_settings()
         self.fire_event('save_charger_settings.result')
 
+    async def __save_schedule_settings(self, event, data, kwargs):
+        self.__store_setting("input_text.fm_account_username", data["username"])
+        self.__store_setting("input_text.fm_account_password", data["password"])
+        self.__store_setting("input_boolean.fm_show_option_to_change_url", data["useOtherServer"])
+        self.__store_setting("input_text.fm_host_url", data["host"])
+        self.__store_setting("input_text.fm_asset", data["asset"])
+        self.__store_setting("input_boolean.schedule_settings_initialised", True)
+
+        await self.__process_setting(self.SETTING_FM_ACCOUNT_USERNAME, None)
+        await self.__process_setting(self.SETTING_FM_ACCOUNT_PASSWORD, None)
+        await self.__process_setting(self.SETTING_USE_OTHER_FM_BASE_URL, None)
+        await self.__process_setting(self.SETTING_FM_BASE_URL, None)
+        await self.__process_setting(self.SETTING_FM_ASSET, None)
+        await self.__process_setting(self.SCHEDULE_SETTINGS_INITIALISED, None)
+
+        await self.__read_and_process_fm_client_settings()
+        self.fire_event('save_schedule_settings.result')
+
+    async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
+        self.log("__test_caldav_calendar called")
+
+
     async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
         # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
         # Get the possible calendars from the validated account
@@ -585,6 +618,24 @@ class V2GLibertyGlobals(ServiceResponseApp):
             msg=msg,
             max_available_power=max_available_power
         )
+
+    async def __test_schedule_connection(self, event, data, kwargs):
+        self.log("__test_schedule_connection called")
+        username = data["username"]
+        password = data["password"]
+        use_other_server = data["useOtherServer"]
+        host = data["host"] if use_other_server else c.FM_BASE_URL
+
+        try:
+            assets = await self.fm_client_app.test_fm_connection(host, username, password)
+            msg = "Successfully connected"
+        except:
+            assets = None
+            msg = "Failed to connect"
+
+        self.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
+
+    # This is Ard's one ...
 
     async def __test_fm_connection(self, event = None, data = None, kwargs = None):
         # Tests the connection with FlexMeasures

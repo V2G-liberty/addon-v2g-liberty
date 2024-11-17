@@ -646,7 +646,7 @@
       card:
         type: entities
         entities:
-          - entity: input_select.fm_asset
+          - entity: input_text.fm_asset
         card_mod:
           style: |
               ha-card {

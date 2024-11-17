@@ -79,6 +79,37 @@ class FMClient(hass.Hass):
         self.log("Completed initializing FlexMeasuresClient")
 
 
+    async def test_fm_connection(self, host_url, username, password):
+        # TODO: Fix this
+        from flexmeasures_client import FlexMeasuresClient
+        from flexmeasures_client.exceptions import EmailValidationError
+        host, ssl = get_host_and_ssl_from_url(host_url)
+        self.log(f"test_fm_connection, host: '{host}', ssl: '{ssl}'.")
+
+        try:
+            client = FlexMeasuresClient(
+                host = host,
+                email = username,
+                password = password,
+                ssl = ssl,
+            )
+        except ValueError as ve:
+            self.log(f"test_fm_connection, CLIENT ERROR: {ve}.")
+            # ValueErrors:
+            # 'xxx' is not an email address format string (= also for empty email)
+            # password cannot be empty
+            raise ve
+        except EmailValidationError as eve:
+            self.log(f"test_fm_connection, CLIENT ERROR: {eve}.")
+            raise eve
+
+        self.log(f"test_fm_connection, successfully connect to flexmeasures")
+        try:
+            assets = await client.get_assets()
+            return assets
+        finally:
+            client.close()
+
     async def initialise_and_test_fm_client(self) -> str:
         self.log("initialise_and_test_fm_client called")
         # Unusual place for the import, but it has to be in an async method otherwise it errors out

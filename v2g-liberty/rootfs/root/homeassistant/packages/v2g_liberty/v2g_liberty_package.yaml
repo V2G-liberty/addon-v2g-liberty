@@ -44,13 +44,6 @@ input_select:
       - Northern Scotland
 
   # Options will be set through v2g_globals
-  fm_asset:
-    name: FlexMeasures asset
-    icon: mdi:format-list-bulleted-type
-    options:
-      - Please choose an option
-
-  # Options will be set through v2g_globals
   admin_mobile_platform:
     name: The operation system of the mobile of the administrator
     icon: mdi:cellphone-cog
@@ -110,6 +103,9 @@ input_boolean:
 
   charger_settings_initialised:
     name: Charger settings are initialised
+
+  schedule_settings_initialised:
+    name: Schedule settings are initialised
 
   # Settings related entities
   use_reduced_max_charge_power:
@@ -389,6 +385,10 @@ input_text:
     name: URL
   fm_connection_status:
     mode: text
+  fm_asset:
+    name: FlexMeasures asset
+    icon: mdi:format-list-bulleted-type
+
 
   ###################################################################
   #        self_provided settings related to au_amber_electric      #
