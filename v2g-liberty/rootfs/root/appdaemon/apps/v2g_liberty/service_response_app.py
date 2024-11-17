@@ -18,7 +18,7 @@ class ServiceResponseApp(Hass):
         call_id = random.randrange(2**32)
 
         def cb(name, data, kwargs):
-            res.set_result(data["response"])
+            res.get_loop().call_soon_threadsafe(res.set_result, data["response"])
 
         self.listen_event(
             cb,
