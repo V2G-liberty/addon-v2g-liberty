@@ -22,7 +22,6 @@ frontend:
     - /local/v2g_liberty/apexcharts-card/apexcharts-card-v2-1-2.js
     - /local/v2g_liberty/v2g-liberty-cards/v2g-liberty-cards.js
 
-
 input_select:
   gb_dno_region:
     name: Great Britain DNO region
@@ -135,7 +134,6 @@ input_boolean:
   chargemodeautomatic:
     name: ChargeModeAutomatic
     icon: mdi:battery-charging-80
-    initial: true
 
   chargemodemaxboostnow:
     name: ChargeModeMaxBoostNow
@@ -219,7 +217,7 @@ input_number:
   car_min_soc_in_percent:
     name: Car battery min. soc
     min: 10
-    max: 30
+    max: 55
     step: 1
     icon: mdi:chart-bell-curve-cumulative
     mode: box
@@ -326,7 +324,6 @@ input_number:
     unit_of_measurement: "kg CO2"
     mode: box
 
-
 input_text:
   admin_mobile_name:
     name: The mobile of the administrator
@@ -370,7 +367,6 @@ input_text:
     max: 100
     mode: text
     min: 0
-
 
   #############  flexmeasures related entities #############
   fm_account_username:
@@ -473,7 +469,6 @@ input_text:
     min: 0
     mode: text
 
-
   # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
   # get_fm_data code from FM daily. This then is shown in the UI in the graph.
   co2_emissions:
@@ -523,7 +518,6 @@ input_text:
     max: 10000
     min: 0
     mode: text
-
 
 script:
   restart_ha:
@@ -589,10 +583,11 @@ script:
       - service: "{{ service_name }}"
         data: "{{ service_data }}"
         response_variable: response
-      - event: call_service_with_response.finished    # event name cannot be templated unfortunately
+      - event: call_service_with_response.finished # event name cannot be templated unfortunately
         event_data:
           call_id: "{{ call_id }}"
           response: "{{ response }}"
+
 
 automation:
   - id: "1633010017995"
@@ -605,85 +600,82 @@ automation:
       Te give these buttons a on/off state for each of them a toggle helper is used.
 
       When a toggle-button is clicked an (these) automations receives the trigger selects
-      the corresponding item in the input_select and switches the other toggles to off.'
-    trigger:
-      - platform: state
-        entity_id: input_boolean.chargemodeautomatic
+      the corresponding item in the input_select and switches the other toggles to off.
+
+      If these seem not to work, check in the settings > automations to see if they are active.'
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.chargemodeautomatic
         from: "off"
         to: "on"
-    condition: []
-    action:
-      - service: input_select.select_option
-        target:
-          entity_id: input_select.charge_mode
+    conditions: []
+    actions:
+      - action: input_select.select_option
+        metadata: {}
         data:
           option: Automatic
-      - service: input_boolean.turn_off
         target:
-          entity_id: input_boolean.chargemodemaxboostnow
-      - service: input_boolean.turn_off
+          entity_id: input_select.charge_mode
+      - action: input_boolean.turn_off
+        metadata: {}
+        data: {}
         target:
-          entity_id: input_boolean.chargemodeoff
+          entity_id:
+            - input_boolean.chargemodemaxboostnow
+            - input_boolean.chargemodeoff
     mode: single
+
+
   - id: "1633010167089"
     alias: Chargemode to Max boost now
-    description: 'A bit of a hack because HA does not provide radiobuttons
-
-      The values of the helper "input_select.charge_mode" are to be reflected in the
-      UI as 3 (radio)buttons.
-
-      Te give these buttons a on/off state for each of them a toggle helper is used.
-
-      When a toggle-button is clicked an (these) automations receives the trigger selects
-      the corresponding item in the input_select and switches the other toggles to off.'
-    trigger:
-      - platform: state
-        entity_id: input_boolean.chargemodemaxboostnow
+    description: See automation Chargemode to Automatic
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.chargemodemaxboostnow
         from: "off"
         to: "on"
-    condition: []
-    action:
-      - service: input_select.select_option
-        target:
-          entity_id: input_select.charge_mode
+    conditions: []
+    actions:
+      - action: input_select.select_option
+        metadata: {}
         data:
           option: Max boost now
-      - service: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.chargemodeautomatic
-      - service: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.chargemodeoff
-    mode: single
-  - id: "1633010384766"
-    alias: Chargemode to Off
-    description: 'A bit of a hack because HA does not provide radiobuttons
-
-      The values of the helper "input_select.charge_mode" are to be reflected in the
-      UI as 3 (radio)buttons.
-
-      Te give these buttons a on/off state for each of them a toggle helper is used.
-
-      When a toggle-button is clicked an (these) automations receives the trigger selects
-      the corresponding item in the input_select and switches the other toggles to off.'
-    trigger:
-      - platform: state
-        entity_id: input_boolean.chargemodeoff
-        from: "off"
-        to: "on"
-    condition: []
-    action:
-      - service: input_select.select_option
         target:
           entity_id: input_select.charge_mode
+      - action: input_boolean.turn_off
+        metadata: {}
+        data: {}
+        target:
+          entity_id:
+            - input_boolean.chargemodeautomatic
+            - input_boolean.chargemodeoff
+    mode: single
+
+
+  - id: "1633010384766"
+    alias: Chargemode to Off
+    description: See automation Chargemode to Automatic
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.chargemodeoff
+        from: "off"
+        to: "on"
+    conditions: []
+    actions:
+      - action: input_select.select_option
+        metadata: {}
         data:
           option: Stop
-      - service: input_boolean.turn_off
         target:
-          entity_id: input_boolean.chargemodeautomatic
+          entity_id: input_select.charge_mode
+      - action: input_boolean.turn_off
+        metadata: {}
         data: {}
-      - service: input_boolean.turn_off
         target:
-          entity_id: input_boolean.chargemodemaxboostnow
-        data: {}
+          entity_id:
+            - input_boolean.chargemodeautomatic
+            - input_boolean.chargemodemaxboostnow
     mode: single

@@ -10,6 +10,9 @@ appdaemon:
   # If you would like your log timestamps to be in local time set it to the right timezone here.
   time_zone: Europe/Amsterdam
 
+  # Suppress warnings in the log for missing app configuration (in the apps.yaml).
+  missing_app_warnings: 0
+
   production_mode: True
   plugins:
     HASS:

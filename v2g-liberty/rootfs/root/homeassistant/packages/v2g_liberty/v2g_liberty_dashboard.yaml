@@ -6,8 +6,7 @@ views:
     title: Main
     icon: mdi:car-electric
     max_columns: 3
-    sections:
-      !include main_view.yaml
+    sections: !include main_view.yaml
 
   - title: Settings
     type: masonry
