@@ -4,7 +4,8 @@ from typing import AsyncGenerator, List, Optional
 from itertools import accumulate
 import math
 import asyncio
-from v2g_globals import time_round, get_local_now
+from v2g_globals import time_round, he, get_local_now
+from v2g_globals import V2GLibertyGlobals
 import constants as c
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
@@ -44,7 +45,15 @@ class V2Gliberty:
 
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
+
+    # timer_id's for reminders at start/end of the first/current event.
+    timer_id_first_reservation_start: str = ""
     timer_id_event_wait_to_disconnect: str = ""
+    timer_id_first_reservation_end: str = ""
+
+    # List of targets based on the v2g_events in the reservations calendar.
+    # It is a list of dicts that is populated by the method `handle_calendar_change`.
+    calendar_targets: List = []
 
     chart_line_entity = {
         ChartLine.SCHEDULE: "soc_prognosis",
@@ -101,6 +110,14 @@ class V2Gliberty:
 
         self.MAX_EVENT_WAIT_TO_DISCONNECT = timedelta(minutes=7)
 
+        ########## TESTDATA ############
+        # self.__log(
+        #     "TESTDATA! Set MAX_EVENT_WAIT_TO_DISCONNECT to 30 seconds to test timers",
+        #     level="WARNING",
+        # )
+        # self.MAX_EVENT_WAIT_TO_DISCONNECT = timedelta(seconds=30)
+        ########## TESTDATA ############
+
         self.in_boost_to_reach_min_soc = False
         self.timer_handle_set_next_action = ""
         self.connected_car_soc = 0
@@ -129,7 +146,7 @@ class V2Gliberty:
         )
         await self.hass.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
         await self.hass.listen_event(
-            self.__handle_phone_action, event="mobile_app_notification_action"
+            self.__handle_user_dismiss_choice, event="mobile_app_notification_action"
         )
 
         await self.hass.listen_state(
@@ -156,24 +173,20 @@ class V2Gliberty:
             await self.evse_client_app.complete_init()
         else:
             self.__log(
-                f"initialize. Could not call evse_client_app.complete_init. evse_client_app is None, not init yet?"
+                "Could not call evse_client_app.complete_init. evse_client_app is None, not init yet?"
             )
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if self.evse_client_app is not None:
             if charge_mode == "Stop":
-                self.__log(
-                    "initialize. Charge_mode == 'Stop' -> Setting EVSE client to in_active!"
-                )
+                self.__log("Charge_mode == 'Stop' -> Setting EVSE client to in_active!")
                 await self.evse_client_app.set_inactive()
             else:
-                self.__log(
-                    "initialize.  Charge_mode != 'Stop' -> Setting EVSE client to active!"
-                )
+                self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
                 await self.evse_client_app.set_active()
         else:
             self.__log(
-                f"initialize. Could not call set_(in)active on evse_client_app as it is None, not init yet?"
+                "Could not call set_(in)active on evse_client_app as it is None, not init yet?"
             )
 
         current_soc = await self.hass.get_state(
@@ -183,24 +196,14 @@ class V2Gliberty:
 
         await self.initialise_v2g_liberty(v2g_args="initialise")
 
-        self.__log("Completed Initializing V2Gliberty")
+        self.__log("Completed")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
 
-    async def set_price_is_up_to_date(self, is_up_to_date: bool):
-        if is_up_to_date:
-            await self.hass.turn_off(
-                "input_boolean.error_epex_prices_cannot_be_retrieved"
-            )
-        else:
-            await self.hass.turn_on(
-                "input_boolean.error_epex_prices_cannot_be_retrieved"
-            )
-
     async def initialise_v2g_liberty(self, v2g_args=None):
-        # Show the settings in the UI
+        """Show the settings in the UI and kickoff set_next_action"""
         await self.hass.set_textvalue(
             "input_text.optimisation_mode", c.OPTIMISATION_MODE
         )
@@ -208,945 +211,6 @@ class V2Gliberty:
             "input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME
         )
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
-
-    def notify_user(
-        self,
-        message: str,
-        title: Optional[str] = None,
-        tag: Optional[str] = None,
-        critical: bool = False,
-        send_to_all: bool = False,
-        ttl: Optional[int] = 0,
-        actions: list = None,
-    ):
-        """Utility function to send notifications to the user
-        - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
-        - send_to_all : send to all users (can't be combined with critical), default = only send to Admin.
-        - tag         : id that can be used to replace or clear a previous message
-        - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear.
-                        A tag is required.
-        - actions     : A list of dicts with action and title stings
-
-        We assume there always is an ADMIN and there might be several other users that need to be notified.
-        When a new call to this function with the same tag is made, the previous message will be overwritten
-        if it still exists.
-        """
-        if c.ADMIN_MOBILE_NAME == "":
-            self.__log(
-                "notify_user: No registered devices to notify, cancel notification."
-            )
-            return
-
-        # All notifications always get sent to admin
-        to_notify = [c.ADMIN_MOBILE_NAME]
-
-        # Use abbreviation to make more room for title itself.
-        title = "V2G-L: " + title if title else "V2G Liberty"
-
-        notification_data = {}
-
-        # critical trumps send_to_all
-        if critical:
-            self.__log(f"notify_user: Critical! Send to: {to_notify}.")
-            notification_data = c.PRIORITY_NOTIFICATION_CONFIG
-
-        if send_to_all and not critical:
-            self.__log(
-                f"notify_user: Send to all and not critical! Send to: {to_notify}."
-            )
-            to_notify = c.NOTIFICATION_RECIPIENTS
-
-        if tag:
-            notification_data["tag"] = tag
-
-        if actions:
-            notification_data["actions"] = actions
-
-        message = message + " [" + c.HA_NAME + "]"
-
-        self.__log(
-            f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}."
-        )
-        for recipient in to_notify:
-            service = "notify/mobile_app_" + recipient
-            try:
-                if notification_data:
-                    self.hass.call_service(
-                        service, title=title, message=message, data=notification_data
-                    )
-                else:
-                    self.hass.call_service(service, title=title, message=message)
-            except Exception as e:
-                self.__log(
-                    f"notify_user. Could not notify: exception on {recipient}. Exception: {e}."
-                )
-
-            if ttl > 0 and tag and not critical:
-                # Remove the notification after a time-to-live.
-                # A tag is required for clearing.
-                # Critical notifications should not auto clear.
-                self.hass.run_in(
-                    self.__clear_notification, delay=ttl, recipient=recipient, tag=tag
-                )
-
-    def clear_notification(self, tag: str):
-        """Wrapper methode for easy clearing of notifications"""
-        self.__clear_notification_for_all_recipients(tag=tag)
-
-    async def handle_no_new_schedule(self, error_name: str, error_state: bool):
-        """Keep track of situations where no new schedules are available:
-        - invalid schedule
-        - timeouts on schedule
-        - no communication with FM
-        They can occur simultaneously/overlapping, so they are accumulated in
-        the dictionary self.no_schedule_errors.
-        To be called from fm_client_app.
-        """
-
-        if error_name in self.no_schedule_errors:
-            self.__log(
-                f"handle_no_valid_schedule called with {error_name}: {error_state}."
-            )
-        else:
-            self.__log(
-                f"handle_no_valid_schedule called unknown error_name: '{error_name}'."
-            )
-            return
-        self.no_schedule_errors[error_name] = error_state
-        await self.__notify_no_new_schedule()
-
-    async def notify_user_of_charger_needs_restart(self, was_car_connected: bool):
-        """Notify admin with critical message of a presumably crashed modbus server
-        module in the charger.
-        To be called from evse_client_app.
-        """
-        self.__log(
-            f"The charger probably crashed: Stop charging, set Error in UI and notify user"
-        )
-        await self.__set_chargemode_in_ui("Stop")
-
-        await self.hass.set_state(
-            "input_boolean.charger_modbus_communication_fault", state="on"
-        )
-        await self.hass.set_textvalue("input_text.charger_state", "Error")
-
-        title = "Charger communication error"
-        message = (
-            "Automatic charging has been stopped!\n"
-            "Please click this notification to open the V2G Liberty App "
-            "and follow the steps to solve this problem."
-        )
-        # Do not send a critical warning if car was not connected.
-        critical = was_car_connected
-        self.notify_user(
-            message=message,
-            title=title,
-            tag="charger_modbus_crashed",
-            critical=critical,
-            send_to_all=False,
-        )
-        return
-
-    async def reset_charger_communication_fault(self):
-        self.__log(f"reset_charger_communication_fault called")
-        await self.hass.set_state(
-            "input_boolean.charger_modbus_communication_fault", state="off"
-        )
-        identification = {
-            "recipient": c.ADMIN_MOBILE_NAME,
-            "tag": "charger_modbus_crashed",
-        }
-        self.__clear_notification(identification)
-
-    ######################################################################
-    #                    PRIVATE CALLBACK FUNCTIONS                      #
-    ######################################################################
-
-    async def __handle_phone_action(self, event_name, data, kwargs):
-        self.__log(f"__handle_phone_action, called.")
-        action_parts = str(data["action"]).split("~")
-        action = action_parts[0]
-        hid = action_parts[1]
-        if action == "dismiss_event":
-            dismiss = True
-        elif action == "keep_event":
-            dismiss = False
-        else:
-            self.__log(f"__handle_phone_action, aborting: unknown action: '{action}'.")
-            return
-
-        if self.reservations_client is not None:
-            await self.reservations_client.set_event_dismissed_status(
-                event_hash_id=hid, status=dismiss
-            )
-        else:
-            self.__log(
-                f"__handle_phone_action. "
-                f"Could not call set_event_dismissed_status on reservations_client as it is None."
-            )
-            return
-        self.__log(f"__handle_phone_action, completed set hid: {hid} to {dismiss}.")
-
-    async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
-        """Handle changes in the charge mode
-        Here only the change from one to another mode is handled.
-        Set_next_action regularly checks what to do based on the current state (=the new state here)
-        """
-        new_state = new.get("state", None)
-        old_state = old.get("state", None)
-        self.__log(
-            f"__update_charge_mode: Charge mode has changed from '{old_state}' to '{new_state}'"
-        )
-
-        if old_state == "Max boost now" and new_state == "Automatic":
-            # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
-            # Let schedule (later) decide if starting is needed
-            if self.evse_client_app is not None:
-                await self.evse_client_app.stop_charging()
-            else:
-                self.__log(
-                    "__update_charge_mode. Could not call stop_charging on evse_client_app as it is None."
-                )
-        if old_state == "Automatic" and new_state == "Max boost now":
-            self.__log(
-                "__update_charge_mode: Charge mode changed from Automatic to Max boost now, "
-                "cancel timer and start charging."
-            )
-            self.__cancel_charging_timers()
-
-        if old_state != "Stop" and new_state == "Stop":
-            # New mode "Stop" is handled by set_next_action
-            self.__log(
-                "__update_charge_mode: Stop charging (if in action) and give control based on chargemode = Stop"
-            )
-            # Cancel previous scheduling timers
-            self.__cancel_charging_timers()
-            await self.__clear_all_soc_chart_lines()
-            self.in_boost_to_reach_min_soc = False
-            if self.evse_client_app is not None:
-                await self.evse_client_app.set_inactive()
-            else:
-                self.__log(
-                    "__update_charge_mode. Could not call set_inactive on evse_client_app as it is None."
-                )
-
-        if old_state == "Stop" and new_state != "Stop":
-            if self.evse_client_app is not None:
-                await self.evse_client_app.set_active()
-            else:
-                self.__log(
-                    "__update_charge_mode. Could not call set_active on evse_client_app as it is None."
-                )
-
-        await self.set_next_action(v2g_args="__update_charge_mode")
-        return
-
-    async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
-        """Function to handle updates in the car SoC"""
-        reported_soc = new["state"]
-        self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
-        res = await self.__process_soc(reported_soc)
-        if not res:
-            return
-        await self.set_next_action(v2g_args="__handle_soc_change")
-        return
-
-    async def __disconnect_charger(self, *args, **kwargs):
-        """Function te disconnect the charger.
-        Reacts to button in UI that fires DISCONNECT_CHARGER event.
-        """
-        self.__log("************* Disconnect charger requested *************")
-        await self.__reset_no_new_schedule()
-
-        if self.evse_client_app is not None:
-            await self.evse_client_app.stop_charging()
-            message = "Charger is disconnected"
-        else:
-            message = "Charger cloud not be disconnected, please check the app."
-            self.__log(
-                "__disconnect_charger. Could not call stop_charging on evse_client_app as it is None."
-            )
-
-        # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
-        self.notify_user(
-            message=message,
-            title=None,
-            tag="charger_disconnected",
-            critical=False,
-            send_to_all=True,
-            ttl=5 * 60,
-        )
-
-    async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
-        """A callback function for handling any changes in the charger state.
-        Has a sister function in evse module to handle stuff there"""
-        if new is None:
-            return
-        new_charger_state = int(float(new["state"]))
-
-        # Initialise to be always different then current if not in state
-        old_charger_state = -1
-
-        if old is not None:
-            old_charger_state = int(float(old["state"]))
-
-        if old_charger_state == new_charger_state:
-            return
-
-        # **** Handle disconnect:
-        # Goes to this status when the plug is removed from the socket (not when disconnect is requested from the UI)
-        if new_charger_state == self.DISCONNECTED_STATE:
-            # Reset any possible target for discharge due to SoC > max-soc
-            self.back_to_max_soc = None
-
-            # Cancel current scheduling timers
-            self.__cancel_charging_timers()
-            await self.__clear_all_soc_chart_lines()
-
-            # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
-            charge_mode = await self.hass.get_state("input_select.charge_mode", None)
-            if charge_mode == "Max boost now":
-                await self.__set_chargemode_in_ui("Automatic")
-                self.notify_user(
-                    message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
-                    title=None,
-                    tag="charge_mode_change",
-                    critical=False,
-                    send_to_all=True,
-                    ttl=15 * 60,
-                )
-            return
-
-        # **** Handle connected:
-        if new_charger_state != self.DISCONNECTED_STATE:
-            await self.set_next_action(v2g_args="__handle_charger_state_change")
-            return
-
-        # Handling errors is left to the evse_client_app as this knows what specific situations there are for
-        # the charger. If the charger needs a restart the evse_client_app calls notify_user_of_charger_needs_restart
-        return
-
-    ######################################################################
-    #               PRIVATE GENERAL NOTIFICATION FUNCTIONS               #
-    ######################################################################
-
-    def __clear_notification_for_all_recipients(self, tag: str):
-        for recipient in c.NOTIFICATION_RECIPIENTS:
-            identification = {"recipient": recipient, "tag": tag}
-            self.__clear_notification(identification)
-
-    def __clear_notification(self, identification: dict):
-        self.__log(f"Clearing notification. Data: {identification}")
-        recipient = identification["recipient"]
-        if recipient == "" or recipient is None:
-            self.__log(f"Cannot clear notification, recipient is empty '{recipient}'.")
-            return
-        tag = identification["tag"]
-        if tag == "" or tag is None:
-            self.__log(f"Cannot clear notification, tag is empty '{tag}'.")
-            return
-
-        # Clear the notification
-        try:
-            self.hass.call_service(
-                "notify/mobile_app_" + recipient,
-                message="clear_notification",
-                data={"tag": tag},
-            )
-        except Exception as e:
-            self.__log(
-                f"__clear_notification. Could not clear notification: exception on {recipient}. Exception: {e}."
-            )
-
-    ######################################################################
-    #                PRIVATE FUNCTIONS FOR NO-NEW-SCHEDULE               #
-    ######################################################################
-
-    async def __reset_no_new_schedule(self):
-        """Sets all errors to False and removes notification / UI messages
-
-        To be used when the car gets disconnected, so that while it stays in this state there is no
-        unneeded "alarming" message/notification.
-        Also, when the car returns with an SoC below the minimum no new schedule is retrieved and
-        in that case the message / notification would remain without a need.
-        """
-
-        for error_name in self.no_schedule_errors:
-            self.no_schedule_errors[error_name] = False
-        await self.__notify_no_new_schedule(reset=True)
-
-    def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if self.hass.info_timer(timer_id):
-            silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)
-
-    async def __notify_no_new_schedule(self, reset: Optional[bool] = False):
-        """Check if notification of user about no new schedule available is needed,
-        based on self.no_schedule_errors. The administration for the errors is done by
-        handle_no_new_schedule().
-
-        When error_state = True of any of the errors:
-            Set immediately in UI
-            Notify once if remains for an hour
-        When error state = False:
-            If all errors are solved:
-                Remove from UI immediately
-                If notification has been sent:
-                    Notify user the situation has been restored.
-
-        Parameters
-        ----------
-        reset : bool, optional
-                Reset is meant for the situation where the car gets disconnected and all
-                notifications can be cancelled and messages in UI removed.
-                Then also no "problems are solved" notification is sent.
-
-        """
-
-        if reset:
-            if self.hass.info_timer(self.notification_timer_handle):
-                res = await self.hass.cancel_timer(self.notification_timer_handle)
-                self.__log(
-                    f"__notify_no_new_schedule, notification timer cancelled: {res}."
-                )
-            self.no_schedule_notification_is_planned = False
-            self.__clear_notification_for_all_recipients(tag="no_new_schedule")
-            await self.hass.set_state(
-                "input_boolean.error_no_new_schedule_available", state="off"
-            )
-            return
-
-        any_errors = False
-        for error_name in self.no_schedule_errors:
-            if self.no_schedule_errors[error_name]:
-                any_errors = True
-                break
-
-        if any_errors:
-            await self.hass.set_state(
-                "input_boolean.error_no_new_schedule_available", state="on"
-            )
-            await self.hass.set_value(
-                "input_text.fm_connection_status", "Failed to connect/login."
-            )
-            if not self.no_schedule_notification_is_planned:
-                # Plan a notification in case the error situation remains for more than an hour
-                self.notification_timer_handle = await self.hass.run_in(
-                    self.no_new_schedule_notification, delay=60 * 60
-                )
-                self.no_schedule_notification_is_planned = True
-        else:
-            await self.hass.set_state(
-                "input_boolean.error_no_new_schedule_available", state="off"
-            )
-            canceled_before_run = await self.hass.cancel_timer(
-                self.notification_timer_handle, True
-            )
-            self.__log(
-                f"__notify_no_new_schedule, notification timer cancelled before run: {canceled_before_run}."
-            )
-            if self.no_schedule_notification_is_planned and not canceled_before_run:
-                # Only send this message if "no_schedule_notification" was actually sent
-                title = "Schedules available again"
-                message = (
-                    f"The problems with schedules have been solved.\n"
-                    f"If you've set charging via the chargers app, "
-                    f"consider to end that and use automatic charging again."
-                )
-                self.notify_user(
-                    message=message,
-                    title=title,
-                    tag="no_new_schedule",
-                    critical=False,
-                    send_to_all=True,
-                    ttl=30 * 60,
-                )
-            self.no_schedule_notification_is_planned = False
-
-    def no_new_schedule_notification(self, v2g_args=None):
-        # Work-around to have this in a separate function (without arguments) and not inline in handle_no_new_schedule
-        # This is needed because self.hass.run_in() with kwargs does not really work well and results in this app crashing
-        title = "No new schedules available"
-        message = (
-            f"The current schedule will remain active.\n"
-            f"Usually this problem is solved automatically in an hour or so.\n"
-            f"If the schedule does not fit your needs, consider charging manually via the chargers app."
-        )
-        self.notify_user(
-            message=message,
-            title=title,
-            tag="no_new_schedule",
-            critical=False,
-            send_to_all=True,
-        )
-        self.__log("Notification 'No new schedules' sent.")
-
-    ######################################################################
-    # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
-    ######################################################################
-
-    async def __ask_for_new_schedule(self):
-        """
-        This function is meant to be called upon:
-        - SOC updates
-        - charger state updates
-        - every 15 minutes if none of the above
-        """
-        self.__log("__ask_for_new_schedule called")
-
-        # Check whether we're in automatic mode
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        if charge_mode != "Automatic":
-            self.__log(
-                f"__ask_for_new_schedule Not getting new schedule. "
-                f"Charge mode is not 'Automatic' but '{charge_mode}'."
-            )
-            return
-
-        # Check whether we're not in boost mode.
-        if self.in_boost_to_reach_min_soc:
-            self.__log(
-                f"__ask_for_new_schedule Not getting new schedule. "
-                f"SoC below minimum, boosting to reach that first."
-            )
-            return
-
-        # Check if reservations_client has any (relevant) items, if so try to retrieve target_soc
-        if self.reservations_client is not None:
-            car_reservations = await self.reservations_client.get_v2g_events()
-        else:
-            self.__log(
-                f"__ask_for_new_schedule. Could not call get_v2g_events on reservations_client as it is None."
-            )
-
-        targets = []
-        is_first_reservation = True
-        if car_reservations is not None and len(car_reservations) > 0:
-            # Adding the target one week from now is FM specific, so this is done in the fm_client_app
-            for car_reservation in car_reservations:
-                if car_reservation == "un-initiated":
-                    self.__log(
-                        f"__ask_for_new_schedule, reservation: {car_reservation}."
-                        f" The reservations_client module is not initiated yet. Stop processing"
-                    )
-                    # The module reservations_client is not initiated yet. Stop processing
-                    continue
-
-                # Do not take dismissed car reservations into account for schedule.
-                if car_reservation["dismissed"]:
-                    continue
-
-                target_start = time_round(car_reservation["start"], c.EVENT_RESOLUTION)
-                target_end = time_round(car_reservation["end"], c.EVENT_RESOLUTION)
-                target_soc_kwh = round(
-                    float(car_reservation["target_soc_percent"])
-                    / 100
-                    * c.CAR_MAX_CAPACITY_IN_KWH,
-                    2,
-                )
-                # Check target_soc above max_capacity and below min_soc is done in reservations_client
-                target = {
-                    "start": target_start,
-                    "end": target_end,
-                    "target_soc_kwh": target_soc_kwh,
-                }
-                targets.append(target)
-
-                # Only for the first target check if a dismissal is applicable
-                if (
-                    is_first_reservation
-                    and self.timer_id_event_wait_to_disconnect == ""
-                ):
-                    now = get_local_now()
-                    self.__log(f"__ask_for_new_schedule is_first_reservation == True.")
-                    if target_end < now:
-                        self.__log(
-                            f"__ask_for_new_schedule first_reservation event is in the (recent) past, skipping"
-                        )
-                        # Not needed as the timer_id == ""
-                        # self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
-                        # self.timer_id_event_wait_to_disconnect = ""
-                    else:
-                        # Only set the dismissal timer when start of the reservation is near.
-                        if (now + self.MAX_EVENT_WAIT_TO_DISCONNECT) > target_start:
-                            self.__log(
-                                f"__ask_for_new_schedule first_reservation almost starting."
-                            )
-                            # Set a timer for MAX_EVENT_WAIT_TO_DISCONNECT (15) min. after the start of
-                            # the reservation to check if car is still connected.
-                            # If still connected, ask user via notification if the item can be dismissed.
-
-                            # Not needed as the timer_id == ""
-                            # self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
-                            # self.timer_id_event_wait_to_disconnect = ""
-
-                            ask_at = target_start + self.MAX_EVENT_WAIT_TO_DISCONNECT
-                            if ask_at < now:
-                                # A last minute added event(?) Inform immediately, give some slack for processing time.
-                                ask_at = now + timedelta(seconds=5)
-                            self.timer_id_event_wait_to_disconnect = (
-                                await self.hass.run_at(
-                                    callback=self.__ask_user_dismiss_event_or_not,
-                                    start=ask_at,
-                                    v2g_event=car_reservation,
-                                )
-                            )
-                            self.__log(
-                                f"__ask_for_new_schedule: __ask_user_dismiss_event_or_not is set "
-                                f"to run at {ask_at.isoformat()}."
-                            )
-                is_first_reservation = False
-            # End for car_reservation loop
-        # self.__log(f"__ask_for_new_schedule, targets: '{targets}'.")
-
-        # self.__log(f"__ask_for_new_schedule calling get_new_schedule on self.fm_client_app: {self.fm_client_app}.")
-        if self.fm_client_app is not None:
-            await self.fm_client_app.get_new_schedule(
-                targets=targets,
-                current_soc_kwh=self.connected_car_soc_kwh,
-                back_to_max_soc=self.back_to_max_soc,
-            )
-        else:
-            self.__log(
-                f"__ask_for_new_schedule. Could not call get_new_schedule on fm_client_app as it is None."
-            )
-
-        return
-
-    async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
-        self.__log(
-            f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}."
-        )
-
-        is_car_connected = True
-        if self.evse_client_app is not None:
-            is_car_connected = await self.evse_client_app.is_car_connected()
-        else:
-            self.__log(
-                f"__ask_user_dismiss_event_or_not. Could not call is_car_connected on evse_client_app as it is None."
-            )
-
-        if is_car_connected:
-            v2g_event = v2g_event["v2g_event"]
-            identification = " ".join(
-                filter(None, [v2g_event["summary"], v2g_event["description"]])
-            )
-            if len(identification) > 25:
-                identification = identification[0:25] + "..."
-            self.__log(
-                f"__ask_user_dismiss_event_or_not, event_title: {identification}."
-            )
-            # Will be cancelled when car gets disconnected.
-            hid = v2g_event["hash_id"]
-            message = (
-                f"The car is still connected while it was reserved to leave: '{identification}'.\n"
-                f"What would you like to do?"
-            )
-            user_actions = [
-                {"action": f"dismiss_event~{hid}", "title": "Dismiss reservation"},
-                {"action": f"keep_event~{hid}", "title": "Keep reservation"},
-            ]
-            self.notify_user(
-                message=message,
-                title="Car connected during reservation",
-                tag=f"dismiss_event_or_not_{hid}",
-                actions=user_actions,
-            )
-        else:
-            self.__log(
-                f"__ask_user_dismiss_event_or_not, unexpected call for event with hash_id '{v2g_event['hash_id']}' "
-                f"as car is already disconnected."
-            )
-
-    def __cancel_charging_timers(self):
-        for h in self.scheduling_timer_handles:
-            self.__cancel_timer(h)
-        self.scheduling_timer_handles = []
-        self.__log(
-            f"Canceled all {len(self.scheduling_timer_handles)} charging timers."
-        )
-
-    def __reset_charging_timers(self, handles):
-        self.__log(
-            f"__reset_charging_timers: cancel current and set {len(handles)} new charging timers."
-        )
-        # We need to be sure no now timers are added unless the old are removed
-        self.__cancel_charging_timers()
-        self.scheduling_timer_handles = handles
-        # self.__log("finished __reset_charging_timers")
-
-    async def __process_schedule(self, entity, attribute, old, new, kwargs):
-        """Process a schedule by setting timers to start charging the EVSE.
-
-        If appropriate, also starts a charge directly.
-        Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
-        """
-        if self.evse_client_app is not None:
-            is_car_connected = await self.evse_client_app.is_car_connected()
-        else:
-            self.__log(
-                f"__process_schedule. Could not call is_car_connected on evse_client_app as it is None."
-            )
-            return
-
-        if not is_car_connected:
-            self.__log("__process_schedule aborted: car is not connected")
-            return
-
-        schedule = new.get("attributes", None)
-        if schedule is None:
-            self.__log("__process_schedule aborted: no schedule found.")
-            return
-
-        values = schedule.get("values", None)
-        if values is None:
-            self.__log("__process_schedule aborted: no values found.")
-            return
-
-        duration = schedule.get("duration", None)
-        if duration is None:
-            self.__log("__process_schedule aborted: no duration found.")
-            return
-
-        start = schedule.get("start", None)
-        if start is None:
-            self.__log("__process_schedule aborted: no start datetime found.")
-            return
-
-        duration = isodate.parse_duration(duration)
-        resolution = duration / len(values)
-        start = isodate.parse_datetime(start)
-
-        # Check against expected control signal resolution
-        if resolution < c.EVENT_RESOLUTION:
-            self.__log(
-                f"__process_schedule aborted: the resolution ({resolution}) is below "
-                f"the set minimum ({c.EVENT_RESOLUTION})."
-            )
-            await self.handle_no_new_schedule("invalid_schedule", True)
-            return
-
-        # Detect invalid schedules
-        # If a fallback schedule is sent assume that the schedule is invalid if all values (usually 0) are the same
-        is_fallback = (
-            schedule["scheduler_info"]["scheduler"] == "StorageFallbackScheduler"
-        )
-        if is_fallback and (all(val == values[0] for val in values)):
-            self.__log(
-                f"Invalid fallback schedule, all values are the same: {values[0]}. Stopped processing."
-            )
-            await self.handle_no_new_schedule("invalid_schedule", True)
-            # Skip processing this schedule to keep the previous
-            return
-        else:
-            await self.handle_no_new_schedule("invalid_schedule", False)
-
-        self.__log(f"__process_schedule | valid schedule")
-
-        # Create new scheduling timers, to send a control signal for each value
-        handles = []
-        now = get_local_now()
-        # To be able to differentiate between different schedules the time is added.
-        str_source = f'__process_schedule @ {now.strftime("%H:%M:%S")}'
-        timer_datetimes = [start + i * resolution for i in range(len(values))]
-        MW_TO_W_FACTOR = (
-            1000000  # convert from MegaWatt from schedule to Watt for charger
-        )
-        for t, value in zip(timer_datetimes, values):
-            if t > now:
-                # AJO 17-10-2021
-                # ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
-                h = await self.hass.run_at(
-                    self.evse_client_app.start_charge_with_power,
-                    t,
-                    charge_power=value * MW_TO_W_FACTOR,
-                    source=str_source,
-                )
-                handles.append(h)
-            else:
-                await self.evse_client_app.start_charge_with_power(
-                    kwargs=dict(charge_power=value * MW_TO_W_FACTOR, source=str_source)
-                )
-
-        self.__reset_charging_timers(handles)  # This also cancels previous timers
-
-        exp_soc_values = list(
-            accumulate(
-                [self.connected_car_soc]
-                + convert_MW_to_percentage_points(
-                    values,
-                    resolution,
-                    c.CAR_MAX_CAPACITY_IN_KWH,
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR,
-                )
-            )
-        )
-
-        exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
-        expected_soc_based_on_scheduled_charges = [
-            dict(time=t.isoformat(), soc=round(v, 2))
-            for v, t in zip(exp_soc_values, exp_soc_datetimes)
-        ]
-        await self.set_records_in_chart(
-            chart_line_name=ChartLine.SCHEDULE,
-            records=expected_soc_based_on_scheduled_charges,
-        )
-
-    async def __clear_all_soc_chart_lines(self):
-        await self.set_records_in_chart(
-            chart_line_name=ChartLine.SCHEDULE, records=None
-        )
-        await self.set_records_in_chart(chart_line_name=ChartLine.BOOST, records=None)
-        await self.set_records_in_chart(
-            chart_line_name=ChartLine.MAX_CHARGE_NOW, records=None
-        )
-
-    async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
-        """Write or remove records in lines in the chart.
-
-        If records = None the line_name line will be cleared (made invisible),
-        e.g. when the car gets disconnected and the SoC prognosis boost is not relevant (any more)
-
-        Parameters:
-            chart_line_name (ChartLine): indicating which line to write to
-            records(dict): a dictionary of time (isoformat) + value (e.g. cent/kWh or %) records
-
-        For the SoC related lines (prognoses, boost, max_charge_now): if there is data in records,
-        it is assumed that the other lines need to be erased.
-
-        Returns:
-            Nothing
-        """
-        # tmp = str(records)
-        # if len(tmp) > 75:
-        #     tmp = f"{tmp[:50]} ... {tmp[-25:]}"
-        # self.__log(f"__set_soc_prognosis_in_chart called | chart_line_name: '{chart_line_name}', records: {tmp}.")
-        now = get_local_now()
-
-        # There seems to be no way to hide the SoC series from the graph,
-        # so it is filled with "empty" data, one record of None.
-        # Set it at a week from now, so it's not visible in the default view.
-        clear_line_records = dict(
-            records=[dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
-        )
-
-        # To make sure the new attributes are treated as new we set a new state as well
-        new_state = "Chart line data at " + now.isoformat()
-        entity = f"input_text.{self.chart_line_entity[chart_line_name]}"
-
-        if records is None:
-            await self.hass.set_state(
-                entity, state=new_state, attributes=clear_line_records
-            )
-            self.__log(
-                f"set_records_in_chart | chart_line_name '{chart_line_name}' cleared."
-            )
-        else:
-            result = {"records": records}
-            await self.hass.set_state(entity, state=new_state, attributes=result)
-            self.__log(
-                f"set_records_in_chart | entity: '{entity}', "
-                f"attributes: {str(result)[:50]} ... {str(result)[-25:]}."
-            )
-
-            # If a soc line is set, clear the others
-            soc_lines = [ChartLine.SCHEDULE, ChartLine.BOOST, ChartLine.MAX_CHARGE_NOW]
-            if chart_line_name in soc_lines:
-                self.__log(
-                    f"set_records_in_chart | chart_line_name '{chart_line_name}' in soc_lines, clear others."
-                )
-                for chart_line in soc_lines:
-                    if chart_line == chart_line_name:
-                        continue
-                    entity = f"input_text.{self.chart_line_entity[chart_line]}"
-                    await self.hass.set_state(
-                        entity, state=new_state, attributes=clear_line_records
-                    )
-                    self.__log(
-                        f"set_records_in_chart | chart_line_name '{chart_line}' cleared."
-                    )
-
-    async def __start_max_charge_now(self):
-        if self.evse_client_app is not None:
-            # TODO: Check if .set_active() is really a good idea here?
-            #       If the client is not active there might be a good reason for that...
-            await self.evse_client_app.set_active()
-            await self.evse_client_app.start_charge_with_power(
-                kwargs=dict(
-                    charge_power=c.CHARGER_MAX_CHARGE_POWER,
-                    source="__start_max_charge_now",
-                )
-            )
-        else:
-            self.__log(
-                f"__start_max_charge_now. Could not call methods on evse_client_app as it is None."
-            )
-
-    async def __process_soc(self, reported_soc: str) -> bool:
-        """Process the reported SoC by saving it to self.connected_car_soc (realistic values only).
-
-        :param reported_soc: string representation of the SoC (in %) as reported by the charger (e.g. "42" denotes 42%)
-        :returns: True if a realistic numeric SoC was reported, False otherwise.
-        """
-        try:
-            reported_soc = float(reported_soc)
-            assert 0 < reported_soc <= 100
-        except (TypeError, AssertionError, ValueError):
-            self.__log(f"New SoC '{reported_soc}' ignored.")
-            return False
-        self.connected_car_soc = round(reported_soc, 0)
-
-        # Cleaned_up SoC value for UI
-        # TODO: This is no longer needed, use input_number.charger_connected_car_state_of_charge in UI.
-        await self.hass.set_value(
-            entity_id="input_number.car_state_of_charge", value=self.connected_car_soc
-        )
-
-        self.connected_car_soc_kwh = round(
-            reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2
-        )
-        remaining_range = int(
-            round((self.connected_car_soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0)
-        )
-        await self.hass.set_value(
-            entity_id="input_number.car_remaining_range", value=remaining_range
-        )
-        self.__log(
-            f"New SoC processed, self.connected_car_soc is now set to: {self.connected_car_soc}%."
-        )
-        self.__log(
-            f"New SoC processed, self.connected_car_soc_kwh is now set to: {self.connected_car_soc_kwh}kWh."
-        )
-        self.__log(
-            f"New SoC processed, car_remaining_range is now set to: {remaining_range} km."
-        )
-
-        if self.evse_client_app is not None:
-            is_charging = await self.evse_client_app.is_charging()
-        else:
-            self.__log(
-                f"__process_soc. Could not call is_charging on evse_client_app as it is None."
-            )
-            return False
-        # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge while charging (not dis-charging).
-        if is_charging and self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT:
-            message = f"Car battery at {self.connected_car_soc} %, range ≈ {remaining_range} km."
-            self.notify_user(
-                message=message,
-                title=None,
-                tag="battery_max_soc_reached",
-                critical=False,
-                send_to_all=True,
-                ttl=60 * 15,
-            )
-        return True
 
     async def set_next_action(self, v2g_args=None):
         """The function determines what action should be taken next based on current SoC, Charge_mode, Charger_state
@@ -1157,6 +221,8 @@ class V2Gliberty:
         - SoC updates
         - Charger state updates
         - Charge mode updates
+        - Changes in the reservations calendar
+        - New prices have been detected (Amber only, this is the only reason this is not a private method)
         - Every 15 minutes if none of the above
         """
         # Only for debugging:
@@ -1166,6 +232,7 @@ class V2Gliberty:
             source = "unknown"
         self.__log(f"Set next action called from source: {source}.")
 
+        # ToDo? Use self.__is_car_connected() instead?
         if self.evse_client_app is not None:
             is_car_connected = await self.evse_client_app.is_car_connected()
         else:
@@ -1414,6 +481,1081 @@ class V2Gliberty:
             raise ValueError(f"Unknown option for set_next_action: {charge_mode}")
 
         return
+
+    async def set_price_is_up_to_date(self, is_up_to_date: bool):
+        """Helper for setting status of price data in UI"""
+        if is_up_to_date:
+            await self.hass.turn_off(
+                "input_boolean.error_epex_prices_cannot_be_retrieved"
+            )
+        else:
+            await self.hass.turn_on(
+                "input_boolean.error_epex_prices_cannot_be_retrieved"
+            )
+
+    def notify_user(
+        self,
+        message: str,
+        title: Optional[str] = None,
+        tag: Optional[str] = None,
+        critical: bool = False,
+        send_to_all: bool = False,
+        ttl: Optional[int] = 0,
+        actions: list = None,
+    ):
+        """Utility function to send notifications to the user
+        - critical    : send with high priority to Admin only. Always delivered and sound is play. Use with caution.
+        - send_to_all : send to all users (can't be combined with critical), default = only send to Admin.
+        - tag         : id that can be used to replace or clear a previous message
+        - ttl         : time to live in seconds, after that the message will be cleared. 0 = do not clear.
+                        A tag is required.
+        - actions     : A list of dicts with action and title stings
+
+        We assume there always is an ADMIN and there might be several other users that need to be notified.
+        When a new call to this function with the same tag is made, the previous message will be overwritten
+        if it still exists.
+        """
+        if c.ADMIN_MOBILE_NAME == "":
+            self.__log(
+                "notify_user: No registered devices to notify, cancel notification."
+            )
+            return
+
+        # All notifications always get sent to admin
+        to_notify = [c.ADMIN_MOBILE_NAME]
+
+        # Use abbreviation to make more room for title itself.
+        title = "V2G-L: " + title if title else "V2G Liberty"
+
+        notification_data = {}
+
+        # critical trumps send_to_all
+        if critical:
+            self.__log(f"notify_user: Critical! Send to: {to_notify}.")
+            notification_data = c.PRIORITY_NOTIFICATION_CONFIG
+
+        if send_to_all and not critical:
+            self.__log(
+                f"notify_user: Send to all and not critical! Send to: {to_notify}."
+            )
+            to_notify = c.NOTIFICATION_RECIPIENTS
+
+        if tag:
+            notification_data["tag"] = tag
+
+        if actions:
+            notification_data["actions"] = actions
+
+        message = message + " [" + c.HA_NAME + "]"
+
+        self.__log(
+            f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}."
+        )
+        for recipient in to_notify:
+            service = "notify/mobile_app_" + recipient
+            try:
+                if notification_data:
+                    self.hass.call_service(
+                        service, title=title, message=message, data=notification_data
+                    )
+                else:
+                    self.hass.call_service(service, title=title, message=message)
+            except Exception as e:
+                self.__log(
+                    f"notify_user. Could not notify: exception on {recipient}. Exception: {e}."
+                )
+
+            if ttl > 0 and tag and not critical:
+                # Remove the notification after a time-to-live.
+                # A tag is required for clearing.
+                # Critical notifications should not auto clear.
+                self.hass.run_in(
+                    self.__clear_notification, delay=ttl, recipient=recipient, tag=tag
+                )
+
+    def clear_notification(self, tag: str):
+        """Wrapper methode for easy clearing of notifications"""
+        self.__clear_notification_for_all_recipients(tag=tag)
+
+    async def handle_calendar_change(self, v2g_events: List = None, v2g_args=None):
+        """
+        Draws the calendar items (v2g_events) in the UI.
+        Pre_processes v2g_events to a calendar_targets list that is used for getting schedules.
+        Set a timer for the start of the first reservation
+        :param v2g_events: List of v2g_events (dicts)
+                           All should have a start < 7-days-from-now and end > now.
+        :param v2g_args: Only for logging/debugging
+        :return: Nothing
+        """
+        self.__log(
+            f"handle_calendar_change called with {len(v2g_events)} items from '{v2g_args}'."
+        )
+        await self.__write_events_in_ui_entity(v2g_events=v2g_events)
+        await self.__draw_event_in_graph(v2g_events=v2g_events)
+
+        is_first_reservation = True
+        self.calendar_targets = []
+        if v2g_events is not None and len(v2g_events) > 0:
+            for car_reservation in v2g_events:
+                if car_reservation == "un-initiated":
+                    self.__log(
+                        f"handle_calendar_change, reservation: {car_reservation}."
+                        f" The reservations_client module is not initiated yet. Stop processing"
+                    )
+                    # The module reservations_client is not initiated yet. Stop processing
+                    continue
+
+                # Do not take dismissed car reservations into account for schedule.
+                if car_reservation["dismissed"]:
+                    continue
+
+                target_start = car_reservation["start"]
+                target_end = car_reservation["end"]
+                # Check target_soc above max_capacity and below min_soc is done in reservations_client
+                target = {
+                    "start": time_round(target_start, c.EVENT_RESOLUTION),
+                    "end": time_round(target_end, c.EVENT_RESOLUTION),
+                    "target_soc_kwh": round(
+                        float(car_reservation["target_soc_percent"])
+                        / 100
+                        * c.CAR_MAX_CAPACITY_IN_KWH,
+                        2,
+                    ),
+                }
+                self.calendar_targets.append(target)
+
+                # Set a timer for the start of the first reservation
+                if is_first_reservation:
+                    self.__cancel_timer(self.timer_id_first_reservation_start)
+                    run_at = target_start
+                    now = get_local_now()
+                    if target_start < now:
+                        # A last minute added event, handle immediately, give some slack for processing time.
+                        run_at = now + timedelta(seconds=5)
+                    self.timer_id_first_reservation_start = await self.hass.run_at(
+                        callback=self.__handle_first_reservation_start,
+                        start=run_at,
+                        v2g_event=car_reservation,
+                    )
+                    # Assumed is that the end will never be in the past as teh v2g_event then will not be in the
+                    # list of v2g_events (any more).
+                    self.__cancel_timer(self.timer_id_first_reservation_end)
+                    self.timer_id_first_reservation_end = await self.hass.run_at(
+                        callback=self.__handle_first_reservation_end,
+                        start=target_end,
+                    )
+                    self.__log(
+                        f"handle_calendar_change: __handle_first_reservation_end planned to run at {target_end}."
+                    )
+                is_first_reservation = False
+            # End for car_reservation loop
+
+        await self.set_next_action(v2g_args)
+
+    async def handle_no_new_schedule(self, error_name: str, error_state: bool):
+        """Keep track of situations where no new schedules are available:
+        - invalid schedule
+        - timeouts on schedule
+        - no communication with FM
+        They can occur simultaneously/overlapping, so they are accumulated in
+        the dictionary self.no_schedule_errors.
+        To be called from fm_client_app.
+        """
+
+        if error_name in self.no_schedule_errors:
+            self.__log(
+                f"handle_no_valid_schedule called with {error_name}: {error_state}."
+            )
+        else:
+            self.__log(
+                f"handle_no_valid_schedule called unknown error_name: '{error_name}'."
+            )
+            return
+        self.no_schedule_errors[error_name] = error_state
+        await self.__notify_no_new_schedule()
+
+    async def notify_user_of_charger_needs_restart(self, was_car_connected: bool):
+        """Notify admin with critical message of a presumably crashed modbus server
+        module in the charger.
+        To be called from evse_client_app.
+        """
+        self.__log(
+            "The charger probably crashed: Stop charging, set Error in UI and notify user"
+        )
+        await self.__set_chargemode_in_ui("Stop")
+
+        await self.hass.set_state(
+            "input_boolean.charger_modbus_communication_fault", state="on"
+        )
+        await self.hass.set_textvalue("input_text.charger_state", "Error")
+
+        title = "Charger communication error"
+        message = (
+            "Automatic charging has been stopped!\n"
+            "Please click this notification to open the V2G Liberty App "
+            "and follow the steps to solve this problem."
+        )
+        # Do not send a critical warning if car was not connected.
+        critical = was_car_connected
+        self.notify_user(
+            message=message,
+            title=title,
+            tag="charger_modbus_crashed",
+            critical=critical,
+            send_to_all=False,
+        )
+        return
+
+    async def reset_charger_communication_fault(self):
+        """To clear UI alert and notification if it is still present."""
+        self.__log("Called")
+        await self.hass.set_state(
+            "input_boolean.charger_modbus_communication_fault", state="off"
+        )
+        identification = {
+            "recipient": c.ADMIN_MOBILE_NAME,
+            "tag": "charger_modbus_crashed",
+        }
+        self.__clear_notification(identification)
+
+    async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
+        """Write or remove records in lines in the chart.
+
+        If records = None the line_name line will be cleared (made invisible),
+        e.g. when the car gets disconnected and the SoC prognosis boost is not relevant (any more)
+
+        Parameters:
+            chart_line_name (ChartLine): indicating which line to write to
+            records(dict): a dictionary of time (isoformat) + value (e.g. cent/kWh or %) records
+
+        For the SoC related lines (prognoses, boost, max_charge_now): if there is data in records,
+        it is assumed that the other lines need to be erased.
+
+        Returns:
+            Nothing
+        """
+        # tmp = str(records)
+        # if len(tmp) > 75:
+        #     tmp = f"{tmp[:50]} ... {tmp[-25:]}"
+        # self.__log(f"__set_soc_prognosis_in_chart called | chart_line_name: '{chart_line_name}', records: {tmp}.")
+        now = get_local_now()
+
+        # There seems to be no way to hide the SoC series from the graph,
+        # so it is filled with "empty" data, one record of None.
+        # Set it at a week from now, so it's not visible in the default view.
+        clear_line_records = dict(
+            records=[dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
+        )
+
+        # To make sure the new attributes are treated as new we set a new state as well
+        new_state = "Chart line data at " + now.isoformat()
+        entity = f"input_text.{self.chart_line_entity[chart_line_name]}"
+
+        if records is None:
+            await self.hass.set_state(
+                entity, state=new_state, attributes=clear_line_records
+            )
+            self.__log(f"chart_line_name '{chart_line_name}' cleared.")
+        else:
+            result = {"records": records}
+            await self.hass.set_state(entity, state=new_state, attributes=result)
+            self.__log(
+                f"entity: '{entity}', "
+                f"attributes: {str(result)[:50]} ... {str(result)[-25:]}."
+            )
+
+            # If a soc line is set, clear the others
+            soc_lines = [ChartLine.SCHEDULE, ChartLine.BOOST, ChartLine.MAX_CHARGE_NOW]
+            if chart_line_name in soc_lines:
+                self.__log(
+                    f"chart_line_name '{chart_line_name}' in soc_lines, clear others."
+                )
+                for chart_line in soc_lines:
+                    if chart_line == chart_line_name:
+                        continue
+                    entity = f"input_text.{self.chart_line_entity[chart_line]}"
+                    await self.hass.set_state(
+                        entity, state=new_state, attributes=clear_line_records
+                    )
+                    self.__log(f"chart_line_name '{chart_line}' cleared.")
+
+    ######################################################################
+    #                    PRIVATE CALLBACK FUNCTIONS                      #
+    ######################################################################
+
+    async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
+        """Handle changes in the charge mode
+        Here only the change from one to another mode is handled.
+        Set_next_action regularly checks what to do based on the current state (=the new state here)
+        """
+        new_state = new.get("state", None)
+        old_state = old.get("state", None)
+        self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
+
+        if old_state == "Max boost now" and new_state == "Automatic":
+            # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
+            # Let schedule (later) decide if starting is needed
+            if self.evse_client_app is not None:
+                await self.evse_client_app.stop_charging()
+            else:
+                self.__log(
+                    "Could not call stop_charging on evse_client_app as it is None."
+                )
+        if old_state == "Automatic" and new_state == "Max boost now":
+            self.__log(
+                "Charge mode changed from Automatic to Max boost now, "
+                "cancel timer and start charging."
+            )
+            self.__cancel_charging_timers()
+
+        if old_state != "Stop" and new_state == "Stop":
+            # New mode "Stop" is handled by set_next_action
+            self.__log(
+                "Stop charging (if in action) and give control based on chargemode = Stop"
+            )
+            # Cancel previous scheduling timers
+            self.__cancel_charging_timers()
+            await self.__clear_all_soc_chart_lines()
+            self.in_boost_to_reach_min_soc = False
+            if self.evse_client_app is not None:
+                await self.evse_client_app.set_inactive()
+            else:
+                self.__log(
+                    "Could not call set_inactive on evse_client_app as it is None."
+                )
+
+        if old_state == "Stop" and new_state != "Stop":
+            if self.evse_client_app is not None:
+                await self.evse_client_app.set_active()
+            else:
+                self.__log(
+                    "__update_charge_mode. Could not call set_active on evse_client_app as it is None."
+                )
+
+        await self.set_next_action(v2g_args="__update_charge_mode")
+        return
+
+    async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
+        """Function to handle updates in the car SoC"""
+        reported_soc = new["state"]
+        self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
+        res = await self.__process_soc(reported_soc)
+        if not res:
+            return
+        await self.set_next_action(v2g_args="__handle_soc_change")
+        return
+
+    async def __disconnect_charger(self, *args, **kwargs):
+        """Function te disconnect the charger.
+        Reacts to button in UI that fires DISCONNECT_CHARGER event.
+        """
+        self.__log("************* Disconnect charger requested *************")
+        await self.__reset_no_new_schedule()
+
+        if self.evse_client_app is not None:
+            await self.evse_client_app.stop_charging()
+            message = "Charger is disconnected"
+        else:
+            message = "Charger cloud not be disconnected, please check the app."
+            self.__log(
+                "__disconnect_charger. Could not call stop_charging on evse_client_app as it is None."
+            )
+
+        # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
+        self.notify_user(
+            message=message,
+            title=None,
+            tag="charger_disconnected",
+            critical=False,
+            send_to_all=True,
+            ttl=5 * 60,
+        )
+
+    async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
+        """A callback function for handling any changes in the charger state.
+        Has a sister function in evse module to handle stuff there"""
+        if new is None:
+            return
+        new_charger_state = int(float(new["state"]))
+
+        # Initialise to be always different then current if not in state
+        old_charger_state = -1
+
+        if old is not None:
+            old_charger_state = int(float(old["state"]))
+
+        if old_charger_state == new_charger_state:
+            return
+
+        # **** Handle disconnect:
+        # Goes to this status when the plug is removed from the socket (not when disconnect is requested from the UI)
+        if new_charger_state == self.DISCONNECTED_STATE:
+            # Reset any possible target for discharge due to SoC > max-soc
+            self.back_to_max_soc = None
+
+            # There might be a notification to ask the user to dismiss an event or not,
+            # if the car gets disconnected this notification can be removed.
+            self.clear_notification(tag="dismiss_event_or_not")
+
+            # Cancel current scheduling timers
+            self.__cancel_charging_timers()
+            await self.__clear_all_soc_chart_lines()
+
+            # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
+            charge_mode = await self.hass.get_state("input_select.charge_mode", None)
+            if charge_mode == "Max boost now":
+                await self.__set_chargemode_in_ui("Automatic")
+                self.notify_user(
+                    message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
+                    title=None,
+                    tag="charge_mode_change",
+                    critical=False,
+                    send_to_all=True,
+                    ttl=15 * 60,
+                )
+            return
+
+        # **** Handle connected:
+        if new_charger_state != self.DISCONNECTED_STATE:
+            # There might be a notification to remind the user to connect,
+            # if the car gets connected this notification can be removed.
+            self.clear_notification(tag="reminder_to_connect")
+            await self.set_next_action(v2g_args="__handle_charger_state_change")
+            return
+
+        # Handling errors is left to the evse_client_app as this knows what specific situations there are for
+        # the charger. If the charger needs a restart the evse_client_app calls notify_user_of_charger_needs_restart
+        return
+
+    async def __handle_user_dismiss_choice(self, event_name, data, kwargs):
+        """To be called when the user takes action on the question to keep or dismiss an event for scheduling.
+
+        :param event_name: not used
+        :param data: holds the action and the identifier of the event
+        :param kwargs: not used
+        :return: nothing
+        """
+        self.__log("Called.")
+
+        # The notification can be removed for other users.
+        self.clear_notification(tag="dismiss_event_or_not")
+
+        action_parts = str(data["action"]).split("~")
+        action = action_parts[0]
+        hid = action_parts[1]
+        if action == "dismiss_event":
+            dismiss = True
+        elif action == "keep_event":
+            dismiss = False
+        else:
+            self.__log(
+                f"__handle_user_dismiss_choice, aborting: unknown action: '{action}'."
+            )
+            return
+
+        if self.reservations_client is not None:
+            await self.reservations_client.set_event_dismissed_status(
+                event_hash_id=hid, status=dismiss
+            )
+        else:
+            self.__log(
+                "Could not call set_event_dismissed_status on reservations_client as it is None."
+            )
+
+    ######################################################################
+    #               PRIVATE UTILITY METHODS                              #
+    ######################################################################
+
+    async def __is_car_connected(self) -> bool:
+        """
+        Util wrapper for evse_client_app.is_car_connected()
+        :return: is_car_connected
+        """
+        is_car_connected = None
+        if self.evse_client_app is not None:
+            is_car_connected = await self.evse_client_app.is_car_connected()
+        else:
+            self.__log(
+                "__is_car_connected. Could not call is_car_connected on evse_client_app as it is None."
+            )
+        # self.__log(f"__is_car_connected. returning '{is_car_connected}'.")
+        return is_car_connected
+
+    async def __clear_all_soc_chart_lines(self):
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.SCHEDULE, records=None
+        )
+        await self.set_records_in_chart(chart_line_name=ChartLine.BOOST, records=None)
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.MAX_CHARGE_NOW, records=None
+        )
+
+    ######################################################################
+    #               PRIVATE GENERAL NOTIFICATION METHODS                 #
+    ######################################################################
+
+    def __clear_notification_for_all_recipients(self, tag: str):
+        for recipient in c.NOTIFICATION_RECIPIENTS:
+            identification = {"recipient": recipient, "tag": tag}
+            self.__clear_notification(identification)
+
+    def __clear_notification(self, identification: dict):
+        self.__log(f"Clearing notification. Data: {identification}")
+        recipient = identification["recipient"]
+        if recipient == "" or recipient is None:
+            self.__log(f"Cannot clear notification, recipient is empty '{recipient}'.")
+            return
+        tag = identification["tag"]
+        if tag == "" or tag is None:
+            self.__log(f"Cannot clear notification, tag is empty '{tag}'.")
+            return
+
+        # Clear the notification
+        try:
+            self.hass.call_service(
+                "notify/mobile_app_" + recipient,
+                message="clear_notification",
+                data={"tag": tag},
+            )
+        except Exception as e:
+            self.__log(
+                f"__clear_notification. Could not clear notification: exception on {recipient}. Exception: {e}."
+            )
+
+    ######################################################################
+    #                PRIVATE FUNCTIONS FOR NO-NEW-SCHEDULE               #
+    ######################################################################
+
+    async def __reset_no_new_schedule(self):
+        """Sets all errors to False and removes notification / UI messages
+
+        To be used when the car gets disconnected, so that while it stays in this state there is no
+        unneeded "alarming" message/notification.
+        Also, when the car returns with an SoC below the minimum no new schedule is retrieved and
+        in that case the message / notification would remain without a need.
+        """
+
+        for error_name in self.no_schedule_errors:
+            self.no_schedule_errors[error_name] = False
+        await self.__notify_no_new_schedule(reset=True)
+
+    async def __notify_no_new_schedule(self, reset: Optional[bool] = False):
+        """Check if notification of user about no new schedule available is needed,
+        based on self.no_schedule_errors. The administration for the errors is done by
+        handle_no_new_schedule().
+
+        When error_state = True of any of the errors:
+            Set immediately in UI
+            Notify once if remains for an hour
+        When error state = False:
+            If all errors are solved:
+                Remove from UI immediately
+                If notification has been sent:
+                    Notify user the situation has been restored.
+
+        Parameters
+        ----------
+        reset : bool, optional
+                Reset is meant for the situation where the car gets disconnected and all
+                notifications can be cancelled and messages in UI removed.
+                Then also no "problems are solved" notification is sent.
+
+        """
+
+        if reset:
+            if self.hass.info_timer(self.notification_timer_handle):
+                res = await self.hass.cancel_timer(self.notification_timer_handle)
+                self.__log(
+                    f"__notify_no_new_schedule, notification timer cancelled: {res}."
+                )
+            self.no_schedule_notification_is_planned = False
+            self.__clear_notification_for_all_recipients(tag="no_new_schedule")
+            await self.hass.set_state(
+                "input_boolean.error_no_new_schedule_available", state="off"
+            )
+            return
+
+        any_errors = False
+        for error_name in self.no_schedule_errors:
+            if self.no_schedule_errors[error_name]:
+                any_errors = True
+                break
+
+        if any_errors:
+            await self.hass.set_state(
+                "input_boolean.error_no_new_schedule_available", state="on"
+            )
+            await self.hass.set_value(
+                "input_text.fm_connection_status", "Failed to connect/login."
+            )
+            if not self.no_schedule_notification_is_planned:
+                # Plan a notification in case the error situation remains for more than an hour
+                self.notification_timer_handle = await self.hass.run_in(
+                    self.__no_new_schedule_notification, delay=60 * 60
+                )
+                self.no_schedule_notification_is_planned = True
+        else:
+            await self.hass.set_state(
+                "input_boolean.error_no_new_schedule_available", state="off"
+            )
+            canceled_before_run = await self.hass.cancel_timer(
+                self.notification_timer_handle, True
+            )
+            self.__log(
+                f"notification timer cancelled before run: {canceled_before_run}."
+            )
+            if self.no_schedule_notification_is_planned and not canceled_before_run:
+                # Only send this message if "no_schedule_notification" was actually sent
+                title = "Schedules available again"
+                message = (
+                    "The problems with schedules have been solved.\n"
+                    "If you've set charging via the chargers app, "
+                    "consider to end that and use automatic charging again."
+                )
+                self.notify_user(
+                    message=message,
+                    title=title,
+                    tag="no_new_schedule",
+                    critical=False,
+                    send_to_all=True,
+                    ttl=30 * 60,
+                )
+            self.no_schedule_notification_is_planned = False
+
+    def __no_new_schedule_notification(self, v2g_args=None):
+        # Work-around to have this in a separate function (without arguments) and not inline in handle_no_new_schedule
+        # This is needed because self.hass.run_in() with kwargs does not really work well and results in this app crashing
+        title = "No new schedules available"
+        message = (
+            f"The current schedule will remain active.\n"
+            f"Usually this problem is solved automatically in an hour or so.\n"
+            f"If the schedule does not fit your needs, consider charging manually via the chargers app."
+        )
+        self.notify_user(
+            message=message,
+            title=title,
+            tag="no_new_schedule",
+            critical=False,
+            send_to_all=True,
+        )
+        self.__log("Notification 'No new schedules' sent.")
+
+    ######################################################################
+    #                PRIVATE FUNCTIONS FOR TIMERS                        #
+    ######################################################################
+
+    def __cancel_timer(self, timer_id: str):
+        """Utility function to silently cancel a timer.
+        Born because the "silent" flag in cancel_timer does not work and the
+        logs get flooded with useless warnings.
+
+        Args:
+            timer_id: timer_handle to cancel
+        """
+        if self.hass.info_timer(timer_id):
+            silent = True  # Does not really work
+            self.hass.cancel_timer(timer_id, silent)
+
+    def __cancel_charging_timers(self):
+        for h in self.scheduling_timer_handles:
+            self.__cancel_timer(h)
+        self.scheduling_timer_handles = []
+        self.__log(
+            f"Canceled all {len(self.scheduling_timer_handles)} charging timers."
+        )
+
+    def __reset_charging_timers(self, handles):
+        self.__log(
+            f"__reset_charging_timers: cancel current and set {len(handles)} new charging timers."
+        )
+        # We need to be sure no new timers are added unless the old are removed
+        self.__cancel_charging_timers()
+        self.scheduling_timer_handles = handles
+        # self.__log("finished __reset_charging_timers")
+
+    ######################################################################
+    # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
+    ######################################################################
+
+    async def __ask_for_new_schedule(self):
+        """
+        This function is meant to be called upon:
+        - SOC updates
+        - charger state updates
+        - every 15 minutes if none of the above
+        """
+        self.__log("__ask_for_new_schedule called")
+
+        # Check whether we're in automatic mode
+        charge_mode = await self.hass.get_state("input_select.charge_mode")
+        if charge_mode != "Automatic":
+            self.__log(
+                f"__ask_for_new_schedule Not getting new schedule. "
+                f"Charge mode is not 'Automatic' but '{charge_mode}'."
+            )
+            return
+
+        # Check whether we're not in boost mode.
+        if self.in_boost_to_reach_min_soc:
+            self.__log(
+                "Not getting new schedule. SoC below minimum, boosting to reach that first."
+            )
+            return
+
+        # self.__log(f"__ask_for_new_schedule calling get_new_schedule on self.fm_client_app: {self.fm_client_app}.")
+        # Adding the target one week from now is FM specific, so this is done in the fm_client_app
+        if self.fm_client_app is not None:
+            await self.fm_client_app.get_new_schedule(
+                targets=self.calendar_targets,
+                current_soc_kwh=self.connected_car_soc_kwh,
+                back_to_max_soc=self.back_to_max_soc,
+            )
+        else:
+            self.__log(
+                "Could not call get_new_schedule on fm_client_app as it is None."
+            )
+
+        return
+
+    async def __process_schedule(self, entity, attribute, old, new, kwargs):
+        """Process a schedule by setting timers to start charging the EVSE.
+
+        If appropriate, also starts a charge directly.
+        Finally, the expected SoC (given the schedule) is calculated and saved to input_text.soc_prognosis.
+        """
+        if not await self.__is_car_connected():
+            self.__log("aborted: car is not connected")
+            return
+
+        schedule = new.get("attributes", None)
+        if schedule is None:
+            self.__log("aborted: no schedule found.")
+            return
+
+        values = schedule.get("values", None)
+        if values is None:
+            self.__log("aborted: no values found.")
+            return
+
+        duration = schedule.get("duration", None)
+        if duration is None:
+            self.__log("aborted: no duration found.")
+            return
+
+        start = schedule.get("start", None)
+        if start is None:
+            self.__log("aborted: no start datetime found.")
+            return
+
+        duration = isodate.parse_duration(duration)
+        resolution = duration / len(values)
+        start = isodate.parse_datetime(start)
+
+        # Check against expected control signal resolution
+        if resolution < c.EVENT_RESOLUTION:
+            self.__log(
+                f"__process_schedule aborted: the resolution ({resolution}) is below "
+                f"the set minimum ({c.EVENT_RESOLUTION})."
+            )
+            await self.handle_no_new_schedule("invalid_schedule", True)
+            return
+
+        # Detect invalid schedules
+        # If a fallback schedule is sent assume that the schedule is invalid if all values (usually 0) are the same
+        is_fallback = (
+            schedule["scheduler_info"]["scheduler"] == "StorageFallbackScheduler"
+        )
+        if is_fallback and (all(val == values[0] for val in values)):
+            self.__log(
+                f"Invalid fallback schedule, all values are the same: {values[0]}. Stopped processing."
+            )
+            await self.handle_no_new_schedule("invalid_schedule", True)
+            # Skip processing this schedule to keep the previous
+            return
+        else:
+            await self.handle_no_new_schedule("invalid_schedule", False)
+
+        self.__log("valid schedule")
+
+        # Create new scheduling timers, to send a control signal for each value
+        handles = []
+        now = get_local_now()
+        # To be able to differentiate between different schedules the time is added.
+        str_source = f'__process_schedule @ {now.strftime("%H:%M:%S")}'
+        timer_datetimes = [start + i * resolution for i in range(len(values))]
+        # convert from MegaWatt from schedule to Watt for charger
+        mw_to_w_factor = 1000000
+
+        for t, value in zip(timer_datetimes, values):
+            if t > now:
+                # AJO 17-10-2021
+                # ToDo: If value is the same as previous, combine them so we have less timers and switching moments?
+                h = await self.hass.run_at(
+                    self.evse_client_app.start_charge_with_power,
+                    t,
+                    charge_power=value * mw_to_w_factor,
+                    source=str_source,
+                )
+                handles.append(h)
+            else:
+                await self.evse_client_app.start_charge_with_power(
+                    kwargs=dict(charge_power=value * mw_to_w_factor, source=str_source)
+                )
+
+        self.__reset_charging_timers(handles)  # This also cancels previous timers
+
+        exp_soc_values = list(
+            accumulate(
+                [self.connected_car_soc]
+                + convert_MW_to_percentage_points(
+                    values,
+                    resolution,
+                    c.CAR_MAX_CAPACITY_IN_KWH,
+                    c.ROUNDTRIP_EFFICIENCY_FACTOR,
+                )
+            )
+        )
+
+        exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
+        expected_soc_based_on_scheduled_charges = [
+            dict(time=t.isoformat(), soc=round(v, 2))
+            for v, t in zip(exp_soc_values, exp_soc_datetimes)
+        ]
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.SCHEDULE,
+            records=expected_soc_based_on_scheduled_charges,
+        )
+
+    async def __start_max_charge_now(self):
+        if self.evse_client_app is not None:
+            # TODO: Check if .set_active() is really a good idea here?
+            #       If the client is not active there might be a good reason for that...
+            await self.evse_client_app.set_active()
+            await self.evse_client_app.start_charge_with_power(
+                kwargs=dict(
+                    charge_power=c.CHARGER_MAX_CHARGE_POWER,
+                    source="__start_max_charge_now",
+                )
+            )
+        else:
+            self.__log("Could not call methods on evse_client_app as it is None.")
+
+    async def __process_soc(self, reported_soc: str) -> bool:
+        """Process the reported SoC by saving it to self.connected_car_soc (realistic values only).
+
+        :param reported_soc: string representation of the SoC (in %) as reported by the charger (e.g. "42" denotes 42%)
+        :returns: True if a realistic numeric SoC was reported, False otherwise.
+        """
+        try:
+            reported_soc = float(reported_soc)
+            assert 0 < reported_soc <= 100
+        except (TypeError, AssertionError, ValueError):
+            self.__log(f"New SoC '{reported_soc}' ignored.")
+            return False
+        self.connected_car_soc = round(reported_soc, 0)
+
+        # Cleaned_up SoC value for UI
+        # TODO: This is no longer needed, use input_number.charger_connected_car_state_of_charge in UI.
+        await self.hass.set_value(
+            entity_id="input_number.car_state_of_charge", value=self.connected_car_soc
+        )
+
+        self.connected_car_soc_kwh = round(
+            reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2
+        )
+        remaining_range = int(
+            round((self.connected_car_soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0)
+        )
+        await self.hass.set_value(
+            entity_id="input_number.car_remaining_range", value=remaining_range
+        )
+        self.__log(
+            f"New SoC processed, {self.connected_car_soc}% = {self.connected_car_soc_kwh}kWh = {remaining_range} km."
+        )
+
+        if self.evse_client_app is not None:
+            is_charging = await self.evse_client_app.is_charging()
+        else:
+            self.__log("Could not call is_charging on evse_client_app as it is None.")
+            return False
+        # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge while charging (not dis-charging).
+        if is_charging and self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT:
+            message = f"Car battery at {self.connected_car_soc} %, range ≈ {remaining_range} km."
+            self.notify_user(
+                message=message,
+                title=None,
+                tag="battery_max_soc_reached",
+                critical=False,
+                send_to_all=True,
+                ttl=60 * 15,
+            )
+        return True
+
+    ######################################################################
+    #              PRIVATE METHODS FOR CALENDAR RESERVATIONS             #
+    ######################################################################
+
+    async def __handle_first_reservation_start(self, v2g_event):
+        """
+        To be run at the start of the first reservation (or a.s.a.p. if a reservation has already started).
+        Schedule a notification when the v2g_event has started but car is still connected
+
+        :param v2g_event:
+        :return:
+        """
+        v2g_event = v2g_event["v2g_event"]
+
+        # As the calendar has changed we assume the first event has changed. So, the current timer needs to be
+        # cancelled and possibly replaced by a new one.
+        self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
+        run_at = get_local_now() + self.MAX_EVENT_WAIT_TO_DISCONNECT
+        if run_at > v2g_event["end"]:
+            # This is rare but can be the case if a calendar item is added whereby the start is in the past
+            # and the end is in the future.
+            return
+
+        # Set a timer for MAX_EVENT_WAIT_TO_DISCONNECT in minutes after the start of
+        # the reservation to check if car is still connected.
+        # If still connected, ask user via notification if the item can be dismissed.
+        self.timer_id_event_wait_to_disconnect = await self.hass.run_at(
+            callback=self.__ask_user_dismiss_event_or_not,
+            start=run_at,
+            v2g_event=v2g_event,
+        )
+        self.__log("__ask_user_dismiss_event_or_not is set.")
+
+    async def __handle_first_reservation_end(self, v2g_args: str = ""):
+        # To prevent the call to __remind_user_to_connect_after_event() being cancelled due to calendar changes,
+        # whereby the events in the past would be discarded, we here do not build in the cancellation.
+
+        # The connected state is checked here and in at __remind_user_to_connect_after_event to make sure
+        # the notification is only sent when the car was disconnected  for a longer period.
+        self.__log(
+            f"__handle_first_reservation_end called with v2g_args = '{v2g_args}'."
+        )
+        if not await self.__is_car_connected():
+            run_at = get_local_now() + self.MAX_EVENT_WAIT_TO_DISCONNECT
+            self.__log(
+                f"__handle_first_reservation_end, setting __remind_user_to_connect_after_event at {run_at.isoformat()}"
+            )
+            await self.hass.run_at(
+                callback=self.__remind_user_to_connect_after_event,
+                start=run_at,
+                v2g_args=f"even {self.MAX_EVENT_WAIT_TO_DISCONNECT} sec. after event car still not connected",
+            )
+
+    async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
+        self.__log(
+            f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}."
+        )
+
+        v2g_event = v2g_event["v2g_event"]
+        if await self.__is_car_connected():
+            identification = " ".join(
+                filter(None, [v2g_event["summary"], v2g_event["description"]])
+            )
+            if len(identification) > 25:
+                identification = identification[0:25] + "..."
+            self.__log(
+                f"__ask_user_dismiss_event_or_not, event_title: {identification}."
+            )
+            # Will be cancelled when car gets disconnected.
+            hid = v2g_event["hash_id"]
+            message = (
+                f"The car is still connected while it was reserved to leave: '{identification}'.\n"
+                f"What would you like to do?"
+            )
+            user_actions = [
+                {"action": f"dismiss_event~{hid}", "title": "Dismiss reservation"},
+                {"action": f"keep_event~{hid}", "title": "Keep reservation"},
+            ]
+            self.notify_user(
+                message=message,
+                title="Keep reservation for scheduling?",
+                tag="dismiss_event_or_not",
+                send_to_all=True,
+                actions=user_actions,
+            )
+        else:
+            self.__log(
+                f"__ask_user_dismiss_event_or_not, unexpected call for event with "
+                f"hash_id {v2g_event['hash_id']} as car is already disconnected."
+            )
+
+    async def __remind_user_to_connect_after_event(self, v2g_args: str = ""):
+        # Only to be called from __handle_first_reservation_end().
+        # If the car is not connected a little after a reservations ends we remind the users to
+        # connect it as it is assumed they forgot to do so.
+        self.__log(f"__remind_user_to_connect_after_event, called {v2g_args=}.")
+        if not await self.__is_car_connected():
+            self.__log(
+                "__remind_user_to_connect_after_event, car not connected, notifying users."
+            )
+            self.notify_user(
+                message="The car is not connected while it was expected to have returned after a reservation. ",
+                tag="reminder_to_connect",
+                send_to_all=True,
+            )
+
+    async def __write_events_in_ui_entity(self, v2g_events: List = None):
+        # Prepare for rendering in the UI
+        start = get_local_now()
+        v2g_ui_event_calendar = []
+        for n in range(7):
+            calendar_date = start + timedelta(days=n)
+            events_in_day = []
+            for v2g_ui_event in v2g_events:
+                if v2g_ui_event["start"].date() == calendar_date.date():
+                    # HTML Escape text before writing to UI
+                    v2g_ui_event["summary"] = he(v2g_ui_event["summary"])
+                    v2g_ui_event["description"] = he(v2g_ui_event["description"])
+                    events_in_day.append(v2g_ui_event)
+            if len(events_in_day) > 0:
+                day = {"day": calendar_date, "events": events_in_day}
+                v2g_ui_event_calendar.append(day)
+        attributes = {"v2g_ui_event_calendar": v2g_ui_event_calendar}
+        await self.hass.set_state(
+            "input_text.calendar_events", state=start, attributes=attributes
+        )
+
+    async def __draw_event_in_graph(self, v2g_events: List = None):
+        now = get_local_now()
+        if len(v2g_events) == 0:
+            # There seems to be no way to hide the SoC series from the graph,
+            # so it is filled with "empty" data, one record of 0.
+            # Set it at a week from now, so it's not visible in the default view.
+            ci_chart_items = [
+                dict(time=(now + timedelta(days=7)).isoformat(), soc=None)
+            ]
+        else:
+            ci_chart_items = []
+
+            for ci in v2g_events:
+                # If ci is dismissed, do not draw
+                status = ci.get("dismissed", None)
+                if status is not None and status == True:
+                    continue
+                ci_chart_items.append(
+                    {"time": ci["start"].isoformat(), "soc": ci["target_soc_percent"]}
+                )
+                ci_chart_items.append(
+                    {"time": ci["end"].isoformat(), "soc": ci["target_soc_percent"]}
+                )
+                # Add to create a gap between ci's in the graph.
+                ci_chart_items.append(
+                    {
+                        "time": (ci["end"] + timedelta(minutes=1)).isoformat(),
+                        "soc": None,
+                    }
+                )
+
+        # To make sure the new attributes are treated as new we set a new state as well
+        new_state = f"Calendar item available at {now.isoformat()}."
+        result = dict(records=ci_chart_items)
+        await self.hass.set_state(
+            "input_text.calender_item_in_chart", state=new_state, attributes=result
+        )
+        # self.__log(f"__draw_events_in_graph: {result}.")
 
     async def __set_chargemode_in_ui(self, setting: str):
         """This function sets the charge mode in the UI to setting.
