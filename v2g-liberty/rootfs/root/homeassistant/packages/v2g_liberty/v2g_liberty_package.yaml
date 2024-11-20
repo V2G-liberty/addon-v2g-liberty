@@ -100,6 +100,9 @@ input_boolean:
   admin_settings_initialised:
     name: Administrator settings are initialised
 
+  calendar_settings_initialised:
+    name: Car reservation calendar settings are initialised
+
   charger_settings_initialised:
     name: Charger settings are initialised
 

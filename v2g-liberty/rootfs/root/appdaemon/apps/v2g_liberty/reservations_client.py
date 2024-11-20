@@ -76,6 +76,38 @@ class ReservationsClient:
     async def get_v2g_events(self):
         return self.v2g_events
 
+    def test_caldav_connection(self, url, username, password):
+        self.__log("test_caldav_connection")
+        try:
+            with caldav.DAVClient(
+                url=url,
+                username=username,
+                password=password,
+            ) as client:
+                calendar_names = []
+                principal = client.principal()
+                if principal is None:
+                    self.__log("test_caldav_connection: principal is None")
+                else:
+                    for calendar in principal.calendars():
+                        calendar_names.append(calendar.name)
+                return calendar_names
+
+            # TODO: turn the error returns into Exceptions
+        except caldav.lib.error.PropfindError:
+            self.__log("test_caldav_connection: Wrong URL error")
+            return "Wrong URL or authorisation error"
+        except caldav.lib.error.AuthorizationError:
+            self.__log("test_caldav_connection: Authorization error")
+            return "Authorization error"
+        except requests.exceptions.ConnectionError:
+            self.__log("test_caldav_connection: Connection error")
+            return "Connection error"
+        except Exception as e:
+            self.__log(f"test_caldav_connection: Unknown error: '{e}'.")
+            return "Unknown error"
+
+
     async def initialise_calendar(self):
         # Called by globals when:
         # + constants have been loaded from config

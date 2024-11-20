@@ -220,22 +220,22 @@
             margin-top: -24px;
           }
 
-  - type: entities
-    title: Administrator
-    entities:
-      - entity: input_text.admin_mobile_name
-      - entity: input_select.admin_mobile_platform
-    card_mod:
-      style: |
-        ha-card.type-entities div.card-content::before {
-          content: "High priority notifications get send to the administrators mobile device.";
-          white-space: pre-wrap;
-          color: var(--primary-text-color);
-          display: block;
-          padding: 8px 0px;
-          margin-bottom: 8px;
-          margin-top: -8px;
-        }
+    - type: entitiesß
+      title: Administrator
+      entities:
+        - entity: input_text.admin_mobile_name
+        - entity: input_select.admin_mobile_platform
+      card_mod:
+        style: |
+          ha-card.type-entities div.card-content::before {
+            content: "High priority notifications get send to the administrators mobile device.";
+            white-space: pre-wrap;
+            color: var(--primary-text-color);
+            display: block;
+            padding: 8px 0px;
+            margin-bottom: 8px;
+            margin-top: -8px;
+          }
 
 - type: vertical-stack
   cards:

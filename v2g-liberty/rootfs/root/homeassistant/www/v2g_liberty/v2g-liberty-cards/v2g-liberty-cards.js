@@ -11339,6 +11339,7 @@ const $755a87c9ee93218f$export$d70389959f86dee4 = "input_select.admin_mobile_pla
 const $755a87c9ee93218f$export$511a96d8a8b167fa = "input_number.car_max_capacity_in_kwh";
 const $755a87c9ee93218f$export$7c53730103b0e952 = "input_number.charger_plus_car_roundtrip_efficiency";
 const $755a87c9ee93218f$export$a6bd64d0b150c939 = "input_number.car_consumption_wh_per_km";
+const $755a87c9ee93218f$export$327a7fa57ac6cc54 = "input_boolean.calendar_settings_initialised";
 const $755a87c9ee93218f$export$9c93c6d1ceae75f4 = "input_select.car_calendar_source";
 const $755a87c9ee93218f$export$2af59ed4d7901cb0 = "input_text.calendar_account_init_url";
 const $755a87c9ee93218f$export$aafb3ebed7fe4af1 = "input_text.calendar_account_username";
@@ -11469,47 +11470,19 @@ $8be8b3713888253d$var$EditAdministratorSettingsDialog = (0, $24c52f343453d62d$ex
 
 
 
-async function $b9d6215527d806db$export$2c06c6218dca00de(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) {
-        const turnOnOrOff = value === "on" ? "turn_on" : "turn_off";
-        await hass.callService("input_boolean", turnOnOrOff, {
-            entity_id: entity_id
-        });
-    }
-}
-async function $b9d6215527d806db$export$6861912baac56d2a(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) await hass.callService("input_number", "set_value", {
-        value: value,
-        entity_id: entity_id
-    });
-}
-async function $b9d6215527d806db$export$a69afe08baa6c5b8(hass, entity_id, option) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (option !== stateObj.state) await hass.callService("input_select", "select_option", {
-        option: option,
-        entity_id: entity_id
-    });
-}
-async function $b9d6215527d806db$export$aa2d512458f3ac7b(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) await hass.callService("input_text", "set_value", {
-        value: value,
-        entity_id: entity_id
-    });
-}
-
 
 
 
 
 const $056feaf1842f603f$export$45e0b80f1e500bd4 = "edit-car-reservation-calendar-settings-dialog";
 const $056feaf1842f603f$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)("settings.car-reservation-calendar");
+var $056feaf1842f603f$var$CaldavConnectionStatus;
+(function(CaldavConnectionStatus) {
+    CaldavConnectionStatus["Connected"] = "Successfully connected";
+    CaldavConnectionStatus["Connecting"] = "Trying to connect...";
+    CaldavConnectionStatus["Failed"] = "Failed to connect";
+    CaldavConnectionStatus["TimedOut"] = "Timed out";
+})($056feaf1842f603f$var$CaldavConnectionStatus || ($056feaf1842f603f$var$CaldavConnectionStatus = {}));
 let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditCarReservationCalendarSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
@@ -11520,7 +11493,8 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         this._calendarAccountPasswordValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977], "");
         this._carCalendarNameValue = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06].state;
         this._integrationCalendarEntityNameValue = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337].state;
-        this._calendarAccountConnectionStatus = this.hass.states[$755a87c9ee93218f$export$b324c5213ab1689e];
+        this._caldavConnectionStatus = "";
+        this._hasTriedToConnectToCaldav = false;
         await this.updateComplete;
     }
     render() {
@@ -11571,17 +11545,13 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     `;
     }
     _renderCaldavCalendar() {
-        return this._isConnected() ? this._renderCaldavCalendarSelection() : this._renderCaldavAccountDetails();
+        return this._isConnectedToCaldav() ? this._renderCaldavCalendarSelection() : this._renderCaldavAccountDetails();
     }
-    _isConnected() {
-        return this._getConnectionStatus() === "Successfully connected";
+    _isConnectedToCaldav() {
+        return this._caldavConnectionStatus === $056feaf1842f603f$var$CaldavConnectionStatus.Connected;
     }
     _isBusyConnecting() {
-        return this._getConnectionStatus() === "Getting calendars...";
-    }
-    _getConnectionStatus() {
-        const stateObj = this.hass.states[$755a87c9ee93218f$export$b324c5213ab1689e];
-        return stateObj.state;
+        return this._caldavConnectionStatus === $056feaf1842f603f$var$CaldavConnectionStatus.Connecting;
     }
     _renderCaldavAccountDetails() {
         const description = $056feaf1842f603f$var$tp("caldav.description");
@@ -11611,12 +11581,11 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     `;
     }
     _renderConnectionError() {
-        const hasConnectionError = this._getConnectionStatus();
+        const hasConnectionError = this._caldavConnectionStatus;
         return !hasConnectionError || this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${hasConnectionError}</ha-alert>`;
     }
     _renderCaldavCalendarSelection() {
-        const options = this._getCalendarOptions();
-        const nrOfCalendars = options.length;
+        const nrOfCalendars = this._caldavCalendars.length;
         return nrOfCalendars === 0 ? this._renderCaldavNoCalendar() : nrOfCalendars === 1 ? this._renderCaldavOneCalendar() : this._renderCaldavMultipleCalendars();
     }
     _renderCaldavNoCalendar() {
@@ -11637,9 +11606,8 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     `;
     }
     _renderCaldavOneCalendar() {
-        const options = this._getCalendarOptions();
-        // Assign omly choice without asking user
-        this._carCalendarNameValue = options[0];
+        // Assign only choice without asking user
+        this._carCalendarNameValue = this._caldavCalendars[0];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <strong>Calendar name</strong>
@@ -11655,10 +11623,11 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     _renderCaldavMultipleCalendars() {
         const description = $056feaf1842f603f$var$tp("homeassistant.description");
         const carCalendarNameValueStateObj = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
-        // TODO: render select with filtered options
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._renderLoginSuccessful()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarNameValue, carCalendarNameValueStateObj, (evt)=>this._carCalendarNameValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarNameValue, // TODO: turn into input_text
+        carCalendarNameValueStateObj, (evt)=>this._carCalendarNameValue = evt.target.value, this._caldavCalendars)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11667,13 +11636,9 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
       </mwc-button>
     `;
     }
-    _getCalendarOptions() {
-        const carCalendarNameValueStateObj = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
-        return carCalendarNameValueStateObj.attributes.options.filter((option)=>option !== "Please choose an option");
-    }
     _renderHomeAssistantCalendarSelection() {
-        const integrationCalendarEntityNameStateObj = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
-        return integrationCalendarEntityNameStateObj.attributes.options.length === 0 ? this._renderHomeAssistantNoCalendar() : this._renderHomeAssistantMultipleCalendars();
+        const nrOfCalendars = this._homeAssistantCalendars.length;
+        return nrOfCalendars === 0 ? this._renderHomeAssistantNoCalendar() : nrOfCalendars === 1 ? this._renderHomeAssistantOneCalendar() : this._renderHomeAssistantMultipleCalendars();
     }
     _renderHomeAssistantNoCalendar() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -11683,12 +11648,14 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
       </mwc-button>
     `;
     }
-    _renderHomeAssistantMultipleCalendars() {
-        const description = $056feaf1842f603f$var$tp("homeassistant.description");
-        const integrationCalendarEntityNameStateObj = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
+    _renderHomeAssistantOneCalendar() {
+        // Assign only choice without asking user
+        const entity = this._homeAssistantCalendars[0];
+        this._integrationCalendarEntityNameValue = entity.entity_id;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._integrationCalendarEntityNameValue, integrationCalendarEntityNameStateObj, (evt)=>this._integrationCalendarEntityNameValue = evt.target.value)}
+      ${this._renderLoginSuccessful()}
+      <strong>Calendar name</strong>
+      <div>${entity.attributes.friendly_name}</div>
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11697,31 +11664,71 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
       </mwc-button>
     `;
     }
-    _continue() {
-        this._currentPage = this._carCalendarSourceValue === "Direct caldav source" ? "caldav-calendar" : "homeassistant-calendar";
-    }
-    async _continueCaldav() {
-        await (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$2af59ed4d7901cb0, this._calendarAccountUrlValue);
-        await (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$aafb3ebed7fe4af1, this._calendarAccountUsernameValue);
-        await (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$9f5a291b67022977, this._calendarAccountPasswordValue);
-        // TODO: call service with host/port as parameters?
-        this.hass.callService("script", "test_calendar_connection");
+    _renderHomeAssistantMultipleCalendars() {
+        const description = $056feaf1842f603f$var$tp("homeassistant.description");
+        const integrationCalendarEntityNameStateObj = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
+        const current = this._homeAssistantCalendars.find((entity)=>entity.entity_id === this._integrationCalendarEntityNameValue);
+        const callback = (evt)=>{
+            const selected = this._homeAssistantCalendars.find((entity)=>entity.attributes.friendly_name === evt.target.value);
+            this._integrationCalendarEntityNameValue = selected.entity_id;
+        };
+        const options = this._homeAssistantCalendars.map((entity)=>entity.attributes.friendly_name);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-markdown breaks .content=${description}></ha-markdown>
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(current?.attributes.friendly_name, integrationCalendarEntityNameStateObj, callback, options)}
+      <mwc-button @click=${this._back} slot="secondaryAction">
+        &lt; ${this.hass.localize("ui.common.back")}
+      </mwc-button>
+      <mwc-button @click=${this._save} slot="primaryAction">
+        ${this.hass.localize("ui.common.save")}
+      </mwc-button>
+    `;
     }
     _back() {
+        this._caldavConnectionStatus = "";
         this._currentPage = "source-selection";
     }
-    _save() {
-        const selected = this._carCalendarSourceValue;
-        if (selected === "Direct caldav source") {
-            // TODO: add validation
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$2af59ed4d7901cb0, this._calendarAccountUrlValue);
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$aafb3ebed7fe4af1, this._calendarAccountUsernameValue);
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$9f5a291b67022977, this._calendarAccountPasswordValue);
-            (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, $755a87c9ee93218f$export$7caca1b153da5c06, this._carCalendarNameValue);
+    _continue() {
+        if (this._carCalendarSourceValue === "Direct caldav source") this._currentPage = "caldav-calendar";
+        else {
+            this._homeAssistantCalendars = this._getHomeAssistantCalendars();
+            this._currentPage = "homeassistant-calendar";
         }
-        if (selected === "Home Assistant integration") // TODO: add validation -- check for existing entity
-        (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, $755a87c9ee93218f$export$500ee9ae1b823337, this._integrationCalendarEntityNameValue);
-        (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, $755a87c9ee93218f$export$9c93c6d1ceae75f4, this._carCalendarSourceValue);
+    }
+    _getHomeAssistantCalendars() {
+        const calendars = Object.keys(this.hass.states).filter((entityId)=>/^calendar\./.test(entityId)).map((entityId)=>this.hass.states[entityId]);
+        return calendars;
+    }
+    async _continueCaldav() {
+        this._hasTriedToConnectToCaldav = true;
+        // Todo: add validation
+        try {
+            this._caldavConnectionStatus = $056feaf1842f603f$var$CaldavConnectionStatus.Connecting;
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_caldav_connection", {
+                url: this._calendarAccountUrlValue,
+                username: this._calendarAccountUsernameValue,
+                password: this._calendarAccountPasswordValue
+            }, 10000);
+            this._caldavConnectionStatus = result.msg;
+            if (this._isConnectedToCaldav()) this._caldavCalendars = result.calendars;
+        } catch (err) {
+            this._caldavConnectionStatus = $056feaf1842f603f$var$CaldavConnectionStatus.TimedOut;
+        }
+    }
+    async _save() {
+        const isUsingCalDav = this._carCalendarSourceValue === "Direct caldav source";
+        const args = {
+            source: this._carCalendarSourceValue,
+            ...isUsingCalDav ? {
+                url: this._calendarAccountUrlValue,
+                username: this._calendarAccountUsernameValue,
+                password: this._calendarAccountPasswordValue,
+                calendar: this._carCalendarNameValue
+            } : {
+                calendar: this._integrationCalendarEntityNameValue
+            }
+        };
+        const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_calendar_settings", args);
         this.closeDialog();
     }
     static #_ = (()=>{
@@ -11765,7 +11772,7 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_integrationCalendarEntityNameValue", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountConnectionStatus", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_caldavConnectionStatus", void 0);
 $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($056feaf1842f603f$export$45e0b80f1e500bd4)
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog);
@@ -11959,7 +11966,7 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_charger_connection", {
                 host: this._chargerHostValue,
                 port: this._chargerPortValue
-            }, 5000);
+            });
             this._chargerConnectionStatus = result.msg;
             if (this._isConnected()) {
                 this._maxAvailablePowerValue = result.max_available_power;
@@ -12045,6 +12052,41 @@ $4163850e13316b31$var$EditChargerSettingsDialog = (0, $24c52f343453d62d$export$2
 
 
 
+
+async function $b9d6215527d806db$export$2c06c6218dca00de(hass, entity_id, value) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (value !== stateObj.state) {
+        const turnOnOrOff = value === "on" ? "turn_on" : "turn_off";
+        await hass.callService("input_boolean", turnOnOrOff, {
+            entity_id: entity_id
+        });
+    }
+}
+async function $b9d6215527d806db$export$6861912baac56d2a(hass, entity_id, value) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (value !== stateObj.state) await hass.callService("input_number", "set_value", {
+        value: value,
+        entity_id: entity_id
+    });
+}
+async function $b9d6215527d806db$export$a69afe08baa6c5b8(hass, entity_id, option) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (option !== stateObj.state) await hass.callService("input_select", "select_option", {
+        option: option,
+        entity_id: entity_id
+    });
+}
+async function $b9d6215527d806db$export$aa2d512458f3ac7b(hass, entity_id, value) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (value !== stateObj.state) await hass.callService("input_text", "set_value", {
+        value: value,
+        entity_id: entity_id
+    });
+}
 
 
 
@@ -12919,6 +12961,7 @@ let $8b666ded8df00928$export$5fb852718b75e058 = class CarReservationCalendarSett
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        this._stateCalendarSettingsInitialised = hass.states[$755a87c9ee93218f$export$327a7fa57ac6cc54];
         this._stateCarCalendarSource = hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
         this._stateIntegrationCalendarEntityName = hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
         this._stateCalendarAccountUrl = hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0];
@@ -12926,7 +12969,7 @@ let $8b666ded8df00928$export$5fb852718b75e058 = class CarReservationCalendarSett
         this._stateCarCalendarName = hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
     }
     render() {
-        const isInitialised = this._stateCarCalendarSource.attributes.initialised && this._stateCarCalendarName.attributes.initialised;
+        const isInitialised = this._stateCalendarSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${$8b666ded8df00928$var$tp("header")}">${content}</ha-card>`;
     }
@@ -12980,6 +13023,9 @@ let $8b666ded8df00928$export$5fb852718b75e058 = class CarReservationCalendarSett
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
 };
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCalendarSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCarCalendarSource", void 0);

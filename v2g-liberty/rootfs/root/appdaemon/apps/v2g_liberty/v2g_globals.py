@@ -1,9 +1,5 @@
 from datetime import datetime, timedelta
 import pytz
-import time
-import asyncio
-import json
-import os
 import math
 from appdaemon.plugins.hass.hassapi import Hass
 import constants as c
@@ -12,7 +8,7 @@ from service_response_app import ServiceResponseApp
 from settings_manager import SettingsManager
 
 
-class V2GLibertyGlobals(ServiceResponseApp):
+class V2GLibertyGlobals:
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
@@ -29,7 +25,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         "entity_type": "input_boolean",
         "value_type": "bool",
         "factory_default": False,
-        "listener_id": None
+        "listener_id": None,
     }
     SETTING_FM_ACCOUNT_USERNAME = {
         "entity_name": "fm_account_username",
@@ -129,7 +125,7 @@ class V2GLibertyGlobals(ServiceResponseApp):
         "entity_type": "input_boolean",
         "value_type": "bool",
         "factory_default": False,
-        "listener_id": None
+        "listener_id": None,
     }
     SETTING_CHARGER_HOST_URL = {
         "entity_name": "charger_host_url",
@@ -248,14 +244,14 @@ class V2GLibertyGlobals(ServiceResponseApp):
         "entity_type": "input_boolean",
         "value_type": "bool",
         "factory_default": False,
-        "listener_id": None
+        "listener_id": None,
     }
     SETTING_ADMIN_MOBILE_NAME = {
         "entity_name": "admin_mobile_name",
         "entity_type": "input_text",
         "value_type": "str",
         "factory_default": "",
-        "listener_id": None
+        "listener_id": None,
     }
     SETTING_ADMIN_MOBILE_PLATFORM = {
         "entity_name": "admin_mobile_platform",
@@ -266,6 +262,13 @@ class V2GLibertyGlobals(ServiceResponseApp):
     }
 
     # Settings related to calendar
+    CALENDAR_SETTINGS_INITIALISED = {
+        "entity_name": "calendar_settings_initialised",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None,
+    }
     SETTING_CAR_CALENDAR_SOURCE = {
         "entity_name": "car_calendar_source",
         "entity_type": "input_select",
@@ -339,18 +342,27 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
         await self.__kick_off_settings()
 
-        self.listen_event(self.__save_administrator_settings, "save_administrator_settings")
-        self.listen_event(self.__save_charger_settings, "save_charger_settings")
-        self.listen_event(self.__save_schedule_settings, "save_schedule_settings")
+        self.hass.listen_event(
+            self.__save_administrator_settings, "save_administrator_settings"
+        )
+        self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
+        self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
+        self.hass.listen_event(self.__save_schedule_settings, "save_schedule_settings")
         # Listen to [TEST] buttons
-        self.listen_event(self.__test_charger_connection, "test_charger_connection")
-        self.listen_event(self.__test_caldav_connection, "test_caldav_connection")
-        self.listen_event(self.__test_schedule_connection, "test_schedule_connection")
+        self.hass.listen_event(
+            self.__test_charger_connection, "test_charger_connection"
+        )
+        self.hass.listen_event(self.__test_caldav_connection, "test_caldav_connection")
+        self.hass.listen_event(
+            self.__test_schedule_connection, "test_schedule_connection"
+        )
 
-        self.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
-        self.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
-        self.listen_event(self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS")
-        self.listen_event(self.restart_v2g_liberty, "RESTART_HA")
+        self.hass.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
+        self.hass.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
+        self.hass.listen_event(
+            self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
+        )
+        self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
 
         # Was None, which blocks processing during initialisation
         self.collect_action_handle = ""
@@ -506,38 +518,84 @@ class V2GLibertyGlobals(ServiceResponseApp):
 
     async def __save_administrator_settings(self, event, data, kwargs):
         self.__store_setting("input_text.admin_mobile_name", data["mobileName"])
-        self.__store_setting("input_select.admin_mobile_platform", data["mobilePlatform"])
+        self.__store_setting(
+            "input_select.admin_mobile_platform", data["mobilePlatform"]
+        )
         self.__store_setting("input_boolean.admin_settings_initialised", True)
         await self.__process_setting(self.SETTING_ADMIN_MOBILE_NAME, None)
         await self.__process_setting(self.SETTING_ADMIN_MOBILE_PLATFORM, None)
         await self.__process_setting(self.ADMIN_SETTINGS_INITIALISED, None)
         await self.__read_and_process_notification_settings()
-        self.fire_event('save_administrator_settings.result')
+        self.hass.fire_event("save_administrator_settings.result")
+
+    async def __save_calendar_settings(self, event, data, kwargs):
+        # TODO: make text/boolean?
+        self.__store_setting("input_select.car_calendar_source", data["source"])
+        if data["source"] == "Direct caldav source":
+            self.__store_setting("input_text.calendar_account_init_url", data["url"])
+            self.__store_setting(
+                "input_text.calendar_account_username", data["username"]
+            )
+            self.__store_setting(
+                "input_text.calendar_account_password", data["password"]
+            )
+            # TODO: make text
+            self.__store_setting("input_select.car_calendar_name", data["calendar"])
+        else:
+            # TODO: make text
+            self.__store_setting(
+                "input_select.integration_calendar_entity_name", data["calendar"]
+            )
+        self.__store_setting("input_boolean.charger_settings_initialised", True)
+
+        if data["source"] == "Direct caldav source":
+            await self.__process_setting(self.SETTING_CALENDAR_ACCOUNT_INIT_URL, None)
+            await self.__process_setting(self.SETTING_CALENDAR_ACCOUNT_USERNAME, None)
+            await self.__process_setting(self.SETTING_CALENDAR_ACCOUNT_PASSWORD, None)
+            await self.__process_setting(self.SETTING_CAR_CALENDAR_NAME, None)
+        else:
+            await self.__process_setting(
+                self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME, None
+            )
+        await self.__process_setting(self.SETTING_CAR_CALENDAR_SOURCE, None)
+        await self.__process_setting(self.CALENDAR_SETTINGS_INITIALISED, None)
+
+        self.hass.fire_event("save_calendar_settings.result")
 
     async def __save_charger_settings(self, event, data, kwargs):
         self.__store_setting("input_text.charger_host_url", data["host"])
         self.__store_setting("input_number.charger_port", data["port"])
-        self.__store_setting("input_boolean.use_reduced_max_charge_power", data["useReducedMaxChargePower"])
-        if (data["useReducedMaxChargePower"]):
-            self.__store_setting("input_number.charger_max_charging_power", data["maxChargingPower"])
-            self.__store_setting("input_number.charger_max_discharging_power", data["maxDischargingPower"])
+        self.__store_setting(
+            "input_boolean.use_reduced_max_charge_power",
+            data["useReducedMaxChargePower"],
+        )
+        if data["useReducedMaxChargePower"]:
+            self.__store_setting(
+                "input_number.charger_max_charging_power", data["maxChargingPower"]
+            )
+            self.__store_setting(
+                "input_number.charger_max_discharging_power",
+                data["maxDischargingPower"],
+            )
         self.__store_setting("input_boolean.charger_settings_initialised", True)
 
         await self.__process_setting(self.SETTING_CHARGER_HOST_URL, None)
         await self.__process_setting(self.SETTING_CHARGER_PORT, None)
         await self.__process_setting(self.SETTING_USE_REDUCED_MAX_CHARGE_POWER, None)
-        if (data["useReducedMaxChargePower"]):
+        if data["useReducedMaxChargePower"]:
             await self.__process_setting(self.SETTING_CHARGER_MAX_CHARGE_POWER, None)
             await self.__process_setting(self.SETTING_CHARGER_MAX_DISCHARGE_POWER, None)
         await self.__process_setting(self.CHARGER_SETTINGS_INITIALISED, None)
 
         await self.__read_and_process_charger_settings()
-        self.fire_event('save_charger_settings.result')
+        self.hass.fire_event("save_charger_settings.result")
 
     async def __save_schedule_settings(self, event, data, kwargs):
         self.__store_setting("input_text.fm_account_username", data["username"])
         self.__store_setting("input_text.fm_account_password", data["password"])
-        self.__store_setting("input_boolean.fm_show_option_to_change_url", data["useOtherServer"])
+        self.__store_setting(
+            "input_boolean.fm_show_option_to_change_url", data["useOtherServer"]
+        )
         self.__store_setting("input_text.fm_host_url", data["host"])
         self.__store_setting("input_text.fm_asset", data["asset"])
         self.__store_setting("input_boolean.schedule_settings_initialised", True)
@@ -550,11 +608,23 @@ class V2GLibertyGlobals(ServiceResponseApp):
         await self.__process_setting(self.SCHEDULE_SETTINGS_INITIALISED, None)
 
         await self.__read_and_process_fm_client_settings()
-        self.fire_event('save_schedule_settings.result')
+        self.hass.fire_event("save_schedule_settings.result")
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
-        self.__log("__test_caldav_calendar called")
+        self.__log("__test_caldav_connection called")
+        url = data["url"]
+        username = data["username"]
+        password = data["password"]
 
+        msg = "Successfully connected"
+        calendars = self.calendar_client.test_caldav_connection(url, username, password)
+        if isinstance(calendars, str):
+            msg = calendars
+            calendars = None
+
+        self.hass.fire_event(
+            "test_caldav_connection.result", msg=msg, calendars=calendars
+        )
 
     async def __init_caldav_calendar(self, event=None, data=None, kwargs=None):
         # Should only be called when c.CAR_CALENDAR_SOURCE == "Direct caldav source"
@@ -636,18 +706,21 @@ class V2GLibertyGlobals(ServiceResponseApp):
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
     async def __test_charger_connection(self, event, data, kwargs):
-        """ Tests the connection with the charger and processes the maximum charge power read from the charger
-            Called from the settings page."""
+        """Tests the connection with the charger and processes the maximum charge power read from the charger
+        Called from the settings page."""
         self.__log("__test_charger_connection called")
         host = data["host"]
         port = data["port"]
-        success, max_available_power = await self.evse_client_app.test_charger_connection(host, port)
+        (
+            success,
+            max_available_power,
+        ) = await self.evse_client_app.test_charger_connection(host, port)
         msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f"__test_charger_connection result: \"{msg}\", {max_available_power}")
-        self.fire_event(
+        self.__log(f'__test_charger_connection result: "{msg}", {max_available_power}')
+        self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,
-            max_available_power=max_available_power
+            max_available_power=max_available_power,
         )
 
     async def __test_schedule_connection(self, event, data, kwargs):
@@ -658,15 +731,17 @@ class V2GLibertyGlobals(ServiceResponseApp):
         host = data["host"] if use_other_server else c.FM_BASE_URL
 
         try:
-            assets = await self.fm_client_app.test_fm_connection(host, username, password)
+            assets = await self.fm_client_app.test_fm_connection(
+                host, username, password
+            )
             msg = "Successfully connected"
         except:
             assets = None
             msg = "Failed to connect"
 
-        self.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
+        self.hass.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
 
-    async def __test_fm_connection(self, event = None, data = None, kwargs = None):
+    async def __test_fm_connection(self, event=None, data=None, kwargs=None):
         # Tests the connection with FlexMeasures
         # to be called at initialisation and from the event "TEST_FM_CONNECTION" UI event
 
