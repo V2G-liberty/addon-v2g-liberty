@@ -106,6 +106,9 @@ input_boolean:
   charger_settings_initialised:
     name: Charger settings are initialised
 
+  electricity_contract_settings_initialised:
+    name: Electricity contract settings are initialised
+
   schedule_settings_initialised:
     name: Schedule settings are initialised
 
@@ -388,7 +391,6 @@ input_text:
     name: FlexMeasures asset
     icon: mdi:format-list-bulleted-type
 
-
   ###################################################################
   #        self_provided settings related to au_amber_electric      #
   ###################################################################
@@ -591,7 +593,6 @@ script:
           call_id: "{{ call_id }}"
           response: "{{ response }}"
 
-
 automation:
   - id: "1633010017995"
     alias: Chargemode to Automatic
@@ -629,7 +630,6 @@ automation:
             - input_boolean.chargemodeoff
     mode: single
 
-
   - id: "1633010167089"
     alias: Chargemode to Max boost now
     description: See automation Chargemode to Automatic
@@ -655,7 +655,6 @@ automation:
             - input_boolean.chargemodeautomatic
             - input_boolean.chargemodeoff
     mode: single
-
 
   - id: "1633010384766"
     alias: Chargemode to Off

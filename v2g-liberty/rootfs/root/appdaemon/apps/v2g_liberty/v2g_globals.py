@@ -71,6 +71,13 @@ class V2GLibertyGlobals:
         "factory_default": "price",
         "listener_id": None,
     }
+    ELECTRICITY_CONTRACT_SETTINGS_INITIALISED = {
+        "entity_name": "electricity_contract_settings_initialised",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+        "listener_id": None,
+    }
     SETTING_ELECTRICITY_PROVIDER = {
         "entity_name": "electricity_provider",
         "entity_type": "input_select",
@@ -347,6 +354,10 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
+        self.hass.listen_event(
+            self.__save_electricity_contract_settings,
+            "save_electricity_contract_settings",
+        )
         self.hass.listen_event(self.__save_schedule_settings, "save_schedule_settings")
         # Listen to [TEST] buttons
         self.hass.listen_event(
@@ -529,8 +540,6 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_administrator_settings.result")
 
     async def __save_calendar_settings(self, event, data, kwargs):
-        # TODO: make text/boolean?
-        self.__store_setting("input_select.car_calendar_source", data["source"])
         if data["source"] == "Direct caldav source":
             self.__store_setting("input_text.calendar_account_init_url", data["url"])
             self.__store_setting(
@@ -546,7 +555,9 @@ class V2GLibertyGlobals:
             self.__store_setting(
                 "input_select.integration_calendar_entity_name", data["calendar"]
             )
-        self.__store_setting("input_boolean.charger_settings_initialised", True)
+        # TODO: make text/boolean?
+        self.__store_setting("input_select.car_calendar_source", data["source"])
+        self.__store_setting("input_boolean.calendar_settings_initialised", True)
 
         if data["source"] == "Direct caldav source":
             await self.__process_setting(self.SETTING_CALENDAR_ACCOUNT_INIT_URL, None)
@@ -589,6 +600,52 @@ class V2GLibertyGlobals:
 
         await self.__read_and_process_charger_settings()
         self.hass.fire_event("save_charger_settings.result")
+
+    async def __save_electricity_contract_settings(self, event, data, kwargs):
+        if data["contract"] == "nl_generic":
+            self.__store_setting("input_number.energy_price_vat", data["vat"])
+            self.__store_setting(
+                "input_number.energy_price_markup_per_kwh", data["markup"]
+            )
+        if data["contract"] == "au_amber_electric":
+            self.__store_setting(
+                "input_text.own_consumption_price_entity_id",
+                data["consumptionPriceEntity"],
+            )
+            self.__store_setting(
+                "input_text.own_production_price_entity_id",
+                data["productionPriceEntity"],
+            )
+        if data["contract"] == "gb_octopus_energy":
+            self.__store_setting("input_text.octopus_import_code", data["importCode"])
+            self.__store_setting("input_text.octopus_export_code", data["exportCode"])
+            self.__store_setting("input_select.gb_dno_region", data["region"])
+        # TODO: make this text
+        self.__store_setting("input_select.electricity_provider", data["contract"])
+        self.__store_setting(
+            "input_boolean.electricity_contract_settings_initialised", True
+        )
+
+        if data["contract"] == "nl_generic":
+            await self.__process_setting(self.SETTING_ENERGY_PRICE_VAT, None)
+            await self.__process_setting(self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH, None)
+        if data["contract"] == "au_amber_electric":
+            await self.__process_setting(
+                self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID, None
+            )
+            await self.__process_setting(
+                self.SETTING_OWN_PRODUCTION_PRICE_ENTITY_ID, None
+            )
+        if data["contract"] == "gb_octopus_energy":
+            await self.__process_setting(self.SETTING_OCTOPUS_IMPORT_CODE, None)
+            await self.__process_setting(self.SETTING_OCTOPUS_EXPORT_CODE, None)
+            await self.__process_setting(self.SETTING_GB_DNO_REGION, None)
+        await self.__process_setting(self.SETTING_ELECTRICITY_PROVIDER, None)
+        await self.__process_setting(
+            self.ELECTRICITY_CONTRACT_SETTINGS_INITIALISED, None
+        )
+
+        self.hass.fire_event("save_electricity_contract_settings.result")
 
     async def __save_schedule_settings(self, event, data, kwargs):
         self.__store_setting("input_text.fm_account_username", data["username"])

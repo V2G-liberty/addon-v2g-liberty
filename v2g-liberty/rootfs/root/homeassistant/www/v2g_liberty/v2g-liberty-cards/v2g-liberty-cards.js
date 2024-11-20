@@ -11355,6 +11355,7 @@ const $755a87c9ee93218f$export$2afa365a5af4c631 = "input_text.charger_max_availa
 const $755a87c9ee93218f$export$c541138e582b8ea2 = "input_boolean.use_reduced_max_charge_power";
 const $755a87c9ee93218f$export$7644ad7394071de6 = "input_number.charger_max_charging_power";
 const $755a87c9ee93218f$export$8a6641dff4159913 = "input_number.charger_max_discharging_power";
+const $755a87c9ee93218f$export$6803b8e9884353c8 = "input_boolean.electricity_contract_settings_initialised";
 const $755a87c9ee93218f$export$6106300be9012ff7 = "input_select.electricity_provider";
 const $755a87c9ee93218f$export$8f62940f89c0da8a = "input_number.energy_price_vat";
 const $755a87c9ee93218f$export$50c9c5ee61c4032 = "input_number.energy_price_markup_per_kwh";
@@ -12053,41 +12054,6 @@ $4163850e13316b31$var$EditChargerSettingsDialog = (0, $24c52f343453d62d$export$2
 
 
 
-async function $b9d6215527d806db$export$2c06c6218dca00de(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) {
-        const turnOnOrOff = value === "on" ? "turn_on" : "turn_off";
-        await hass.callService("input_boolean", turnOnOrOff, {
-            entity_id: entity_id
-        });
-    }
-}
-async function $b9d6215527d806db$export$6861912baac56d2a(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) await hass.callService("input_number", "set_value", {
-        value: value,
-        entity_id: entity_id
-    });
-}
-async function $b9d6215527d806db$export$a69afe08baa6c5b8(hass, entity_id, option) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (option !== stateObj.state) await hass.callService("input_select", "select_option", {
-        option: option,
-        entity_id: entity_id
-    });
-}
-async function $b9d6215527d806db$export$aa2d512458f3ac7b(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) await hass.callService("input_text", "set_value", {
-        value: value,
-        entity_id: entity_id
-    });
-}
-
 
 
 
@@ -12101,10 +12067,10 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         this._electricityContractValue = this.hass.states[$755a87c9ee93218f$export$6106300be9012ff7].state;
         this._energyPriceVatValue = this.hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a].state;
         this._energyPriceMarkupValue = this.hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032].state;
-        this._ownConsumptionPriceEntityIdValue = this.hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f].state;
-        this._ownProductionPriceEntityIdValue = this.hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638].state;
-        this._octopusImportCodeValue = this.hass.states[$755a87c9ee93218f$export$7264ac5bb217f690].state;
-        this._octopusExportCodeValue = this.hass.states[$755a87c9ee93218f$export$43beb8995cb3e288].state;
+        this._ownConsumptionPriceEntityIdValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f], "");
+        this._ownProductionPriceEntityIdValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638], "");
+        this._octopusImportCodeValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$7264ac5bb217f690], "");
+        this._octopusExportCodeValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$43beb8995cb3e288], "");
         this._gbDnoRegionValue = this.hass.states[$755a87c9ee93218f$export$54e0b838c6a76104].state;
         await this.updateComplete;
     }
@@ -12170,8 +12136,8 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         const productionPriceEntityIdChanged = (evt)=>this._ownProductionPriceEntityIdValue = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(consumptionPriceIdStateObj, consumptionPriceEntityIdChanged)}
-      ${this._renderInputText(productionPriceIdStateObj, productionPriceEntityIdChanged)}
+      ${this._renderInputText(this._ownConsumptionPriceEntityIdValue, consumptionPriceIdStateObj, consumptionPriceEntityIdChanged)}
+      ${this._renderInputText(this._ownProductionPriceEntityIdValue, productionPriceIdStateObj, productionPriceEntityIdChanged)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12190,9 +12156,9 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         const dnoRegionChanged = (evt)=>this._gbDnoRegionValue = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(importCodeStateObj, importCodeChanged)}
-      ${this._renderInputText(exportCodeStateObj, exportCodeChanged)}
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(dnoRegionStateObj, this._gbDnoRegionValue, dnoRegionChanged)}
+      ${this._renderInputText(this._octopusImportCodeValue, importCodeStateObj, importCodeChanged)}
+      ${this._renderInputText(this._octopusExportCodeValue, exportCodeStateObj, exportCodeChanged)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._gbDnoRegionValue, dnoRegionStateObj, dnoRegionChanged)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12230,7 +12196,7 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
       ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._energyPriceMarkupValue, markupStateObj, markupChanged)}
     `;
     }
-    _renderInputText(stateObj, valueChangedCallback) {
+    _renderInputText(value, stateObj, valueChangedCallback) {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-settings-row>
         <span slot="heading">
@@ -12239,7 +12205,7 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         >
         <ha-textfield
           pattern="[\\w_]+\\.[\\d\\w_]+"
-          .value=${stateObj.state}
+          .value=${value}
           @change=${valueChangedCallback}
         >
         </ha-textfield
@@ -12252,25 +12218,30 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
     _back() {
         this._currentPage = "contract-selection";
     }
-    _save() {
+    async _save() {
         const selected = this._electricityContractValue;
-        if (selected === "nl_generic") {
-            // TODO: add validation
-            (0, $b9d6215527d806db$export$6861912baac56d2a)(this.hass, $755a87c9ee93218f$export$8f62940f89c0da8a, this._energyPriceVatValue);
-            (0, $b9d6215527d806db$export$6861912baac56d2a)(this.hass, $755a87c9ee93218f$export$50c9c5ee61c4032, this._energyPriceMarkupValue);
-        }
-        if (selected === "au_amber_electric") {
+        // TODO: add validation
+        const nlGenericArgs = selected === "nl_generic" ? {
+            vat: this._energyPriceVatValue,
+            markup: this._energyPriceMarkupValue
+        } : {};
+        const amberArgs = selected === "au_amber_electric" ? {
             // TODO: add validation -- check for existing entity
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$41b3f48b3847d98f, this._ownConsumptionPriceEntityIdValue);
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$30f7c2c4e2d9b638, this._ownProductionPriceEntityIdValue);
-        }
-        if (selected === "gb_octopus_energy") {
-            // TODO: add validation -- check for existing entity
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$7264ac5bb217f690, this._octopusImportCodeValue);
-            (0, $b9d6215527d806db$export$aa2d512458f3ac7b)(this.hass, $755a87c9ee93218f$export$43beb8995cb3e288, this._octopusExportCodeValue);
-            (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, $755a87c9ee93218f$export$54e0b838c6a76104, this._gbDnoRegionValue);
-        }
-        (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, $755a87c9ee93218f$export$6106300be9012ff7, this._electricityContractValue);
+            consumptionPriceEntity: this._ownConsumptionPriceEntityIdValue,
+            productionPriceEntity: this._ownProductionPriceEntityIdValue
+        } : {};
+        const octopusArgs = selected === "gb_octopus_energy" ? {
+            importCode: this._octopusImportCodeValue,
+            exportCode: this._octopusExportCodeValue,
+            region: this._gbDnoRegionValue
+        } : {};
+        const args = {
+            contract: this._electricityContractValue,
+            ...nlGenericArgs,
+            ...amberArgs,
+            ...octopusArgs
+        };
+        const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_electricity_contract_settings", args);
         this.closeDialog();
     }
     static #_ = (()=>{
@@ -12547,6 +12518,41 @@ $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = (0, $24c52f343453d62d$export$
 
 
 
+
+async function $b9d6215527d806db$export$2c06c6218dca00de(hass, entity_id, value) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (value !== stateObj.state) {
+        const turnOnOrOff = value === "on" ? "turn_on" : "turn_off";
+        await hass.callService("input_boolean", turnOnOrOff, {
+            entity_id: entity_id
+        });
+    }
+}
+async function $b9d6215527d806db$export$6861912baac56d2a(hass, entity_id, value) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (value !== stateObj.state) await hass.callService("input_number", "set_value", {
+        value: value,
+        entity_id: entity_id
+    });
+}
+async function $b9d6215527d806db$export$a69afe08baa6c5b8(hass, entity_id, option) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (option !== stateObj.state) await hass.callService("input_select", "select_option", {
+        option: option,
+        entity_id: entity_id
+    });
+}
+async function $b9d6215527d806db$export$aa2d512458f3ac7b(hass, entity_id, value) {
+    const stateObj = hass.states[entity_id];
+    stateObj.attributes.initialised = true;
+    if (value !== stateObj.state) await hass.callService("input_text", "set_value", {
+        value: value,
+        entity_id: entity_id
+    });
+}
 
 
 
@@ -13219,6 +13225,7 @@ let $31e0aca5546fddf6$export$f58cebbb0e887608 = class ElectricityContractSetting
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        this._stateElectricityContractSettingsInitialised = hass.states[$755a87c9ee93218f$export$6803b8e9884353c8];
         this._stateElectricityProvider = hass.states[$755a87c9ee93218f$export$6106300be9012ff7];
         this._stateEnergyPriceVat = hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
         this._stateEnergyPriceMarkup = hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032];
@@ -13230,7 +13237,7 @@ let $31e0aca5546fddf6$export$f58cebbb0e887608 = class ElectricityContractSetting
     }
     render() {
         const header = $31e0aca5546fddf6$var$tp("header");
-        const isInitialised = this._stateElectricityProvider.attributes.initialised;
+        const isInitialised = this._stateElectricityContractSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
@@ -13293,6 +13300,9 @@ let $31e0aca5546fddf6$export$f58cebbb0e887608 = class ElectricityContractSetting
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
 };
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateElectricityContractSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateElectricityProvider", void 0);
