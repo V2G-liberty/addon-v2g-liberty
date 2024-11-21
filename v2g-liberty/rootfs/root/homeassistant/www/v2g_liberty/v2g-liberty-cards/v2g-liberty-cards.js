@@ -2859,8 +2859,6 @@ $4db9c280a88445d4$exports = JSON.parse("{}");
 
 
 const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
-console.log("settings.administrator.header", $aa1795080f053cd4$export$625550452a3fa3ec("settings.administrator.header"));
-console.log("missing", $aa1795080f053cd4$export$625550452a3fa3ec("missing"));
 function $aa1795080f053cd4$var$initialize() {
     const languages = {
         en: $3b34ac5ccae6bad9$exports,
@@ -3733,6 +3731,25 @@ var $ee1328194d522913$export$8d080c28108db9dd = function(e, t, r) {
 
 
 
+
+
+function $1288c864b62d557b$export$d883fbf232f0d35a(hass, eventName, args, timeoutInMillsec = 60000) {
+    return new Promise(async (resolve, reject)=>{
+        const unsubscribe = await hass.connection.subscribeEvents(onResult, `${eventName}.result`);
+        hass.callApi("POST", `events/${eventName}`, args);
+        const timeoutId = setTimeout(onTimeout, timeoutInMillsec);
+        function onResult(event) {
+            clearTimeout(timeoutId);
+            unsubscribe();
+            resolve(event.data);
+        }
+        function onTimeout() {
+            console.error(`"${eventName}" timed out after ${timeoutInMillsec}msec.`);
+            unsubscribe();
+            reject(new Error(`"${eventName}" timed out after ${timeoutInMillsec}msec.`));
+        }
+    });
+}
 
 
 // Material Design Icons v7.4.47
@@ -11377,26 +11394,6 @@ const $755a87c9ee93218f$export$82372843d513f2af = "input_text.fm_connection_stat
 const $755a87c9ee93218f$export$7df7f7ac9cecee8f = "input_text.fm_asset";
 
 
-function $1288c864b62d557b$export$d883fbf232f0d35a(hass, eventName, args, timeoutInMillsec = 60000) {
-    return new Promise(async (resolve, reject)=>{
-        const unsubscribe = await hass.connection.subscribeEvents(onResult, `${eventName}.result`);
-        hass.callApi("POST", `events/${eventName}`, args);
-        const timeoutId = setTimeout(onTimeout, timeoutInMillsec);
-        function onResult(event) {
-            console.log(event.event_type, event.data);
-            clearTimeout(timeoutId);
-            unsubscribe();
-            resolve(event.data);
-        }
-        function onTimeout() {
-            console.log("event timed out");
-            unsubscribe();
-            reject(new Error(`"${eventName}" timed out after ${timeoutInMillsec}msec.`));
-        }
-    });
-}
-
-
 const $8be8b3713888253d$export$45e0b80f1e500bd4 = "edit-administrator-settings-dialog";
 const $8be8b3713888253d$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)("settings.administrator");
 let $8be8b3713888253d$var$EditAdministratorSettingsDialog = class EditAdministratorSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
@@ -11967,7 +11964,7 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_charger_connection", {
                 host: this._chargerHostValue,
                 port: this._chargerPortValue
-            });
+            }, 5000);
             this._chargerConnectionStatus = result.msg;
             if (this._isConnected()) {
                 this._maxAvailablePowerValue = result.max_available_power;
@@ -12519,41 +12516,6 @@ $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = (0, $24c52f343453d62d$export$
 
 
 
-async function $b9d6215527d806db$export$2c06c6218dca00de(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) {
-        const turnOnOrOff = value === "on" ? "turn_on" : "turn_off";
-        await hass.callService("input_boolean", turnOnOrOff, {
-            entity_id: entity_id
-        });
-    }
-}
-async function $b9d6215527d806db$export$6861912baac56d2a(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) await hass.callService("input_number", "set_value", {
-        value: value,
-        entity_id: entity_id
-    });
-}
-async function $b9d6215527d806db$export$a69afe08baa6c5b8(hass, entity_id, option) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (option !== stateObj.state) await hass.callService("input_select", "select_option", {
-        option: option,
-        entity_id: entity_id
-    });
-}
-async function $b9d6215527d806db$export$aa2d512458f3ac7b(hass, entity_id, value) {
-    const stateObj = hass.states[entity_id];
-    stateObj.attributes.initialised = true;
-    if (value !== stateObj.state) await hass.callService("input_text", "set_value", {
-        value: value,
-        entity_id: entity_id
-    });
-}
-
 
 
 
@@ -12577,7 +12539,7 @@ let $967516c80143d3e3$var$EditInputNumberDialog = class EditInputNumberDialog ex
         @closed=${this.closeDialog}
         .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, heading)}
       >
-        ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._value, stateObj, this._selectedValueChanged)}
+        ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._value, stateObj, (evt)=>this._value = evt.target.value)}
         ${this._renderInvalidInputAlert(stateObj)}
         <ha-markdown breaks .content=${description}></ha-markdown>
         <mwc-button @click=${this._save} slot="primaryAction">
@@ -12586,9 +12548,6 @@ let $967516c80143d3e3$var$EditInputNumberDialog = class EditInputNumberDialog ex
       </ha-dialog>
     `;
     }
-    _selectedValueChanged(evt) {
-        this._value = evt.target.value;
-    }
     _renderInvalidInputAlert(stateObj) {
         const error = (0, $aa1795080f053cd4$export$625550452a3fa3ec)("settings.dialog.inputnumber.error", {
             min: stateObj.attributes.min,
@@ -12596,13 +12555,17 @@ let $967516c80143d3e3$var$EditInputNumberDialog = class EditInputNumberDialog ex
         });
         return this._isInputValid ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>`;
     }
-    _save() {
+    async _save() {
         this._isInputValid = this._inputField.checkValidity();
-        if (!this._isInputValid) this._inputField.focus();
-        else {
-            (0, $b9d6215527d806db$export$6861912baac56d2a)(this.hass, this._params.entity_id, this._value);
-            this.closeDialog();
+        if (!this._isInputValid) {
+            this._inputField.focus();
+            return;
         }
+        const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_setting", {
+            entity: this._params.entity_id,
+            value: this._value
+        });
+        this.closeDialog();
     }
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -12652,7 +12615,7 @@ let $7283b140e865221f$var$EditInputNumberDialog = class EditInputNumberDialog ex
           <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
         </div>
         <div>
-          ${stateObj.attributes.options.map((option)=>(0, $4dbea3927e6cdc74$export$6989c9d413240856)(option, option === this._value, this._valueChanged))}
+          ${stateObj.attributes.options.map((option)=>(0, $4dbea3927e6cdc74$export$6989c9d413240856)(option, option === this._value, (evt)=>this._value = evt.target.value))}
         </div>
         <ha-markdown breaks .content=${description}></ha-markdown>
         <mwc-button @click=${this._save} slot="primaryAction">
@@ -12661,11 +12624,11 @@ let $7283b140e865221f$var$EditInputNumberDialog = class EditInputNumberDialog ex
       </ha-dialog>
     `;
     }
-    _valueChanged(evt) {
-        this._value = evt.target.value;
-    }
-    _save() {
-        (0, $b9d6215527d806db$export$a69afe08baa6c5b8)(this.hass, this._params.entity_id, this._value);
+    async _save() {
+        const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_setting", {
+            entity: this._params.entity_id,
+            value: this._value
+        });
         this.closeDialog();
     }
     static #_ = (()=>{
@@ -13205,7 +13168,7 @@ $8462057a459186b4$export$bfa1cde860c39587 = (0, $24c52f343453d62d$export$29e00df
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-charger-settings-card")
 ], $8462057a459186b4$export$bfa1cde860c39587);
 function $8462057a459186b4$var$elapsedTimeSince(dateTimeStamp) {
-    console.log(new Date(), new Date(Date.parse(dateTimeStamp)));
+    // TODO
     const elapsedMilliSeconds = Date.now() - Date.parse(dateTimeStamp);
     const elapsedSeconds = Math.floor(elapsedMilliSeconds / 1000);
     const elapsedMinutes = Math.floor(elapsedSeconds / 60);

@@ -359,6 +359,7 @@ class V2GLibertyGlobals:
             "save_electricity_contract_settings",
         )
         self.hass.listen_event(self.__save_schedule_settings, "save_schedule_settings")
+        self.hass.listen_event(self.__save_setting, "save_setting")
         # Listen to [TEST] buttons
         self.hass.listen_event(
             self.__test_charger_connection, "test_charger_connection"
@@ -368,6 +369,7 @@ class V2GLibertyGlobals:
             self.__test_schedule_connection, "test_schedule_connection"
         )
 
+        # TODO: Remove these and their scripts
         self.hass.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
         self.hass.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
         self.hass.listen_event(
@@ -533,9 +535,13 @@ class V2GLibertyGlobals:
             "input_select.admin_mobile_platform", data["mobilePlatform"]
         )
         self.__store_setting("input_boolean.admin_settings_initialised", True)
+
+        # @Ard: Is het nodig om deze __process_setting aan te roepen?
         await self.__process_setting(self.SETTING_ADMIN_MOBILE_NAME, None)
         await self.__process_setting(self.SETTING_ADMIN_MOBILE_PLATFORM, None)
         await self.__process_setting(self.ADMIN_SETTINGS_INITIALISED, None)
+
+        # @Ard: Is dit de "juiste" manier om de net opgeslagen settings actief te maken?
         await self.__read_and_process_notification_settings()
         self.hass.fire_event("save_administrator_settings.result")
 
@@ -571,6 +577,7 @@ class V2GLibertyGlobals:
         await self.__process_setting(self.SETTING_CAR_CALENDAR_SOURCE, None)
         await self.__process_setting(self.CALENDAR_SETTINGS_INITIALISED, None)
 
+        self.__read_and_process_calendar_settings()
         self.hass.fire_event("save_calendar_settings.result")
 
     async def __save_charger_settings(self, event, data, kwargs):
@@ -645,6 +652,7 @@ class V2GLibertyGlobals:
             self.ELECTRICITY_CONTRACT_SETTINGS_INITIALISED, None
         )
 
+        # @Ard: wat moet er gebeuren als de contract settings veranderd zijn?
         self.hass.fire_event("save_electricity_contract_settings.result")
 
     async def __save_schedule_settings(self, event, data, kwargs):
@@ -666,6 +674,15 @@ class V2GLibertyGlobals:
 
         await self.__read_and_process_fm_client_settings()
         self.hass.fire_event("save_schedule_settings.result")
+
+    async def __save_setting(self, event, data, kwargs):
+        self.__store_setting(data["entity"], data["value"])
+        # @Ard: Omdat dit een generieke functies is, is het lastig om de juiste "trigger"
+        #       te geven. Enig idee hoe we dat kunnen oplossen?
+        # @Ard: Hoe gaan we om met de "initialised" status van de settings die we
+        #       met deze generieke functie op slaan?
+        #       Hebben we een extra input_boolean.<entity_id>_initialised nodig?
+        self.hass.fire_event("save_setting.result")
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
         self.__log("__test_caldav_connection called")
@@ -1494,6 +1511,7 @@ class V2GLibertyGlobals:
     ):
         self.__log("__read_and_process_calendar_settings called")
 
+        # @Ard: Kan deze callback methode weg, nu we de calendar settings anders opslaan?
         callback_method = self.__read_and_process_calendar_settings
 
         tmp = await self.__process_setting(
@@ -1712,6 +1730,8 @@ class V2GLibertyGlobals:
 
         await self.__collect_action_triggers(source="changed optimisation settings")
 
+    # @Ard: is deze methode obsolete?
+    #       Volgens VS code wordt hij niet aangeroepen.
     async def __reset_to_factory_default(self, setting_object):
         entity_name = setting_object["entity_name"]
         entity_type = setting_object["entity_type"]
