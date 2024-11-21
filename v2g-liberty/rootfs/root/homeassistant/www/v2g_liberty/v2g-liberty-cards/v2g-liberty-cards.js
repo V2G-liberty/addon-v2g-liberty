@@ -11399,15 +11399,15 @@ const $8be8b3713888253d$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)(
 let $8be8b3713888253d$var$EditAdministratorSettingsDialog = class EditAdministratorSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
-        this._mobileNameValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$750f693c799177e2], "");
-        this._mobilePlatformValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$d70389959f86dee4], "");
+        this._mobileName = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$750f693c799177e2], "");
+        this._mobilePlatform = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$d70389959f86dee4], "");
         this._hasTriedToSave = false;
         await this.updateComplete;
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const mobileNameStateObj = this.hass.states[$755a87c9ee93218f$export$750f693c799177e2];
-        const mobilePlatformStateObj = this.hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
+        const mobileNameState = this.hass.states[$755a87c9ee93218f$export$750f693c799177e2];
+        const mobilePlatformState = this.hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
         const mobileApps = Object.keys(this.hass.services["notify"]).filter((service)=>/^mobile_app_/.test(service)).map((service)=>service.replace(/^mobile_app_/, ""));
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
@@ -11416,10 +11416,10 @@ let $8be8b3713888253d$var$EditAdministratorSettingsDialog = class EditAdministra
         .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $8be8b3713888253d$var$tp("header"))}
       >
         <p><ha-markdown breaks .content=${$8be8b3713888253d$var$tp("sub-header")}></ha-markdown></p>
-        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobileNameValue, mobileNameStateObj, (evt)=>this._mobileNameValue = evt.target.value, mobileApps)}
-        ${this._renderError(this._mobileNameValue)}
-        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobilePlatformValue, mobilePlatformStateObj, (evt)=>this._mobilePlatformValue = evt.target.value)}
-        ${this._renderError(this._mobilePlatformValue)}
+        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobileName, mobileNameState, (evt)=>this._mobileName = evt.target.value, mobileApps)}
+        ${this._renderError(this._mobileName)}
+        ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobilePlatform, mobilePlatformState, (evt)=>this._mobilePlatform = evt.target.value)}
+        ${this._renderError(this._mobilePlatform)}
         <mwc-button @click=${this._save} slot="primaryAction">
           ${this.hass.localize("ui.common.save")}
         </mwc-button>
@@ -11431,10 +11431,10 @@ let $8be8b3713888253d$var$EditAdministratorSettingsDialog = class EditAdministra
     }
     async _save() {
         this._hasTriedToSave = true;
-        if (!this._mobileNameValue || !this._mobilePlatformValue) return;
+        if (!this._mobileName || !this._mobilePlatform) return;
         const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_administrator_settings", {
-            mobileName: this._mobileNameValue,
-            mobilePlatform: this._mobilePlatformValue
+            mobileName: this._mobileName,
+            mobilePlatform: this._mobilePlatform
         });
         this.closeDialog();
     }
@@ -11451,10 +11451,10 @@ let $8be8b3713888253d$var$EditAdministratorSettingsDialog = class EditAdministra
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8be8b3713888253d$var$EditAdministratorSettingsDialog.prototype, "_mobileNameValue", void 0);
+], $8be8b3713888253d$var$EditAdministratorSettingsDialog.prototype, "_mobileName", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8be8b3713888253d$var$EditAdministratorSettingsDialog.prototype, "_mobilePlatformValue", void 0);
+], $8be8b3713888253d$var$EditAdministratorSettingsDialog.prototype, "_mobilePlatform", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8be8b3713888253d$var$EditAdministratorSettingsDialog.prototype, "_hasTriedToSave", void 0);
@@ -11485,12 +11485,12 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     async showDialog() {
         super.showDialog();
         this._currentPage = "source-selection";
-        this._carCalendarSourceValue = this.hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4].state;
-        this._calendarAccountUrlValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0], "");
-        this._calendarAccountUsernameValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1], "");
-        this._calendarAccountPasswordValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977], "");
-        this._carCalendarNameValue = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06].state;
-        this._integrationCalendarEntityNameValue = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337].state;
+        this._carCalendarSource = this.hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4].state;
+        this._calendarAccountUrl = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0], "");
+        this._calendarAccountUsername = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1], "");
+        this._calendarAccountPassword = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977], "");
+        this._carCalendarName = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06].state;
+        this._integrationCalendarEntityName = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337].state;
         this._caldavConnectionStatus = "";
         this._hasTriedToConnectToCaldav = false;
         await this.updateComplete;
@@ -11512,8 +11512,8 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         const description = $056feaf1842f603f$var$tp("source-selection.description");
         const selectName = $056feaf1842f603f$var$tp("source-selection.select-name");
         const stateObj = this.hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
-        const current = this._carCalendarSourceValue;
-        const changedCallback = (evt)=>this._carCalendarSourceValue = evt.target.value;
+        const current = this._carCalendarSource;
+        const changedCallback = (evt)=>this._carCalendarSource = evt.target.value;
         const isSelectionValid = stateObj.attributes.options.includes(current);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <p>${description}</p>
@@ -11553,14 +11553,14 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     }
     _renderCaldavAccountDetails() {
         const description = $056feaf1842f603f$var$tp("caldav.description");
-        const calendarAccountUrlStateObj = this.hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0];
-        const calendarAccountUsernameStateObj = this.hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1];
-        const calendarAccountPasswordStateObj = this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977];
+        const calendarAccountUrlState = this.hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0];
+        const calendarAccountUsernameState = this.hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1];
+        const calendarAccountPasswordState = this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountUrlValue, calendarAccountUrlStateObj, (evt)=>this._calendarAccountUrlValue = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountUsernameValue, calendarAccountUsernameStateObj, (evt)=>this._calendarAccountUsernameValue = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountPasswordValue, calendarAccountPasswordStateObj, (evt)=>this._calendarAccountPasswordValue = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value)}
       ${this._renderConnectionError()}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
@@ -11605,11 +11605,11 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     }
     _renderCaldavOneCalendar() {
         // Assign only choice without asking user
-        this._carCalendarNameValue = this._caldavCalendars[0];
+        this._carCalendarName = this._caldavCalendars[0];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <strong>Calendar name</strong>
-      <div>${this._carCalendarNameValue}</div>
+      <div>${this._carCalendarName}</div>
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11620,12 +11620,12 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     }
     _renderCaldavMultipleCalendars() {
         const description = $056feaf1842f603f$var$tp("homeassistant.description");
-        const carCalendarNameValueStateObj = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
+        const carCalendarNameState = this.hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarNameValue, // TODO: turn into input_text
-        carCalendarNameValueStateObj, (evt)=>this._carCalendarNameValue = evt.target.value, this._caldavCalendars)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarName, // TODO: turn into input_text
+        carCalendarNameState, (evt)=>this._carCalendarName = evt.target.value, this._caldavCalendars)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11649,7 +11649,7 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     _renderHomeAssistantOneCalendar() {
         // Assign only choice without asking user
         const entity = this._homeAssistantCalendars[0];
-        this._integrationCalendarEntityNameValue = entity.entity_id;
+        this._integrationCalendarEntityName = entity.entity_id;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <strong>Calendar name</strong>
@@ -11664,16 +11664,16 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
     }
     _renderHomeAssistantMultipleCalendars() {
         const description = $056feaf1842f603f$var$tp("homeassistant.description");
-        const integrationCalendarEntityNameStateObj = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
-        const current = this._homeAssistantCalendars.find((entity)=>entity.entity_id === this._integrationCalendarEntityNameValue);
+        const integrationCalendarEntityNameState = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
+        const current = this._homeAssistantCalendars.find((entity)=>entity.entity_id === this._integrationCalendarEntityName);
         const callback = (evt)=>{
             const selected = this._homeAssistantCalendars.find((entity)=>entity.attributes.friendly_name === evt.target.value);
-            this._integrationCalendarEntityNameValue = selected.entity_id;
+            this._integrationCalendarEntityName = selected.entity_id;
         };
         const options = this._homeAssistantCalendars.map((entity)=>entity.attributes.friendly_name);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(current?.attributes.friendly_name, integrationCalendarEntityNameStateObj, callback, options)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(current?.attributes.friendly_name, integrationCalendarEntityNameState, callback, options)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -11687,7 +11687,7 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         this._currentPage = "source-selection";
     }
     _continue() {
-        if (this._carCalendarSourceValue === "Direct caldav source") this._currentPage = "caldav-calendar";
+        if (this._carCalendarSource === "Direct caldav source") this._currentPage = "caldav-calendar";
         else {
             this._homeAssistantCalendars = this._getHomeAssistantCalendars();
             this._currentPage = "homeassistant-calendar";
@@ -11703,9 +11703,9 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         try {
             this._caldavConnectionStatus = $056feaf1842f603f$var$CaldavConnectionStatus.Connecting;
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_caldav_connection", {
-                url: this._calendarAccountUrlValue,
-                username: this._calendarAccountUsernameValue,
-                password: this._calendarAccountPasswordValue
+                url: this._calendarAccountUrl,
+                username: this._calendarAccountUsername,
+                password: this._calendarAccountPassword
             }, 10000);
             this._caldavConnectionStatus = result.msg;
             if (this._isConnectedToCaldav()) this._caldavCalendars = result.calendars;
@@ -11714,16 +11714,16 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
         }
     }
     async _save() {
-        const isUsingCalDav = this._carCalendarSourceValue === "Direct caldav source";
+        const isUsingCalDav = this._carCalendarSource === "Direct caldav source";
         const args = {
-            source: this._carCalendarSourceValue,
+            source: this._carCalendarSource,
             ...isUsingCalDav ? {
-                url: this._calendarAccountUrlValue,
-                username: this._calendarAccountUsernameValue,
-                password: this._calendarAccountPasswordValue,
-                calendar: this._carCalendarNameValue
+                url: this._calendarAccountUrl,
+                username: this._calendarAccountUsername,
+                password: this._calendarAccountPassword,
+                calendar: this._carCalendarName
             } : {
-                calendar: this._integrationCalendarEntityNameValue
+                calendar: this._integrationCalendarEntityName
             }
         };
         const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_calendar_settings", args);
@@ -11752,22 +11752,22 @@ let $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = class EditC
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_currentPage", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_carCalendarSourceValue", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_carCalendarSource", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountUrlValue", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountUrl", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountUsernameValue", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountUsername", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountPasswordValue", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountPassword", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_carCalendarNameValue", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_carCalendarName", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_integrationCalendarEntityNameValue", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_integrationCalendarEntityName", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_caldavConnectionStatus", void 0);
@@ -11797,10 +11797,10 @@ var $4163850e13316b31$var$ConnectionStatus;
 let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
-        this._chargerHostValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c], "");
-        this._chargerPortValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11], "502");
+        this._chargerHost = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c], "");
+        this._chargerPort = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11], "502");
         this._chargerConnectionStatus = "";
-        this._useReducedMaxPowerValue = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2].state;
+        this._useReducedMaxPower = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2].state;
         this._hasTriedToConnect = false;
         await this.updateComplete;
     }
@@ -11823,15 +11823,15 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
     }
     _renderConnectionDetails() {
         const description = $4163850e13316b31$var$tp("connection-details.description");
-        const chargerHostStateObj = this.hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c];
-        const chargerPortStateObj = this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
+        const chargerHostState = this.hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c];
+        const chargerPortState = this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
         const portDescription = $4163850e13316b31$var$tp("connection-details.port-description");
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(this._chargerHostValue, chargerHostStateObj, (evt)=>this._chargerHostValue = evt.target.value)}
+      ${this._renderInputText(this._chargerHost, chargerHostState, (evt)=>this._chargerHost = evt.target.value)}
       ${this._renderInvalidHostError()}
-      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerPortValue, chargerPortStateObj, (evt)=>this._chargerPortValue = evt.target.value, "[0-9]+")}
+      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerPort, chargerPortState, (evt)=>this._chargerPort = evt.target.value, "[0-9]+")}
       ${this._renderInvalidPortError()}
       <ha-markdown breaks .content=${portDescription}></ha-markdown>
       ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -11868,7 +11868,7 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
         </div>`;
     }
     _isChargerHostValid() {
-        return !this._chargerHostField || this._chargerHostValue && this._chargerHostField.checkValidity();
+        return !this._chargerHostField || this._chargerHost && this._chargerHostField.checkValidity();
     }
     _renderInvalidPortError() {
         return !this._hasTriedToConnect || this._isChargerPortValid() ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div test-id="invalid-port" class="invalid">
@@ -11876,25 +11876,25 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
         </div>`;
     }
     _isChargerPortValid() {
-        return !this._chargerPortField || this._chargerPortValue && this._chargerPortField.checkValidity();
+        return !this._chargerPortField || this._chargerPort && this._chargerPortField.checkValidity();
     }
     _isBusyConnecting() {
         return this._chargerConnectionStatus === $4163850e13316b31$var$ConnectionStatus.Connecting;
     }
     _renderChargerDetails() {
         const description = $4163850e13316b31$var$tp("charger-details.description", {
-            value: this._maxAvailablePowerValue
+            value: this._maxAvailablePower
         });
         const info = $4163850e13316b31$var$tp("safety-info");
-        const useReducedMaxPowerStateObj = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2];
-        const isUsingReducedMaxPower = this._useReducedMaxPowerValue === "on";
+        const useReducedMaxPowerState = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2];
+        const isUsingReducedMaxPower = this._useReducedMaxPower === "on";
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div test-id="success" class="success">
         <ha-svg-icon .path=${0, $04557c061247a0a6$export$97d276dd6edd33b5}></ha-svg-icon>
         <span>Successfully connected</span>
       </div>
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputBoolean(useReducedMaxPowerStateObj, isUsingReducedMaxPower, (evt)=>this._useReducedMaxPowerValue = evt.target.checked ? "on" : "off")}
+      ${this._renderInputBoolean(useReducedMaxPowerState, isUsingReducedMaxPower, (evt)=>this._useReducedMaxPower = evt.target.checked ? "on" : "off")}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       <ha-alert alert-type="info">
         <ha-markdown .content=${info}></ha-markdown>
@@ -11906,14 +11906,14 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
     }
     _renderReducedMaxPower() {
         const reduceMaxPowerDescription = $4163850e13316b31$var$tp("charger-details.reduce-max-power-description");
-        const chargerMaxChargingPowerStateObj = this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6];
-        const chargerMaxDischargingPowerStateObj = this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913];
-        chargerMaxChargingPowerStateObj.attributes.max = this._maxAvailablePowerValue;
-        chargerMaxDischargingPowerStateObj.attributes.max = this._maxAvailablePowerValue;
+        const chargerMaxChargingPowerState = this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6];
+        const chargerMaxDischargingPowerState = this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913];
+        chargerMaxChargingPowerState.attributes.max = this._maxAvailablePower;
+        chargerMaxDischargingPowerState.attributes.max = this._maxAvailablePower;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${reduceMaxPowerDescription}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerMaxChargingPowerValue, chargerMaxChargingPowerStateObj, (evt)=>this._chargerMaxChargingPowerValue = evt.target.value, "[0-9]+")}
-      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerMaxDischargingPowerValue, chargerMaxDischargingPowerStateObj, (evt)=>this._chargerMaxDischargingPowerValue = evt.target.value, "[0-9]+")}
+      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerMaxChargingPower, chargerMaxChargingPowerState, (evt)=>this._chargerMaxChargingPower = evt.target.value, "[0-9]+")}
+      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerMaxDischargingPower, chargerMaxDischargingPowerState, (evt)=>this._chargerMaxDischargingPower = evt.target.value, "[0-9]+")}
     `;
     }
     _renderInputText(value, stateObj, valueChangedCallback) {
@@ -11962,14 +11962,14 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
         try {
             this._chargerConnectionStatus = $4163850e13316b31$var$ConnectionStatus.Connecting;
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "test_charger_connection", {
-                host: this._chargerHostValue,
-                port: this._chargerPortValue
+                host: this._chargerHost,
+                port: this._chargerPort
             }, 5000);
             this._chargerConnectionStatus = result.msg;
             if (this._isConnected()) {
-                this._maxAvailablePowerValue = result.max_available_power;
-                this._chargerMaxChargingPowerValue = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6], this._maxAvailablePowerValue);
-                this._chargerMaxDischargingPowerValue = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913], this._maxAvailablePowerValue);
+                this._maxAvailablePower = result.max_available_power;
+                this._chargerMaxChargingPower = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6], this._maxAvailablePower);
+                this._chargerMaxDischargingPower = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913], this._maxAvailablePower);
             }
             function defaultMaxPower(stateObj, defaultValue) {
                 return parseInt(stateObj.state, 10) === 1380 || stateObj.state === "unknown" ? defaultValue : stateObj.state;
@@ -11980,14 +11980,14 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
     }
     async _save() {
         // TODO: Add validation
-        const isUsingReducedMaxPower = this._useReducedMaxPowerValue === "on";
+        const isUsingReducedMaxPower = this._useReducedMaxPower === "on";
         const args = {
-            host: this._chargerHostValue,
-            port: this._chargerPortValue,
+            host: this._chargerHost,
+            port: this._chargerPort,
             useReducedMaxChargePower: isUsingReducedMaxPower,
             ...isUsingReducedMaxPower ? {
-                maxChargingPower: this._chargerMaxChargingPowerValue,
-                maxDischargingPower: this._chargerMaxDischargingPowerValue
+                maxChargingPower: this._chargerMaxChargingPower,
+                maxDischargingPower: this._chargerMaxDischargingPower
             } : {}
         };
         const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_charger_settings", args);
@@ -12017,22 +12017,22 @@ let $4163850e13316b31$var$EditChargerSettingsDialog = class EditChargerSettingsD
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerHostValue", void 0);
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerHost", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerPortValue", void 0);
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerPort", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_useReducedMaxPower", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerMaxChargingPower", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerMaxDischargingPower", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerConnectionStatus", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_useReducedMaxPowerValue", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerMaxChargingPowerValue", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerMaxDischargingPowerValue", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_hasTriedToConnect", void 0);
@@ -12061,14 +12061,14 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
     async showDialog() {
         super.showDialog();
         this._currentPage = "contract-selection";
-        this._electricityContractValue = this.hass.states[$755a87c9ee93218f$export$6106300be9012ff7].state;
-        this._energyPriceVatValue = this.hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a].state;
-        this._energyPriceMarkupValue = this.hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032].state;
-        this._ownConsumptionPriceEntityIdValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f], "");
-        this._ownProductionPriceEntityIdValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638], "");
-        this._octopusImportCodeValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$7264ac5bb217f690], "");
-        this._octopusExportCodeValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$43beb8995cb3e288], "");
-        this._gbDnoRegionValue = this.hass.states[$755a87c9ee93218f$export$54e0b838c6a76104].state;
+        this._electricityContract = this.hass.states[$755a87c9ee93218f$export$6106300be9012ff7].state;
+        this._energyPriceVat = this.hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a].state;
+        this._energyPriceMarkup = this.hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032].state;
+        this._ownConsumptionPriceEntityId = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f], "");
+        this._ownProductionPriceEntityId = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638], "");
+        this._octopusImportCode = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$7264ac5bb217f690], "");
+        this._octopusExportCode = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$43beb8995cb3e288], "");
+        this._gbDnoRegion = this.hass.states[$755a87c9ee93218f$export$54e0b838c6a76104].state;
         await this.updateComplete;
     }
     render() {
@@ -12089,8 +12089,8 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         const header = $528a5968cd9760bd$var$tp("selection-header");
         const stateObj = this.hass.states[$755a87c9ee93218f$export$6106300be9012ff7];
         const nlProviders = filterNLProviders(stateObj.attributes.options);
-        const current = this._electricityContractValue;
-        const callback = (evt)=>this._electricityContractValue = evt.target.value;
+        const current = this._electricityContract;
+        const callback = (evt)=>this._electricityContract = evt.target.value;
         const isSelectionValid = stateObj.attributes.options.includes(current);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <p>${header}</p>
@@ -12116,7 +12116,7 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         }
     }
     _renderContractDetails() {
-        switch(this._electricityContractValue){
+        switch(this._electricityContract){
             case "au_amber_electric":
                 return this._renderAmberContractDetails();
             case "gb_octopus_energy":
@@ -12127,14 +12127,14 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
     }
     _renderAmberContractDetails() {
         const description = $528a5968cd9760bd$var$tp("amber-description");
-        const consumptionPriceIdStateObj = this.hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f];
-        const productionPriceIdStateObj = this.hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638];
-        const consumptionPriceEntityIdChanged = (evt)=>this._ownConsumptionPriceEntityIdValue = evt.target.value;
-        const productionPriceEntityIdChanged = (evt)=>this._ownProductionPriceEntityIdValue = evt.target.value;
+        const consumptionPriceIdState = this.hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f];
+        const productionPriceIdState = this.hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638];
+        const consumptionPriceEntityIdChanged = (evt)=>this._ownConsumptionPriceEntityId = evt.target.value;
+        const productionPriceEntityIdChanged = (evt)=>this._ownProductionPriceEntityId = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(this._ownConsumptionPriceEntityIdValue, consumptionPriceIdStateObj, consumptionPriceEntityIdChanged)}
-      ${this._renderInputText(this._ownProductionPriceEntityIdValue, productionPriceIdStateObj, productionPriceEntityIdChanged)}
+      ${this._renderInputText(this._ownConsumptionPriceEntityId, consumptionPriceIdState, consumptionPriceEntityIdChanged)}
+      ${this._renderInputText(this._ownProductionPriceEntityId, productionPriceIdState, productionPriceEntityIdChanged)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12145,17 +12145,17 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
     }
     _renderOctopusContractDetails() {
         const description = $528a5968cd9760bd$var$tp("octopus-description");
-        const importCodeStateObj = this.hass.states[$755a87c9ee93218f$export$7264ac5bb217f690];
-        const exportCodeStateObj = this.hass.states[$755a87c9ee93218f$export$43beb8995cb3e288];
-        const dnoRegionStateObj = this.hass.states[$755a87c9ee93218f$export$54e0b838c6a76104];
-        const importCodeChanged = (evt)=>this._octopusImportCodeValue = evt.target.value;
-        const exportCodeChanged = (evt)=>this._octopusExportCodeValue = evt.target.value;
-        const dnoRegionChanged = (evt)=>this._gbDnoRegionValue = evt.target.value;
+        const importCodeState = this.hass.states[$755a87c9ee93218f$export$7264ac5bb217f690];
+        const exportCodeState = this.hass.states[$755a87c9ee93218f$export$43beb8995cb3e288];
+        const dnoRegionState = this.hass.states[$755a87c9ee93218f$export$54e0b838c6a76104];
+        const importCodeChanged = (evt)=>this._octopusImportCode = evt.target.value;
+        const exportCodeChanged = (evt)=>this._octopusExportCode = evt.target.value;
+        const dnoRegionChanged = (evt)=>this._gbDnoRegion = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(this._octopusImportCodeValue, importCodeStateObj, importCodeChanged)}
-      ${this._renderInputText(this._octopusExportCodeValue, exportCodeStateObj, exportCodeChanged)}
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._gbDnoRegionValue, dnoRegionStateObj, dnoRegionChanged)}
+      ${this._renderInputText(this._octopusImportCode, importCodeState, importCodeChanged)}
+      ${this._renderInputText(this._octopusExportCode, exportCodeState, exportCodeChanged)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12166,7 +12166,7 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
     }
     _renderNLContractDetails() {
         const subHeader = $528a5968cd9760bd$var$tp("nl-sub-header", {
-            contract: (0, $aa1795080f053cd4$export$2c618a4308a30424)(this._electricityContractValue),
+            contract: (0, $aa1795080f053cd4$export$2c618a4308a30424)(this._electricityContract),
             country: $528a5968cd9760bd$var$tp("nl")
         });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -12181,16 +12181,16 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
     `;
     }
     _renderNLGenericContractDetails() {
-        if (this._electricityContractValue !== "nl_generic") return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (this._electricityContract !== "nl_generic") return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const description = $528a5968cd9760bd$var$tp("nl-generic-description");
-        const vatStateObj = this.hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
-        const markupStateObj = this.hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032];
-        const vatChanged = (evt)=>this._energyPriceVatValue = evt.target.value;
-        const markupChanged = (evt)=>this._energyPriceMarkupValue = evt.target.value;
+        const vatState = this.hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
+        const markupState = this.hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032];
+        const vatChanged = (evt)=>this._energyPriceVat = evt.target.value;
+        const markupChanged = (evt)=>this._energyPriceMarkup = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._energyPriceVatValue, vatStateObj, vatChanged)}
-      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._energyPriceMarkupValue, markupStateObj, markupChanged)}
+      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._energyPriceVat, vatState, vatChanged)}
+      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._energyPriceMarkup, markupState, markupChanged)}
     `;
     }
     _renderInputText(value, stateObj, valueChangedCallback) {
@@ -12216,24 +12216,24 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
         this._currentPage = "contract-selection";
     }
     async _save() {
-        const selected = this._electricityContractValue;
+        const selected = this._electricityContract;
         // TODO: add validation
         const nlGenericArgs = selected === "nl_generic" ? {
-            vat: this._energyPriceVatValue,
-            markup: this._energyPriceMarkupValue
+            vat: this._energyPriceVat,
+            markup: this._energyPriceMarkup
         } : {};
         const amberArgs = selected === "au_amber_electric" ? {
             // TODO: add validation -- check for existing entity
-            consumptionPriceEntity: this._ownConsumptionPriceEntityIdValue,
-            productionPriceEntity: this._ownProductionPriceEntityIdValue
+            consumptionPriceEntity: this._ownConsumptionPriceEntityId,
+            productionPriceEntity: this._ownProductionPriceEntityId
         } : {};
         const octopusArgs = selected === "gb_octopus_energy" ? {
-            importCode: this._octopusImportCodeValue,
-            exportCode: this._octopusExportCodeValue,
-            region: this._gbDnoRegionValue
+            importCode: this._octopusImportCode,
+            exportCode: this._octopusExportCode,
+            region: this._gbDnoRegion
         } : {};
         const args = {
-            contract: this._electricityContractValue,
+            contract: this._electricityContract,
             ...nlGenericArgs,
             ...amberArgs,
             ...octopusArgs
@@ -12258,28 +12258,28 @@ let $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = class EditElec
 ], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_currentPage", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_electricityContractValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_electricityContract", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_energyPriceVatValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_energyPriceVat", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_energyPriceMarkupValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_energyPriceMarkup", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_ownConsumptionPriceEntityIdValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_ownConsumptionPriceEntityId", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_ownProductionPriceEntityIdValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_ownProductionPriceEntityId", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_octopusImportCodeValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_octopusImportCode", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_octopusExportCodeValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_octopusExportCode", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_gbDnoRegionValue", void 0);
+], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog.prototype, "_gbDnoRegion", void 0);
 $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($528a5968cd9760bd$export$45e0b80f1e500bd4)
 ], $528a5968cd9760bd$var$EditElectricityContractSettingsDialog);
@@ -12306,11 +12306,11 @@ var $ba2cc41e8ffaff3b$var$ConnectionStatus;
 let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
-        this._fmAccountUsernameValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426], "");
-        this._fmAccountPasswordValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52], "");
-        this._fmUseOtherServerValue = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09].state;
-        this._fmHostUrlValue = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963], "");
-        this._fmAssetValue = this.hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f].state;
+        this._fmAccountUsername = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426], "");
+        this._fmAccountPassword = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52], "");
+        this._fmUseOtherServer = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09].state;
+        this._fmHostUrl = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963], "");
+        this._fmAsset = this.hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f].state;
         this._fmConnectionStatus = "";
         this._hasTriedToConnect = false;
         this._hasTriedToSave = false;
@@ -12338,18 +12338,18 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     }
     _renderAccountDetails() {
         const description = $ba2cc41e8ffaff3b$var$tp("account-description");
-        const fmAccountUsernameStateObj = this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
-        const fmAccountPasswordStateObj = this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52];
-        const fmUseOtherServerStateObj = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
-        const fmHostUrlStateObj = this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963];
-        const useOtherServerChanged = (evt)=>this._fmUseOtherServerValue = evt.target.checked ? "on" : "off";
+        const fmAccountUsernameState = this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
+        const fmAccountPasswordState = this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52];
+        const fmUseOtherServerState = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
+        const fmHostUrlState = this.hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963];
+        const useOtherServerChanged = (evt)=>this._fmUseOtherServer = evt.target.checked ? "on" : "off";
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._fmAccountUsernameValue, fmAccountUsernameStateObj, (evt)=>this._fmAccountUsernameValue = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bb1d970f9960d2ec)(this._fmAccountPasswordValue, fmAccountPasswordStateObj, (evt)=>this._fmAccountPasswordValue = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(fmUseOtherServerStateObj, useOtherServerChanged)}
-      ${this._fmUseOtherServerValue === "on" ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._fmHostUrlValue, fmHostUrlStateObj, (evt)=>this._fmHostUrlValue = evt.target.value) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bb1d970f9960d2ec)(this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(fmUseOtherServerState, useOtherServerChanged)}
+      ${this._fmUseOtherServer === "on" ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)(this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
             <ha-circular-progress
               size="small"
@@ -12389,11 +12389,11 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     `;
     }
     _renderOneAsset() {
-        this._fmAssetValue = this._fmAssets[0].name;
+        this._fmAsset = this._fmAssets[0].name;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <strong>Asset</strong>
-      <div>${this._fmAssetValue}</div>
+      <div>${this._fmAsset}</div>
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
       </mwc-button>
@@ -12404,12 +12404,12 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
     }
     _renderMultipleAssets() {
         const description = $ba2cc41e8ffaff3b$var$tp("multiple-asset-description");
-        const fmAssetStateObj = this.hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f];
+        const fmAssetState = this.hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f];
         const options = this._fmAssets.map((asset)=>asset.name);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
       <strong>Asset</strong>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._fmAssetValue, fmAssetStateObj, (evt)=>this._fmAssetValue = evt.target.value, options)}
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._fmAsset, fmAssetState, (evt)=>this._fmAsset = evt.target.value, options)}
       ${this._renderNoAssetSelectedError()}
       <mwc-button @click=${this._back} slot="secondaryAction">
         &lt; ${this.hass.localize("ui.common.back")}
@@ -12423,7 +12423,7 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
         return this._hasTriedToSave && !this._isAssetValid() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div class="error">${$ba2cc41e8ffaff3b$var$tp("no-asset-selected-error")}</div> ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _isAssetValid() {
-        return this._fmAssets.some((asset)=>asset.name === this._fmAssetValue);
+        return this._fmAssets.some((asset)=>asset.name === this._fmAsset);
     }
     _back() {
         this._hasTriedToConnect = false;
@@ -12446,19 +12446,19 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
         if (!this._isAssetValid()) return;
         const args = {
             ...this._getConnectionArgs(),
-            asset: this._fmAssetValue
+            asset: this._fmAsset
         };
         const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, "save_schedule_settings", args);
         this.closeDialog();
     }
     _getConnectionArgs() {
-        const isUsingOtherServer = this._fmUseOtherServerValue === "on";
+        const isUsingOtherServer = this._fmUseOtherServer === "on";
         return {
-            username: this._fmAccountUsernameValue,
-            password: this._fmAccountPasswordValue,
+            username: this._fmAccountUsername,
+            password: this._fmAccountPassword,
             useOtherServer: isUsingOtherServer,
             ...isUsingOtherServer ? {
-                host: this._fmHostUrlValue
+                host: this._fmHostUrl
             } : {}
         };
     }
@@ -12485,19 +12485,19 @@ let $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog = class EditScheduleSetting
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmAccountUsernameValue", void 0);
+], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmAccountUsername", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmAccountPasswordValue", void 0);
+], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmAccountPassword", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmUseOtherServerValue", void 0);
+], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmUseOtherServer", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmHostUrlValue", void 0);
+], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmHostUrl", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmAssetValue", void 0);
+], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmAsset", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog.prototype, "_fmConnectionStatus", void 0);
@@ -12758,12 +12758,12 @@ let $ce5bce3a7c4706d2$export$4eef4984dcaac30c = class AdministratorSettingsCard 
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateAdminSettingsInitialised = hass.states[$755a87c9ee93218f$export$e912a4111e48f543];
-        this._stateAdminMobileName = hass.states[$755a87c9ee93218f$export$750f693c799177e2];
-        this._stateAdminMobilePlatform = hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
+        this._adminSettingsInitialised = hass.states[$755a87c9ee93218f$export$e912a4111e48f543];
+        this._adminMobileName = hass.states[$755a87c9ee93218f$export$750f693c799177e2];
+        this._adminMobilePlatform = hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
     }
     render() {
-        const isInitialised = this._stateAdminSettingsInitialised.state === "on";
+        const isInitialised = this._adminSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${$ce5bce3a7c4706d2$var$tp("header")}">${content}</ha-card>`;
     }
@@ -12772,8 +12772,8 @@ let $ce5bce3a7c4706d2$export$4eef4984dcaac30c = class AdministratorSettingsCard 
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <div class="description">${$ce5bce3a7c4706d2$var$tp("sub-header")}</div>
-        ${this._renderEntityRow(this._stateAdminMobileName)}
-        ${this._renderEntityRow(this._stateAdminMobilePlatform)}
+        ${this._renderEntityRow(this._adminMobileName)}
+        ${this._renderEntityRow(this._adminMobilePlatform)}
         <mwc-button @click=${editCallback}>
           ${this._hass.localize("ui.common.edit")}
         </mwc-button>
@@ -12810,13 +12810,13 @@ let $ce5bce3a7c4706d2$export$4eef4984dcaac30c = class AdministratorSettingsCard 
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ce5bce3a7c4706d2$export$4eef4984dcaac30c.prototype, "_stateAdminSettingsInitialised", void 0);
+], $ce5bce3a7c4706d2$export$4eef4984dcaac30c.prototype, "_adminSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ce5bce3a7c4706d2$export$4eef4984dcaac30c.prototype, "_stateAdminMobileName", void 0);
+], $ce5bce3a7c4706d2$export$4eef4984dcaac30c.prototype, "_adminMobileName", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $ce5bce3a7c4706d2$export$4eef4984dcaac30c.prototype, "_stateAdminMobilePlatform", void 0);
+], $ce5bce3a7c4706d2$export$4eef4984dcaac30c.prototype, "_adminMobilePlatform", void 0);
 $ce5bce3a7c4706d2$export$4eef4984dcaac30c = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-administrator-settings-card")
 ], $ce5bce3a7c4706d2$export$4eef4984dcaac30c);
@@ -12835,9 +12835,9 @@ let $5d8785103791dbcd$var$CarSettingsCard = class CarSettingsCard extends (0, $a
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateUsableCapacity = hass.states[$755a87c9ee93218f$export$511a96d8a8b167fa];
-        this._stateRoundtripEfficiency = hass.states[$755a87c9ee93218f$export$7c53730103b0e952];
-        this._stateCarEnergyConsumption = hass.states[$755a87c9ee93218f$export$a6bd64d0b150c939];
+        this._usableCapacity = hass.states[$755a87c9ee93218f$export$511a96d8a8b167fa];
+        this._roundtripEfficiency = hass.states[$755a87c9ee93218f$export$7c53730103b0e952];
+        this._carEnergyConsumption = hass.states[$755a87c9ee93218f$export$a6bd64d0b150c939];
     }
     static #_ = (()=>{
         this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
@@ -12857,11 +12857,11 @@ let $5d8785103791dbcd$var$CarSettingsCard = class CarSettingsCard extends (0, $a
     `;
     }
     _renderNotInitialisedAlert() {
-        const isInitialised = this._stateUsableCapacity.attributes.initialised && this._stateRoundtripEfficiency.attributes.initialised && this._stateCarEnergyConsumption.attributes.initialised;
+        const isInitialised = this._usableCapacity.attributes.initialised && this._roundtripEfficiency.attributes.initialised && this._carEnergyConsumption.attributes.initialised;
         return isInitialised ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="warning">${$5d8785103791dbcd$var$tp("alert")}</ha-alert`;
     }
     _renderUsableCapacity() {
-        const stateObj = this._stateUsableCapacity;
+        const stateObj = this._usableCapacity;
         const callback = ()=>(0, $de105ef1fecb85b1$export$55fd632de47ce4c1)(this, {
                 entity_id: $755a87c9ee93218f$export$511a96d8a8b167fa
             });
@@ -12874,14 +12874,14 @@ let $5d8785103791dbcd$var$CarSettingsCard = class CarSettingsCard extends (0, $a
     `;
     }
     _renderRoundtripEfficiency() {
-        const stateObj = this._stateRoundtripEfficiency;
+        const stateObj = this._roundtripEfficiency;
         const callback = ()=>(0, $de105ef1fecb85b1$export$ba081ffd3b039ad0)(this, {
                 entity_id: $755a87c9ee93218f$export$7c53730103b0e952
             });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
     }
     _renderCarEnergyConsumption() {
-        const stateObj = this._stateCarEnergyConsumption;
+        const stateObj = this._carEnergyConsumption;
         const callback = ()=>(0, $de105ef1fecb85b1$export$ebe2794f5ddc465)(this, {
                 entity_id: $755a87c9ee93218f$export$a6bd64d0b150c939
             });
@@ -12907,13 +12907,13 @@ let $5d8785103791dbcd$var$CarSettingsCard = class CarSettingsCard extends (0, $a
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_stateUsableCapacity", void 0);
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_usableCapacity", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_stateRoundtripEfficiency", void 0);
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_roundtripEfficiency", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_stateCarEnergyConsumption", void 0);
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_carEnergyConsumption", void 0);
 $5d8785103791dbcd$var$CarSettingsCard = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-car-settings-card")
 ], $5d8785103791dbcd$var$CarSettingsCard);
@@ -12930,15 +12930,15 @@ let $8b666ded8df00928$export$5fb852718b75e058 = class CarReservationCalendarSett
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateCalendarSettingsInitialised = hass.states[$755a87c9ee93218f$export$327a7fa57ac6cc54];
-        this._stateCarCalendarSource = hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
-        this._stateIntegrationCalendarEntityName = hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
-        this._stateCalendarAccountUrl = hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0];
-        this._stateCalendarAccountUsername = hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1];
-        this._stateCarCalendarName = hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
+        this._calendarSettingsInitialised = hass.states[$755a87c9ee93218f$export$327a7fa57ac6cc54];
+        this._carCalendarSource = hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
+        this._integrationCalendarEntityName = hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
+        this._calendarAccountUrl = hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0];
+        this._calendarAccountUsername = hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1];
+        this._carCalendarName = hass.states[$755a87c9ee93218f$export$7caca1b153da5c06];
     }
     render() {
-        const isInitialised = this._stateCalendarSettingsInitialised.state === "on";
+        const isInitialised = this._calendarSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${$8b666ded8df00928$var$tp("header")}">${content}</ha-card>`;
     }
@@ -12978,38 +12978,38 @@ let $8b666ded8df00928$export$5fb852718b75e058 = class CarReservationCalendarSett
     `;
     }
     _renderCaldavDetails() {
-        return this._stateCarCalendarSource.state === "Direct caldav source" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${this._renderEntityRow(this._stateCarCalendarSource)}
-          ${this._renderEntityRow(this._stateCalendarAccountUrl)}
-          ${this._renderEntityRow(this._stateCalendarAccountUsername)}
-          ${this._renderEntityRow(this._stateCarCalendarName)}
+        return this._carCalendarSource.state === "Direct caldav source" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._renderEntityRow(this._carCalendarSource)}
+          ${this._renderEntityRow(this._calendarAccountUrl)}
+          ${this._renderEntityRow(this._calendarAccountUsername)}
+          ${this._renderEntityRow(this._carCalendarName)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderHomeAssistantDetails() {
-        return this._stateCarCalendarSource.state === "Home Assistant integration" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${this._renderEntityRow(this._stateCarCalendarSource)}
-          ${this._renderEntityRow(this._stateIntegrationCalendarEntityName)}
+        return this._carCalendarSource.state === "Home Assistant integration" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._renderEntityRow(this._carCalendarSource)}
+          ${this._renderEntityRow(this._integrationCalendarEntityName)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCalendarSettingsInitialised", void 0);
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_calendarSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCarCalendarSource", void 0);
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_carCalendarSource", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateIntegrationCalendarEntityName", void 0);
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_integrationCalendarEntityName", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCalendarAccountUrl", void 0);
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_calendarAccountUrl", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCalendarAccountUsername", void 0);
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_calendarAccountUsername", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_stateCarCalendarName", void 0);
+], $8b666ded8df00928$export$5fb852718b75e058.prototype, "_carCalendarName", void 0);
 $8b666ded8df00928$export$5fb852718b75e058 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-car-reservation-calendar-settings-card")
 ], $8b666ded8df00928$export$5fb852718b75e058);
@@ -13027,17 +13027,17 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateChargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
-        this._stateChargerHost = hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c];
-        this._stateChargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
-        this._stateChargerConnectionStatus = hass.states[$755a87c9ee93218f$export$daa3d3280ce4a564];
-        this._stateUseReducedMaxPower = hass.states[$755a87c9ee93218f$export$c541138e582b8ea2];
-        this._stateChargerMaxChargingPower = hass.states[$755a87c9ee93218f$export$7644ad7394071de6];
-        this._stateChargerMaxDischargingPower = hass.states[$755a87c9ee93218f$export$8a6641dff4159913];
+        this._chargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
+        this._chargerHost = hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c];
+        this._chargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
+        this._chargerConnectionStatus = hass.states[$755a87c9ee93218f$export$daa3d3280ce4a564];
+        this._useReducedMaxPower = hass.states[$755a87c9ee93218f$export$c541138e582b8ea2];
+        this._chargerMaxChargingPower = hass.states[$755a87c9ee93218f$export$7644ad7394071de6];
+        this._chargerMaxDischargingPower = hass.states[$755a87c9ee93218f$export$8a6641dff4159913];
     }
     render() {
         const header = $8462057a459186b4$var$tp("header");
-        const isInitialised = this._stateChargerSettingsInitialised.state === "on";
+        const isInitialised = this._chargerSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
@@ -13058,8 +13058,8 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
-        ${this._renderEntityRow(this._stateChargerHost)}
-        ${this._renderEntityRow(this._stateChargerPort)}
+        ${this._renderEntityRow(this._chargerHost)}
+        ${this._renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         <p>
           <ha-alert alert-type="info">
@@ -13073,12 +13073,12 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
     `;
     }
     _renderChargerConnectionStatus() {
-        const state = this._stateChargerConnectionStatus.state;
+        const state = this._chargerConnectionStatus.state;
         const isConnected = state === "Successfully connected";
         const hasConnectionError = state === "Connection error" || state === "Failed to connect";
         const error = $8462057a459186b4$var$tp("connection-error");
         const success = $8462057a459186b4$var$tp("connection-success", {
-            time: $8462057a459186b4$var$elapsedTimeSince(this._stateChargerConnectionStatus.last_updated)
+            time: $8462057a459186b4$var$elapsedTimeSince(this._chargerConnectionStatus.last_updated)
         });
         return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <div class="success">
@@ -13106,11 +13106,11 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
         const maxPowerDescription = $8462057a459186b4$var$tp("max-power-description", {
             value: maxAvailablePower
         });
-        const isUsingReducedMaxPower = this._stateUseReducedMaxPower.state === "on";
+        const isUsingReducedMaxPower = this._useReducedMaxPower.state === "on";
         const usingReducedMaxPowerDescription = isUsingReducedMaxPower ? $8462057a459186b4$var$tp("reduce-max-power-description") : $8462057a459186b4$var$tp("do-not-reduce-max-power-description");
         const maxChargingPowerEntityRows = isUsingReducedMaxPower ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${this._renderEntityRow(this._stateChargerMaxChargingPower)}
-          ${this._renderEntityRow(this._stateChargerMaxDischargingPower)}
+          ${this._renderEntityRow(this._chargerMaxChargingPower)}
+          ${this._renderEntityRow(this._chargerMaxDischargingPower)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <p>
@@ -13145,25 +13145,25 @@ let $8462057a459186b4$export$bfa1cde860c39587 = class ChargerSettingsCard extend
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerSettingsInitialised", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerHost", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerHost", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerPort", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerPort", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerConnectionStatus", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerConnectionStatus", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateUseReducedMaxPower", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_useReducedMaxPower", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerMaxChargingPower", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerMaxChargingPower", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_stateChargerMaxDischargingPower", void 0);
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerMaxDischargingPower", void 0);
 $8462057a459186b4$export$bfa1cde860c39587 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-charger-settings-card")
 ], $8462057a459186b4$export$bfa1cde860c39587);
@@ -13188,19 +13188,19 @@ let $31e0aca5546fddf6$export$f58cebbb0e887608 = class ElectricityContractSetting
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateElectricityContractSettingsInitialised = hass.states[$755a87c9ee93218f$export$6803b8e9884353c8];
-        this._stateElectricityProvider = hass.states[$755a87c9ee93218f$export$6106300be9012ff7];
-        this._stateEnergyPriceVat = hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
-        this._stateEnergyPriceMarkup = hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032];
-        this._stateOwnConsumptionPriceEntityId = hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f];
-        this._stateOwnProductionPriceEntityId = hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638];
-        this._stateOctopusImportCode = hass.states[$755a87c9ee93218f$export$7264ac5bb217f690];
-        this._stateOctopusExportCode = hass.states[$755a87c9ee93218f$export$43beb8995cb3e288];
-        this._stateGbDnoRegion = hass.states[$755a87c9ee93218f$export$54e0b838c6a76104];
+        this._electricityContractSettingsInitialised = hass.states[$755a87c9ee93218f$export$6803b8e9884353c8];
+        this._electricityProvider = hass.states[$755a87c9ee93218f$export$6106300be9012ff7];
+        this._energyPriceVat = hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
+        this._energyPriceMarkup = hass.states[$755a87c9ee93218f$export$50c9c5ee61c4032];
+        this._ownConsumptionPriceEntityId = hass.states[$755a87c9ee93218f$export$41b3f48b3847d98f];
+        this._ownProductionPriceEntityId = hass.states[$755a87c9ee93218f$export$30f7c2c4e2d9b638];
+        this._octopusImportCode = hass.states[$755a87c9ee93218f$export$7264ac5bb217f690];
+        this._octopusExportCode = hass.states[$755a87c9ee93218f$export$43beb8995cb3e288];
+        this._gbDnoRegion = hass.states[$755a87c9ee93218f$export$54e0b838c6a76104];
     }
     render() {
         const header = $31e0aca5546fddf6$var$tp("header");
-        const isInitialised = this._stateElectricityContractSettingsInitialised.state === "on";
+        const isInitialised = this._electricityContractSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
@@ -13220,7 +13220,7 @@ let $31e0aca5546fddf6$export$f58cebbb0e887608 = class ElectricityContractSetting
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$941ad84dd3f4024)(this);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        ${this._renderEntityRow(this._stateElectricityProvider)}
+        ${this._renderEntityRow(this._electricityProvider)}
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
@@ -13244,52 +13244,52 @@ let $31e0aca5546fddf6$export$f58cebbb0e887608 = class ElectricityContractSetting
     `;
     }
     _renderNLGenericContractDetails() {
-        return this._stateElectricityProvider.state === "nl_generic" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${this._renderEntityRow(this._stateEnergyPriceVat)}
-          ${this._renderEntityRow(this._stateEnergyPriceMarkup)}
+        return this._electricityProvider.state === "nl_generic" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._renderEntityRow(this._energyPriceVat)}
+          ${this._renderEntityRow(this._energyPriceMarkup)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderAmberContractDetails() {
-        return this._stateElectricityProvider.state === "au_amber_electric" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${this._renderEntityRow(this._stateOwnConsumptionPriceEntityId)}
-          ${this._renderEntityRow(this._stateOwnProductionPriceEntityId)}
+        return this._electricityProvider.state === "au_amber_electric" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._renderEntityRow(this._ownConsumptionPriceEntityId)}
+          ${this._renderEntityRow(this._ownProductionPriceEntityId)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderOctopusContractDetails() {
-        return this._stateElectricityProvider.state === "gb_octopus_energy" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${this._renderEntityRow(this._stateOctopusImportCode)}
-          ${this._renderEntityRow(this._stateOctopusExportCode)}
-          ${this._renderEntityRow(this._stateGbDnoRegion)}
+        return this._electricityProvider.state === "gb_octopus_energy" ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._renderEntityRow(this._octopusImportCode)}
+          ${this._renderEntityRow(this._octopusExportCode)}
+          ${this._renderEntityRow(this._gbDnoRegion)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateElectricityContractSettingsInitialised", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_electricityContractSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateElectricityProvider", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_electricityProvider", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateEnergyPriceVat", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_energyPriceVat", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateEnergyPriceMarkup", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_energyPriceMarkup", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateOwnConsumptionPriceEntityId", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_ownConsumptionPriceEntityId", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateOwnProductionPriceEntityId", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_ownProductionPriceEntityId", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateOctopusImportCode", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_octopusImportCode", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateOctopusExportCode", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_octopusExportCode", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_stateGbDnoRegion", void 0);
+], $31e0aca5546fddf6$export$f58cebbb0e887608.prototype, "_gbDnoRegion", void 0);
 $31e0aca5546fddf6$export$f58cebbb0e887608 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-electricity-contract-settings-card")
 ], $31e0aca5546fddf6$export$f58cebbb0e887608);
@@ -13308,10 +13308,10 @@ let $c4bb759c2bcf586c$var$OptimisationSettingsCard = class OptimisationSettingsC
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateOptimisationMode = hass.states[$755a87c9ee93218f$export$29a786ee773985a];
-        this._stateLowerChargeLimit = hass.states[$755a87c9ee93218f$export$a81a922cb2dc8458];
-        this._stateUpperChargeLimit = hass.states[$755a87c9ee93218f$export$e39cc2ab91dbbf48];
-        this._stateAllowedDurationAboveMax = hass.states[$755a87c9ee93218f$export$bcf5813544a68726];
+        this._optimisationMode = hass.states[$755a87c9ee93218f$export$29a786ee773985a];
+        this._lowerChargeLimit = hass.states[$755a87c9ee93218f$export$a81a922cb2dc8458];
+        this._upperChargeLimit = hass.states[$755a87c9ee93218f$export$e39cc2ab91dbbf48];
+        this._allowedDurationAboveMax = hass.states[$755a87c9ee93218f$export$bcf5813544a68726];
     }
     static #_ = (()=>{
         this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
@@ -13331,28 +13331,28 @@ let $c4bb759c2bcf586c$var$OptimisationSettingsCard = class OptimisationSettingsC
     `;
     }
     _renderOptimisationMode() {
-        const stateObj = this._stateOptimisationMode;
+        const stateObj = this._optimisationMode;
         const callback = ()=>(0, $de105ef1fecb85b1$export$309e5e69c95a337d)(this, {
                 entity_id: $755a87c9ee93218f$export$29a786ee773985a
             });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div>${this._renderEntityRow(stateObj, callback)}</div> `;
     }
     _renderLowerChargeLimit() {
-        const stateObj = this._stateLowerChargeLimit;
+        const stateObj = this._lowerChargeLimit;
         const callback = ()=>(0, $de105ef1fecb85b1$export$dc42f1b3097c9ee2)(this, {
                 entity_id: $755a87c9ee93218f$export$a81a922cb2dc8458
             });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div>${this._renderEntityRow(stateObj, callback)}</div> `;
     }
     _renderUpperChargeLimit() {
-        const stateObj = this._stateUpperChargeLimit;
+        const stateObj = this._upperChargeLimit;
         const callback = ()=>(0, $de105ef1fecb85b1$export$532d37680862eb69)(this, {
                 entity_id: $755a87c9ee93218f$export$e39cc2ab91dbbf48
             });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div>${this._renderEntityRow(stateObj, callback)}</div> `;
     }
     _renderAllowedDurationAboveMax() {
-        const stateObj = this._stateAllowedDurationAboveMax;
+        const stateObj = this._allowedDurationAboveMax;
         const callback = ()=>(0, $de105ef1fecb85b1$export$415f9c0b9250dca7)(this, {
                 entity_id: $755a87c9ee93218f$export$bcf5813544a68726
             });
@@ -13377,16 +13377,16 @@ let $c4bb759c2bcf586c$var$OptimisationSettingsCard = class OptimisationSettingsC
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_stateOptimisationMode", void 0);
+], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_optimisationMode", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_stateLowerChargeLimit", void 0);
+], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_lowerChargeLimit", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_stateUpperChargeLimit", void 0);
+], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_upperChargeLimit", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_stateAllowedDurationAboveMax", void 0);
+], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_allowedDurationAboveMax", void 0);
 $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-optimisation-settings-card")
 ], $c4bb759c2bcf586c$var$OptimisationSettingsCard);
@@ -13403,16 +13403,16 @@ let $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = class ScheduleSettingsCard exten
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
-        this._stateScheduleSettingsInitialised = hass.states[$755a87c9ee93218f$export$bcc5761a4d7674a4];
-        this._stateFmAccountUsername = hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
-        this._stateFmUseOtherServer = hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
-        this._stateFmHostUrl = hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963];
-        this._stateFmConnectionStatus = hass.states[$755a87c9ee93218f$export$82372843d513f2af];
-        this._stateFmAsset = hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f];
+        this._scheduleSettingsInitialised = hass.states[$755a87c9ee93218f$export$bcc5761a4d7674a4];
+        this._fmAccountUsername = hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
+        this._fmUseOtherServer = hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
+        this._fmHostUrl = hass.states[$755a87c9ee93218f$export$f1a0886b70e9e963];
+        this._fmConnectionStatus = hass.states[$755a87c9ee93218f$export$82372843d513f2af];
+        this._fmAsset = hass.states[$755a87c9ee93218f$export$7df7f7ac9cecee8f];
     }
     render() {
         const header = $8fab4e1af811a2cc$var$tp("header");
-        const isInitialised = this._stateScheduleSettingsInitialised.state === "on";
+        const isInitialised = this._scheduleSettingsInitialised.state === "on";
         const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
@@ -13429,18 +13429,19 @@ let $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = class ScheduleSettingsCard exten
     `;
     }
     _renderInitialisedContent() {
+        // TODO: Add warning for connection problems
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$95b8b2b42f3b1e17)(this);
-        const isUsingOtherServer = this._stateFmUseOtherServer.state === "on";
+        const isUsingOtherServer = this._fmUseOtherServer.state === "on";
         const useDefaultServer = $8fab4e1af811a2cc$var$tp("use-default-server");
         const useOtherServer = $8fab4e1af811a2cc$var$tp("use-other-server");
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        ${this._renderEntityRow(this._stateFmAccountUsername)}
+        ${this._renderEntityRow(this._fmAccountUsername)}
         ${isUsingOtherServer ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
               <p>${useOtherServer}</p>
-              ${this._renderEntityRow(this._stateFmHostUrl)}
+              ${this._renderEntityRow(this._fmHostUrl)}
             ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <p>${useDefaultServer}</p> `}
-        ${this._renderEntityRow(this._stateFmAsset)}
+        ${this._renderEntityRow(this._fmAsset)}
         <mwc-button @click=${editCallback}>
           ${this._hass.localize("ui.common.edit")}
         </mwc-button>
@@ -13463,22 +13464,22 @@ let $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = class ScheduleSettingsCard exten
 };
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateScheduleSettingsInitialised", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_scheduleSettingsInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmAccountUsername", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_fmAccountUsername", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmUseOtherServer", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_fmUseOtherServer", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmHostUrl", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_fmHostUrl", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmConnectionStatus", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_fmConnectionStatus", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_stateFmAsset", void 0);
+], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa.prototype, "_fmAsset", void 0);
 $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)("v2g-liberty-schedule-settings-card")
 ], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa);
