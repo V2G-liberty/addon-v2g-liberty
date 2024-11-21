@@ -9,6 +9,7 @@ services:
     volumes:
       - ../..:/workspaces:cached
       - ./config:/homeassistant
+      - ../rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/homeassistant/www/v2g_liberty/v2g-liberty-cards
       - ../data:/data
       - ../logs:/config/logs
     command: sh -c "/workspaces/v2g-liberty/script/init-config && sleep infinity"
