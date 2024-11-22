@@ -1,7 +1,7 @@
 {
   "name": "V2G-Liberty App Dev",
   "dockerComposeFile": "../docker-compose.yaml",
-  "service": "v2g-liberty",
+  "service": "addon-v2g-liberty",
   "workspaceFolder": "/workspaces/v2g-liberty",
   "containerEnv": {
     "PYTHONASYNCIODEBUG": "1"

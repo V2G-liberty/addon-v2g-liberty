@@ -1,0 +1,18 @@
+{
+  "source": "src/index.ts",
+  "module": "dist/v2g-liberty-cards.js",
+  "targets": {
+    "module": {
+      "includeNodeModules": true
+    }
+  },
+  "scripts": {
+    "watch": "parcel watch",
+    "build": "parcel build"
+  },
+  "devDependencies": {
+    "@parcel/transformer-inline-string": "^2.8.3",
+    "parcel": "^2.8.3"
+  },
+  "dependencies": {}
+}

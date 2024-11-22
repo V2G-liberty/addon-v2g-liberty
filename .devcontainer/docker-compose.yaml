@@ -1,6 +1,8 @@
 version: '3.8'
+
 services:
-  v2g-liberty:
+
+  addon-v2g-liberty:
     build:
       context: ../v2g-liberty
       dockerfile: Dockerfile.dev
@@ -9,6 +11,7 @@ services:
     volumes:
       - ..:/workspaces:cached
       - ./config:/homeassistant
+      - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/homeassistant/www/v2g_liberty/v2g-liberty-cards
       - ../v2g-liberty/data:/data
       - ../v2g-liberty/logs:/config/logs
     command: sh -c "/workspaces/v2g-liberty/script/init-config && sleep infinity"
@@ -26,5 +29,14 @@ services:
     volumes:
       - ./config:/config
     depends_on:
-      v2g-liberty:
+      addon-v2g-liberty:
         condition: service_healthy
+
+  v2g-liberty-cards:
+    build:
+      context: ../v2g-liberty-cards
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ..:/workspaces:cached
+      - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/workspaces/v2g-liberty-cards/dist
+    command: sleep infinity
