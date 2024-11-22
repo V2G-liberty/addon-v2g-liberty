@@ -11,8 +11,7 @@ These instractions are specific to Visual Studio Code (VSC) IDE.
      `git clone https://github.com/V2G-liberty/addon-v2g-liberty.git`<br>
      This will create all the files and folders on your local machine.
 
-2. Start VSC and open the `v2g-liberty` folder that has just been created on your machine.<br/>
-   (note: this is not the `addon-v2g-liberty` repo root folder)
+2. Start VSC and open the `addon-v2g-liberty` folder that has just been created on your machine.
 
 3. VSC wil detect there is a dev container in this folder and thus should ask
    `Dev Containers: Reopen in Container?` click Yes.<br/>

@@ -2,15 +2,15 @@ version: '3.8'
 services:
   v2g-liberty:
     build:
-      context: ..
+      context: ../v2g-liberty
       dockerfile: Dockerfile.dev
     ports:
       - 5050:5050
     volumes:
-      - ../..:/workspaces:cached
+      - ..:/workspaces:cached
       - ./config:/homeassistant
-      - ../data:/data
-      - ../logs:/config/logs
+      - ../v2g-liberty/data:/data
+      - ../v2g-liberty/logs:/config/logs
     command: sh -c "/workspaces/v2g-liberty/script/init-config && sleep infinity"
     healthcheck:
       test: ['CMD', '/workspaces/v2g-liberty/script/is-container-ready']
