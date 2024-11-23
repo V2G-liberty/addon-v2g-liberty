@@ -28,6 +28,7 @@ services:
       - 8123:8123
     volumes:
       - ./config:/config
+      - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/config/www/v2g_liberty/v2g-liberty-cards
     depends_on:
       addon-v2g-liberty:
         condition: service_healthy

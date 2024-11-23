@@ -141,6 +141,8 @@ class V2Gliberty:
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
 
+        await self.hass.listen_event(self.__pong, "ping")
+
         await self.hass.listen_state(
             self.__update_charge_mode, "input_select.charge_mode", attribute="all"
         )
@@ -782,6 +784,9 @@ class V2Gliberty:
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
+
+    async def __pong(self, event, data, kwargs):
+        self.hass.fire_event("ping.result")
 
     async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
         """Handle changes in the charge mode
