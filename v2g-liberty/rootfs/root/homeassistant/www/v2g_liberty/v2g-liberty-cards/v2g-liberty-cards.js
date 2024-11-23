@@ -2988,36 +2988,42 @@ const $aa1795080f053cd4$export$2c618a4308a30424 = $aa1795080f053cd4$export$e4594
 
 const $c5d85a824175067e$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('ping-card');
 class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
-    setConfig(config) {}
-    set hass(hass) {
-        this._hass = hass;
-        this._isConnected = true;
+    setConfig(config) {
+        this._config = {
+            ...this.defaultConfig,
+            ...config
+        };
     }
     connectedCallback() {
         super.connectedCallback();
+        this._connected = true;
         this._startPinging();
     }
     disconnectedCallback() {
         this._stopPinging();
+        this._connected = false;
         super.disconnectedCallback();
     }
     _startPinging() {
-        this._ping();
-        this._timer = setInterval(()=>this._ping(), 10000);
+        this._isResponding = true;
+        this._timeout = setTimeout(()=>this._ping(), 100);
     }
     async _ping() {
         try {
-            await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'ping', {}, 5000);
-            this._isConnected = true;
-        } catch (err) {
-            this._isConnected = false;
+            await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'ping', {}, this._config.ping_timeout * 1000);
+            this._isResponding = true;
+            if (this._connected) this._timeout = setTimeout(()=>this._ping(), this._config.interval * 1000);
+        } catch (_) {
+            this._isResponding = false;
+            // Increase ping interval
+            if (this._connected) this._timeout = setTimeout(()=>this._ping(), 100);
         }
     }
     _stopPinging() {
-        clearInterval(this._timer);
+        clearTimeout(this._timeout);
     }
     render() {
-        return this._isConnected ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        return this._isResponding ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <ha-alert alert-type="error">
             <div class="error">${$c5d85a824175067e$var$tp('error')}</div>
             <div>${$c5d85a824175067e$var$tp('error-subtext')}</div>
@@ -3031,10 +3037,16 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
     }
   `;
     }
+    constructor(...args){
+        super(...args), this.defaultConfig = {
+            ping_timeout: 5,
+            interval: 15
+        };
+    }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isConnected", void 0);
+], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isResponding", void 0);
 $c5d85a824175067e$export$b6e3440b5366703f = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-ping-card')
 ], $c5d85a824175067e$export$b6e3440b5366703f);
