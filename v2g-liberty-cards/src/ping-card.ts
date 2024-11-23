@@ -1,4 +1,4 @@
-import { html, LitElement, TemplateResult, nothing } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
@@ -39,6 +39,7 @@ export class PingCard extends LitElement {
   async _ping() {
     try {
       await callFunction(this._hass, 'ping', {}, 5 * 1000);
+      this._isConnected = true;
     } catch (err) {
       this._isConnected = false;
     }
@@ -51,6 +52,17 @@ export class PingCard extends LitElement {
   render() {
     return this._isConnected
       ? nothing
-      : html`<ha-alert alert-type="error">${tp('error')}</ha-alert>`;
+      : html`
+          <ha-alert alert-type="error">
+            <div class="error">${tp('error')}</div>
+            <div>${tp('error-subtext')}</div>
+          </ha-alert>
+        `;
   }
+
+  static styles = css`
+    .error {
+      font-weight: bold;
+    }
+  `;
 }

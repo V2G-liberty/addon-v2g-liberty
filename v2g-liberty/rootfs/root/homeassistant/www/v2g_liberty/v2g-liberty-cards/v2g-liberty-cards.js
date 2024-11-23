@@ -2950,7 +2950,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse("{\"ping-card\":{\"error\":\"V2G-Liberty is disconnected\"}}");
+$3b34ac5ccae6bad9$exports = JSON.parse("{\"ping-card\":{\"error\":\"V2G-Liberty is not responding\",\"error-subtext\":\"Is the addon running?\"}}");
 
 
 const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
@@ -3008,6 +3008,7 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
     async _ping() {
         try {
             await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'ping', {}, 5000);
+            this._isConnected = true;
         } catch (err) {
             this._isConnected = false;
         }
@@ -3016,7 +3017,19 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         clearInterval(this._timer);
     }
     render() {
-        return this._isConnected ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${$c5d85a824175067e$var$tp('error')}</ha-alert>`;
+        return this._isConnected ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <ha-alert alert-type="error">
+            <div class="error">${$c5d85a824175067e$var$tp('error')}</div>
+            <div>${$c5d85a824175067e$var$tp('error-subtext')}</div>
+          </ha-alert>
+        `;
+    }
+    static{
+        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+    .error {
+      font-weight: bold;
+    }
+  `;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([

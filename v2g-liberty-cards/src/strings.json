@@ -1,5 +1,6 @@
 {
     "ping-card": {
-        "error": "V2G-Liberty is disconnected"
+        "error": "V2G-Liberty is not responding",
+        "error-subtext": "Is the addon running?"
     }
 }
