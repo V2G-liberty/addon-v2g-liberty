@@ -899,6 +899,7 @@ class V2GLibertyGlobals:
     async def __read_and_process_fm_asset(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
+        # FSC: Not needed with FSC as then this is processed together with the other data
         # Split from __read_and_process_fm_client_settings because this is only optional for situation where > 1
         # assets are registered in FM.
         self.__log("__read_and_process_fm_asset called")
@@ -996,6 +997,7 @@ class V2GLibertyGlobals:
             "input_text.fm_connection_status", state=state, attributes=get_keepalive()
         )
 
+    # FSC, move to a separate utils module?
     async def create_persistent_notification(
         self, message: str, title: str, notification_id: str
     ):
@@ -1055,6 +1057,8 @@ class V2GLibertyGlobals:
                     entity_id, state=setting_value, attributes=new_attributes
                 )
 
+
+    # FSC YESS, this can be ditched as in the cards this is generally replaced by a radiobutton group.
     async def __select_option(self, entity_id: str, option: str):
         """Helper function to select an option in an input_select. It should be used instead of self.hass.select_option.
            It overcomes the problem whereby an error is raised if the option is not available.
@@ -1100,6 +1104,7 @@ class V2GLibertyGlobals:
             await self.hass.select_option(entity_id=entity_id, option=option)
         return True
 
+    # FSC YESS, this can be ditched as in the cards this is generally replaced by a radiobutton group.
     async def __set_select_options(
         self,
         entity_id: str,
@@ -1262,6 +1267,12 @@ class V2GLibertyGlobals:
         # Get the setting from store
         stored_setting_value = self.v2g_settings.get(entity_id)
 
+
+
+        ##### FSC ####
+        # Listener is used as "has been initialized" this should be replaced by the new flag
+        #############
+
         # At first initial run the listener_id is filled with a callback handler.
         if setting_object["listener_id"] is None:
             # read the setting from store, write to UI and return it so the constant can be set.
@@ -1318,6 +1329,7 @@ class V2GLibertyGlobals:
                     source="settings",
                 )
 
+            # FSC : This is indeed what needs to be done.
             # if callback is not None:
             #     setting_object["listener_id"] = self.hass.listen_state(
             #         callback, entity_id, attribute="all"
@@ -1373,11 +1385,14 @@ class V2GLibertyGlobals:
         c.CHARGER_PORT = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT, callback=callback_method
         )
+
+        # FSC: MOve to separate method
         c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
             callback=callback_method,
         )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
+        # FSC
 
         use_reduced_max_charge_power = False
         use_reduced_max_charge_power = await self.__process_setting(
@@ -1457,7 +1472,9 @@ class V2GLibertyGlobals:
         c.ADMIN_MOBILE_PLATFORM = await self.__process_setting(
             setting_object=self.SETTING_ADMIN_MOBILE_PLATFORM, callback=callback_method
         )
+
         # Assume iOS as standard
+        # FSC: Move to module where notifications are sent.
         c.PRIORITY_NOTIFICATION_CONFIG = {
             "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}
         }
@@ -1470,9 +1487,12 @@ class V2GLibertyGlobals:
     async def __read_and_process_general_settings(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
+        # FSC: All callback can be removed..
         callback_method = self.__read_and_process_general_settings
         self.__log("__read_and_process_general_settings called")
 
+
+        # FSC : All these go into their own method as they are set separately
         c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
             callback=callback_method,
@@ -1492,17 +1512,22 @@ class V2GLibertyGlobals:
             callback=callback_method,
         )
 
+        # FSC: combine with CAR_MIN_SOC_IN_PERCENT
         c.CAR_MIN_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
         )
+        # FSC: combine with CAR_MAX_SOC_IN_PERCENT
         c.CAR_MAX_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
         )
 
+        # FSC: combine with CAR_CONSUMPTION_WH_PER_KM
         c.USAGE_PER_EVENT_TIME_INTERVAL = (
             c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000
         ) / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
+        # FSC: __collect_ should be replaced by calls to specific modules that need to be
+        # re-initialised. Problem where to "store" the data of a partially finished flow?
         await self.__collect_action_triggers(source="changed general_settings")
         self.__log("__read_and_process_general_settings completed")
 
@@ -1512,6 +1537,7 @@ class V2GLibertyGlobals:
         self.__log("__read_and_process_calendar_settings called")
 
         # @Ard: Kan deze callback methode weg, nu we de calendar settings anders opslaan?
+        # @Ronald: JA!
         callback_method = self.__read_and_process_calendar_settings
 
         tmp = await self.__process_setting(
@@ -1624,6 +1650,7 @@ class V2GLibertyGlobals:
         self.__log("__read_and_process_optimisation_settings called")
         callback_method = self.__read_and_process_optimisation_settings
 
+        # FSC: Optimisation will become a separate method.
         c.OPTIMISATION_MODE = await self.__process_setting(
             setting_object=self.SETTING_OPTIMISATION_MODE, callback=callback_method
         )
@@ -1732,6 +1759,8 @@ class V2GLibertyGlobals:
 
     # @Ard: is deze methode obsolete?
     #       Volgens VS code wordt hij niet aangeroepen.
+    # @Ronald: Ja! Dit is vervangen door settingsmanager reset
+
     async def __reset_to_factory_default(self, setting_object):
         entity_name = setting_object["entity_name"]
         entity_type = setting_object["entity_type"]
@@ -1792,6 +1821,14 @@ class V2GLibertyGlobals:
         :param v2g_args: String for debugging only
         :return: Nothing
         """
+
+        ######################## Feature Settings Card (FSC) ########################
+        # This method can hopefully be removed if the _save_ methods call the initialise
+        # method on the specific modules.
+        # With that the method __collect_action_triggers can also be removed .
+        # Except: when ever any of these modules have changes a new schedule should
+        # be requested. But this should be triggered by these modules themselves
+        #############################################################################
 
         self.__log(f"__collective_action, called with source: '{source}'.")
 
@@ -1912,6 +1949,7 @@ class V2GLibertyGlobals:
             self.__log(f"__check_and_convert_number {msg}")
         return return_value, has_changed
 
+    # FSC: Can be removed
     async def __cancel_setting_listener(self, setting_object: dict):
         listener_id = setting_object["listener_id"]
         if listener_id is not None and listener_id != "":
