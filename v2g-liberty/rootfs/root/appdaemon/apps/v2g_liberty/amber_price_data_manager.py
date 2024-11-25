@@ -65,7 +65,7 @@ class ManageAmberPriceData(hass.Hass):
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
         ##########################################################################
-        # self.log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!")
+        # self.log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!", level="WARNING")
         # self.CURRENCY = "EUR"
 
         self.POLLING_INTERVAL_SECONDS = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
@@ -128,6 +128,10 @@ class ManageAmberPriceData(hass.Hass):
         emissions = []
 
         state = await self.get_state(c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID, attribute="all")
+        if state is None:
+            self.log(f"__check_for_price_changes, no (data in) price_entity (yet), aborting.")
+            return
+
         collection_cpf = state["attributes"][self.COLLECTION_NAME]
         for item in collection_cpf:
             consumption_prices.append(round(float(item[self.PRICE_LABEL]) * self.KWH_MWH_FACTOR, 2))
@@ -151,7 +155,7 @@ class ManageAmberPriceData(hass.Hass):
                     values = consumption_prices,
                     start = start_cpf,
                     duration = duration_cpf,
-                    unit = uom,
+                    uom = uom,
                 )
             else:
                 self.log(f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None.")
@@ -159,9 +163,10 @@ class ManageAmberPriceData(hass.Hass):
 
             if res:
                 if self.get_fm_data_module is not None:
-                    await self.get_fm_data_module.get_consumption_prices()
+                    parameters = {"price_type": "consumption"}
+                    await self.get_fm_data_module.get_prices(parameters)
                 else:
-                    self.log("__check_for_price_changes. Could not call get_consumption_prices on "
+                    self.log("__check_for_price_changes. Could not call get_prices on "
                              "get_fm_data_module as it is None.")
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
@@ -183,7 +188,7 @@ class ManageAmberPriceData(hass.Hass):
                     values = emissions,
                     start = start_cpf,
                     duration = duration_cpf,
-                    unit = "%",
+                    uom = "%",
                 )
             else:
                 self.log(f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None.")
@@ -224,7 +229,7 @@ class ManageAmberPriceData(hass.Hass):
                     values = production_prices,
                     start = start_ppf,
                     duration = duration_ppf,
-                    unit = uom,
+                    uom = uom,
                 )
             else:
                 self.log(f"__check_for_price_changes. 2 Could not call post_measurements on fm_client_app as it is None.")
@@ -232,7 +237,8 @@ class ManageAmberPriceData(hass.Hass):
 
             if res:
                 if self.get_fm_data_module is not None:
-                    await self.get_fm_data_module.get_production_prices()
+                    parameters = {"price_type": "production"}
+                    await self.get_fm_data_module.get_prices(parameters)
                 else:
                     self.log("__check_for_price_changes. Could not call get_production_prices on "
                              "get_fm_data_module as it is None.")

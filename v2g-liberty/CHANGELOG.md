@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.4.1 2024-11-07
+## 0.4.2 2024-11-25
 
 ### Fixed
 
-- 🪲 BUG-FIX release 0.4.1: Better cleanup of the old renamed v2g-liberty folder.
+- 🪲 BUG-FIX release 0.4.2: Amber price data does not get sent (#173)
 
 
 ## [Unreleased]

@@ -3,6 +3,12 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.4.2 2024-11-25
+
+### Fixed
+
+- 🪲 BUG-FIX release 0.4.2: Amber price data does not get sent (#173)
+
 
 ## 0.4.1 2024-11-07
 
