@@ -1,16 +1,12 @@
 from datetime import datetime, timedelta
 import isodate
-import time
-import json
-import math
-import requests
 import constants as c
-from typing import List, Union
-import appdaemon.plugins.hass.hassapi as hass
+import log_wrapper
+from appdaemon.plugins.hass.hassapi import Hass
 from v2g_globals import time_round, convert_to_duration_string
 
 
-class ManageAmberPriceData(hass.Hass):
+class ManageAmberPriceData:
     """
     App reads data from the entities that the integration of the Amber Electric power-company populates.
 
@@ -57,10 +53,14 @@ class ManageAmberPriceData(hass.Hass):
     v2g_main_app: object = None
     get_fm_data_module: object = None
     fm_client_app: object = None
+    hass: Hass = None
 
+    def __init__(self, hass: Hass):
+        self.hass = hass
+        self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
-        self.log(f"Initializing ManageAmberPriceData.")
+        self.__log(f"Initializing ManageAmberPriceData.")
 
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
@@ -69,57 +69,60 @@ class ManageAmberPriceData(hass.Hass):
         # self.CURRENCY = "EUR"
 
         self.POLLING_INTERVAL_SECONDS = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
-        self.fm_client_app = await self.get_app("fm_client")
-        self.v2g_main_app = await self.get_app("v2g_liberty")
-        self.get_fm_data_module = await self.get_app("get_fm_data")
         self.poll_timer_handle = None
         await self.kick_off_amber_price_management(initial=True)
-        self.log(f"Completed Initializing ManageAmberPriceData.")
-
+        self.__log(f"Completed Initializing ManageAmberPriceData.")
 
     async def kick_off_amber_price_management(self, initial: bool = False):
         """
-           'Second stage' of initialisation.
-           To be called from 'initialize' and from the globals module collective_action()
-           when the settings have changed.
+        'Second stage' of initialisation.
+        To be called from 'initialize' and from the globals module collective_action()
+        when the settings have changed.
 
-            :param initial: Only for the first call from the initialisation of the module.
-            :return: Nothing
+         :param initial: Only for the first call from the initialisation of the module.
+         :return: Nothing
         """
         if c.ELECTRICITY_PROVIDER != "au_amber_electric":
-            self.log(f"Not kicking off ManageAmberPriceData module. Electricity provider is not 'au_amber_electric'.")
+            self.__log(
+                f"Not kicking off ManageAmberPriceData module. Electricity provider is not 'au_amber_electric'."
+            )
             return
 
-        if c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID is None or c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID is None:
-            self.log(f"Not kicking off ManageAmberPriceData module, price entity_id's are not populated (yet).")
+        if (
+            c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID is None
+            or c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID is None
+        ):
+            self.__log(
+                f"Not kicking off ManageAmberPriceData module, price entity_id's are not populated (yet)."
+            )
             return
 
-        self.log(f"kick_off_amber_price_management starting!")
+        self.__log(f"kick_off_amber_price_management starting!")
 
         if initial:
-            await self.__check_for_price_changes({'forced': True})
+            await self.__check_for_price_changes({"forced": True})
 
-        if self.info_timer(self.poll_timer_handle):
+        if self.hass.info_timer(self.poll_timer_handle):
             silent = True  # Does not really work
-            await self.cancel_timer(self.poll_timer_handle, silent)
+            await self.hass.cancel_timer(self.poll_timer_handle, silent)
 
-        self.poll_timer_handle = await self.run_every(
+        self.poll_timer_handle = await self.hass.run_every(
             self.__check_for_price_changes,
-            start = "now+2",
-            interval = self.POLLING_INTERVAL_SECONDS
+            start="now+2",
+            interval=self.POLLING_INTERVAL_SECONDS,
         )
 
-        self.log(f"kick_off_amber_price_management completed")
+        self.__log(f"kick_off_amber_price_management completed")
 
     async def __check_for_price_changes(self, kwargs):
-        """ Checks if prices have changed.
-            To be called every 5 minutes, not at on_change events of price_entities, these are too volatile.
-            If any changes:
-            + Send changed prices and/or emissions to FM
-            + Request a new schedule
+        """Checks if prices have changed.
+        To be called every 5 minutes, not at on_change events of price_entities, these are too volatile.
+        If any changes:
+        + Send changed prices and/or emissions to FM
+        + Request a new schedule
         """
-        forced = kwargs.get('forced', False)
-        self.log(f"__check_for_price_changes, forced: {forced}.")
+        forced = kwargs.get("forced", False)
+        self.__log(f"__check_for_price_changes, forced: {forced}.")
 
         new_schedule_needed = False
 
@@ -127,23 +130,30 @@ class ManageAmberPriceData(hass.Hass):
         consumption_prices = []
         emissions = []
 
-        state = await self.get_state(c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID, attribute="all")
+        state = await self.hass.get_state(
+            c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID, attribute="all"
+        )
         if state is None:
-            self.log(f"__check_for_price_changes, no (data in) price_entity (yet), aborting.")
+            self.__log(f"no (data in) price_entity (yet), aborting.")
             return
-
         collection_cpf = state["attributes"][self.COLLECTION_NAME]
         for item in collection_cpf:
-            consumption_prices.append(round(float(item[self.PRICE_LABEL]) * self.KWH_MWH_FACTOR, 2))
+            consumption_prices.append(
+                round(float(item[self.PRICE_LABEL]) * self.KWH_MWH_FACTOR, 2)
+            )
             # Emissions are same for consumption- and production prices, only processed here.
             # Amber has % renewables, FlexMeasures uses % emissions as it runs a cost minimisation.
             # So, emissions % = 100 - renewables %.
             emissions.append(100 - int(float(item[self.EMISSION_LABEL])))
 
         if consumption_prices != self.last_consumption_prices or forced:
-            self.log("__check_for_price_changes: consumption_prices changed")
-            start_cpf = parse_to_rounded_local_datetime(collection_cpf[0][self.START_LABEL])
-            end_cpf = parse_to_rounded_local_datetime(collection_cpf[-1][self.END_LABEL])
+            self.__log("__check_for_price_changes: consumption_prices changed")
+            start_cpf = parse_to_rounded_local_datetime(
+                collection_cpf[0][self.START_LABEL]
+            )
+            end_cpf = parse_to_rounded_local_datetime(
+                collection_cpf[-1][self.END_LABEL]
+            )
             duration_cpf = int(float(((end_cpf - start_cpf).total_seconds() / 60)))
             duration_cpf = convert_to_duration_string(duration_cpf)
             self.last_consumption_prices = list(consumption_prices)
@@ -158,7 +168,9 @@ class ManageAmberPriceData(hass.Hass):
                     uom = uom,
                 )
             else:
-                self.log(f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None.")
+                self.__log(
+                    f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None."
+                )
                 res = False
 
             if res:
@@ -166,19 +178,29 @@ class ManageAmberPriceData(hass.Hass):
                     parameters = {"price_type": "consumption"}
                     await self.get_fm_data_module.get_prices(parameters)
                 else:
-                    self.log("__check_for_price_changes. Could not call get_prices on "
-                             "get_fm_data_module as it is None.")
+                    self.__log(
+                        "Could not call get_consumption_prices on "
+                        "get_fm_data_module as it is None."
+                    )
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
-                self.log(f"__check_for_price_changes, res: {res}, "
-                         f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}")
+                self.__log(
+                    f"__check_for_price_changes, res: {res}, "
+                    f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}"
+                )
 
         if emissions != self.last_emissions or forced:
-            self.log("__check_for_price_changes: emissions changed")
+            self.__log("__check_for_price_changes: emissions changed")
             # TODO: copied code from previous block, please prevent this.
-            start_cpf = parse_to_rounded_local_datetime(collection_cpf[0][self.START_LABEL])
-            end_cpf = parse_to_rounded_local_datetime(collection_cpf[-1][self.END_LABEL])
-            duration_cpf = int(float(((end_cpf - start_cpf).total_seconds() / 60)))  # convert sec. to min.
+            start_cpf = parse_to_rounded_local_datetime(
+                collection_cpf[0][self.START_LABEL]
+            )
+            end_cpf = parse_to_rounded_local_datetime(
+                collection_cpf[-1][self.END_LABEL]
+            )
+            duration_cpf = int(
+                float(((end_cpf - start_cpf).total_seconds() / 60))
+            )  # convert sec. to min.
             duration_cpf = convert_to_duration_string(duration_cpf)
             self.last_emissions = list(emissions)
 
@@ -191,7 +213,9 @@ class ManageAmberPriceData(hass.Hass):
                     uom = "%",
                 )
             else:
-                self.log(f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None.")
+                self.__log(
+                    f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None."
+                )
                 res = False
 
             if res:
@@ -201,24 +225,36 @@ class ManageAmberPriceData(hass.Hass):
                 if self.get_fm_data_module is not None:
                     await self.get_fm_data_module.get_emission_intensities()
                 else:
-                    self.log("__check_for_price_changes. Could not call get_emission_intensities on "
-                             "get_fm_data_module as it is None.")
+                    self.__log(
+                        "__check_for_price_changes. Could not call get_emission_intensities on "
+                        "get_fm_data_module as it is None."
+                    )
 
-            self.log(f"__check_for_price_changes, res: {res}, "
-                     f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}")
+            self.__log(
+                f"__check_for_price_changes, res: {res}, "
+                f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}"
+            )
 
         #### Production prices ####
         production_prices = []
-        state = await self.get_state(c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID, attribute="all")
+        state = await self.hass.get_state(
+            c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID, attribute="all"
+        )
         collection_ppf = state["attributes"][self.COLLECTION_NAME]
         for item in collection_ppf:
-            production_prices.append(round(float(item[self.PRICE_LABEL]) * self.KWH_MWH_FACTOR, 2))
+            production_prices.append(
+                round(float(item[self.PRICE_LABEL]) * self.KWH_MWH_FACTOR, 2)
+            )
 
         if production_prices != self.last_production_prices or forced:
-            self.log("__check_for_price_changes: production_prices changed")
+            self.__log("__check_for_price_changes: production_prices changed")
             self.last_production_prices = list(production_prices)
-            start_ppf = parse_to_rounded_local_datetime(collection_ppf[0][self.START_LABEL])
-            end_ppf = parse_to_rounded_local_datetime(collection_ppf[-1][self.END_LABEL])
+            start_ppf = parse_to_rounded_local_datetime(
+                collection_ppf[0][self.START_LABEL]
+            )
+            end_ppf = parse_to_rounded_local_datetime(
+                collection_ppf[-1][self.END_LABEL]
+            )
             duration_ppf = int(float(((end_ppf - start_ppf).total_seconds() / 60)))
             duration_ppf = convert_to_duration_string(duration_ppf)
             uom = f"{self.CURRENCY}/MWh"
@@ -232,7 +268,9 @@ class ManageAmberPriceData(hass.Hass):
                     uom = uom,
                 )
             else:
-                self.log(f"__check_for_price_changes. 2 Could not call post_measurements on fm_client_app as it is None.")
+                self.__log(
+                    f"__check_for_price_changes. 2 Could not call post_measurements on fm_client_app as it is None."
+                )
                 res = False
 
             if res:
@@ -240,22 +278,28 @@ class ManageAmberPriceData(hass.Hass):
                     parameters = {"price_type": "production"}
                     await self.get_fm_data_module.get_prices(parameters)
                 else:
-                    self.log("__check_for_price_changes. Could not call get_production_prices on "
-                             "get_fm_data_module as it is None.")
+                    self.__log(
+                        "__check_for_price_changes. Could not call get_production_prices on "
+                        "get_fm_data_module as it is None."
+                    )
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
-            self.log(f"__check_for_price_changes, res: {res}, opt_mod: {c.OPTIMISATION_MODE}, "
-                     f"new_schedule: {new_schedule_needed}")
+            self.__log(
+                f"__check_for_price_changes, res: {res}, opt_mod: {c.OPTIMISATION_MODE}, "
+                f"new_schedule: {new_schedule_needed}"
+            )
 
         if not new_schedule_needed:
-            self.log("__check_for_price_changes: not any changes")
+            self.__log("__check_for_price_changes: not any changes")
             return
 
         msg = f"changed Amber {c.OPTIMISATION_MODE}s"
         if self.v2g_main_app is not None:
             await self.v2g_main_app.set_next_action(v2g_args=msg)
         else:
-            self.log("__check_for_price_changes. Could not call set_next_action on v2g_main_app as it is None.")
+            self.__log(
+                "__check_for_price_changes. Could not call set_next_action on v2g_main_app as it is None."
+            )
 
 
 # TODO: Make generic function in globals, it is copied to Octopus module.
