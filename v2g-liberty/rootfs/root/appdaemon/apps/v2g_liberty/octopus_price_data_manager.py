@@ -77,6 +77,7 @@ class ManageOctopusPriceData(hass.Hass):
         ##########################################################################
         # self.log(f"initialize, TESTDATA: Currency = EUR, should be GBP!", level="WARNING")
         # self.CURRENCY = "EUR"
+
         self.UOM = f"{self.CURRENCY}/MWh"
 
         self.fm_client_app = await self.get_app("fm_client")
@@ -152,6 +153,7 @@ class ManageOctopusPriceData(hass.Hass):
 
 
     async def __get_octopus_import_prices(self, *args):
+        """Get import (consumption) price data from Octopus and send then to FlexMeasures"""
         self.log(f"__get_octopus_import_prices called.")
         res = requests.get(self.import_url)
         if res.status_code != 200:
@@ -167,7 +169,7 @@ class ManageOctopusPriceData(hass.Hass):
             prices = prices[self.COLLECTION_NAME]
             prices = list(reversed(prices))
         except Exception as e:
-            self.log(f"__get_octopus_import_prices. exception reading JSON: {e}.")
+            self.log(f"__get_octopus_import_prices. exception reading JSON: {e}.", level="WARNING")
             return
 
         consumption_prices = []
@@ -196,12 +198,14 @@ class ManageOctopusPriceData(hass.Hass):
         self.log(f"__get_octopus_import_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
-                await self.get_fm_data_module.get_consumption_prices()
+                parameters = {"price_type": "consumption"}
+                await self.get_fm_data_module.get_prices(parameters)
             else:
                 self.log("__check_for_price_changes. Could not call get_consumption_prices on "
                          "get_fm_data_module as it is None.")
 
     async def __get_octopus_export_prices(self, *args):
+        """Get export (production) price data from Octopus and send then to FlexMeasures"""
         self.log(f"__get_octopus_export_prices called.")
         res = requests.get(self.export_url)
         if res.status_code != 200:
@@ -247,13 +251,15 @@ class ManageOctopusPriceData(hass.Hass):
         self.log(f"__get_octopus_export_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
-                await self.get_fm_data_module.get_production_prices()
+                parameters = {"price_type": "production"}
+                await self.get_fm_data_module.get_prices(parameters)
             else:
                 self.log("__check_for_price_changes. Could not call get_production_prices on "
                          "get_fm_data_module as it is None.")
 
 
     async def __get_gb_region_emissions(self, *args):
+        """Get emission data for region and send then to FlexMeasures"""
         self.log(f"__get_gb_region_emissions called.")
 
         now = str(get_local_now())
@@ -287,7 +293,7 @@ class ManageOctopusPriceData(hass.Hass):
         duration = convert_to_duration_string(duration)
 
         ##########################################################################
-        # TESTDATA: Currency = EUR, moet GBP zijn! Wordt in class definitie al gezet.
+        # TESTDATA: EMISSIONS_UOM = "%", should be kg/MWh
         ##########################################################################
         # self.log(f"__get_gb_region_emissions, TESTDATA: self.EMISSIONS_UOM = %, moet kg/MWh zijn!", level="WARNING")
         # self.EMISSIONS_UOM = "%"
