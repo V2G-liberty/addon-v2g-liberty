@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.4.2 2024-11-??
+## 0.4.3 2024-11-??
 
 ### Fixed
 
@@ -15,6 +15,8 @@
 ### Changed
 
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
+
+
 
 ### [Unreleased]
 

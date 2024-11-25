@@ -78,13 +78,12 @@ class FlexMeasuresDataImporter:
         These times are related to the attempts in the FM server for retrieving EPEX price data.
 
         Price/emissions data fetched on data change:
-        When price data comes in through an (external) HA integration (e.g. Amber Electric or
-        Octopus), V2G Liberty sends this to FM to base the charge-schedules on. This is handled by
-        separate modules (e.g. amber_price_data_manager).
-        Those modules do not provide the data for display in the UI directly (even-though this could
-        be more efficient). Instead, they trigger get_consumption_prices() and
-        get_emission_intensities() when a change in the data is detected (after it has been sent to
-        FM successfully).
+        When price data comes in through an (external) HA integration (e.g. Amber Electric or Octopus),
+        V2G Liberty sends this to FM to base the charge-schedules on. This is handled by separate modules
+        (e.g. amber_price_data_manager).
+        Those modules do not provide the data for display in the UI directly (even-though this could be more
+        efficient). Instead, they trigger get_prices() and get_emission_intensities() when a change
+        in the data is detected (after it has been sent to FM successfully).
 
         The retrieved data is written to the HA entities for HA to render the data in the UI (chart).
 
@@ -106,7 +105,20 @@ class FlexMeasuresDataImporter:
 
         await self.finalize_initialisation("module initialize")
 
+        ##########################################################################
+        # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
+        ##########################################################################
+        # self.log(f"initialize, TESTDATA: Currency = EUR, moet GBP/AUD zijn!", level="WARNING")
+        # c.CURRENCY = "EUR"
+
+        ##########################################################################
+        # TESTDATA: EMISSIONS_UOM = "%", should be kg/MWh
+        ##########################################################################
+        # self.log(f"__get_gb_region_emissions, TESTDATA: self.EMISSIONS_UOM = %, moet kg/MWh zijn!", level="WARNING")
+        # c.EMISSIONS_UOM = "%"
+
         self.__log("Complete")
+
 
     async def finalize_initialisation(self, v2g_args: str):
         """
@@ -793,9 +805,8 @@ class FlexMeasuresDataImporter:
            - The TRY_UNTIL time
 
         :param run_once: To prevent extra threads where this method calls itself,
-                         used when get_consumption_prices or get_production_prices detect a change
-                         in self.consumption_price_is_up_to_date or
-                         self.consumption_price_is_up_to_date.
+                         used when get_prices detects a change
+                         in self.consumption_price_is_up_to_date or self.consumption_price_is_up_to_date.
         :param args: Not used, only for compatibility with 'run_in' method.
         :return: None
         """
@@ -837,7 +848,6 @@ class FlexMeasuresDataImporter:
         :param price_point: dict {'time': <datetime> , 'price': <float>} or "No negative prices"
         :param price_type: str "consumption" or "production"
         :return: nothing
-
         """
         self.__log("Called")
         if not is_price_epex_based():

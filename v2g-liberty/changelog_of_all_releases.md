@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.4.2 2024-11-??
+## 0.4.3 2024-11-??
 
 ### Fixed
 
@@ -19,11 +19,20 @@ That file also contains possible changes that the next release might include.
 
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
 
+
+## 0.4.2 2024-11-25
+
+### Fixed
+
+- 🪲 BUG-FIX release 0.4.2: Amber price data does not get sent (#173)
+
+
 ## 0.4.1 2024-11-07
 
 ### Fixed
 
 - 🪲 BUG-FIX release 0.4.1: Better cleanup of the old renamed v2g-liberty folder.
+
 
 ## 0.4.0 2024-11-04
 
