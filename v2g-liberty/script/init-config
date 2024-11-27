@@ -3,7 +3,7 @@
 # Stop on errors
 set -e
 
-cd "$(dirname "$0")/../.devcontainer"
+cd "$(dirname "$0")/../../.devcontainer"
 
 # Do not overwrite existing config
 if [ -e config/.ready ]; then exit 0; fi

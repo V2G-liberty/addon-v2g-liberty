@@ -1,0 +1,23 @@
+{
+  "name": "V2G-Liberty Cards Dev",
+  "dockerComposeFile": "../docker-compose.yaml",
+  "service": "v2g-liberty-cards",
+  "workspaceFolder": "/workspaces/v2g-liberty-cards",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "visualstudioexptteam.vscodeintellicode",
+        "redhat.vscode-yaml",
+        "esbenp.prettier-vscode",
+        "GitHub.vscode-pull-request-github"
+      ],
+      // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
+      "settings": {
+        "editor.formatOnPaste": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  }
+}

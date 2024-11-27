@@ -11,16 +11,16 @@ These instractions are specific to Visual Studio Code (VSC) IDE.
      `git clone https://github.com/V2G-liberty/addon-v2g-liberty.git`<br>
      This will create all the files and folders on your local machine.
 
-2. Start VSC and open the `v2g-liberty` folder that has just been created on your machine.<br/>
-   (note: this is not the `addon-v2g-liberty` repo root folder)
+2. Start VSC and open the `addon-v2g-liberty` folder that has just been created on your machine.
 
 3. VSC wil detect there is a dev container in this folder and thus should ask
    `Dev Containers: Reopen in Container?` click Yes.<br/>
    If this question does not popup, run the commands menu (Cmd-Shift-P) and run the above command.
 
-4. This will automaticaly create and start two devcontainers:
+4. This will automaticaly create and start three devcontainers:
    - One running the vanilla Home Assistant core
-   - The other is for running the V2G-Liberty appdaemon
+   - One for running the V2G-Liberty appdaemon
+   - And one for developing the V2G-Liberty frontend cards
 
 During creation of the devcontainers, an initial homeassistant config folder
 is created with user "gebruiker" and password "wachtwoord".
