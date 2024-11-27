@@ -2950,7 +2950,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse("{\"ping-card\":{\"error\":\"V2G-Liberty is not responding\",\"error-subtext\":\"Is the addon running?\"}}");
+$3b34ac5ccae6bad9$exports = JSON.parse("{\"ping-card\":{\"error\":\"There is an error in V2G Liberty\",\"error-subtext\":\"**You can fix this:**\\n\\nRestart V2G Liberty add-on\\n```Main menu > Settings > Add-ons > V2G Liberty > Restart```\"}}");
 
 
 const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
@@ -3026,8 +3026,10 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         return this._isResponding ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <ha-alert alert-type="error">
             <div class="error">${$c5d85a824175067e$var$tp('error')}</div>
-            <div>${$c5d85a824175067e$var$tp('error-subtext')}</div>
           </ha-alert>
+          <p>
+            <ha-markdown breaks .content=${$c5d85a824175067e$var$tp('error-subtext')}></ha-markdown>
+          </p>
         `;
     }
     static{

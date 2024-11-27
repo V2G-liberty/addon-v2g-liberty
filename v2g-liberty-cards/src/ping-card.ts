@@ -81,8 +81,10 @@ export class PingCard extends LitElement {
       : html`
           <ha-alert alert-type="error">
             <div class="error">${tp('error')}</div>
-            <div>${tp('error-subtext')}</div>
           </ha-alert>
+          <p>
+            <ha-markdown breaks .content=${tp('error-subtext')}></ha-markdown>
+          </p>
         `;
   }
 
