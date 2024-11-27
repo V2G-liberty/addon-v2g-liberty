@@ -92,7 +92,7 @@ export class PingCard extends LitElement {
   async _restart() {
     await this.hass.callWS({
       type: 'supervisor/api',
-      endpoint: `/addons/v2g-liberty/restart`,
+      endpoint: `/addons/9a1c9f7e_v2g-liberty/restart`,
       method: 'post',
       timeout: null,
     });

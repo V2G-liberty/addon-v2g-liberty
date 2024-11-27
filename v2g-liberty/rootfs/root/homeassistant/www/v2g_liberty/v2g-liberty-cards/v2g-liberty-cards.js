@@ -3036,7 +3036,7 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
     async _restart() {
         await this.hass.callWS({
             type: 'supervisor/api',
-            endpoint: `/addons/v2g-liberty/restart`,
+            endpoint: `/addons/9a1c9f7e_v2g-liberty/restart`,
             method: 'post',
             timeout: null
         });
