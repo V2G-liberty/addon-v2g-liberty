@@ -31,6 +31,9 @@ fi
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/lovelace-card-mod'; then
     mkdir -p /homeassistant/www/v2g_liberty/lovelace-card-mod
 fi
+if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/v2g-liberty-cards'; then
+    mkdir -p /homeassistant/www/v2g_liberty/v2g-liberty-cards
+fi
 
 # Copy plugins
 cp -aRv /root/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
@@ -38,6 +41,9 @@ cp -aRv /root/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www
 
 cp -aRv /root/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
     || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'
+
+cp -aRv /root/homeassistant/www/v2g_liberty/v2g-liberty-cards/* /homeassistant/www/v2g_liberty/v2g-liberty-cards \
+    || bashio::exit.nok 'Failed to copy v2g-liberty-cards plugin'
 
 cp -av /root/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
     || bashio::exit.nok 'Failed to copy v2g_liberty_example_configuration.yaml'
