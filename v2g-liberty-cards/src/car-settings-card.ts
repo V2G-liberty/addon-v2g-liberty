@@ -1,0 +1,116 @@
+import { mdiPencil } from '@mdi/js';
+import { html, LitElement, TemplateResult, nothing, CSSResultGroup } from 'lit';
+import { customElement, state } from 'lit/decorators';
+import { HassEntity } from 'home-assistant-js-websocket';
+import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
+
+import { partial } from './util/translate';
+import { styles } from './card.styles';
+import {
+  showCarBatteryUsableCapacityDialog,
+  showRoundtripEfficiencyDialog,
+  showCarEnergyConsumptionDialog,
+} from './show-dialogs';
+import * as entityIds from './entity-ids';
+
+const tp = partial('settings.car');
+
+@customElement('v2g-liberty-car-settings-card')
+class CarSettingsCard extends LitElement {
+  @state() private _usableCapacity: HassEntity;
+  @state() private _roundtripEfficiency: HassEntity;
+  @state() private _carEnergyConsumption: HassEntity;
+
+  private _hass: HomeAssistant;
+
+  setConfig(config: LovelaceCardConfig) {}
+
+  set hass(hass: HomeAssistant) {
+    this._hass = hass;
+    this._usableCapacity = hass.states[entityIds.usableCapacity];
+    this._roundtripEfficiency = hass.states[entityIds.roundtripEfficiency];
+    this._carEnergyConsumption = hass.states[entityIds.carEnergyConsumption];
+  }
+
+  static styles = styles;
+
+  render() {
+    const header = tp('header');
+    const content = this._renderContent();
+    return html`<ha-card header="${header}">${content}</ha-card>`;
+  }
+
+  private _renderContent() {
+    return html`
+      <div class="card-content">
+        ${this._renderNotInitialisedAlert()} ${this._renderUsableCapacity()}
+        ${this._renderRoundtripEfficiency()}
+        ${this._renderCarEnergyConsumption()}
+      </div>
+    `;
+  }
+
+  private _renderNotInitialisedAlert() {
+    const isInitialised =
+      this._usableCapacity.attributes.initialised &&
+      this._roundtripEfficiency.attributes.initialised &&
+      this._carEnergyConsumption.attributes.initialised;
+    return isInitialised
+      ? nothing
+      : html`<ha-alert alert-type="warning">${tp('alert')}</ha-alert`;
+  }
+
+  private _renderUsableCapacity() {
+    const stateObj = this._usableCapacity;
+    const callback = () =>
+      showCarBatteryUsableCapacityDialog(this, {
+        entity_id: entityIds.usableCapacity,
+      });
+    const description = tp('usable-capacity-description');
+
+    return html`
+      <div>
+        ${this._renderEntityRow(stateObj, callback)}
+        <div class="description">${description}</div>
+      </div>
+    `;
+  }
+
+  private _renderRoundtripEfficiency() {
+    const stateObj = this._roundtripEfficiency;
+    const callback = () =>
+      showRoundtripEfficiencyDialog(this, {
+        entity_id: entityIds.roundtripEfficiency,
+      });
+
+    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
+  }
+
+  private _renderCarEnergyConsumption() {
+    const stateObj = this._carEnergyConsumption;
+    const callback = () =>
+      showCarEnergyConsumptionDialog(this, {
+        entity_id: entityIds.carEnergyConsumption,
+      });
+
+    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
+  }
+
+  private _renderEntityRow(stateObj, editCallback) {
+    return html`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+          ${stateObj.attributes.friendly_name}</span
+        >
+        <div class="text-content value state">
+          ${this._hass.formatEntityState(stateObj)}
+        </div>
+        <ha-icon-button
+          .path=${mdiPencil}
+          @click=${editCallback}
+        ></ha-icon-button>
+      </ha-settings-row>
+    `;
+  }
+}

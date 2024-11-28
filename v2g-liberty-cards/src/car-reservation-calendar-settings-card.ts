@@ -1,0 +1,106 @@
+import { html, LitElement, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators';
+import { HassEntity } from 'home-assistant-js-websocket';
+import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
+
+import { t, partial } from './util/translate';
+import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
+import * as entityIds from './entity-ids';
+
+const tp = partial('settings.car-reservation-calendar');
+
+@customElement('v2g-liberty-car-reservation-calendar-settings-card')
+export class CarReservationCalendarSettingsCard extends LitElement {
+  @state() private _calendarSettingsInitialised: HassEntity;
+  @state() private _carCalendarSource: HassEntity;
+  @state() private _integrationCalendarEntityName: HassEntity;
+  @state() private _calendarAccountUrl: HassEntity;
+  @state() private _calendarAccountUsername: HassEntity;
+  @state() private _carCalendarName: HassEntity;
+
+  private _hass: HomeAssistant;
+
+  setConfig(config: LovelaceCardConfig) {}
+
+  set hass(hass: HomeAssistant) {
+    this._hass = hass;
+    this._calendarSettingsInitialised =
+      hass.states[entityIds.calendarSettingsInitialised];
+    this._carCalendarSource = hass.states[entityIds.carCalendarSource];
+    this._integrationCalendarEntityName =
+      hass.states[entityIds.integrationCalendarEntityName];
+    this._calendarAccountUrl = hass.states[entityIds.calendarAccountUrl];
+    this._calendarAccountUsername =
+      hass.states[entityIds.calendarAccountUsername];
+    this._carCalendarName = hass.states[entityIds.carCalendarName];
+  }
+
+  render() {
+    const isInitialised = this._calendarSettingsInitialised.state === 'on';
+    const content = isInitialised
+      ? this._renderInitialisedContent()
+      : this._renderUninitialisedContent();
+    return html`<ha-card header="${tp('header')}">${content}</ha-card>`;
+  }
+
+  private _renderUninitialisedContent() {
+    const editCallback = () => showCarReservationCalendarSettingsDialog(this);
+
+    return html`
+      <div class="card-content">
+        <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
+        <mwc-button @click=${editCallback}>
+          ${this._hass.localize('ui.common.configure') || 'Configure'}
+        </mwc-button>
+      </div>
+    `;
+  }
+
+  private _renderInitialisedContent() {
+    const editCallback = () => showCarReservationCalendarSettingsDialog(this);
+
+    return html`
+      <div class="card-content">
+        ${this._renderCaldavDetails()} ${this._renderHomeAssistantDetails()}
+        <mwc-button @click=${editCallback}>
+          ${this._hass.localize('ui.common.edit')}
+        </mwc-button>
+      </div>
+    `;
+  }
+
+  private _renderEntityRow(stateObj) {
+    const stateLabel = t(stateObj.state) || stateObj.state;
+    const nameLabel =
+      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+    return html`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+          ${stateLabel}
+        </span>
+        <span slot="description">${nameLabel}</span>
+      </ha-settings-row>
+    `;
+  }
+
+  private _renderCaldavDetails() {
+    return this._carCalendarSource.state === 'Direct caldav source'
+      ? html`
+          ${this._renderEntityRow(this._carCalendarSource)}
+          ${this._renderEntityRow(this._calendarAccountUrl)}
+          ${this._renderEntityRow(this._calendarAccountUsername)}
+          ${this._renderEntityRow(this._carCalendarName)}
+        `
+      : nothing;
+  }
+
+  private _renderHomeAssistantDetails() {
+    return this._carCalendarSource.state === 'Home Assistant integration'
+      ? html`
+          ${this._renderEntityRow(this._carCalendarSource)}
+          ${this._renderEntityRow(this._integrationCalendarEntityName)}
+        `
+      : nothing;
+  }
+}

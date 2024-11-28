@@ -11,14 +11,15 @@ views:
   - title: Settings
     type: masonry
     icon: mdi:cog
-    cards:
-      !include settings_view.yaml
+    cards: !include settings_view.yaml
 
   - path: cards
     type: masonry
     title: Cards
     icon: mdi:cog
     cards:
+      - type: custom:v2g-liberty-ping-card
+
       - type: vertical-stack
         cards:
           - type: custom:v2g-liberty-optimisation-settings-card
