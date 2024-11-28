@@ -12,6 +12,8 @@
 
 - type: vertical-stack
   cards:
+    - type: custom:v2g-liberty-ping-card
+    
     - type: entities
       title: Optimisation
       entities:
@@ -220,7 +222,7 @@
             margin-top: -24px;
           }
 
-    - type: entitiesß
+    - type: entities
       title: Administrator
       entities:
         - entity: input_text.admin_mobile_name

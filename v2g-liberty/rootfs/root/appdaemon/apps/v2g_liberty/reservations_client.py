@@ -3,17 +3,19 @@ import re
 import requests
 import constants as c
 import log_wrapper
-from v2g_globals import he, get_local_now
+from v2g_globals import get_local_now
 import caldav
 from service_response_app import ServiceResponseApp
 from appdaemon.plugins.hass.hassapi import Hass
 
 
-class ReservationsClient:
+class ReservationsClient(ServiceResponseApp):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
     v2g_events: list = []
+    # To prevent problems with scheduling, showing in UI and with notifications
+    MIN_EVENT_DURATION_IN_MINUTES: int = 30
 
     # Stores the user reply to a notification "Car still connected during calendar item: keep / dismiss?"
     # It cannot be stored in the remote calendar item.
@@ -71,10 +73,7 @@ class ReservationsClient:
             return
 
         if status == True:
-            await self.__process_calendar_change(v2g_args="dismissed calendar event")
-
-    async def get_v2g_events(self):
-        return self.v2g_events
+            await self.__set_events_in_main_app(v2g_args="dismissed calendar event")
 
     def test_caldav_connection(self, url, username, password):
         self.__log("test_caldav_connection")
@@ -123,7 +122,7 @@ class ReservationsClient:
             self.calender_listener_id = ""
 
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
-            self.__log("initialise_calendar called - Direct caldav source")
+            self.__log("Direct caldav source")
 
             # A configuration has been made earlier, so it is expected the calendar can be
             # initialised and activated.
@@ -142,95 +141,98 @@ class ReservationsClient:
             try:
                 self.principal = self.cal_client.principal()
             except caldav.lib.error.PropfindError:
-                self.__log(f"initialise_calendar: Wrong URL error")
+                self.__log("Wrong URL error")
                 return "Wrong URL or authorisation error"
             except caldav.lib.error.AuthorizationError:
-                self.__log(f"initialise_calendar: Authorization error")
+                self.__log("Authorization error")
                 return "Authorization error"
             except requests.exceptions.ConnectionError:
-                self.__log(f"initialise_calendar: Connection error")
+                self.__log("Connection error")
                 return "Connection error"
             except Exception as e:
-                self.__log(f"initialise_calendar: Unknown error: '{e}'.")
+                self.__log(f"Unknown error: '{e}'.")
                 return "Unknown error"
 
             if self.principal is None:
-                self.__log(f"initialise_calendar: No calendars found")
+                self.__log("No calendars found")
                 return "No calendars found"
 
-            if c.CAR_CALENDAR_NAME is not None and c.CAR_CALENDAR_NAME not in [
+            if c.CAR_CALENDAR_NAME not in [
+                None,
                 "",
                 "unknown",
                 "Please choose an option",
             ]:
                 # TODO: Here we should not be aware of "unknown", "Please choose an option", fix in globals.
                 self.__log(
-                    f"initialise_calendar, selected calendar: {c.CAR_CALENDAR_NAME}, activating calendar"
+                    f"selected calendar: {c.CAR_CALENDAR_NAME}, activating calendar"
                 )
                 await self.activate_selected_calendar()
             else:
-                self.__log(f"initialise_calendar: No calendar selected")
+                self.__log("No calendar selected")
                 # TODO: Would be nice if it could say "Please choose a calendar"
 
             return "Successfully connected"
 
         else:
-            self.__log(
-                msg=f"initialise_calendar called - HA Integration, name: '{c.INTEGRATION_CALENDAR_ENTITY_NAME}'."
-            )
-            if (
-                c.INTEGRATION_CALENDAR_ENTITY_NAME is not None
-                and c.INTEGRATION_CALENDAR_ENTITY_NAME
-                not in ["", "unknown", "Please choose an option"]
-            ):
+            self.__log(f"HA Integration, name: '{c.INTEGRATION_CALENDAR_ENTITY_NAME}'.")
+            if c.INTEGRATION_CALENDAR_ENTITY_NAME not in [
+                None,
+                "",
+                "unknown",
+                "Please choose an option",
+            ]:
                 # TODO: Here we should not be aware of "unknown", "Please choose an option", fix in globals.
-                self.__log(f"initialise_calendar, setting listener")
+                self.__log("setting listener")
                 self.calender_listener_id = await self.hass.listen_state(
-                    self.__handle_calendar_integration_change,
+                    self.__poll_calendar_integration,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
                     attribute="all",
                 )
-                await self.__handle_calendar_integration_change()
+                # Unfortunately the listener only get called when the first coming (or current) calendar
+                # item changes, not when other calendar items change. So we also set a polling timer.
+                await self.hass.cancel_timer(self.poll_timer_id)
+                self.poll_timer_id = await self.hass.run_every(
+                    self.__poll_calendar_integration,
+                    "now",
+                    self.POLLING_INTERVAL_SECONDS,
+                )
                 return "Successfully connected"
             else:
-                self.__log(f"initialise_calendar, No calendar integrations found")
+                self.__log("No calendar integrations found")
                 return "No calendar integrations found"
 
     async def get_dav_calendar_names(self):
         # For situation where c.CAR_CALENDAR_SOURCE == "Direct caldav source"
         # Called by globals to populate the input_select after a connection to
         # dav the calendar has been established.
-        self.__log("get_dav_calendar_names called")
+        self.__log("called")
         cal_names = []
         if self.principal is None:
-            self.__log(f"get_dav_calendar_names principle is none")
+            self.__log("principle is none", level="WARNING")
             return cal_names
         for calendar in self.principal.calendars():
             cal_names.append(calendar.name)
-        self.__log(f"get_dav_calendar_names, returning calendars: {cal_names}")
+        self.__log(f"returning calendars: {cal_names}")
         return cal_names
 
     async def get_ha_calendar_names(self):
         # For situation where c.CAR_CALENDAR_SOURCE == "HA Integration"
         # Called by globals to populate the input_select at init and when calendar source changes
-        self.__log("get_ha_calendar_names called")
+        self.__log("called")
         cal_names = []
         calendar_states = await self.hass.get_state("calendar")
         # self.__log(f"get_ha_calendar_names calendar states: {calendar_states}")
         for calendar in calendar_states:
             cal_names.append(calendar)
-        self.__log(f"get_ha_calendar_names, returning calendars: {cal_names}")
+        self.__log(f"returning calendars: {cal_names}")
         return cal_names
 
     async def activate_selected_calendar(self):
         # Only used for "Direct caldav source"
-        self.__log("activate_selected_calendar called")
-        if c.CAR_CALENDAR_NAME is None or c.CAR_CALENDAR_NAME in [
-            "",
-            "unknown",
-            "Please choose an option",
-        ]:
-            self.__log(f"activate_selected_calendar empty, not activating.")
+        self.__log("Called")
+        if c.CAR_CALENDAR_NAME in [None, "", "unknown", "Please choose an option"]:
+            self.__log("c.CAR_CALENDAR_NAME empty, not activating.", level="WARNING")
             # TODO: Check if this ever occurs, it is tested at initialisation already...
             # TODO: Create persistent notification
             return False
@@ -247,40 +249,34 @@ class ReservationsClient:
             c.CAR_CALENDAR_NAME = ""
             return False
 
-        if self.poll_timer_id != "" and self.hass.timer_running(self.poll_timer_id):
-            # Making sure there won't be parallel polling treads.
-            self.__log(
-                f"activate_selected_calendar, there seems to be a poll-timer already: "
-                f"{self.poll_timer_id}: cancelling."
-            )
-            await self.hass.cancel_timer(self.poll_timer_id)
-            self.poll_timer_id = ""
-
+        await self.hass.cancel_timer(self.poll_timer_id)
         self.poll_timer_id = await self.hass.run_every(
-            self.__poll_calendar, "now", self.POLLING_INTERVAL_SECONDS
+            self.__poll_dav_calendar, "now", self.POLLING_INTERVAL_SECONDS
         )
         # self.__log(f"activate_selected_calendar started polling_time {self.poll_timer_id} "
         #          f"every {self.POLLING_INTERVAL_SECONDS} sec.")
-        self.__log("Completed activate_selected_calendar")
+        self.__log("Completed")
 
     ######################################################################
     #                   PRIVATE (CALLBACK) FUNCTIONS                     #
     ######################################################################
 
-    async def __handle_calendar_integration_change(
+    async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
         """For the situation where a calendar integration is used (and not a direct caldav online calendar).
-        It is expected that this listener is only called when:
-         + the previous event has passed
-         + any upcoming event gets changed
+        It is expected that this method is called when:
+         + the previous calendar item has passed (so there is a new first upcoming calendar item)
+         + the first upcoming calendar item changes
+         + Regularly by polling timer.
+        Ideally the listener would trigger for any change in any future calendar item, then polling would
+        not be necessary.
         """
-        self.__log(f"__handle_calendar_integration_change called.")
+        self.__log("Called")
 
         now = get_local_now()
         start = now.isoformat()
         end = (now + dt.timedelta(days=7)).isoformat()
-        # TODO: This should be via ServiceResponseApp
         local_events = await self.hass.call_service(
             "calendar.get_events",
             entity_id=c.INTEGRATION_CALENDAR_ENTITY_NAME,
@@ -297,33 +293,100 @@ class ReservationsClient:
             # Create a v2g_liberty specific event based on the caldav event
             start, is_all_day = self.__parse_to_tz_dt(local_event["start"])
             end, is_all_day = self.__parse_to_tz_dt(local_event["end"])
+            if start is None or end is None:
+                continue
+            summary = str(local_event.get("summary", ""))
+            description = str(local_event.get("description", ""))
+            v2g_event = self.__make_v2g_event(
+                start=start,
+                end=end,
+                is_all_day=is_all_day,
+                summary=summary,
+                description=description,
+            )
+            tmp_v2g_events.append(v2g_event)
 
+        await self.__process_v2g_events(tmp_v2g_events)
+
+    async def __poll_dav_calendar(self, kwargs=None):
+        # Get the items in from now to the next week from the calendar
+        start = get_local_now()
+        end = start + dt.timedelta(days=7)
+        # It is a bit strange this is not async... for now we'll live with it.
+        # TODO: Optimise by use of sync_tokens so that only the updated events get sent
+        caldav_events = self.car_reservation_calendar.search(
+            start=start,
+            end=end,
+            event=True,
+            expand=True,
+        )
+
+        remote_v2g_events = []
+
+        for caldav_event in caldav_events:
+            cdi = caldav_event.icalendar_component
+            # Create a v2g_liberty specific event based on the caldav event
+            start, is_all_day = self.__parse_to_tz_dt(cdi["dtstart"].dt)
+            end, is_all_day = self.__parse_to_tz_dt(cdi["dtend"].dt)
             if start is None or end is None:
                 continue
 
-            if is_all_day:
-                # This way the end date becomes 23:59 in the UI.
-                end = end + dt.timedelta(minutes=-1)
+            summary = str(cdi.get("summary", ""))
+            description = str(cdi.get("description", ""))
 
-            v2g_event = {
-                "start": start,
-                "end": end,
-                "summary": str(local_event.get("summary", "")),
-                "description": str(local_event.get("description", "")),
-            }
-            v2g_event = await self.__post_process_v2g_event(v2g_event)
-            tmp_v2g_events.append(v2g_event)
+            v2g_event = self.__make_v2g_event(
+                start=start,
+                end=end,
+                is_all_day=is_all_day,
+                summary=summary,
+                description=description,
+            )
+            remote_v2g_events.append(v2g_event)
 
-        tmp_v2g_events = sorted(tmp_v2g_events, key=lambda d: d["start"])
+        attributes = {"keep_alive": start}
+        await self.hass.set_state(
+            "input_text.calendar_account_connection_status",
+            state="Successfully connected",
+            attributes=attributes,
+        )
+        await self.__process_v2g_events(remote_v2g_events)
 
-        # TODO: Is this usefully here? This method should only be called when a calendar items changes..
-        if self.v2g_events == tmp_v2g_events:
-            # Nothing has changed...
-            return
-        self.v2g_events.clear()
-        self.v2g_events = tmp_v2g_events
-        self.__log("__handle_calendar_integration_change: changed v2g_events")
-        await self.__process_calendar_change(v2g_args="changed HA calendar events")
+    def __make_v2g_event(
+        self, start: dt, end: dt, is_all_day: bool, summary: str, description: str
+    ):
+        """
+        Make a standard v2g_event, including target soc, hash_id, and dismissed status.
+        :param start: start datetime
+        :param end: end datetime
+        :param is_all_day:
+        :param summary:
+        :param description:
+        :return: v2g_event
+        """
+        if is_all_day:
+            # Practical solution, normally the end is 00:00 the next day.
+            # By subtracting a minute the date is today and time becomes 23:59 in the UI.
+            end = end + dt.timedelta(minutes=-1)
+        elif (end - start).total_seconds() < self.MIN_EVENT_DURATION_IN_MINUTES * 60:
+            end = start + dt.timedelta(minutes=self.MIN_EVENT_DURATION_IN_MINUTES)
+            description += " Duration extended to minimum of 30 minutes."
+            self.__log(
+                "Duration of event '{summary}' too short, "
+                "extended the end datetime to reach a minimum duration of 30 min."
+            )
+        v2g_event = {
+            "start": start,
+            "end": end,
+            "summary": summary,
+            "description": description,
+        }
+        # These next 3 actions on the v2g_event must always be in this order
+        # The soc should be taken into account for the hash.
+        # The dismissed status can only be set if the hash has been added.
+        v2g_event = self.__add_target_soc(v2g_event)
+        v2g_event = add_hash_id(v2g_event)
+        v2g_event = self.__add_dismissed_status(v2g_event)
+        return v2g_event
 
     def __parse_to_tz_dt(self, any_date_type: any):
         """
@@ -353,67 +416,29 @@ class ReservationsClient:
         any_date_type = any_date_type.astimezone(c.TZ)
         return any_date_type, is_all_day_event
 
-    async def __poll_calendar(self, kwargs=None):
-        # Get the items in from now to the next week from the calendar
-        start = get_local_now()
-        end = start + dt.timedelta(days=7)
-        # It is a bit strange this is not async... for now we'll live with it.
-        # TODO: Optimise by use of sync_tokens so that only the updated events get sent
-        caldav_events = self.car_reservation_calendar.search(
-            start=start,
-            end=end,
-            event=True,
-            expand=True,
-        )
-
-        remote_v2g_events = []
-
-        for caldav_event in caldav_events:
-            cdi = caldav_event.icalendar_component
-            # Create a v2g_liberty specific event based on the caldav event
-            start, is_all_day = self.__parse_to_tz_dt(cdi["dtstart"].dt)
-            end, is_all_day = self.__parse_to_tz_dt(cdi["dtend"].dt)
-            if start is None or end is None:
-                continue
-            if is_all_day:
-                # This way the end date becomes 23:59 in the UI.
-                end = end + dt.timedelta(minutes=-1)
-
-            v2g_event = {
-                "start": start,
-                "end": end,
-                "summary": str(cdi.get("summary", "")),
-                "description": str(cdi.get("description", "")),
-            }
-            v2g_event = await self.__post_process_v2g_event(v2g_event)
-            remote_v2g_events.append(v2g_event)
-
-        attributes = {"keep_alive": start}
-        await self.hass.set_state(
-            "input_text.calendar_account_connection_status",
-            state="Successfully connected",
-            attributes=attributes,
-        )
-
-        remote_v2g_events = sorted(remote_v2g_events, key=lambda d: d["start"])
-        if self.v2g_events == remote_v2g_events:
+    async def __process_v2g_events(self, new_v2g_events):
+        # Check if list has changed and if so send these to v2g_main module
+        new_v2g_events = sorted(new_v2g_events, key=lambda d: d["start"])
+        if self.v2g_events == new_v2g_events:
             # Nothing has changed...
-            return
+            return False
 
+        self.__log("changed v2g_events")
         self.v2g_events.clear()
-        self.v2g_events = remote_v2g_events
-        self.__log("__poll_calendar: changed v2g_events")
-        await self.__process_calendar_change(v2g_args="changed dav calendar events")
+        self.v2g_events = new_v2g_events
+        await self.__set_events_in_main_app(v2g_args="changed v2g_events")
+        self.__clean_up_events_dismissed_statuses()
+        return True
 
-    async def __post_process_v2g_event(self, v2g_event):
-        # Add target_soc, hash_id and dismissed status.
-        # These three actions on the v2g_event must always be in this order
-        # The soc should be taken into account for the hash.
-        # The dismissed status can only be set if the hash has been added.
-        v2g_event = self.__add_target_soc(v2g_event)
-        v2g_event = add_hash_id(v2g_event)
-        v2g_event = self.__add_dismissed_status(v2g_event)
-        return v2g_event
+    async def __set_events_in_main_app(self, v2g_args: str = ""):
+        try:
+            await self.v2g_main_app.handle_calendar_change(
+                v2g_events=self.v2g_events, v2g_args=v2g_args
+            )
+        except Exception as e:
+            self.__log(
+                f"__process_v2g_events. Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
+            )
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
         # Add a target SoC to a v2g_event dict based upon the summary and description.
@@ -452,78 +477,6 @@ class ReservationsClient:
         v2g_event["dismissed"] = dismissed
         return v2g_event
 
-    async def __process_calendar_change(self, v2g_args: str = None):
-        await self.__write_events_in_ui_entity()
-        await self.__draw_event_in_graph()
-        try:
-            await self.v2g_main_app.set_next_action(v2g_args=v2g_args)
-        except Exception as e:
-            self.__log(
-                f"__process_calendar_change. Could not call v2g_main_app.set_next_action. Exception: {e}."
-            )
-        self.__clean_up_events_dismissed_statuses()
-
-    async def __write_events_in_ui_entity(self):
-        # Prepare for rendering in the UI
-        start = get_local_now()
-        v2g_ui_event_calendar = []
-        for n in range(7):
-            calendar_date = start + dt.timedelta(days=n)
-            events_in_day = []
-            for v2g_ui_event in self.v2g_events:
-                if v2g_ui_event["start"].date() == calendar_date.date():
-                    # HTML Escape text before writing to UI
-                    v2g_ui_event["summary"] = he(v2g_ui_event["summary"])
-                    v2g_ui_event["description"] = he(v2g_ui_event["description"])
-                    events_in_day.append(v2g_ui_event)
-            if len(events_in_day) > 0:
-                day = {"day": calendar_date, "events": events_in_day}
-                v2g_ui_event_calendar.append(day)
-        attributes = {"v2g_ui_event_calendar": v2g_ui_event_calendar}
-        await self.hass.set_state(
-            "input_text.calendar_events", state=start, attributes=attributes
-        )
-
-    async def __draw_event_in_graph(self):
-        now = get_local_now()
-        if len(self.v2g_events) == 0:
-            # There seems to be no way to hide the SoC series from the graph,
-            # so it is filled with "empty" data, one record of 0.
-            # Set it at a week from now, so it's not visible in the default view.
-            ci_chart_items = [
-                dict(time=(now + dt.timedelta(days=7)).isoformat(), soc=None)
-            ]
-        else:
-            # TODO: deal with overlapping items
-            ci_chart_items = []
-
-            for ci in self.v2g_events:
-                # If ci is dismissed, do not draw
-                status = ci.get("dismissed", None)
-                if status is not None and status == True:
-                    continue
-                ci_chart_items.append(
-                    {"time": ci["start"].isoformat(), "soc": ci["target_soc_percent"]}
-                )
-                ci_chart_items.append(
-                    {"time": ci["end"].isoformat(), "soc": ci["target_soc_percent"]}
-                )
-                # Add to create a gap between ci's in the graph.
-                ci_chart_items.append(
-                    {
-                        "time": (ci["end"] + dt.timedelta(minutes=1)).isoformat(),
-                        "soc": None,
-                    }
-                )
-
-        # To make sure the new attributes are treated as new we set a new state as well
-        new_state = f"Calendar item available at {now.isoformat()}."
-        result = dict(records=ci_chart_items)
-        await self.hass.set_state(
-            "input_text.calender_item_in_chart", state=new_state, attributes=result
-        )
-        # self.__log(f"__draw_events_in_graph: {result}.")
-
     def __clean_up_events_dismissed_statuses(self):
         """Check is any of the self.v2g_events is registered as dismissed (in self.events_dismissed_statuses)
         Remove any hash_id's from self.events_dismissed_statuses that are not in self.v2g_events.
@@ -537,7 +490,9 @@ class ReservationsClient:
             self.events_dismissed_statuses.clear()
             return
 
-        for dismissed_event_hash_id in self.events_dismissed_statuses.keys():
+        # list creates a copy of the events_dismissed_statuses.keys.
+        # This makes the pop on the original possible.
+        for dismissed_event_hash_id in list(self.events_dismissed_statuses.keys()):
             hash_id_in_v2g_events = False
             for v2g_event in self.v2g_events:
                 if dismissed_event_hash_id == v2g_event["hash_id"]:
@@ -552,7 +507,6 @@ class ReservationsClient:
 ######################################################################
 #                    PRIVATE UTILITY FUNCTIONS                       #
 ######################################################################
-
 
 def add_hash_id(v2g_event: dict):
     """Add a hash_id to a v2g_event

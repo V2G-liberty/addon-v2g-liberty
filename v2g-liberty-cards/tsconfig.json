@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "isolatedModules": true,
+    "target": "es2017",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false
+  }
+}

@@ -65,7 +65,7 @@ class ManageAmberPriceData:
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
         ##########################################################################
-        # self.__log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!")
+        # self.log(f"initialize, TESTDATA: Currency = EUR, moet AUD zijn!", level="WARNING")
         # self.CURRENCY = "EUR"
 
         self.POLLING_INTERVAL_SECONDS = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
@@ -133,6 +133,9 @@ class ManageAmberPriceData:
         state = await self.hass.get_state(
             c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID, attribute="all"
         )
+        if state is None:
+            self.__log(f"no (data in) price_entity (yet), aborting.")
+            return
         collection_cpf = state["attributes"][self.COLLECTION_NAME]
         for item in collection_cpf:
             consumption_prices.append(
@@ -158,11 +161,11 @@ class ManageAmberPriceData:
 
             if self.fm_client_app is not None:
                 res = await self.fm_client_app.post_measurements(
-                    sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                    values=consumption_prices,
-                    start=start_cpf,
-                    duration=duration_cpf,
-                    unit=uom,
+                    sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                    values = consumption_prices,
+                    start = start_cpf,
+                    duration = duration_cpf,
+                    uom = uom,
                 )
             else:
                 self.__log(
@@ -172,10 +175,11 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    await self.get_fm_data_module.get_consumption_prices()
+                    parameters = {"price_type": "consumption"}
+                    await self.get_fm_data_module.get_prices(parameters)
                 else:
                     self.__log(
-                        "__check_for_price_changes. Could not call get_consumption_prices on "
+                        "Could not call get_consumption_prices on "
                         "get_fm_data_module as it is None."
                     )
                 if c.OPTIMISATION_MODE == "price":
@@ -202,11 +206,11 @@ class ManageAmberPriceData:
 
             if self.fm_client_app is not None:
                 res = await self.fm_client_app.post_measurements(
-                    sensor_id=c.FM_EMISSIONS_SENSOR_ID,
-                    values=emissions,
-                    start=start_cpf,
-                    duration=duration_cpf,
-                    unit="%",
+                    sensor_id = c.FM_EMISSIONS_SENSOR_ID,
+                    values = emissions,
+                    start = start_cpf,
+                    duration = duration_cpf,
+                    uom = "%",
                 )
             else:
                 self.__log(
@@ -257,11 +261,11 @@ class ManageAmberPriceData:
 
             if self.fm_client_app is not None:
                 res = await self.fm_client_app.post_measurements(
-                    sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
-                    values=production_prices,
-                    start=start_ppf,
-                    duration=duration_ppf,
-                    unit=uom,
+                    sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                    values = production_prices,
+                    start = start_ppf,
+                    duration = duration_ppf,
+                    uom = uom,
                 )
             else:
                 self.__log(
@@ -271,7 +275,8 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    await self.get_fm_data_module.get_production_prices()
+                    parameters = {"price_type": "production"}
+                    await self.get_fm_data_module.get_prices(parameters)
                 else:
                     self.__log(
                         "__check_for_price_changes. Could not call get_production_prices on "

@@ -3,7 +3,6 @@ import os
 
 
 class SettingsManager:
-
     settings: dict = {}
     settings_file_path = "/data/v2g_liberty_settings.json"
 
@@ -20,13 +19,15 @@ class SettingsManager:
             self.__log(f"retrieve_settings, no settings file found")
         else:
             try:
-                with open(self.settings_file_path, 'r', encoding='utf-8') as read_file:
+                with open(self.settings_file_path, "r", encoding="utf-8") as read_file:
                     settings = json.load(read_file)
                     if isinstance(settings, dict):
                         self.settings = self.__upgrade(settings)
                     else:
-                        self.__log(f"retrieve_settings, loading file content error, "
-                                 f"no dict: '{settings}'.")
+                        self.__log(
+                            f"retrieve_settings, loading file content error, "
+                            f"no dict: '{settings}'."
+                        )
             except (json.JSONDecodeError, FileNotFoundError) as e:
                 self.__log(f"__retrieve_settings, Error reading settings file: {e}")
 
@@ -55,7 +56,7 @@ class SettingsManager:
 
     def __write_to_file(self):
         # self.__log(f"__write_to_file, settings: '{self.settings}'.")
-        with open(self.settings_file_path, 'w', encoding='utf-8') as write_file:
+        with open(self.settings_file_path, "w", encoding="utf-8") as write_file:
             json.dump(self.settings, write_file)
 
     def reset(self):

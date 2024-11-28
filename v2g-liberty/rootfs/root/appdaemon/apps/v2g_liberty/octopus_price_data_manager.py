@@ -82,6 +82,7 @@ class ManageOctopusPriceData:
         ##########################################################################
         # self.__log(f"initialize, TESTDATA: Currency = EUR, should be GBP!", level="WARNING")
         # self.CURRENCY = "EUR"
+
         self.UOM = f"{self.CURRENCY}/MWh"
 
         # Emission data is calculated based on the production data and is therefore available a little later
@@ -170,6 +171,7 @@ class ManageOctopusPriceData:
         self.__log(f"__daily_kickoff_prices_emissions completed")
 
     async def __get_octopus_import_prices(self, *args):
+        """Get import (consumption) price data from Octopus and send then to FlexMeasures"""
         self.__log(f"__get_octopus_import_prices called.")
         res = requests.get(self.import_url)
         if res.status_code != 200:
@@ -194,7 +196,7 @@ class ManageOctopusPriceData:
             prices = prices[self.COLLECTION_NAME]
             prices = list(reversed(prices))
         except Exception as e:
-            self.__log(f"__get_octopus_import_prices. exception reading JSON: {e}.")
+            self.__log(f"exception reading JSON: {e}.", level="WARNING")
             return
 
         consumption_prices = []
@@ -229,7 +231,8 @@ class ManageOctopusPriceData:
         self.__log(f"__get_octopus_import_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
-                await self.get_fm_data_module.get_consumption_prices()
+                parameters = {"price_type": "consumption"}
+                await self.get_fm_data_module.get_prices(parameters)
             else:
                 self.__log(
                     "__check_for_price_changes. Could not call get_consumption_prices on "
@@ -237,7 +240,8 @@ class ManageOctopusPriceData:
                 )
 
     async def __get_octopus_export_prices(self, *args):
-        self.__log(f"__get_octopus_export_prices called.")
+        """Get export (production) price data from Octopus and send then to FlexMeasures"""
+        self.__log(f"Called.")
         res = requests.get(self.export_url)
         if res.status_code != 200:
             self.__log(
@@ -297,7 +301,8 @@ class ManageOctopusPriceData:
         self.__log(f"__get_octopus_export_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
-                await self.get_fm_data_module.get_production_prices()
+                parameters = {"price_type": "production"}
+                await self.get_fm_data_module.get_prices(parameters)
             else:
                 self.__log(
                     "__check_for_price_changes. Could not call get_production_prices on "
@@ -305,7 +310,8 @@ class ManageOctopusPriceData:
                 )
 
     async def __get_gb_region_emissions(self, *args):
-        self.__log(f"__get_gb_region_emissions called.")
+        """Get emission data for region and send then to FlexMeasures"""
+        self.__log(f"Called.")
 
         now = str(get_local_now())
         start = now[:10] + "T00:00:00Z"
@@ -348,7 +354,7 @@ class ManageOctopusPriceData:
         duration = convert_to_duration_string(duration)
 
         ##########################################################################
-        # TESTDATA: Currency = EUR, moet GBP zijn! Wordt in class definitie al gezet.
+        # TESTDATA: EMISSIONS_UOM = "%", should be kg/MWh
         ##########################################################################
         # self.__log(f"__get_gb_region_emissions, TESTDATA: self.EMISSIONS_UOM = %, moet kg/MWh zijn!", level="WARNING")
         # self.EMISSIONS_UOM = "%"
