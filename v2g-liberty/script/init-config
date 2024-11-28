@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../../.devcontainer"
 if [ -e config/.ready ]; then exit 0; fi
 
 if [ ! -x config ]; then mkdir config; fi
-rm -rf config/.* config/*
+rm -f $(find config/ -type f | grep -v v2g-liberty-cards)
 cp -avR init-config/.* init-config/* config
 
 # Signal we are done copying
