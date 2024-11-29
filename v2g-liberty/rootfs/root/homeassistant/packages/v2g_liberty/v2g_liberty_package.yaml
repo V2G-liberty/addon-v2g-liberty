@@ -243,88 +243,185 @@ input_number:
     mode: box
     unit_of_measurement: "hrs"
 
-  # Used in both UI and in code.
-  car_state_of_charge:
-    name: SoC history
-    icon: mdi:battery-medium
-    min: 0.0
-    max: 100.0
-    unit_of_measurement: "%"
-    step: 1.0
-    mode: slider
 
-  # Used in both UI and in code.
-  car_remaining_range:
-    name: Car Remaining Range
-    icon: mdi:ev-station
-    min: 0
-    max: 1000
-    unit_of_measurement: "km"
-    step: 100
-    mode: box
+sensor:
+  - platform: template
+    # The platform: number would have been more suitable but HA does not support that
+    # The platform: template is not a prefect match but the only thing that could be hacked
+    # Other properties like state_class: measurement, native_value: int are not allowed
+    # for a template sensor and set via python.
+    sensors:
+      car_state_of_charge:
+        friendly_name: Car state of charge
+        device_class: battery
+        unit_of_measurement: "%"
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  total_charging_cost_last_7_days:
-    name: Total charging costs last 7 days
-    max: 1000.00
-    min: -1000.00
-    step: 0.01
-    unit_of_measurement: "€"
-    mode: box
+      charger_real_charging_power:
+        friendly_name: Charger real charging power
+        device_class: power
+        unit_of_measurement: W
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  total_charged_energy_last_7_days:
-    name: Total charged energy last 7 days
-    max: 10000
-    min: -10000
-    step: 1
-    unit_of_measurement: "kWh"
-    mode: box
+      # Intended for checks to see if the actual power matches this setting
+      current_scheduled_charging_power:
+        friendly_name: Current scheduled charging power
+        device_class: power
+        unit_of_measurement: W
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  total_discharged_energy_last_7_days:
-    name: Total discharged energy last 7 days
-    max: 10000
-    min: -10000
-    step: 1
-    unit_of_measurement: "kWh"
-    mode: box
+      car_remaining_range:
+        friendly_name: Car Remaining Range
+        device_class: distance
+        unit_of_measurement: km
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  net_energy_last_7_days:
-    name: Total net energy last 7 days
-    max: 10000
-    min: -10000
-    step: 1
-    unit_of_measurement: "kWh"
-    mode: box
+      # Used for stats in UI.
+      total_charging_cost_last_7_days:
+        friendly_name: Total charging costs last 7 days
+        device_class: monetary
+        unit_of_measurement: €
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  total_saved_emissions_last_7_days:
-    name: Total saved emissions last 7 days
-    max: 1000
-    min: -1000
-    step: 0.001
-    unit_of_measurement: "kg CO2"
-    mode: box
+      total_charged_energy_last_7_days:
+        friendly_name: Total charged energy last 7 days
+        device_class: energy_storage
+        unit_of_measurement: "kWh"
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  total_emissions_last_7_days:
-    name: Total emissions last 7 days
-    max: 1000
-    min: -1000
-    step: 0.001
-    unit_of_measurement: "kg CO2"
-    mode: box
+      total_discharged_energy_last_7_days:
+        friendly_name: Total discharged energy last 7 days
+        device_class: energy_storage
+        unit_of_measurement: "kWh"
+        value_template: "{{ 0 }}"  # Dummy
 
-  # Used for stats in UI.
-  net_emissions_last_7_days:
-    name: Net emissions last 7 days
-    max: 1000
-    min: -1000
-    step: 0.001
-    unit_of_measurement: "kg CO2"
-    mode: box
+      net_energy_last_7_days:
+        friendly_name: Total net energy last 7 days
+        device_class: energy_storage
+        unit_of_measurement: "kWh"
+        value_template: "{{ 0 }}"  # Dummy
+
+      total_saved_emissions_last_7_days:
+        friendly_name: Total saved emissions last 7 days
+        device_class: weight
+        unit_of_measurement: kg  # CO2 that is...
+        value_template: "{{ 0 }}"  # Dummy
+
+      total_emissions_last_7_days:
+        friendly_name: Total emissions last 7 days
+        device_class: weight
+        unit_of_measurement: kg  # CO2 that is...
+        value_template: "{{ 0 }}"  # Dummy
+
+      net_emissions_last_7_days:
+        friendly_name: Net emissions last 7 days
+        device_class: weight
+        unit_of_measurement: kg  # CO2 that is...
+        value_template: "{{ 0 }}"  # Dummy
+
+      total_discharge_time_last_7_days:
+        friendly_name: Total discharge time in last 7 days
+        value_template: ""
+
+      total_charge_time_last_7_days:
+        friendly_name: Total charge time in last 7 days
+        value_template: ""
+
+      calendar_account_connection_status:
+        friendly_name: Calendar account connection status
+        value_template: ""
+
+      # Used to show a user understandable version of the states in the UI.
+      # E.g. "Charging", "No car connected", etc.
+      charger_state_text:
+        friendly_name: Charger state
+        value_template: ""
+
+      charger_state_int:
+        friendly_name: Charger state int value
+        value_template: "{{ 0 }}"  # Dummy
+
+      charger_connection_status:
+        friendly_name: Calendar account connection status
+        value_template: ""
+
+      poll_refresh_indicator:
+        friendly_name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
+        value_template: " "
+
+      # Util entity that holds the events to show in UI in an attribute 'events'
+      calendar_events:
+        value_template: ""
+
+      # This is not a setting but is read from the charger and is
+      # an upper limit for max_(dis-)charging_power
+      charger_max_available_power:
+        value_template: "??"
+
+      fm_connection_status:
+        friendly_name: FlexMeasures connection status
+        value_template: ""
+
+      # Helper for setting text in dashboard.
+      utility_display_name:
+        friendly_name: Utility display name
+        value_template: ""
+
+      # Helper, for setting text in dashboard.
+      optimisation_mode:
+        friendly_name: Optimisation mode
+        value_template: ""
+
+      # Used to store the (serialised) charge schedule HA receives from the
+      # backend FM, not used in UI.
+      charge_schedule:
+        friendly_name: Charge schedule chart data
+        value_template: ""
+
+      # Used to store the (serialized) list of dynamic consumption prices that is fetched by
+      # get_fm_data code from FM. This then is shown in the UI in the graph.
+      consumption_prices:
+        friendly_name: Buy price chart data
+        value_template: ""
+
+      # Used to store the (serialized) list of dynamic consumption prices that is fetched by
+      # get_fm_data code from FM. This then is shown in the UI in the graph.
+      production_prices:
+        friendly_name: Sell price chart data
+        value_template: ""
+
+      # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
+      # get_fm_data code from FM daily. This then is shown in the UI in the graph.
+      co2_emissions:
+        friendly_name: Emissions chart data
+        value_template: ""
+
+      # Based on the current SoC and the schedule a prognosis (list of values) is
+      # calculated and this (serialised list) is stored in this variable. This is Used
+      # in the graph, shown as yellow prognosis line.
+      soc_prognosis:
+        friendly_name: SoC schedule chart data
+        value_template: ""
+
+      # Based on the current SoC and max boost function (when SoC is below minimum).
+      # This contains two values current SoC and min. SoC at expected time.
+      # This is shown in the graph as a red prognosis line.
+      soc_prognosis_boost:
+        friendly_name: SoC Boost chart data
+        value_template: ""
+
+      # Based on the current SoC and Max Charge Now function (from the Charge Mode buttons).
+      # This contains two values current SoC and 100%. SoC at expected time.
+      # This is shown in the graph as a dashed prognosis line.
+      soc_prognosis_max_charge_now:
+        friendly_name: SoC Max Charge Now chart data
+        value_template: ""
+
+      # Forms bar representing the duration of the calendar item at
+      # the desired %.
+      calender_item_in_chart:
+        friendly_name: Calendar item in chart
+        value_template: ""
 
 input_text:
   #############  calendar related entities #############
@@ -338,33 +435,11 @@ input_text:
     name: Password
     icon: mdi:form-textbox-password
     mode: password
-  calendar_account_connection_status:
-    mode: text
-  # Util entity that holds the events in an attribute events
-  calendar_events:
-    mode: text
 
   #############  charger related entities #############
   charger_host_url:
     name: Charger host URL
     icon: mdi:lan-pending
-  # This is not a setting but is read from the charger and is an upper limit for max_(dis-)charging_power
-  charger_max_available_power:
-    mode: text
-    initial: "??"
-  charger_connection_status:
-    mode: text
-  poll_refresh_indicator:
-    name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
-    initial: " "
-  # Used to show a user understandable version of the states in the UI.
-  # "Translation" is done in an automation.
-  charger_state:
-    name: Charger state
-    icon: mdi:ev-station
-    max: 100
-    mode: text
-    min: 0
 
   #############  flexmeasures related entities #############
   fm_account_username:
@@ -377,8 +452,6 @@ input_text:
   fm_host_url:
     icon: mdi:server-network-outline
     name: URL
-  fm_connection_status:
-    mode: text
 
   ###################################################################
   #        self_provided settings related to au_amber_electric      #
@@ -414,104 +487,6 @@ input_text:
     min: 1
     max: 1
 
-  #############  UI statistics related entities #############
-  total_discharge_time_last_7_days:
-    name: Total discharge time in last 7 days
-  total_charge_time_last_7_days:
-    name: Total charge time in last 7 days
-
-  # Helper, set by V2G Liberty.py based upon setting utility in secrets.
-  # Used only for setting text in dashboard.
-  utility_display_name:
-    name: Utility display name
-    icon: mdi:transmission-tower
-    max: 100
-    mode: text
-    min: 0
-
-  # Helper, set by V2G Liberty.py based upon setting fm_optimisation_mode in secrets.
-  # Used only for setting text in dashboard.
-  optimisation_mode:
-    name: Optimisation mode
-    icon: mdi:cog-transfer-outline
-    max: 100
-    mode: text
-    min: 0
-
-  # Used to store the (serialised) charge schedule HA receives from the
-  # backend FM, not used in UI.
-  chargeschedule:
-    name: ChargeSchedule
-    max: 10000
-    min: 0
-    mode: text
-    icon: mdi:calendar-multiselect
-
-  # Used to store the (serialized) list of dynamic consumption prices that is fetched by
-  # get_fm_data code from FM. This then is shown in the UI in the graph.
-  consumption_prices:
-    name: Buy price
-    max: 10000
-    min: 0
-    mode: text
-
-  # Used to store the (serialized) list of dynamic consumption prices that is fetched by
-  # get_fm_data code from FM. This then is shown in the UI in the graph.
-  production_prices:
-    name: Sell price
-    max: 10000
-    min: 0
-    mode: text
-
-  # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
-  # get_fm_data code from FM daily. This then is shown in the UI in the graph.
-  co2_emissions:
-    name: Emissions
-    max: 10000
-    min: 0
-    mode: text
-
-  # Based on the current SoC and the schedule a prognosis (list of values) is
-  # calculated and this (serialised list) is stored in this variable. This is Used
-  # in the graph, shown as yellow prognosis line.
-  soc_prognosis:
-    name: SoC schedule
-    max: 10000
-    mode: text
-    min: 0
-
-  # Based on the current SoC and max boost function (when SoC is below minimum).
-  # This contains two values current SoC and min. SoC at expected time.
-  # This is shown in the graph as a red prognosis line.
-  soc_prognosis_boost:
-    name: SoC Boost
-    max: 10000
-    mode: text
-    min: 0
-
-  # Based on the current SoC and Max Charge Now function (from the Charge Mode buttons).
-  # This contains two values current SoC and 100%. SoC at expected time.
-  # This is shown in the graph as a dashed prognosis line.
-  soc_prognosis_max_charge_now:
-    name: SoC Max Charge Now
-    max: 10000
-    mode: text
-    min: 0
-
-  # Forms bar representing the duration of the calendar item at
-  # the desired %.
-  calender_item_in_chart:
-    name: Calendar item in chart
-    max: 10000
-    mode: text
-    min: 0
-
-  # Used for setting an error in the UI when V2G Liberty app cannot retrieve EPEX data.
-  epex_log:
-    name: epex_log
-    max: 10000
-    min: 0
-    mode: text
 
 script:
   restart_ha:

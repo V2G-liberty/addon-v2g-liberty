@@ -151,16 +151,16 @@ class V2Gliberty:
 
         await self.hass.listen_state(
             self.__handle_charger_state_change,
-            "sensor.charger_charger_state",
+            "sensor.charger_state_int",
             attribute="all",
         )
         await self.hass.listen_state(
             self.__handle_soc_change,
-            "sensor.charger_connected_car_state_of_charge",
+            "sensor.car_state_of_charge",
             attribute="all",
         )
         await self.hass.listen_state(
-            self.__process_schedule, "input_text.chargeschedule", attribute="all"
+            self.__process_schedule, "sensor.charge_schedule", attribute="all"
         )
 
         self.scheduling_timer_handles = []
@@ -190,7 +190,7 @@ class V2Gliberty:
             )
 
         current_soc = await self.hass.get_state(
-            "sensor.charger_connected_car_state_of_charge"
+            "sensor.car_state_of_charge"
         )
         await self.__process_soc(current_soc)
 
@@ -204,11 +204,11 @@ class V2Gliberty:
 
     async def initialise_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
-        await self.hass.set_textvalue(
-            "input_text.optimisation_mode", c.OPTIMISATION_MODE
+        await self.hass.set_state(
+            entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
         )
-        await self.hass.set_textvalue(
-            "input_text.utility_display_name", c.UTILITY_CONTEXT_DISPLAY_NAME
+        await self.hass.set_state(
+            entity_id="sensor.utility_display_name", state=c.UTILITY_CONTEXT_DISPLAY_NAME
         )
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
@@ -435,7 +435,7 @@ class V2Gliberty:
                     f"Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
                 # TODO: Wait 15 min, than ask user if they want to postpone scheduled charging or not.
-                await self.__set_chargemode_in_ui("Automatic")
+                await self.__set_charge_mode_in_ui("Automatic")
             else:
                 self.__log(
                     "Starting max charge now based on charge_mode = Max boost now"
@@ -682,12 +682,12 @@ class V2Gliberty:
         self.__log(
             "The charger probably crashed: Stop charging, set Error in UI and notify user"
         )
-        await self.__set_chargemode_in_ui("Stop")
+        await self.__set_charge_mode_in_ui("Stop")
 
         await self.hass.set_state(
             "input_boolean.charger_modbus_communication_fault", state="on"
         )
-        await self.hass.set_textvalue("input_text.charger_state", "Error")
+        await self.hass.set_state(entity_id="sensor.charger_state_text", state="Error")
 
         title = "Charger communication error"
         message = (
@@ -749,7 +749,7 @@ class V2Gliberty:
 
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = "Chart line data at " + now.isoformat()
-        entity = f"input_text.{self.chart_line_entity[chart_line_name]}"
+        entity = f"sensor.{self.chart_line_entity[chart_line_name]}"
 
         if records is None:
             await self.hass.set_state(
@@ -904,7 +904,7 @@ class V2Gliberty:
             # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
             charge_mode = await self.hass.get_state("input_select.charge_mode", None)
             if charge_mode == "Max boost now":
-                await self.__set_chargemode_in_ui("Automatic")
+                await self.__set_charge_mode_in_ui("Automatic")
                 self.notify_user(
                     message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
                     title=None,
@@ -1085,8 +1085,8 @@ class V2Gliberty:
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="on"
             )
-            await self.hass.set_value(
-                "input_text.fm_connection_status", "Failed to connect/login."
+            await self.hass.set_state(
+                entity_id="sensor.fm_connection_status", state="Failed to connect/login."
             )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
@@ -1354,20 +1354,14 @@ class V2Gliberty:
             return False
         self.connected_car_soc = round(reported_soc, 0)
 
-        # Cleaned_up SoC value for UI
-        # TODO: This is no longer needed, use input_number.charger_connected_car_state_of_charge in UI.
-        await self.hass.set_value(
-            entity_id="input_number.car_state_of_charge", value=self.connected_car_soc
-        )
-
         self.connected_car_soc_kwh = round(
             reported_soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2
         )
         remaining_range = int(
             round((self.connected_car_soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0)
         )
-        await self.hass.set_value(
-            entity_id="input_number.car_remaining_range", value=remaining_range
+        await self.hass.set_state(
+            entity_id="sensor.car_remaining_range", state=remaining_range
         )
         self.__log(
             f"New SoC processed, {self.connected_car_soc}% = {self.connected_car_soc_kwh}kWh = {remaining_range} km."
@@ -1515,7 +1509,7 @@ class V2Gliberty:
                 v2g_ui_event_calendar.append(day)
         attributes = {"v2g_ui_event_calendar": v2g_ui_event_calendar}
         await self.hass.set_state(
-            "input_text.calendar_events", state=start, attributes=attributes
+            "sensor.calendar_events", state=start, attributes=attributes
         )
 
     async def __draw_event_in_graph(self, v2g_events: List = None):
@@ -1553,11 +1547,11 @@ class V2Gliberty:
         new_state = f"Calendar item available at {now.isoformat()}."
         result = dict(records=ci_chart_items)
         await self.hass.set_state(
-            "input_text.calender_item_in_chart", state=new_state, attributes=result
+            "sensor.calender_item_in_chart", state=new_state, attributes=result
         )
         # self.__log(f"__draw_events_in_graph: {result}.")
 
-    async def __set_chargemode_in_ui(self, setting: str):
+    async def __set_charge_mode_in_ui(self, setting: str):
         """This function sets the charge mode in the UI to setting.
         By setting the UI switch an event will also be fired. So other code will run due to this setting.
 

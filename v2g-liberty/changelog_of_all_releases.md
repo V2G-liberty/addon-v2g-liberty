@@ -14,6 +14,7 @@ That file also contains possible changes that the next release might include.
 ### Added
 
 - Feature Request: Notify user when at the end of a calendar item the car is not connected (#158)
+- Feature Request: Add history to V2G Liberty entities (#176) 
 
 ### Changed
 

@@ -102,13 +102,13 @@
           }
     - type: markdown
       entities:
-        - input_text.charger_connection_status
-        - input_text.charger_max_available_power
+        - sensor.charger_connection_status
+        - sensor.charger_max_available_power
       content: >-
-        {{ states("input_text.charger_connection_status")}} |
-        {{ (now().timestamp() - states.input_text.charger_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+        {{ states("sensor.charger_connection_status")}} |
+        {{ (now().timestamp() - states.sensor.charger_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
         <div>&nbsp;</div>
-        The charger is set to provide max. **{{ states("input_text.charger_max_available_power")}}**&nbsp;W
+        The charger is set to provide max. **{{ states("sensor.charger_max_available_power")}}**&nbsp;W
       card_mod:
         style:
           .: |
@@ -129,7 +129,7 @@
     - type: conditional
       conditions:
         - condition: state
-          entity: input_text.charger_connection_status
+          entity: sensor.charger_connection_status
           state: "Successfully connected"
       card:
         type: entities
@@ -153,7 +153,7 @@
     - type: conditional
       conditions:
         - condition: state
-          entity: input_text.charger_connection_status
+          entity: sensor.charger_connection_status
           state: "Successfully connected"
         - condition: state
           entity: input_boolean.use_reduced_max_charge_power
@@ -363,10 +363,10 @@
           state: "Direct caldav source"
       card:
         type: markdown
-        entity: input_text.calendar_account_connection_status
+        entity: sensor.calendar_account_connection_status
         content: >-
-          {{ states("input_text.calendar_account_connection_status")}} |
-          {{ (now().timestamp() - states.input_text.calendar_account_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+          {{ states("sensor.calendar_account_connection_status")}} |
+          {{ (now().timestamp() - states.sensor.calendar_account_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
         card_mod:
           style: |
             ha-card {
@@ -381,7 +381,7 @@
     - type: conditional
       conditions:
         - condition: state
-          entity: input_text.calendar_account_connection_status
+          entity: sensor.calendar_account_connection_status
           state: "Successfully connected"
         - condition: state
           entity: input_select.car_calendar_source
@@ -623,10 +623,10 @@
           }
 
     - type: markdown
-      entity: input_text.fm_connection_status
+      entity: sensor.fm_connection_status
       content: >-
-        {{ states("input_text.fm_connection_status")}} |
-        {{ (now().timestamp() - states.input_text.fm_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
+        {{ states("sensor.fm_connection_status")}} |
+        {{ (now().timestamp() - states.sensor.fm_connection_status.last_reported.timestamp()) | timestamp_custom('%H:%M:%S', False) }} ago
       card_mod:
         style: |
           ha-card {
@@ -640,7 +640,7 @@
     - type: conditional
       conditions:
         - condition: state
-          entity: input_text.fm_connection_status
+          entity: sensor.fm_connection_status
           state: Please select an asset
       card:
         type: entities
