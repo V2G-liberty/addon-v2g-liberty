@@ -85,7 +85,17 @@ export class PingCard extends LitElement {
           <p>
             <ha-markdown breaks .content=${tp('error-subtext')}></ha-markdown>
           </p>
+          <mwc-button @click=${this._restart}>${tp('restart')}</mwc-button>
         `;
+  }
+
+  async _restart() {
+    await this.hass.callWS({
+      type: 'supervisor/api',
+      endpoint: `/addons/9a1c9f7e_v2g-liberty/restart`,
+      method: 'post',
+      timeout: null,
+    });
   }
 
   static styles = css`

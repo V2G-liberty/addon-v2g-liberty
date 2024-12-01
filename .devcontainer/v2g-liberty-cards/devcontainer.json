@@ -3,6 +3,7 @@
   "dockerComposeFile": "../docker-compose.yaml",
   "service": "v2g-liberty-cards",
   "workspaceFolder": "/workspaces/v2g-liberty-cards",
+  "postCreateCommand": "npm ci",
   "customizations": {
     "vscode": {
       "extensions": [
