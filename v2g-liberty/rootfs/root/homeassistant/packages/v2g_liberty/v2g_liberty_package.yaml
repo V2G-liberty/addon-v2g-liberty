@@ -255,69 +255,69 @@ sensor:
         friendly_name: Car state of charge
         device_class: battery
         unit_of_measurement: "%"
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       charger_real_charging_power:
         friendly_name: Charger real charging power
         device_class: power
         unit_of_measurement: W
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       # Intended for checks to see if the actual power matches this setting
       current_scheduled_charging_power:
         friendly_name: Current scheduled charging power
         device_class: power
         unit_of_measurement: W
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       car_remaining_range:
         friendly_name: Car Remaining Range
         device_class: distance
         unit_of_measurement: km
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       # Used for stats in UI.
       total_charging_cost_last_7_days:
         friendly_name: Total charging costs last 7 days
         device_class: monetary
         unit_of_measurement: €
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       total_charged_energy_last_7_days:
         friendly_name: Total charged energy last 7 days
         device_class: energy_storage
-        unit_of_measurement: "kWh"
-        value_template: "{{ 0 }}"  # Dummy
+        unit_of_measurement: kWh
+        value_template: "{{ None }}"  # Dummy
 
       total_discharged_energy_last_7_days:
         friendly_name: Total discharged energy last 7 days
         device_class: energy_storage
-        unit_of_measurement: "kWh"
-        value_template: "{{ 0 }}"  # Dummy
+        unit_of_measurement: kWh
+        value_template: "{{ None }}"  # Dummy
 
       net_energy_last_7_days:
         friendly_name: Total net energy last 7 days
         device_class: energy_storage
-        unit_of_measurement: "kWh"
-        value_template: "{{ 0 }}"  # Dummy
+        unit_of_measurement: kWh
+        value_template: "{{ None }}"  # Dummy
 
       total_saved_emissions_last_7_days:
         friendly_name: Total saved emissions last 7 days
         device_class: weight
         unit_of_measurement: kg  # CO2 that is...
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       total_emissions_last_7_days:
         friendly_name: Total emissions last 7 days
         device_class: weight
         unit_of_measurement: kg  # CO2 that is...
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       net_emissions_last_7_days:
         friendly_name: Net emissions last 7 days
         device_class: weight
         unit_of_measurement: kg  # CO2 that is...
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       total_discharge_time_last_7_days:
         friendly_name: Total discharge time in last 7 days
@@ -339,7 +339,7 @@ sensor:
 
       charger_state_int:
         friendly_name: Charger state int value
-        value_template: "{{ 0 }}"  # Dummy
+        value_template: "{{ None }}"  # Dummy
 
       charger_connection_status:
         friendly_name: Calendar account connection status
