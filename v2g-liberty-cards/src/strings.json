@@ -1,7 +1,7 @@
 {
     "ping-card": {
         "error": "There is an error in V2G Liberty",
-        "error-subtext": "A restart of the V2G Liberty add-on is needed, please click Restart below.",
+        "error-subtext": "A restart of the V2G Liberty add-on is needed, please click RESTART below.",
         "restart": "Restart"
     }
 }
