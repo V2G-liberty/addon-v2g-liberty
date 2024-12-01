@@ -9,13 +9,13 @@
 
     - type: markdown
       entities:
-        - entity: input_text.charger_state
+        - entity: sensor.charger_state_text
         - entity: sensor.charger_real_charging_power
       content: >-
         <ha-icon icon="mdi:ev-station"></ha-icon> <div title="Polling
         charger">&nbsp;{{
-        states('input_text.poll_refresh_indicator')}}</div>
-        <table><tbody><tr><th> {{ states('input_text.charger_state') }}
+        states('sensor.poll_refresh_indicator')}}</div>
+        <table><tbody><tr><th> {{ states('sensor.charger_state_text') }}
         </th><td> {{ states('sensor.charger_real_charging_power')
         }}&nbsp;Watt </td></tr></tbody></table>
       layout_options:
@@ -56,7 +56,7 @@
             }
     - type: conditional
       conditions:
-        - entity: input_text.charger_state
+        - entity: sensor.charger_state_text
           state: "Connected: controlled by Wallbox App"
         - entity: input_boolean.chargemodeoff
           state: "off"
@@ -86,8 +86,8 @@
 
     - type: conditional
       conditions:
-        - entity: sensor.charger_charger_state
-          state: "0"
+        - entity: sensor.charger_state_text
+          state: "No car connected"
         - entity: sensor.charger_locked
           state: "1"
       card:
@@ -151,13 +151,13 @@
       layout_options:
         grid_columns: 3
       entities:
-        - entity: input_number.car_state_of_charge
-        - entity: input_number.car_remaining_range
-        - entity: input_text.charger_state
+        - entity: sensor.car_state_of_charge
+        - entity: sensor.car_remaining_range
+        - entity: sensor.charger_state_text
       content: |-
         <table><tr>
-          <th>{{ states("input_number.car_state_of_charge")|round(0)}}%</th>
-          <td>≈ {{ states("input_number.car_remaining_range")|round(0)}} km</td>
+          <th>{{ states("sensor.car_state_of_charge")|round(0)}}%</th>
+          <td>≈ {{ states("sensor.car_remaining_range")|round(0)}} km</td>
         </tr></table> <div><span>&nbsp;</span></div>
       card_mod:
         style:
@@ -170,19 +170,19 @@
               filter: grayscale(var(--v2g-state-grayscale));
             }
             :host {
-              --v2g-empty-capacity-width: {{ 100 - states('input_number.car_state_of_charge')|int }}%;
+              --v2g-empty-capacity-width: {{ 100 - states('sensor.car_state_of_charge')|int }}%;
 
-              --v2g-dynamic-charge-bar-color: {% if states('input_number.car_state_of_charge')|int < 7 %}
+              --v2g-dynamic-charge-bar-color: {% if states('sensor.car_state_of_charge')|int < 7 %}
                 var(--error-color);
-              {% elif states('input_number.car_state_of_charge')|int < 20 %}
+              {% elif states('sensor.car_state_of_charge')|int < 20 %}
                 var(--warning-color);
-              {% elif states('input_number.car_state_of_charge')|int > 80 %}
+              {% elif states('sensor.car_state_of_charge')|int > 80 %}
                 var(--warning-color);
               {% else %}
                 var(--success-color);
               {% endif %};
 
-              {% if states('input_text.charger_state') in ['No car connected', 'Error', 'No car connected and charger locked'] %}
+              {% if states('sensor.charger_state_text') in ['No car connected', 'Error', 'No car connected and charger locked'] %}
               --v2g-state-grayscale: 1;
               {% else %}
               --v2g-state-grayscale: 0;
@@ -293,7 +293,7 @@
           }
     - type: conditional
       conditions:
-        - entity: input_text.charger_state
+        - entity: sensor.charger_state_text
           state: No car connected
         - entity: input_boolean.chargemodemaxboostnow
           state: "on"
@@ -353,7 +353,7 @@
         show: true
         title: Car State of Charge (%)
       series:
-        - entity: input_text.calender_item_in_chart
+        - entity: sensor.calender_item_in_chart
           show:
             legend_value: false
           type: area
@@ -366,7 +366,7 @@
             return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
-        - entity: input_text.soc_prognosis_max_charge_now
+        - entity: sensor.soc_prognosis_max_charge_now
           show:
             legend_value: false
           type: line
@@ -380,7 +380,7 @@
             return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
-        - entity: input_text.soc_prognosis_boost
+        - entity: sensor.soc_prognosis_boost
           show:
             legend_value: false
           type: line
@@ -393,7 +393,7 @@
             return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
-        - entity: input_text.co2_emissions
+        - entity: sensor.co2_emissions
           show:
             hidden_by_default: true
             legend_value: false
@@ -409,7 +409,7 @@
               return [new Date(record.time).getTime(), record.emission];
             });
           type: line
-        - entity: input_text.production_prices
+        - entity: sensor.production_prices
           show:
             hidden_by_default: true
             legend_value: false
@@ -431,7 +431,7 @@
               return [new Date(record.time).getTime(), record.price];
             });
           type: line
-        - entity: input_text.consumption_prices
+        - entity: sensor.consumption_prices
           show:
             legend_value: false
           color_threshold:
@@ -452,7 +452,7 @@
               return [new Date(record.time).getTime(), record.price];
             });
           type: line
-        - entity: input_text.soc_prognosis
+        - entity: sensor.soc_prognosis
           show:
             legend_value: false
           type: line
@@ -464,7 +464,7 @@
             return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
-        - entity: input_number.car_state_of_charge
+        - entity: sensor.car_state_of_charge
           show:
             legend_value: false
           color: "#009be5"
@@ -502,20 +502,20 @@
             top: 50px;
           }
           div[seriesname="Calendarxitemxinxchart"],
-          div[seriesname="SoCxBoost"],
-          div[seriesname="SoCxMaxxChargexNow"] {
+          div[seriesname="SoCxBoostxchartxdata"],
+          div[seriesname="SoCxMaxxChargexNowxchartxdata"] {
             display: none;
           }
     - type: markdown
       layout_options:
         grid_columns: full
       entities:
-        - entity: input_text.optimisation_mode
-        - entity: input_text.utility_display_name
+        - entity: sensor.optimisation_mode
+        - entity: sensor.utility_display_name
       content: >-
         <table><tbody><tr><th>Optimised on
-        <span>{{states("input_text.optimisation_mode")}}</span> </th><td>
-        {{states("input_text.utility_display_name")}}
+        <span>{{states("sensor.optimisation_mode")}}</span> </th><td>
+        {{states("sensor.utility_display_name")}}
         </td></tr></tbody></table>
       card_mod:
         style:
@@ -593,16 +593,16 @@
     - type: markdown
       title: Reservations
       entities:
-        - input_text.input_text.calendar_events
+        - sensor.calendar_events
       content: >-
         <div>Target SoC is read from the event summary, if not found, 100%
-        is used.</div>  {% if state_attr('input_text.calendar_events',
+        is used.</div>  {% if state_attr('sensor.calendar_events',
         'v2g_ui_event_calendar') == None %} Calendar configuration seems
         invalid, please check settings. {% else %} {% if
-        states.input_text.calendar_events.attributes.v2g_ui_event_calendar
+        states.sensor.calendar_events.attributes.v2g_ui_event_calendar
         == [] %} No reservations in the next seven days. {% else %}
         <table>{% for cal_day in
-        states.input_text.calendar_events.attributes.v2g_ui_event_calendar
+        states.sensor.calendar_events.attributes.v2g_ui_event_calendar
         %} <thead> <tr> <th colspan=4>{{ as_timestamp(cal_day.day) |
         timestamp_custom("%A") }}</th> <td>{{ as_timestamp(cal_day.day) |
         timestamp_custom("%Y-%m-%d") }}</td> </tr> </thead>{% for event in
@@ -682,16 +682,16 @@
       layout_options:
         grid_columns: full
       entities:
-        - entity: input_number.total_charging_cost_last_7_days
-        - entity: input_number.net_energy_last_7_days
-        - entity: input_text.total_charge_time_last_7_days
-        - entity: input_number.total_emissions_last_7_days
-        - entity: input_number.total_charged_energy_last_7_days
-        - entity: input_text.total_discharge_time_last_7_days
-        - entity: input_number.total_saved_emissions_last_7_days
-        - entity: input_number.total_discharged_energy_last_7_days
-        - entity: input_number.net_emissions_last_7_days
-        - entity: input_number.net_energy_last_7_days
+        - entity: sensor.total_charging_cost_last_7_days
+        - entity: sensor.net_energy_last_7_days
+        - entity: sensor.total_charge_time_last_7_days
+        - entity: sensor.total_emissions_last_7_days
+        - entity: sensor.total_charged_energy_last_7_days
+        - entity: sensor.total_discharge_time_last_7_days
+        - entity: sensor.total_saved_emissions_last_7_days
+        - entity: sensor.total_discharged_energy_last_7_days
+        - entity: sensor.net_emissions_last_7_days
+        - entity: sensor.net_energy_last_7_days
       content: !include v2g_liberty_ui_module_stats.yaml
       card_mod:
         style: !include table_style.yaml
@@ -699,8 +699,6 @@
     - type: markdown
       layout_options:
         grid_columns: full
-      entities:
-        - input_text.v2g_liberty_version
       content: >-
         Version <span>{{ state_attr("update.v2g_liberty_update",
         "installed_version") }}</span>

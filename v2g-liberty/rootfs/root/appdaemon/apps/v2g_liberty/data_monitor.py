@@ -94,7 +94,7 @@ class DataMonitor:
 
         await self.hass.listen_state(
             self.__handle_charger_state_change,
-            "sensor.charger_charger_state",
+            "sensor.charger_state_int",
             attribute="all",
         )
         await self.hass.listen_state(
@@ -125,11 +125,11 @@ class DataMonitor:
         self.soc_readings = []
         await self.hass.listen_state(
             self.__handle_soc_change,
-            "sensor.charger_connected_car_state_of_charge",
+            "sensor.car_state_of_charge",
             attribute="all",
         )
         soc = await self.hass.get_state(
-            "sensor.charger_connected_car_state_of_charge", "state"
+            "sensor.car_state_of_charge", "state"
         )
         self.__log(f"init soc: {soc}.")
         if soc is not None and soc != "unavailable":

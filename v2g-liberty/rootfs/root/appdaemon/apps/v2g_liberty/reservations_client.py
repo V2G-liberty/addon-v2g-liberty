@@ -313,7 +313,7 @@ class ReservationsClient(ServiceResponseApp):
 
         attributes = {"keep_alive": start}
         await self.hass.set_state(
-            "input_text.calendar_account_connection_status",
+            "sensor.calendar_account_connection_status",
             state="Successfully connected",
             attributes=attributes,
         )

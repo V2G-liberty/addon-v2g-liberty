@@ -84,7 +84,7 @@ class ManageAmberPriceData:
         """
         if c.ELECTRICITY_PROVIDER != "au_amber_electric":
             self.__log(
-                f"Not kicking off ManageAmberPriceData module. Electricity provider is not 'au_amber_electric'."
+                "Not kicking off ManageAmberPriceData module. Electricity provider is not 'au_amber_electric'."
             )
             return
 
@@ -93,7 +93,7 @@ class ManageAmberPriceData:
             or c.HA_OWN_PRODUCTION_PRICE_ENTITY_ID is None
         ):
             self.__log(
-                f"Not kicking off ManageAmberPriceData module, price entity_id's are not populated (yet)."
+                "Not kicking off ManageAmberPriceData module, price entity_id's are not populated (yet)."
             )
             return
 
@@ -112,7 +112,7 @@ class ManageAmberPriceData:
             interval=self.POLLING_INTERVAL_SECONDS,
         )
 
-        self.__log(f"kick_off_amber_price_management completed")
+        self.__log(f"completed")
 
     async def __check_for_price_changes(self, kwargs):
         """Checks if prices have changed.
@@ -122,7 +122,7 @@ class ManageAmberPriceData:
         + Request a new schedule
         """
         forced = kwargs.get("forced", False)
-        self.__log(f"__check_for_price_changes, forced: {forced}.")
+        self.__log(f"forced: {forced}.")
 
         new_schedule_needed = False
 
@@ -147,7 +147,7 @@ class ManageAmberPriceData:
             emissions.append(100 - int(float(item[self.EMISSION_LABEL])))
 
         if consumption_prices != self.last_consumption_prices or forced:
-            self.__log("__check_for_price_changes: consumption_prices changed")
+            self.__log("consumption_prices changed")
             start_cpf = parse_to_rounded_local_datetime(
                 collection_cpf[0][self.START_LABEL]
             )
@@ -168,9 +168,7 @@ class ManageAmberPriceData:
                     uom = uom,
                 )
             else:
-                self.__log(
-                    f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None."
-                )
+                self.__log("1 Could not call post_measurements on fm_client_app as it is None.")
                 res = False
 
             if res:

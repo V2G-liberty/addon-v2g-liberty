@@ -353,7 +353,7 @@ class V2GLibertyGlobals:
 
         # For showing this maximum in the UI.
         await self.hass.set_state(
-            "input_text.charger_max_available_power", state=max_available_charge_power
+            "sensor.charger_max_available_power", state=max_available_charge_power
         )
 
         kwargs = {"run_once": True}
@@ -492,7 +492,7 @@ class V2GLibertyGlobals:
         self.__log("__init_caldav_calendar called")
 
         await self.hass.set_state(
-            "input_text.calendar_account_connection_status",
+            "sensor.calendar_account_connection_status",
             state="Getting calendars...",
         )
 
@@ -506,7 +506,7 @@ class V2GLibertyGlobals:
 
         if res != "Successfully connected":
             await self.hass.set_state(
-                "input_text.calendar_account_connection_status", state=res
+                "sensor.calendar_account_connection_status", state=res
             )
             self.__log(f"__init_caldav_calendar, res: {res}.")
             return
@@ -516,7 +516,7 @@ class V2GLibertyGlobals:
 
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
         await self.hass.set_state(
-            "input_text.calendar_account_connection_status",
+            "sensor.calendar_account_connection_status",
             state="Successfully connected",
         )
 
@@ -754,7 +754,7 @@ class V2GLibertyGlobals:
     async def __set_fm_connection_status(self, state: str):
         self.__log(f"__set_fm_connection_status, state: {state}.")
         await self.hass.set_state(
-            "input_text.fm_connection_status", state=state, attributes=get_keepalive()
+            "sensor.fm_connection_status", state=state, attributes=get_keepalive()
         )
 
     async def create_persistent_notification(

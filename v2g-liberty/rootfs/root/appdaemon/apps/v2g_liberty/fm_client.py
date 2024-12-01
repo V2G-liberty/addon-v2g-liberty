@@ -10,7 +10,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 class FMClient:
     """This class manages the communication with the FlexMeasures platform, which delivers the charging schedules.
 
-    - Saves charging schedule locally (input_text.chargeschedule)
+    - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
 
     """
@@ -653,8 +653,8 @@ class FMClient:
 
         # To trigger state change we add the date to the state. State change is not triggered by attributes.
         await self.hass.set_state(
-            entity_id="input_text.chargeschedule",
-            state="ChargeScheduleAvailable"
+            entity_id="sensor.charge_schedule",
+            state="Charge schedule available "
             + self.fm_date_time_last_schedule.isoformat(),
             attributes=schedule,
         )
