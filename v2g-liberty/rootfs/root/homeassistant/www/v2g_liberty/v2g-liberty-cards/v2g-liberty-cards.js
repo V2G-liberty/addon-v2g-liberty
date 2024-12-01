@@ -2950,7 +2950,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse("{\"ping-card\":{\"error\":\"There is an error in V2G Liberty\",\"error-subtext\":\"**You can fix this:**\\n\\nRestart V2G Liberty add-on\\n```Main menu > Settings > Add-ons > V2G Liberty > Restart```\",\"restart\":\"Restart\"}}");
+$3b34ac5ccae6bad9$exports = JSON.parse("{\"ping-card\":{\"error\":\"There is an error in V2G Liberty\",\"error-subtext\":\"A restart of the V2G Liberty add-on is needed, please click RESTART below.\",\"restart\":\"Restart\"}}");
 
 
 const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
