@@ -12,7 +12,7 @@ from service_response_app import ServiceResponseApp
 from settings_manager import SettingsManager
 
 
-class V2GLibertyGlobals(ServiceResponseApp):
+class V2GLibertyGlobals:
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object

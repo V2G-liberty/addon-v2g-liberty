@@ -5,6 +5,8 @@
 
 - type: grid
   cards:
+    - type: custom:v2g-liberty-ping-card
+
     - type: markdown
       entities:
         - entity: sensor.charger_state_text

@@ -3,7 +3,7 @@
 # Stop on errors
 set -e
 
-cd "$(dirname "$0")/../.devcontainer"
+cd "$(dirname "$0")/../../.devcontainer"
 
 [ -e config/.ready ]
 exit $?

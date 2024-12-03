@@ -1,0 +1,24 @@
+{
+  "source": "src/index.ts",
+  "module": "dist/v2g-liberty-cards.js",
+  "targets": {
+    "module": {
+      "includeNodeModules": true
+    }
+  },
+  "scripts": {
+    "watch": "parcel watch",
+    "build": "parcel build"
+  },
+  "devDependencies": {
+    "@parcel/transformer-inline-string": "^2.8.3",
+    "@types/node-polyglot": "^2.5.0",
+    "parcel": "^2.8.3"
+  },
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "home-assistant-js-websocket": "^9.4.0",
+    "lit": "^2.7.4",
+    "node-polyglot": "^2.6.0"
+  }
+}

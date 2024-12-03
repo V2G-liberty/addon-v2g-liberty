@@ -1,7 +1,7 @@
 {
   "name": "V2G-Liberty App Dev",
-  "dockerComposeFile": "docker-compose.yaml",
-  "service": "v2g-liberty",
+  "dockerComposeFile": "../docker-compose.yaml",
+  "service": "addon-v2g-liberty",
   "workspaceFolder": "/workspaces/v2g-liberty",
   "containerEnv": {
     "PYTHONASYNCIODEBUG": "1"
@@ -9,8 +9,6 @@
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-  "appPort": ["5050:5050"],
-  "runArgs": ["-e", "GIT_EDITOR=code --wait"],
   "customizations": {
     "vscode": {
       "extensions": [

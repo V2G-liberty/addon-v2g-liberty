@@ -3,13 +3,13 @@
 # Stop on errors
 set -e
 
-cd "$(dirname "$0")/../.devcontainer"
+cd "$(dirname "$0")/../../.devcontainer"
 
 # Do not overwrite existing config
 if [ -e config/.ready ]; then exit 0; fi
 
 if [ ! -x config ]; then mkdir config; fi
-rm -rf config/.* config/*
+rm -f $(find config/ -type f | grep -v v2g-liberty-cards)
 cp -avR init-config/.* init-config/* config
 
 # Signal we are done copying

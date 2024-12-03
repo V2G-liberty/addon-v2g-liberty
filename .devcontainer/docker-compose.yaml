@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+
+  addon-v2g-liberty:
+    build:
+      context: ../v2g-liberty
+      dockerfile: Dockerfile.dev
+    ports:
+      - 5050:5050
+    volumes:
+      - ..:/workspaces:cached
+      - ./config:/homeassistant
+      - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/homeassistant/www/v2g_liberty/v2g-liberty-cards
+      - ../v2g-liberty/data:/data
+      - ../v2g-liberty/logs:/config/logs
+    command: sh -c "/workspaces/v2g-liberty/script/init-config && sleep infinity"
+    healthcheck:
+      test: ['CMD', '/workspaces/v2g-liberty/script/is-container-ready']
+      interval: 3s
+      timeout: 1s
+      retries: 100
+
+  homeassistant:
+    image: homeassistant/home-assistant:2024.10
+    restart: unless-stopped
+    ports:
+      - 8123:8123
+    volumes:
+      - ./config:/config
+      - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/config/www/v2g_liberty/v2g-liberty-cards
+    depends_on:
+      addon-v2g-liberty:
+        condition: service_healthy
+
+  v2g-liberty-cards:
+    build:
+      context: ../v2g-liberty-cards
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ..:/workspaces:cached
+      - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/workspaces/v2g-liberty-cards/dist
+    command: sleep infinity
