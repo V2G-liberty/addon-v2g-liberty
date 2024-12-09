@@ -170,26 +170,15 @@ class V2Gliberty:
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
 
-        ####### V2G Liberty init complete ################
-        if self.evse_client_app is not None:
-            await self.evse_client_app.complete_init()
-        else:
-            self.__log(
-                "Could not call evse_client_app.complete_init. evse_client_app is None, not init yet?"
-            )
+        await self.evse_client_app.complete_init()
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
-        if self.evse_client_app is not None:
-            if charge_mode == "Stop":
-                self.__log("Charge_mode == 'Stop' -> Setting EVSE client to in_active!")
-                await self.evse_client_app.set_inactive()
-            else:
-                self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
-                await self.evse_client_app.set_active()
+        if charge_mode == "Stop":
+            self.__log("Charge_mode == 'Stop' -> Setting EVSE client to in_active!")
+            await self.evse_client_app.set_inactive()
         else:
-            self.__log(
-                "Could not call set_(in)active on evse_client_app as it is None, not init yet?"
-            )
+            self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
+            await self.evse_client_app.set_active()
 
         current_soc = await self.hass.get_state(
             "sensor.charger_connected_car_state_of_charge"

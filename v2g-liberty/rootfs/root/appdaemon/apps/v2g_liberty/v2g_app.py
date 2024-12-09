@@ -56,9 +56,7 @@ class V2GLibertyApp(ServiceResponseApp):
         octopus_price_data_manager.get_fm_data_module = get_fm_data
 
         await v2g_globals.initialize()
-        await modbus_evse_client.initialize()
-        await fm_client.initialize()
-        await reservations_client.initialize()
+
         await v2g_liberty.initialize()
         await data_monitor.initialize()
         await get_fm_data.initialize()

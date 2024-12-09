@@ -34,14 +34,10 @@ class ReservationsClient(ServiceResponseApp):
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
-    async def initialize(self):
-        self.__log("initialise ReservationsClient")
         self.principal = None
         self.poll_timer_id = ""
         # To force a "change" even if the local/remote calendar is empty.
         self.v2g_events = ["un-initiated"]
-        await self.initialise_calendar()
-        self.__log("Completed initialise ReservationsClient")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -105,7 +101,6 @@ class ReservationsClient(ServiceResponseApp):
         except Exception as e:
             self.__log(f"test_caldav_connection: Unknown error: '{e}'.")
             return "Unknown error"
-
 
     async def initialise_calendar(self):
         # Called by globals when:
@@ -507,6 +502,7 @@ class ReservationsClient(ServiceResponseApp):
 ######################################################################
 #                    PRIVATE UTILITY FUNCTIONS                       #
 ######################################################################
+
 
 def add_hash_id(v2g_event: dict):
     """Add a hash_id to a v2g_event

@@ -51,13 +51,6 @@ class FMClient:
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
-    async def initialize(self):
-        self.__log("Initializing FlexMeasuresClient")
-
-        self.fm_token = ""
-        self.fm_busy_getting_schedule = False
-        self.fm_date_time_last_schedule = get_local_now()
-
         # Maybe add these to constants / settings?
         self.FM_SCHEDULE_DURATION_STR = "PT27H"
         self.FM_SCHEDULE_DURATION = isodate.parse_duration(
@@ -74,27 +67,25 @@ class FMClient:
             + self.DELAY_FOR_INITIAL_ATTEMPT
         )
 
-        await self.initialise_and_test_fm_client()
-
         # Ping every half hour. If offline a separate process will run to increase polling frequency.
         self.connection_error_counter = 0
         # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
-        self.__log("Completed initializing FlexMeasuresClient")
 
     async def test_fm_connection(self, host_url, username, password):
         # TODO: Fix this
         from flexmeasures_client import FlexMeasuresClient
         from flexmeasures_client.exceptions import EmailValidationError
+
         host, ssl = get_host_and_ssl_from_url(host_url)
         self.__log(f"test_fm_connection, host: '{host}', ssl: '{ssl}'.")
 
         try:
             client = FlexMeasuresClient(
-                host = host,
-                email = username,
-                password = password,
-                ssl = ssl,
+                host=host,
+                email=username,
+                password=password,
+                ssl=ssl,
             )
         except ValueError as ve:
             self.__log(f"test_fm_connection, CLIENT ERROR: {ve}.")
@@ -111,7 +102,7 @@ class FMClient:
             assets = await client.get_assets()
             return assets
         finally:
-            client.close()
+            await client.close()
 
     async def initialise_and_test_fm_client(self) -> str:
         self.__log("initialise_and_test_fm_client called")
@@ -119,6 +110,10 @@ class FMClient:
         # with problems with the async loop.
         from flexmeasures_client import FlexMeasuresClient
         from flexmeasures_client.exceptions import EmailValidationError
+
+        self.fm_token = ""
+        self.fm_busy_getting_schedule = False
+        self.fm_date_time_last_schedule = get_local_now()
 
         host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
         self.__log(f"initialise_and_test_fm_client, host: '{host}', ssl: '{ssl}'.")
@@ -169,18 +164,13 @@ class FMClient:
 
         return "Successfully connected"
 
-    async def get_fm_assets(self):
-        self.__log("get_fm_assets called")
-        return await self.client.get_assets()
-
-    async def get_fm_sensors(self, asset_id: int):
-        self.__log("get_fm_sensors called")
-        fm_sensors = await self.client.get_sensors()
-        # Filter sensors to match the assets_id
-        sensors = [
-            sensor for sensor in fm_sensors if sensor["generic_asset_id"] == asset_id
-        ]
-        return sensors
+    async def get_fm_sensors_by_asset_name(self, asset_name: str):
+        assets = await self.client.get_assets()
+        for asset in assets:
+            if asset["name"] == asset_name:
+                sensors = [sensor for sensor in asset["sensors"]]
+                return sensors
+        return []
 
     # async def ping_server(self, *args):
     # """ Ping function to check if server is alive """

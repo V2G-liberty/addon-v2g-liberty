@@ -22,6 +22,12 @@
       "problemMatcher": []
     },
     {
+      "label": "Clean logging",
+      "type": "shell",
+      "command": "rm -f logs/*",
+      "problemMatcher": []
+    },
+    {
       "label": "pytest",
       "type": "shell",
       "command": "pytest",

@@ -35,7 +35,7 @@ class SettingsManager:
         for obsolete, new in {
             "input_select.admin_mobile_name": "input_text.admin_mobile_name",
             # "input_select.admin_mobile_platform": "input_text.admin_mobile_platform"
-            "input_select.fm_asset": "input_text.fm_asset"
+            "input_select.fm_asset": "input_text.fm_asset",
         }.items():
             if obsolete in settings:
                 value = settings.get(obsolete)
@@ -57,7 +57,7 @@ class SettingsManager:
     def __write_to_file(self):
         # self.__log(f"__write_to_file, settings: '{self.settings}'.")
         with open(self.settings_file_path, "w", encoding="utf-8") as write_file:
-            json.dump(self.settings, write_file)
+            json.dump(self.settings, write_file, indent=2)
 
     def reset(self):
         self.settings = {}

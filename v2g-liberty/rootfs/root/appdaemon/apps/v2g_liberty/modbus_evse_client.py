@@ -253,8 +253,6 @@ class ModbusEVSEclient:
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
-    async def initialize(self):
-        self.__log("Initializing ModbusEVSEclient")
         self.CHARGER_POLLING_ENTITIES = [
             self.ENTITY_CHARGER_CURRENT_POWER,
             self.ENTITY_CHARGER_STATE,
@@ -264,18 +262,12 @@ class ModbusEVSEclient:
             self.ENTITY_ERROR_3,
             self.ENTITY_ERROR_4,
         ]
-
         self.CHARGER_INFO_ENTITIES = [
             self.ENTITY_FIRMWARE_VERSION,
             self.ENTITY_SERIAL_NUMBER_HIGH,
             self.ENTITY_SERIAL_NUMBER_LOW,
         ]
-
         self.poll_timer_handle = None
-
-        await self.initialise_charger("initialize")
-
-        self.__log("Completed Initializing ModbusEVSEclient")
 
     ######################################################################
     #                     PUBLIC FUNCTIONAL METHODS                      #
@@ -299,9 +291,10 @@ class ModbusEVSEclient:
             client.close()
 
     async def __get_max_available_power(self, client):
-        result = await client.read_holding_registers(self.MAX_AVAILABLE_POWER_REGISTER, 1, slave=1)
+        result = await client.read_holding_registers(
+            self.MAX_AVAILABLE_POWER_REGISTER, 1, slave=1
+        )
         return result.registers[0]
-
 
     async def initialise_charger(self, v2g_args=None):
         self.__log(
@@ -417,7 +410,10 @@ class ModbusEVSEclient:
                 "is_car_connected called while _am_i_active == False. Not blocking."
             )
 
-        is_connected = await self.__get_charger_state() != self.DISCONNECTED_STATE
+        is_connected = self.client is not None
+        is_connected = (
+            is_connected and await self.__get_charger_state() != self.DISCONNECTED_STATE
+        )
         self.__log(f"is_car_connected called, returning: {is_connected}")
         return is_connected
 
@@ -445,6 +441,8 @@ class ModbusEVSEclient:
         """This public function is to be called from v2g-liberty once after its own init is complete.
         This timing is essential as the following code possibly needs v2g-liberty for notifications etc.
         """
+        if self.client is None:
+            return
 
         # So the status page can show if communication with charge is ok.
         for entity in self.CHARGER_INFO_ENTITIES:
