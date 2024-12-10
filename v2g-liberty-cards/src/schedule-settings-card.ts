@@ -66,14 +66,14 @@ export class ScheduleSettingsCard extends LitElement {
 
     return html`
       <div class="card-content">
-        ${this._renderEntityRow(this._fmAccountUsername)}
+        ${this._renderEntityBlock(this._fmAccountUsername)}
         ${isUsingOtherServer
           ? html`
               <p>${useOtherServer}</p>
-              ${this._renderEntityRow(this._fmHostUrl)}
+              ${this._renderEntityBlock(this._fmHostUrl)}
             `
           : html` <p>${useDefaultServer}</p> `}
-        ${this._renderEntityRow(this._fmAsset)}
+        ${this._renderEntityBlock(this._fmAsset)}
         <mwc-button @click=${editCallback}>
           ${this._hass.localize('ui.common.edit')}
         </mwc-button>
@@ -81,9 +81,9 @@ export class ScheduleSettingsCard extends LitElement {
     `;
   }
 
-  private _renderEntityRow(stateObj) {
+  private _renderEntityBlock(stateObj) {
     const stateLabel = t(stateObj.state) || stateObj.state;
-    const nameLabel =
+    const description =
       t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return html`
       <ha-settings-row>
@@ -91,7 +91,7 @@ export class ScheduleSettingsCard extends LitElement {
           <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
           ${stateLabel}
         </span>
-        <span slot="description">${nameLabel}</span>
+        <span slot="description">${description}</span>
       </ha-settings-row>
     `;
   }

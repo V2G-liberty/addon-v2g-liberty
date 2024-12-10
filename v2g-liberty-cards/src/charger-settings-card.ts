@@ -68,7 +68,7 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
-        ${this._renderEntityRow(this._chargerHost)}
+        ${this._renderEntityBlock(this._chargerHost)}
         ${this._renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         <p>
@@ -104,16 +104,35 @@ export class ChargerSettingsCard extends LitElement {
       : nothing;
   }
 
-  private _renderEntityRow(stateObj) {
+  private _renderEntityBlock(stateObj) {
     const stateLabel = t(stateObj.state) || stateObj.state;
+    const description =
+      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return html`
       <ha-settings-row>
         <span slot="heading">
           <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${stateObj.attributes.friendly_name}</span
-        >
+          ${stateLabel}
+        </span>
+        <span slot="description">${description}</span>
+      </ha-settings-row>
+    `;
+  }
+
+  private _renderEntityRow(stateObj, options = {}) {
+    const stateLabel = options.format
+      ? this._hass.formatEntityState(stateObj)
+      : stateObj.state;
+    const description =
+      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+    return html`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+          ${description}
+        </span>
         <div class="text-content value state" test-id="${stateObj.entity_id}">
-          ${this._hass.formatEntityState(stateObj)}
+          ${stateLabel}
         </div>
       </ha-settings-row>
     `;
@@ -131,8 +150,12 @@ export class ChargerSettingsCard extends LitElement {
       : tp('do-not-reduce-max-power-description');
     const maxChargingPowerEntityRows = isUsingReducedMaxPower
       ? html`
-          ${this._renderEntityRow(this._chargerMaxChargingPower)}
-          ${this._renderEntityRow(this._chargerMaxDischargingPower)}
+          ${this._renderEntityRow(this._chargerMaxChargingPower, {
+            format: true,
+          })}
+          ${this._renderEntityRow(this._chargerMaxDischargingPower, {
+            format: true,
+          })}
         `
       : nothing;
 

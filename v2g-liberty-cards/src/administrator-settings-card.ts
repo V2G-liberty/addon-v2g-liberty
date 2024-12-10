@@ -42,8 +42,8 @@ export class AdministratorSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <div class="description">${tp('sub-header')}</div>
-        ${this._renderEntityRow(this._adminMobileName)}
-        ${this._renderEntityRow(this._adminMobilePlatform)}
+        ${this._renderEntityBlock(this._adminMobileName)}
+        ${this._renderEntityBlock(this._adminMobilePlatform)}
         <mwc-button @click=${editCallback}>
           ${this._hass.localize('ui.common.edit')}
         </mwc-button>
@@ -65,15 +65,17 @@ export class AdministratorSettingsCard extends LitElement {
     `;
   }
 
-  private _renderEntityRow(stateObj) {
+  private _renderEntityBlock(stateObj) {
     const stateLabel = t(stateObj.state) || stateObj.state;
+    const description =
+      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return html`
       <ha-settings-row>
         <span slot="heading" test-id="${stateObj.entity_id}">
           <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
           ${stateLabel}
         </span>
-        <span slot="description">${stateObj.attributes.friendly_name}</span>
+        <span slot="description">${description}</span>
       </ha-settings-row>
     `;
   }

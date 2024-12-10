@@ -7,6 +7,7 @@ import { partial, t } from './util/translate';
 import { showElectricityContractSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
+const to = partial('option');
 const tp = partial('settings.electricity-contract');
 
 @customElement('v2g-liberty-electricity-contract-settings-card')
@@ -70,7 +71,7 @@ export class ElectricityContractSettingsCard extends LitElement {
 
     return html`
       <div class="card-content">
-        ${this._renderEntityRow(this._electricityProvider)}
+        ${this._renderEntityBlock(this._electricityProvider)}
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
@@ -81,9 +82,9 @@ export class ElectricityContractSettingsCard extends LitElement {
     `;
   }
 
-  private _renderEntityRow(stateObj) {
-    const stateLabel = t(stateObj.state) || stateObj.state;
-    const nameLabel =
+  private _renderEntityBlock(stateObj) {
+    const stateLabel = to(stateObj.state) || stateObj.state;
+    const description =
       t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return html`
       <ha-settings-row>
@@ -91,7 +92,23 @@ export class ElectricityContractSettingsCard extends LitElement {
           <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
           ${stateLabel}
         </span>
-        <span slot="description">${nameLabel}</span>
+        <span slot="description">${description}</span>
+      </ha-settings-row>
+    `;
+  }
+
+  private _renderEntityRow(stateObj) {
+    const stateLabel =
+      t(stateObj.state) || this._hass.formatEntityState(stateObj);
+    const description =
+      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+    return html`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+          ${description}
+        </span>
+        <div class="text-content value state">${stateLabel}</div>
       </ha-settings-row>
     `;
   }
@@ -108,8 +125,8 @@ export class ElectricityContractSettingsCard extends LitElement {
   private _renderAmberContractDetails() {
     return this._electricityProvider.state === 'au_amber_electric'
       ? html`
-          ${this._renderEntityRow(this._ownConsumptionPriceEntityId)}
-          ${this._renderEntityRow(this._ownProductionPriceEntityId)}
+          ${this._renderEntityBlock(this._ownConsumptionPriceEntityId)}
+          ${this._renderEntityBlock(this._ownProductionPriceEntityId)}
         `
       : nothing;
   }
@@ -117,9 +134,9 @@ export class ElectricityContractSettingsCard extends LitElement {
   private _renderOctopusContractDetails() {
     return this._electricityProvider.state === 'gb_octopus_energy'
       ? html`
-          ${this._renderEntityRow(this._octopusImportCode)}
-          ${this._renderEntityRow(this._octopusExportCode)}
-          ${this._renderEntityRow(this._gbDnoRegion)}
+          ${this._renderEntityBlock(this._octopusImportCode)}
+          ${this._renderEntityBlock(this._octopusExportCode)}
+          ${this._renderEntityBlock(this._gbDnoRegion)}
         `
       : nothing;
   }

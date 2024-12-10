@@ -1,6 +1,36 @@
 {
+    "input_number": {
+        "allowed_duration_above_max_soc_in_hrs": "Allowed duration above max soc",
+        "car_consumption_wh_per_km": "Car energy consumption",
+        "car_min_soc_in_percent": "Schedule lower limit",
+        "car_max_capacity_in_kwh": "Usable capacity",
+        "car_max_soc_in_percent": "Schedule upper limit",
+        "charger_max_charging_power": "Max. charging power",
+        "charger_max_discharging_power": "Max. discharging power",
+        "charger_plus_car_roundtrip_efficiency": "Roundtrip efficiency",
+        "charger_port": "Port number",
+        "energy_price_markup_per_kwh": "Markup",
+        "energy_price_vat": "VAT",
+    },
     "input_select": {
+        "admin_mobile_platform": "Operating system of the administrator device",
+        "car_calendar_name": "Calendar name",
         "electricity_provider": "Electricity contract",
+        "gb_dno_region": "Great Brittain DNO region",
+        "optimisation_mode": "Optimisation mode",
+    },
+    "input_text": {
+        "admin_mobile_name": "Administrator device",
+        "calendar_account_init_url": "Calendar host URL",
+        "calendar_account_username": "Username",
+        "charger_host_url": "Charger host URL",
+        "fm_account_username": "Username",
+        "fm_asset": "Asset name",
+        "fm_host_url": "Host URL",
+        "octopus_export_code": "Export code",
+        "octopus_import_code": "Import code",
+        "own_consumption_price_entity_id": "Source entity_id consumption prices",
+        "own_production_price_entity_id": "Source entity_id production prices",
     },
     "option": {
         "android": "Android",
@@ -30,11 +60,11 @@
         "car": {
             "header": "Car",
             "alert": "Please configure all data elements, V2G Liberty needs this to work.",
-            "usable-capacity-description": "This is the the maximum usable energy storage capacity.\nThis often is lower than the advertised capacity.",
         },
         "car-reservation-calendar": {
             "header": "Car reservation calendar",
             "alert": "Please configure your car reservation calendar, V2G Liberty needs this to work.",
+            "type": "Type",
             "source-selection": {
                 "description": "V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the wanted state of charge at exactly the right time at the lowest cost.",
                 "select-name": "Calendar type",
@@ -117,6 +147,7 @@
         },
         "optimisation": {
             "header": "Optimisation",
+            "description": "How to optimise the charging schedules.",
         },
         "schedule": {
             "header": "Smart schedule",

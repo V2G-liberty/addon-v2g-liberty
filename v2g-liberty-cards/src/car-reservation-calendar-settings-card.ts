@@ -69,9 +69,9 @@ export class CarReservationCalendarSettingsCard extends LitElement {
     `;
   }
 
-  private _renderEntityRow(stateObj) {
+  private _renderEntityBlock(stateObj) {
     const stateLabel = t(stateObj.state) || stateObj.state;
-    const nameLabel =
+    const description =
       t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return html`
       <ha-settings-row>
@@ -79,7 +79,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
           <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
           ${stateLabel}
         </span>
-        <span slot="description">${nameLabel}</span>
+        <span slot="description">${description}</span>
       </ha-settings-row>
     `;
   }
@@ -87,10 +87,12 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderCaldavDetails() {
     return this._carCalendarSource.state === 'Direct caldav source'
       ? html`
-          ${this._renderEntityRow(this._carCalendarSource)}
-          ${this._renderEntityRow(this._calendarAccountUrl)}
-          ${this._renderEntityRow(this._calendarAccountUsername)}
-          ${this._renderEntityRow(this._carCalendarName)}
+          <p>
+            ${tp('type')}: <strong>${this._carCalendarSource.state}</strong>
+          </p>
+          ${this._renderEntityBlock(this._calendarAccountUrl)}
+          ${this._renderEntityBlock(this._calendarAccountUsername)}
+          ${this._renderEntityBlock(this._carCalendarName)}
         `
       : nothing;
   }
@@ -98,8 +100,8 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderHomeAssistantDetails() {
     return this._carCalendarSource.state === 'Home Assistant integration'
       ? html`
-          ${this._renderEntityRow(this._carCalendarSource)}
-          ${this._renderEntityRow(this._integrationCalendarEntityName)}
+          <p>${tp('type')}: ${this._carCalendarSource.state}</p>
+          ${this._renderEntityBlock(this._integrationCalendarEntityName)}
         `
       : nothing;
   }
