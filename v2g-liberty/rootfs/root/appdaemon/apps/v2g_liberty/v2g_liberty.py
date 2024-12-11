@@ -4,7 +4,7 @@ from typing import AsyncGenerator, List, Optional
 from itertools import accumulate
 import math
 import asyncio
-from v2g_globals import time_round, he, get_local_now
+from v2g_globals import time_round, he, get_local_now, parse_to_int
 from v2g_globals import V2GLibertyGlobals
 import constants as c
 import log_wrapper
@@ -191,9 +191,7 @@ class V2Gliberty:
                 "Could not call set_(in)active on evse_client_app as it is None, not init yet?"
             )
 
-        current_soc = await self.hass.get_state(
-            "sensor.car_state_of_charge"
-        )
+        current_soc = await self.hass.get_state("sensor.car_state_of_charge")
         await self.__process_soc(current_soc)
 
         await self.initialise_v2g_liberty(v2g_args="initialise")
@@ -292,21 +290,22 @@ class V2Gliberty:
 
             # If the SoC of the car is higher than the max-soc (intended for battery protection)
             # a target is set to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
-            if (self.back_to_max_soc is None) and (
-                self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH
+            if (self.back_to_max_soc is None
+                and self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH
             ):
                 self.back_to_max_soc = time_round(
                     (now + timedelta(hours=c.ALLOWED_DURATION_ABOVE_MAX_SOC)),
                     c.EVENT_RESOLUTION,
                 )
                 self.__log(
-                    f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% at {self.back_to_max_soc}."
+                    f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% "
+                    f"at {self.back_to_max_soc}."
                 )
-            elif (
-                self.back_to_max_soc is not None
-            ) and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
+            elif (self.back_to_max_soc is not None
+                  and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH
+            ):
                 self.back_to_max_soc = None
-                self.__log(f"SoC was below max-soc, has been restored.")
+                self.__log("SoC was below max-soc, has been restored.")
 
             if (
                 self.connected_car_soc < c.CAR_MIN_SOC_IN_PERCENT
@@ -676,10 +675,16 @@ class V2Gliberty:
         self.no_schedule_errors[error_name] = error_state
         await self.__notify_no_new_schedule()
 
-    async def notify_user_of_charger_needs_restart(self, was_car_connected: bool):
-        """Notify admin with critical message of a presumably crashed modbus server
-        module in the charger.
-        To be called from evse_client_app.
+    async def handle_none_responsive_charger(self, was_car_connected: bool):
+        """Handle a none-responsive charger:
+        - Stop charging
+        - Set message in UI
+        - Notify admin with (critical) message
+        To be called from evse_client_app when the charger is considered none-responsive.
+        :param was_car_connected: Was the car connected at the moment the charger became
+                                  none-responsive. Determines if the notification needs to
+                                  be critical or not.
+        :returns: Noting
         """
         self.__log(
             "The charger probably crashed: Stop charging, set Error in UI and notify user"
@@ -786,7 +791,7 @@ class V2Gliberty:
     ######################################################################
 
     async def __pong(self, event, data, kwargs):
-        self.hass.fire_event("ping.result")
+        await self.hass.fire_event("ping.result")
 
     async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
         """Handle changes in the charge mode
@@ -881,13 +886,15 @@ class V2Gliberty:
         Has a sister function in evse module to handle stuff there"""
         if new is None:
             return
-        new_charger_state = int(float(new["state"]))
+        new_charger_state = new.get("state", None)
+        new_charger_state = parse_to_int(new_charger_state, -1)
 
-        # Initialise to be always different then current if not in state
-        old_charger_state = -1
+        if new_charger_state == -1:
+            return
 
-        if old is not None:
-            old_charger_state = int(float(old["state"]))
+        # Initialise to -1 to be always different from current if not in state
+        old_charger_state = old.get("state", None)
+        old_charger_state = parse_to_int(old_charger_state, -1)
 
         if old_charger_state == new_charger_state:
             return
@@ -928,8 +935,10 @@ class V2Gliberty:
             await self.set_next_action(v2g_args="__handle_charger_state_change")
             return
 
-        # Handling errors is left to the evse_client_app as this knows what specific situations there are for
-        # the charger. If the charger needs a restart the evse_client_app calls notify_user_of_charger_needs_restart
+        # Handling errors is left to the evse_client_app as this knows what specific
+        # situations there are for the charger.
+        # If the charger is considered none-responsive (and thus needs a restart)
+        # the evse_client_app calls handle_none_responsive_charger
         return
 
     async def __handle_user_dismiss_choice(self, event_name, data, kwargs):
@@ -1058,13 +1067,10 @@ class V2Gliberty:
                 If notification has been sent:
                     Notify user the situation has been restored.
 
-        Parameters
-        ----------
-        reset : bool, optional
+        :param reset: bool, optional
                 Reset is meant for the situation where the car gets disconnected and all
                 notifications can be cancelled and messages in UI removed.
                 Then also no "problems are solved" notification is sent.
-
         """
 
         if reset:
@@ -1091,7 +1097,8 @@ class V2Gliberty:
                 "input_boolean.error_no_new_schedule_available", state="on"
             )
             await self.hass.set_state(
-                entity_id="sensor.fm_connection_status", state="Failed to connect/login."
+                entity_id="sensor.fm_connection_status",
+                state="Failed to connect/login.",
             )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
@@ -1377,7 +1384,8 @@ class V2Gliberty:
         else:
             self.__log("Could not call is_charging on evse_client_app as it is None.")
             return False
-        # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge while charging (not dis-charging).
+        # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge
+        # while charging (not dis-charging).
         if is_charging and self.connected_car_soc == c.CAR_MAX_SOC_IN_PERCENT:
             message = f"Car battery at {self.connected_car_soc} %, range ≈ {remaining_range} km."
             self.notify_user(

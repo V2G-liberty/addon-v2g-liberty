@@ -252,6 +252,9 @@ class ReservationsClient(ServiceResponseApp):
             end_date_time=end,
             return_result=True,
         )
+        if local_events is None:
+            self.__log("Could not retreive events, aborting", level="WARNING")
+            return
         # Peel off some unneeded layers
         local_events = local_events.get(c.INTEGRATION_CALENDAR_ENTITY_NAME, None)
         local_events = local_events.get("events", None)
@@ -475,6 +478,7 @@ class ReservationsClient(ServiceResponseApp):
 ######################################################################
 #                    PRIVATE UTILITY FUNCTIONS                       #
 ######################################################################
+
 
 def add_hash_id(v2g_event: dict):
     """Add a hash_id to a v2g_event
