@@ -208,7 +208,8 @@ class V2Gliberty:
             entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
         )
         await self.hass.set_state(
-            entity_id="sensor.utility_display_name", state=c.UTILITY_CONTEXT_DISPLAY_NAME
+            entity_id="sensor.utility_display_name",
+            state=c.UTILITY_CONTEXT_DISPLAY_NAME,
         )
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
@@ -290,7 +291,8 @@ class V2Gliberty:
 
             # If the SoC of the car is higher than the max-soc (intended for battery protection)
             # a target is set to return to the max-soc within the ALLOWED_DURATION_ABOVE_MAX_SOC
-            if (self.back_to_max_soc is None
+            if (
+                self.back_to_max_soc is None
                 and self.connected_car_soc_kwh > c.CAR_MAX_SOC_IN_KWH
             ):
                 self.back_to_max_soc = time_round(
@@ -301,8 +303,9 @@ class V2Gliberty:
                     f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% "
                     f"at {self.back_to_max_soc}."
                 )
-            elif (self.back_to_max_soc is not None
-                  and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH
+            elif (
+                self.back_to_max_soc is not None
+                and self.connected_car_soc_kwh <= c.CAR_MAX_SOC_IN_KWH
             ):
                 self.back_to_max_soc = None
                 self.__log("SoC was below max-soc, has been restored.")
@@ -791,7 +794,7 @@ class V2Gliberty:
     ######################################################################
 
     async def __pong(self, event, data, kwargs):
-        await self.hass.fire_event("ping.result")
+        self.hass.fire_event("ping.result")
 
     async def __update_charge_mode(self, entity, attribute, old, new, kwargs):
         """Handle changes in the charge mode

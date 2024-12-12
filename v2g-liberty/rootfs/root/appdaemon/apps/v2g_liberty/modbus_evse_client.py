@@ -160,7 +160,7 @@ class ModbusEVSEclient:
     # Groups of entities for efficient reading of the modbus registers.
     CHARGER_POLLING_ENTITIES: list
     CHARGER_ERROR_ENTITIES: list
-    # To be read once at init
+    # Contain static data, only needs to be initialised once
     CHARGER_INFO_ENTITIES: list
 
     ######################################################################
@@ -366,9 +366,10 @@ class ModbusEVSEclient:
             )
             return
 
-        charge_power_in_watt = parse_to_int(kwargs.get("charge_power", None), None)
+        charge_power = kwargs.get("charge_power", None)
+        charge_power_in_watt = parse_to_int(charge_power, None)
         if charge_power_in_watt is None:
-            self.__log(f"invalid charge_power: {kwargs.get('charge_power', None)}")
+            self.__log(f"invalid {charge_power=}, aborting")
             return
         await self.__set_charger_control("take")
         if charge_power_in_watt == 0:
@@ -944,25 +945,13 @@ class ModbusEVSEclient:
         new_attributes = {}
         if self.hass.entity_exists(entity_id):
             entity_state = await self.hass.get_state(entity_id, attribute="all")
-            # self.__log(f"{entity_state=}")
             if entity_state is not None:
-                # Even though it exists it's state can still be None! Argghh...
+                # Even though it exists it's state can still be None
                 new_attributes = entity_state.get("attributes", {})
-                # self.__log(f"{new_attributes=}")
             new_attributes.update(attributes)
-            # self.__log(f"{new_attributes=}")
         else:
             new_attributes = attributes
-        # if entity_id == "sensor.car_state_of_charge":
-        #     old_state=await self.hass.get_state(entity_id, state="all")
-        res = await self.hass.set_state(
-            entity_id, state=new_value, attributes=new_attributes
-        )
-        # if entity_id == "sensor.car_state_of_charge":
-        #     state_in_ha = await self.hass.get_state(entity_id, state="all")
-        #     self.__log(f"COANS:\n"
-        #                f"{old_state=}\n"
-        #                f"{state_in_ha=}\n")
+        await self.hass.set_state(entity_id, state=new_value, attributes=new_attributes)
 
     async def __set_charge_power(
         self, charge_power: int, skip_min_soc_check: bool = False, source: str = None
@@ -1059,8 +1048,10 @@ class ModbusEVSEclient:
         if charger_state is None:
             # Probably initialization is not complete yet, assume not connected
             charger_state = self.DISCONNECTED_STATE
-            self.__log("Deciding polling strategy based on state unknown charger state, "
-                       "assume disconnected.")
+            self.__log(
+                "Deciding polling strategy based on state unknown charger state, "
+                "assume disconnected."
+            )
         else:
             self.__log(
                 f"Deciding polling strategy based on state: {self.CHARGER_STATES[charger_state]}."
@@ -1091,7 +1082,6 @@ class ModbusEVSEclient:
 
         self.__log(f"reason: {reason}")
         self.__cancel_timer(self.poll_timer_handle)
-        # To be really sure...
         self.poll_timer_handle = None
         await self.__update_poll_indicator_in_ui(reset=True)
 
@@ -1143,11 +1133,6 @@ class ModbusEVSEclient:
         """
         When a 'realtime' reading from the modbus server is needed, as opposed to
         stored value from polling.
-        It is expected to be between min_value_at_forced_get/max_value_at_forced_get.
-        Keep trying to get a reading that is within min_value_at_forced_get - max_value_at_forced_get range or
-        a timeout has been reached.
-        After the timeout the value is checked against other min/max values. This is
-        a wider range.
         This is aimed at the SoC, this is expected to be between 2 and 97%, but at
         timeout 1% to 100% is acceptable.
 
@@ -1174,8 +1159,6 @@ class ModbusEVSEclient:
             result = None
             try:
                 # Only one register is read so count = 1, the charger expects slave to be 1.
-                # I hate using the word 'slave', this should be 'server' but pyModbus has
-                # not changed this yet.
                 result = await self.client.read_holding_registers(
                     register, count=1, slave=1
                 )
