@@ -10,16 +10,17 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: During Max charge the power sometimes is set to 0 (#152)
 - 🪲 BUG: Local Home Assistant calendar only triggers changed event on first upcoming calendar item (#167)
 - 🪲 BUG: Alert for negative prices not working correctly (#169)
+- 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
+  Includes Bump of pyModbus library to 3.8.0
 
 ### Added
 
 - Feature Request: Notify user when at the end of a calendar item the car is not connected (#158)
-- Feature Request: Add history to V2G Liberty entities (#176) 
+- Feature Request: Add history to V2G Liberty entities (#176)
 
 ### Changed
 
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
-
 
 ## 0.4.2 2024-11-25
 
@@ -27,13 +28,11 @@ That file also contains possible changes that the next release might include.
 
 - 🪲 BUG-FIX release 0.4.2: Amber price data does not get sent (#173)
 
-
 ## 0.4.1 2024-11-07
 
 ### Fixed
 
 - 🪲 BUG-FIX release 0.4.1: Better cleanup of the old renamed v2g-liberty folder.
-
 
 ## 0.4.0 2024-11-04
 

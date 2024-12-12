@@ -319,15 +319,17 @@ class V2GLibertyGlobals:
         await self.__kick_off_settings()
 
         # Listen to [TEST] buttons
-        self.hass.listen_event(
+        await self.hass.listen_event(
             self.__test_charger_connection, "TEST_CHARGER_CONNECTION"
         )
-        self.hass.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
-        self.hass.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
-        self.hass.listen_event(
+        await self.hass.listen_event(
+            self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION"
+        )
+        await self.hass.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
+        await self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
-        self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
+        await self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
 
         # Was None, which blocks processing during initialisation
         self.collect_action_handle = ""
@@ -1765,3 +1767,15 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
     else:
         str_days = ""
     return f"P{str_days}T{str(hours)}H{str(minutes)}M"
+
+
+def parse_to_int(number_string, default_value: int):
+    """Reliably parse a string, float or int to an int. If un-parsable return the default value.
+    :param number_string: str, float, int, bool (not dict or list)
+    :param default_value: int that is returned if paring failed.
+    :return: parsed int
+    """
+    try:
+        return int(float(number_string))
+    except:
+        return default_value

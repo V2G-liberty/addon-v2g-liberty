@@ -242,8 +242,14 @@ input_number:
     step: 1
     icon: mdi:timer-lock-outline
     mode: box
-    unit_of_measurement: "hrs"
+    unit_of_measurement: hrs
 
+template:
+  - binary_sensor:
+      - name: is_charge_power_different_from_schedule
+        device_class: problem
+        state: >
+          {{ ((states('sensor.current_scheduled_charging_power')|int - states('sensor.charger_real_charging_power')|int)|abs) > 500 }}
 
 sensor:
   - platform: template
