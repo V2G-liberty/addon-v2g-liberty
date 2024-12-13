@@ -379,7 +379,7 @@ class ModbusEVSEclient:
         charge_power = kwargs.get("charge_power", None)
         charge_power_in_watt = parse_to_int(charge_power, None)
         if charge_power_in_watt is None:
-            self.__log(f"invalid charge_power: {charge_power}")
+            self.__log(f"invalid {charge_power=}, aborting")
             return
         await self.__set_charger_control("take")
         if charge_power_in_watt == 0:

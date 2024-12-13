@@ -182,7 +182,8 @@ class V2Gliberty:
             entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
         )
         await self.hass.set_state(
-            entity_id="sensor.utility_display_name", state=c.UTILITY_CONTEXT_DISPLAY_NAME
+            entity_id="sensor.utility_display_name",
+            state=c.UTILITY_CONTEXT_DISPLAY_NAME,
         )
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
