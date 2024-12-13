@@ -152,7 +152,7 @@ class ManageOctopusPriceData:
 
         self.emission_region_slug = f"/fw48h/regionid/{region_index}"
 
-        if self.hass.info_timer(self.daily_timer_id):
+        if self.hass.timer_running(self.daily_timer_id):
             await self.hass.cancel_timer(self.daily_timer_id, silent=True)
         self.daily_timer_id = self.hass.run_daily(
             self.__daily_kickoff_prices_emissions, start=self.first_try_time_get_data

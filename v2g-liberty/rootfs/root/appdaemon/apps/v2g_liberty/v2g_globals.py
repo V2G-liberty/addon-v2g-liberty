@@ -1540,7 +1540,7 @@ class V2GLibertyGlobals:
         if self.collect_action_handle is None:
             # This is the initial, init has not finished yet
             return
-        if self.hass.info_timer(self.collect_action_handle):
+        if self.hass.timer_running(self.collect_action_handle):
             await self.hass.cancel_timer(self.collect_action_handle, True)
         self.collect_action_handle = await self.hass.run_in(
             self.__collective_action, delay=15, source=source

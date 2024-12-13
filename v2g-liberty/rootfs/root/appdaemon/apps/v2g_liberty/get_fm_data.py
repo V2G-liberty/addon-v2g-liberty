@@ -119,7 +119,6 @@ class FlexMeasuresDataImporter:
 
         self.__log("Complete")
 
-
     async def finalize_initialisation(self, v2g_args: str):
         """
         Finalize the initialisation. This is run from initialise and from globals when
@@ -194,7 +193,7 @@ class FlexMeasuresDataImporter:
 
         :param timer_id: timer_handle to cancel
         """
-        if self.hass.info_timer(timer_id):
+        if self.hass.timer_running(timer_id):
             silent = True  # Does not really work
             await self.hass.cancel_timer(timer_id, silent)
 
@@ -412,7 +411,8 @@ class FlexMeasuresDataImporter:
         )
         await self.hass.set_state(
             entity_id="sensor.net_energy_last_7_days",
-            state=total_charged_energy_last_7_days + total_discharged_energy_last_7_days,
+            state=total_charged_energy_last_7_days
+            + total_discharged_energy_last_7_days,
         )
 
         await self.hass.set_state(

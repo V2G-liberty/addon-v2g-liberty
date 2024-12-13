@@ -60,7 +60,7 @@ class ManageAmberPriceData:
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
-        self.__log(f"Initializing ManageAmberPriceData.")
+        self.__log("ManageAmberPriceData.")
 
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
@@ -71,7 +71,7 @@ class ManageAmberPriceData:
         self.POLLING_INTERVAL_SECONDS = c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
         self.poll_timer_handle = None
         await self.kick_off_amber_price_management(initial=True)
-        self.__log(f"Completed Initializing ManageAmberPriceData.")
+        self.__log("Completed Initializing ManageAmberPriceData.")
 
     async def kick_off_amber_price_management(self, initial: bool = False):
         """
@@ -97,12 +97,12 @@ class ManageAmberPriceData:
             )
             return
 
-        self.__log(f"kick_off_amber_price_management starting!")
+        self.__log("starting!")
 
         if initial:
             await self.__check_for_price_changes({"forced": True})
 
-        if self.hass.info_timer(self.poll_timer_handle):
+        if self.hass.timer_running(self.poll_timer_handle):
             silent = True  # Does not really work
             await self.hass.cancel_timer(self.poll_timer_handle, silent)
 
@@ -112,7 +112,7 @@ class ManageAmberPriceData:
             interval=self.POLLING_INTERVAL_SECONDS,
         )
 
-        self.__log(f"completed")
+        self.__log("completed")
 
     async def __check_for_price_changes(self, kwargs):
         """Checks if prices have changed.
@@ -134,7 +134,7 @@ class ManageAmberPriceData:
             c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID, attribute="all"
         )
         if state is None:
-            self.__log(f"no (data in) price_entity (yet), aborting.")
+            self.__log("no (data in) price_entity (yet), aborting.")
             return
         collection_cpf = state["attributes"][self.COLLECTION_NAME]
         for item in collection_cpf:
@@ -161,14 +161,16 @@ class ManageAmberPriceData:
 
             if self.fm_client_app is not None:
                 res = await self.fm_client_app.post_measurements(
-                    sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                    values = consumption_prices,
-                    start = start_cpf,
-                    duration = duration_cpf,
-                    uom = uom,
+                    sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
+                    values=consumption_prices,
+                    start=start_cpf,
+                    duration=duration_cpf,
+                    uom=uom,
                 )
             else:
-                self.__log("1 Could not call post_measurements on fm_client_app as it is None.")
+                self.__log(
+                    "1 Could not call post_measurements on fm_client_app as it is None."
+                )
                 res = False
 
             if res:
@@ -183,12 +185,12 @@ class ManageAmberPriceData:
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
                 self.__log(
-                    f"__check_for_price_changes, res: {res}, "
+                    f"res: {res}, "
                     f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}"
                 )
 
         if emissions != self.last_emissions or forced:
-            self.__log("__check_for_price_changes: emissions changed")
+            self.__log("emissions changed")
             # TODO: copied code from previous block, please prevent this.
             start_cpf = parse_to_rounded_local_datetime(
                 collection_cpf[0][self.START_LABEL]
@@ -204,15 +206,15 @@ class ManageAmberPriceData:
 
             if self.fm_client_app is not None:
                 res = await self.fm_client_app.post_measurements(
-                    sensor_id = c.FM_EMISSIONS_SENSOR_ID,
-                    values = emissions,
-                    start = start_cpf,
-                    duration = duration_cpf,
-                    uom = "%",
+                    sensor_id=c.FM_EMISSIONS_SENSOR_ID,
+                    values=emissions,
+                    start=start_cpf,
+                    duration=duration_cpf,
+                    uom="%",
                 )
             else:
                 self.__log(
-                    f"__check_for_price_changes. 1 Could not call post_measurements on fm_client_app as it is None."
+                    "1 Could not call post_measurements on fm_client_app as it is None."
                 )
                 res = False
 
@@ -224,12 +226,12 @@ class ManageAmberPriceData:
                     await self.get_fm_data_module.get_emission_intensities()
                 else:
                     self.__log(
-                        "__check_for_price_changes. Could not call get_emission_intensities on "
+                        "Could not call get_emission_intensities on "
                         "get_fm_data_module as it is None."
                     )
 
             self.__log(
-                f"__check_for_price_changes, res: {res}, "
+                f"res: {res}, "
                 f"opt_mod: {c.OPTIMISATION_MODE}, new_schedule: {new_schedule_needed}"
             )
 
@@ -245,7 +247,7 @@ class ManageAmberPriceData:
             )
 
         if production_prices != self.last_production_prices or forced:
-            self.__log("__check_for_price_changes: production_prices changed")
+            self.__log("production_prices changed")
             self.last_production_prices = list(production_prices)
             start_ppf = parse_to_rounded_local_datetime(
                 collection_ppf[0][self.START_LABEL]
@@ -259,15 +261,15 @@ class ManageAmberPriceData:
 
             if self.fm_client_app is not None:
                 res = await self.fm_client_app.post_measurements(
-                    sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID,
-                    values = production_prices,
-                    start = start_ppf,
-                    duration = duration_ppf,
-                    uom = uom,
+                    sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                    values=production_prices,
+                    start=start_ppf,
+                    duration=duration_ppf,
+                    uom=uom,
                 )
             else:
                 self.__log(
-                    f"__check_for_price_changes. 2 Could not call post_measurements on fm_client_app as it is None."
+                    "2 Could not call post_measurements on fm_client_app as it is None."
                 )
                 res = False
 
@@ -277,27 +279,25 @@ class ManageAmberPriceData:
                     await self.get_fm_data_module.get_prices(parameters)
                 else:
                     self.__log(
-                        "__check_for_price_changes. Could not call get_production_prices on "
+                        "Could not call get_production_prices on "
                         "get_fm_data_module as it is None."
                     )
                 if c.OPTIMISATION_MODE == "price":
                     new_schedule_needed = True
             self.__log(
-                f"__check_for_price_changes, res: {res}, opt_mod: {c.OPTIMISATION_MODE}, "
+                f"res: {res}, opt_mod: {c.OPTIMISATION_MODE}, "
                 f"new_schedule: {new_schedule_needed}"
             )
 
         if not new_schedule_needed:
-            self.__log("__check_for_price_changes: not any changes")
+            self.__log("not any changes")
             return
 
         msg = f"changed Amber {c.OPTIMISATION_MODE}s"
         if self.v2g_main_app is not None:
             await self.v2g_main_app.set_next_action(v2g_args=msg)
         else:
-            self.__log(
-                "__check_for_price_changes. Could not call set_next_action on v2g_main_app as it is None."
-            )
+            self.__log("Could not call set_next_action on v2g_main_app as it is None.")
 
 
 # TODO: Make generic function in globals, it is copied to Octopus module.
