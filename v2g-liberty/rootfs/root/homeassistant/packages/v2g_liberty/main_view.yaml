@@ -5,8 +5,6 @@
 
 - type: grid
   cards:
-    - type: custom:v2g-liberty-ping-card
-
     - type: markdown
       entities:
         - entity: sensor.charger_state_text
@@ -16,8 +14,13 @@
         charger">&nbsp;{{
         states('sensor.poll_refresh_indicator')}}</div>
         <table><tbody><tr><th> {{ states('sensor.charger_state_text') }}
-        </th><td> {{ states('sensor.charger_real_charging_power')
-        }}&nbsp;Watt </td></tr></tbody></table>
+        </th><td>{%
+        if states('sensor.charger_real_charging_power')=='unknown'
+        %}?{%
+        else
+        %}{{ states('sensor.charger_real_charging_power')}}{%
+        endif
+        %} Watt</td></tr></tbody></table>
       layout_options:
         grid_columns: full
         grid_rows: 2
@@ -155,10 +158,20 @@
         - entity: sensor.car_remaining_range
         - entity: sensor.charger_state_text
       content: |-
-        <table><tr>
-          <th>{{ states("sensor.car_state_of_charge")|round(0)}}%</th>
-          <td>≈ {{ states("sensor.car_remaining_range")|round(0)}} km</td>
-        </tr></table> <div><span>&nbsp;</span></div>
+        <table><tr><th>{%
+          if states('sensor.car_state_of_charge')=='unknown'
+          %}?{%
+          else
+          %}{{ states("sensor.car_state_of_charge")|round(0) }}{%
+          endif
+          %} %</th><td>{%
+          if states('sensor.car_remaining_range')=='unknown'
+          %}?{%
+          else
+          %}≈ {{ states("sensor.car_remaining_range")|round(0) }}{%
+          endif
+          %} km</td>
+        </tr></table> <div><span> </span></div>
       card_mod:
         style:
           .: |
@@ -170,9 +183,15 @@
               filter: grayscale(var(--v2g-state-grayscale));
             }
             :host {
-              --v2g-empty-capacity-width: {{ 100 - states('sensor.car_state_of_charge')|int }}%;
+              {% if states('sensor.car_state_of_charge')=='unknown' %}
+                --v2g-empty-capacity-width: 0;
+              {% else %}
+                --v2g-empty-capacity-width: {{ 100 - states('sensor.car_state_of_charge')|int }}%;
+              {% endif %};
 
-              --v2g-dynamic-charge-bar-color: {% if states('sensor.car_state_of_charge')|int < 7 %}
+              --v2g-dynamic-charge-bar-color: {% if states('sensor.car_state_of_charge')=='unknown' %}
+                var(--disabled-text-color);
+              {% elif states('sensor.car_state_of_charge')|int < 7 %}
                 var(--error-color);
               {% elif states('sensor.car_state_of_charge')|int < 20 %}
                 var(--warning-color);
@@ -510,11 +529,11 @@
       layout_options:
         grid_columns: full
       entities:
-        - entity: sensor.optimisation_mode
+        - entity: input_select.optimisation_mode
         - entity: sensor.utility_display_name
       content: >-
         <table><tbody><tr><th>Optimised on
-        <span>{{states("sensor.optimisation_mode")}}</span> </th><td>
+        <span>{{states("input_select.optimisation_mode")}}</span> </th><td>
         {{states("sensor.utility_display_name")}}
         </td></tr></tbody></table>
       card_mod:
@@ -700,8 +719,9 @@
       layout_options:
         grid_columns: full
       content: >-
-        Version <span>{{ state_attr("update.v2g_liberty_update",
-        "installed_version") }}</span>
+        Version <b>{{ state_attr("update.v2g_liberty_update",
+        "installed_version") }}</b><br/>
+        <span>Alive since {{states("sensor.last_reboot_at")}}</span>
       card_mod:
         style:
           .: |
@@ -713,5 +733,7 @@
             }
           ha-markdown$: |
             span {
-              font-weight: bold;
+              font-size: 60%;
             }
+
+    - type: custom:v2g-liberty-ping-card

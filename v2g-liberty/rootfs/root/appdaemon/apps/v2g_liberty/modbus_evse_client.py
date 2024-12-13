@@ -62,6 +62,7 @@ class ModbusEVSEclient:
         "relaxed_max_value": 100,
         "current_value": None,
         "previous_value": None,
+        "change_handler": "__handle_soc_change",
         "ha_entity_name": "car_state_of_charge",
     }
     # About the relaxed minimum value of 1%:
@@ -277,6 +278,10 @@ class ModbusEVSEclient:
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
+        """initialise modbus_evse_client
+        Setting up some constants and variables
+        Configuration and connecting the modbus client is do separately in initialise_charger
+        """
         self.__log("Initializing ModbusEVSEclient")
         self.CHARGER_ERROR_ENTITIES = [
             self.ENTITY_ERROR_1,
@@ -312,6 +317,11 @@ class ModbusEVSEclient:
     ######################################################################
 
     async def initialise_charger(self, v2g_args=None):
+        """Initialise charger
+        Configuring the client, making the connection and reading
+        min/max charge power.
+        Activating the polling is done in set_active.
+        """
         self.__log(
             f"Configuring Modbus EVSE client at {c.CHARGER_HOST_URL}:{c.CHARGER_PORT}, reason: {v2g_args}"
         )
@@ -396,19 +406,38 @@ class ModbusEVSEclient:
         """To be called when charge_mode in UI is (switched to) Stop
         Do not cancel polling, the information is still relevant.
         """
-        self.__log("evse: set_inactive called")
+        self.__log("made inactive")
         await self.stop_charging()
         await self.__set_charger_control("give")
         self._am_i_active = False
 
     async def set_active(self):
         """To be called when charge_mode in UI is (switched to) Automatic or Boost"""
-        self.__log("evse: set_active called")
+        self.__log("activated")
         self._am_i_active = True
         await self.__set_charger_control("take")
         await self.__get_car_soc(do_not_use_cache=True)
         await self.__get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self.__set_poll_strategy()
+
+    async def get_car_soc(self) -> int:
+        """Helper to get SoC in percent"""
+        return await self.__get_car_soc(do_not_use_cache=False)
+
+    async def get_car_soc_kwh(self) -> float:
+        """Helper to get SoC in kWh"""
+        soc = await self.__get_car_soc(do_not_use_cache=False)
+        if soc in [None, "unknown"]:
+            return "unknown"
+        return round(soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
+
+    async def get_car_remaining_range(self) -> int:
+        """Helper to get remaining range in km"""
+        soc_kwh = await self.get_car_soc_kwh()
+        if soc_kwh == "unknown":
+            return "unknown"
+        else:
+            return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
 
     def is_available_for_automated_charging(self) -> bool:
         """Whether the car and EVSE are available for automated charging.
@@ -458,9 +487,11 @@ class ModbusEVSEclient:
     ######################################################################
 
     async def complete_init(self):
-        """This public function is to be called from v2g-liberty once after its own init is complete.
-        This timing is essential as the following code possibly needs v2g-liberty for notifications etc.
         """
+        This public function is to be called from v2g-liberty once after its own init is complete.
+        This timing is essential, the following code might need v2g-liberty for notifications etc.
+        """
+        self.__log("kicking off")
 
         # So the status page can show if communication with charge is ok.
         for entity in self.CHARGER_INFO_ENTITIES:
@@ -569,26 +600,24 @@ class ModbusEVSEclient:
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
 
+    async def __handle_soc_change(self):
+        """Handle changed soc, set remaining range sensor."""
+        await self.__update_ha_entity(
+            entity_id="sensor.car_remaining_range",
+            new_value=await self.get_car_remaining_range(),
+        )
+
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
     ):
         """
         Called when __update_evse_entity detects a changed value.
-        Has a sister function in V2G Liberty that reacts to HA entity change.
         """
         self.__log(f"called {new_charger_state=}, {old_charger_state=}.")
         if not self._am_i_active:
             self.__log(
                 "__handle_charger_state_change called while _am_i_active == False. Not blocking."
             )
-
-        # TODO: Move setting the charger_state_text to v2g-liberty.py?
-        # YES, because:
-        # + It is only for the UI, the functional names are not per se related to a charger (type).
-        # + this is the only place where self.CHARGER_STATES is used!
-        # NO, because:
-        # + self.try_get_new_soc_in_process is not available there...
-
         # Also make a text version of the state available in the UI
         charger_state_text = self.CHARGER_STATES.get(new_charger_state, None)
         if charger_state_text is not None and not self.try_get_new_soc_in_process:
@@ -613,18 +642,24 @@ class ModbusEVSEclient:
         if new_charger_state in self.DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
+
+            # When disconnected the SoC of the car is unknown.
+            await self.__update_ha_and_evse_entity(
+                evse_entity=self.ENTITY_CAR_SOC,
+                new_value="unknown",
+            )
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
-            await self.__set_charger_action(
-                "stop", reason="__handle_charge_state_change: disconnected"
-            )
+            await self.__set_charger_action("stop", reason="car disconnected")
             await self.__set_poll_strategy()
+            await self.v2g_main_app.handle_car_disconnect()
         elif old_charger_state in self.DISCONNECTED_STATES:
             # new_charger_state must be a connected state, so if the old state was disconnected
             # **** Handle connected
             self.__log("From disconnected to connected: try to refresh the SoC")
             await self.__get_car_soc(do_not_use_cache=True)
             await self.__set_poll_strategy()
+            await self.v2g_main_app.handle_car_connect()
         else:
             # Not a change that this method needs to react upon.
             pass
@@ -695,7 +730,7 @@ class ModbusEVSEclient:
         if state is None:
             # The connection to the charger probably is not setup yet.
             self.__log(
-                f"__is_charging_or_discharging, charger state is None (not setup yet?). Assume not (dis-)charging."
+                "charger state is None (not setup yet?). Assume not (dis-)charging."
             )
             return False
         is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
@@ -720,8 +755,8 @@ class ModbusEVSEclient:
             self.__log("called while _am_i_active == False. Not blocking.")
 
         if not await self.is_car_connected():
-            self.__log("__get_car_soc called, no car connected, returning SoC = 0")
-            return 0
+            self.__log("no car connected, returning SoC = 'unknown'")
+            return "unknown"
 
         ecs = self.ENTITY_CAR_SOC
         soc_value = ecs["current_value"]
@@ -903,10 +938,7 @@ class ModbusEVSEclient:
         """
         current_value = evse_entity["current_value"]
 
-        if current_value == new_value:
-            # self.__log(f"{evse_entity['ha_entity_name']} {new_value=} is same as current, ignore.")
-            pass
-        else:
+        if current_value != new_value:
             evse_entity["current_value"] = new_value
             evse_entity["previous_value"] = current_value
 
@@ -919,6 +951,8 @@ class ModbusEVSEclient:
                         new_charger_state=new_value,
                         old_charger_state=current_value,
                     )
+                elif str_action == "__handle_soc_change":
+                    await self.__handle_soc_change()
                 elif str_action == "__handle_charger_error_state_change":
                     # This is the case for the ENTITY_ERROR_1..4. The charger_state
                     # does not necessarily change only (one or more of) these error-states.
@@ -977,7 +1011,12 @@ class ModbusEVSEclient:
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
             current_soc = await self.__get_car_soc()
-            if current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
+            if current_soc == "unknown":
+                self.__log(
+                    "current SoC is 'unknown', only expected when car is not connected",
+                    level="WARNING",
+                )
+            elif current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
                 # Fail-safe, this should never happen...
                 self.__log(
                     f"A discharge is attempted from {source=}, while the current SoC is below the "
@@ -1045,9 +1084,9 @@ class ModbusEVSEclient:
         await self.__cancel_polling(reason="setting new polling strategy")
 
         charger_state = await self.__get_charger_state()
-        if charger_state is None:
+        if charger_state in [None, "unknown"]:
             # Probably initialization is not complete yet, assume not connected
-            charger_state = self.DISCONNECTED_STATE
+            charger_state = self.DISCONNECTED_STATES[0]
             self.__log(
                 "Deciding polling strategy based on state unknown charger state, "
                 "assume disconnected."
@@ -1133,6 +1172,7 @@ class ModbusEVSEclient:
         """
         When a 'realtime' reading from the modbus server is needed, as opposed to
         stored value from polling.
+        It is expected to be between min_value_at_forced_get/max_value_at_forced_get.
         This is aimed at the SoC, this is expected to be between 2 and 97%, but at
         timeout 1% to 100% is acceptable.
 
