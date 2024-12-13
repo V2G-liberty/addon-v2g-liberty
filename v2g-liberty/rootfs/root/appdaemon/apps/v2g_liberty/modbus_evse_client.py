@@ -160,7 +160,7 @@ class ModbusEVSEclient:
     # Groups of entities for efficient reading of the modbus registers.
     CHARGER_POLLING_ENTITIES: list
     CHARGER_ERROR_ENTITIES: list
-    # To be read once at init
+    # Contain static data, only needs to be initialised once
     CHARGER_INFO_ENTITIES: list
 
     ######################################################################
@@ -366,9 +366,10 @@ class ModbusEVSEclient:
             )
             return
 
-        charge_power_in_watt = parse_to_int(kwargs.get("charge_power", None), None)
+        charge_power = kwargs.get("charge_power", None)
+        charge_power_in_watt = parse_to_int(charge_power, None)
         if charge_power_in_watt is None:
-            self.__log(f"invalid charge_power: {kwargs.get('charge_power', None)}")
+            self.__log(f"invalid charge_power: {charge_power}")
             return
         await self.__set_charger_control("take")
         if charge_power_in_watt == 0:
@@ -612,6 +613,12 @@ class ModbusEVSEclient:
         if new_charger_state in self.DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
+
+            # When disconnected the SoC of the car is unknown.
+            await self.__update_ha_and_evse_entity(
+                evse_entity=self.ENTITY_CAR_SOC,
+                new_value="unknown",
+            )
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
             await self.__set_charger_action(
@@ -719,8 +726,8 @@ class ModbusEVSEclient:
             self.__log("called while _am_i_active == False. Not blocking.")
 
         if not await self.is_car_connected():
-            self.__log("__get_car_soc called, no car connected, returning SoC = 0")
-            return 0
+            self.__log("no car connected, returning SoC = 'unknown'")
+            return "unknown"
 
         ecs = self.ENTITY_CAR_SOC
         soc_value = ecs["current_value"]
@@ -944,25 +951,13 @@ class ModbusEVSEclient:
         new_attributes = {}
         if self.hass.entity_exists(entity_id):
             entity_state = await self.hass.get_state(entity_id, attribute="all")
-            # self.__log(f"{entity_state=}")
             if entity_state is not None:
-                # Even though it exists it's state can still be None! Argghh...
+                # Even though it exists it's state can still be None
                 new_attributes = entity_state.get("attributes", {})
-                # self.__log(f"{new_attributes=}")
             new_attributes.update(attributes)
-            # self.__log(f"{new_attributes=}")
         else:
             new_attributes = attributes
-        # if entity_id == "sensor.car_state_of_charge":
-        #     old_state=await self.hass.get_state(entity_id, state="all")
-        res = await self.hass.set_state(
-            entity_id, state=new_value, attributes=new_attributes
-        )
-        # if entity_id == "sensor.car_state_of_charge":
-        #     state_in_ha = await self.hass.get_state(entity_id, state="all")
-        #     self.__log(f"COANS:\n"
-        #                f"{old_state=}\n"
-        #                f"{state_in_ha=}\n")
+        await self.hass.set_state(entity_id, state=new_value, attributes=new_attributes)
 
     async def __set_charge_power(
         self, charge_power: int, skip_min_soc_check: bool = False, source: str = None
@@ -988,7 +983,12 @@ class ModbusEVSEclient:
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
             current_soc = await self.__get_car_soc()
-            if current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
+            if current_soc == "unknown":
+                self.__log(
+                    "current SoC is 'unknown', only expected when car is not connected",
+                    level="WARNING",
+                )
+            elif current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
                 # Fail-safe, this should never happen...
                 self.__log(
                     f"A discharge is attempted from {source=}, while the current SoC is below the "
@@ -1056,11 +1056,13 @@ class ModbusEVSEclient:
         await self.__cancel_polling(reason="setting new polling strategy")
 
         charger_state = await self.__get_charger_state()
-        if charger_state is None:
+        if charger_state in [None, "unknown"]:
             # Probably initialization is not complete yet, assume not connected
-            charger_state = self.DISCONNECTED_STATE
-            self.__log("Deciding polling strategy based on state unknown charger state, "
-                       "assume disconnected.")
+            charger_state = self.DISCONNECTED_STATES[0]
+            self.__log(
+                "Deciding polling strategy based on state unknown charger state, "
+                "assume disconnected."
+            )
         else:
             self.__log(
                 f"Deciding polling strategy based on state: {self.CHARGER_STATES[charger_state]}."
@@ -1091,7 +1093,6 @@ class ModbusEVSEclient:
 
         self.__log(f"reason: {reason}")
         self.__cancel_timer(self.poll_timer_handle)
-        # To be really sure...
         self.poll_timer_handle = None
         await self.__update_poll_indicator_in_ui(reset=True)
 
@@ -1144,10 +1145,6 @@ class ModbusEVSEclient:
         When a 'realtime' reading from the modbus server is needed, as opposed to
         stored value from polling.
         It is expected to be between min_value_at_forced_get/max_value_at_forced_get.
-        Keep trying to get a reading that is within min_value_at_forced_get - max_value_at_forced_get range or
-        a timeout has been reached.
-        After the timeout the value is checked against other min/max values. This is
-        a wider range.
         This is aimed at the SoC, this is expected to be between 2 and 97%, but at
         timeout 1% to 100% is acceptable.
 
@@ -1174,8 +1171,6 @@ class ModbusEVSEclient:
             result = None
             try:
                 # Only one register is read so count = 1, the charger expects slave to be 1.
-                # I hate using the word 'slave', this should be 'server' but pyModbus has
-                # not changed this yet.
                 result = await self.client.read_holding_registers(
                     register, count=1, slave=1
                 )
