@@ -4,7 +4,7 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityRow } from './util/render';
-import { partial, t } from './util/translate';
+import { partial } from './util/translate';
 import { styles } from './card.styles';
 import {
   showOptimisationModeDialog,

@@ -4,11 +4,10 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow } from './util/render';
-import { partial, t } from './util/translate';
+import { partial } from './util/translate';
 import { showElectricityContractSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
-const to = partial('option');
 const tp = partial('settings.electricity-contract');
 
 @customElement('v2g-liberty-electricity-contract-settings-card')

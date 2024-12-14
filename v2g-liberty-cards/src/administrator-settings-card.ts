@@ -1,4 +1,4 @@
-import { html, LitElement, TemplateResult, nothing, CSSResultGroup } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';

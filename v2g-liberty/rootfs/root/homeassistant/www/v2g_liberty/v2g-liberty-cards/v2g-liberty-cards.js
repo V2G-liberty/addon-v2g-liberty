@@ -13302,7 +13302,6 @@ function $8462057a459186b4$var$elapsedTimeSince(dateTimeStamp) {
 
 
 
-const $31e0aca5546fddf6$var$to = (0, $aa1795080f053cd4$export$e45945969df8035a)('option');
 const $31e0aca5546fddf6$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.electricity-contract');
 class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
