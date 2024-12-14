@@ -20,9 +20,10 @@ class DataMonitor:
     + Availability of car and charger for automatic charging (% of time)
     + SoC of the car battery
 
-    Power changes occur at irregular intervals (readings): usually about 15 seconds apart but sometimes hours
-    We derive a time series of readings with a regular interval (that is, with a fixed period): we chose 5 minutes
-    We send the time series to FlexMeasures in batches, periodically: we chose every 1 hour (with re-tries if needed).
+    Power changes occur at irregular intervals (readings): usually about 15 seconds apart but
+    sometimes hours. We derive a time series of readings with a regular interval (that is, with a
+    fixed period): we chose 5 minutes. We send the time series to FlexMeasures in batches,
+    periodically: we chose every 1 hour (with re-tries if needed).
     As sending the data might fail the data is only cleared after it has successfully been sent.
 
     "Visual representation":
@@ -39,6 +40,7 @@ class DataMonitor:
     """
 
     # CONSTANTS
+    EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
     # Data for separate is sent in separate calls.
     # As a call might fail we keep track of when the data (times-) series has started
@@ -80,7 +82,7 @@ class DataMonitor:
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
-        self.__log(f"Initializing SetFMdata.")
+        self.__log("Initializing SetFMdata.")
 
         local_now = get_local_now()
 
@@ -94,7 +96,7 @@ class DataMonitor:
 
         await self.hass.listen_state(
             self.__handle_charger_state_change,
-            "sensor.charger_charger_state",
+            "sensor.charger_state_int",
             attribute="all",
         )
         await self.hass.listen_state(
@@ -109,7 +111,7 @@ class DataMonitor:
         self.power_period_duration = 0
         self.period_power_x_duration = 0
         self.power_readings = []
-        if power not in ["unavailable", None]:
+        if power not in self.EMPTY_STATES:
             # Ignore a state change to 'unavailable' and None
             self.current_power = int(float(power))
         else:
@@ -125,17 +127,11 @@ class DataMonitor:
         self.soc_readings = []
         await self.hass.listen_state(
             self.__handle_soc_change,
-            "sensor.charger_connected_car_state_of_charge",
+            "sensor.car_state_of_charge",
             attribute="all",
         )
-        soc = await self.hass.get_state(
-            "sensor.charger_connected_car_state_of_charge", "state"
-        )
-        self.__log(f"init soc: {soc}.")
-        if soc is not None and soc != "unavailable":
-            # Ignore a state None or 'unavailable'
-            soc = int(float(soc))
-            await self.__process_soc_change(soc)
+        soc = await self.hass.get_state("sensor.car_state_of_charge", "state")
+        await self.__process_soc_change(soc)
 
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         self.hourly_power_readings_since = runtime
@@ -152,7 +148,7 @@ class DataMonitor:
 
     async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
         """Handle changes in the car's state_of_charge"""
-        reported_soc = new["state"]
+        reported_soc = new.get("state", None)
         self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
         if isinstance(reported_soc, str):
             if not reported_soc.isnumeric():
@@ -163,7 +159,7 @@ class DataMonitor:
             await self.__process_soc_change(reported_soc)
 
     async def __process_soc_change(self, soc: int):
-        if soc == 0:
+        if soc in self.EMPTY_STATES:
             self.connected_car_soc = None
             return
 
@@ -175,7 +171,6 @@ class DataMonitor:
 
     async def __handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """Handle changes in charger (car) state (eg automatic or not)"""
-        self.__log(f"__handle_charge_mode_change called.")
         await self.__record_availability()
 
     async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
@@ -183,14 +178,15 @@ class DataMonitor:
         Ignore states with string "unavailable".
         (This is not a value related to the availability that is recorded here)
         """
-        self.__log(f"__handle_charger_state_change called.")
+        self.__log("Called")
         if old is None:
             return
         else:
             old = old.get("state", "unavailable")
         new = new.get("state", "unavailable")
-        if old == "unavailable" or new == "unavailable":
-            # Ignore state changes related to unavailable. These are not of influence on availability of charger/car.
+        if old in self.EMPTY_STATES or new in self.EMPTY_STATES:
+            # Ignore state changes related to unavailable. These are not of influence on
+            # availability of charger/car.
             return
         await self.__record_availability()
 
@@ -199,9 +195,7 @@ class DataMonitor:
         Called at charge_mode_change and charger_status_change
         Use __conclude_interval argument to conclude an interval (without changing the availability)
         """
-        self.__log(
-            f"record_availability called __conclude_interval: {conclude_interval}."
-        )
+        self.__log(f"Record availability, __conclude_interval: {conclude_interval}.")
         if (
             self.current_availability != await self.__is_available()
             or conclude_interval
@@ -210,11 +204,6 @@ class DataMonitor:
             duration = int(
                 (local_now - self.current_availability_since).total_seconds() * 1000
             )
-
-            if conclude_interval:
-                self.__log("Conclude interval for availability")
-            else:
-                self.__log("Availability changed, process it.")
 
             if self.current_availability:
                 self.availability_duration_in_current_interval += duration
@@ -229,7 +218,7 @@ class DataMonitor:
     async def __handle_charge_power_change(self, entity, attribute, old, new, kwargs):
         """Handle a state change in the power sensor."""
         power = new["state"]
-        if power == "unavailable":
+        if power in self.EMPTY_STATES:
             # Ignore a state change to 'unavailable'
             return
         power = int(float(power))
@@ -248,7 +237,7 @@ class DataMonitor:
         """Conclude a regular interval.
         Called every c.FM_EVENT_RESOLUTION_IN_MINUTES minutes (usually 5 minutes)
         """
-        self.__log(f"__conclude_interval called.")
+        self.__log("Concluding interval")
 
         await self.__process_power_change(self.current_power)
         await self.__record_availability(True)
@@ -292,8 +281,8 @@ class DataMonitor:
                 percentile_availability = 100.00
             self.availability_readings.append(percentile_availability)
 
-            # SoC related processing
-            # SoC does not change very quickly, so we just read it at conclude time and do not do any calculation.
+            # SoC does not change very quickly, so we just read it at conclude time and do not do
+            # any calculation.
             self.soc_readings.append(self.connected_car_soc)
 
             self.__log(
@@ -303,7 +292,8 @@ class DataMonitor:
 
         else:
             self.__log(
-                f"Period duration too short: {self.power_period_duration} s, discarding this reading."
+                f"Period duration too short: {self.power_period_duration} s, "
+                f"discarding this reading."
             )
 
         # Reset power values
@@ -318,7 +308,7 @@ class DataMonitor:
         """Central function for sending all readings to FM.
         Called every hour
         Reset reading list/variables if sending was successful"""
-        self.__log(f"__try_send_data called.")
+        self.__log("Trying to send data")
 
         start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
         res = await self.__post_power_data()
@@ -329,7 +319,7 @@ class DataMonitor:
 
         res = await self.__post_availability_data()
         if res is True:
-            self.__log(f"Availability data successfully sent, resetting readings")
+            self.__log("Availability data successfully sent, resetting readings")
             self.hourly_availability_readings_since = start_from
             self.availability_readings.clear()
 
@@ -343,10 +333,7 @@ class DataMonitor:
 
     async def __post_soc_data(self, *args, **kwargs):
         """Try to Post SoC readings to FM.
-
         Return false if un-successful"""
-        self.__log(f"__post_soc_data called.")
-
         # If self.soc_readings is empty there is nothing to send.
         if len(self.soc_readings) == 0:
             self.__log("List of soc readings is 0 length..")
@@ -354,27 +341,18 @@ class DataMonitor:
 
         str_duration = len_to_iso_duration(len(self.soc_readings))
 
-        if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
-                sensor_id=c.FM_ACCOUNT_SOC_SENSOR_ID,
-                values=self.soc_readings,
-                start=self.hourly_soc_readings_since.isoformat(),
-                duration=str_duration,
-                uom="%",
-            )
-        else:
-            self.__log(
-                f"__post_soc_data. Could not call post_measurements on fm_client_app as it is None."
-            )
-            return False
+        res = await self.fm_client_app.post_measurements(
+            sensor_id=c.FM_ACCOUNT_SOC_SENSOR_ID,
+            values=self.soc_readings,
+            start=self.hourly_soc_readings_since.isoformat(),
+            duration=str_duration,
+            uom="%",
+        )
         return res
 
     async def __post_availability_data(self, *args, **kwargs):
         """Try to Post Availability readings to FM.
-
         Return false if un-successful"""
-        self.__log(f"__post_availability_data called.")
-
         # If self.availability_readings is empty there is nothing to send.
         if len(self.availability_readings) == 0:
             self.__log("List of availability readings is 0 length..")
@@ -382,28 +360,18 @@ class DataMonitor:
 
         str_duration = len_to_iso_duration(len(self.availability_readings))
 
-        if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
-                sensor_id=c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID,
-                values=self.availability_readings,
-                start=self.hourly_availability_readings_since.isoformat(),
-                duration=str_duration,
-                uom="%",
-            )
-        else:
-            self.__log(
-                f"__post_availability_data. Could not call post_measurements on fm_client_app as it is None."
-            )
-            return False
+        res = await self.fm_client_app.post_measurements(
+            sensor_id=c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID,
+            values=self.availability_readings,
+            start=self.hourly_availability_readings_since.isoformat(),
+            duration=str_duration,
+            uom="%",
+        )
         return res
 
     async def __post_power_data(self, *args, **kwargs):
         """Try to Post power readings to FM.
-
         Return false if un-successful"""
-
-        self.__log(f"__post_power_data called.")
-
         # If self.power_readings is empty there is nothing to send.
         if len(self.power_readings) == 0:
             self.__log("List of power readings is 0 length..")
@@ -411,19 +379,13 @@ class DataMonitor:
 
         str_duration = len_to_iso_duration(len(self.power_readings))
 
-        if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
-                sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
-                values=self.power_readings,
-                start=self.hourly_power_readings_since.isoformat(),
-                duration=str_duration,
-                uom="MW",
-            )
-        else:
-            self.__log(
-                f"__post_power_data. Could not call post_measurements on fm_client_app as it is None."
-            )
-            return False
+        res = await self.fm_client_app.post_measurements(
+            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+            values=self.power_readings,
+            start=self.hourly_power_readings_since.isoformat(),
+            duration=str_duration,
+            uom="MW",
+        )
         return res
 
     async def __is_available(self):
@@ -436,9 +398,12 @@ class DataMonitor:
             self.evse_client_app.is_available_for_automated_charging()
         )
         if is_evse_and_car_available and charge_mode == "Automatic":
-            if self.connected_car_soc is None:
-                # SoC is unknown, assume availability
-                return True
+            if self.connected_car_soc in self.EMPTY_STATES:
+                # SoC is unknown. Rare after previous check. Unknown would normally mean,
+                # disconnected or error.
+                # NOTE: 2024-12-12 version 0.4.3, this changed from assume availability to
+                # no-availability.
+                return False
             else:
                 return self.connected_car_soc >= c.CAR_MIN_SOC_IN_PERCENT
         return False

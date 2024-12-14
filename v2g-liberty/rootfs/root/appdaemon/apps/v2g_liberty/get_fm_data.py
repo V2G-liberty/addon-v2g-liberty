@@ -119,7 +119,6 @@ class FlexMeasuresDataImporter:
 
         self.__log("Complete")
 
-
     async def finalize_initialisation(self, v2g_args: str):
         """
         Finalize the initialisation. This is run from initialise and from globals when
@@ -194,7 +193,7 @@ class FlexMeasuresDataImporter:
 
         :param timer_id: timer_handle to cancel
         """
-        if self.hass.info_timer(timer_id):
+        if self.hass.timer_running(timer_id):
             silent = True  # Does not really work
             await self.hass.cancel_timer(timer_id, silent)
 
@@ -234,8 +233,7 @@ class FlexMeasuresDataImporter:
         """Communicate with FM server and check the results.
 
         Request charging costs of last 7 days from the server
-        Make costs total costs of this period available in HA by setting them in input_text.last
-        week costs.
+        Make costs total costs of this period available in HA by setting them in sensor
         ToDo: Split cost in charging and dis-charging per day
         """
         self.__log("Called")
@@ -292,15 +290,15 @@ class FlexMeasuresDataImporter:
             f"Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}"
         )
 
-        # To make sure HA considers this as new info a datetime is added
-        new_state = "Costs collected at " + now.isoformat()
-        result = {"records": charging_cost_points}
+        # Seems to be un-used.
+        # new_state = "Costs collected at " + now.isoformat()
+        # result = {"records": charging_cost_points}
+        # await self.hass.set_state(
+        #     entity_id="input_text.charging_costs", state=new_state, attributes=result
+        # )
         await self.hass.set_state(
-            "input_text.charging_costs", state=new_state, attributes=result
-        )
-        await self.hass.set_value(
-            "input_number.total_charging_cost_last_7_days",
-            total_charging_cost_last_7_days,
+            entity_id="sensor.total_charging_cost_last_7_days",
+            state=total_charging_cost_last_7_days,
         )
 
     async def get_charged_energy(self, *args, **kwargs):
@@ -403,38 +401,40 @@ class FlexMeasuresDataImporter:
             total_emissions_last_7_days * conversion_factor, 1
         )
 
-        await self.hass.set_value(
-            "input_number.total_discharged_energy_last_7_days",
-            total_discharged_energy_last_7_days,
+        await self.hass.set_state(
+            entity_id="sensor.total_discharged_energy_last_7_days",
+            state=total_discharged_energy_last_7_days,
         )
-        await self.hass.set_value(
-            "input_number.total_charged_energy_last_7_days",
-            total_charged_energy_last_7_days,
+        await self.hass.set_state(
+            entity_id="sensor.total_charged_energy_last_7_days",
+            state=total_charged_energy_last_7_days,
         )
-        await self.hass.set_value(
-            "input_number.net_energy_last_7_days",
-            total_charged_energy_last_7_days + total_discharged_energy_last_7_days,
-        )
-
-        await self.hass.set_value(
-            "input_number.total_saved_emissions_last_7_days",
-            total_saved_emissions_last_7_days,
-        )
-        await self.hass.set_value(
-            "input_number.total_emissions_last_7_days", total_emissions_last_7_days
-        )
-        await self.hass.set_value(
-            "input_number.net_emissions_last_7_days",
-            total_emissions_last_7_days + total_saved_emissions_last_7_days,
+        await self.hass.set_state(
+            entity_id="sensor.net_energy_last_7_days",
+            state=total_charged_energy_last_7_days
+            + total_discharged_energy_last_7_days,
         )
 
-        await self.hass.set_value(
-            "input_text.total_discharge_time_last_7_days",
-            format_duration(total_minutes_discharged),
+        await self.hass.set_state(
+            entity_id="sensor.total_saved_emissions_last_7_days",
+            state=total_saved_emissions_last_7_days,
         )
-        await self.hass.set_value(
-            "input_text.total_charge_time_last_7_days",
-            format_duration(total_minutes_charged),
+        await self.hass.set_state(
+            entity_id="sensor.total_emissions_last_7_days",
+            state=total_emissions_last_7_days,
+        )
+        await self.hass.set_state(
+            entity_id="sensor.net_emissions_last_7_days",
+            state=total_emissions_last_7_days + total_saved_emissions_last_7_days,
+        )
+
+        await self.hass.set_state(
+            entity_id="sensor.total_discharge_time_last_7_days",
+            state=format_duration(total_minutes_discharged),
+        )
+        await self.hass.set_state(
+            entity_id="sensor.total_charge_time_last_7_days",
+            state=format_duration(total_minutes_charged),
         )
         self.__log(
             f"stats: \n"

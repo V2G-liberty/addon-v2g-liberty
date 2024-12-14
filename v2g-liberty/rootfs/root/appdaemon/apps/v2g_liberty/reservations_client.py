@@ -279,6 +279,9 @@ class ReservationsClient(ServiceResponseApp):
             end_date_time=end,
             return_result=True,
         )
+        if local_events is None:
+            self.__log("Could not retreive events, aborting", level="WARNING")
+            return
         # Peel off some unneeded layers
         local_events = local_events.get(c.INTEGRATION_CALENDAR_ENTITY_NAME, None)
         local_events = local_events.get("events", None)
@@ -340,7 +343,7 @@ class ReservationsClient(ServiceResponseApp):
 
         attributes = {"keep_alive": start}
         await self.hass.set_state(
-            "input_text.calendar_account_connection_status",
+            "sensor.calendar_account_connection_status",
             state="Successfully connected",
             attributes=attributes,
         )

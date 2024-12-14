@@ -356,7 +356,7 @@ class V2GLibertyGlobals:
 
         # For showing this maximum in the UI.
         await self.hass.set_state(
-            "input_text.charger_max_available_power", state=max_available_charge_power
+            "sensor.charger_max_available_power", state=max_available_charge_power
         )
 
         # await self.__initialise_charger_settings()
@@ -1461,3 +1461,15 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
     else:
         str_days = ""
     return f"P{str_days}T{str(hours)}H{str(minutes)}M"
+
+
+def parse_to_int(number_string, default_value: int):
+    """Reliably parse a string, float or int to an int. If un-parsable return the default value.
+    :param number_string: str, float, int, bool (not dict or list)
+    :param default_value: int that is returned if paring failed.
+    :return: parsed int
+    """
+    try:
+        return int(float(number_string))
+    except:
+        return default_value
