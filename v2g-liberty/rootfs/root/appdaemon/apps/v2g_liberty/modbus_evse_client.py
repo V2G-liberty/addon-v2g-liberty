@@ -326,7 +326,7 @@ class ModbusEVSEclient:
 
     async def __get_max_available_power(self, client):
         result = await client.read_holding_registers(
-            self.MAX_AVAILABLE_POWER_REGISTER, 1, slave=1
+            self.MAX_AVAILABLE_POWER_REGISTER, count=1, slave=1
         )
         return result.registers[0]
 
@@ -478,7 +478,8 @@ class ModbusEVSEclient:
 
         is_connected = self.client is not None
         is_connected = (
-            is_connected and await self.__get_charger_state() not in self.DISCONNECTED_STATES
+            is_connected
+            and await self.__get_charger_state() not in self.DISCONNECTED_STATES
         )
         self.__log(f"is_car_connected called, returning: {is_connected}")
         return is_connected
@@ -510,7 +511,7 @@ class ModbusEVSEclient:
         """
         if self.client is None:
             return
-		
+
         self.__log("kicking off")
 
         # So the status page can show if communication with charge is ok.
