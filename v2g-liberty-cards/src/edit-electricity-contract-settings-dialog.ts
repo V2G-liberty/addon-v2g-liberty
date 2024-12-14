@@ -3,9 +3,11 @@ import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
 import {
+  InputText,
   renderDialogHeader,
   renderInputNumber,
   renderInputSelect,
+  renderInputText,
   renderSelectOption,
 } from './util/render';
 import { partial, to } from './util/translate';
@@ -144,12 +146,14 @@ class EditElectricityContractSettingsDialog extends DialogBase {
 
     return html`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(
+      ${renderInputText(
+        InputText.EntityId,
         this._ownConsumptionPriceEntityId,
         consumptionPriceIdState,
         consumptionPriceEntityIdChanged
       )}
-      ${this._renderInputText(
+      ${renderInputText(
+        InputText.EntityId,
         this._ownProductionPriceEntityId,
         productionPriceIdState,
         productionPriceEntityIdChanged
@@ -177,12 +181,14 @@ class EditElectricityContractSettingsDialog extends DialogBase {
 
     return html`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(
+      ${renderInputText(
+        InputText.OctopusCode,
         this._octopusImportCode,
         importCodeState,
         importCodeChanged
       )}
-      ${this._renderInputText(
+      ${renderInputText(
+        InputText.OctopusCode,
         this._octopusExportCode,
         exportCodeState,
         exportCodeChanged
@@ -228,23 +234,6 @@ class EditElectricityContractSettingsDialog extends DialogBase {
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${renderInputNumber(this._energyPriceVat, vatState, vatChanged)}
       ${renderInputNumber(this._energyPriceMarkup, markupState, markupChanged)}
-    `;
-  }
-
-  private _renderInputText(value, stateObj, valueChangedCallback) {
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-          ${stateObj.attributes.friendly_name}</span
-        >
-        <ha-textfield
-          pattern="[\\w_]+\\.[\\d\\w_]+"
-          .value=${value}
-          @change=${valueChangedCallback}
-        >
-        </ha-textfield
-      ></ha-settings-row>
     `;
   }
 

@@ -4,6 +4,7 @@ import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
 import {
+  InputText,
   renderDialogHeader,
   renderInputBoolean,
   renderInputPassword,
@@ -94,6 +95,7 @@ class EditScheduleSettingsDialog extends DialogBase {
       this.hass.states[entityIds.fmAccountPassword];
     const fmUseOtherServerState = this.hass.states[entityIds.fmUseOtherServer];
     const fmHostUrlState = this.hass.states[entityIds.fmHostUrl];
+    const isUsingOtherServer = this._fmUseOtherServer === 'on';
 
     const useOtherServerChanged = evt =>
       (this._fmUseOtherServer = evt.target.checked ? 'on' : 'off');
@@ -102,6 +104,7 @@ class EditScheduleSettingsDialog extends DialogBase {
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${renderInputText(
+        InputText.EMail,
         this._fmAccountUsername,
         fmAccountUsernameState,
         evt => (this._fmAccountUsername = evt.target.value)
@@ -111,9 +114,14 @@ class EditScheduleSettingsDialog extends DialogBase {
         fmAccountPasswordState,
         evt => (this._fmAccountPassword = evt.target.value)
       )}
-      ${renderInputBoolean(fmUseOtherServerState, useOtherServerChanged)}
-      ${this._fmUseOtherServer === 'on'
+      ${renderInputBoolean(
+        isUsingOtherServer,
+        fmUseOtherServerState,
+        useOtherServerChanged
+      )}
+      ${isUsingOtherServer
         ? renderInputText(
+            InputText.URL,
             this._fmHostUrl,
             fmHostUrlState,
             evt => (this._fmHostUrl = evt.target.value)
@@ -193,7 +201,7 @@ class EditScheduleSettingsDialog extends DialogBase {
     const fmAssetState = this.hass.states[entityIds.fmAsset];
     const options = this._fmAssets.map(asset => asset.name);
     return html`
-      <ha-markdown breaks .content=${description}></ha-markdown>
+      <p><ha-markdown breaks .content=${description}></ha-markdown></p>
       <strong>Asset</strong>
       ${renderInputSelect(
         this._fmAsset,

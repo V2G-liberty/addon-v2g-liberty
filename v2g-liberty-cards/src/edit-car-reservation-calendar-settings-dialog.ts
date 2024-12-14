@@ -5,7 +5,9 @@ import { HassEntity } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
 import {
+  InputText,
   renderDialogHeader,
+  renderInputPassword,
   renderInputSelect,
   renderInputText,
   renderSelectOptionWithLabel,
@@ -96,9 +98,11 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
 
     return html`
       <p>${description}</p>
-      <div>
-        <span class="select-name">${selectName}</span>
-      </div>
+      <p>
+        <div>
+          <span class="select-name">${selectName}</span>
+        </div>
+      </p>
       <div class="select-options">
         ${stateObj.attributes.options.map(option => {
           const label = html`
@@ -109,12 +113,14 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
               </div>
             </span>
           `;
-          return renderSelectOptionWithLabel(
-            option,
-            label,
-            option === current,
-            changedCallback
-          );
+          return html`<p>
+            ${renderSelectOptionWithLabel(
+              option,
+              label,
+              option === current,
+              changedCallback
+            )}
+          </p>`;
         })}
       </div>
       <mwc-button
@@ -154,16 +160,18 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     return html`
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${renderInputText(
+        InputText.URL,
         this._calendarAccountUrl,
         calendarAccountUrlState,
         evt => (this._calendarAccountUrl = evt.target.value)
       )}
       ${renderInputText(
+        InputText.EMail,
         this._calendarAccountUsername,
         calendarAccountUsernameState,
         evt => (this._calendarAccountUsername = evt.target.value)
       )}
-      ${renderInputText(
+      ${renderInputPassword(
         this._calendarAccountPassword,
         calendarAccountPasswordState,
         evt => (this._calendarAccountPassword = evt.target.value)
@@ -245,7 +253,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
 
     return html`
       ${this._renderLoginSuccessful()}
-      <ha-markdown breaks .content=${description}></ha-markdown>
+      <p><ha-markdown breaks .content=${description}></ha-markdown></p>
       ${renderInputSelect(
         this._carCalendarName,
         // TODO: turn into input_text
@@ -286,7 +294,6 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     this._integrationCalendarEntityName = entity.entity_id;
 
     return html`
-      ${this._renderLoginSuccessful()}
       <strong>Calendar name</strong>
       <div>${entity.attributes.friendly_name}</div>
       <mwc-button @click=${this._back} slot="secondaryAction">

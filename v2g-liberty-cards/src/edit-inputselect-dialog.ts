@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
 import { renderDialogHeader, renderSelectOption } from './util/render';
+import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
 
 export const tagName = 'edit-inputselect-dialog';
@@ -24,6 +25,8 @@ class EditInputNumberDialog extends DialogBase {
 
     const stateObj = this.hass.states[this._params.entity_id];
     const header = this._params.header;
+    const name =
+      `! ${t(stateObj.entity_id)} !` || stateObj.attributes.friendly_name;
     const description = this._params.description;
 
     return html`
@@ -33,7 +36,7 @@ class EditInputNumberDialog extends DialogBase {
         .heading=${renderDialogHeader(this.hass, header)}
       >
         <div>
-          <span class="name">${stateObj.attributes.friendly_name}</span>
+          <span class="name">${name}</span>
           <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
         </div>
         <div>

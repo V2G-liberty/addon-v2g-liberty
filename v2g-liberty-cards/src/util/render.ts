@@ -3,7 +3,7 @@ import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, TemplateResult } from 'lit';
 
-import { to } from '../util/translate';
+import { t, to } from '../util/translate';
 
 export function renderDialogHeader(
   hass: HomeAssistant,
@@ -23,20 +23,21 @@ export function renderDialogHeader(
 }
 
 export function renderInputBoolean(
+  isOn: boolean,
   stateObj: HassEntity,
   changedCallback
 ): TemplateResult {
-  const isOn = stateObj.state === 'on';
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${stateObj.attributes.friendly_name}</span
-      >
+        ${name}
+      </span>
       <ha-switch
-        test-id="${stateObj.entity_id}"
         .checked=${isOn}
         @change=${changedCallback}
+        test-id="${stateObj.entity_id}"
       ></ha-switch>
     </ha-settings-row>
   `;
@@ -86,10 +87,11 @@ export function renderInputSelect(
   options?: string[]
 ): TemplateResult {
   options = options ?? stateObj.attributes.options;
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   const groupName = stateObj.entity_id;
   return html`
     <div>
-      <span class="select-name">${stateObj.attributes.friendly_name}</span>
+      <span class="select-name">${name}</span>
       <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
     </div>
     <div class="select-options">
@@ -111,14 +113,14 @@ export function renderInputNumber(
   changedCallback,
   pattern: string = '[0-9\\.]+'
 ): TemplateResult {
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${stateObj.attributes.friendly_name}</span
-      >
+        ${name}
+      </span>
       <ha-textfield
-        test-id="${stateObj.entity_id}"
         pattern="${pattern}"
         id="inputField"
         .step=${Number(stateObj.attributes.step)}
@@ -128,27 +130,39 @@ export function renderInputNumber(
         .suffix=${stateObj.attributes.unit_of_measurement || ''}
         type="number"
         @change=${changedCallback}
+        test-id="${stateObj.entity_id}"
       >
       </ha-textfield>
     </ha-settings-row>
   `;
 }
 
+export enum InputText { // TODO: Fix these patterns and use the correct ones
+  EMail = '[\\w_]+\\.[\\d\\w_]+',
+  EntityId = '[\\w_]+\\.[\\d\\w_]+',
+  IpAddress = '[0-9\\.]+',
+  OctopusCode = '[\\w\\d-]+',
+  URL = '[\\w_]+\\.[\\d\\w_]+',
+}
+
 export function renderInputText(
+  pattern: InputText,
   value: string,
   stateObj: HassEntity,
   changedCallback
 ): TemplateResult {
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${stateObj.attributes.friendly_name}</span
-      >
+        ${name}
+      </span>
       <ha-textfield
-        pattern="[\\w_]+\\.[\\d\\w_]+"
+        pattern="${pattern}"
         .value=${value}
         @change=${changedCallback}
+        test-id="${stateObj.entity_id}"
       >
       </ha-textfield
     ></ha-settings-row>
@@ -160,13 +174,19 @@ export function renderInputPassword(
   stateObj: HassEntity,
   changedCallback
 ): TemplateResult {
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${stateObj.attributes.friendly_name}</span
+        ${name}
+      </span>
+      <ha-textfield
+        type="password"
+        .value=${value}
+        @change=${changedCallback}
+        test-id="${stateObj.entity_id}"
       >
-      <ha-textfield type="password" .value=${value} @change=${changedCallback}>
       </ha-textfield
     ></ha-settings-row>
   `;

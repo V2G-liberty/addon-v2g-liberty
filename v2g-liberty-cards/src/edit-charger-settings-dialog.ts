@@ -3,7 +3,13 @@ import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderInputNumber } from './util/render';
+import {
+  InputText,
+  renderDialogHeader,
+  renderInputBoolean,
+  renderInputNumber,
+  renderInputText,
+} from './util/render';
 import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
 import * as entityIds from './entity-ids';
@@ -82,7 +88,8 @@ class EditChargerSettingsDialog extends DialogBase {
     return html`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputText(
+      ${renderInputText(
+        InputText.IpAddress,
         this._chargerHost,
         chargerHostState,
         evt => (this._chargerHost = evt.target.value)
@@ -181,9 +188,9 @@ class EditChargerSettingsDialog extends DialogBase {
         <span>Successfully connected</span>
       </div>
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${this._renderInputBoolean(
-        useReducedMaxPowerState,
+      ${renderInputBoolean(
         isUsingReducedMaxPower,
+        useReducedMaxPowerState,
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
@@ -222,41 +229,6 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._chargerMaxDischargingPower = evt.target.value),
         '[0-9]+'
       )}
-    `;
-  }
-
-  private _renderInputText(value, stateObj, valueChangedCallback) {
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-          ${stateObj.attributes.friendly_name}</span
-        >
-        <ha-textfield
-          test-id="${stateObj.entity_id}"
-          pattern="[0-9\\.]+"
-          .value=${value}
-          @change=${valueChangedCallback}
-        >
-        </ha-textfield
-      ></ha-settings-row>
-    `;
-  }
-
-  private _renderInputBoolean(stateObj, value, valueChangedCallback) {
-    const isOn = stateObj.state === 'on';
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-          ${stateObj.attributes.friendly_name}</span
-        >
-        <ha-switch
-          test-id="${stateObj.entity_id}"
-          .checked=${value}
-          @change=${valueChangedCallback}
-        ></ha-switch>
-      </ha-settings-row>
     `;
   }
 

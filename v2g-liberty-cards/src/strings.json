@@ -1,4 +1,8 @@
 {
+    "input_boolean": {
+        "fm_show_option_to_change_url": "Use an other than the default server",
+        "use_reduced_max_charge_power": "Reduce the max. (dis)charge power",
+    },
     "input_number": {
         "allowed_duration_above_max_soc_in_hrs": "Allowed duration above max soc",
         "car_consumption_wh_per_km": "Car energy consumption",
@@ -23,8 +27,10 @@
         "admin_mobile_name": "Administrator device",
         "calendar_account_init_url": "Calendar host URL",
         "calendar_account_username": "Username",
+        "calendar_account_password": "Password",
         "charger_host_url": "Charger host URL",
         "fm_account_username": "Username",
+        "fm_account_password": "Password",
         "fm_asset": "Asset name",
         "fm_host_url": "Host URL",
         "octopus_export_code": "Export code",
@@ -48,14 +54,14 @@
     },
     "ping-card": {
         "error": "There is an error in V2G Liberty",
-        "error-subtext": "**You can fix this:**\n\nRestart V2G Liberty add-on\n```Main menu > Settings > Add-ons > V2G Liberty > Restart```"
+        "error-subtext": "**You can fix this:**\n\nRestart V2G Liberty add-on\n```Main menu > Settings > Add-ons > V2G Liberty > Restart```",
     },
     "settings": {
         "administrator": {
             "header": "Administrator",
             "alert": "Please configure your administrator device.",
             "sub-header": "High priority notifications get sent to the administrator's mobile device.",
-            "error": "Please select an option"
+            "error": "Please select an option",
         },
         "car": {
             "header": "Car",
@@ -87,22 +93,22 @@
             "invalid-port-error": "Please provide a valid port.",
             "connection-error": "No communication with charger, please check connection.",
             "connection-success": "Connected, last contact %{time} ago",
-            "max-power-description": "The charger is configured to (dis-)charge at max. **%{value}** W.",
+            "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
             "safety-info": "**Electric safety must be provided by the hardware, not this software!**\nPlease consult a certified electrician what maximum power can be set on the charger.",
-            "do-not-reduce-max-power-description": "Do not reduce max. (dis-)charge power.",
-            "reduce-max-power-description": "Reduce max. (dis-)charge power.",
+            "do-not-reduce-max-power-description": "Do not reduce max. (dis)charge power.",
+            "reduce-max-power-description": "Reduce max. (dis)charge power.",
             "connection-details": {
                 "description": "To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.",
                 "port-description": "Default is 502, so if you haven’t changed it, keep this.",
             },
             "charger-details": {
-                "description": "The charger is configured to (dis-)charge at max. **%{value}** W.\n\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\n\n---",
-                "reduce-max-power-description": "Use this to further limit the (dis-)charge power below the maximum set in the charger.",
+                "description": "The charger is configured to (dis)charge at max. **%{value}** W.\n\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\n\n---",
+                "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger.",
             },
         },
         "dialogs": {
             "inputnumber": {
-                "error": "Please provide a value between %{min} and %{max}."
+                "error": "Please provide a value between %{min} and %{max}.",
             },
             "car-battery-usable-capacity": {
                 "header": "Usable capacity for car battery",

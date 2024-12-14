@@ -100,7 +100,9 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderHomeAssistantDetails() {
     return this._carCalendarSource.state === 'Home Assistant integration'
       ? html`
-          <p>${tp('type')}: ${this._carCalendarSource.state}</p>
+          <p>
+            ${tp('type')}: <strong>${this._carCalendarSource.state}<strong>
+          </p>
           ${this._renderEntityBlock(this._integrationCalendarEntityName)}
         `
       : nothing;
