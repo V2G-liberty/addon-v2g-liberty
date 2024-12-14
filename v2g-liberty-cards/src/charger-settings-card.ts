@@ -4,7 +4,8 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { t, partial } from './util/translate';
+import { renderEntityBlock, renderEntityRow } from './util/render';
+import { partial, t } from './util/translate';
 import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
@@ -68,8 +69,8 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
-        ${this._renderEntityBlock(this._chargerHost)}
-        ${this._renderEntityRow(this._chargerPort)}
+        ${renderEntityBlock(this._chargerHost)}
+        ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         <p>
           <ha-alert alert-type="info">
@@ -104,40 +105,6 @@ export class ChargerSettingsCard extends LitElement {
       : nothing;
   }
 
-  private _renderEntityBlock(stateObj) {
-    const stateLabel = t(stateObj.state) || stateObj.state;
-    const description =
-      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${stateLabel}
-        </span>
-        <span slot="description">${description}</span>
-      </ha-settings-row>
-    `;
-  }
-
-  private _renderEntityRow(stateObj, options = {}) {
-    const stateLabel = options.format
-      ? this._hass.formatEntityState(stateObj)
-      : stateObj.state;
-    const description =
-      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${description}
-        </span>
-        <div class="text-content value state" test-id="${stateObj.entity_id}">
-          ${stateLabel}
-        </div>
-      </ha-settings-row>
-    `;
-  }
-
   private _renderMaxChargeConfiguration() {
     const maxAvailablePower =
       this._hass.states[entityIds.chargerMaxAvailablePower].state;
@@ -150,11 +117,13 @@ export class ChargerSettingsCard extends LitElement {
       : tp('do-not-reduce-max-power-description');
     const maxChargingPowerEntityRows = isUsingReducedMaxPower
       ? html`
-          ${this._renderEntityRow(this._chargerMaxChargingPower, {
-            format: true,
+          ${renderEntityRow(this._chargerMaxChargingPower, {
+            state: this._hass.formatEntityState(this._chargerMaxChargingPower),
           })}
-          ${this._renderEntityRow(this._chargerMaxDischargingPower, {
-            format: true,
+          ${renderEntityRow(this._chargerMaxDischargingPower, {
+            state: this._hass.formatEntityState(
+              this._chargerMaxDischargingPower
+            ),
           })}
         `
       : nothing;

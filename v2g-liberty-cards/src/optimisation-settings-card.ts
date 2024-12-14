@@ -1,9 +1,9 @@
-import { mdiPencil } from '@mdi/js';
 import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
+import { renderEntityRow } from './util/render';
 import { partial, t } from './util/translate';
 import { styles } from './card.styles';
 import {
@@ -63,7 +63,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.optimisationMode,
       });
 
-    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
+    return html`<div>${renderEntityRow(stateObj, { callback })}</div>`;
   }
 
   private _renderLowerChargeLimit() {
@@ -73,7 +73,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.lowerChargeLimit,
       });
 
-    return html` <div>${this._renderEntityRow(stateObj, callback)}</div> `;
+    return html` <div>${renderEntityRow(stateObj, { callback })}</div> `;
   }
 
   private _renderUpperChargeLimit() {
@@ -83,7 +83,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.upperChargeLimit,
       });
 
-    return html` <div>${this._renderEntityRow(stateObj, callback)}</div> `;
+    return html` <div>${renderEntityRow(stateObj, { callback })}</div> `;
   }
 
   private _renderAllowedDurationAboveMax() {
@@ -93,25 +93,6 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.allowedDurationAboveMax,
       });
 
-    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
-  }
-
-  private _renderEntityRow(stateObj, editCallback) {
-    const stateLabel = t(stateObj.state) || stateObj.state;
-    const description =
-      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${description}
-        </span>
-        <div class="text-content value state">${stateLabel}</div>
-        <ha-icon-button
-          .path=${mdiPencil}
-          @click=${editCallback}
-        ></ha-icon-button>
-      </ha-settings-row>
-    `;
+    return html`<div>${renderEntityRow(stateObj, { callback })}</div>`;
   }
 }

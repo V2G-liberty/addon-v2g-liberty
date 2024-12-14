@@ -3,7 +3,8 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { t, partial } from './util/translate';
+import { renderEntityBlock } from './util/render';
+import { partial } from './util/translate';
 import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
@@ -69,30 +70,15 @@ export class CarReservationCalendarSettingsCard extends LitElement {
     `;
   }
 
-  private _renderEntityBlock(stateObj) {
-    const stateLabel = t(stateObj.state) || stateObj.state;
-    const description =
-      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${stateLabel}
-        </span>
-        <span slot="description">${description}</span>
-      </ha-settings-row>
-    `;
-  }
-
   private _renderCaldavDetails() {
     return this._carCalendarSource.state === 'Direct caldav source'
       ? html`
           <p>
             ${tp('type')}: <strong>${this._carCalendarSource.state}</strong>
           </p>
-          ${this._renderEntityBlock(this._calendarAccountUrl)}
-          ${this._renderEntityBlock(this._calendarAccountUsername)}
-          ${this._renderEntityBlock(this._carCalendarName)}
+          ${renderEntityBlock(this._calendarAccountUrl)}
+          ${renderEntityBlock(this._calendarAccountUsername)}
+          ${renderEntityBlock(this._carCalendarName)}
         `
       : nothing;
   }
@@ -103,7 +89,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
           <p>
             ${tp('type')}: <strong>${this._carCalendarSource.state}<strong>
           </p>
-          ${this._renderEntityBlock(this._integrationCalendarEntityName)}
+          ${renderEntityBlock(this._integrationCalendarEntityName)}
         `
       : nothing;
   }

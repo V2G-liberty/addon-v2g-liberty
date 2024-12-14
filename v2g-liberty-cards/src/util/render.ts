@@ -1,9 +1,48 @@
-import { mdiClose } from '@mdi/js';
+import { mdiClose, mdiPencil } from '@mdi/js';
 import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
-import { html, TemplateResult } from 'lit';
+import { html, nothing, TemplateResult } from 'lit';
 
 import { t, to } from '../util/translate';
+
+export function renderEntityBlock(stateObj: HassEntity) {
+  const state = t(stateObj.state) || stateObj.state;
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+  return html`
+    <ha-settings-row>
+      <span slot="heading" test-id="${stateObj.entity_id}">
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        ${state}
+      </span>
+      <span slot="description">${name}</span>
+    </ha-settings-row>
+  `;
+}
+
+export function renderEntityRow(
+  stateObj: HassEntity,
+  { callback, state }: { callback?: any; state?: string } = {}
+) {
+  state = state || t(stateObj.state) || stateObj.state;
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+  return html`
+    <ha-settings-row>
+      <span slot="heading">
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        ${name}
+      </span>
+      <div class="text-content value state">${state}</div>
+      ${callback
+        ? html`
+            <ha-icon-button
+              .path=${mdiPencil}
+              @click=${callback}
+            ></ha-icon-button>
+          `
+        : nothing}
+    </ha-settings-row>
+  `;
+}
 
 export function renderDialogHeader(
   hass: HomeAssistant,

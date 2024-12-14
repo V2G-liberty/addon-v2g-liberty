@@ -1,9 +1,10 @@
-import { html, LitElement, nothing } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { partial, t } from './util/translate';
+import { renderEntityBlock } from './util/render';
+import { partial } from './util/translate';
 import { showScheduleSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
@@ -66,33 +67,18 @@ export class ScheduleSettingsCard extends LitElement {
 
     return html`
       <div class="card-content">
-        ${this._renderEntityBlock(this._fmAccountUsername)}
+        ${renderEntityBlock(this._fmAccountUsername)}
         ${isUsingOtherServer
           ? html`
               <p>${useOtherServer}</p>
-              ${this._renderEntityBlock(this._fmHostUrl)}
+              ${renderEntityBlock(this._fmHostUrl)}
             `
           : html` <p>${useDefaultServer}</p> `}
-        ${this._renderEntityBlock(this._fmAsset)}
+        ${renderEntityBlock(this._fmAsset)}
         <mwc-button @click=${editCallback}>
           ${this._hass.localize('ui.common.edit')}
         </mwc-button>
       </div>
-    `;
-  }
-
-  private _renderEntityBlock(stateObj) {
-    const stateLabel = t(stateObj.state) || stateObj.state;
-    const description =
-      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${stateLabel}
-        </span>
-        <span slot="description">${description}</span>
-      </ha-settings-row>
     `;
   }
 }

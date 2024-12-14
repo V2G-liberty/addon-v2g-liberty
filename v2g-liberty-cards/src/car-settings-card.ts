@@ -4,6 +4,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
+import { renderEntityRow } from './util/render';
 import { partial, t } from './util/translate';
 import { styles } from './card.styles';
 import {
@@ -62,51 +63,34 @@ class CarSettingsCard extends LitElement {
 
   private _renderUsableCapacity() {
     const stateObj = this._usableCapacity;
+    const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarBatteryUsableCapacityDialog(this, {
         entity_id: entityIds.usableCapacity,
       });
 
-    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
+    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
   }
 
   private _renderRoundtripEfficiency() {
     const stateObj = this._roundtripEfficiency;
+    const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showRoundtripEfficiencyDialog(this, {
         entity_id: entityIds.roundtripEfficiency,
       });
 
-    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
+    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
   }
 
   private _renderCarEnergyConsumption() {
     const stateObj = this._carEnergyConsumption;
+    const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarEnergyConsumptionDialog(this, {
         entity_id: entityIds.carEnergyConsumption,
       });
 
-    return html`<div>${this._renderEntityRow(stateObj, callback)}</div>`;
-  }
-
-  private _renderEntityRow(stateObj, editCallback) {
-    const description =
-      t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-          ${description}
-        </span>
-        <div class="text-content value state">
-          ${this._hass.formatEntityState(stateObj)}
-        </div>
-        <ha-icon-button
-          .path=${mdiPencil}
-          @click=${editCallback}
-        ></ha-icon-button>
-      </ha-settings-row>
-    `;
+    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
   }
 }
