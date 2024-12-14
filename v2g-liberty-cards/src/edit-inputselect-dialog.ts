@@ -25,8 +25,7 @@ class EditInputNumberDialog extends DialogBase {
 
     const stateObj = this.hass.states[this._params.entity_id];
     const header = this._params.header;
-    const name =
-      `! ${t(stateObj.entity_id)} !` || stateObj.attributes.friendly_name;
+    const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     const description = this._params.description;
 
     return html`

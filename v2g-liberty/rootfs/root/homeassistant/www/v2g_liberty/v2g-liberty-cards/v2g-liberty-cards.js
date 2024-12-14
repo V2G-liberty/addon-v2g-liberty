@@ -12760,7 +12760,7 @@ class $7283b140e865221f$var$EditInputNumberDialog extends (0, $942308f826de48c4$
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const stateObj = this.hass.states[this._params.entity_id];
         const header = this._params.header;
-        const name = `! ${(0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id)} !` || stateObj.attributes.friendly_name;
+        const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
         const description = this._params.description;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
