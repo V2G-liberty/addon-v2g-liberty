@@ -5,8 +5,11 @@ import { html, nothing, TemplateResult } from 'lit';
 
 import { t, to } from '../util/translate';
 
-export function renderEntityBlock(stateObj: HassEntity) {
-  const state = t(stateObj.state) || stateObj.state;
+export function renderEntityBlock(
+  stateObj: HassEntity,
+  { state }: { state?: string } = {}
+) {
+  state = state || to(stateObj.state) || stateObj.state;
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
@@ -23,7 +26,7 @@ export function renderEntityRow(
   stateObj: HassEntity,
   { callback, state }: { callback?: any; state?: string } = {}
 ) {
-  state = state || t(stateObj.state) || stateObj.state;
+  state = state || to(stateObj.state) || stateObj.state;
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>

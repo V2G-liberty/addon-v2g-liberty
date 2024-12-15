@@ -10523,8 +10523,8 @@ var $04557c061247a0a6$export$a14c803a1714faa3 = "M18.5,19.13C20,17.77 20,15.18 2
 
 
 
-function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj) {
-    const state = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.state) || stateObj.state;
+function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj, { state: state } = {}) {
+    state = state || (0, $aa1795080f053cd4$export$2c618a4308a30424)(stateObj.state) || stateObj.state;
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
@@ -10537,7 +10537,7 @@ function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj) {
   `;
 }
 function $4dbea3927e6cdc74$export$555d2b0b4c35578d(stateObj, { callback: callback, state: state } = {}) {
-    state = state || (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.state) || stateObj.state;
+    state = state || (0, $aa1795080f053cd4$export$2c618a4308a30424)(stateObj.state) || stateObj.state;
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
@@ -13120,12 +13120,18 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderHomeAssistantDetails() {
-        return this._carCalendarSource.state === 'Home Assistant integration' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        if (this._carCalendarSource.state === 'Home Assistant integration') {
+            const calendarStateObj = this._hass.states[this._integrationCalendarEntityName.state];
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <p>
             ${$8b666ded8df00928$var$tp('type')}: <strong>${this._carCalendarSource.state}<strong>
           </p>
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName)}
-        ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName, {
+                state: calendarStateObj.attributes.friendly_name
+            })}
+        `;
+        }
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([

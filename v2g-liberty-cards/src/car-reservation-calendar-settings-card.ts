@@ -84,13 +84,18 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   }
 
   private _renderHomeAssistantDetails() {
-    return this._carCalendarSource.state === 'Home Assistant integration'
-      ? html`
+    if (this._carCalendarSource.state === 'Home Assistant integration') {
+      const calendarStateObj =
+        this._hass.states[this._integrationCalendarEntityName.state];
+      return html`
           <p>
             ${tp('type')}: <strong>${this._carCalendarSource.state}<strong>
           </p>
-          ${renderEntityBlock(this._integrationCalendarEntityName)}
-        `
-      : nothing;
+          ${renderEntityBlock(this._integrationCalendarEntityName, {
+            state: calendarStateObj.attributes.friendly_name,
+          })}
+        `;
+    }
+    return nothing;
   }
 }
