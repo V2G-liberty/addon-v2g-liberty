@@ -35,14 +35,14 @@ class ModbusEVSEclient:
     ################################################################################
     #   EVSE Entities                                                              #
     #   These hold the constants for entity (e.g. modbus address, min/max value,   #
-    #   and store (cache) the values of the charger (current/previous)             #
+    #   and store (cache) the values of the charger.                               #
     ################################################################################
+
     ENTITY_CHARGER_CURRENT_POWER = {
         "modbus_address": 526,
         "minimum_value": -7400,
         "maximum_value": 7400,
         "current_value": None,
-        "previous_value": None,
         "ha_entity_name": "charger_real_charging_power",
     }
     ENTITY_CHARGER_STATE = {
@@ -50,7 +50,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 11,
         "current_value": None,
-        "previous_value": None,
         "change_handler": "__handle_charger_state_change",
         "ha_entity_name": "charger_state_int",
     }
@@ -61,7 +60,6 @@ class ModbusEVSEclient:
         "relaxed_min_value": 1,
         "relaxed_max_value": 100,
         "current_value": None,
-        "previous_value": None,
         "change_handler": "__handle_soc_change",
         "ha_entity_name": "car_state_of_charge",
     }
@@ -71,9 +69,7 @@ class ModbusEVSEclient:
     #   The reported 0 SoC does not represent an actual true value and should be ignored.
     #   and the current value is to be preserved.
     # + When no car is connected
-    #   This represents 'unknown' and should be reflected as such in the HA sensor history.
-    #   The 'unknown' value is set in __handle_charger_state_change.
-
+    #   This represents 'unavailable' and should be reflected as such in the HA sensor history.
     # About the minimum value of 2%:
     #  The Quasar sometimes returns 1% while the true value is (much) higher.
     #  As 1% can be a valid value we want to be sure it is not the hick-up version, we
@@ -90,7 +86,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "change_handler": "__handle_charger_error_state_change",
         "ha_entity_name": "unrecoverable_errors_register_high",
     }
@@ -99,7 +94,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "change_handler": "__handle_charger_error_state_change",
         "ha_entity_name": "unrecoverable_errors_register_low",
     }
@@ -108,7 +102,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "change_handler": "__handle_charger_error_state_change",
         "ha_entity_name": "recoverable_errors_register_high",
     }
@@ -117,7 +110,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "change_handler": "__handle_charger_error_state_change",
         "ha_entity_name": "recoverable_errors_register_low",
     }
@@ -127,7 +119,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 1,
         "current_value": None,
-        "previous_value": None,
         "ha_entity_name": "charger_locked",
     }
 
@@ -136,7 +127,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "ha_entity_name": "firmware_version",
     }
 
@@ -145,7 +135,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "ha_entity_name": "serial_number_high",
     }
 
@@ -154,7 +143,6 @@ class ModbusEVSEclient:
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "previous_value": None,
         "ha_entity_name": "serial_number_low",
     }
 
@@ -323,7 +311,8 @@ class ModbusEVSEclient:
         Activating the polling is done in set_active.
         """
         self.__log(
-            f"Configuring Modbus EVSE client at {c.CHARGER_HOST_URL}:{c.CHARGER_PORT}, reason: {v2g_args}"
+            f"Configuring Modbus EVSE client at {c.CHARGER_HOST_URL}:{c.CHARGER_PORT}, "
+            f"reason: {v2g_args}"
         )
 
         # Remove old client if needed.
@@ -353,53 +342,46 @@ class ModbusEVSEclient:
         await self.__set_charger_action("stop", reason="stop_charging")
         await self.__set_charge_power(charge_power=0, source="stop_charging")
 
-    async def start_charge_with_power(self, kwargs: dict, *args, **fnc_kwargs):
+    async def start_charge_with_power(self, charge_power: int, source: str = "unknown"):
         """Function to start a charge session with a given power in Watt.
-            To be called from v2g-liberty module.
+           To be called from v2g-liberty module.
 
         Args:
-            kwargs (dict):
-                kwargs should contain a "charge_power" key with a value in Watt.
-                kwargs can contain a "source" for debugging.
+            charge_power (int): charge_power with a value in Watt, can be negative.
+            source (str, optional): for debugging. Defaults to "unknown".
         """
         # Check for automatic mode should be done by V2G Liberty app
-        source = kwargs.get("source", "unknown source")
         if not self._am_i_active:
             self.__log(
-                f"Not setting charge_rate: _am_i_active == False. Requested by {source}."
+                f"Not setting charge_rate: _am_i_active == False. Requested by '{source}'."
             )
+            return
+
+        if charge_power is None:
+            self.__log("charge_power = None, abort", level="WARNING")
             return
 
         if not await self.is_car_connected():
             self.__log(
-                f"Not setting charge_rate: No car connected. Requested by {source}."
+                f"Not setting charge_rate: No car connected. Requested by '{source}'."
             )
             return
 
-        charge_power = kwargs.get("charge_power", None)
-        charge_power_in_watt = parse_to_int(charge_power, None)
-        if charge_power_in_watt is None:
-            self.__log(f"invalid charge_power: {charge_power}")
-            return
         await self.__set_charger_control("take")
-        if charge_power_in_watt == 0:
+        if charge_power == 0:
             await self.__set_charger_action(
                 action="stop",
-                reason=f"start_charge_with_power called from {source} with power = 0",
+                reason=f"called from {source} with power = 0",
             )
         else:
             await self.__set_charger_action(
                 action="start",
-                reason=f"start_charge_with_power called from {source} with {charge_power_in_watt=}",
+                reason=f"called from {source} with {charge_power=}",
             )
-        await self.__set_charge_power(
-            charge_power=charge_power_in_watt,
-            source=f"{source} => start_charge_with_power",
-        )
 
-        await self.__update_ha_entity(
-            entity_id="sensor.current_scheduled_charging_power",
-            new_value=charge_power_in_watt,
+        await self.__set_charge_power(
+            charge_power=charge_power,
+            source=f"{source} => start_charge_with_power",
         )
 
     async def set_inactive(self):
@@ -427,18 +409,20 @@ class ModbusEVSEclient:
     async def get_car_soc_kwh(self) -> float:
         """Helper to get SoC in kWh"""
         soc = await self.__get_car_soc(do_not_use_cache=False)
-        if soc in [None, "unknown"]:
-            return "unknown"
+        if soc in [None, "unavailable", "unknown"]:
+            return "unavailable"
         return round(soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
 
     async def get_car_remaining_range(self) -> int:
         """Helper to get remaining range in km"""
         soc_kwh = await self.get_car_soc_kwh()
-        if soc_kwh == "unknown":
-            return "unknown"
+        if soc_kwh in [None, "unavailable", "unknown"]:
+            return "unavailable"
         else:
             return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
 
+    # TODO: AVAILABILITY_STATES is knowledge that does not belong here but in data monitor.
+    # MOve this method out of this module.
     def is_available_for_automated_charging(self) -> bool:
         """Whether the car and EVSE are available for automated charging.
         To simplify things for the caller, this is implemented as a synchronous function.
@@ -446,9 +430,7 @@ class ModbusEVSEclient:
         can be as old as the maximum polling interval.
         """
         if not self._am_i_active:
-            self.__log(
-                "is_available_for_automated_charging called while _am_i_active == False. Returning False."
-            )
+            self.__log("called while _am_i_active == False. Returning False.")
             return False
 
         # The method self.__get_charger_state() cannot be used as it is async and this
@@ -643,26 +625,29 @@ class ModbusEVSEclient:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
-            # When disconnected the SoC of the car is unknown.
+            # When disconnected the SoC of the car is unavailable.
             await self.__update_ha_and_evse_entity(
                 evse_entity=self.ENTITY_CAR_SOC,
-                new_value="unknown",
+                new_value="unavailable",
             )
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
             await self.__set_charger_action("stop", reason="car disconnected")
             await self.__set_poll_strategy()
-            await self.v2g_main_app.handle_car_disconnect()
-        elif old_charger_state in self.DISCONNECTED_STATES:
+            await self.__update_ha_entity(
+                entity_id="binary_sensor.is_car_connected",
+                new_value="off",
+            )
+        else:
             # new_charger_state must be a connected state, so if the old state was disconnected
             # **** Handle connected
             self.__log("From disconnected to connected: try to refresh the SoC")
             await self.__get_car_soc(do_not_use_cache=True)
             await self.__set_poll_strategy()
-            await self.v2g_main_app.handle_car_connect()
-        else:
-            # Not a change that this method needs to react upon.
-            pass
+            await self.__update_ha_entity(
+                entity_id="binary_sensor.is_car_connected",
+                new_value="on",
+            )
 
         return
 
@@ -708,11 +693,15 @@ class ModbusEVSEclient:
                 return True
             action_value = self.ACTIONS["start_charging"]
         elif action == "stop":
-            # Stop needs to be very reliable, so we always perform this action, even if currently not charging.
+            # Stop needs to be very reliable, so we always perform this action, even if currently
+            # not charging.
             action_value = self.ACTIONS["stop_charging"]
         else:
             # Restart not implemented
-            raise ValueError(f"Unknown option for action: '{action}'.{reason}")
+            self.__log(
+                f"Unknown option for action: '{action}'.{reason}", level="WARNING"
+            )
+
         txt = f"set_charger_action: {action}"
         await self.__modbus_write(
             address=self.SET_ACTION_REGISTER, value=action_value, source=txt
@@ -747,16 +736,16 @@ class ModbusEVSEclient:
         This forces the method to get the soc from the car and bypass any cached value.
 
         :return (int):
-        SoC value from 2 to 97 (%) or "unknown".
-        If the car is disconnected the charger returns 0 representing "unknown".
+        SoC value from 2 to 97 (%) or "unavailable".
+        If the car is disconnected the charger returns 0 representing "unavailable".
         """
         # self.__log("__get_car_soc called")
         if not self._am_i_active:
             self.__log("called while _am_i_active == False. Not blocking.")
 
         if not await self.is_car_connected():
-            self.__log("no car connected, returning SoC = 'unknown'")
-            return "unknown"
+            self.__log("no car connected, returning SoC = 'unavailable'")
+            return "unavailable"
 
         ecs = self.ENTITY_CAR_SOC
         soc_value = ecs["current_value"]
@@ -888,10 +877,10 @@ class ModbusEVSEclient:
 
             try:
                 new_state = int(float(new_state))
-            except:
+            except ValueError as ve:
                 self.__log(
-                    f"New value '{new_state}' for entity '{entity_name}', "
-                    f"not type == int : ignored."
+                    f"New value '{new_state}' for entity '{entity_name}' "
+                    f"ignored due to ValueError: {ve}."
                 )
                 continue
 
@@ -922,26 +911,32 @@ class ModbusEVSEclient:
             )
         return
 
-    async def __update_ha_and_evse_entity(self, evse_entity, new_value):
+    async def __update_ha_and_evse_entity(
+        self,
+        evse_entity,
+        new_value=None,
+    ):
         """Helper method to update both the evse- and ha-entity at the same time"""
         await self.__update_evse_entity(evse_entity=evse_entity, new_value=new_value)
         entity_id = f"sensor.{evse_entity['ha_entity_name']}"
         await self.__update_ha_entity(entity_id=entity_id, new_value=new_value)
 
-    async def __update_evse_entity(self, evse_entity: dict, new_value):
+    async def __update_evse_entity(
+        self,
+        evse_entity: dict,
+        new_value,
+    ):
         """
         Update evse_entity.
         Should only be called from __update_ha_and_evse_entity.
         :param evse_entity: evse_entity
-        :param new_value: new_value, can be "unknown"
+        :param new_value: new_value, can be "unavailable"
         :return: Nothing
         """
         current_value = evse_entity["current_value"]
 
         if current_value != new_value:
             evse_entity["current_value"] = new_value
-            evse_entity["previous_value"] = current_value
-
             # Call change_handler if defined
             if "change_handler" in evse_entity.keys():
                 str_action = evse_entity["change_handler"]
@@ -962,7 +957,10 @@ class ModbusEVSEclient:
                     self.__log(f"unknown action: '{str_action}'.", level="WARNING")
 
     async def __update_ha_entity(
-        self, entity_id: str, new_value=None, attributes: dict = {}
+        self,
+        entity_id: str,
+        new_value=None,
+        attributes: dict = {},
     ):
         """
         Generic function for updating the state of an entity in Home Assistant
@@ -970,11 +968,13 @@ class ModbusEVSEclient:
         If it has attributes, keep them (if not overwrite with empty)
 
         Args:
-            entity_id (str): full entity_id incl. type, e.g. sensor.charger_state
-            new_value (any, optional): The value the entity should be written with.
-              Defaults to None, can be "unknown".
-            attributes (dict, optional): The dict the attributes should be written
-            with. Defaults to {}.
+            entity_id (str):
+              Full entity_id including type, e.g. sensor.charger_state
+            new_value (any, optional):
+              The value the entity should be written with. Defaults to None, can be "unavailable" or
+              "unknown" (treated as unavailable).
+            attributes (dict, optional):
+              The dict the attributes should be written with. Defaults to {}.
         """
         new_attributes = {}
         if self.hass.entity_exists(entity_id):
@@ -985,7 +985,39 @@ class ModbusEVSEclient:
             new_attributes.update(attributes)
         else:
             new_attributes = attributes
-        await self.hass.set_state(entity_id, state=new_value, attributes=new_attributes)
+
+        if entity_id.startswith("binary_sensor"):
+            if new_value in ["unavailable", "unknown"]:
+                availability = "off"
+            else:
+                availability = "on"
+                if new_value in [True, "true", "on", 1]:
+                    new_value = "on"
+                else:
+                    new_value = "off"
+
+            # A work-around, sighhh...
+            # This should be done by parameter availability=False in the set_state call (not as part
+            # of the attributes) but that does not work..
+            # So, there is an extra sensor with the same name as the original + _availability that
+            # is used in the availability template of the original.
+            availability_entity_id = f"{entity_id}_availability"
+            await self.hass.set_state(
+                availability_entity_id,
+                state=availability,
+            )
+            if availability == "on":
+                await self.hass.set_state(
+                    entity_id,
+                    state=new_value,
+                    attributes=new_attributes,
+                )
+        else:
+            await self.hass.set_state(
+                entity_id,
+                state=new_value,
+                attributes=new_attributes,
+            )
 
     async def __set_charge_power(
         self, charge_power: int, skip_min_soc_check: bool = False, source: str = None
@@ -1011,9 +1043,9 @@ class ModbusEVSEclient:
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
             current_soc = await self.__get_car_soc()
-            if current_soc == "unknown":
+            if current_soc in ["unavailable", "unknown"]:
                 self.__log(
-                    "current SoC is 'unknown', only expected when car is not connected",
+                    "current SoC is 'unavailable', only expected when car is not connected",
                     level="WARNING",
                 )
             elif current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
@@ -1027,10 +1059,15 @@ class ModbusEVSEclient:
 
         # Clip values to min/max charging current
         if charge_power > c.CHARGER_MAX_CHARGE_POWER:
-            self.__log(f"Requested charge power {charge_power} Watt too high.")
+            self.__log(
+                f"Requested charge power {charge_power} Watt too high.", level="WARNING"
+            )
             charge_power = c.CHARGER_MAX_CHARGE_POWER
         elif abs(charge_power) > c.CHARGER_MAX_DISCHARGE_POWER:
-            self.__log(f"Requested discharge power {charge_power} Watt too high.")
+            self.__log(
+                f"Requested discharge power {charge_power} Watt too high.",
+                level="WARNING",
+            )
             charge_power = -c.CHARGER_MAX_DISCHARGE_POWER
 
         current_charge_power = await self.__get_charge_power()
@@ -1084,11 +1121,11 @@ class ModbusEVSEclient:
         await self.__cancel_polling(reason="setting new polling strategy")
 
         charger_state = await self.__get_charger_state()
-        if charger_state in [None, "unknown"]:
+        if charger_state in [None, "unavailable", "unknown"]:
             # Probably initialization is not complete yet, assume not connected
             charger_state = self.DISCONNECTED_STATES[0]
             self.__log(
-                "Deciding polling strategy based on state unknown charger state, "
+                "Deciding polling strategy based on state unavailable charger state, "
                 "assume disconnected."
             )
         else:
@@ -1407,22 +1444,17 @@ class ModbusEVSEclient:
                 has_error = True
 
         if has_error:
-            # self.__log("CINE-A")
             if is_final_check:
-                # self.__log("CINE-B")
                 await self.__handle_un_recoverable_error(reason="charger reports error")
             elif self.timer_id_check_error_state is None:
-                # self.__log("CINE-C")
                 self.timer_id_check_error_state = await self.hass.run_in(
                     self.__handle_charger_error_state_change,
                     delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
                     new_charger_state=None,
                     is_final_check=True,
                 )
-                # self.__log("CINE-D")
                 return
         else:
-            self.__log("CINE-E")
             self.__cancel_timer(self.timer_id_check_error_state)
             self.timer_id_check_error_state = None
 
@@ -1522,12 +1554,16 @@ class ModbusEVSEclient:
         )
         await self.__update_charger_connection_state(is_alive=False)
 
-        # The soc and power are not known anymore so let's represent this in the app
+        # The soc and power are not known any more so let's represent this in the app
         await self.__update_ha_and_evse_entity(
-            evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value="unknown"
+            evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value="unavailable"
         )
         await self.__update_ha_and_evse_entity(
-            evse_entity=self.ENTITY_CAR_SOC, new_value="unknown"
+            evse_entity=self.ENTITY_CAR_SOC, new_value="unavailable"
+        )
+        await self.__update_ha_entity(
+            entity_id="binary_sensor.is_car_connected",
+            new_value="unavailable",
         )
 
     def __cancel_timer(self, timer_id: str):

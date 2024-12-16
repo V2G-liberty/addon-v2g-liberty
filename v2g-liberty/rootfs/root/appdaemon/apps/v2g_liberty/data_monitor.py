@@ -147,26 +147,30 @@ class DataMonitor:
         self.__log("Completed initializing SetFMdata")
 
     async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
-        """Handle changes in the car's state_of_charge"""
+        """Handle changes in the car's state of charge (SoC)."""
+        if new is None:
+            self.connected_car_soc = None
+            return
         reported_soc = new.get("state", None)
-        self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
-        if isinstance(reported_soc, str):
-            if not reported_soc.isnumeric():
-                # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
-                self.connected_car_soc = None
-                return
-            reported_soc = int(round(float(reported_soc), 0))
-            await self.__process_soc_change(reported_soc)
+        await self.__process_soc_change(reported_soc)
 
     async def __process_soc_change(self, soc: int):
         if soc in self.EMPTY_STATES:
+            # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
             self.connected_car_soc = None
             return
 
-        self.__log(
-            f"Processed reported SoC, self.connected_car_soc is now set to: {soc}%."
-        )
-        self.connected_car_soc = soc
+        if isinstance(soc, str):
+            if not soc.isnumeric():
+                self.connected_car_soc = None
+                return
+            soc = int(round(float(soc), 0))
+
+        if isinstance(soc, int):
+            self.connected_car_soc = soc
+        else:
+            self.connected_car_soc = None
+            return
         await self.__record_availability()
 
     async def __handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
