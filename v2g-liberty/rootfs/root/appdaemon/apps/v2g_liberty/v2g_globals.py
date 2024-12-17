@@ -770,7 +770,10 @@ class V2GLibertyGlobals:
                 notification_id=notification_id,
             )
         except Exception as e:
-            self.__log(f"create_persistent_notification failed! Exception: '{e}'")
+            self.__log(
+                f"create_persistent_notification failed. Exception: '{e}'",
+                level="WARNING",
+            )
 
     async def __write_setting_to_ha(
         self,

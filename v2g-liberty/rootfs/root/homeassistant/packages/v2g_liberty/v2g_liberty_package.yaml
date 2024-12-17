@@ -390,8 +390,8 @@ sensor:
         value_template: ""
 
       # Helper, for setting text in dashboard.
-      optimisation_mode:
-        friendly_name: Optimisation mode
+      last_reboot_at:
+        friendly_name: When was V2G Liberty add-on last restarted
         value_template: ""
 
       # Used to store the (serialised) charge schedule HA receives from the

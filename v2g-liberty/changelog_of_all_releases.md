@@ -19,6 +19,7 @@ That file also contains possible changes that the next release might include.
 - Feature Request: Notify user when at the end of a calendar item the car is not connected (#158)
 - Feature Request: Add history to V2G Liberty entities (#176)
 - Feature request: Add "unknown" state to real_charge_power and car_state_of_charge sensors (#170)
+- Feature Request: Add 'Alive since' to UI (#182)
 
 ### Changed
 
