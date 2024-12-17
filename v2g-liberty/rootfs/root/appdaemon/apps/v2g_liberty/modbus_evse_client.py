@@ -422,7 +422,7 @@ class ModbusEVSEclient:
             return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
 
     # TODO: AVAILABILITY_STATES is knowledge that does not belong here but in data monitor.
-    # MOve this method out of this module.
+    # Move this method out of this module.
     def is_available_for_automated_charging(self) -> bool:
         """Whether the car and EVSE are available for automated charging.
         To simplify things for the caller, this is implemented as a synchronous function.
