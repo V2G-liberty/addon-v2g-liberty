@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.4.3 2024-11-??
+## 0.4.3 2024-12-??
 
 ### Fixed
 
@@ -9,6 +9,7 @@
 - 🪲 BUG: Alert for negative prices not working correctly (#169)
 - 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
   Includes Bump of pyModbus library to 3.8.0
+- 🪲 BUG: BUG: Cost data blinking at startup (#181)
 
 ### Added
 
