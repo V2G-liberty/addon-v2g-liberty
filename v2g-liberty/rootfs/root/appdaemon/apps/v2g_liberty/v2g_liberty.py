@@ -98,6 +98,10 @@ class V2Gliberty:
 
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
+        await self.hass.set_state(
+            entity_id="sensor.last_reboot_at",
+            state=get_local_now().strftime(c.DATE_TIME_FORMAT),
+        )
 
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
