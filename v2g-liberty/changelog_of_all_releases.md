@@ -24,6 +24,7 @@ That file also contains possible changes that the next release might include.
 ### Changed
 
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
+- ⬆️ Bump caldav library to 1.4.0 (#180)
 
 ## 0.4.2 2024-11-25
 
