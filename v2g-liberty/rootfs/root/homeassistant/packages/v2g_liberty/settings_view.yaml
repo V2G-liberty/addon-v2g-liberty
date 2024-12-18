@@ -12,8 +12,6 @@
 
 - type: vertical-stack
   cards:
-    - type: custom:v2g-liberty-ping-card
-    
     - type: entities
       title: Optimisation
       entities:
