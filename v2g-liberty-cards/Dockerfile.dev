@@ -1,0 +1,8 @@
+FROM mcr.microsoft.com/devcontainers/base:alpine-3.20
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN apk update && apk add nodejs npm
+
+# Set the default shell to bash instead of sh
+ENV SHELL /bin/bash

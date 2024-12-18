@@ -3,6 +3,31 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.4.3 2024-12-??
+
+### Fixed
+
+- 🪲 BUG: During Max charge the power sometimes is set to 0 (#152)
+- 🪲 BUG: Local Home Assistant calendar only triggers changed event on first upcoming calendar item (#167)
+- 🪲 BUG: Alert for negative prices not working correctly (#169)
+- 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
+  Includes Bump of pyModbus library to 3.8.0
+- 🪲 BUG: BUG: Cost data blinking at startup (#181)
+- Custom cards bug in HA (#189)
+
+### Added
+
+- Feature Request: Notify user when at the end of a calendar item the car is not connected (#158)
+- Feature Request: Add history to V2G Liberty entities (#176)
+- Feature request: Add "unknown" state to real_charge_power and car_state_of_charge sensors (#170)
+- Feature Request: Add 'Alive since' to UI (#182)
+
+### Changed
+
+- 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
+- ⬆️ Bump caldav library to 1.4.0 (#180)
+
+
 ## 0.4.2 2024-11-25
 
 ### Fixed
@@ -15,7 +40,6 @@ That file also contains possible changes that the next release might include.
 ### Fixed
 
 - 🪲 BUG-FIX release 0.4.1: Better cleanup of the old renamed v2g-liberty folder.
-
 
 ## 0.4.0 2024-11-04
 
@@ -31,22 +55,18 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- 🪲 BUG: Alert in UI for "Price and/or emission data incomplete" never shown (#130) 
-- 🪲 BUG: Legend of chart not clickable #141 
+- 🪲 BUG: Alert in UI for "Price and/or emission data incomplete" never shown (#130)
+- 🪲 BUG: Legend of chart not clickable #141
 
 ### Removed
 
 - Template sensor for timezone, old unused code (unnumbered).
 
-
-
 ## 0.3.3 2024-10-17
 
 ### Fixed
 
--  🪲 BUG: admin_mobile name select is changing several times per second #124 
-
-
+- 🪲 BUG: admin_mobile name select is changing several times per second #124
 
 ## 0.3.2 2024-10-16
 
@@ -57,7 +77,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- 🪲 BUG: Timeout on __force_get_register on modbus_evse_client not handled (#98)
+- 🪲 BUG: Timeout on \_\_force_get_register on modbus_evse_client not handled (#98)
 - 🪲 BUG: Changelog not available from add-on screen in HA (un-numbered)
 - 🩹 PATCH: Delay start time of getting prices (#117)
 
@@ -66,7 +86,7 @@ That file also contains possible changes that the next release might include.
 - 🛠️ FR: Charge mode "Off" is renamed to "Pause" and now keeps polling the charger (#100)
 - 🛠️ FR: Make getting prices more robust (#115)
 - TECH: Use get_plugin_config() instead of template sensor TZ in package.yaml (#103)
-- TECH: Add "initialised" attribute to settings entities (=preparation for UI improvements) #113 
+- TECH: Add "initialised" attribute to settings entities (=preparation for UI improvements) #113
 - REFACTOR: Restructure code in set_next_action (#108)
 - Bumped flexmeasures_client library to version 0.2.4 (#110)
 
@@ -74,14 +94,11 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
-
 ## 0.3.1 2024-09-25
 
 ### Added
 
 - None
-
 
 ### Fixed
 
@@ -95,8 +112,6 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
-
 ## 0.3.0 2024-09-20
 
 ### Added
@@ -106,11 +121,11 @@ That file also contains possible changes that the next release might include.
 ### Fixed
 
 🪲 Bugfixes:
+
 - 'Reduce max(dis-) charge power' setting not preserved (#71)
 - Too frequent fluctuating (scheduled) charge power (#74)
 - Sometimes the SoC does not get renewed after car gets connected (#77)
 - Notification "retry getting EPEX prices" not sent when call completly fails (#79)
-
 
 ### Changed
 
@@ -123,8 +138,6 @@ That file also contains possible changes that the next release might include.
 ### Removed
 
 - None
-
-
 
 ## 0.2.0 2024-08-28
 
@@ -146,7 +159,6 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ## 0.1.14 2024-08-21
 
 ### Added
@@ -159,7 +171,6 @@ That file also contains possible changes that the next release might include.
 - Bug (Unnumbered): Better handle empty calendar
 - Bug (unnumbered): More robust cancel_listener
 
-
 ### Changed
 
 - None
@@ -168,18 +179,15 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ## 0.1.13 2024-08-19
 
 ### Added
 
 - Re-introduced the option for self-provided price data for Amber Energy. This is based on the (deprecated) 'HA Manual install' repository (Issue #51).
 
-
 ### Fixed
 
 - Bug (not numbered) that prevented the stats from showing properly in th UI if the charged energy is 0 (first day at least). Division by zero.
-
 
 ### Changed
 
@@ -189,6 +197,7 @@ That file also contains possible changes that the next release might include.
   - Removed mechanism to prevent 'parallel calls' to charger
   - Removed closing the connection after every call
 - Upgraded (the L&F of) the chart:
+
   - The chart is now larger (taller).
   - The zoom/pan function has been replaced by a unit of measure, '¢ent/kWh.'
   - Prices now align with the grid lines, which are less "dotty."
@@ -201,11 +210,9 @@ That file also contains possible changes that the next release might include.
 - Bumped ApexCharts-Card to version 2.1.2.
 - Improve charger-state storage and handling (Issue #50)
 
-
 ### Removed
 
 - None.
-
 
 ## 0.1.12 - 2024-07-15
 
@@ -214,7 +221,6 @@ That file also contains possible changes that the next release might include.
 - A function to restart V2G Liberty on the settings view and referenced this in the "how to fix the communication
   fault instructions".
 
-
 ### Fixed
 
 - Improved detection of communication failure with charger (#43)
@@ -222,15 +228,12 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
-- Replaced `try - except` for code by `is None` test for code that calls methods in other modules. The caught exception 
+- Replaced `try - except` for code by `is None` test for code that calls methods in other modules. The caught exception
   was too wide and caught all (underlying) exceptions also from the other modules. This prevented propper debugging.
-
 
 ### Removed
 
 - None.
-
-
 
 ## 0.1.11 - 2024-07-03
 
@@ -243,7 +246,6 @@ That file also contains possible changes that the next release might include.
   - if Keep: show normal and keep same schedule
 - Remove location/timezone from secrets (#16)
 
-
 ### Fixed
 
 - Minor fix: await fm_client close()
@@ -255,12 +257,9 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ### Removed
 
 - Date-time from feedback on FM TEST button in settings page.
-
-
 
 ## 0.1.10 - 2024-06-21
 
@@ -268,24 +267,19 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ### Fixed
 
 - Make charger-has-crashend-notification not critical when no car is connected (#31)
-  This is hard to test as the real hardware reacts differently than the charger mock, it has been running on the test 
+  This is hard to test as the real hardware reacts differently than the charger mock, it has been running on the test
   environment for a couple of days. Not so much on real hardware.
-
 
 ### Changed
 
 - None
 
-
 ### Removed
 
 - None
-
-
 
 ## 0.1.9 - 2024-06-13
 
@@ -293,11 +287,9 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ### Fixed
 
 - None.
-
 
 ### Changed
 
@@ -306,12 +298,9 @@ That file also contains possible changes that the next release might include.
 - Minor improvements in documentation.
 - Made setting options in a select more robust
 
-
 ### Removed
 
 - Temporary removed the option "self_provided" for energy prices as users for this functionality use another repository.
-
-
 
 ## 0.1.8 - 2024-06-11
 
@@ -319,29 +308,23 @@ That file also contains possible changes that the next release might include.
 
 - Added `try - except` across all code for calling other modules to increase stability.
 
-
 ### Fixed
 
 - Bug: Local calendar only works if one calendar is present (#32).
-
 
 ### Changed
 
 - None
 
-
 ### Removed
 
 - None
-
-
 
 ## 0.1.7 - 2024-06-07
 
 ### Added
 
 - None
-
 
 ### Fixed
 
@@ -356,18 +339,15 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
-
 ## 0.1.6 - 2024-06-06
 
 ### Added
 
 - None
 
-
 ### Fixed
 
-- Bug: Reset to factory defaults (#28).  
+- Bug: Reset to factory defaults (#28).
 
 ### Changed
 
@@ -377,19 +357,16 @@ That file also contains possible changes that the next release might include.
 
 - (Temporarily) removed ping to flexmeasures as it seems to overload the client is some cases. Needs research
 
-
-
 ## 0.1.5 - 2024-06-06
 
 ### Added
 
 - None
 
-
 ### Fixed
 
 - Bug: Settings get lost (#25)
-- Bug: flexmeasures ping increased timer was not canceled correctly (no await).  
+- Bug: flexmeasures ping increased timer was not canceled correctly (no await).
 
 ### Changed
 
@@ -399,14 +376,11 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
-
 ## 0.1.4 - 2024-06-03
 
 ### Added
 
 - Added nl_greenchoice to the list of possible energy providers.
-
 
 ### Fixed
 
@@ -423,14 +397,11 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
-
 ## 0.1.3 - 2024-06-03
 
 ### Added
 
 - None
-
 
 ### Fixed
 
@@ -444,8 +415,6 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
-
 ## 0.1.2 - 2024-05-31
 
 ### Added
@@ -453,10 +422,9 @@ That file also contains possible changes that the next release might include.
 - Instructions for editing `secrets.yaml` to the docs.md file.
 - Corrected versionnumber in UI.
 
-
 ### Fixed
 
-- None 
+- None
 
 ### Changed
 
@@ -465,8 +433,6 @@ That file also contains possible changes that the next release might include.
 ### Removed
 
 - None
-
-
 
 ## 0.1.1 - 2024-05-28
 
@@ -474,13 +440,12 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ### Fixed
 
 - Fixed issue 14: Notification config not loading correctly.
 - Fixed a minor bug where writing empty initial settings file lead to errors.
-- Fixed a minor bug in __handle_charger_state_change for case where old state is None.
-- 
+- Fixed a minor bug in \_\_handle_charger_state_change for case where old state is None.
+-
 
 ### Changed
 
@@ -488,9 +453,7 @@ That file also contains possible changes that the next release might include.
 
 ### Removed
 
-- 
-
-
+-
 
 ## 0.1.0 - 2024-05-28
 
@@ -498,14 +461,12 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ### Fixed
 
 - Setting charge mode to 'Off' not stopping charging
 - Key-error on failed auth request in get_fm_data
 - Improved handling of charger crashes. Restored high-priority message.
 - Handle rare case where system would not restart after re-connect
-
 
 ### Changed
 
@@ -516,9 +477,7 @@ That file also contains possible changes that the next release might include.
 
 ### Removed
 
-- 
-
-
+-
 
 ## 0.0.2 - 2024-04-05
 
@@ -526,47 +485,37 @@ That file also contains possible changes that the next release might include.
 
 - None
 
-
 ### Fixed
 
 - #6-bug-notification-for-no-schedule-does-not-get-send
-
 
 ### Changed
 
 - None
 
-
 ### Removed
 
 - Nothing
-
-
 
 ## 0.0.1 - 2024-04-04
 
 This is the initial version
 
-
 ### Added
 
 - The add-on is based on / wraps https://github.com/V2G-liberty/HA-manual-install
-
 
 ### Fixed
 
 - None
 
-
 ### Changed
 
 - Everything ;-)
 
-
 ### Removed
 
 - Nothing
-
 
 ## Format
 
@@ -574,5 +523,3 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-
