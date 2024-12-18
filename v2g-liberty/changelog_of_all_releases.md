@@ -27,11 +27,13 @@ That file also contains possible changes that the next release might include.
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
 - ⬆️ Bump caldav library to 1.4.0 (#180)
 
+
 ## 0.4.2 2024-11-25
 
 ### Fixed
 
 - 🪲 BUG-FIX release 0.4.2: Amber price data does not get sent (#173)
+
 
 ## 0.4.1 2024-11-07
 

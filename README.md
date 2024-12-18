@@ -21,7 +21,7 @@ In addition, the EV's battery is used to:
  
 V2G&nbsp;Liberty is a practical local app that works in the browser and on your phone.
 
-![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2024/08/ui_v0_1_13.png)
+![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2024/12/ui_v0_4_3.png)
 
 The schedules are optimised to maximise revenues ór minimising emissions. The optimised schedules
 are produced by [FlexMeasures](https://flexmeasures.io/), our smart backend by Seita. While the price optimisation already 
@@ -126,7 +126,7 @@ Restart *V2G&nbsp;Liberty* `settings -> Add-ons -> V2G Liberty -> Restart`.
 
 You have several options to get help or your questions answered:
 
-- Get [remote (live) support from the V2G Liberty team](docs/remote_support.md).
+- Get [remote (live) support from the V2G Liberty team](v2g-liberty/docs/remote_support.md).
 - The [Home Assistant Community Add-ons Discord chat server][discord] for add-on
   support and feature requests.
 - The [Home Assistant Discord chat server][discord-ha] for general Home
