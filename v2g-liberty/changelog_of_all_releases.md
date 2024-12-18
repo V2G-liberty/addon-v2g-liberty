@@ -13,6 +13,7 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
   Includes Bump of pyModbus library to 3.8.0
 - 🪲 BUG: BUG: Cost data blinking at startup (#181)
+- Custom cards bug in HA (#189)
 
 ### Added
 
