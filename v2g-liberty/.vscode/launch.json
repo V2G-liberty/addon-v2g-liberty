@@ -17,6 +17,13 @@
         "-D",
         "INFO"
       ]
-    }
+    },
+    {
+      "name": "pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-s"]
+    },
   ]
 }
