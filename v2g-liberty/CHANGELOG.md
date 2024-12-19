@@ -1,5 +1,11 @@
 # What's changed?
 
+## 0.4.4 2024-12-19
+
+### Fixed
+
+- 🔥 HOTFIX: Problem with sensors for chart lines, disconnect detection (#196)
+
 ## 0.4.3 2024-12-19
 
 ### Fixed

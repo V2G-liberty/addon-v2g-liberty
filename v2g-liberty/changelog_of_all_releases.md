@@ -3,6 +3,12 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.4.4 2024-12-19
+
+### Fixed
+
+- 🔥 HOTFIX: Problem with sensors for chart lines, disconnect detection (#196)
+
 ## 0.4.3 2024-12-19
 
 ### Fixed
