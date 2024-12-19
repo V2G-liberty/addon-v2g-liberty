@@ -11,6 +11,7 @@
   Includes Bump of pyModbus library to 3.8.0
 - 🪲 BUG: BUG: Cost data blinking at startup (#181)
 - Custom cards bug in HA (#189)
+- 🪲 BUG: Max charge not working correct (#194)
 
 ### Added
 
