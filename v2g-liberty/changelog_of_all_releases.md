@@ -14,6 +14,7 @@ That file also contains possible changes that the next release might include.
   Includes Bump of pyModbus library to 3.8.0
 - 🪲 BUG: BUG: Cost data blinking at startup (#181)
 - Custom cards bug in HA (#189)
+- 🪲 BUG: Max charge not working correct (#194)
 
 ### Added
 
@@ -27,20 +28,17 @@ That file also contains possible changes that the next release might include.
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
 - ⬆️ Bump caldav library to 1.4.0 (#180)
 
-
 ## 0.4.2 2024-11-25
 
 ### Fixed
 
 - 🪲 BUG-FIX release 0.4.2: Amber price data does not get sent (#173)
 
-
 ## 0.4.1 2024-11-07
 
 ### Fixed
 
 - 🪲 BUG-FIX release 0.4.1: Better cleanup of the old renamed v2g-liberty folder.
-
 
 ## 0.4.0 2024-11-04
 

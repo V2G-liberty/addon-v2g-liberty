@@ -250,6 +250,7 @@ class V2Gliberty:
 
         # Needed in many of the cases further in this method
         now = get_local_now()
+        soc = await self.evse_client_app.get_car_soc()
 
         if charge_mode == "Automatic":
             # update_charge_mode takes charger control already, not needed here.
@@ -267,19 +268,19 @@ class V2Gliberty:
                     c.EVENT_RESOLUTION,
                 )
                 self.__log(
-                    f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}% "
-                    f"at {self.back_to_max_soc}."
+                    f"SoC above max-soc, aiming to schedule with target {c.CAR_MAX_SOC_IN_PERCENT}%"
+                    f" at {self.back_to_max_soc}."
                 )
             elif self.back_to_max_soc is not None and soc_kwh <= c.CAR_MAX_SOC_IN_KWH:
                 self.back_to_max_soc = None
                 self.__log("SoC was below max-soc, has been restored.")
 
-            soc = await self.evse_client_app.get_car_soc()
             if soc < c.CAR_MIN_SOC_IN_PERCENT and not self.in_boost_to_reach_min_soc:
                 # Intended for the situation where the car returns from a trip with a low battery.
                 # An SoC below the minimum SoC is considered "unhealthy" for the battery,
                 # this is why the battery should be charged to this minimum asap.
-                # Cancel previous scheduling timers as they might have discharging instructions as well
+                # Cancel previous scheduling timers as they might have discharging instructions
+                # as well.
                 self.__log(
                     f"set_next_action | start Boost charge as soc {soc} is "
                     f"below minimum '{c.CAR_MIN_SOC_IN_PERCENT}'."
@@ -288,8 +289,8 @@ class V2Gliberty:
                 await self.__start_max_charge_now()
                 self.in_boost_to_reach_min_soc = True
 
-                # Create a minimal schedule to show in graph that gives user an estimation of when the min. SoC will
-                # be reached. The schedule starts now with current SoC
+                # Create a minimal schedule to show in graph that gives user an estimation of when
+                # the min. SoC will be reached. The schedule starts now with current SoC.
                 boost_schedule = [dict(time=now.isoformat(), soc=soc)]
 
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
@@ -301,8 +302,8 @@ class V2Gliberty:
                     c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
                 )
 
-                # How long will it take to charge this amount with max power, we use ceil to avoid 0 minutes as
-                # this would not show in graph.
+                # How long will it take to charge this amount with max power, we use ceil to avoid
+                # 0 minutes as this would not show in graph.
                 minutes_to_reach_min_soc = int(
                     math.ceil((delta_to_min_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
                 )
@@ -373,7 +374,7 @@ class V2Gliberty:
                 self.__log(
                     "Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
-                # TODO: Wait 15 min, than ask user if they want to postpone scheduled charging or not.
+                # TODO: Wait 15m., than ask user if they want to postpone scheduled charging or not.
                 await self.__set_charge_mode_in_ui("Automatic")
             else:
                 self.__log(
@@ -394,8 +395,8 @@ class V2Gliberty:
                     c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
                 )
 
-                # How long will it take to charge this amount with max power, we use ceil to avoid 0 minutes as
-                # this would not show in graph.
+                # How long will it take to charge this amount with max power, we use ceil to avoid
+                # 0 minutes as this would not show in graph.
                 minutes_to_reach_max_soc = int(
                     math.ceil((delta_to_max_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
                 )
@@ -411,7 +412,7 @@ class V2Gliberty:
                 )
 
         elif charge_mode == "Stop":
-            # Stopping charger and giving control is also done in the callback function update_charge_mode
+            # Stopping charger and giving control is done in the callback method update_charge_mode
             pass
 
         else:
@@ -506,7 +507,8 @@ class V2Gliberty:
         message = message + " [" + c.HA_NAME + "]"
 
         self.__log(
-            f"Notifying recipients: {to_notify} with message: '{message[0:15]}...' data: {notification_data}."
+            f"Notifying recipients: {to_notify} with message: '{message[0:15]}...'"
+            f"data: {notification_data}."
         )
         for recipient in to_notify:
             service = "notify/mobile_app_" + recipient
@@ -1298,7 +1300,6 @@ class V2Gliberty:
                 "source": "__start_max_charge_now",
             }
         )
-
 
     ######################################################################
     #              PRIVATE METHODS FOR CALENDAR RESERVATIONS             #
