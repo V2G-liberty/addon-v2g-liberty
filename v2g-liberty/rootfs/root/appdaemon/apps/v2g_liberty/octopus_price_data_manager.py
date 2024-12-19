@@ -82,6 +82,7 @@ class ManageOctopusPriceData:
         ##########################################################################
         # self.__log(f"initialize, TESTDATA: Currency = EUR, should be GBP!", level="WARNING")
         # self.CURRENCY = "EUR"
+
         self.UOM = f"{self.CURRENCY}/MWh"
 
         # Emission data is calculated based on the production data and is therefore available a little later
@@ -171,7 +172,7 @@ class ManageOctopusPriceData:
 
     async def __get_octopus_import_prices(self, *args):
         """Get import (consumption) price data from Octopus and send then to FlexMeasures"""
-        self.__log(f"__get_octopus_import_prices called.")
+        self.__log(f"Called")
         res = requests.get(self.import_url)
         if res.status_code != 200:
             self.__log(

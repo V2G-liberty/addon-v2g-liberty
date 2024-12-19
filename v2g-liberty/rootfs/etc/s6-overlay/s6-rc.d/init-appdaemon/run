@@ -36,7 +36,6 @@ if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/v2g-liberty-cards'; 
     mkdir -p /homeassistant/www/v2g_liberty/v2g-liberty-cards
 fi
 
-
 # Copy plugins
 cp -aRv /root/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
     || bashio::exit.nok 'Failed to copy apexchart-card plugin'
