@@ -568,7 +568,7 @@ class V2GLibertyGlobals:
         self.__log("__test_charger_connection called")
         # The url and port settings have been changed via the listener
         await self.hass.set_state(
-            "input_text.charger_connection_status", state="Trying to connect..."
+            "sensor.charger_connection_status", state="Trying to connect..."
         )
         if not await self.evse_client_app.initialise_charger():
             msg = "Failed to connect"
@@ -576,7 +576,7 @@ class V2GLibertyGlobals:
             msg = "Successfully connected"
         # min/max power is set self.evse_client_app.initialise_charger()
         # A conditional card in the dashboard is dependent on exactly the text "Successfully connected".
-        await self.hass.set_state("input_text.charger_connection_status", state=msg)
+        await self.hass.set_state("sensor.charger_connection_status", state=msg)
 
     async def __test_fm_connection(self, event=None, data=None, kwargs=None):
         # Tests the connection with FlexMeasures
