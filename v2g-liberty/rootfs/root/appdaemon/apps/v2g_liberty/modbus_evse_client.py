@@ -638,9 +638,9 @@ class ModbusEVSEclient:
                 entity_id="binary_sensor.is_car_connected",
                 new_value="off",
             )
-        else:
+        elif old_charger_state in self.DISCONNECTED_STATES:
             # new_charger_state must be a connected state, so if the old state was disconnected
-            # **** Handle connected
+            # there was a change in connected state.
             self.__log("From disconnected to connected: try to refresh the SoC")
             await self.__get_car_soc(do_not_use_cache=True)
             await self.__set_poll_strategy()
@@ -648,6 +648,10 @@ class ModbusEVSEclient:
                 entity_id="binary_sensor.is_car_connected",
                 new_value="on",
             )
+        else:
+            # From one connected state to an other connected state: not a change that this method
+            # needs to react upon.
+            pass
 
         return
 
@@ -987,7 +991,7 @@ class ModbusEVSEclient:
             new_attributes = attributes
 
         if entity_id.startswith("binary_sensor"):
-            if new_value in ["unavailable", "unknown"]:
+            if new_value in [None, "unavailable", "unknown", ""]:
                 availability = "off"
             else:
                 availability = "on"
@@ -1013,6 +1017,9 @@ class ModbusEVSEclient:
                     attributes=new_attributes,
                 )
         else:
+            if new_value is None:
+                # A sensor cannot be set to None, results in HA error.
+                new_value = "unavailable"
             await self.hass.set_state(
                 entity_id,
                 state=new_value,

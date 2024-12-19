@@ -290,12 +290,6 @@ class FlexMeasuresDataImporter:
             f"Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}"
         )
 
-        # Seems to be un-used.
-        # new_state = "Costs collected at " + now.isoformat()
-        # result = {"records": charging_cost_points}
-        # await self.hass.set_state(
-        #     entity_id="input_text.charging_costs", state=new_state, attributes=result
-        # )
         await self.hass.set_state(
             entity_id="sensor.total_charging_cost_last_7_days",
             state=total_charging_cost_last_7_days,
@@ -450,7 +444,7 @@ class FlexMeasuresDataImporter:
         """Communicate with FM server and check the results.
 
         Request hourly CO2 emissions due to electricity production in NL from the server
-        Make values available in HA by setting them in input_text.co2_emissions
+        Make values available in HA by setting them in sensor.co2_emissions
         """
 
         self.__log("Called")

@@ -776,7 +776,7 @@ class V2Gliberty:
                 for chart_line in soc_lines:
                     if chart_line == chart_line_name:
                         continue
-                    entity = f"input_text.{self.chart_line_entity[chart_line]}"
+                    entity = f"sensor.{self.chart_line_entity[chart_line]}"
                     await self.hass.set_state(
                         entity, state=new_state, attributes=clear_line_records
                     )
@@ -1149,7 +1149,7 @@ class V2Gliberty:
 
         If appropriate, also starts a charge directly.
         Finally, the expected SoC (given the schedule) is calculated and saved to
-        input_text.soc_prognosis.
+        sensor.soc_prognosis.
         """
         if not await self.evse_client_app.is_car_connected():
             self.__log("aborted: car is not connected")
