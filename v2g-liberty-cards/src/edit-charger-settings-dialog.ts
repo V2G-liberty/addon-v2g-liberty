@@ -242,6 +242,7 @@ class EditChargerSettingsDialog extends DialogBase {
       this._chargerPortField.focus();
       return;
     }
+    this._chargerPort = `${parseInt(this._chargerPort, 10)}`;
     try {
       this._chargerConnectionStatus = ConnectionStatus.Connecting;
       const result = await callFunction(

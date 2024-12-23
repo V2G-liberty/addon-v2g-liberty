@@ -72,6 +72,7 @@ input_select:
       - Please choose an option
 
   electricity_provider:
+    icon: mdi:office-building
     options:
       - nl_generic
       - nl_anwb_energie
@@ -83,6 +84,7 @@ input_select:
       - au_amber_electric
 
   optimisation_mode:
+    icon: mdi:chart-timeline-variant-shimmer
     options:
       - price
       - emission
@@ -157,6 +159,7 @@ input_number:
     step: 1
     mode: box
     unit_of_measurement: "%"
+    icon: mdi:close
 
   energy_price_markup_per_kwh:
     name: Markup/kWh
@@ -165,6 +168,7 @@ input_number:
     step: 0.001
     mode: box
     unit_of_measurement: ct/kWh
+    icon: mdi:plus
 
   charger_plus_car_roundtrip_efficiency:
     name: Roundtrip efficiency of charger and car

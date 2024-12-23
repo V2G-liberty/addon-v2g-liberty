@@ -53,7 +53,7 @@ class EditInputNumberDialog extends DialogBase {
   }
 
   private _renderInvalidInputAlert(stateObj: HassEntity) {
-    const error = t('settings.dialog.inputnumber.error', {
+    const error = t('settings.dialogs.inputnumber.error', {
       min: stateObj.attributes.min,
       max: stateObj.attributes.max,
     });

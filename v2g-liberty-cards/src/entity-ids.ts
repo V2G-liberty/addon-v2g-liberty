@@ -19,7 +19,7 @@ export const calendarAccountUrl = 'input_text.calendar_account_init_url';
 export const calendarAccountUsername = 'input_text.calendar_account_username';
 export const calendarAccountPassword = 'input_text.calendar_account_password';
 export const calendarAccountConnectionStatus =
-  'input_text.calendar_account_connection_status';
+  'sensor.calendar_account_connection_status';
 export const carCalendarName = 'input_select.car_calendar_name';
 // Home Assistant integration
 export const integrationCalendarEntityName =
@@ -30,9 +30,9 @@ export const chargerSettingsInitialised =
   'input_boolean.charger_settings_initialised';
 export const chargerHostUrl = 'input_text.charger_host_url';
 export const chargerPort = 'input_number.charger_port';
-export const chargerConnectionStatus = 'input_text.charger_connection_status';
+export const chargerConnectionStatus = 'sensor.charger_connection_status';
 export const chargerMaxAvailablePower =
-  'input_text.charger_max_available_power';
+  'sensor.charger_max_available_power';
 export const useReducedMaxChargePower =
   'input_boolean.use_reduced_max_charge_power';
 export const chargerMaxChargingPower =
@@ -71,5 +71,5 @@ export const fmAccountUsername = 'input_text.fm_account_username';
 export const fmAccountPassword = 'input_text.fm_account_password';
 export const fmUseOtherServer = 'input_boolean.fm_show_option_to_change_url';
 export const fmHostUrl = 'input_text.fm_host_url';
-export const fmConnectionStatus = 'input_text.fm_connection_status';
+export const fmConnectionStatus = 'sensor.fm_connection_status';
 export const fmAsset = 'input_text.fm_asset';

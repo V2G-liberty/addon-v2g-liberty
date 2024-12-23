@@ -50,7 +50,7 @@ class EditScheduleSettingsDialog extends DialogBase {
       ''
     );
     this._fmUseOtherServer = this.hass.states[entityIds.fmUseOtherServer].state;
-    this._fmHostUrl = defaultState(this.hass.states[entityIds.fmHostUrl], '');
+    this._fmHostUrl = defaultState(this.hass.states[entityIds.fmHostUrl], 'https://seita.energy');
     this._fmAsset = this.hass.states[entityIds.fmAsset].state;
 
     this._fmConnectionStatus = '';
@@ -272,10 +272,10 @@ class EditScheduleSettingsDialog extends DialogBase {
   private _getConnectionArgs() {
     const isUsingOtherServer = this._fmUseOtherServer === 'on';
     return {
+      host: this._fmHostUrl,
       username: this._fmAccountUsername,
       password: this._fmAccountPassword,
       useOtherServer: isUsingOtherServer,
-      ...(isUsingOtherServer ? { host: this._fmHostUrl } : {}),
     };
   }
 
