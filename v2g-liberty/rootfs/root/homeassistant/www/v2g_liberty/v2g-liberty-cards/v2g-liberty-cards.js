@@ -13187,7 +13187,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$e19f22a93e56ff3b)(this);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        <p><ha-alert alert-type="warning">${$8462057a459186b4$var$tp('alert')}</ha-alert></p>
+        <ha-alert alert-type="warning">${$8462057a459186b4$var$tp('alert')}</ha-alert>
         <mwc-button test-id="configure" @click=${editCallback}>
           ${this._hass.localize('ui.common.configure') || 'Configure'}
         </mwc-button>
@@ -13466,29 +13466,35 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
     }
     _renderLowerChargeLimit() {
         const stateObj = this._lowerChargeLimit;
+        const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$dc42f1b3097c9ee2)(this, {
                 entity_id: $755a87c9ee93218f$export$a81a922cb2dc8458
             });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback
-        })}</div> `;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
+            callback: callback,
+            state: state
+        })}</div>`;
     }
     _renderUpperChargeLimit() {
         const stateObj = this._upperChargeLimit;
+        const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$532d37680862eb69)(this, {
                 entity_id: $755a87c9ee93218f$export$e39cc2ab91dbbf48
             });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback
-        })}</div> `;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
+            callback: callback,
+            state: state
+        })}</div>`;
     }
     _renderAllowedDurationAboveMax() {
         const stateObj = this._allowedDurationAboveMax;
+        const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$415f9c0b9250dca7)(this, {
                 entity_id: $755a87c9ee93218f$export$bcf5813544a68726
             });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback
+            callback: callback,
+            state: state
         })}</div>`;
     }
 }

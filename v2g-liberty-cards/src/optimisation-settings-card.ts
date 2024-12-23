@@ -68,31 +68,34 @@ class OptimisationSettingsCard extends LitElement {
 
   private _renderLowerChargeLimit() {
     const stateObj = this._lowerChargeLimit;
+    const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarBatteryLowerChargeLimitDialog(this, {
         entity_id: entityIds.lowerChargeLimit,
       });
 
-    return html` <div>${renderEntityRow(stateObj, { callback })}</div> `;
+    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
   }
 
   private _renderUpperChargeLimit() {
     const stateObj = this._upperChargeLimit;
+    const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarBatteryUpperChargeLimitDialog(this, {
         entity_id: entityIds.upperChargeLimit,
       });
 
-    return html` <div>${renderEntityRow(stateObj, { callback })}</div> `;
+    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
   }
 
   private _renderAllowedDurationAboveMax() {
     const stateObj = this._allowedDurationAboveMax;
+    const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showAllowedDurationAboveMaxDialog(this, {
         entity_id: entityIds.allowedDurationAboveMax,
       });
 
-    return html`<div>${renderEntityRow(stateObj, { callback })}</div>`;
+    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
   }
 }
