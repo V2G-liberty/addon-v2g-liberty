@@ -15,9 +15,14 @@ export function renderEntityBlock(
     <ha-settings-row>
       <span slot="heading" test-id="${stateObj.entity_id}">
         <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
-        ${state}
+        <span style="display:inline-block"
+          ><span
+            style="font-size: var(--mdc-typography-body2-font-size, 0.875rem); color: var(--secondary-text-color)"
+            >${name}</span
+          >
+          <div>${state}</div></span
+        >
       </span>
-      <span slot="description">${name}</span>
     </ha-settings-row>
   `;
 }
