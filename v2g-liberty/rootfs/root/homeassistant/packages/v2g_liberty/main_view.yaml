@@ -15,7 +15,7 @@
         states('sensor.poll_refresh_indicator')}}</div>
         <table><tbody><tr><th> {{ states('sensor.charger_state_text') }}
         </th><td>{%
-        if states('sensor.charger_real_charging_power')=='unknown'
+        if states('sensor.charger_real_charging_power') in ['unavailable', 'unknown']
         %}?{%
         else
         %}{{ states('sensor.charger_real_charging_power')}}{%
@@ -159,13 +159,13 @@
         - entity: sensor.charger_state_text
       content: |-
         <table><tr><th>{%
-          if states('sensor.car_state_of_charge')=='unknown'
+          if states('sensor.car_state_of_charge') in ['unavailable', 'unknown']
           %}?{%
           else
           %}{{ states("sensor.car_state_of_charge")|round(0) }}{%
           endif
           %} %</th><td>{%
-          if states('sensor.car_remaining_range')=='unknown'
+          if states('sensor.car_remaining_range') in ['unavailable', 'unknown']
           %}?{%
           else
           %}≈ {{ states("sensor.car_remaining_range")|round(0) }}{%
@@ -183,13 +183,13 @@
               filter: grayscale(var(--v2g-state-grayscale));
             }
             :host {
-              {% if states('sensor.car_state_of_charge')=='unknown' %}
+              {% if states('sensor.car_state_of_charge') in ['unavailable', 'unknown'] %}
                 --v2g-empty-capacity-width: 0;
               {% else %}
                 --v2g-empty-capacity-width: {{ 100 - states('sensor.car_state_of_charge')|int }}%;
               {% endif %};
 
-              --v2g-dynamic-charge-bar-color: {% if states('sensor.car_state_of_charge')=='unknown' %}
+              --v2g-dynamic-charge-bar-color: {% if states('sensor.car_state_of_charge') in ['unavailable', 'unknown'] %}
                 var(--disabled-text-color);
               {% elif states('sensor.car_state_of_charge')|int < 7 %}
                 var(--error-color);
@@ -206,6 +206,7 @@
               {% else %}
               --v2g-state-grayscale: 0;
               {% endif %}
+            }
           ha-markdown$: |
             table {
               width: 100%;
@@ -736,4 +737,3 @@
               font-size: 60%;
             }
 
-    - type: custom:v2g-liberty-ping-card

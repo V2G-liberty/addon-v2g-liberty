@@ -136,6 +136,7 @@ class ManageAmberPriceData:
         if state is None:
             self.__log("no (data in) price_entity (yet), aborting.")
             return
+
         collection_cpf = state["attributes"][self.COLLECTION_NAME]
         for item in collection_cpf:
             consumption_prices.append(

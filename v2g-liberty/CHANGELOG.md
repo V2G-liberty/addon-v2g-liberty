@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.4.3 2024-11-??
+## 0.4.3 2024-12-19
 
 ### Fixed
 
@@ -9,16 +9,20 @@
 - 🪲 BUG: Alert for negative prices not working correctly (#169)
 - 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
   Includes Bump of pyModbus library to 3.8.0
+- 🪲 BUG: BUG: Cost data blinking at startup (#181)
+- Custom cards bug in HA (#189)
 
 ### Added
 
 - Feature Request: Notify user when at the end of a calendar item the car is not connected (#158)
 - Feature Request: Add history to V2G Liberty entities (#176)
 - Feature request: Add "unknown" state to real_charge_power and car_state_of_charge sensors (#170)
+- Feature Request: Add 'Alive since' to UI (#182)
 
 ### Changed
 
 - 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
+- ⬆️ Bump caldav library to 1.4.0 (#180)
 
 ### [Unreleased]
 

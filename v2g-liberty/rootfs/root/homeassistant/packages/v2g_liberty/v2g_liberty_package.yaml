@@ -257,13 +257,28 @@ template:
         device_class: problem
         state: >
           {{ ((states('sensor.current_scheduled_charging_power')|int - states('sensor.charger_real_charging_power')|int)|abs) > 500 }}
+        availability: >
+          {{ has_value('sensor.current_scheduled_charging_power') and has_value('sensor.charger_real_charging_power') }}
+
+      # The following sensors are to be set from the Python code.
+      - name: is_car_connected
+        # Is the charger plug inserted into the car socket
+        # Should be 'unavailable' if charger is in error
+        device_class: plug
+        state: "{{ None }}" # Dummy
+        availability: "{{ states('binary_sensor.is_car_connected_availability') }}"
+
+      - name: is_car_connected_availability
+        # Helper sensor to be able to set the availability of the original sensor
+        state: "{{ False }}"  # Sets initial value to 'unavailable'
 
 sensor:
   - platform: template
     # The platform: number would have been more suitable but HA does not support that
     # The platform: template is not a prefect match but the only thing that could be hacked
     # Other properties like state_class: measurement, native_value: int are not allowed
-    # for a template sensor and set via python.
+    # for a template sensor.
+    # These are all to be set from Python code.
     sensors:
       car_state_of_charge:
         friendly_name: Car state of charge
@@ -382,8 +397,8 @@ sensor:
         value_template: ""
 
       # Helper, for setting text in dashboard.
-      optimisation_mode:
-        friendly_name: Optimisation mode
+      last_reboot_at:
+        friendly_name: When was V2G Liberty add-on last restarted
         value_template: ""
 
       # Used to store the (serialised) charge schedule HA receives from the
