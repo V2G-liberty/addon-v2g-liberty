@@ -13129,13 +13129,11 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         if (this._carCalendarSource.state === 'Home Assistant integration') {
             const calendarStateObj = this._hass.states[this._integrationCalendarEntityName.state];
             return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <p>
-            ${$8b666ded8df00928$var$tp('type')}: <strong>${this._carCalendarSource.state}<strong>
-          </p>
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName, {
+        <p>${$8b666ded8df00928$var$tp('type')}: <strong>${this._carCalendarSource.state}</strong></p>
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName, {
                 state: calendarStateObj.attributes.friendly_name
             })}
-        `;
+      `;
         }
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     }

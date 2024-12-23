@@ -88,13 +88,11 @@ export class CarReservationCalendarSettingsCard extends LitElement {
       const calendarStateObj =
         this._hass.states[this._integrationCalendarEntityName.state];
       return html`
-          <p>
-            ${tp('type')}: <strong>${this._carCalendarSource.state}<strong>
-          </p>
-          ${renderEntityBlock(this._integrationCalendarEntityName, {
-            state: calendarStateObj.attributes.friendly_name,
-          })}
-        `;
+        <p>${tp('type')}: <strong>${this._carCalendarSource.state}</strong></p>
+        ${renderEntityBlock(this._integrationCalendarEntityName, {
+          state: calendarStateObj.attributes.friendly_name,
+        })}
+      `;
     }
     return nothing;
   }
