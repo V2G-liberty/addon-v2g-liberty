@@ -10654,13 +10654,14 @@ function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, cha
     <ha-settings-row>
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${name}
       </span>
       <ha-textfield
         pattern="${pattern}"
+        .label=${name}
         .value=${value}
         @change=${changedCallback}
         test-id="${stateObj.entity_id}"
+        style="width: 100%"
       >
       </ha-textfield
     ></ha-settings-row>
@@ -10672,13 +10673,14 @@ function $4dbea3927e6cdc74$export$bb1d970f9960d2ec(value, stateObj, changedCallb
     <ha-settings-row>
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${name}
       </span>
       <ha-textfield
         type="password"
+        .label=${name}
         .value=${value}
         @change=${changedCallback}
         test-id="${stateObj.entity_id}"
+        style="width: 100%"
       >
       </ha-textfield
     ></ha-settings-row>
