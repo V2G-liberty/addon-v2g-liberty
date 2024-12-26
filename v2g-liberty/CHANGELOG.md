@@ -1,5 +1,11 @@
 # What's changed?
 
+## 0.4.4 2024-12-19
+
+### Fixed
+
+- 🔥 HOTFIX: Problem with sensors for chart lines, disconnect detection (#196)
+
 ## 0.4.3 2024-12-19
 
 ### Fixed
@@ -11,6 +17,7 @@
   Includes Bump of pyModbus library to 3.8.0
 - 🪲 BUG: BUG: Cost data blinking at startup (#181)
 - Custom cards bug in HA (#189)
+- 🪲 BUG: Max charge not working correct (#194)
 
 ### Added
 
