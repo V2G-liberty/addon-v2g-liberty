@@ -36,7 +36,7 @@ export function renderEntityRow(
   return html`
     <ha-settings-row>
       <span slot="heading">
-        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>&nbsp; &nbsp;
         ${name}
       </span>
       <div class="text-content value state">${state}</div>

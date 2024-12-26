@@ -49,7 +49,8 @@ class OptimisationSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <p>${tp('description')}</p>
-        ${this._renderOptimisationMode()} ${this._renderLowerChargeLimit()}
+        ${this._renderOptimisationMode()}
+        ${this._renderLowerChargeLimit()}
         ${this._renderUpperChargeLimit()}
         ${this._renderAllowedDurationAboveMax()}
       </div>
@@ -63,7 +64,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.optimisationMode,
       });
 
-    return html`<div>${renderEntityRow(stateObj, { callback })}</div>`;
+    return html`${renderEntityRow(stateObj, { callback })}`;
   }
 
   private _renderLowerChargeLimit() {
@@ -74,7 +75,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.lowerChargeLimit,
       });
 
-    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
+    return html`${renderEntityRow(stateObj, { callback, state })}`;
   }
 
   private _renderUpperChargeLimit() {
@@ -85,7 +86,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.upperChargeLimit,
       });
 
-    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
+    return html`${renderEntityRow(stateObj, { callback, state })}`;
   }
 
   private _renderAllowedDurationAboveMax() {
@@ -96,6 +97,7 @@ class OptimisationSettingsCard extends LitElement {
         entity_id: entityIds.allowedDurationAboveMax,
       });
 
-    return html`<div>${renderEntityRow(stateObj, { callback, state })}</div>`;
+    return html`${renderEntityRow(stateObj, { callback, state })}`;
   }
+
 }

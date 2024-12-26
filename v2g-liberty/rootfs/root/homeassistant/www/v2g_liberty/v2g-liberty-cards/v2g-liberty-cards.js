@@ -1360,7 +1360,6 @@ var $24c52f343453d62d$export$2e2bcd8739ae039 = {
 };
 
 
-
 /**
  * @license
  * Copyright 2019 Google LLC
@@ -2496,7 +2495,7 @@ var $9c12443e84042152$exports = {};
  * This can be used to log issues in development environments in critical
  * paths. Removing the logging code for production environments will keep the
  * same logic and follow the same code paths.
- */ var $9c12443e84042152$var$__DEV__ = true;
+ */ var $9c12443e84042152$var$__DEV__ = false;
 var $9c12443e84042152$var$warning = function() {};
 if ($9c12443e84042152$var$__DEV__) {
     var $9c12443e84042152$var$printWarning = function printWarning(format, args) {
@@ -10547,7 +10546,7 @@ function $4dbea3927e6cdc74$export$555d2b0b4c35578d(stateObj, { callback: callbac
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
       <span slot="heading">
-        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>&nbsp; &nbsp;
         ${name}
       </span>
       <div class="text-content value state">${state}</div>
@@ -10697,7 +10696,7 @@ function $4dbea3927e6cdc74$export$bb1d970f9960d2ec(value, stateObj, changedCallb
 
 const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
   .description {
-    padding-bottom: 2em;
+    // padding-bottom: 2em;
   }
   .value {
     display: flex;
@@ -10712,6 +10711,34 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
   ha-settings-row {
     padding: 0;
   }
+
+  div.button-row {
+    margin-top:16px;
+  }
+
+  ha-settings-row {
+    overflow: hidden !important;
+    height: 64px;
+  }
+
+  ha-settings-row div.state {
+    font-weight: 500;
+    margin-right: 4px;
+  }
+
+  ha-settings-row span[slot="heading"] {
+    margin-top: 6px !important;
+  }
+
+  ha-settings-row span[slot="heading"] ha-icon {
+    color: var(--paper-item-icon-color, #44739e);
+  }
+
+  div.button-row {
+    margin-top:16px;
+  }
+
+
 `;
 
 
@@ -10778,7 +10805,6 @@ var $8944235bd8be49ac$export$f4fd60e41371f80d = {
     hour: 22,
     day: 5
 };
-
 
 
 var $ee1328194d522913$export$27bce688931fdfcc, $ee1328194d522913$export$7fd1ce15b01d50ca, $ee1328194d522913$export$1a0dc7c974e8444d = function(e, t) {
@@ -11663,6 +11689,12 @@ class $8be8b3713888253d$var$EditAdministratorSettingsDialog extends (0, $942308f
     .error {
       color: var(--error-color);
     }
+    ha-dialog {
+      --mdc-dialog-width: 40%;
+      --mdc-dialog-max-width: 600px;
+      --mdc-dialog-padding: 48px;
+      --mdc-dialog-min-width: 350px;
+    }
   `;
     }
 }
@@ -12422,6 +12454,9 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
     .select-options {
       columns: 2;
     }
+    ha-dialog {
+      --mdc-dialog-min-width: 350px;
+    }
   `;
     }
 }
@@ -12947,9 +12982,11 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobileName)}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobilePlatform)}
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -12959,9 +12996,11 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
       <div class="card-content">
         <ha-alert alert-type="warning">${$ce5bce3a7c4706d2$var$tp('alert')}</ha-alert>
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13076,9 +13115,13 @@ $5d8785103791dbcd$var$CarSettingsCard = (0, $24c52f343453d62d$export$29e00dfd307
 
 
 
+
 const $8b666ded8df00928$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.car-reservation-calendar');
 class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
+    static{
+        this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
+    }
     set hass(hass) {
         this._hass = hass;
         this._calendarSettingsInitialised = hass.states[$755a87c9ee93218f$export$327a7fa57ac6cc54];
@@ -13098,9 +13141,11 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$8b666ded8df00928$var$tp('alert')}</ha-alert>
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13109,9 +13154,11 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderCaldavDetails()} ${this._renderHomeAssistantDetails()}
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13169,6 +13216,7 @@ $8b666ded8df00928$export$5fb852718b75e058 = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
 const $8462057a459186b4$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.charger');
 class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
@@ -13193,9 +13241,11 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$8462057a459186b4$var$tp('alert')}</ha-alert>
-        <mwc-button test-id="configure" @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button test-id="configure" @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13208,14 +13258,14 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        <p>
-          <ha-alert alert-type="info">
-            <ha-markdown breaks .content=${info}></ha-markdown>
-          </ha-alert>
-        </p>
-        <mwc-button test-id="edit" @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <ha-alert alert-type="info">
+          <ha-markdown breaks .content=${info}></ha-markdown>
+        </ha-alert>
+        <div class="button-row">
+          <mwc-button test-id="edit" @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13263,21 +13313,24 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     `;
     }
     static{
-        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
-    .name {
-      font-weight: bold;
-    }
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+        .name {
+          font-weight: bold;
+        }
 
-    .success ha-svg-icon {
-      color: var(--success-color);
-      padding-right: 2rem;
-    }
+        .success ha-svg-icon {
+          color: var(--success-color);
+          padding-right: 2rem;
+        }
 
-    .success {
-      margin-bottom: 1rem;
-      font-size: 1.2rem;
-    }
-  `;
+        .success {
+          margin-bottom: 1rem;
+          font-size: 1.2rem;
+        }
+      `
+        ];
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -13321,9 +13374,13 @@ function $8462057a459186b4$var$elapsedTimeSince(dateTimeStamp) {
 
 
 
+
 const $31e0aca5546fddf6$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.electricity-contract');
 class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
+    static{
+        this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
+    }
     set hass(hass) {
         this._hass = hass;
         this._electricityContractSettingsInitialised = hass.states[$755a87c9ee93218f$export$6803b8e9884353c8];
@@ -13348,9 +13405,11 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13362,9 +13421,11 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13454,7 +13515,8 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <p>${$c4bb759c2bcf586c$var$tp('description')}</p>
-        ${this._renderOptimisationMode()} ${this._renderLowerChargeLimit()}
+        ${this._renderOptimisationMode()}
+        ${this._renderLowerChargeLimit()}
         ${this._renderUpperChargeLimit()}
         ${this._renderAllowedDurationAboveMax()}
       </div>
@@ -13465,9 +13527,9 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
         const callback = ()=>(0, $de105ef1fecb85b1$export$309e5e69c95a337d)(this, {
                 entity_id: $755a87c9ee93218f$export$29a786ee773985a
             });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
             callback: callback
-        })}</div>`;
+        })}`;
     }
     _renderLowerChargeLimit() {
         const stateObj = this._lowerChargeLimit;
@@ -13475,10 +13537,10 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
         const callback = ()=>(0, $de105ef1fecb85b1$export$dc42f1b3097c9ee2)(this, {
                 entity_id: $755a87c9ee93218f$export$a81a922cb2dc8458
             });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
             callback: callback,
             state: state
-        })}</div>`;
+        })}`;
     }
     _renderUpperChargeLimit() {
         const stateObj = this._upperChargeLimit;
@@ -13486,10 +13548,10 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
         const callback = ()=>(0, $de105ef1fecb85b1$export$532d37680862eb69)(this, {
                 entity_id: $755a87c9ee93218f$export$e39cc2ab91dbbf48
             });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
             callback: callback,
             state: state
-        })}</div>`;
+        })}`;
     }
     _renderAllowedDurationAboveMax() {
         const stateObj = this._allowedDurationAboveMax;
@@ -13497,10 +13559,10 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
         const callback = ()=>(0, $de105ef1fecb85b1$export$415f9c0b9250dca7)(this, {
                 entity_id: $755a87c9ee93218f$export$bcf5813544a68726
             });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
             callback: callback,
             state: state
-        })}</div>`;
+        })}`;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -13527,9 +13589,13 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 
+
 const $8fab4e1af811a2cc$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.schedule');
 class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
+    static{
+        this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
+    }
     set hass(hass) {
         this._hass = hass;
         this._scheduleSettingsInitialised = hass.states[$755a87c9ee93218f$export$bcc5761a4d7674a4];
@@ -13551,9 +13617,11 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
     }
@@ -13571,9 +13639,11 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
               ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmHostUrl)}
             ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <p>${useDefaultServer}</p> `}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAsset)}
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
     }

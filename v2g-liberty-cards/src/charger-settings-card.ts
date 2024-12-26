@@ -6,6 +6,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow } from './util/render';
 import { partial } from './util/translate';
+import { styles } from './card.styles';
 import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
@@ -55,9 +56,11 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
-        <mwc-button test-id="configure" @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button test-id="configure" @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
   }
@@ -72,14 +75,14 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityBlock(this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        <p>
-          <ha-alert alert-type="info">
-            <ha-markdown breaks .content=${info}></ha-markdown>
-          </ha-alert>
-        </p>
-        <mwc-button test-id="edit" @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <ha-alert alert-type="info">
+          <ha-markdown breaks .content=${info}></ha-markdown>
+        </ha-alert>
+        <div class="button-row">
+          <mwc-button test-id="edit" @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
   }
@@ -101,8 +104,8 @@ export class ChargerSettingsCard extends LitElement {
           </div>
         `
       : hasConnectionError
-      ? html`<p><ha-alert alert-type="error">${error}</ha-alert></p>`
-      : nothing;
+        ? html`<p><ha-alert alert-type="error">${error}</ha-alert></p>`
+        : nothing;
   }
 
   private _renderMaxChargeConfiguration() {
@@ -118,13 +121,13 @@ export class ChargerSettingsCard extends LitElement {
     const maxChargingPowerEntityRows = isUsingReducedMaxPower
       ? html`
           ${renderEntityRow(this._chargerMaxChargingPower, {
-            state: this._hass.formatEntityState(this._chargerMaxChargingPower),
-          })}
+        state: this._hass.formatEntityState(this._chargerMaxChargingPower),
+      })}
           ${renderEntityRow(this._chargerMaxDischargingPower, {
-            state: this._hass.formatEntityState(
-              this._chargerMaxDischargingPower
-            ),
-          })}
+        state: this._hass.formatEntityState(
+          this._chargerMaxDischargingPower
+        ),
+      })}
         `
       : nothing;
 
@@ -142,21 +145,24 @@ export class ChargerSettingsCard extends LitElement {
     `;
   }
 
-  static styles = css`
-    .name {
-      font-weight: bold;
-    }
+  static styles = [
+    styles,
+    css`
+        .name {
+          font-weight: bold;
+        }
 
-    .success ha-svg-icon {
-      color: var(--success-color);
-      padding-right: 2rem;
-    }
+        .success ha-svg-icon {
+          color: var(--success-color);
+          padding-right: 2rem;
+        }
 
-    .success {
-      margin-bottom: 1rem;
-      font-size: 1.2rem;
-    }
-  `;
+        .success {
+          margin-bottom: 1rem;
+          font-size: 1.2rem;
+        }
+      `
+  ];
 }
 
 function elapsedTimeSince(dateTimeStamp: string) {

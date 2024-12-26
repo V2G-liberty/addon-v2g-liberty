@@ -95,5 +95,11 @@ class EditAdministratorSettingsDialog extends DialogBase {
     .error {
       color: var(--error-color);
     }
+    ha-dialog {
+      --mdc-dialog-width: 40%;
+      --mdc-dialog-max-width: 600px;
+      --mdc-dialog-padding: 48px;
+      --mdc-dialog-min-width: 350px;
+    }
   `;
 }

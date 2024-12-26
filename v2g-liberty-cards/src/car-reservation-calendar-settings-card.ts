@@ -5,6 +5,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock } from './util/render';
 import { partial } from './util/translate';
+import { styles } from './card.styles';
 import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
@@ -22,6 +23,8 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _hass: HomeAssistant;
 
   setConfig(config: LovelaceCardConfig) {}
+
+  static styles = styles;
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
@@ -50,9 +53,11 @@ export class CarReservationCalendarSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.configure') || 'Configure'}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.configure') || 'Configure'}
+          </mwc-button>
+        </div>
       </div>
     `;
   }
@@ -63,9 +68,11 @@ export class CarReservationCalendarSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderCaldavDetails()} ${this._renderHomeAssistantDetails()}
-        <mwc-button @click=${editCallback}>
-          ${this._hass.localize('ui.common.edit')}
-        </mwc-button>
+        <div class="button-row">
+          <mwc-button @click=${editCallback}>
+            ${this._hass.localize('ui.common.edit')}
+          </mwc-button>
+        </div>
       </div>
     `;
   }

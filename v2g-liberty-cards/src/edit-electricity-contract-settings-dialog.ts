@@ -293,5 +293,8 @@ class EditElectricityContractSettingsDialog extends DialogBase {
     .select-options {
       columns: 2;
     }
+    ha-dialog {
+      --mdc-dialog-min-width: 350px;
+    }
   `;
 }
