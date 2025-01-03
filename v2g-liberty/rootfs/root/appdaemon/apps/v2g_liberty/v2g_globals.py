@@ -965,6 +965,7 @@ class V2GLibertyGlobals:
         c.CHARGER_PORT = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT
         )
+        await self.evse_client_app.initialise_charger()
 
         use_reduced_max_charge_power = await self.__process_setting(
             setting_object=self.SETTING_USE_REDUCED_MAX_CHARGE_POWER
@@ -988,8 +989,6 @@ class V2GLibertyGlobals:
             f"    c.CHARGER_MAX_CHARGE_POWER: {c.CHARGER_MAX_CHARGE_POWER}.\n"
             f"    c.CHARGER_MAX_DISCHARGE_POWER: {c.CHARGER_MAX_DISCHARGE_POWER}."
         )
-
-        await self.evse_client_app.initialise_charger()
 
     async def __initialise_notification_settings(self):
         self.__log("__initialise_notification_settings called")
