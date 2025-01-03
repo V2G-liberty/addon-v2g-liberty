@@ -868,7 +868,7 @@ class ModbusEVSEclient:
         )
         if results is None:
             # Could not read
-            self.__log("results is None, abort processing.")
+            self.__log("results is None, abort processing.", level="WARNING")
             return
 
         for entity in entities:
@@ -889,25 +889,39 @@ class ModbusEVSEclient:
                 continue
 
             if not (entity["minimum_value"] <= new_state <= entity["maximum_value"]):
+                # Ignore and keep current value unless that is None
                 if entity["current_value"] is None:
                     # This is very rare: current_value will only be None at startup.
-                    # Not setting a value will cause the application to hang, so even though
-                    # not correct still give it these values.
-                    if new_state < entity["minimum_value"]:
-                        best_guess = entity["minimum_value"]
+                    # Not setting a value will cause the application to hang, so lets use
+                    # the relaxed min/max in the entity supports that.
+                    # If that fails assume 'unavailable'.
+                    relaxed_min_value = entity.get("relaxed_min_value", None)
+                    relaxed_max_value = entity.get("relaxed_max_value", None)
+                    if relaxed_min_value is None or relaxed_max_value is None:
+                        new_state = "unavailable"
+                        self.__log(
+                            f"New value {new_state} for entity '{entity_name}' "
+                            f"out of range {entity['minimum_value']} "
+                            f"- {entity['maximum_value']} but current value is None, so this polled"
+                            f" value cannot be ignored, so new_value set to 'unavailable'."
+                        )
+                    elif relaxed_min_value <= new_state <= relaxed_max_value:
+                        self.__log(
+                            f"New value {new_state} for entity '{entity_name}' "
+                            f"out of min/max range but in relaxed range {relaxed_min_value} "
+                            f"- {relaxed_max_value}. So, as the current value is None, this this "
+                            f"polled value is still used."
+                        )
                     else:
-                        best_guess = entity["maximum_value"]
-                    self.__log(
-                        f"New value {new_state} for entity '{entity_name}' "
-                        f"out of range {entity['minimum_value']} "
-                        f"- {entity['maximum_value']} but current value is None, so"
-                        f"best guess for new value = {best_guess}."
-                    )
-                    new_state = best_guess
+                        new_state = "unavailable"
+                        self.__log(
+                            f"New value {new_state} for entity '{entity_name}' "
+                            f"out of relaxed range {relaxed_min_value} "
+                            f"- {relaxed_max_value} but current value is None, so this polled value"
+                            f" cannot be ignored, so new_value set to 'unavailable'."
+                        )
                 else:
-                    # self.__log(f"New value {new_state}' for entity '{entity_name}' "
-                    #            f"out of range {entity['minimum_value']} "
-                    #            f"- {entity['maximum_value']} ignored.")
+                    # Ignore new value, keep current value
                     continue
 
             await self.__update_ha_and_evse_entity(
