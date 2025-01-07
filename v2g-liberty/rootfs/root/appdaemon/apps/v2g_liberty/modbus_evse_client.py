@@ -175,7 +175,9 @@ class ModbusEVSEclient:
     # Charger setting to go to idle state if not receive modbus message within this timeout.
     # Fail-safe in case this software crashes: if timeout passes charger will stop (dis-)charging.
     CHARGER_MODBUS_IDLE_TIMEOUT_REGISTER: int = 88
-    CMIT: int = 1800  # Timeout in seconds. Half an hour is long, polling communicates every 5 or 15 seconds.
+
+    # Timeout in seconds. Half an hour is long, polling communicates every 5 or 15 seconds.
+    CMIT: int = 1800
 
     # Charger charging can be started/stopped remote (Read/Write)
     # Not implemented: restart and update software
@@ -197,13 +199,17 @@ class ModbusEVSEclient:
 
     # 0: Goes to this status when the charge plug is disconnected from the car
     # 1: Connected and charging; goes to this status when action = start
-    # 2: Connected and waiting for car demand; sometimes shortly goes to this status when action = start
-    # 3: Connected and waiting for next schedule; this occurs when a charging session is scheduled via the Wallbox app.
+    # 2: Connected and waiting for car demand; sometimes shortly goes to this status when
+    #    action = start
+    # 3: Connected and waiting for next schedule; this occurs when a charging session is scheduled
+    #    via the Wallbox app.
     #    As we control the charger we override this setting
-    # 4: Connected and paused by user; goes to this status when action = stop or when gun is connected and auto start = disabled
+    # 4: Connected and paused by user; goes to this status when action = stop or when gun is
+    #    connected and auto start = disabled
     # 7: In error; the charger sometimes returns error first minutes after restart
     # 10: Connected and in queue by Power Boost
-    # 11: Connected and discharging. This status is reached when the power or current setting is set to a negative value and the action = start
+    # 11: Connected and discharging. This status is reached when the power or current setting is set
+    #     to a negative value and the action = start
     CHARGER_STATES = {
         0: "No car connected",
         1: "Charging",
@@ -350,7 +356,7 @@ class ModbusEVSEclient:
         """Stop charging if it is in process and set charge power to 0."""
         if not self._am_i_active:
             self.__log(
-                "stop_charging called while _am_i_active == False. Not blocking call to make stop reliable."
+                "called while _am_i_active == False. Not blocking call to make stop reliable."
             )
 
         await self.__set_charger_action("stop", reason="stop_charging")
@@ -409,6 +415,9 @@ class ModbusEVSEclient:
 
     async def set_active(self):
         """To be called when charge_mode in UI is (switched to) Automatic or Boost"""
+        if self.client is None:
+            self.__log("Client not initialised, aborting", level="WARNING")
+            return
         self.__log("activated")
         self._am_i_active = True
         await self.__set_charger_control("take")
@@ -454,31 +463,27 @@ class ModbusEVSEclient:
     async def is_car_connected(self) -> bool:
         """Indicates if currently a car is connected to the charger."""
         if not self._am_i_active:
-            self.__log(
-                "is_car_connected called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
 
         is_connected = self.client is not None
         is_connected = (
             is_connected
             and await self.__get_charger_state() not in self.DISCONNECTED_STATES
         )
-        self.__log(f"is_car_connected called, returning: {is_connected}")
+        self.__log(f"called, returning: {is_connected}")
         return is_connected
 
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""
         if not self._am_i_active:
-            self.__log("is_charging called while _am_i_active == False. Not blocking.")
+            self.__log("called while _am_i_active == False. Not blocking.")
 
         return await self.__get_charger_state() == self.CHARGING_STATE
 
     async def is_discharging(self) -> bool:
         """Indicates if currently the connected car is discharging (not charging)"""
         if not self._am_i_active:
-            self.__log(
-                "is_discharging called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
 
         return await self.__get_charger_state() == self.DISCHARGING_STATE
 
@@ -492,8 +497,8 @@ class ModbusEVSEclient:
         This timing is essential, the following code might need v2g-liberty for notifications etc.
         """
         if self.client is None:
+            self.__log("Client not initialised, aborting", level="WARNING")
             return
-
         self.__log("kicking off")
 
         # So the status page can show if communication with charge is ok.
@@ -514,11 +519,10 @@ class ModbusEVSEclient:
 
     async def __process_min_max_charge_power(self):
         """Reads the maximum charge power setting from the charger."""
-        self.__log("__get_min_max_charge_power")
         if not self._am_i_active:
-            self.__log(
-                "__process_min_max_charge_power called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
+        else:
+            self.__log("called")
 
         max_available_power_by_charger = await self.__force_get_register(
             register=self.MAX_AVAILABLE_POWER_REGISTER,
@@ -531,9 +535,11 @@ class ModbusEVSEclient:
         )
 
     async def __set_charger_control(self, take_or_give_control: str):
-        """Set charger control: take control from the user or give control back to the user (the EVSE app).
+        """Set charger control: take control from the user or give control back to the user
+        (the EVSE app).
 
-        This is a private function. The V2G Liberty module should use the function set_active() and set_inactive().
+        This is a private function. The V2G Liberty module should use the function set_active() and
+        set_inactive().
 
         With taking control:
         + the user cannot use the app, it becomes exclusive for the modbus connection.
@@ -551,9 +557,7 @@ class ModbusEVSEclient:
 
         """
         if not self._am_i_active:
-            self.__log(
-                "__set_charger_control called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
 
         if take_or_give_control == "take":
             await self.__modbus_write(
@@ -618,9 +622,7 @@ class ModbusEVSEclient:
         """
         self.__log(f"called {new_charger_state=}, {old_charger_state=}.")
         if not self._am_i_active:
-            self.__log(
-                "__handle_charger_state_change called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
         # Also make a text version of the state available in the UI
         charger_state_text = self.CHARGER_STATES.get(new_charger_state, None)
         if charger_state_text is not None and not self.try_get_new_soc_in_process:
@@ -699,9 +701,7 @@ class ModbusEVSEclient:
             reason = f" Reason for action: '{reason}'."
 
         if not self._am_i_active:
-            self.__log(
-                "__set_charger_action called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
 
         action_value = ""
         if not await self.is_car_connected():
@@ -736,9 +736,7 @@ class ModbusEVSEclient:
 
     async def __is_charging_or_discharging(self) -> bool:
         if not self._am_i_active:
-            self.__log(
-                "__is_charging_or_discharging called while _am_i_active == False. Not blocking."
-            )
+            self.__log("called while _am_i_active == False. Not blocking.")
 
         state = await self.__get_charger_state()
         if state is None:
@@ -749,8 +747,7 @@ class ModbusEVSEclient:
             return False
         is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
         self.__log(
-            f"__is_charging_or_discharging, state: {state} ({self.CHARGER_STATES[state]}), "
-            f"charging: {is_charging}."
+            f"state: {state} ({self.CHARGER_STATES[state]}), charging: {is_charging}."
         )
         return is_charging
 
@@ -764,7 +761,6 @@ class ModbusEVSEclient:
         SoC value from 2 to 97 (%) or "unavailable".
         If the car is disconnected the charger returns 0 representing "unavailable".
         """
-        # self.__log("__get_car_soc called")
         if not self._am_i_active:
             self.__log("called while _am_i_active == False. Not blocking.")
 
@@ -782,8 +778,8 @@ class ModbusEVSEclient:
             should_be_renewed = True
 
         if do_not_use_cache:
-            # Needed usually only when car has been disconnected. The polling then does not read SoC and this probably
-            # changed and polling might not have picked this up yet.
+            # Needed usually only when car has been disconnected. The polling then does not read SoC
+            # and this probably changed and polling might not have picked this up yet.
             self.__log("do_not_use_cache == True so should_be_renewed = True")
             should_be_renewed = True
 
@@ -796,7 +792,7 @@ class ModbusEVSEclient:
             relaxed_max_value = ecs["relaxed_max_value"]
 
             if await self.__is_charging_or_discharging():
-                self.__log("is (dis)charging")
+                self.__log("called")
                 soc_in_charger = await self.__force_get_register(
                     register=soc_address,
                     min_value_at_forced_get=min_value_at_forced_get,
@@ -1138,7 +1134,7 @@ class ModbusEVSEclient:
 
     async def __update_poll_indicator_in_ui(self, reset: bool = False):
         # Toggles the char in the UI to indicate polling activity,
-        # as the "last_changed" attribute also changes, an "age" could be shown based on this as well.
+        # as the "last_changed" attribute also changes, an "age" can be shown based on this as well.
         self.poll_update_text = "↺" if self.poll_update_text != "↺" else "↻"
         if reset:
             self.poll_update_text = ""
@@ -1157,7 +1153,7 @@ class ModbusEVSEclient:
             self.__log("called while _am_i_active == False. Not blocking.")
 
         if self.try_get_new_soc_in_process:
-            # At the end of the process of (forcefully) getting a soc this function is called (again).
+            # At the end of the process of (forcefully) getting a soc this method is called (again).
             return
 
         await self.__cancel_polling(reason="setting new polling strategy")
@@ -1589,7 +1585,7 @@ class ModbusEVSEclient:
         self.__cancel_timer(self.timer_id_check_error_state)
 
         await self.__cancel_polling(reason="un_recoverable charger error")
-        # The only exception to the rule that _am_i_active should only be set from "set_(in)active()"
+        # The only exception to the rule that _am_i_active should only be set from set_(in)active().
         self._am_i_active = False
         await self.v2g_main_app.handle_none_responsive_charger(
             was_car_connected=await self.is_car_connected()

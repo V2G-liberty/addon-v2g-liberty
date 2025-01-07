@@ -1,9 +1,10 @@
-import { html, nothing } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
 import { renderDialogHeader, renderInputNumber } from './util/render';
+import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
 
@@ -75,4 +76,13 @@ class EditInputNumberDialog extends DialogBase {
     });
     this.closeDialog();
   }
+
+  static styles = [
+    styles,
+    css`
+      .select-name {
+        font-weight: bold;
+      }
+    `
+  ];
 }

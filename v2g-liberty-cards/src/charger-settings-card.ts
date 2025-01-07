@@ -6,6 +6,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow } from './util/render';
 import { partial } from './util/translate';
+import { elapsedTimeSince } from './util/utils';
 import { styles } from './card.styles';
 import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -151,25 +152,6 @@ export class ChargerSettingsCard extends LitElement {
         .name {
           font-weight: bold;
         }
-
-        .success ha-svg-icon {
-          color: var(--success-color);
-          padding-right: 2rem;
-        }
-
-        .success {
-          margin-bottom: 1rem;
-          font-size: 1.2rem;
-        }
       `
   ];
-}
-
-function elapsedTimeSince(dateTimeStamp: string) {
-  // TODO
-  const elapsedMilliSeconds = Date.now() - Date.parse(dateTimeStamp);
-  const elapsedSeconds = Math.floor(elapsedMilliSeconds / 1000);
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  return `${elapsedHours}:${elapsedMinutes % 60}:${elapsedSeconds % 60}`;
 }

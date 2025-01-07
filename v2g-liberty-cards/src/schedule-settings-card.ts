@@ -1,10 +1,12 @@
-import { html, LitElement } from 'lit';
+import { mdiCheck } from '@mdi/js';
+import { html, LitElement, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock } from './util/render';
 import { partial } from './util/translate';
+import { elapsedTimeSince } from './util/utils';
 import { styles } from './card.styles';
 import { showScheduleSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -63,15 +65,14 @@ export class ScheduleSettingsCard extends LitElement {
   }
 
   private _renderInitialisedContent() {
-    // TODO: Add warning for connection problems
     const editCallback = () => showScheduleSettingsDialog(this);
     const isUsingOtherServer = this._fmUseOtherServer.state === 'on';
 
     const useDefaultServer = tp('use-default-server');
     const useOtherServer = tp('use-other-server');
-
     return html`
       <div class="card-content">
+        ${this._renderFMConnectionStatus()}
         ${renderEntityBlock(this._fmAccountUsername)}
         ${isUsingOtherServer
           ? html`
@@ -87,5 +88,28 @@ export class ScheduleSettingsCard extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  // TODO: Fix in global.py and fm_client.py that hass.states[entityIds.fmConnectionStatus]
+  // get written with state.
+  private _renderFMConnectionStatus() {
+    const state = this._fmConnectionStatus.state;
+    const isConnected = state === 'Successfully connected';
+    const hasConnectionError =
+      state === 'Connection error' || state === 'Failed to connect';
+    const error = tp('connection-error');
+    const success = tp('connection-success', {
+      time: elapsedTimeSince(this._fmConnectionStatus.last_updated),
+    });
+    return isConnected
+      ? html`
+          <div class="success">
+            <ha-svg-icon .path=${mdiCheck}></ha-svg-icon>
+            <span>${success}</span>
+          </div>
+        `
+      : hasConnectionError
+        ? html`<p><ha-alert alert-type="error">${error}</ha-alert></p>`
+        : html`<p>Status unknown</p>`;
   }
 }

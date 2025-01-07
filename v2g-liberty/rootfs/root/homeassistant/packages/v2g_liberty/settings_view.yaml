@@ -6,30 +6,32 @@
   cards:
     - type: custom:v2g-liberty-ping-card
     - type: custom:v2g-liberty-optimisation-settings-card
-      grid_options:
-        columns: 4
+      layout_options:
+        grid_columns: full
     - type: custom:v2g-liberty-charger-settings-card
-      grid_options:
-        columns: 4
-    - type: custom:v2g-liberty-administrator-settings-card
-      grid_options:
-        columns: 4
+      layout_options:
+        grid_columns: full
+
 - type: grid
   cards:
     - type: custom:v2g-liberty-car-settings-card
-      grid_options:
-        columns: 4
+      layout_options:
+        grid_columns: full
     - type: custom:v2g-liberty-car-reservation-calendar-settings-card
-      grid_options:
-        columns: 4
+      layout_options:
+        grid_columns: full
+    - type: custom:v2g-liberty-administrator-settings-card
+      layout_options:
+        grid_columns: full
+
 - type: grid
   cards:
     - type: custom:v2g-liberty-electricity-contract-settings-card
-      grid_options:
-        columns: 4
+      layout_options:
+        grid_columns: full
     - type: custom:v2g-liberty-schedule-settings-card
-      grid_options:
-        columns: 4
+      layout_options:
+        grid_columns: full
     - type: entities
       entities:
         - type: button
@@ -67,6 +69,7 @@
             padding: 0;
             background-color: transparent;
           }
+
     - type: markdown
       # Here just for triggering of rendering, no content.
       content: " "

@@ -419,6 +419,37 @@ class V2Gliberty:
 
         return
 
+    async def set_caldav_connection_status(
+        self, connected: bool, error_message: str = ""
+    ):
+        """Helper to set FM connection status in HA entity"""
+        await self.__set_connection_status(
+            "sensor.calendar_account_connection_status", connected, error_message
+        )
+
+    async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
+        """Helper to set FM connection status in HA entity"""
+        await self.__set_connection_status(
+            "sensor.fm_connection_status", connected, error_message
+        )
+
+    async def __set_connection_status(
+        self, sensor_name: str, connected: bool, error_message: str = ""
+    ):
+        """Helper to set connection status in HA entity"""
+        if connected:
+            state = "Successfully connected"
+        else:
+            if error_message != "":
+                state = error_message
+            else:
+                state = "Error"
+
+        # Force a changed trigger even if the state does not change
+        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
+
+        await self.hass.set_state(sensor_name, state=state, attributes=keep_alive)
+
     async def set_price_is_up_to_date(self, is_up_to_date: bool):
         """Helper for setting status of price data in UI"""
         if is_up_to_date:
@@ -532,7 +563,7 @@ class V2Gliberty:
                 )
 
     def clear_notification(self, tag: str):
-        """Wrapper methode for easy clearing of notifications"""
+        """Wrapper method for easy clearing of notifications"""
         self.__clear_notification_for_all_recipients(tag=tag)
 
     async def handle_calendar_change(self, v2g_events: List = None, v2g_args=None):
@@ -1060,9 +1091,9 @@ class V2Gliberty:
         # really work well and results in this app crashing.
         title = "No new schedules available"
         message = (
-            f"The current schedule will remain active.\nUsually this problem is solved"
-            f" automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
-            f"charging manually via the chargers app."
+            "The current schedule will remain active.\nUsually this problem is solved"
+            " automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
+            "charging manually via the chargers app."
         )
         self.notify_user(
             message=message,

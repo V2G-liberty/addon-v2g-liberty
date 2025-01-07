@@ -11,6 +11,7 @@ import {
   renderInputText,
 } from './util/render';
 import { partial } from './util/translate';
+import { styles } from './card.styles';
 import { defaultState, DialogBase } from './dialog-base';
 import * as entityIds from './entity-ids';
 
@@ -296,23 +297,33 @@ class EditChargerSettingsDialog extends DialogBase {
     this.closeDialog();
   }
 
-  static styles = css`
-    .invalid {
-      color: var(--error-color);
-    }
 
-    .name {
-      font-weight: bold;
-    }
 
-    .success ha-svg-icon {
-      color: var(--success-color);
-      padding-right: 2rem;
-    }
+  static styles = [
+    styles,
+    css`
+      .invalid {
+        color: var(--error-color);
+      }
 
-    .success {
-      margin-bottom: 2rem;
-      font-size: 1.2rem;
-    }
-  `;
+      .name {
+        font-weight: bold;
+      }
+
+      // All of these don't seem to reach the hr element...
+      // hr,
+      // ha-markdown::part(hr),
+      // ha-markdown::part(ha-markdown-element) hr,
+      // ha-markdown::part(content) hr,
+      // ha-dialog ha-markdown hr,
+      // ha-markdown ha-markdown-element::part(content) hr,
+      // ha-markdown ha-markdown-element hr {
+      //   border-width: 2px 0 0 0;
+      //   border-style: dotted;
+      //   border-color: var(--divider-color);
+      // }
+
+    `
+  ];
+
 }
