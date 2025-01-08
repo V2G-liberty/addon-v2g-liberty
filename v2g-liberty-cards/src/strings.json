@@ -53,8 +53,8 @@
         "no_generic": "xxx",
     },
     "ping-card": {
-        "error": "There is an error in V2G Liberty",
-        "error-subtext": "A restart of the V2G Liberty add-on is needed, please click RESTART below.",
+        "error": "Connection with V2G Liberty lost, please restart the add-on.",
+        "restarting": "Restarting...",
         "restart": "Restart"
     },
     "settings": {
