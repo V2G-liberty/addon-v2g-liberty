@@ -163,7 +163,6 @@
             "alert": "Please configure the smart schedule, V2G Liberty needs this to work.",
             "connection-error": "Could not login to Smart Schedule server, please check account.",
             "connection-success": "Connected, last contact %{time} ago",
-            "use-default-server": "Use default server",
             "use-other-server": "Use other server",
             "account-description": "An account for the default server can be requested at https://v2g-liberty.eu.",
             "no-asset-error": "No assets found in account, please contact the smart schedule servers administrator.",

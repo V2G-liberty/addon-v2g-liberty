@@ -6,12 +6,18 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow } from './util/render';
 import { partial } from './util/translate';
-import { elapsedTimeSince } from './util/utils';
+import { elapsedTimeSince } from './util/utils_time';
 import { styles } from './card.styles';
 import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.charger');
+
+enum ChargerConnectionStatus {
+  Connected = 'Successfully connected',
+  Failed = 'Failed to connect',
+  ConnectionError = 'Connection error',
+}
 
 @customElement('v2g-liberty-charger-settings-card')
 export class ChargerSettingsCard extends LitElement {
@@ -90,9 +96,9 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderChargerConnectionStatus() {
     const state = this._chargerConnectionStatus.state;
-    const isConnected = state === 'Successfully connected';
+    const isConnected = state === ChargerConnectionStatus.Connected;
     const hasConnectionError =
-      state === 'Connection error' || state === 'Failed to connect';
+      state === ChargerConnectionStatus.ConnectionError || state === ChargerConnectionStatus.Failed;
     const error = tp('connection-error');
     const success = tp('connection-success', {
       time: elapsedTimeSince(this._chargerConnectionStatus.last_updated),

@@ -7,11 +7,17 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { renderEntityBlock } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
-import { elapsedTimeSince } from './util/utils';
+import { elapsedTimeSince } from './util/utils_time';
 import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.car-reservation-calendar');
+
+enum CaldavConnectionStatus {
+  Connected = 'Successfully connected',
+  Failed = 'Failed to connect',
+  ConnectionError = 'Connection error',
+}
 
 @customElement('v2g-liberty-car-reservation-calendar-settings-card')
 export class CarReservationCalendarSettingsCard extends LitElement {
@@ -96,12 +102,11 @@ export class CarReservationCalendarSettingsCard extends LitElement {
       : nothing;
   }
 
-
   private _renderCaldavConnectionStatus() {
     const state = this._caldavConnectionStatus.state;
-    const isConnected = state === 'Successfully connected';
+    const isConnected = state === CaldavConnectionStatus.Connected;
     const hasConnectionError =
-      state === 'Connection error' || state === 'Failed to connect';
+      state ===  CaldavConnectionStatus.ConnectionError || state === CaldavConnectionStatus.Failed;
     const error = tp('connection-error');
     const success = tp('connection-success', {
       time: elapsedTimeSince(this._caldavConnectionStatus.last_updated),
