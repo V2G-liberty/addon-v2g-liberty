@@ -1,4 +1,3 @@
-import { mdiCheck } from '@mdi/js';
 import { html, LitElement, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
@@ -6,7 +5,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock } from './util/render';
 import { partial } from './util/translate';
-import { elapsedTimeSince } from './util/utils_time';
+import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
 import { showScheduleSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -104,14 +103,9 @@ export class ScheduleSettingsCard extends LitElement {
       time: elapsedTimeSince(this._fmConnectionStatus.last_updated),
     });
     return isConnected
-      ? html`
-          <div class="success">
-            <ha-svg-icon .path=${mdiCheck}></ha-svg-icon>
-            <span>${success}</span>
-          </div>
-        `
+      ? html`<ha-alert alert-type="success">${success}</ha-alert>`
       : hasConnectionError
-        ? html`<p><ha-alert alert-type="error">${error}</ha-alert></p>`
+        ? html`<ha-alert alert-type="error">${error}</ha-alert>`
         : html`<p>Status unknown: '${state}'</p>`;
   }
 }

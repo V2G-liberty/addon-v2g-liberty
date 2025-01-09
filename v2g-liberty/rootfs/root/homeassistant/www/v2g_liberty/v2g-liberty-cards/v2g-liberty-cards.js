@@ -10696,25 +10696,10 @@ function $4dbea3927e6cdc74$export$bb1d970f9960d2ec(value, stateObj, changedCallb
 
 
 const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
-  .description {
-    // padding-bottom: 2em;
-  }
   .value {
     display: flex;
     align-content: center;
     flex-wrap: wrap;
-  }
-
-  .success ha-svg-icon {
-    color: var(--success-color) !important;
-  }
-
-  .success {
-    margin: 4px 0 12px 0;
-    text-align: center;
-    padding: 10px 12px 8px 4px;
-    border: 1px solid color-mix(in srgb, var(--success-color) 50%, transparent);
-    border-radius: 4px;
   }
 
   ha-icon-button {
@@ -13164,7 +13149,6 @@ $5d8785103791dbcd$var$CarSettingsCard = (0, $24c52f343453d62d$export$29e00dfd307
 
 
 
-
 function $cf1d0f86df521101$export$bb2bfceb6aaff8bf(dateTimeStamp) {
     const parsedDate = Date.parse(dateTimeStamp);
     if (isNaN(parsedDate)) return ' ?: ?: ?';
@@ -13252,12 +13236,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         const success = $8b666ded8df00928$var$tp('connection-success', {
             time: (0, $cf1d0f86df521101$export$bb2bfceb6aaff8bf)(this._caldavConnectionStatus.last_updated)
         });
-        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <div class="success">
-            <ha-svg-icon .path=${0, $04557c061247a0a6$export$97d276dd6edd33b5}></ha-svg-icon>
-            <span>${success}</span>
-          </div>
-        ` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p><ha-alert alert-type="error">${error}</ha-alert></p>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderHomeAssistantDetails() {
         if (this._carCalendarSource.state === 'Home Assistant integration') {
@@ -13296,7 +13275,6 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
 $8b666ded8df00928$export$5fb852718b75e058 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-car-reservation-calendar-settings-card')
 ], $8b666ded8df00928$export$5fb852718b75e058);
-
 
 
 
@@ -13374,12 +13352,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         const success = $8462057a459186b4$var$tp('connection-success', {
             time: (0, $cf1d0f86df521101$export$bb2bfceb6aaff8bf)(this._chargerConnectionStatus.last_updated)
         });
-        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <div class="success">
-            <ha-svg-icon .path=${0, $04557c061247a0a6$export$97d276dd6edd33b5}></ha-svg-icon>
-            <span>${success}</span>
-          </div>
-        ` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p><ha-alert alert-type="error">${error}</ha-alert></p>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderMaxChargeConfiguration() {
         const maxAvailablePower = this._hass.states[$755a87c9ee93218f$export$2afa365a5af4c631].state;
@@ -13670,7 +13643,6 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 
-
 const $8fab4e1af811a2cc$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.schedule');
 var $8fab4e1af811a2cc$var$ServerConnectionStatus = /*#__PURE__*/ function(ServerConnectionStatus) {
     ServerConnectionStatus["Connected"] = "Successfully connected";
@@ -13741,12 +13713,7 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
         const success = $8fab4e1af811a2cc$var$tp('connection-success', {
             time: (0, $cf1d0f86df521101$export$bb2bfceb6aaff8bf)(this._fmConnectionStatus.last_updated)
         });
-        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <div class="success">
-            <ha-svg-icon .path=${0, $04557c061247a0a6$export$97d276dd6edd33b5}></ha-svg-icon>
-            <span>${success}</span>
-          </div>
-        ` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p><ha-alert alert-type="error">${error}</ha-alert></p>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p>Status unknown: '${state}'</p>`;
+        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p>Status unknown: '${state}'</p>`;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([

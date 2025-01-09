@@ -1,25 +1,10 @@
 import { css } from 'lit';
 
 export const styles = css`
-  .description {
-    // padding-bottom: 2em;
-  }
   .value {
     display: flex;
     align-content: center;
     flex-wrap: wrap;
-  }
-
-  .success ha-svg-icon {
-    color: var(--success-color) !important;
-  }
-
-  .success {
-    margin: 4px 0 12px 0;
-    text-align: center;
-    padding: 10px 12px 8px 4px;
-    border: 1px solid color-mix(in srgb, var(--success-color) 50%, transparent);
-    border-radius: 4px;
   }
 
   ha-icon-button {

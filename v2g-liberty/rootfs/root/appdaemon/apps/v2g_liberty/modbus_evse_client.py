@@ -939,6 +939,11 @@ class ModbusEVSEclient:
                         )
                 else:
                     # Ignore new value, keep current value
+                    self.__log(
+                        f"New value {new_state} for entity '{entity_name}' "
+                        f"out of range {entity['minimum_value']} - {entity['maximum_value']} "
+                        f"so keep current value {entity['current_value']}."
+                    )
                     continue
 
             await self.__update_ha_and_evse_entity(

@@ -168,7 +168,7 @@ class ReservationsClient(ServiceResponseApp):
                 self.__log("No calendar selected")
                 # TODO: Would be nice if it could say "Please choose a calendar"
 
-            await self.v2g_main_app.set_caldav_connection_status(connected=True)
+            await self.__set_caldav_connection_status(connected=True)
             return "Successfully connected"
 
         else:
@@ -201,10 +201,35 @@ class ReservationsClient(ServiceResponseApp):
                 self.__log("No calendar integrations found")
                 return "No calendar integrations found"
 
+    async def __set_caldav_connection_status(
+        self, connected: bool, error_message: str = ""
+    ):
+        """Helper to set connection status in HA entity"""
+        if connected:
+            state = "Successfully connected"
+        else:
+            if error_message != "":
+                state = error_message
+            else:
+                state = "Error"
+
+        # Force a changed trigger even if the state does not change
+        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
+
+        await self.hass.set_state(
+            "sensor.calendar_account_connection_status",
+            state=state,
+            attributes=keep_alive,
+        )
+
     async def get_dav_calendar_names(self):
-        # For situation where c.CAR_CALENDAR_SOURCE == "Direct caldav source"
-        # Called by globals to populate the input_select after a connection to
-        # dav the calendar has been established.
+        """For situation where c.CAR_CALENDAR_SOURCE == "Direct caldav source"
+        Called by globals to populate the input_select after a connection to
+        dav the calendar has been established.
+
+        Returns:
+            list: list of calendar names
+        """
         self.__log("called")
         cal_names = []
         if self.principal is None:
@@ -319,12 +344,19 @@ class ReservationsClient(ServiceResponseApp):
         end = start + dt.timedelta(days=7)
         # It is a bit strange this is not async... for now we'll live with it.
         # TODO: Optimise by use of sync_tokens so that only the updated events get sent
-        caldav_events = self.car_reservation_calendar.search(
-            start=start,
-            end=end,
-            event=True,
-            expand=True,
-        )
+        try:
+            caldav_events = self.car_reservation_calendar.search(
+                start=start,
+                end=end,
+                event=True,
+                expand=True,
+            )
+        except Exception as e:
+            self.log(
+                f"Could not retrieve caldav items. Exception: '{e}'.", level="WARNING"
+            )
+            await self.__set_caldav_connection_status(connected=False)
+            return
 
         remote_v2g_events = []
 
@@ -347,8 +379,7 @@ class ReservationsClient(ServiceResponseApp):
                 description=description,
             )
             remote_v2g_events.append(v2g_event)
-
-        await self.v2g_main_app.set_caldav_connection_status(connected=True)
+        await self.__set_caldav_connection_status(connected=True)
         await self.__process_v2g_events(remote_v2g_events)
 
     def __make_v2g_event(

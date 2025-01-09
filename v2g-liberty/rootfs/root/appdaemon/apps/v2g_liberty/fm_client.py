@@ -40,7 +40,7 @@ class FMClient:
     connection_ping_interval: int
     errored_connection_ping_interval: int
 
-    # For sending notifications to the user.
+    # For calling handle_no_new_schedule
     v2g_main_app: object
     hass: Hass = None
 
@@ -72,16 +72,19 @@ class FMClient:
         self.handle_for_repeater = ""
 
     async def test_fm_connection(self, host_url, username, password):
-        """Test if charger can connect with given host and port
+        """Test if we can connect with given FlexMeasures host and port
 
         Args:
-            host (str): host URI (usually a local IP-address)
-            port (int): port number
+            host_url (str): FlexMeasures URL
+            username (str): username (e-mail address)
+            password (str): password
+
+        Raises:
+            ve: Value Error
+            eve: Email Validation Error
 
         Returns:
-            connections_status (bool): connection result
-            max_available_power (int): max available power as set in the charger in Watt
-                                       None if connection status is False
+            assets (list): list of asset names
         """
 
         # TODO: Fix this
@@ -111,8 +114,13 @@ class FMClient:
         self.__log("successfully connect to flexmeasures")
         try:
             assets = await client.get_assets()
-            await self.v2g_main_app.set_fm_connection_status(connected=True)
+            await self.set_fm_connection_status(connected=True)
             return assets
+        except Exception as e:
+            self.__log(
+                f"Could not get assets from fm_client. Exception: {e}.", level="WARNING"
+            )
+            await self.set_fm_connection_status(connected=False)
         finally:
             await client.close()
 
@@ -171,7 +179,7 @@ class FMClient:
             f"access token: {self.client.access_token}, returning 'Successfully connected'."
         )
 
-        await self.v2g_main_app.set_fm_connection_status(connected=True)
+        await self.set_fm_connection_status(connected=True)
         return "Successfully connected"
 
     async def get_fm_sensors_by_asset_name(self, asset_name: str):
@@ -283,6 +291,7 @@ class FMClient:
                 f"failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
                 f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'."
             )
+            await self.set_fm_connection_status(connected=False)
             return False
 
         return True
@@ -654,7 +663,10 @@ class FMClient:
             )
         except Exception as e:
             # ContentTypeError, ValueError, timeout??:
-            self.__log(f"failed to get schedule, client returned exception: {e}.")
+            self.__log(
+                f"failed to get schedule, client returned exception: {e}.",
+                level="WARNING",
+            )
             self.fm_busy_getting_schedule = False
             await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
             return
@@ -678,7 +690,24 @@ class FMClient:
             + self.fm_date_time_last_schedule.isoformat(),
             attributes=schedule,
         )
-        await self.v2g_main_app.set_fm_connection_status(connected=True)
+        await self.set_fm_connection_status(connected=True)
+
+    async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
+        """Helper to set fm connection status in HA entity"""
+        if connected:
+            state = "Successfully connected"
+        else:
+            if error_message != "":
+                state = error_message
+            else:
+                state = "Error"
+
+        # Force a changed trigger even if the state does not change
+        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
+
+        await self.hass.set_state(
+            "sensor.fm_connection_status", state=state, attributes=keep_alive
+        )
 
 
 def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
