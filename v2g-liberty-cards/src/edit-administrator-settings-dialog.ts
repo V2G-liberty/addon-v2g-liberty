@@ -4,6 +4,7 @@ import { customElement, state } from 'lit/decorators';
 import { callFunction } from './util/appdaemon';
 import { renderDialogHeader, renderInputSelect } from './util/render';
 import { partial } from './util/translate';
+import { styles } from './card.styles';
 import { defaultState, DialogBase } from './dialog-base';
 import * as entityIds from './entity-ids';
 
@@ -88,18 +89,12 @@ class EditAdministratorSettingsDialog extends DialogBase {
     this.closeDialog();
   }
 
-  static styles = css`
-    .select-name {
-      font-weight: bold;
-    }
-    .error {
-      color: var(--error-color);
-    }
-    ha-dialog {
-      --mdc-dialog-width: 40%;
-      --mdc-dialog-max-width: 600px;
-      --mdc-dialog-padding: 48px;
-      --mdc-dialog-min-width: 350px;
-    }
-  `;
+  static styles = [
+    styles,
+    css`
+      .select-name {
+        font-weight: bold;
+      }
+    `
+  ];
 }

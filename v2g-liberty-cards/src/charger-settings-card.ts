@@ -1,4 +1,3 @@
-import { mdiCheck } from '@mdi/js';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
@@ -6,11 +5,18 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow } from './util/render';
 import { partial } from './util/translate';
+import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
 import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.charger');
+
+enum ChargerConnectionStatus {
+  Connected = 'Successfully connected',
+  Failed = 'Failed to connect',
+  ConnectionError = 'Connection error',
+}
 
 @customElement('v2g-liberty-charger-settings-card')
 export class ChargerSettingsCard extends LitElement {
@@ -89,22 +95,17 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderChargerConnectionStatus() {
     const state = this._chargerConnectionStatus.state;
-    const isConnected = state === 'Successfully connected';
+    const isConnected = state === ChargerConnectionStatus.Connected;
     const hasConnectionError =
-      state === 'Connection error' || state === 'Failed to connect';
+      state === ChargerConnectionStatus.ConnectionError || state === ChargerConnectionStatus.Failed;
     const error = tp('connection-error');
     const success = tp('connection-success', {
       time: elapsedTimeSince(this._chargerConnectionStatus.last_updated),
     });
     return isConnected
-      ? html`
-          <div class="success">
-            <ha-svg-icon .path=${mdiCheck}></ha-svg-icon>
-            <span>${success}</span>
-          </div>
-        `
+      ? html`<ha-alert alert-type="success">${success}</ha-alert>`
       : hasConnectionError
-        ? html`<p><ha-alert alert-type="error">${error}</ha-alert></p>`
+        ? html`<ha-alert alert-type="error">${error}</ha-alert>`
         : nothing;
   }
 
@@ -151,25 +152,6 @@ export class ChargerSettingsCard extends LitElement {
         .name {
           font-weight: bold;
         }
-
-        .success ha-svg-icon {
-          color: var(--success-color);
-          padding-right: 2rem;
-        }
-
-        .success {
-          margin-bottom: 1rem;
-          font-size: 1.2rem;
-        }
       `
   ];
-}
-
-function elapsedTimeSince(dateTimeStamp: string) {
-  // TODO
-  const elapsedMilliSeconds = Date.now() - Date.parse(dateTimeStamp);
-  const elapsedSeconds = Math.floor(elapsedMilliSeconds / 1000);
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  return `${elapsedHours}:${elapsedMinutes % 60}:${elapsedSeconds % 60}`;
 }

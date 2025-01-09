@@ -8,11 +8,10 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 
 class FMClient:
-    """This class manages the communication with the FlexMeasures platform, which delivers the charging schedules.
-
+    """This class manages the communication with the FlexMeasures platform, which delivers the
+    charging schedules.
     - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
-
     """
 
     # Constants
@@ -41,7 +40,7 @@ class FMClient:
     connection_ping_interval: int
     errored_connection_ping_interval: int
 
-    # For sending notifications to the user.
+    # For calling handle_no_new_schedule
     v2g_main_app: object
     hass: Hass = None
 
@@ -67,18 +66,33 @@ class FMClient:
             + self.DELAY_FOR_INITIAL_ATTEMPT
         )
 
-        # Ping every half hour. If offline a separate process will run to increase polling frequency.
+        # Ping every half hour. If offline, a separate process will run to increase frequency.
         self.connection_error_counter = 0
         # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
 
     async def test_fm_connection(self, host_url, username, password):
+        """Test if we can connect with given FlexMeasures host and port
+
+        Args:
+            host_url (str): FlexMeasures URL
+            username (str): username (e-mail address)
+            password (str): password
+
+        Raises:
+            ve: Value Error
+            eve: Email Validation Error
+
+        Returns:
+            assets (list): list of asset names
+        """
+
         # TODO: Fix this
         from flexmeasures_client import FlexMeasuresClient
         from flexmeasures_client.exceptions import EmailValidationError
 
         host, ssl = get_host_and_ssl_from_url(host_url)
-        self.__log(f"test_fm_connection, host: '{host}', ssl: '{ssl}'.")
+        self.__log("host: '{host}', ssl: '{ssl}'.")
 
         try:
             client = FlexMeasuresClient(
@@ -88,24 +102,30 @@ class FMClient:
                 ssl=ssl,
             )
         except ValueError as ve:
-            self.__log(f"test_fm_connection, CLIENT ERROR: {ve}.")
+            self.__log("CLIENT ERROR: {ve}.", level="WARNING")
             # ValueErrors:
             # 'xxx' is not an email address format string (= also for empty email)
             # password cannot be empty
             raise ve
         except EmailValidationError as eve:
-            self.__log(f"test_fm_connection, CLIENT ERROR: {eve}.")
+            self.__log("CLIENT ERROR: {eve}.", level="WARNING")
             raise eve
 
-        self.__log(f"test_fm_connection, successfully connect to flexmeasures")
+        self.__log("successfully connect to flexmeasures")
         try:
             assets = await client.get_assets()
+            await self.set_fm_connection_status(connected=True)
             return assets
+        except Exception as e:
+            self.__log(
+                f"Could not get assets from fm_client. Exception: {e}.", level="WARNING"
+            )
+            await self.set_fm_connection_status(connected=False)
         finally:
             await client.close()
 
     async def initialise_and_test_fm_client(self) -> str:
-        self.__log("initialise_and_test_fm_client called")
+        self.__log("called")
         # Unusual place for the import, but it has to be in an async method otherwise it errors out
         # with problems with the async loop.
         from flexmeasures_client import FlexMeasuresClient
@@ -116,7 +136,7 @@ class FMClient:
         self.fm_date_time_last_schedule = get_local_now()
 
         host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
-        self.__log(f"initialise_and_test_fm_client, host: '{host}', ssl: '{ssl}'.")
+        self.__log(f"host: '{host}', ssl: '{ssl}'.")
         try:
             self.client = FlexMeasuresClient(
                 host=host,
@@ -125,21 +145,19 @@ class FMClient:
                 ssl=ssl,
             )
         except ValueError as ve:
-            self.__log(f"initialise_and_test_fm_client, CLIENT ERROR: {ve}.")
+            self.__log(f"CLIENT ERROR: {ve}.", level="WARNING")
             # ValueErrors:
             # 'xxx' is not an email address format string (= also for empty email)
             # password cannot be empty
             return ve
         except EmailValidationError as eve:
-            self.__log(f"initialise_and_test_fm_client, CLIENT ERROR: {eve}.")
+            self.__log(f"CLIENT ERROR: {eve}.", level="WARNING")
             return eve
 
-        self.__log(
-            f"initialise_and_test_fm_client, successfully initialised flexmeasures client"
-        )
+        self.__log("successfully initialised flexmeasures client")
 
         try:
-            self.__log("initialise_and_test_fm_client, getting access token...")
+            self.__log("getting access token...")
             await self.client.get_access_token()
         except ValueError as ve:
             self.__log(f"V2G ERROR: {ve}")
@@ -155,13 +173,13 @@ class FMClient:
             return "Communication error. Wrong URL?"
 
         if self.client.access_token is None:
-            self.__log("initialise_and_test_fm_client, access token is None")
+            self.__log("access token is None", level="WARNING")
             return "Unknown error with FlexMeasures"
         self.__log(
-            f"initialise_and_test_fm_client, access token: {self.client.access_token}, "
-            f"returning 'Successfully connected'."
+            f"access token: {self.client.access_token}, returning 'Successfully connected'."
         )
 
+        await self.set_fm_connection_status(connected=True)
         return "Successfully connected"
 
     async def get_fm_sensors_by_asset_name(self, asset_name: str):
@@ -213,7 +231,7 @@ class FMClient:
                     'unit': 'MW'
                 }
         """
-        self.__log(f"get_sensor_data called for sensor_id: {sensor_id}.")
+        self.__log(f"called for sensor_id: {sensor_id}.")
         try:
             res = await self.client.get_sensor_data(
                 sensor_id=sensor_id,
@@ -225,8 +243,8 @@ class FMClient:
         except Exception as e:
             # ContentTypeError, ValueError, timeout, no data??:
             self.__log(
-                f"get_sensor_data for sensor_id: '{sensor_id}', start: '{start}', duration: '{duration}', "
-                f"unit: '{uom}',  resolution: '{resolution}' failed, client returned exception: '{e}'."
+                f"for sensor_id: '{sensor_id}', start: '{start}', duration: '{duration}', unit: "
+                f"'{uom}',  resolution: '{resolution}' failed, client returned exception: '{e}'."
             )
             return None
 
@@ -252,10 +270,10 @@ class FMClient:
         Returns:
             bool: weather or not sending was successful
         """
-        self.__log(f"post_measurements called.")
+        self.__log("post_measurements called.")
         if len(values) == 0:
             self.__log(
-                f"post_measurements, value list 0 length, not sending data to sensor_id '{sensor_id}'."
+                f"value list 0 length, not sending data to sensor_id '{sensor_id}'."
             )
             return False
 
@@ -270,9 +288,10 @@ class FMClient:
         except Exception as e:
             # ContentTypeError, ValueError, timeout??:
             self.__log(
-                f"post_measurements failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
+                f"failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
                 f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'."
             )
+            await self.set_fm_connection_status(connected=False)
             return False
 
         return True
@@ -285,22 +304,23 @@ class FMClient:
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
         Params:
         targets: a list of targets (=dict with start, end, soc)
-        back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back at max soc.
-        Can be None.
+        back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back
+                         at max soc. Can be None.
         """
-        self.__log(f"get_new_schedule called.")
+        self.__log("called.")
         now = get_local_now()
         if self.fm_busy_getting_schedule:
             self.__log(
-                f"get_new_schedule, busy with prior request since: {self.fm_date_time_last_schedule.isoformat()}."
+                f"busy with prior request since: {self.fm_date_time_last_schedule.isoformat()}."
             )
             seconds_since_last_schedule = int(
                 (now - self.fm_date_time_last_schedule).total_seconds()
             )
             if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
                 self.__log(
-                    f"Retrieving previous schedule is taking too long ({seconds_since_last_schedule} sec.),"
-                    " assuming call got 'lost'. Getting new schedule."
+                    f"Retrieving previous schedule is taking too long "
+                    f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
+                    f"Getting new schedule."
                 )
             else:
                 self.__log(
@@ -308,10 +328,10 @@ class FMClient:
                 )
                 return
         else:
-            self.__log("get_new_schedule: Was not busy getting schedule, but i am now!")
+            self.__log("Was not busy getting schedule, but i am now!")
 
-        # This has to be set here instead of in get_schedule because that function is called with a delay
-        # and during this delay this get_new_schedule could be called.
+        # This has to be set here instead of in get_schedule because that function is called with a
+        # delay and during this delay this get_new_schedule could be called.
         self.fm_busy_getting_schedule = True
 
         rounded_now = time_round(now, c.EVENT_RESOLUTION)
@@ -322,8 +342,8 @@ class FMClient:
         )
 
         # Add a placeholder target with soc CAR_MAX_SOC_IN_KWH (usually ≈80%) one week from now.
-        # FM needs this to be able to produce a schedule whereby the influence of this placeholder is none.
-        # Added to the soc_minima later on
+        # FM needs this to be able to produce a schedule whereby the influence of this placeholder
+        # is none. Added to the soc_minima later on
         end_of_schedule_input_period = rounded_now + timedelta(days=7)
 
         soc_minima = []
@@ -337,9 +357,11 @@ class FMClient:
         #     "end": schedule_end,
         # })
 
-        # The schedule should not take into account that during calendar items it cannot charge/discharge.
+        # The schedule should not take into account that during calendar items it cannot
+        # charge/discharge.
         # Further, if a b2ms is set, the schedule should not charge (but can dis-charge) until b2ms.
-        # These power capacities are collected in the max_consumption_power_ranges and idle_ranges_production.
+        # These power capacities are collected in the max_consumption_power_ranges and
+        # idle_ranges_production.
         max_consumption_power_ranges = [
             {
                 "value": c.CHARGER_MAX_CHARGE_POWER,
@@ -362,7 +384,7 @@ class FMClient:
             ##################################
             #    Make a list of soc_minima   #
             ##################################
-            self.__log(f"get_new_schedule, start generating soc_minima'.")
+            self.__log("start generating soc_minima")
             for target in targets:
                 target_start = target["start"]
                 target_end = target["end"]
@@ -418,7 +440,7 @@ class FMClient:
             ##################################
             #   Make a list of soc_maxima    #
             ##################################
-            self.__log(f"get_new_schedule, start generating soc_maxima'.")
+            self.__log("start generating soc_maxima")
 
             # The basis maxima that can be lifted by adding other maxima
             soc_maxima = [
@@ -431,9 +453,9 @@ class FMClient:
 
             first_b2ms_reset_moment = schedule_end
             for soc_minimum in soc_minima:
-                # Does this target need a relaxation window? This is the period before a calendar item where
-                # soc_maxima should be set to the value target_soc_kwh to allow the schedule to reach a target higher
-                # than the CAR_MAX_SOC_IN_KWH.
+                # Does this target need a relaxation window? This is the period before a calendar
+                # item where soc_maxima should be set to the value target_soc_kwh to allow the
+                # schedule to reach a target higher than the CAR_MAX_SOC_IN_KWH.
                 soc_minimum_start = soc_minimum["start"]
                 soc_minimum_end = soc_minimum["end"]
                 minimum_soc_kwh = soc_minimum["value"]
@@ -447,7 +469,7 @@ class FMClient:
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
                     )
-                    self.__log(f"get_new_schedule window_duration: {window_duration}.")
+                    self.__log("window_duration: {window_duration}.")
                     # srw = start_relaxation_window, erw = end_relaxation_window
                     srw = time_round(
                         (soc_minimum_start - timedelta(minutes=window_duration)),
@@ -458,17 +480,17 @@ class FMClient:
                         c.EVENT_RESOLUTION,
                     )
                     if srw < rounded_now:
-                        # This is when the target SoC cannot be reached at the calendar-item_start, Scenario 3.
+                        # This is when the target SoC cannot be reached at the calendar-item_start,
+                        # Scenario 3.
                         srw = rounded_now
                         # In this case it is never relevant to go back to max_soc
                         back_to_max_soc = None
                         self.__log(
-                            "get_new_schedule, strategy for soc_maxima: "
-                            "Priority for calendar target (Scenario 3)."
+                            "strategy for soc_maxima: Priority for calendar target (Scenario 3)."
                         )
                     if srw < first_b2ms_reset_moment:
                         first_b2ms_reset_moment = srw
-                    self.__log(f"get_new_schedule srw: {srw}.")
+                    self.__log(f"start relaxation window (srw): {srw}.")
 
                     soc_maxima.append(
                         {
@@ -478,7 +500,7 @@ class FMClient:
                         }
                     )
                 self.__log(
-                    f"get_new_schedule, soc_minima processed - "
+                    f"soc_minima processed - "
                     f"first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}."
                 )
             # -- End for soc_minimum in soc_minima --
@@ -486,49 +508,52 @@ class FMClient:
 
         # Range where schedule should only discharge. This when the SoC is above the max (80%).
         # This can be due to returning home and connection with a high SoC or when the car did not
-        # get disconnected during a reservation with a target > max_soc and the calendar item is dismissed.
-        # It is only added at the start (now) and not after future targets as we expect these to lead to a
-        # SoC below the max as the car is used for driving and thus losing SoC.
+        # get disconnected during a reservation with a target > max_soc and the calendar item is
+        # dismissed. It is only added at the start (now) and not after future targets as we expect
+        # these to lead to a SoC below the max as the car is used for driving and thus losing SoC.
 
-        # If the current_soc is above the CAR_MAX_SOC_IN_KWH it need to be brought back below this max.
-        # The back_to_max_soc parameter indicates when this task should be finished.
+        # If the current_soc is above the CAR_MAX_SOC_IN_KWH it need to be brought back below this
+        # max. The back_to_max_soc parameter indicates when this task should be finished.
         #
         # Assume:
         # SRW  = Start of the relaxation window for the CTM, including the slack of 1 hour.
         #        Only relevant for calendar items with a target SoC above the CAR_MAX_SOC_IN_KWH.
-        #        Relaxation refers to the fact that in this window the schedule does not get soc-maxima so that
-        #        it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher target SoC.
-        #        To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH, even if the current soc is higher.
+        #        Relaxation refers to the fact that in this window the schedule does not get
+        #        soc-maxima so that it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher
+        #        target SoC. To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH,
+        #        even if the current soc is higher.
         # CTM  = Charge Target Moment which is the start of the first upcoming calendar item.
-        #        By default, if there is no calendar item, the CTM is one week from now. This gives the
-        #        schedule enough freedom for the coming 27 hours (total duration of the schedule).
-        # B2MS = The datetime at which the ALLOWED_DURATION_ABOVE_MAX_SOC ends, it cannot be in the past.
-        #        It serves as a target with a maximum SoC (where regular targets have a minimum).
-        #        The CTM has a higher priority than the B2MS.
-        # EMDW = End of Minimum Discharge Window. Minimum Discharge Window (MDW) = time needed to discharge from current
-        #        SoC to CAR_MAX_SOC_IN_KWH with available discharge power. EMDW = Now + MDW.
+        #        By default, if there is no calendar item, the CTM is one week from now. This gives
+        #        the schedule enough freedom for the coming 27 hours (total schedule duration).
+        # B2MS = The datetime at which the ALLOWED_DURATION_ABOVE_MAX_SOC ends, it cannot be in the
+        #        past. It serves as a target with a maximum SoC (where regular targets have a
+        #        minimum). The CTM has a higher priority than the B2MS.
+        # EMDW = End of Minimum Discharge Window. Minimum Discharge Window (MDW) = time needed to
+        #        discharge from current SoC to CAR_MAX_SOC_IN_KWH with available discharge power.
+        #        EMDW = Now + MDW.
         #        Scenario A: In case of EMDW > B2MS then the latter is extended to EMDW.
         #
-        # The following scenarios need to be handled, they might in time flow from one into the other:
+        # These scenarios need to be handled, they might in time flow from one into the other:
         # 0. No B2MS
         #    The soc-maxima are based on the CAR_MAX_SOC_IN_KWH and run from "now" up to SRW.
         # 1. NOW < B2MS < SRW < CTM
         #    The B2MS is not influenced by the first calendar item (or there is none)
-        #    The SoC maxima are based upon the CURRENT_SOC and run from "now" up to B2MS, from where they are
-        #    set to CAR_MAX_SOC_IN_KWH. Furthermore, the schedule should not charge during this period. So this
-        #    period should be added to the max_consumption_power_ranges.
+        #    The SoC maxima are based upon the CURRENT_SOC and run from "now" up to B2MS, from where
+        #    they are set to CAR_MAX_SOC_IN_KWH. Furthermore, the schedule should not charge during
+        #    this period. So this period should be added to the max_consumption_power_ranges.
         # 2. NOW < SRW < B2MS < CTM and NOW < SRW < CTM < B2MS
-        #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the current SoC and
-        #    run from "now" up to SRW.
+        #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the
+        #    current SoC and run from "now" up to SRW.
         # 3. SRW < NOW < B2MS < CTM and SRW < NOW < CTM < B2MS
         #    Here the priority is to reach the CTM and so do not set soc-maxima.
         #
-        # Note that the situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
+        # The situation where CTM < NOW is not relevant anymore and is covered by scenario 1.
 
         if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime):
-            self.__log(f"get_new_schedule, back_to_max_soc: '{back_to_max_soc}'.")
+            self.__log(f"back_to_max_soc: '{back_to_max_soc}'.")
 
-            # Postpone discharge till after current calendar item if target soc has not been fulfilled
+            # Postpone discharge till after current calendar item if target soc has not been
+            # fulfilled.
             start_b2ms = None
             if targets is not None and len(targets) > 0:
                 first_target = targets[0]
@@ -565,7 +590,7 @@ class FMClient:
                     }
                 )
                 self.__log(
-                    "get_new_schedule, strategy for soc_maxima: "
+                    "strategy for soc_maxima: "
                     "Maxima current_soc until Start of relaxation window (Scenario 2)."
                 )
             else:
@@ -626,7 +651,7 @@ class FMClient:
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }
-        self.__log(f"get_new_schedule | flex_model: {flex_model}.")
+        self.__log(f"flex_model: {flex_model}.")
         schedule = {}
         try:
             schedule = await self.client.trigger_and_get_schedule(
@@ -639,45 +664,49 @@ class FMClient:
         except Exception as e:
             # ContentTypeError, ValueError, timeout??:
             self.__log(
-                f"get_new_schedule, failed to get schedule, client returned exception: {e}."
+                f"failed to get schedule, client returned exception: {e}.",
+                level="WARNING",
             )
             self.fm_busy_getting_schedule = False
-            if self.v2g_main_app is not None:
-                await self.v2g_main_app.handle_no_new_schedule(
-                    "timeouts_on_schedule", True
-                )
-            else:
-                self.__log(
-                    f"get_new_schedule. "
-                    f"Could not call handle_no_new_schedule on v2g_main_app as it is None."
-                )
+            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
             return
 
         self.fm_busy_getting_schedule = False
 
         if schedule == {}:
-            self.__log(f"get_new_schedule, schedule is empty")
-            if self.v2g_main_app is not None:
-                await self.v2g_main_app.handle_no_new_schedule(
-                    "timeouts_on_schedule", True
-                )
-            else:
-                self.__log(
-                    f"get_new_schedule. "
-                    f"Could not call handle_no_new_schedule on v2g_main_app as it is None."
-                )
+            self.__log("schedule is empty")
+            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
             return
 
         await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
         self.fm_date_time_last_schedule = get_local_now()
-        self.__log(f"get_new_schedule, schedule: {schedule}")
+        self.__log(f"schedule: {schedule}")
 
-        # To trigger state change we add the date to the state. State change is not triggered by attributes.
+        # To trigger state change we add the date to the state. State change is not triggered by
+        # attributes.
         await self.hass.set_state(
             entity_id="sensor.charge_schedule",
             state="Charge schedule available "
             + self.fm_date_time_last_schedule.isoformat(),
             attributes=schedule,
+        )
+        await self.set_fm_connection_status(connected=True)
+
+    async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
+        """Helper to set fm connection status in HA entity"""
+        if connected:
+            state = "Successfully connected"
+        else:
+            if error_message != "":
+                state = error_message
+            else:
+                state = "Error"
+
+        # Force a changed trigger even if the state does not change
+        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
+
+        await self.hass.set_state(
+            "sensor.fm_connection_status", state=state, attributes=keep_alive
         )
 
 
@@ -700,25 +729,23 @@ def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
 # See separate unit tests
 def consolidate_time_ranges(ranges, min_or_max: str = "max"):
     """
-    Make ranges non-overlapping and, for the overlapping parts, use min or max value from the ranges.
+    Make ranges non-overlapping and, for the overlapping parts, use min/max value from the ranges.
 
     :param ranges: dicts with start(datetime), end(datetime) and value (int)
                    The start and end must be snapped to the resolution.
-    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values should be used for
-                       the overlapping parts.
-    :return: a list of dicts with start(datetime), end(datetime) and value (int) that are none-overlapping,
-             but possibly 'touching' (end of A = start of B).
+    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values
+                       should be used for the overlapping parts.
+    :return: a list of dicts with start(datetime), end(datetime) and value (int) that are
+             none-overlapping, but possibly 'touching' (end of A = start of B).
 
     Note!
-    It is not possible yet to correctly process non-overlapping ranges with a one-resolution distance
-    As this is very rare in this context, and it's impact relatively small it has not been solved yet
-    and accepted as a not-perfect output.
+    It is not possible yet to correctly process non-overlapping ranges with a one-resolution
+    distance. As this is very rare in this context, and it's impact relatively small it has not been
+    solved yet and accepted as a not-perfect output.
     """
     if len(ranges) == 0:
-        # self.__log("consolidate_time_ranges, ranges = [], aborting")
         return []
     elif len(ranges) == 1:
-        # self.__log("consolidate_time_ranges, only one range so nothing to consolidate, returning ranges untouched.")
         return ranges
 
     generated_slots = __generate_time_slots(ranges)
@@ -728,15 +755,15 @@ def consolidate_time_ranges(ranges, min_or_max: str = "max"):
 # See separate unit tests
 def __generate_time_slots(ranges):
     """
-    Based on the ranges this function generates a dictionary of time slots with the minimum or maximum value.
-    key: [min, max] where key is a datetime and min/max are int values.
-    The key must be snapped to the resolution.
-    There can be gaps in the keys, the datetime values do not have to be successive.
+    Based on the ranges this function generates a dictionary of time slots with the minimum or
+    maximum value.
 
     :param ranges: dicts with start(datetime), end(datetime) and value (int)
                    The start and end must be snapped to the resolution.
     :return: dict, with the format:
              key: [min, max] where key is a datetime and min/max are int values
+             The key must be snapped to the resolution. There can be gaps in the keys, the datetime
+             values do not have to be successive.
     """
     time_slots = {}
     sorted_ranges = sorted(ranges, key=lambda r: r["start"])
@@ -762,12 +789,13 @@ def __generate_time_slots(ranges):
 # See separate unit tests
 def __combine_time_slots(time_slots: dict, min_or_max: str = "max"):
     """
-    Merges time slots into ranges with a constant value. The value to use is based on min_or_max parameter.
+    Merges time slots into ranges with a constant value. The value to use is based on min_or_max
+    parameter.
 
     :param time_slots: dict, with the format:
                        key: [min, max] where key is a datetime and min/max are int values
-    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values should be used for
-                       the overlapping parts.
+    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values
+                       should be used for the overlapping parts.
     :return: dicts with start(datetime), end(datetime) and value (int) that are none-overlapping,
              but possibly 'touching' (end of A = start of B).
     """
@@ -832,13 +860,6 @@ def __combine_time_slots(time_slots: dict, min_or_max: str = "max"):
     )
 
     return combined_ranges
-
-
-def get_keepalive():
-    """Generate a unique string to be used in setting entity states. So, even when the
-    attributes remain the same, it will be treated as a new value and trigger a change event."""
-    now = get_local_now().strftime(c.DATE_TIME_FORMAT)
-    return {"keep_alive": now}
 
 
 def convert_dates_to_iso_format(data):

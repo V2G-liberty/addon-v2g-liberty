@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
 import { renderDialogHeader, renderSelectOption } from './util/render';
+import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
 
@@ -62,10 +63,13 @@ class EditInputNumberDialog extends DialogBase {
     });
     this.closeDialog();
   }
+  static styles = [
+    styles,
+    css`
+      .name {
+        font-weight: bold;
+      }
+    `
+  ];
 
-  static styles = css`
-    .name {
-      font-weight: bold;
-    }
-  `;
 }

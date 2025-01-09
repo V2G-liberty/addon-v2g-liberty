@@ -72,6 +72,8 @@
             "header": "Car reservation calendar",
             "alert": "Please configure your car reservation calendar, V2G Liberty needs this to work.",
             "type": "Type",
+            "connection-error": "Could not login to caldav server, please check account.",
+            "connection-success": "Connected, last contact %{time} ago",
             "source-selection": {
                 "description": "V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the wanted state of charge at exactly the right time at the lowest cost.",
                 "select-name": "Calendar type",
@@ -113,7 +115,7 @@
             },
             "car-battery-usable-capacity": {
                 "header": "Usable capacity for car battery",
-                "description": "This is the the maximum energy storage capacity of the car's battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\n\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\n\n**Battery health**\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\n*E.g:*\n*The SoH is 11/12 and the original usable capacity was 56kWh use a value of 51kWh.*",
+                "description": "This is the the maximum energy storage capacity of the car's battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\n\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\n\n**Battery health**\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*",
             },
             "roundtrip-efficiency": {
                 "header": "Roundtrip efficiency",
@@ -121,7 +123,7 @@
             },
             "car-energy-consumption": {
                 "header": "Car energy consumption",
-                "description": "The average electricity usage of your car in Watt-hour (Wh) per kilometre.\n\nIn most cars you can find historical data in the menu's or see [Electric Vehicle Database](https://ev-database.org).\n\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\n\nMake sure you use the right 'unit of measure': Wh per km.",
+                "description": "The average electricity usage of your car in Watt-hour (Wh) per kilometer.\n\nIn most cars you can find historical data in the menu's or see [Electric Vehicle Database](https://ev-database.org).\n\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\n\nMake sure you use the right 'unit of measure': Wh/km.",
             },
             "allowed-duration-above-max": {
                 "header": "Allowed duration above max soc",
@@ -129,11 +131,11 @@
             },
             "car-battery-lower-charge-limit": {
                 "header": "Lower charge limit for car battery",
-                "description": "**Effects on automated charging**\nThe automated schedule will never discharge below this value.\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\n\n**Effects on earnings**\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\n\n**Battery life**\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\n\n**Odd car behaviour**\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower.\n\n**Boundaries**\nThe default is 20% and has to be between 10 and 50%.",
+                "description": "The automated schedule will never discharge below this value.\n**Effects on automated charging**\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\n\n**Effects on earnings**\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\n\n**Battery life**\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\n\n**Odd car behaviour**\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower.",
             },
             "car-battery-upper-charge-limit": {
                 "header": "Upper charge limit for car battery",
-                "description": "**Effects on earnings**\nThe schedule will use this limit for regular automated /scheduled charging.\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\n\nWhen a calendar item is present, the schedule will ignore this limit and try to charge the battery to 100% at the start of the calendar item (or if the calendar item has a target use that).\n\n**Battery life**\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days).\n\n**Odd car behaviour**\nIn some cars the SoC drops 1% in short time when idle above a certain SoC (e.g. 95%). This results in a toggling charge behaviour, try setting this limit to a lower value.\n\n**Boundaries**\nThe default is 80%. The value has to be between 60 and 100%. Some cars will never charge above 97% so this could be a relevant boundary as well.",
+                "description": "The schedule will use this limit for regular automated /scheduled charging.\n**Effects on earnings**\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\n\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\n\n**Battery life**\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days).",
             },
             "optimisation-mode": {
                 "header": "Optimisation mode",
@@ -159,8 +161,8 @@
         "schedule": {
             "header": "Smart schedule",
             "alert": "Please configure the smart schedule, V2G Liberty needs this to work.",
-            "connection-error": "!!!No communication with charger, please check connection.",
-            "use-default-server": "Use default server",
+            "connection-error": "Could not login to Smart Schedule server, please check account.",
+            "connection-success": "Connected, last contact %{time} ago",
             "use-other-server": "Use other server",
             "account-description": "An account for the default server can be requested at https://v2g-liberty.eu.",
             "no-asset-error": "No assets found in account, please contact the smart schedule servers administrator.",

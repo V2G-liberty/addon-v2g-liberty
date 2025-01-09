@@ -6,10 +6,17 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { renderEntityBlock } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
+import { elapsedTimeSince } from './util/time';
 import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.car-reservation-calendar');
+
+enum CaldavConnectionStatus {
+  Connected = 'Successfully connected',
+  Failed = 'Failed to connect',
+  ConnectionError = 'Connection error',
+}
 
 @customElement('v2g-liberty-car-reservation-calendar-settings-card')
 export class CarReservationCalendarSettingsCard extends LitElement {
@@ -19,6 +26,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   @state() private _calendarAccountUrl: HassEntity;
   @state() private _calendarAccountUsername: HassEntity;
   @state() private _carCalendarName: HassEntity;
+  @state() private _caldavConnectionStatus: HassEntity;
 
   private _hass: HomeAssistant;
 
@@ -37,6 +45,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
     this._calendarAccountUsername =
       hass.states[entityIds.calendarAccountUsername];
     this._carCalendarName = hass.states[entityIds.carCalendarName];
+    this._caldavConnectionStatus = hass.states[entityIds.calendarAccountConnectionStatus]
   }
 
   render() {
@@ -67,7 +76,8 @@ export class CarReservationCalendarSettingsCard extends LitElement {
 
     return html`
       <div class="card-content">
-        ${this._renderCaldavDetails()} ${this._renderHomeAssistantDetails()}
+        ${this._renderCaldavDetails()}
+        ${this._renderHomeAssistantDetails()}
         <div class="button-row">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
@@ -80,6 +90,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderCaldavDetails() {
     return this._carCalendarSource.state === 'Direct caldav source'
       ? html`
+          ${this._renderCaldavConnectionStatus()}
           <p>
             ${tp('type')}: <strong>${this._carCalendarSource.state}</strong>
           </p>
@@ -88,6 +99,22 @@ export class CarReservationCalendarSettingsCard extends LitElement {
           ${renderEntityBlock(this._carCalendarName)}
         `
       : nothing;
+  }
+
+  private _renderCaldavConnectionStatus() {
+    const state = this._caldavConnectionStatus.state;
+    const isConnected = state === CaldavConnectionStatus.Connected;
+    const hasConnectionError =
+      state ===  CaldavConnectionStatus.ConnectionError || state === CaldavConnectionStatus.Failed;
+    const error = tp('connection-error');
+    const success = tp('connection-success', {
+      time: elapsedTimeSince(this._caldavConnectionStatus.last_updated),
+    });
+    return isConnected
+      ? html`<ha-alert alert-type="success">${success}</ha-alert>`
+      : hasConnectionError
+        ? html`<ha-alert alert-type="error">${error}</ha-alert>`
+        : nothing;
   }
 
   private _renderHomeAssistantDetails() {
