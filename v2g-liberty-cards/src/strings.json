@@ -54,7 +54,7 @@
     },
     "ping-card": {
         "error": "Connection with V2G Liberty lost, please restart the add-on.",
-        "restarting": "Restarting...",
+        "restarting": "Connection with V2G Liberty lost. Restarting...",
         "restart": "Restart"
     },
     "settings": {

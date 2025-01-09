@@ -5,9 +5,6 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { callFunction } from './util/appdaemon';
 import { partial } from './util/translate';
 
-// Import the snackbar from MWC
-import '@material/mwc-snackbar';
-
 const tp = partial('ping-card');
 
 interface PingCardConfig {
@@ -18,8 +15,8 @@ interface PingCardConfig {
 @customElement('v2g-liberty-ping-card')
 export class PingCard extends LitElement {
   @state() private _isResponding: boolean = true;
-  @state() private _snackbarOpen: boolean = false; // Snackbar open state
-  @state() private _isRestarting: boolean = false; // Track restart state
+  @state() private _isSnackbarOpen: boolean = false;
+  @state() private _isRestarting: boolean = false;
 
   public hass!: HomeAssistant;
   public _config: PingCardConfig;
@@ -39,11 +36,7 @@ export class PingCard extends LitElement {
   public connectedCallback() {
     super.connectedCallback();
     this._connected = true;
-
-    // Add a delay to avoid snackbar flickering
-    setTimeout(() => {
-      this._startPinging();
-    }, this._config.interval);
+    this._startPinging();
   }
 
   public disconnectedCallback() {
@@ -54,7 +47,7 @@ export class PingCard extends LitElement {
 
   _startPinging() {
     this._isResponding = true;
-    this._timeout = setTimeout(() => this._ping(), 100);
+    this._timeout = setTimeout(() => this._ping(), 1000);
   }
 
   async _ping() {
@@ -66,8 +59,8 @@ export class PingCard extends LitElement {
         this._config.ping_timeout
       );
       this._isResponding = true;
-      this._snackbarOpen = false; // Close snackbar if ping is successful
-      this._isRestarting = false; // Reset restart state after successful ping
+      this._isSnackbarOpen = false;
+      this._isRestarting = false;
       if (this._connected) {
         this._timeout = setTimeout(
           () => this._ping(),
@@ -77,7 +70,7 @@ export class PingCard extends LitElement {
     } catch (_) {
       // If the ping fails, show the snackbar (again)
       this._isResponding = false;
-      this._snackbarOpen = true;
+      this._isSnackbarOpen = true;
       // Increase ping interval if not responding
       if (this._connected) {
         this._timeout = setTimeout(() => this._ping(), 100);
@@ -90,44 +83,45 @@ export class PingCard extends LitElement {
   }
 
   render() {
+    const _onSnackbarClose = () => this._isSnackbarOpen = false;
+
     return this._isResponding
       ? nothing
       : html`
           <mwc-snackbar
-            ?open=${this._snackbarOpen}
+            ?open=${this._isSnackbarOpen}
             labelText=${this._isRestarting ? tp('restarting') : tp('error')}
-            timeoutMs="-1"  <!-- Set timeout to -1 for persistent behavior -->
-            persistent  <!-- Ensure it remains visible until manually closed -->
-            @closed=${this._onSnackbarClosed}
+            timeoutMs="-1"  <!-- Persistent until closed -->
+            persistent
+            @closed=${_onSnackbarClose}
           >
-            <mwc-button slot="action" @click=${this._restart}>${tp('restart')}</mwc-button>
+            ${!this._isRestarting
+              ? html`<mwc-button slot="action" @click=${this._restart}>${tp('restart')}</mwc-button>`
+              : nothing
+            }
           </mwc-snackbar>
         `;
   }
 
-  private _onSnackbarClosed() {
-    this._snackbarOpen = false; // Snackbar closed event
+  _resetIsRestarting() {
+    this._isRestarting = false;
   }
 
   async _restart(event: Event) {
     event.stopPropagation(); // Prevent the click closing the snackbar
-    this._isRestarting = true; // Set flag to show restart message
-    this._snackbarOpen = true; // Ensure the snackbar stays open during restart
+    this._isSnackbarOpen = true; // Ensure the snackbar stays open during restart
+    this._isRestarting = true;
+    // After the restart assume that ultimately after a timeout the restart
+    // should be finished and if not show an error again if pinging fails.
+    setTimeout(() => this._resetIsRestarting(), this._config.interval * 2);
 
-    // Attempt the restart via the Home Assistant API
+    // Attempt can fail so should be at end of this function
     await this.hass.callWS({
       type: 'supervisor/api',
       endpoint: `/addons/9a1c9f7e_v2g-liberty/restart`,
       method: 'post',
       timeout: null,
     });
-
-    // After the restart:
-    // - Add a delay before the next ping to allow for the restart to take effect
-    // - After the delay start pinging as usual
-    setTimeout(() => {
-      this._startPinging();
-    }, this._config.interval);
   }
 }
 
