@@ -11787,7 +11787,7 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
       <p>${description}</p>
       <p>
         <div>
-          <span class="select-name">${selectName} </span>
+          <span class="select-name">${selectName}</span>
         </div>
       </p>
       <div class="select-options">
