@@ -11876,7 +11876,7 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
     `;
     }
     _renderCaldavOneCalendar() {
-        // Assign only choice without asking user
+        // Assign the only possible choice without asking user.
         this._carCalendarName = this._caldavCalendars[0];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
