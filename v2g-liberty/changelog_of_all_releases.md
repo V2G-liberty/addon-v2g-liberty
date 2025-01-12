@@ -3,6 +3,21 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.5.0 2025-01-??
+
+### Fixed
+
+- ??
+
+### Added
+
+- Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
+- Feature Request: New frontend for settings page (unnumbered)
+
+### Changed
+
+- ??
+
 ## 0.4.4 2024-12-19
 
 ### Fixed

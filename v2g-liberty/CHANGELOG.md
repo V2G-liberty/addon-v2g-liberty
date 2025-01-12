@@ -1,35 +1,19 @@
 # What's changed?
 
-## 0.4.4 2024-12-19
+## 0.5.0 2025-01-??
 
 ### Fixed
 
-- 🔥 HOTFIX: Problem with sensors for chart lines, disconnect detection (#196)
-
-## 0.4.3 2024-12-19
-
-### Fixed
-
-- 🪲 BUG: During Max charge the power sometimes is set to 0 (#152)
-- 🪲 BUG: Local Home Assistant calendar only triggers changed event on first upcoming calendar item (#167)
-- 🪲 BUG: Alert for negative prices not working correctly (#169)
-- 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
-  Includes Bump of pyModbus library to 3.8.0
-- 🪲 BUG: BUG: Cost data blinking at startup (#181)
-- Custom cards bug in HA (#189)
-- 🪲 BUG: Max charge not working correct (#194)
+- ??
 
 ### Added
 
-- Feature Request: Notify user when at the end of a calendar item the car is not connected (#158)
-- Feature Request: Add history to V2G Liberty entities (#176)
-- Feature request: Add "unknown" state to real_charge_power and car_state_of_charge sensors (#170)
-- Feature Request: Add 'Alive since' to UI (#182)
+- Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
+- Feature Request: New frontend for settings page (unnumbered)
 
 ### Changed
 
-- 🛠️ REFACTOR: Use sections precision mode for card sizes in UI for a.o. `Automatic`, `Charge now` and `Pause` buttons (#147)
-- ⬆️ Bump caldav library to 1.4.0 (#180)
+- ??
 
 ### [Unreleased]
 
@@ -41,7 +25,7 @@ The next release might include:
 
 #### Changing
 
-- New frontend for the settings page
+- ??
 
 #### Removing
 

@@ -231,7 +231,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
   }
 
   private _renderCaldavOneCalendar() {
-    // Assign only choice without asking user
+    // Assign the only possible choice without asking user
     this._carCalendarName = this._caldavCalendars[0];
 
     return html`

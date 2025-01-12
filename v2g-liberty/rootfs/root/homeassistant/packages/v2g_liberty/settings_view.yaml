@@ -4,7 +4,6 @@
 # To be included in the v2g_liberty_dashboard.yaml
 - type: grid
   cards:
-    - type: custom:v2g-liberty-ping-card
     - type: custom:v2g-liberty-optimisation-settings-card
       layout_options:
         grid_columns: full
@@ -78,3 +77,4 @@
           ha-card {
             display: none;
           }
+    - type: custom:v2g-liberty-ping-card
