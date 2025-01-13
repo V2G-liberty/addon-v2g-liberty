@@ -75,13 +75,17 @@
             "connection-error": "Could not login to caldav server, please check account.",
             "connection-success": "Connected, last contact %{time} ago",
             "source-selection": {
-                "description": "V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the wanted state of charge at exactly the right time at the lowest cost.",
+                "description": "V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.",
                 "select-name": "Calendar type",
-                "Direct caldav source-description": "Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.",
-                "Home Assistant integration-description": "Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here.",
+                "remoteCaldav-title": "Direct caldav source",
+                "remoteCaldav-description": "Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.",
+                "localIntegration-title": "Home Assistant integration",
+                "localIntegration-description": "Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here.",
+                "no-selection-error": "Please select an option",
             },
             "caldav": {
                 "description": "Please enter your calendar caldav details.\nIf possible, create and use a separate app-password.",
+                "login-success": "Login successful",
                 "error": "No calendar found in account, please check your account.",
             },
             "homeassistant": {

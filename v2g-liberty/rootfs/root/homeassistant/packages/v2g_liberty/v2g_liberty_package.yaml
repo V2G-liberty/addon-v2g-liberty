@@ -50,24 +50,10 @@ input_select:
       - android
       - ios
 
-  car_calendar_source:
-    name: Source for car calendar
-    icon: mdi:sprout
-    options:
-      - Direct caldav source
-      - Home Assistant integration
-
   # Used when the car calendar is provided by a local integration (e.g. Google Calendar)
   integration_calendar_entity_name:
     name: Calendar integration
     icon: mdi:calendar-edit-outline
-    options:
-      - Please choose an option
-
-  # Used when the car calendar is online
-  car_calendar_name:
-    name: Car reservation calendar
-    icon: mdi:car-info
     options:
       - Please choose an option
 
@@ -453,6 +439,15 @@ sensor:
         value_template: ""
 
 input_text:
+  car_calendar_source:
+    name: Source type for car calendar
+    icon: mdi:sprout
+    # options: "remoteCaldav", "localIntegration".
+
+  car_calendar_name:
+    name: Car reservation calendar
+    icon: mdi:car-info
+
   admin_mobile_name:
     name: The mobile of the administrator
     icon: mdi:shield-account

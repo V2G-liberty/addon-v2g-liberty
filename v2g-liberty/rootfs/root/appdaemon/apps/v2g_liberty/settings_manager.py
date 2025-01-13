@@ -45,6 +45,9 @@ class SettingsManager:
             "input_select.admin_mobile_name": "input_text.admin_mobile_name",
             # "input_select.admin_mobile_platform": "input_text.admin_mobile_platform"
             "input_select.fm_asset": "input_text.fm_asset",
+            "input_select.integration_calendar_entity_name":
+                "input_text.integration_calendar_entity_name",
+            "input_select.car_calendar_source": "input_text.car_calendar_source",
         }.items():
             if obsolete in settings:
                 value = settings.get(obsolete)
@@ -61,13 +64,13 @@ class SettingsManager:
         return settings
 
     def __upgrade_calendar_settings_initialised(self, settings: dict):
-        source = settings.get("input_select.car_calendar_source", None)
+        source = settings.get("input_text.car_calendar_source", None)
         if (
             source == "Direct caldav source"
             and "input_text.calendar_account_init_url" in settings
             and "input_text.calendar_account_username" in settings
             and "input_text.calendar_account_password" in settings
-            and "input_select.car_calendar_name" in settings
+            and "input_text.car_calendar_name" in settings
         ) or (
             source == "Home Assistant integration"
             and "input_select.integration_calendar_entity_name" in settings

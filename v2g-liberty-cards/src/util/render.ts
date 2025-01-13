@@ -1,9 +1,47 @@
-import { mdiClose, mdiPencil } from '@mdi/js';
+import { mdiClose, mdiPencil, mdiChevronLeft } from '@mdi/js';
 import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, nothing, TemplateResult } from 'lit';
 
 import { t, to } from '../util/translate';
+
+export function renderButton(
+  hass: HomeAssistant,
+  action: (() => void),
+  isPrimaryAction: boolean = true,
+  label: string = null,
+) {
+  if (label === null) {
+    if (isPrimaryAction) {
+      label = hass.localize('ui.common.continue')
+    } else {
+      label = hass.localize('ui.common.back');
+    }
+  }
+  const slot = isPrimaryAction
+    ? 'primaryAction'
+    : 'secondaryAction'
+  const chevronIcon = !isPrimaryAction
+    ? html`<ha-svg-icon .path=${mdiChevronLeft}></ha-svg-icon> `
+    : nothing;
+
+  return html`
+    <mwc-button @click=${action} slot=${slot}>
+      ${chevronIcon}${label}
+    </mwc-button>
+  `;
+}
+
+export function renderSpinner() {
+  // To replace primaryAction button while busy
+  return html`
+    <ha-circular-progress
+      size="small"
+      indeterminate
+      slot='primaryAction'
+    ></ha-circular-progress>
+  `;
+}
 
 export function renderEntityBlock(
   stateObj: HassEntity,
@@ -185,11 +223,13 @@ export function renderInputNumber(
 }
 
 export enum InputText { // TODO: Fix these patterns and use the correct ones
-  EMail = '[\\w_]+\\.[\\d\\w_]+',
+  EMail = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
   EntityId = '[\\w_]+\\.[\\d\\w_]+',
-  IpAddress = '[0-9\\.]+',
+  IpAddress = '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
   OctopusCode = '[\\w\\d-]+',
-  URL = '[\\w_]+\\.[\\d\\w_]+',
+  URL = '^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$',
+  UserName = '^[a-zA-Z0-9.@]{2,}$',
+  PassWord = '' //'^.{6,}$',
 }
 
 export function renderInputText(
@@ -205,6 +245,7 @@ export function renderInputText(
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
       <ha-textfield
+        requiered="true"
         pattern="${pattern}"
         .label=${name}
         .value=${value}
@@ -229,6 +270,7 @@ export function renderInputPassword(
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
       <ha-textfield
+        requiered="true"
         type="password"
         .label=${name}
         .value=${value}
