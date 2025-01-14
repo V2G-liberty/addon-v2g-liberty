@@ -62,7 +62,7 @@ export class ElectricityContractSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -80,7 +80,7 @@ export class ElectricityContractSettingsCard extends LitElement {
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>

@@ -45,7 +45,7 @@ export class AdministratorSettingsCard extends LitElement {
         <div class="description">${tp('sub-header')}</div>
         ${renderEntityBlock(this._adminMobileName)}
         ${renderEntityBlock(this._adminMobilePlatform)}
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
@@ -61,7 +61,7 @@ export class AdministratorSettingsCard extends LitElement {
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
         <div class="description">${tp('sub-header')}</div>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>

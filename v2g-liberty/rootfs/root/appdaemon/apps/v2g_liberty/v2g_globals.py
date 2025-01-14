@@ -245,13 +245,13 @@ class V2GLibertyGlobals:
     }
     SETTING_CAR_CALENDAR_SOURCE = {
         "entity_name": "car_calendar_source",
-        "entity_type": "input_select",
+        "entity_type": "input_text",
         "value_type": "str",
-        "factory_default": "Direct caldav source",
+        "factory_default": "remoteCaldav",
     }
     SETTING_INTEGRATION_CALENDAR_ENTITY_NAME = {
         "entity_name": "integration_calendar_entity_name",
-        "entity_type": "input_select",
+        "entity_type": "input_text",
         "value_type": "str",
         "factory_default": "",
     }
@@ -275,7 +275,7 @@ class V2GLibertyGlobals:
     }
     SETTING_CAR_CALENDAR_NAME = {
         "entity_name": "car_calendar_name",
-        "entity_type": "input_select",
+        "entity_type": "input_text",
         "value_type": "str",
         "factory_default": None,
     }
@@ -438,7 +438,7 @@ class V2GLibertyGlobals:
         await self.__initialise_notification_settings()
 
     async def __save_calendar_settings(self, event, data, kwargs):
-        if data["source"] == "Direct caldav source":
+        if data["source"] == "remoteCaldav":
             self.__store_setting("input_text.calendar_account_init_url", data["url"])
             self.__store_setting(
                 "input_text.calendar_account_username", data["username"]
@@ -446,15 +446,12 @@ class V2GLibertyGlobals:
             self.__store_setting(
                 "input_text.calendar_account_password", data["password"]
             )
-            # TODO: make text
-            self.__store_setting("input_select.car_calendar_name", data["calendar"])
+            self.__store_setting("input_text.car_calendar_name", data["calendar"])
         else:
-            # TODO: make text
             self.__store_setting(
-                "input_select.integration_calendar_entity_name", data["calendar"]
+                "input_text.integration_calendar_entity_name", data["calendar"]
             )
-        # TODO: make text/boolean?
-        self.__store_setting("input_select.car_calendar_source", data["source"])
+        self.__store_setting("input_text.car_calendar_source", data["source"])
         self.__store_setting("input_boolean.calendar_settings_initialised", True)
 
         self.hass.fire_event("save_calendar_settings.result")
@@ -685,27 +682,27 @@ class V2GLibertyGlobals:
             bool: If option was successfully selected or not
         """
 
-        self.__log(f"__select_option called")
+        self.__log("Called", level="WARNING")
 
         if option == "Please choose an option":
             self.__log(
-                f"__select_option - option to select == 'Please choose an option'.",
-                level="WARNING",
+                "option to select == 'Please choose an option'.", level="WARNING"
             )
             return False
         if entity_id is None or entity_id[:13] != "input_select.":
             self.__log(
-                f"__select_option aborted - entity type is not input_select: '{entity_id[:13]}'."
+                f"aborted - entity type is not input_select: '{entity_id[:13]}'.",
+                level="WARNING",
             )
             return False
         if not self.hass.entity_exists(entity_id):
             self.__log(
-                f"__select_option aborted - entity_id does not exist: '{entity_id}'."
+                f"aborted - entity_id does not exist: '{entity_id}'.", level="WARNING"
             )
             return False
         res = await self.hass.get_state(entity_id=entity_id, attribute="options")
         if res is None or option not in res:
-            self.__log(f"__select_option, option '{option}' not in options {res}.")
+            self.__log(f"option '{option}' not in options {res}.", level="WARNING")
             # This is the only way of handling this error situation, try - except fails...
             # As we expect this to be a sort of race condition we just add this one option and
             # assume the list will be completed later with this option selected. Risky?
@@ -775,9 +772,7 @@ class V2GLibertyGlobals:
         # If a pcao option is required it has to be the first option.
         pcao_option = "Please choose an option"
         if pcao is None and (pcao_option in options):
-            self.__log(
-                f"__set_select_options pcao is None but in current options, keeping it."
-            )
+            self.__log("pcao is None but in current options, keeping it.")
             pcao = True
         options = list(set(options))  # Remove duplicates and sort
         options.sort()  # set() does not sort properly
@@ -787,8 +782,7 @@ class V2GLibertyGlobals:
         if pcao_option in options:
             options.remove(pcao_option)
         self.__log(
-            f"__set_select_options options, removed duplicates, pcao and None values"
-            f" and sorted: {options}"
+            f"options, removed duplicates, pcao and None values and sorted: {options}"
         )
 
         if pcao:
@@ -798,8 +792,7 @@ class V2GLibertyGlobals:
 
         if current_selected_option == pcao_option:
             self.__log(
-                f"__set_select_options temporary BUGFIX, "
-                f"hard remove 'Please choose an option' option.",
+                "temporary BUGFIX, hard remove 'Please choose an option' option.",
                 level="WARNING",
             )
             current_selected_option = options[0]
@@ -809,20 +802,21 @@ class V2GLibertyGlobals:
             current_selected_option is not None
             and current_selected_option not in options
         ):
-            tmp = options.append(current_selected_option)
-            # Set a new list with the old option selected to prevent an error, it will be removed later.
+            tmp = options
+            tmp.append(current_selected_option)
+            # Set a new list with the old option selected to prevent an error,
+            # it will be removed later.
             await self.hass.call_service(
                 "input_select/set_options", entity_id=entity_id, options=tmp
             )
             self.__log(
-                f"__set_select_options options, current_selected_option {current_selected_option} added "
-                f"to prevent HA error."
+                f"current_selected_option {current_selected_option} added to prevent HA error."
             )
         else:
             await self.hass.call_service(
                 "input_select/set_options", entity_id=entity_id, options=options
             )
-            self.__log(f"__set_select_options options, new options set in select.")
+            self.__log("new options set in select")
 
         if option_to_select in options:
             so = option_to_select
@@ -830,7 +824,7 @@ class V2GLibertyGlobals:
             so = current_selected_option
         else:
             so = options[0]
-        # self.__log(f"__set_select_options options, to select option is: {so}")
+        # self.__log(f"to select option is: {so}")
 
         # Select the desired option.
         await self.hass.select_option(entity_id=entity_id, option=so)
@@ -840,7 +834,7 @@ class V2GLibertyGlobals:
             await self.hass.call_service(
                 "input_select/set_options", entity_id=entity_id, options=options
             )
-            # self.__log(f"__set_select_options options, removed original selected option")
+            # self.__log("removed original selected option")
 
         return True
 
@@ -915,7 +909,7 @@ class V2GLibertyGlobals:
                 else:
                     # There is no relevant default to set...
                     self.__log(
-                        f"__process_setting: setting '{entity_id}' has no stored value, "
+                        f"setting '{entity_id}' has no stored value, "
                         f"no factory_default, no value in UI."
                     )
         else:
@@ -1070,7 +1064,7 @@ class V2GLibertyGlobals:
         c.CAR_CALENDAR_SOURCE = await self.__process_setting(
             setting_object=self.SETTING_CAR_CALENDAR_SOURCE,
         )
-        if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
+        if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
             c.CALENDAR_ACCOUNT_INIT_URL = await self.__process_setting(
                 setting_object=self.SETTING_CALENDAR_ACCOUNT_INIT_URL,
             )

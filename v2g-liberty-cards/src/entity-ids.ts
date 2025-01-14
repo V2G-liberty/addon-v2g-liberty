@@ -21,9 +21,9 @@ export const calendarAccountPassword = 'input_text.calendar_account_password';
 export const calendarAccountConnectionStatus =
   'sensor.calendar_account_connection_status';
 export const carCalendarName = 'input_text.car_calendar_name';
-// Home Assistant integration
+// Home Assistant local Integration
 export const integrationCalendarEntityName =
-  'input_select.integration_calendar_entity_name';
+  'input_text.integration_calendar_entity_name';
 
 // Charger
 export const chargerSettingsInitialised =

@@ -58,6 +58,9 @@
         "restart": "Restart"
     },
     "settings": {
+        "common" :{
+            "configure": "Configure",
+        },
         "administrator": {
             "header": "Administrator",
             "alert": "Please configure your administrator device.",
@@ -77,14 +80,17 @@
             "source-selection": {
                 "description": "V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.",
                 "select-name": "Calendar type",
-                "remoteCaldav-title": "Direct caldav source",
+                "remoteCaldav-title": "Remote caldav source",
                 "remoteCaldav-description": "Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.",
-                "localIntegration-title": "Home Assistant integration",
+                "localIntegration-title": "Home Assistant local integration",
                 "localIntegration-description": "Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here.",
                 "no-selection-error": "Please select an option",
             },
             "caldav": {
                 "description": "Please enter your calendar caldav details.\nIf possible, create and use a separate app-password.",
+                "url-error": "Please enter a valid URL",
+                "username-error": "Please enter a username of minimal 4 characters",
+                "password-error": "Please enter a password of minimal 6 characters",
                 "login-success": "Login successful",
                 "error": "No calendar found in account, please check your account.",
             },
@@ -169,6 +175,9 @@
             "connection-success": "Connected, last contact %{time} ago",
             "use-other-server": "Use other server",
             "account-description": "An account for the default server can be requested at https://v2g-liberty.eu.",
+            "email-error": "Please enter a valid e-mail address as username",
+            "password-error": "Please enter a password of minimal 6 characters",
+            "url-error": "Please enter a valid URL",
             "no-asset-error": "No assets found in account, please contact the smart schedule servers administrator.",
             "multiple-asset-description": "Which asset is to be controlled via V2G Liberty?",
             "no-asset-selected-error": "Please select an option"

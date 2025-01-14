@@ -39,7 +39,7 @@ export const styles = css`
     color: var(--paper-item-icon-color, #44739e);
   }
 
-  div.button-row {
+  div.card-actions {
     margin-top:16px;
   }
 

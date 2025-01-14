@@ -62,7 +62,7 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button test-id="configure" @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -84,7 +84,7 @@ export class ChargerSettingsCard extends LitElement {
         <ha-alert alert-type="info">
           <ha-markdown breaks .content=${info}></ha-markdown>
         </ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button test-id="edit" @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>

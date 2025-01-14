@@ -59,7 +59,7 @@ export class ScheduleSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -84,7 +84,7 @@ export class ScheduleSettingsCard extends LitElement {
             `
           : nothing }
         ${renderEntityBlock(this._fmAsset)}
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>

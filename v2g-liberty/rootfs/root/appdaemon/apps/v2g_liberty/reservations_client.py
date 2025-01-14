@@ -120,9 +120,9 @@ class ReservationsClient(ServiceResponseApp):
         """
 
         # Cancel the lister that could be active because the previous setting
-        # for c.CAR_CALENDAR_SOURCE was "Home Assistant Integration".
+        # for c.CAR_CALENDAR_SOURCE was "localIntegration".
         # If source is "remoteCaldav" no listener is used as the calendar gets polled.
-        # If source is "Home Assistant Integration" the current listener should be removed to make
+        # If source is "localIntegration" the current listener should be removed to make
         # place for the new one.
         if self.calender_listener_id != "":
             await self.hass.cancel_listen_state(self.calender_listener_id)
@@ -244,27 +244,6 @@ class ReservationsClient(ServiceResponseApp):
             attributes=keep_alive,
         )
 
-    async def __set_caldav_connection_status(
-        self, connected: bool, error_message: str = ""
-    ):
-        """Helper to set connection status in HA entity"""
-        if connected:
-            state = "Successfully connected"
-        else:
-            if error_message != "":
-                state = error_message
-            else:
-                state = "Error"
-
-        # Force a changed trigger even if the state does not change
-        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
-
-        await self.hass.set_state(
-            "sensor.calendar_account_connection_status",
-            state=state,
-            attributes=keep_alive,
-        )
-
     async def get_dav_calendar_names(self):
         """For situation where c.CAR_CALENDAR_SOURCE == "remoteCaldav"
         Called by globals to populate the input_select after a connection to
@@ -284,7 +263,7 @@ class ReservationsClient(ServiceResponseApp):
         return cal_names
 
     async def get_ha_calendar_names(self):
-        """For situation where c.CAR_CALENDAR_SOURCE == "HA Integration"
+        """For situation where c.CAR_CALENDAR_SOURCE == "localIntegration"
         Called by globals to populate the input_select at init and when calendar source changes
 
         Returns:
@@ -337,7 +316,6 @@ class ReservationsClient(ServiceResponseApp):
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
         """For the situation where a calendar integration is used (and not a remoteCaldav online
-
         calendar). It is expected that this method is called when:
          + the previous calendar item has passed (so there is a new first upcoming calendar item)
          + the first upcoming calendar item changes
@@ -387,25 +365,17 @@ class ReservationsClient(ServiceResponseApp):
     async def __poll_dav_calendar(self, kwargs=None):
         # Get the items in from now to the next week from the calendar
         self.__log("Polling caldav calendar")
-        self.__log("Polling caldav calendar")
         start = get_local_now()
         end = start + dt.timedelta(days=7)
         # It is a bit strange this is not async... for now we'll live with it.
         # TODO: Optimise by use of sync_tokens so that only the updated events get sent
         try:
-            try:
             caldav_events = self.car_reservation_calendar.search(
-                    start=start,
-                    end=end,
-                    event=True,
-                    expand=True,
-                )
-        except Exception as e:
-            self.log(
-                f"Could not retrieve caldav items. Exception: '{e}'.", level="WARNING"
+                start=start,
+                end=end,
+                event=True,
+                expand=True,
             )
-            await self.__set_caldav_connection_status(connected=False)
-            return
         except Exception as e:
             self.log(
                 f"Could not retrieve caldav items. Exception: '{e}'.", level="WARNING"

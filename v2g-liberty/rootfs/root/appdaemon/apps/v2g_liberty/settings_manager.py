@@ -43,10 +43,8 @@ class SettingsManager:
     def __upgrade_obsolete_settings(self, settings: dict):
         for obsolete, new in {
             "input_select.admin_mobile_name": "input_text.admin_mobile_name",
-            # "input_select.admin_mobile_platform": "input_text.admin_mobile_platform"
             "input_select.fm_asset": "input_text.fm_asset",
-            "input_select.integration_calendar_entity_name":
-                "input_text.integration_calendar_entity_name",
+            "input_select.integration_calendar_entity_name": "input_text.integration_calendar_entity_name",
             "input_select.car_calendar_source": "input_text.car_calendar_source",
         }.items():
             if obsolete in settings:
@@ -66,13 +64,13 @@ class SettingsManager:
     def __upgrade_calendar_settings_initialised(self, settings: dict):
         source = settings.get("input_text.car_calendar_source", None)
         if (
-            source == "Direct caldav source"
+            source == "remoteCaldav"
             and "input_text.calendar_account_init_url" in settings
             and "input_text.calendar_account_username" in settings
             and "input_text.calendar_account_password" in settings
             and "input_text.car_calendar_name" in settings
         ) or (
-            source == "Home Assistant integration"
+            source == "localIntegration"
             and "input_select.integration_calendar_entity_name" in settings
         ):
             settings["input_boolean.calendar_settings_initialised"] = True

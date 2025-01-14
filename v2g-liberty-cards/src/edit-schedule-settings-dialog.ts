@@ -7,7 +7,6 @@ import {
   InputText,
   renderDialogHeader,
   renderInputBoolean,
-  renderInputPassword,
   renderInputSelect,
   renderInputText,
 } from './util/render';
@@ -89,6 +88,9 @@ class EditScheduleSettingsDialog extends DialogBase {
 
   private _renderAccountDetails() {
     const description = tp('account-description');
+    const emailError= tp('email-error');
+    const passwordError= tp('password-error');
+    const urlError= tp('url-error');
     const fmAccountUsernameState =
       this.hass.states[entityIds.fmAccountUsername];
     const fmAccountPasswordState =
@@ -107,13 +109,19 @@ class EditScheduleSettingsDialog extends DialogBase {
         InputText.EMail,
         this._fmAccountUsername,
         fmAccountUsernameState,
-        evt => (this._fmAccountUsername = evt.target.value)
+        evt => (this._fmAccountUsername = evt.target.value),
+        emailError,
+        "email"
       )}
-      ${renderInputPassword(
+      ${renderInputText(
+        InputText.PassWord,
         this._fmAccountPassword,
         fmAccountPasswordState,
-        evt => (this._fmAccountPassword = evt.target.value)
+        evt => (this._fmAccountPassword = evt.target.value),
+        passwordError,
+        "password"
       )}
+
       ${renderInputBoolean(
         isUsingOtherServer,
         fmUseOtherServerState,
@@ -124,7 +132,9 @@ class EditScheduleSettingsDialog extends DialogBase {
             InputText.URL,
             this._fmHostUrl,
             fmHostUrlState,
-            evt => (this._fmHostUrl = evt.target.value)
+            evt => (this._fmHostUrl = evt.target.value),
+            urlError,
+            "url"
           )
         : nothing}
       ${this._isBusyConnecting()

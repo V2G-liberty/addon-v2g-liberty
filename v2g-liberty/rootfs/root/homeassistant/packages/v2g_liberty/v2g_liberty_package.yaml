@@ -50,13 +50,6 @@ input_select:
       - android
       - ios
 
-  # Used when the car calendar is provided by a local integration (e.g. Google Calendar)
-  integration_calendar_entity_name:
-    name: Calendar integration
-    icon: mdi:calendar-edit-outline
-    options:
-      - Please choose an option
-
   electricity_provider:
     icon: mdi:office-building
     options:
@@ -440,9 +433,14 @@ sensor:
 
 input_text:
   car_calendar_source:
-    name: Source type for car calendar
+    name: Type of source for car calendar
     icon: mdi:sprout
     # options: "remoteCaldav", "localIntegration".
+
+  # Used when the car calendar is provided by a local integration (e.g. Google Calendar)
+  integration_calendar_entity_name:
+    name: Calendar integration
+    icon: mdi:calendar-edit-outline
 
   car_calendar_name:
     name: Car reservation calendar

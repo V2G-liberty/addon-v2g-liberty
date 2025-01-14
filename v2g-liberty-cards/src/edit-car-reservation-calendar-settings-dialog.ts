@@ -2,14 +2,13 @@ import { mdiChevronLeft } from '@mdi/js';
 import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
-
+import { styles } from './card.styles';
 import { callFunction } from './util/appdaemon';
 import {
   InputText,
   renderDialogHeader,
   renderButton,
   renderSpinner,
-  renderInputPassword,
   renderInputSelect,
   renderInputText,
   renderSelectOptionWithLabel,
@@ -49,7 +48,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
   public async showDialog(): Promise<void> {
     super.showDialog();
     this._currentPage = 'source-selection';
-    this.setCalendarSourceType(this.hass.states[entityIds.carCalendarSource].state);
+    this._setCalendarSourceType(this.hass.states[entityIds.carCalendarSource].state);
     this._calendarAccountUrl = defaultState(
       this.hass.states[entityIds.calendarAccountUrl],
       ''
@@ -93,7 +92,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     `;
   }
 
-  private setCalendarSourceType(newSource: string) {
+  private _setCalendarSourceType(newSource: string) {
     if (!newSource) {
       this._calendarSourceType = null;
       return;
@@ -114,7 +113,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     const selectName = tp('source-selection.select-name');
     const noSelectionError = tp('source-selection.no-selection-error')
     const current = this._calendarSourceType;
-    const changedCallback = evt => (this.setCalendarSourceType(evt.target.value));
+    const changedCallback = evt => (this._setCalendarSourceType(evt.target.value));
     const isSelectionValid = this._isValidCalendarSourceType(current);
 
     return html`
@@ -164,7 +163,9 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
 
   private _renderCaldavAccountDetails() {
     const description = tp('caldav.description');
-
+    const urlError= tp('caldav.url-error');
+    const usernameError= tp('caldav.username-error');
+    const passwordError= tp('caldav.password-error');
     const calendarAccountUrlState =
       this.hass.states[entityIds.calendarAccountUrl];
     const calendarAccountUsernameState =
@@ -178,18 +179,24 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         InputText.URL,
         this._calendarAccountUrl,
         calendarAccountUrlState,
-        evt => (this._calendarAccountUrl = evt.target.value)
+        evt => (this._calendarAccountUrl = evt.target.value),
+        urlError,
+        "url"
       )}
       ${renderInputText(
         InputText.UserName,
         this._calendarAccountUsername,
         calendarAccountUsernameState,
-        evt => (this._calendarAccountUsername = evt.target.value)
+        evt => (this._calendarAccountUsername = evt.target.value),
+        usernameError
       )}
-      ${renderInputPassword(
+      ${renderInputText(
+        InputText.PassWord,
         this._calendarAccountPassword,
         calendarAccountPasswordState,
-        evt => (this._calendarAccountPassword = evt.target.value)
+        evt => (this._calendarAccountPassword = evt.target.value),
+        passwordError,
+        "password"
       )}
       ${this._renderConnectionError()}
       ${renderButton(this.hass, this._backToSourceSelection, false)}
@@ -205,7 +212,6 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       ? html` <div class="error">${errorString}</div> `
       : nothing;
   }
-
 
   private _renderConnectionError() {
     const hasConnectionError = this._caldavConnectionStatus;
@@ -261,7 +267,6 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       <p><ha-markdown breaks .content=${description}></ha-markdown></p>
       ${renderInputSelect(
         this._carCalendarName,
-        // TODO: turn into input_text
         carCalendarNameState,
         evt => (this._carCalendarName = evt.target.value),
         this._caldavCalendars
@@ -401,19 +406,14 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     this.closeDialog();
   }
 
-  static styles = css`
-    .select-name {
-      font-weight: bold;
-    }
-
-    .error {
-      color: var(--error-color);
-    }
-
-    div.mdc-form-field label.mdc-label b[slot="label"] {
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      color: red !important;
-    }
-    `
+  static styles = [
+    styles,
+    css`
+      // Unfortunately this does not work
+      // .mdc-text-field-helper-text--validation-msg {
+      //   margin-bottom: 20px !important;
+      // }
+      `
+  ];
+  validationMessage
 }

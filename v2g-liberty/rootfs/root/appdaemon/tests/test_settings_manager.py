@@ -85,11 +85,11 @@ class TestRetrieveSettings:
         # Arrange
         saved_settings = json.dumps(
             {
-                "input_select.car_calendar_source": "Direct caldav source",
+                "input_text.car_calendar_source": "remoteCaldav",
                 "input_text.calendar_account_init_url": "url",
                 "input_text.calendar_account_username": "username",
                 "input_text.calendar_account_password": "password",
-                "input_select.car_calendar_name": "calendar",
+                "input_text.car_calendar_name": "calendar",
             }
         )
         with patch("builtins.open", mock_open(read_data=saved_settings)):
@@ -107,7 +107,7 @@ class TestRetrieveSettings:
         # Arrange
         saved_settings = json.dumps(
             {
-                "input_select.car_calendar_source": "Home Assistant integration",
+                "input_text.car_calendar_source": "localIntegration",
                 "input_select.integration_calendar_entity_name": "calendar",
             }
         )
