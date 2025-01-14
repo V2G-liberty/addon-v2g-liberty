@@ -12,11 +12,11 @@ class SettingsManager:
     def retrieve_settings(self):
         """Retrieve all settings from the settings file"""
 
-        self.__log(f"retrieve_settings called")
+        self.__log("called")
 
         self.settings = {}
         if not os.path.exists(self.settings_file_path):
-            self.__log(f"retrieve_settings, no settings file found")
+            self.__log("no settings file found", level="WARNING")
         else:
             try:
                 with open(self.settings_file_path, "r", encoding="utf-8") as read_file:
@@ -25,11 +25,11 @@ class SettingsManager:
                         self.settings = self.__upgrade(settings)
                     else:
                         self.__log(
-                            f"retrieve_settings, loading file content error, "
-                            f"no dict: '{settings}'."
+                            f"loading file content error, no dict: '{settings}'.",
+                            level="WARNING",
                         )
             except (json.JSONDecodeError, FileNotFoundError) as e:
-                self.__log(f"__retrieve_settings, Error reading settings file: {e}")
+                self.__log(f"Error reading settings file: {e}", level="WARNING")
 
     def __upgrade(self, settings: dict):
         settings = self.__upgrade_obsolete_settings(settings)
@@ -51,6 +51,16 @@ class SettingsManager:
                 value = settings.get(obsolete)
                 settings.update({new: value})
                 settings.pop(obsolete)
+
+        setting_key = "input_text.car_calendar_source"
+        for obsolete, new in {
+            "Home Assistant integration": "localIntegration",
+            "Direct caldav source": "remoteCaldav",
+        }.items():
+            value = settings.get(setting_key)
+            if value == obsolete:
+                settings.update({setting_key: new})
+
         return settings
 
     def __upgrade_administrator_settings_initialised(self, settings: dict):
@@ -71,7 +81,7 @@ class SettingsManager:
             and "input_text.car_calendar_name" in settings
         ) or (
             source == "localIntegration"
-            and "input_select.integration_calendar_entity_name" in settings
+            and "input_text.integration_calendar_entity_name" in settings
         ):
             settings["input_boolean.calendar_settings_initialised"] = True
         return settings
