@@ -328,14 +328,6 @@ class ReservationsClient(ServiceResponseApp):
         )
         await self.__process_v2g_events(remote_v2g_events)
 
-        attributes = {"keep_alive": start}
-        await self.hass.set_state(
-            "sensor.calendar_account_connection_status",
-            state="Successfully connected",
-            attributes=attributes,
-        )
-        await self.__process_v2g_events(remote_v2g_events)
-
     def __make_v2g_event(
         self, start: dt, end: dt, is_all_day: bool, summary: str, description: str
     ):
