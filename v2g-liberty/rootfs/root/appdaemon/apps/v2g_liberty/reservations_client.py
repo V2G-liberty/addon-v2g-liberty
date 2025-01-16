@@ -51,9 +51,7 @@ class ReservationsClient(ServiceResponseApp):
         # To be called from v2g_liberty main module when the user has reacted to the
         # question in the notification.
         if event_hash_id is None or event_hash_id == "":
-            self.__log(
-                f"set_event_dismissed_status no valid event_hash_id: '{event_hash_id}'."
-            )
+            self.__log(f"set_event_dismissed_status no valid '{event_hash_id=}'.")
             return
         matching_event_found = False
         for event in self.v2g_events:
@@ -64,11 +62,13 @@ class ReservationsClient(ServiceResponseApp):
         if matching_event_found:
             self.events_dismissed_statuses[event_hash_id] = status
             self.__log(
-                f"set_event_dismissed_status setting hash_id '{event_hash_id}' to {status}."
+                f"set_event_dismissed_status setting "
+                f"hash_id '{event_hash_id}' to {status}."
             )
         else:
             self.__log(
-                f"set_event_dismissed_status no matching event found for '{event_hash_id}', changed/removed?"
+                f"set_event_dismissed_status no matching event found "
+                f"for '{event_hash_id}', changed/removed?"
             )
             return
 
@@ -253,7 +253,7 @@ class ReservationsClient(ServiceResponseApp):
             return_result=True,
         )
         if local_events is None:
-            self.__log("Could not retreive events, aborting", level="WARNING")
+            self.__log("Could not retrieve events, aborting", level="WARNING")
             return
         # Peel off some unneeded layers
         local_events = local_events.get(c.INTEGRATION_CALENDAR_ENTITY_NAME, None)
@@ -262,10 +262,15 @@ class ReservationsClient(ServiceResponseApp):
 
         for local_event in local_events:
             # Create a v2g_liberty specific event based on the caldav event
-            start, is_all_day = self.__parse_to_tz_dt(local_event["start"])
-            end, is_all_day = self.__parse_to_tz_dt(local_event["end"])
+            start, is_start_midnight = self.__parse_to_tz_dt(local_event["start"])
+            end, is_end_midnight = self.__parse_to_tz_dt(local_event["end"])
             if start is None or end is None:
+                self.__log(
+                    f"{local_event=} misses start- or end-date, ignoring",
+                    level="WARNING",
+                )
                 continue
+            is_all_day = is_start_midnight and is_end_midnight
             summary = str(local_event.get("summary", ""))
             description = str(local_event.get("description", ""))
             v2g_event = self.__make_v2g_event(
@@ -291,20 +296,21 @@ class ReservationsClient(ServiceResponseApp):
             event=True,
             expand=True,
         )
-
         remote_v2g_events = []
-
         for caldav_event in caldav_events:
             cdi = caldav_event.icalendar_component
             # Create a v2g_liberty specific event based on the caldav event
-            start, is_all_day = self.__parse_to_tz_dt(cdi["dtstart"].dt)
-            end, is_all_day = self.__parse_to_tz_dt(cdi["dtend"].dt)
+            start, is_start_midnight = self.__parse_to_tz_dt(cdi["dtstart"].dt)
+            end, is_end_midnight = self.__parse_to_tz_dt(cdi["dtend"].dt)
             if start is None or end is None:
+                self.__log(
+                    f"{caldav_event=} misses start- or end-date, ignoring",
+                    level="WARNING",
+                )
                 continue
-
+            is_all_day = is_start_midnight and is_end_midnight
             summary = str(cdi.get("summary", ""))
             description = str(cdi.get("description", ""))
-
             v2g_event = self.__make_v2g_event(
                 start=start,
                 end=end,
@@ -367,25 +373,43 @@ class ReservationsClient(ServiceResponseApp):
         :return: dt.datetime object with the right timezone.
         """
 
-        # All-day is detected by the fact that the any_date_type does not have a time.
-        is_all_day_event = False
-        if type(any_date_type) is str:
-            is_all_day_event = "T" not in any_date_type
-            try:
-                any_date_type = dt.datetime.fromisoformat(any_date_type)
-            except Exception as ex:
-                self.__log(
-                    f"__parse_to_tz_dt, fromisoformat Error: {ex} while trying to parse string:"
-                    f" {any_date_type}, returning None."
-                )
-                return None, None
-        if type(any_date_type) is dt.date:
-            # No time in date, this is the case for "all day" events, but for timezone we need this.
-            tm = dt.time(0, 0, 0)  # hr/min/sec
-            any_date_type = dt.datetime.combine(any_date_type, tm)
-            is_all_day_event = True
-        any_date_type = any_date_type.astimezone(c.TZ)
-        return any_date_type, is_all_day_event
+        if isinstance(any_date_type, str):
+            if len(any_date_type) <= 10:
+                # Assume this is only a date without timezone info.
+                # This happens for all_day events in local calendar.
+                any_date_type = dt.datetime.strptime(any_date_type, "%Y-%m-%d")
+                any_date_type = c.TZ.localize(any_date_type)
+            else:
+                try:
+                    any_date_type = dt.datetime.fromisoformat(any_date_type)
+                except Exception as ex:
+                    self.__log(
+                        f"Exception: {ex} while trying to parse string:"
+                        f" {any_date_type}, returning None.",
+                        level="WARNING",
+                    )
+                    return None, None
+
+        is_midnight = False
+        if isinstance(any_date_type, dt.date):
+            if not isinstance(any_date_type, dt.datetime):
+                # No time in date. Very rare, but for astimezone we need this.
+                # Assume 00:00:00 and local timezone
+                tm = dt.time(0, 0, 0)
+                any_date_type = dt.datetime.combine(any_date_type, tm)
+            any_date_type = any_date_type.astimezone(c.TZ)
+            if (
+                any_date_type.hour == 0
+                and any_date_type.minute == 0
+                and any_date_type.second == 0
+            ):
+                is_midnight = True
+            return any_date_type, is_midnight
+
+        self.__log(
+            f"Could not parse date {any_date_type}, returning None", level="WARNING"
+        )
+        return None, None
 
     async def __process_v2g_events(self, new_v2g_events):
         # Check if list has changed and if so send these to v2g_main module
@@ -408,7 +432,8 @@ class ReservationsClient(ServiceResponseApp):
             )
         except Exception as e:
             self.__log(
-                f"__process_v2g_events. Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
+                f"__process_v2g_events. Could not call v2g_main_app.handle_calendar_change. "
+                f"Exception: {e}."
             )
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
