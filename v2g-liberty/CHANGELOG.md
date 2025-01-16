@@ -1,5 +1,11 @@
 # What's changed?
 
+## 0.4.5 2025-01-16
+
+### Fixed
+
+- 🔥 HOTFIX: 🪲 BUG: Local calendar events date parsing always results in all_day events (#210)
+
 ## 0.4.4 2024-12-19
 
 ### Fixed
@@ -15,7 +21,7 @@
 - 🪲 BUG: Alert for negative prices not working correctly (#169)
 - 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
   Includes Bump of pyModbus library to 3.8.0
-- 🪲 BUG: BUG: Cost data blinking at startup (#181)
+- 🪲 BUG: Cost data blinking at startup (#181)
 - Custom cards bug in HA (#189)
 - 🪲 BUG: Max charge not working correct (#194)
 
