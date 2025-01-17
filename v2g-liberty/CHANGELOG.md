@@ -1,5 +1,12 @@
 # What's changed?
 
+## 0.4.6 2025-01-17
+
+### Fixed
+
+- 🔥 HOTFIX of the 🔥 HOTFIX. Caldav all-day event problem fixed (unnumbered)
+
+
 ## 0.4.5 2025-01-16
 
 ### Fixed
