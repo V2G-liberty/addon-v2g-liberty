@@ -13,12 +13,12 @@ class ReservationsClient(ServiceResponseApp):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
-    v2g_events: list = []
+    v2g_events: list[dict[str, any]] = []
     # To prevent problems with scheduling, showing in UI and with notifications
     MIN_EVENT_DURATION_IN_MINUTES: int = 30
 
-    # Stores the user reply to a notification "Car still connected during calendar item: keep / dismiss?"
-    # It cannot be stored in the remote calendar item.
+    # Stores the user reply to a notification "Car still connected during calendar item:
+    # keep / dismiss?", it cannot be stored in the remote calendar item.
     # When getting remote calendar items the dismissed status is added from this "local store".
     # Hash_id with True/False
     # Items are removed if v2g_events do not contain and event with this hash_id anymore.
@@ -38,42 +38,12 @@ class ReservationsClient(ServiceResponseApp):
         self.__log("initialise ReservationsClient")
         self.principal = None
         self.poll_timer_id = ""
-        # To force a "change" even if the local/remote calendar is empty.
-        self.v2g_events = ["un-initiated"]
         await self.initialise_calendar()
         self.__log("Completed initialise ReservationsClient")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
-
-    async def set_event_dismissed_status(self, event_hash_id: str, status: bool):
-        # To be called from v2g_liberty main module when the user has reacted to the
-        # question in the notification.
-        if event_hash_id is None or event_hash_id == "":
-            self.__log(f"set_event_dismissed_status no valid '{event_hash_id=}'.")
-            return
-        matching_event_found = False
-        for event in self.v2g_events:
-            if event["hash_id"] == event_hash_id:
-                event["dismissed"] = status
-                matching_event_found = True
-                break
-        if matching_event_found:
-            self.events_dismissed_statuses[event_hash_id] = status
-            self.__log(
-                f"set_event_dismissed_status setting "
-                f"hash_id '{event_hash_id}' to {status}."
-            )
-        else:
-            self.__log(
-                f"set_event_dismissed_status no matching event found "
-                f"for '{event_hash_id}', changed/removed?"
-            )
-            return
-
-        if status == True:
-            await self.__set_events_in_main_app(v2g_args="dismissed calendar event")
 
     async def initialise_calendar(self):
         # Called by globals when:
@@ -84,10 +54,16 @@ class ReservationsClient(ServiceResponseApp):
         # Cancel the lister that could be active because the previous setting
         # for c.CAR_CALENDAR_SOURCE was "Home Assistant Integration".
         # If source is "Direct caldav source" no listener is used as the calendar gets polled.
-        # If source is "Home Assistant Integration" the current listener should be removed to make place for the new one.
+        # If source is "Home Assistant Integration" the current listener should be removed to make
+        # place for the new one.
         if self.calender_listener_id != "":
             await self.hass.cancel_listen_state(self.calender_listener_id)
             self.calender_listener_id = ""
+
+        # To force a "change" even if the local/remote calendar is empty.
+        # If changing from one calendar source type to another this needs to be cleared.
+        self.v2g_events.clear()
+        self.v2g_events = [{"state": "un-initiated"}]
 
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             self.__log("Direct caldav source")
@@ -153,13 +129,13 @@ class ReservationsClient(ServiceResponseApp):
                 # TODO: Here we should not be aware of "unknown", "Please choose an option", fix in globals.
                 self.__log("setting listener")
                 self.calender_listener_id = await self.hass.listen_state(
-                    self.__poll_calendar_integration,
+                    self.__handle_changed_event,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
                     attribute="all",
                 )
-                # Unfortunately the listener only get called when the first coming (or current) calendar
-                # item changes, not when other calendar items change. So we also set a polling timer.
-                await self.hass.cancel_timer(self.poll_timer_id)
+                # Unfortunately the listener only gets called when the first coming (or current)
+                # calendar item changes, not when others change. So we also set a polling timer.
+                self.__cancel_timer(self.poll_timer_id)
                 self.poll_timer_id = await self.hass.run_every(
                     self.__poll_calendar_integration,
                     "now",
@@ -209,7 +185,7 @@ class ReservationsClient(ServiceResponseApp):
                 name=c.CAR_CALENDAR_NAME
             )
         except caldav.lib.error.NotFoundError:
-            # There is an old calendar name stored which cannot be found on (the new?) caldav remote?
+            # There is an old calendar name stored which can't be found on (the new?) caldav remote?
             self.__log(
                 f"activate_selected_calendar c.CAR_CALENDAR_NAME {c.CAR_CALENDAR_NAME}, "
                 f"not found on server, not activating."
@@ -217,28 +193,67 @@ class ReservationsClient(ServiceResponseApp):
             c.CAR_CALENDAR_NAME = ""
             return False
 
-        await self.hass.cancel_timer(self.poll_timer_id)
+        self.__cancel_timer(self.poll_timer_id)
         self.poll_timer_id = await self.hass.run_every(
             self.__poll_dav_calendar, "now", self.POLLING_INTERVAL_SECONDS
         )
+        self.__log(f"Polling timer: {self.hass.info_timer(self.poll_timer_id)}.")
         # self.__log(f"activate_selected_calendar started polling_time {self.poll_timer_id} "
         #          f"every {self.POLLING_INTERVAL_SECONDS} sec.")
         self.__log("Completed")
+
+    async def set_event_dismissed_status(self, event_hash_id: str, status: bool):
+        # To be called from v2g_liberty main module when the user has reacted to the
+        # question in the notification.
+        if event_hash_id is None or event_hash_id == "":
+            self.__log(f"set_event_dismissed_status no valid '{event_hash_id=}'.")
+            return
+        matching_event_found = False
+        for event in self.v2g_events:
+            if event["hash_id"] == event_hash_id:
+                event["dismissed"] = status
+                matching_event_found = True
+                break
+        if matching_event_found:
+            self.events_dismissed_statuses[event_hash_id] = status
+            self.__log(
+                f"set_event_dismissed_status setting "
+                f"hash_id '{event_hash_id}' to {status}."
+            )
+        else:
+            self.__log(
+                f"set_event_dismissed_status no matching event found "
+                f"for '{event_hash_id}', changed/removed?"
+            )
+            return
+
+        if status == True:
+            await self.__set_events_in_main_app(v2g_args="dismissed calendar event")
 
     ######################################################################
     #                   PRIVATE (CALLBACK) FUNCTIONS                     #
     ######################################################################
 
+    async def __handle_changed_event(
+        self, entity=None, attribute=None, old=None, new=None, kwargs=None
+    ):
+        """Mainly here for logging
+        It is expected that this method is called when the first upcoming calendar item changes
+        """
+        self.__log("Called from listener")
+        self.__poll_calendar_integration()
+
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
-        """For the situation where a calendar integration is used (and not a direct caldav online calendar).
+        """For the situation where a calendar integration is used (and not a direct caldav online
+        calendar).
         It is expected that this method is called when:
          + the previous calendar item has passed (so there is a new first upcoming calendar item)
          + the first upcoming calendar item changes
          + Regularly by polling timer.
-        Ideally the listener would trigger for any change in any future calendar item, then polling would
-        not be necessary.
+        Ideally the listener would trigger for any change in any future calendar item, then polling
+        would not be necessary.
         """
         self.__log("Called")
 
@@ -281,7 +296,6 @@ class ReservationsClient(ServiceResponseApp):
                 description=description,
             )
             tmp_v2g_events.append(v2g_event)
-
         await self.__process_v2g_events(tmp_v2g_events)
 
     async def __poll_dav_calendar(self, kwargs=None):
@@ -365,6 +379,18 @@ class ReservationsClient(ServiceResponseApp):
         v2g_event = self.__add_dismissed_status(v2g_event)
         return v2g_event
 
+    def __cancel_timer(self, timer_id: str):
+        """Utility function to silently cancel a timer.
+        Born because the "silent" flag in cancel_timer does not work and the
+        logs get flooded with useless warnings.
+
+        Args:
+            timer_id: timer_handle to cancel
+        """
+        if self.hass.timer_running(timer_id):
+            silent = True  # Does not really work
+            self.hass.cancel_timer(timer_id, silent)
+
     def __parse_to_tz_dt(self, any_date_type: any):
         """
         Utility method to robustly convert a string into a dt.datetime object
@@ -390,30 +416,37 @@ class ReservationsClient(ServiceResponseApp):
                     )
                     return None, None
 
-        is_midnight = False
-        if isinstance(any_date_type, dt.date):
-            if not isinstance(any_date_type, dt.datetime):
-                # No time in date. Very rare, but for astimezone we need this.
+        elif isinstance(any_date_type, dt.date):
+            if isinstance(any_date_type, dt.datetime):
+                any_date_type = any_date_type.astimezone(c.TZ)
+            else:
+                # No time in date, but for localize we need this.
                 # Assume 00:00:00 and local timezone
                 tm = dt.time(0, 0, 0)
                 any_date_type = dt.datetime.combine(any_date_type, tm)
-            any_date_type = any_date_type.astimezone(c.TZ)
-            if (
-                any_date_type.hour == 0
-                and any_date_type.minute == 0
-                and any_date_type.second == 0
-            ):
-                is_midnight = True
-            return any_date_type, is_midnight
+                any_date_type = c.TZ.localize(any_date_type)
+        else:
+            self.__log(
+                f"Could not parse date {any_date_type}, returning None", level="WARNING"
+            )
+            return None, None
 
-        self.__log(
-            f"Could not parse date {any_date_type}, returning None", level="WARNING"
-        )
-        return None, None
+        is_midnight = False
+        if (
+            any_date_type.hour == 0
+            and any_date_type.minute == 0
+            and any_date_type.second == 0
+        ):
+            is_midnight = True
+        return any_date_type, is_midnight
 
     async def __process_v2g_events(self, new_v2g_events):
         # Check if list has changed and if so send these to v2g_main module
         new_v2g_events = sorted(new_v2g_events, key=lambda d: d["start"])
+        self.__log(
+            f"V2G Calendar Events\nNew: {new_v2g_events}\nOld: {self.v2g_events}"
+        )
+
         if self.v2g_events == new_v2g_events:
             # Nothing has changed...
             return False
@@ -432,8 +465,7 @@ class ReservationsClient(ServiceResponseApp):
             )
         except Exception as e:
             self.__log(
-                f"__process_v2g_events. Could not call v2g_main_app.handle_calendar_change. "
-                f"Exception: {e}."
+                f"Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
             )
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
@@ -452,8 +484,7 @@ class ReservationsClient(ServiceResponseApp):
             target_soc_percent = 100
         elif target_soc_percent < c.CAR_MIN_SOC_IN_PERCENT:
             self.__log(
-                f"__add_target_soc: target soc {target_soc_percent} below "
-                f"c.CAR_MIN_SOC_IN_PERCENT ({c.CAR_MIN_SOC_IN_PERCENT}), changed."
+                f"{target_soc_percent=} raised to meet {c.CAR_MIN_SOC_IN_PERCENT=}"
             )
             target_soc_percent = c.CAR_MIN_SOC_IN_PERCENT
 
@@ -474,7 +505,8 @@ class ReservationsClient(ServiceResponseApp):
         return v2g_event
 
     def __clean_up_events_dismissed_statuses(self):
-        """Check is any of the self.v2g_events is registered as dismissed (in self.events_dismissed_statuses)
+        """Check is any of the self.v2g_events is registered as dismissed (in
+        self.events_dismissed_statuses).
         Remove any hash_id's from self.events_dismissed_statuses that are not in self.v2g_events.
         To be called when new calendar items have come in.
         """
@@ -533,8 +565,8 @@ def search_for_soc_target(search_unit: str, string_to_search_in: str) -> int:
     """Search description for the first occurrence of some (integer) number of the search_unit.
 
     Parameters:
-        search_unit (str): The unit to search for, typically %, km or kWh, found directly following the number
-        string_to_search_in (str): The string in which the soc in searched
+        search_unit (str): The unit to search for, typically %, km or kWh, found directly following
+        the number string_to_search_in (str): The string in which the soc in searched.
     Returns:
         integer number or None if nothing is found
 
