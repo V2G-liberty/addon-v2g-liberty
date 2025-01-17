@@ -13,7 +13,7 @@ class ReservationsClient(ServiceResponseApp):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
-    v2g_events: list = []
+    v2g_events: list[dict[str, any]] = []
     # To prevent problems with scheduling, showing in UI and with notifications
     MIN_EVENT_DURATION_IN_MINUTES: int = 30
 
@@ -38,8 +38,6 @@ class ReservationsClient(ServiceResponseApp):
         self.__log("initialise ReservationsClient")
         self.principal = None
         self.poll_timer_id = ""
-        # To force a "change" even if the local/remote calendar is empty.
-        self.v2g_events = ["un-initiated"]
         await self.initialise_calendar()
         self.__log("Completed initialise ReservationsClient")
 
@@ -61,6 +59,11 @@ class ReservationsClient(ServiceResponseApp):
         if self.calender_listener_id != "":
             await self.hass.cancel_listen_state(self.calender_listener_id)
             self.calender_listener_id = ""
+
+        # To force a "change" even if the local/remote calendar is empty.
+        # If changing from one calendar source type to another this needs to be cleared.
+        self.v2g_events.clear()
+        self.v2g_events = [{"state": "un-initiated"}]
 
         if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
             self.__log("Direct caldav source")
@@ -126,13 +129,13 @@ class ReservationsClient(ServiceResponseApp):
                 # TODO: Here we should not be aware of "unknown", "Please choose an option", fix in globals.
                 self.__log("setting listener")
                 self.calender_listener_id = await self.hass.listen_state(
-                    self.__poll_calendar_integration,
+                    self.__handle_changed_event,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
                     attribute="all",
                 )
                 # Unfortunately the listener only gets called when the first coming (or current)
                 # calendar item changes, not when others change. So we also set a polling timer.
-                await self.hass.cancel_timer(self.poll_timer_id)
+                self.__cancel_timer(self.poll_timer_id)
                 self.poll_timer_id = await self.hass.run_every(
                     self.__poll_calendar_integration,
                     "now",
@@ -231,6 +234,15 @@ class ReservationsClient(ServiceResponseApp):
     #                   PRIVATE (CALLBACK) FUNCTIONS                     #
     ######################################################################
 
+    async def __handle_changed_event(
+        self, entity=None, attribute=None, old=None, new=None, kwargs=None
+    ):
+        """Mainly here for logging
+        It is expected that this method is called when the first upcoming calendar item changes
+        """
+        self.__log("Called from listener")
+        self.__poll_calendar_integration()
+
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
@@ -284,7 +296,6 @@ class ReservationsClient(ServiceResponseApp):
                 description=description,
             )
             tmp_v2g_events.append(v2g_event)
-
         await self.__process_v2g_events(tmp_v2g_events)
 
     async def __poll_dav_calendar(self, kwargs=None):
@@ -432,6 +443,10 @@ class ReservationsClient(ServiceResponseApp):
     async def __process_v2g_events(self, new_v2g_events):
         # Check if list has changed and if so send these to v2g_main module
         new_v2g_events = sorted(new_v2g_events, key=lambda d: d["start"])
+        self.__log(
+            f"V2G Calendar Events\nNew: {new_v2g_events}\nOld: {self.v2g_events}"
+        )
+
         if self.v2g_events == new_v2g_events:
             # Nothing has changed...
             return False
