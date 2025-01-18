@@ -113,7 +113,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     const selectName = tp('source-selection.select-name');
     const noSelectionError = tp('source-selection.no-selection-error')
     const current = this._calendarSourceType;
-    const changedCallback = evt => (this._setCalendarSourceType(evt.target.value));
+    const changedCallback = evt => this._setCalendarSourceType(evt.target.value);
     const isSelectionValid = this._isValidCalendarSourceType(current);
 
     return html`

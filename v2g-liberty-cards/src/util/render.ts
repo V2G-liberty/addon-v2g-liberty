@@ -228,14 +228,14 @@ export enum InputText {
   // TODO: Fix these patterns and use the correct ones, see:
   // https://regex101.com/r/YlNtZS/1  and  https://extendsclass.com/regex-tester.html
   // An extra \ is needed as the parsing takes out one already
-  EMail = '^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,6}$',
+  EMail = '^[\\w.%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,6}$',
   // Among others tested for 'name.surname@gmail.com', '1-2@seita.energy'
   EntityId = '^[\\w_]+\\.[\\d\\w_]+$',
   IpAddress = '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
   OctopusCode = '^[\\w\\d-]+$',
-  URL = '^https?:\\/\\/[a-zA-Z0-9@:%._\\+\\-~#=]{1,256}\\b([a-zA-Z0-9\\(\\)@:%_\\+\\-.~#?&\\/=]*)$',
+  URL = '^https?:\\/\\/[\\w@:%.\\+\\-~#=]{1,256}\\b([a-zA-Z0-9\\(\\)@:%_\\+\\-.~#?&\\/=]*)$',
   // Among others tested for: 'http://localhost:1234', 'https://www.icloud.com/dav', 'https://seita.energy/'
-  UserName = '^[a-zA-Z0-9\\.@]{2,}$',
+  UserName = '^[\\w\\-.@]{2,}$',
   PassWord = '.{4,}',
 }
 

@@ -106,6 +106,6 @@ export class ScheduleSettingsCard extends LitElement {
       ? html`<ha-alert alert-type="success">${success}</ha-alert>`
       : hasConnectionError
         ? html`<ha-alert alert-type="error">${error}</ha-alert>`
-        : html`<p>Status unknown: '${state}'</p>`;
+        : html`<ha-alert alert-type="error">${state}</ha-alert>`;
   }
 }

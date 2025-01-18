@@ -1,4 +1,3 @@
-import { mdiCheck } from '@mdi/js';
 import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
@@ -10,7 +9,7 @@ import {
   renderInputSelect,
   renderInputText,
 } from './util/render';
-import { partial, t } from './util/translate';
+import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
 import * as entityIds from './entity-ids';
 
@@ -184,10 +183,7 @@ class EditScheduleSettingsDialog extends DialogBase {
 
   private _renderLoginSuccessful() {
     return html`
-      <div class="success">
-        <ha-svg-icon .path=${mdiCheck}></ha-svg-icon>
-        <span>Login successful</span>
-      </div>
+      <ha-alert alert-type="success"> ${tp('login-success')} </ha-alert>
     `;
   }
 
