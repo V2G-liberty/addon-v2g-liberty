@@ -6,8 +6,8 @@ services:
     build:
       context: ../v2g-liberty
       dockerfile: Dockerfile.dev
-    ports:
-      - 5050:5050
+    # ports:
+    #   - 5050:5050
     volumes:
       - ..:/workspaces:cached
       - ./config:/homeassistant
@@ -22,7 +22,7 @@ services:
       retries: 100
 
   homeassistant:
-    image: homeassistant/home-assistant:2024.10
+    image: homeassistant/home-assistant:2025.1.2
     restart: unless-stopped
     ports:
       - 8123:8123
