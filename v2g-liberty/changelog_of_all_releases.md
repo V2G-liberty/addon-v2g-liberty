@@ -3,6 +3,12 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.4.6 2025-01-17
+
+### Fixed
+
+- 🔥 HOTFIX of the 🔥 HOTFIX. Caldav all-day event problem fixed (unnumbered)
+
 ## 0.4.5 2025-01-16
 
 ### Fixed
