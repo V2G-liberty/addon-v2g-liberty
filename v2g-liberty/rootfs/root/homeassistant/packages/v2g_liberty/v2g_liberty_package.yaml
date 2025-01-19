@@ -43,18 +43,6 @@ input_select:
       - Northern Scotland
 
   # Options will be set through v2g_globals
-  fm_asset:
-    name: FlexMeasures asset
-    icon: mdi:format-list-bulleted-type
-    options:
-      - Please choose an option
-
-  # Options will be set through v2g_globals
-  admin_mobile_name:
-    name: The mobile of the administrator
-    icon: mdi:shield-account
-    options:
-      - Please choose an option
   admin_mobile_platform:
     name: The operation system of the mobile of the administrator
     icon: mdi:cellphone-cog
@@ -62,28 +50,8 @@ input_select:
       - android
       - ios
 
-  car_calendar_source:
-    name: Source for car calendar
-    icon: mdi:sprout
-    options:
-      - Direct caldav source
-      - Home Assistant integration
-
-  # Used when the car calendar is provided by a local integration (e.g. Google Calendar)
-  integration_calendar_entity_name:
-    name: Calendar integration
-    icon: mdi:calendar-edit-outline
-    options:
-      - Please choose an option
-
-  # Used when the car calendar is online
-  car_calendar_name:
-    name: Car reservation calendar
-    icon: mdi:car-info
-    options:
-      - Please choose an option
-
   electricity_provider:
+    icon: mdi:office-building
     options:
       - nl_generic
       - nl_anwb_energie
@@ -95,6 +63,7 @@ input_select:
       - au_amber_electric
 
   optimisation_mode:
+    icon: mdi:chart-timeline-variant-shimmer
     options:
       - price
       - emission
@@ -109,6 +78,21 @@ input_select:
     icon: mdi:battery-charging-medium
 
 input_boolean:
+  admin_settings_initialised:
+    name: Administrator settings are initialised
+
+  calendar_settings_initialised:
+    name: Car reservation calendar settings are initialised
+
+  charger_settings_initialised:
+    name: Charger settings are initialised
+
+  electricity_contract_settings_initialised:
+    name: Electricity contract settings are initialised
+
+  schedule_settings_initialised:
+    name: Schedule settings are initialised
+
   # Settings related entities
   use_reduced_max_charge_power:
     name: Change default (dis-)charge power
@@ -154,6 +138,7 @@ input_number:
     step: 1
     mode: box
     unit_of_measurement: "%"
+    icon: mdi:close
 
   energy_price_markup_per_kwh:
     name: Markup/kWh
@@ -162,6 +147,7 @@ input_number:
     step: 0.001
     mode: box
     unit_of_measurement: ct/kWh
+    icon: mdi:plus
 
   charger_plus_car_roundtrip_efficiency:
     name: Roundtrip efficiency of charger and car
@@ -446,6 +432,24 @@ sensor:
         value_template: ""
 
 input_text:
+  car_calendar_source:
+    name: Type of source for car calendar
+    icon: mdi:sprout
+    # options: "remoteCaldav", "localIntegration".
+
+  # Used when the car calendar is provided by a local integration (e.g. Google Calendar)
+  integration_calendar_entity_name:
+    name: Calendar integration
+    icon: mdi:calendar-edit-outline
+
+  car_calendar_name:
+    name: Car reservation calendar
+    icon: mdi:car-info
+
+  admin_mobile_name:
+    name: The mobile of the administrator
+    icon: mdi:shield-account
+
   #############  calendar related entities #############
   calendar_account_init_url:
     name: Calendar host URL
@@ -474,6 +478,9 @@ input_text:
   fm_host_url:
     icon: mdi:server-network-outline
     name: URL
+  fm_asset:
+    name: FlexMeasures asset
+    icon: mdi:format-list-bulleted-type
 
   ###################################################################
   #        self_provided settings related to au_amber_electric      #
@@ -529,13 +536,6 @@ script:
     alias: TestCalendarConnection
     sequence:
       - event: TEST_CALENDAR_CONNECTION
-        event_data: {}
-    mode: single
-
-  test_charger_connection:
-    alias: TestChargerConnection
-    sequence:
-      - event: TEST_CHARGER_CONNECTION
         event_data: {}
     mode: single
 

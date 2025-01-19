@@ -302,9 +302,9 @@
             font-size: 80%;
             color: var(--primary-text-color);
             position: absolute !important;
-            width: calc(66% - 10px);
-            left: 10px;
-            top: 10px;
+            width: 125px;
+            right: 10px;
+            top: 90%;
             background-color: var(--primary-background-color);
             border: 1px solid var(--input-idle-line-color);
             border-radius: 8px;
@@ -738,4 +738,4 @@
             span {
               font-size: 60%;
             }
-
+    - type: custom:v2g-liberty-ping-card

@@ -1,11 +1,12 @@
 import * as Polyglot from 'node-polyglot';
 
 import * as en from '../strings.json';
+import * as nl from '../translations/nl.json';
 
 const polyglot = initialize();
 
 function initialize(): Polyglot {
-  const languages = { en };
+  const languages = { en, nl };
   const lang = navigator.language.split('-')[0];
   let polyglot = new Polyglot({
     phrases: en,

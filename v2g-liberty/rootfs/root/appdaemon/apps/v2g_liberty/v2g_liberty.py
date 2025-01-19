@@ -177,7 +177,6 @@ class V2Gliberty:
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
 
-        ####### V2G Liberty init complete ################
         await self.evse_client_app.complete_init()
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
@@ -533,7 +532,7 @@ class V2Gliberty:
                 )
 
     def clear_notification(self, tag: str):
-        """Wrapper methode for easy clearing of notifications"""
+        """Wrapper method for easy clearing of notifications"""
         self.__clear_notification_for_all_recipients(tag=tag)
 
     async def handle_calendar_change(self, v2g_events: List = None, v2g_args=None):
@@ -1061,9 +1060,9 @@ class V2Gliberty:
         # really work well and results in this app crashing.
         title = "No new schedules available"
         message = (
-            f"The current schedule will remain active.\nUsually this problem is solved"
-            f" automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
-            f"charging manually via the chargers app."
+            "The current schedule will remain active.\nUsually this problem is solved"
+            " automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
+            "charging manually via the chargers app."
         )
         self.notify_user(
             message=message,
