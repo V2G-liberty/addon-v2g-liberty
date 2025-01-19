@@ -7,16 +7,30 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- ??
+- 🪲 BUG: ???
 
 ### Added
+
+- ??
+
+### Changed
 
 - Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
 - Feature Request: New frontend for settings page (unnumbered)
 
-### Changed
 
-- ??
+## 0.4.6 2025-01-17
+
+### Fixed
+
+- 🔥 HOTFIX of the 🔥 HOTFIX. Caldav all-day event problem fixed (unnumbered)
+
+## 0.4.5 2025-01-16
+
+### Fixed
+
+- 🔥 HOTFIX: 🪲 BUG: Local calendar events date parsing always results in all_day events (#210)
+
 
 ## 0.4.4 2024-12-19
 
@@ -33,7 +47,7 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: Alert for negative prices not working correctly (#169)
 - 🪲 BUG: Detection of charger crash not 100% accurate (#179)<br/>
   Includes Bump of pyModbus library to 3.8.0
-- 🪲 BUG: BUG: Cost data blinking at startup (#181)
+- 🪲 BUG: Cost data blinking at startup (#181)
 - Custom cards bug in HA (#189)
 - 🪲 BUG: Max charge not working correct (#194)
 

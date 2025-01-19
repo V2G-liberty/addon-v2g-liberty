@@ -36,6 +36,8 @@ class ReservationsClient(ServiceResponseApp):
 
         self.principal = None
         self.poll_timer_id = ""
+        # TODO: Check if this can really be removed.
+        # await self.initialise_calendar()
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -110,7 +112,6 @@ class ReservationsClient(ServiceResponseApp):
 
         if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
             self.__log("remoteCaldav")
-
             # A configuration has been made earlier, so it is expected the calendar can be
             # initialised and activated.
             if (
@@ -173,7 +174,7 @@ class ReservationsClient(ServiceResponseApp):
                 # fix in globals.
                 self.__log("setting listener")
                 self.calender_listener_id = await self.hass.listen_state(
-                    self.__poll_calendar_integration,
+                    self.__handle_changed_event,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
                     attribute="all",
                 )
@@ -275,6 +276,15 @@ class ReservationsClient(ServiceResponseApp):
     #                   PRIVATE (CALLBACK) FUNCTIONS                     #
     ######################################################################
 
+    async def __handle_changed_event(
+        self, entity=None, attribute=None, old=None, new=None, kwargs=None
+    ):
+        """Mainly here for logging
+        It is expected that this method is called when the first upcoming calendar item changes
+        """
+        self.__log("Called from listener")
+        self.__poll_calendar_integration()
+
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
@@ -308,10 +318,15 @@ class ReservationsClient(ServiceResponseApp):
 
         for local_event in local_events:
             # Create a v2g_liberty specific event based on the caldav event
-            start, is_all_day = self.__parse_to_tz_dt(local_event["start"])
-            end, is_all_day = self.__parse_to_tz_dt(local_event["end"])
+            start, is_start_midnight = self.__parse_to_tz_dt(local_event["start"])
+            end, is_end_midnight = self.__parse_to_tz_dt(local_event["end"])
             if start is None or end is None:
+                self.__log(
+                    f"{local_event=} misses start- or end-date, ignoring",
+                    level="WARNING",
+                )
                 continue
+            is_all_day = is_start_midnight and is_end_midnight
             summary = str(local_event.get("summary", ""))
             description = str(local_event.get("description", ""))
             v2g_event = self.__make_v2g_event(
@@ -322,7 +337,6 @@ class ReservationsClient(ServiceResponseApp):
                 description=description,
             )
             tmp_v2g_events.append(v2g_event)
-
         await self.__process_v2g_events(tmp_v2g_events)
 
     async def __poll_dav_calendar(self, kwargs=None):
@@ -344,7 +358,6 @@ class ReservationsClient(ServiceResponseApp):
             )
             await self.__set_caldav_connection_status(connected=False)
             return
-
         remote_v2g_events = []
         for caldav_event in caldav_events:
             cdi = caldav_event.icalendar_component
@@ -413,6 +426,7 @@ class ReservationsClient(ServiceResponseApp):
         """Utility function to silently cancel a timer.
         Born because the "silent" flag in cancel_timer does not work and the
         logs get flooded with useless warnings.
+        
         Args:
             timer_id: timer_handle to cancel
         """
@@ -472,6 +486,10 @@ class ReservationsClient(ServiceResponseApp):
     async def __process_v2g_events(self, new_v2g_events):
         # Check if list has changed and if so send these to v2g_main module
         new_v2g_events = sorted(new_v2g_events, key=lambda d: d["start"])
+        self.__log(
+            f"V2G Calendar Events\nNew: {new_v2g_events}\nOld: {self.v2g_events}"
+        )
+
         if self.v2g_events == new_v2g_events:
             # Nothing has changed...
             return False

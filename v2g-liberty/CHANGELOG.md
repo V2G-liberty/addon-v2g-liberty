@@ -1,19 +1,21 @@
 # What's changed?
 
+
 ## 0.5.0 2025-01-??
 
 ### Fixed
 
-- ??
+- 🪲 BUG: ???
 
 ### Added
+
+- ??
+
+### Changed
 
 - Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
 - Feature Request: New frontend for settings page (unnumbered)
 
-### Changed
-
-- ??
 
 ### [Unreleased]
 

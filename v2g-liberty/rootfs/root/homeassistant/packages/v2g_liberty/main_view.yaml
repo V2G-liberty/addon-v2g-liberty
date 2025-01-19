@@ -545,6 +545,8 @@
               border-top: none;
               border-top-left-radius: 0;
               border-top-right-radius: 0;
+              height: 56px !important;
+              /* Height should not be needed but somehow this card renders at height 0 since HA version 2025.01 */
             }
           ha-markdown$: |
             table {
