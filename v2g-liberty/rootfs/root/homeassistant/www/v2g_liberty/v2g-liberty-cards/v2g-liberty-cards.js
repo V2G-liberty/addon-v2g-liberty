@@ -2950,7 +2950,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger host URL","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings":{"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the wanted state of charge at exactly the right time at the lowest cost.","select-name":"Calendar type","Direct caldav source-description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.","Home Assistant integration-description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid IP-address.","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","safety-info":"**Electric safety must be provided by the hardware, not this software!**\\nPlease consult a certified electrician what maximum power can be set on the charger.","do-not-reduce-max-power-description":"Do not reduce max. (dis)charge power.","reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.\\n\\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\\n\\n---","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger host URL","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings":{"common":{"configure":"Configure"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav-title":"Remote caldav source","remoteCaldav-description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, nextcloud, etc.","localIntegration-title":"Home Assistant local integration","localIntegration-description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here.","no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid IP-address.","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","safety-info":"**Electric safety must be provided by the hardware, not this software!**\\nPlease consult a certified electrician what maximum power can be set on the charger.","do-not-reduce-max-power-description":"Do not reduce max. (dis)charge power.","reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.\\n\\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\\n\\n---","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
@@ -10540,6 +10540,29 @@ var $04557c061247a0a6$export$a14c803a1714faa3 = "M18.5,19.13C20,17.77 20,15.18 2
 
 
 
+function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction = true, label = null) {
+    if (label === null) {
+        if (isPrimaryAction) label = hass.localize('ui.common.continue');
+        else label = hass.localize('ui.common.back');
+    }
+    const slot = isPrimaryAction ? 'primaryAction' : 'secondaryAction';
+    const chevronIcon = !isPrimaryAction ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-svg-icon .path=${0, $04557c061247a0a6$export$556b61a2971f3696}></ha-svg-icon> ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <mwc-button @click=${action} slot=${slot}>
+      ${chevronIcon}${label}
+    </mwc-button>
+  `;
+}
+function $4dbea3927e6cdc74$export$403c249a0a70d814() {
+    // To replace primaryAction button while busy
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-circular-progress
+      size="small"
+      indeterminate
+      slot='primaryAction'
+    ></ha-circular-progress>
+  `;
+}
 function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj, { state: state } = {}) {
     state = state || (0, $aa1795080f053cd4$export$2c618a4308a30424)(stateObj.state) || stateObj.state;
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
@@ -10638,7 +10661,7 @@ function $4dbea3927e6cdc74$export$1bc2b02519e65ffd(currentValue, stateObj, chang
     </div>
   `;
 }
-function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallback, pattern = '[0-9\\.]+') {
+function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallback, pattern = '^[0-9\\.]+$') {
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
@@ -10647,7 +10670,7 @@ function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallb
         ${name}
       </span>
       <ha-textfield
-        pattern="${pattern}"
+        .pattern=${pattern}
         id="inputField"
         .step=${Number(stateObj.attributes.step)}
         .min=${Number(stateObj.attributes.min)}
@@ -10655,6 +10678,8 @@ function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallb
         .value=${Number(value).toString()}
         .suffix=${stateObj.attributes.unit_of_measurement || ''}
         type="number"
+        inputmode="numeric"
+        no-spinner
         @change=${changedCallback}
         test-id="${stateObj.entity_id}"
       >
@@ -10663,48 +10688,40 @@ function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallb
   `;
 }
 var $4dbea3927e6cdc74$export$7034fcb7d6351061 = /*#__PURE__*/ function(InputText) {
-    InputText["EMail"] = "[\\w_]+\\.[\\d\\w_]+";
-    InputText["EntityId"] = "[\\w_]+\\.[\\d\\w_]+";
-    InputText["IpAddress"] = "[0-9\\.]+";
-    InputText["OctopusCode"] = "[\\w\\d-]+";
-    InputText["URL"] = "[\\w_]+\\.[\\d\\w_]+";
+    // TODO: Fix these patterns and use the correct ones, see:
+    // https://regex101.com/r/YlNtZS/1  and  https://extendsclass.com/regex-tester.html
+    // An extra \ is needed as the parsing takes out one already
+    InputText["EMail"] = "^[\\w.%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,6}$";
+    // Among others tested for 'name.surname@gmail.com', '1-2@seita.energy'
+    InputText["EntityId"] = "^[\\w_]+\\.[\\d\\w_]+$";
+    InputText["IpAddress"] = "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+    InputText["OctopusCode"] = "^[\\w\\d-]+$";
+    InputText["URL"] = "^https?:\\/\\/[\\w@:%.\\+\\-~#=]{1,256}\\b([a-zA-Z0-9\\(\\)@:%_\\+\\-.~#?&\\/=]*)$";
+    // Among others tested for: 'http://localhost:1234', 'https://www.icloud.com/dav', 'https://seita.energy/'
+    InputText["UserName"] = "^[\\w\\-.@]{2,}$";
+    InputText["PassWord"] = ".{4,}";
     return InputText;
 }({});
-function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback) {
+function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback, validationMessage, type = "text") {
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
+    // Not happy with fixed height but can't get helper text error to render correctly.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-settings-row>
+    <ha-settings-row style="height: 85px;">
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
       <ha-textfield
-        pattern="${pattern}"
+        type="${type}"
+        required="required"
+        .autovalidate=${pattern}
+        .pattern=${pattern}
+        .validationMessage=${validationMessage}
         .label=${name}
         .value=${value}
         @change=${changedCallback}
         test-id="${stateObj.entity_id}"
         style="width: 100%"
-      >
-      </ha-textfield
-    ></ha-settings-row>
-  `;
-}
-function $4dbea3927e6cdc74$export$bb1d970f9960d2ec(value, stateObj, changedCallback) {
-    const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-settings-row>
-      <span slot="heading">
-        <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-      </span>
-      <ha-textfield
-        type="password"
-        .label=${name}
-        .value=${value}
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-        style="width: 100%"
-      >
-      </ha-textfield
+      ></ha-textfield
     ></ha-settings-row>
   `;
 }
@@ -10713,6 +10730,9 @@ function $4dbea3927e6cdc74$export$bb1d970f9960d2ec(value, stateObj, changedCallb
 
 
 const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+  .select-name {
+    font-weigth: bold;
+  }
   .value {
     display: flex;
     align-content: center;
@@ -10748,7 +10768,7 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
     color: var(--paper-item-icon-color, #44739e);
   }
 
-  div.button-row {
+  div.card-actions {
     margin-top:16px;
   }
 
@@ -10763,7 +10783,7 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
     // --mdc-dialog-padding: 8px !important;
   }
 
-  // The padding stuff sdoes not work this way, the element is not reached with this css selectors.
+  // The padding stuff does not work this way, the element is not reached with this css selectors.
   // ha-dialog::part(surface), ha-dialog div.mdc-dialog__content div.mdc-dialog__surface, .mdc-dialog__surface {
   //   padding: 8px !important;
   // }
@@ -10771,6 +10791,7 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
   ha-dialog ha-markdown {
     margin-top: 16px;
   }
+
 
   `;
 
@@ -11635,13 +11656,13 @@ const $755a87c9ee93218f$export$511a96d8a8b167fa = 'input_number.car_max_capacity
 const $755a87c9ee93218f$export$7c53730103b0e952 = 'input_number.charger_plus_car_roundtrip_efficiency';
 const $755a87c9ee93218f$export$a6bd64d0b150c939 = 'input_number.car_consumption_wh_per_km';
 const $755a87c9ee93218f$export$327a7fa57ac6cc54 = 'input_boolean.calendar_settings_initialised';
-const $755a87c9ee93218f$export$9c93c6d1ceae75f4 = 'input_select.car_calendar_source';
+const $755a87c9ee93218f$export$9c93c6d1ceae75f4 = 'input_text.car_calendar_source';
 const $755a87c9ee93218f$export$2af59ed4d7901cb0 = 'input_text.calendar_account_init_url';
 const $755a87c9ee93218f$export$aafb3ebed7fe4af1 = 'input_text.calendar_account_username';
 const $755a87c9ee93218f$export$9f5a291b67022977 = 'input_text.calendar_account_password';
 const $755a87c9ee93218f$export$b324c5213ab1689e = 'sensor.calendar_account_connection_status';
-const $755a87c9ee93218f$export$7caca1b153da5c06 = 'input_select.car_calendar_name';
-const $755a87c9ee93218f$export$500ee9ae1b823337 = 'input_select.integration_calendar_entity_name';
+const $755a87c9ee93218f$export$7caca1b153da5c06 = 'input_text.car_calendar_name';
+const $755a87c9ee93218f$export$500ee9ae1b823337 = 'input_text.integration_calendar_entity_name';
 const $755a87c9ee93218f$export$2b7224725565ef34 = 'input_boolean.charger_settings_initialised';
 const $755a87c9ee93218f$export$2ca8418123f63d6c = 'input_text.charger_host_url';
 const $755a87c9ee93218f$export$6b510d2e1eeb3e11 = 'input_number.charger_port';
@@ -11759,11 +11780,15 @@ var $056feaf1842f603f$var$CaldavConnectionStatus = /*#__PURE__*/ function(Caldav
     CaldavConnectionStatus["TimedOut"] = "Timed out";
     return CaldavConnectionStatus;
 }($056feaf1842f603f$var$CaldavConnectionStatus || {});
+const $056feaf1842f603f$var$VALID_CALENDAR_SOURCE_TYPES = [
+    'remoteCaldav',
+    'localIntegration'
+];
 class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
         this._currentPage = 'source-selection';
-        this._carCalendarSource = this.hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4].state;
+        this._setCalendarSourceType(this.hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4].state);
         this._calendarAccountUrl = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0], '');
         this._calendarAccountUsername = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1], '');
         this._calendarAccountPassword = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977], '');
@@ -11771,6 +11796,7 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         this._integrationCalendarEntityName = this.hass.states[$755a87c9ee93218f$export$500ee9ae1b823337].state;
         this._caldavConnectionStatus = '';
         this._hasTriedToConnectToCaldav = false;
+        this._hasTriedPrimaryAction = false;
         await this.updateComplete;
     }
     render() {
@@ -11786,42 +11812,44 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
       </ha-dialog>
     `;
     }
+    _setCalendarSourceType(newSource) {
+        if (!newSource) {
+            this._calendarSourceType = null;
+            return;
+        }
+        if (this._isValidCalendarSourceType(newSource)) this._calendarSourceType = newSource;
+        else this._calendarSourceType = null;
+    }
+    _isValidCalendarSourceType(value) {
+        return $056feaf1842f603f$var$VALID_CALENDAR_SOURCE_TYPES.includes(value);
+    }
     _renderCarCalendarSourceSelection() {
         const description = $056feaf1842f603f$var$tp('source-selection.description');
         const selectName = $056feaf1842f603f$var$tp('source-selection.select-name');
-        const stateObj = this.hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
-        const current = this._carCalendarSource;
-        const changedCallback = (evt)=>this._carCalendarSource = evt.target.value;
-        const isSelectionValid = stateObj.attributes.options.includes(current);
+        const noSelectionError = $056feaf1842f603f$var$tp('source-selection.no-selection-error');
+        const current = this._calendarSourceType;
+        const changedCallback = (evt)=>this._setCalendarSourceType(evt.target.value);
+        const isSelectionValid = this._isValidCalendarSourceType(current);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <p>${description}</p>
-      <p>
-        <div>
-          <span class="select-name">${selectName}</span>
-        </div>
-      </p>
       <div class="select-options">
-        ${stateObj.attributes.options.map((option)=>{
+      <p class="select-name">${selectName}</p>
+      ${!isSelectionValid && this._hasTriedPrimaryAction ? this._renderError(noSelectionError) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${$056feaf1842f603f$var$VALID_CALENDAR_SOURCE_TYPES.map((option)=>{
             const label = (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <span
-              >${option}
-              <div class="option-description">
-                ${$056feaf1842f603f$var$tp(`source-selection.${option}-description`)}
-              </div>
-            </span>
-          `;
-            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p>
+            <b>${$056feaf1842f603f$var$tp(`source-selection.${option}-title`)}</b>
+            <div class="option-description">
+              ${$056feaf1842f603f$var$tp(`source-selection.${option}-description`)}
+            </div>
+        `;
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <p>
             ${(0, $4dbea3927e6cdc74$export$4554bf7c8c968942)(option, label, option === current, changedCallback)}
-          </p>`;
+          </p>
+        `;
         })}
       </div>
-      <mwc-button
-        @click=${this._continue}
-        ?disabled=${!isSelectionValid}
-        slot="primaryAction"
-      >
-        ${this.hass.localize('ui.common.continue')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true)}
     `;
     }
     _renderCaldavCalendar() {
@@ -11835,30 +11863,24 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
     }
     _renderCaldavAccountDetails() {
         const description = $056feaf1842f603f$var$tp('caldav.description');
+        const urlError = $056feaf1842f603f$var$tp('caldav.url-error');
+        const usernameError = $056feaf1842f603f$var$tp('caldav.username-error');
+        const passwordError = $056feaf1842f603f$var$tp('caldav.password-error');
         const calendarAccountUrlState = this.hass.states[$755a87c9ee93218f$export$2af59ed4d7901cb0];
         const calendarAccountUsernameState = this.hass.states[$755a87c9ee93218f$export$aafb3ebed7fe4af1];
         const calendarAccountPasswordState = this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bb1d970f9960d2ec)(this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value, urlError, "url")}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).UserName, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value, usernameError)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).PassWord, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password")}
       ${this._renderConnectionError()}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <ha-circular-progress
-              size="small"
-              indeterminate
-              slot="primaryAction"
-            ></ha-circular-progress>
-          ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <mwc-button @click=${this._continueCaldav} slot="primaryAction">
-              ${this.hass.localize('ui.common.continue')}
-            </mwc-button>
-          `}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
     `;
+    }
+    _renderError(errorString) {
+        return errorString ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)` <div class="error">${errorString}</div> ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderConnectionError() {
         const hasConnectionError = this._caldavConnectionStatus;
@@ -11872,32 +11894,26 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <ha-alert alert-type="error">${$056feaf1842f603f$var$tp('caldav.error')}</ha-alert>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
     `;
     }
     _renderLoginSuccessful() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div class="success">
-        <ha-svg-icon .path=${0, $04557c061247a0a6$export$97d276dd6edd33b5}></ha-svg-icon>
-        <span>Login successful</span>
-      </div>
+      <ha-alert alert-type="success">
+        ${$056feaf1842f603f$var$tp('caldav.login-success')}
+      </ha-alert>
     `;
     }
     _renderCaldavOneCalendar() {
-        // Assign the only possible choice without asking user
+        // Assign the only possible choice without asking user.
         this._carCalendarName = this._caldavCalendars[0];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <strong>Calendar name</strong>
       <div>${this._carCalendarName}</div>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
     }
     _renderCaldavMultipleCalendars() {
@@ -11906,14 +11922,9 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <p><ha-markdown breaks .content=${description}></ha-markdown></p>
-      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarName, // TODO: turn into input_text
-        carCalendarNameState, (evt)=>this._carCalendarName = evt.target.value, this._caldavCalendars)}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._carCalendarName, carCalendarNameState, (evt)=>this._carCalendarName = evt.target.value, this._caldavCalendars)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
     }
     _renderHomeAssistantCalendarSelection() {
@@ -11923,9 +11934,7 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
     _renderHomeAssistantNoCalendar() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-alert alert-type="error"> ${$056feaf1842f603f$var$tp('homeassistant.error')} </ha-alert>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
     `;
     }
     _renderHomeAssistantOneCalendar() {
@@ -11935,12 +11944,8 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <strong>Calendar name</strong>
       <div>${entity.attributes.friendly_name}</div>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
     }
     _renderHomeAssistantMultipleCalendars() {
@@ -11955,24 +11960,21 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(current?.attributes.friendly_name, integrationCalendarEntityNameState, callback, options)}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
     }
-    _back() {
+    _backToSourceSelection() {
         this._caldavConnectionStatus = '';
         this._currentPage = 'source-selection';
     }
     _continue() {
-        if (this._carCalendarSource === 'Direct caldav source') this._currentPage = 'caldav-calendar';
-        else {
+        this._hasTriedPrimaryAction = true;
+        if (this._calendarSourceType === 'remoteCaldav') this._currentPage = 'caldav-calendar';
+        else if (this._calendarSourceType === 'localIntegration') {
             this._homeAssistantCalendars = this._getHomeAssistantCalendars();
             this._currentPage = 'homeassistant-calendar';
-        }
+        } else this._currentPage = 'source-selection';
     }
     _getHomeAssistantCalendars() {
         const calendars = Object.keys(this.hass.states).filter((entityId)=>/^calendar\./.test(entityId)).map((entityId)=>this.hass.states[entityId]);
@@ -11995,9 +11997,9 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         }
     }
     async _save() {
-        const isUsingCalDav = this._carCalendarSource === 'Direct caldav source';
+        const isUsingCalDav = this._calendarSourceType === 'remoteCaldav';
         const args = {
-            source: this._carCalendarSource,
+            source: this._calendarSourceType,
             ...isUsingCalDav ? {
                 url: this._calendarAccountUrl,
                 username: this._calendarAccountUsername,
@@ -12011,21 +12013,15 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         this.closeDialog();
     }
     static{
-        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
-    .select-name {
-      font-weight: bold;
-    }
-
-    .success ha-svg-icon {
-      color: var(--success-color);
-      padding-right: 2rem;
-    }
-
-    .success {
-      margin-bottom: 2rem;
-      font-size: 1.2rem;
-    }
-  `;
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      // Unfortunately this does not work
+      // .mdc-text-field-helper-text--validation-msg {
+      //   margin-bottom: 20px !important;
+      // }
+      `
+        ];
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -12033,7 +12029,7 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_currentPage", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_carCalendarSource", void 0);
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarSourceType", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_calendarAccountUrl", void 0);
@@ -12052,6 +12048,9 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_caldavConnectionStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog.prototype, "_hasTriedPrimaryAction", void 0);
 $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($056feaf1842f603f$export$45e0b80f1e500bd4)
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog);
@@ -12537,7 +12536,6 @@ $528a5968cd9760bd$var$EditElectricityContractSettingsDialog = (0, $24c52f343453d
 
 
 
-
 const $ba2cc41e8ffaff3b$export$45e0b80f1e500bd4 = 'edit-schedule-settings-dialog';
 const $ba2cc41e8ffaff3b$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.schedule');
 var $ba2cc41e8ffaff3b$var$ConnectionStatus = /*#__PURE__*/ function(ConnectionStatus) {
@@ -12582,6 +12580,9 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
     }
     _renderAccountDetails() {
         const description = $ba2cc41e8ffaff3b$var$tp('account-description');
+        const emailError = $ba2cc41e8ffaff3b$var$tp('email-error');
+        const passwordError = $ba2cc41e8ffaff3b$var$tp('password-error');
+        const urlError = $ba2cc41e8ffaff3b$var$tp('url-error');
         const fmAccountUsernameState = this.hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
         const fmAccountPasswordState = this.hass.states[$755a87c9ee93218f$export$4b92bff470c6dd52];
         const fmUseOtherServerState = this.hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
@@ -12591,10 +12592,11 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value)}
-      ${(0, $4dbea3927e6cdc74$export$bb1d970f9960d2ec)(this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value, emailError, "email")}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).PassWord, this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value, passwordError, "password")}
+
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingOtherServer, fmUseOtherServerState, useOtherServerChanged)}
-      ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url") : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
             <ha-circular-progress
               size="small"
@@ -12627,10 +12629,7 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
     }
     _renderLoginSuccessful() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div class="success">
-        <ha-svg-icon .path=${0, $04557c061247a0a6$export$97d276dd6edd33b5}></ha-svg-icon>
-        <span>Login successful</span>
-      </div>
+      <ha-alert alert-type="success"> ${$ba2cc41e8ffaff3b$var$tp('login-success')} </ha-alert>
     `;
     }
     _renderOneAsset() {
@@ -13034,7 +13033,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobileName)}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobilePlatform)}
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
@@ -13048,7 +13047,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
       <div class="card-content">
         <ha-alert alert-type="warning">${$ce5bce3a7c4706d2$var$tp('alert')}</ha-alert>
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -13181,6 +13180,7 @@ function $3e7075d7d44f6925$export$bb2bfceb6aaff8bf(dateTimeStamp) {
 
 
 const $8b666ded8df00928$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.car-reservation-calendar');
+const $8b666ded8df00928$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('setting.common');
 var $8b666ded8df00928$var$CaldavConnectionStatus = /*#__PURE__*/ function(CaldavConnectionStatus) {
     CaldavConnectionStatus["Connected"] = "Successfully connected";
     CaldavConnectionStatus["Failed"] = "Failed to connect";
@@ -13209,41 +13209,41 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
     }
     _renderUninitialisedContent() {
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$b220f18fecfa2078)(this);
+        // One would expect 'configure' to be available as a home assistant ui.common.configure
+        // string, but it is not..
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$8b666ded8df00928$var$tp('alert')}</ha-alert>
-        <div class="button-row">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
+        <div class="card-actions">
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, $8b666ded8df00928$var$tc('configure'))}
         </div>
       </div>
     `;
     }
     _renderInitialisedContent() {
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$b220f18fecfa2078)(this);
+        const isRemoteCaldav = this._carCalendarSource.state === 'remoteCaldav';
+        const content = isRemoteCaldav ? this._renderCaldavDetails() : this._renderHomeAssistantDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        ${this._renderCaldavDetails()}
-        ${this._renderHomeAssistantDetails()}
-        <div class="button-row">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
+        ${content}
+        <div class="card-actions">
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, this._hass.localize('ui.common.edit'))}
         </div>
       </div>
     `;
     }
     _renderCaldavDetails() {
-        return this._carCalendarSource.state === 'Direct caldav source' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        const title = $8b666ded8df00928$var$tp(`source-selection.${this._carCalendarSource.state}-title`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           ${this._renderCaldavConnectionStatus()}
           <p>
-            ${$8b666ded8df00928$var$tp('type')}: <strong>${this._carCalendarSource.state}</strong>
+            ${$8b666ded8df00928$var$tp('type')}: <strong>${title}</strong>
           </p>
           ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._calendarAccountUrl)}
           ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._calendarAccountUsername)}
           ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._carCalendarName)}
-        ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        `;
     }
     _renderCaldavConnectionStatus() {
         const state = this._caldavConnectionStatus.state;
@@ -13256,16 +13256,14 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderHomeAssistantDetails() {
-        if (this._carCalendarSource.state === 'Home Assistant integration') {
-            const calendarStateObj = this._hass.states[this._integrationCalendarEntityName.state];
-            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-        <p>${$8b666ded8df00928$var$tp('type')}: <strong>${this._carCalendarSource.state}</strong></p>
+        const calendarStateObj = this._hass.states[this._integrationCalendarEntityName.state];
+        const title = $8b666ded8df00928$var$tp(`source-selection.${this._carCalendarSource.state}-title`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <p>${$8b666ded8df00928$var$tp('type')}: <strong>${title}</strong></p>
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName, {
-                state: calendarStateObj.attributes.friendly_name
-            })}
+            state: calendarStateObj.attributes.friendly_name
+        })}
       `;
-        }
-        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -13333,7 +13331,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$8462057a459186b4$var$tp('alert')}</ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button test-id="configure" @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -13353,7 +13351,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         <ha-alert alert-type="info">
           <ha-markdown breaks .content=${info}></ha-markdown>
         </ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button test-id="edit" @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
@@ -13474,7 +13472,7 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -13490,7 +13488,7 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
@@ -13693,7 +13691,7 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.configure') || 'Configure'}
           </mwc-button>
@@ -13714,7 +13712,7 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
               ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmHostUrl)}
             ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAsset)}
-        <div class="button-row">
+        <div class="card-actions">
           <mwc-button @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
@@ -13730,7 +13728,7 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
         const success = $8fab4e1af811a2cc$var$tp('connection-success', {
             time: (0, $3e7075d7d44f6925$export$bb2bfceb6aaff8bf)(this._fmConnectionStatus.last_updated)
         });
-        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p>Status unknown: '${state}'</p>`;
+        return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${state}</ha-alert>`;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([

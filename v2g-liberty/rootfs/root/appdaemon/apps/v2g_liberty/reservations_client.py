@@ -13,12 +13,12 @@ class ReservationsClient(ServiceResponseApp):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
-    v2g_events: list = []
+    v2g_events: list[dict[str, any]] = []
     # To prevent problems with scheduling, showing in UI and with notifications
     MIN_EVENT_DURATION_IN_MINUTES: int = 30
 
-    # Stores the user reply to a notification "Car still connected during calendar item: keep /
-    # dismiss?" It cannot be stored in the remote calendar item.
+    # Stores the user reply to a notification "Car still connected during calendar item:
+    # keep / dismiss?" It cannot be stored in the remote calendar item.
     # When getting remote calendar items the dismissed status is added from this "local store".
     # Hash_id with True/False
     # Items are removed if v2g_events do not contain and event with this hash_id anymore.
@@ -36,39 +36,24 @@ class ReservationsClient(ServiceResponseApp):
 
         self.principal = None
         self.poll_timer_id = ""
-        # To force a "change" even if the local/remote calendar is empty.
-        self.v2g_events = ["un-initiated"]
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
 
-    async def set_event_dismissed_status(self, event_hash_id: str, status: bool):
-        # To be called from v2g_liberty main module when the user has reacted to the
-        # question in the notification.
-        if event_hash_id is None or event_hash_id == "":
-            self.__log(f"no valid event_hash_id: '{event_hash_id}'.")
-            return
-        matching_event_found = False
-        for event in self.v2g_events:
-            if event["hash_id"] == event_hash_id:
-                event["dismissed"] = status
-                matching_event_found = True
-                break
-        if matching_event_found:
-            self.events_dismissed_statuses[event_hash_id] = status
-            self.__log(f"setting hash_id '{event_hash_id}' to {status}.")
-        else:
-            self.__log(
-                f"no matching event found for '{event_hash_id}', changed/removed?"
-            )
-            return
-
-        if status == True:
-            await self.__set_events_in_main_app(v2g_args="dismissed calendar event")
-
     def test_caldav_connection(self, url, username, password):
-        self.__log("testing...")
+        """Test caldav connection and return calendar names.
+        Called from settings frontend dialog.
+
+        Args:
+            url (str): caldav host URL
+            username (str): caldav host username
+            password (str): caldav host password
+
+        Returns:
+            list: list of calendar names or caldav status
+        """
+        self.__log(f"{url=}, {username=}, {password=}")
         try:
             with caldav.DAVClient(
                 url=url,
@@ -78,24 +63,26 @@ class ReservationsClient(ServiceResponseApp):
                 calendar_names = []
                 principal = client.principal()
                 if principal is None:
-                    self.__log("principal is None")
+                    self.__log("principal is None", level="WARNING")
+                    return "Caldav error"
                 else:
                     for calendar in principal.calendars():
                         calendar_names.append(calendar.name)
+                self.__log(f"returning {calendar_names=}.")
                 return calendar_names
 
-            # TODO: turn the error returns into Exceptions
+        # TODO: turn the error returns into Exceptions
         except caldav.lib.error.PropfindError:
-            self.__log("Wrong URL error")
+            self.__log("Wrong URL error", level="WARNING")
             return "Wrong URL or authorisation error"
         except caldav.lib.error.AuthorizationError:
-            self.__log("Authorization error")
+            self.__log("Authorization error", level="WARNING")
             return "Authorization error"
         except requests.exceptions.ConnectionError:
-            self.__log("Connection error")
+            self.__log("Connection error", level="WARNING")
             return "Connection error"
         except Exception as e:
-            self.__log(f"Unknown error: '{e}'.")
+            self.__log(f"Unknown error: '{e}'.", level="WARNING")
             return "Unknown error"
 
     async def initialise_calendar(self):
@@ -103,21 +90,26 @@ class ReservationsClient(ServiceResponseApp):
         + constants have been loaded from config
         + constants have changed from UI.
 
-        Cancel the lister that could be active because the previous setting
-        for c.CAR_CALENDAR_SOURCE was "Home Assistant Integration".
-        If source is "Direct caldav source" no listener is used as the calendar gets polled.
-        If source is "Home Assistant Integration" the current listener should be removed to make
-        place for the new one.
-
         Returns:
-            str: result
+            string: Connection status
         """
+
+        # Cancel the lister that could be active because the previous setting
+        # for c.CAR_CALENDAR_SOURCE was "localIntegration".
+        # If source is "remoteCaldav" no listener is used as the calendar gets polled.
+        # If source is "localIntegration" the current listener should be removed to make
+        # place for the new one.
         if self.calender_listener_id != "":
             await self.hass.cancel_listen_state(self.calender_listener_id)
             self.calender_listener_id = ""
 
-        if c.CAR_CALENDAR_SOURCE == "Direct caldav source":
-            self.__log("Direct caldav source")
+        # To force a "change" even if the local/remote calendar is empty.
+        # If changing from one calendar source type to another this needs to be cleared.
+        self.v2g_events.clear()
+        self.v2g_events = [{"state": "un-initiated"}]
+
+        if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
+            self.__log("remoteCaldav")
 
             # A configuration has been made earlier, so it is expected the calendar can be
             # initialised and activated.
@@ -166,12 +158,10 @@ class ReservationsClient(ServiceResponseApp):
                 await self.activate_selected_calendar()
             else:
                 self.__log("No calendar selected")
-                # TODO: Would be nice if it could say "Please choose a calendar"
-
             await self.__set_caldav_connection_status(connected=True)
             return "Successfully connected"
 
-        else:
+        elif c.CAR_CALENDAR_SOURCE == "localIntegration":
             self.__log(f"HA Integration, name: '{c.INTEGRATION_CALENDAR_ENTITY_NAME}'.")
             if c.INTEGRATION_CALENDAR_ENTITY_NAME not in [
                 None,
@@ -190,16 +180,23 @@ class ReservationsClient(ServiceResponseApp):
                 # Unfortunately the listener only get called when the first coming (or current)
                 # calendar item changes, not when other calendar items change. So we also set a
                 # polling timer.
-                await self.hass.cancel_timer(self.poll_timer_id)
+                # Unfortunately the listener only get called when the first coming (or current)
+                # calendar item changes, not when other calendar items change. So we also set a
+                # polling timer.
+                self.__cancel_timer(self.poll_timer_id)
                 self.poll_timer_id = await self.hass.run_every(
                     self.__poll_calendar_integration,
                     "now",
                     self.POLLING_INTERVAL_SECONDS,
                 )
                 return "Successfully connected"
-            else:
-                self.__log("No calendar integrations found")
-                return "No calendar integrations found"
+            self.__log("No calendar integrations found")
+            return "No calendar integrations found"
+        else:
+            self.__log(
+                f"Error, unknown calendar_source: '{c.CAR_CALENDAR_SOURCE}'.",
+                level="WARNING",
+            )
 
     async def __set_caldav_connection_status(
         self, connected: bool, error_message: str = ""
@@ -222,38 +219,8 @@ class ReservationsClient(ServiceResponseApp):
             attributes=keep_alive,
         )
 
-    async def get_dav_calendar_names(self):
-        """For situation where c.CAR_CALENDAR_SOURCE == "Direct caldav source"
-        Called by globals to populate the input_select after a connection to
-        dav the calendar has been established.
-
-        Returns:
-            list: list of calendar names
-        """
-        self.__log("called")
-        cal_names = []
-        if self.principal is None:
-            self.__log("principle is none", level="WARNING")
-            return cal_names
-        for calendar in self.principal.calendars():
-            cal_names.append(calendar.name)
-        self.__log(f"returning calendars: {cal_names}")
-        return cal_names
-
-    async def get_ha_calendar_names(self):
-        # For situation where c.CAR_CALENDAR_SOURCE == "HA Integration"
-        # Called by globals to populate the input_select at init and when calendar source changes
-        self.__log("called")
-        cal_names = []
-        calendar_states = await self.hass.get_state("calendar")
-        # self.__log(f"get_ha_calendar_names calendar states: {calendar_states}")
-        for calendar in calendar_states:
-            cal_names.append(calendar)
-        self.__log(f"returning calendars: {cal_names}")
-        return cal_names
-
     async def activate_selected_calendar(self):
-        # Only used for "Direct caldav source"
+        """Start polling the selected caldav calendar"""
         self.__log("Called")
         if c.CAR_CALENDAR_NAME in [None, "", "unknown", "Please choose an option"]:
             self.__log("c.CAR_CALENDAR_NAME empty, not activating.", level="WARNING")
@@ -265,22 +232,44 @@ class ReservationsClient(ServiceResponseApp):
                 name=c.CAR_CALENDAR_NAME
             )
         except caldav.lib.error.NotFoundError:
-            # There is an old calendar name stored which cannot be found on (the new?) caldav
-            # remote?
-            self.__log(
-                f"activate_selected_calendar c.CAR_CALENDAR_NAME {c.CAR_CALENDAR_NAME}, "
-                f"not found on server, not activating."
-            )
+            # There is an old calendar name stored which can't be found on (the new?) caldav remote?
+            self.__log(f"{c.CAR_CALENDAR_NAME=}, not found on server, not activating.")
             c.CAR_CALENDAR_NAME = ""
             return False
 
-        await self.hass.cancel_timer(self.poll_timer_id)
+        self.__cancel_timer(self.poll_timer_id)
         self.poll_timer_id = await self.hass.run_every(
             self.__poll_dav_calendar, "now", self.POLLING_INTERVAL_SECONDS
         )
-        # self.__log(f"activate_selected_calendar started polling_time {self.poll_timer_id} "
-        #          f"every {self.POLLING_INTERVAL_SECONDS} sec.")
+        self.__log(
+            f"started polling_time {self.poll_timer_id} "
+            f"every {self.POLLING_INTERVAL_SECONDS} sec."
+        )
         self.__log("Completed")
+
+    async def set_event_dismissed_status(self, event_hash_id: str, status: bool):
+        """To be called from v2g_liberty main module when the user has reacted to the
+        question in the notification."""
+        if event_hash_id is None or event_hash_id == "":
+            self.__log(f"no valid event_hash_id: '{event_hash_id}'.")
+            return
+        matching_event_found = False
+        for event in self.v2g_events:
+            if event["hash_id"] == event_hash_id:
+                event["dismissed"] = status
+                matching_event_found = True
+                break
+        if matching_event_found:
+            self.events_dismissed_statuses[event_hash_id] = status
+            self.__log(f"setting hash_id '{event_hash_id}' to {status}.")
+        else:
+            self.__log(
+                f"no matching event found for '{event_hash_id}', changed/removed?"
+            )
+            return
+
+        if status == True:
+            await self.__set_events_in_main_app(v2g_args="dismissed calendar event")
 
     ######################################################################
     #                   PRIVATE (CALLBACK) FUNCTIONS                     #
@@ -289,9 +278,8 @@ class ReservationsClient(ServiceResponseApp):
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
-        """For the situation where a calendar integration is used (and not a direct caldav online
-        calendar).
-        It is expected that this method is called when:
+        """For the situation where a calendar integration is used (and not a remoteCaldav online
+        calendar). It is expected that this method is called when:
          + the previous calendar item has passed (so there is a new first upcoming calendar item)
          + the first upcoming calendar item changes
          + Regularly by polling timer.
@@ -339,7 +327,6 @@ class ReservationsClient(ServiceResponseApp):
 
     async def __poll_dav_calendar(self, kwargs=None):
         # Get the items in from now to the next week from the calendar
-        self.__log("Polling caldav calendar")
         start = get_local_now()
         end = start + dt.timedelta(days=7)
         # It is a bit strange this is not async... for now we'll live with it.
@@ -359,18 +346,20 @@ class ReservationsClient(ServiceResponseApp):
             return
 
         remote_v2g_events = []
-
         for caldav_event in caldav_events:
             cdi = caldav_event.icalendar_component
             # Create a v2g_liberty specific event based on the caldav event
-            start, is_all_day = self.__parse_to_tz_dt(cdi["dtstart"].dt)
-            end, is_all_day = self.__parse_to_tz_dt(cdi["dtend"].dt)
+            start, is_start_midnight = self.__parse_to_tz_dt(cdi["dtstart"].dt)
+            end, is_end_midnight = self.__parse_to_tz_dt(cdi["dtend"].dt)
             if start is None or end is None:
+                self.__log(
+                    f"{caldav_event=} misses start- or end-date, ignoring",
+                    level="WARNING",
+                )
                 continue
-
+            is_all_day = is_start_midnight and is_end_midnight
             summary = str(cdi.get("summary", ""))
             description = str(cdi.get("description", ""))
-
             v2g_event = self.__make_v2g_event(
                 start=start,
                 end=end,
@@ -379,6 +368,7 @@ class ReservationsClient(ServiceResponseApp):
                 description=description,
             )
             remote_v2g_events.append(v2g_event)
+
         await self.__set_caldav_connection_status(connected=True)
         await self.__process_v2g_events(remote_v2g_events)
 
@@ -419,6 +409,17 @@ class ReservationsClient(ServiceResponseApp):
         v2g_event = self.__add_dismissed_status(v2g_event)
         return v2g_event
 
+    def __cancel_timer(self, timer_id: str):
+        """Utility function to silently cancel a timer.
+        Born because the "silent" flag in cancel_timer does not work and the
+        logs get flooded with useless warnings.
+        Args:
+            timer_id: timer_handle to cancel
+        """
+        if self.hass.timer_running(timer_id):
+            silent = True  # Does not really work
+            self.hass.cancel_timer(timer_id, silent)
+
     def __parse_to_tz_dt(self, any_date_type: any):
         """
         Utility method to robustly convert a string into a dt.datetime object
@@ -427,25 +428,46 @@ class ReservationsClient(ServiceResponseApp):
         :return: dt.datetime object with the right timezone.
         """
 
-        # All-day is detected by the fact that the any_date_type does not have a time.
-        is_all_day_event = False
         if isinstance(any_date_type, str):
-            is_all_day_event = "T" not in any_date_type
-            try:
-                any_date_type = dt.datetime.fromisoformat(any_date_type)
-            except Exception as ex:
-                self.__log(
-                    f"fromisoformat Error: {ex} while trying to parse string:"
-                    f" {any_date_type}, returning None."
-                )
-                return None, None
-        if isinstance(any_date_type, dt.date):
-            # No time in date, this is the case for "all day" events, but for timezone we need this.
-            tm = dt.time(0, 0, 0)  # hr/min/sec
-            any_date_type = dt.datetime.combine(any_date_type, tm)
-            is_all_day_event = True
-        any_date_type = any_date_type.astimezone(c.TZ)
-        return any_date_type, is_all_day_event
+            if len(any_date_type) <= 10:
+                # Assume this is only a date without timezone info.
+                # This happens for all_day events in local calendar.
+                any_date_type = dt.datetime.strptime(any_date_type, "%Y-%m-%d")
+                any_date_type = c.TZ.localize(any_date_type)
+            else:
+                try:
+                    any_date_type = dt.datetime.fromisoformat(any_date_type)
+                except Exception as ex:
+                    self.__log(
+                        f"Exception: {ex} while trying to parse string:"
+                        f" {any_date_type}, returning None.",
+                        level="WARNING",
+                    )
+                    return None, None
+
+        elif isinstance(any_date_type, dt.date):
+            if isinstance(any_date_type, dt.datetime):
+                any_date_type = any_date_type.astimezone(c.TZ)
+            else:
+                # No time in date, but for localize we need this.
+                # Assume 00:00:00 and local timezone
+                tm = dt.time(0, 0, 0)
+                any_date_type = dt.datetime.combine(any_date_type, tm)
+                any_date_type = c.TZ.localize(any_date_type)
+        else:
+            self.__log(
+                f"Could not parse date {any_date_type}, returning None", level="WARNING"
+            )
+            return None, None
+
+        is_midnight = False
+        if (
+            any_date_type.hour == 0
+            and any_date_type.minute == 0
+            and any_date_type.second == 0
+        ):
+            is_midnight = True
+        return any_date_type, is_midnight
 
     async def __process_v2g_events(self, new_v2g_events):
         # Check if list has changed and if so send these to v2g_main module
@@ -472,8 +494,15 @@ class ReservationsClient(ServiceResponseApp):
             )
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
-        # Add a target SoC to a v2g_event dict based upon the summary and description.
-        # Prevent concatenation of possible None values
+        """Add a target SoC to a v2g_event dict based upon the summary and description.
+        Prevent concatenation of possible None values
+
+        Args:
+            v2g_event (dict): v2g_event
+
+        Returns:
+            dict: v2g_event with target soc
+        """
         text_to_search_in = " ".join(
             filter(None, [v2g_event["summary"], v2g_event["description"]])
         )
@@ -487,8 +516,7 @@ class ReservationsClient(ServiceResponseApp):
             target_soc_percent = 100
         elif target_soc_percent < c.CAR_MIN_SOC_IN_PERCENT:
             self.__log(
-                f"target soc {target_soc_percent} below "
-                f"c.CAR_MIN_SOC_IN_PERCENT ({c.CAR_MIN_SOC_IN_PERCENT}), changed."
+                f"{target_soc_percent=} raised to meet {c.CAR_MIN_SOC_IN_PERCENT=}"
             )
             target_soc_percent = c.CAR_MIN_SOC_IN_PERCENT
 
@@ -510,8 +538,8 @@ class ReservationsClient(ServiceResponseApp):
 
     def __clean_up_events_dismissed_statuses(self):
         """Check is any of the self.v2g_events is registered as dismissed (in
-        self.events_dismissed_statuses).
-        Remove any hash_id's from self.events_dismissed_statuses that are not in self.v2g_events.
+        self.events_dismissed_statuses).. Remove any hash_id's from self.events_dismissed_statuses
+        that are not in self.v2g_events.
         To be called when new calendar items have come in.
         """
         if len(self.events_dismissed_statuses) == 0:
@@ -567,14 +595,14 @@ def add_hash_id(v2g_event: dict):
 
 def search_for_soc_target(search_unit: str, string_to_search_in: str) -> int:
     """Search description for the first occurrence of some (integer) number of the search_unit.
+    Forgives errors in incorrect capitalization of the unit and missing/double spaces.
 
     Parameters:
         search_unit (str): The unit to search for, typically %, km or kWh, found directly following
-        the number string_to_search_in (str): The string in which the soc in searched
+        the number string_to_search_in (str): The string in which the soc in searched.
+
     Returns:
         integer number or None if nothing is found
-
-    Forgives errors in incorrect capitalization of the unit and missing/double spaces.
     """
     if string_to_search_in is None:
         return None

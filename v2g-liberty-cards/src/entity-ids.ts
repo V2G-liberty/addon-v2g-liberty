@@ -13,17 +13,17 @@ export const carEnergyConsumption = 'input_number.car_consumption_wh_per_km';
 // Car reservation calendar
 export const calendarSettingsInitialised =
   'input_boolean.calendar_settings_initialised';
-export const carCalendarSource = 'input_select.car_calendar_source';
+export const carCalendarSource = 'input_text.car_calendar_source';
 // CalDAV
 export const calendarAccountUrl = 'input_text.calendar_account_init_url';
 export const calendarAccountUsername = 'input_text.calendar_account_username';
 export const calendarAccountPassword = 'input_text.calendar_account_password';
 export const calendarAccountConnectionStatus =
   'sensor.calendar_account_connection_status';
-export const carCalendarName = 'input_select.car_calendar_name';
-// Home Assistant integration
+export const carCalendarName = 'input_text.car_calendar_name';
+// Home Assistant local Integration
 export const integrationCalendarEntityName =
-  'input_select.integration_calendar_entity_name';
+  'input_text.integration_calendar_entity_name';
 
 // Charger
 export const chargerSettingsInitialised =

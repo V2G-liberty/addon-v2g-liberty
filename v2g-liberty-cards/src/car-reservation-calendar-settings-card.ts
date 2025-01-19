@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock } from './util/render';
+import { renderEntityBlock, renderButton } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
 import { elapsedTimeSince } from './util/time';
@@ -11,6 +11,7 @@ import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.car-reservation-calendar');
+const tc = partial('setting.common');
 
 enum CaldavConnectionStatus {
   Connected = 'Successfully connected',
@@ -58,14 +59,18 @@ export class CarReservationCalendarSettingsCard extends LitElement {
 
   private _renderUninitialisedContent() {
     const editCallback = () => showCarReservationCalendarSettingsDialog(this);
-
+    // One would expect 'configure' to be available as a home assistant ui.common.configure
+    // string, but it is not..
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
-        <div class="button-row">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
+        <div class="card-actions">
+          ${renderButton(
+            this.hass,
+            editCallback,
+            true,
+            tc('configure')
+          )}
         </div>
       </div>
     `;
@@ -73,32 +78,37 @@ export class CarReservationCalendarSettingsCard extends LitElement {
 
   private _renderInitialisedContent() {
     const editCallback = () => showCarReservationCalendarSettingsDialog(this);
+    const isRemoteCaldav = this._carCalendarSource.state === 'remoteCaldav'
+    const content = isRemoteCaldav
+      ? this._renderCaldavDetails()
+      : this._renderHomeAssistantDetails();
 
     return html`
       <div class="card-content">
-        ${this._renderCaldavDetails()}
-        ${this._renderHomeAssistantDetails()}
-        <div class="button-row">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
+        ${content}
+        <div class="card-actions">
+          ${renderButton(
+            this.hass,
+            editCallback,
+            true,
+            this._hass.localize('ui.common.edit')
+          )}
         </div>
       </div>
     `;
   }
 
   private _renderCaldavDetails() {
-    return this._carCalendarSource.state === 'Direct caldav source'
-      ? html`
+    const title = tp(`source-selection.${this._carCalendarSource.state}-title`)
+    return html`
           ${this._renderCaldavConnectionStatus()}
           <p>
-            ${tp('type')}: <strong>${this._carCalendarSource.state}</strong>
+            ${tp('type')}: <strong>${title}</strong>
           </p>
           ${renderEntityBlock(this._calendarAccountUrl)}
           ${renderEntityBlock(this._calendarAccountUsername)}
           ${renderEntityBlock(this._carCalendarName)}
         `
-      : nothing;
   }
 
   private _renderCaldavConnectionStatus() {
@@ -118,16 +128,15 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   }
 
   private _renderHomeAssistantDetails() {
-    if (this._carCalendarSource.state === 'Home Assistant integration') {
-      const calendarStateObj =
-        this._hass.states[this._integrationCalendarEntityName.state];
-      return html`
-        <p>${tp('type')}: <strong>${this._carCalendarSource.state}</strong></p>
+    const calendarStateObj =
+      this._hass.states[this._integrationCalendarEntityName.state];
+    const title = tp(`source-selection.${this._carCalendarSource.state}-title`)
+
+    return html`
+        <p>${tp('type')}: <strong>${title}</strong></p>
         ${renderEntityBlock(this._integrationCalendarEntityName, {
           state: calendarStateObj.attributes.friendly_name,
         })}
       `;
-    }
-    return nothing;
   }
 }

@@ -25,7 +25,7 @@ class TestRetrieveSettings:
         # Act
         settings_manager.retrieve_settings()
         # Assert
-        log_mock.assert_called_with("retrieve_settings, no settings file found")
+        log_mock.assert_called_with("no settings file found", level="WARNING")
         assert settings_manager.settings == {}
 
     @patch("os.path.exists", lambda _: True)
@@ -35,7 +35,7 @@ class TestRetrieveSettings:
         settings_manager.retrieve_settings()
         # Assert
         log_mock.assert_called_with(
-            "retrieve_settings, loading file content error, no dict: '[]'."
+            "loading file content error, no dict: '[]'.", level="WARNING"
         )
         assert settings_manager.settings == {}
 
@@ -85,11 +85,11 @@ class TestRetrieveSettings:
         # Arrange
         saved_settings = json.dumps(
             {
-                "input_select.car_calendar_source": "Direct caldav source",
+                "input_text.car_calendar_source": "remoteCaldav",
                 "input_text.calendar_account_init_url": "url",
                 "input_text.calendar_account_username": "username",
                 "input_text.calendar_account_password": "password",
-                "input_select.car_calendar_name": "calendar",
+                "input_text.car_calendar_name": "calendar",
             }
         )
         with patch("builtins.open", mock_open(read_data=saved_settings)):
@@ -107,8 +107,8 @@ class TestRetrieveSettings:
         # Arrange
         saved_settings = json.dumps(
             {
-                "input_select.car_calendar_source": "Home Assistant integration",
-                "input_select.integration_calendar_entity_name": "calendar",
+                "input_text.car_calendar_source": "localIntegration",
+                "input_text.integration_calendar_entity_name": "calendar",
             }
         )
         with patch("builtins.open", mock_open(read_data=saved_settings)):
@@ -117,6 +117,36 @@ class TestRetrieveSettings:
         # Assert
         assert (
             settings_manager.get("input_boolean.calendar_settings_initialised") is True
+        )
+
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_calendar_source_caldav(self, settings_manager):
+        # Arrange
+        saved_settings = json.dumps(
+            {
+                "input_select.car_calendar_source": "Direct caldav source",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert settings_manager.get("input_text.car_calendar_source") == "remoteCaldav"
+
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_calendar_source_homeassistant(self, settings_manager):
+        # Arrange
+        saved_settings = json.dumps(
+            {
+                "input_select.car_calendar_source": "Home Assistant integration",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert (
+            settings_manager.get("input_text.car_calendar_source") == "localIntegration"
         )
 
     @patch("os.path.exists", lambda _: True)

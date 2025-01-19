@@ -1,6 +1,9 @@
 import { css } from 'lit';
 
 export const styles = css`
+  .select-name {
+    font-weigth: bold;
+  }
   .value {
     display: flex;
     align-content: center;
@@ -36,7 +39,7 @@ export const styles = css`
     color: var(--paper-item-icon-color, #44739e);
   }
 
-  div.button-row {
+  div.card-actions {
     margin-top:16px;
   }
 
@@ -51,7 +54,7 @@ export const styles = css`
     // --mdc-dialog-padding: 8px !important;
   }
 
-  // The padding stuff sdoes not work this way, the element is not reached with this css selectors.
+  // The padding stuff does not work this way, the element is not reached with this css selectors.
   // ha-dialog::part(surface), ha-dialog div.mdc-dialog__content div.mdc-dialog__surface, .mdc-dialog__surface {
   //   padding: 8px !important;
   // }
@@ -59,5 +62,6 @@ export const styles = css`
   ha-dialog ha-markdown {
     margin-top: 16px;
   }
+
 
   `;

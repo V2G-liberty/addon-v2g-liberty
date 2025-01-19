@@ -1,4 +1,3 @@
-import { mdiCheck } from '@mdi/js';
 import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
@@ -7,11 +6,10 @@ import {
   InputText,
   renderDialogHeader,
   renderInputBoolean,
-  renderInputPassword,
   renderInputSelect,
   renderInputText,
 } from './util/render';
-import { partial, t } from './util/translate';
+import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
 import * as entityIds from './entity-ids';
 
@@ -89,6 +87,9 @@ class EditScheduleSettingsDialog extends DialogBase {
 
   private _renderAccountDetails() {
     const description = tp('account-description');
+    const emailError= tp('email-error');
+    const passwordError= tp('password-error');
+    const urlError= tp('url-error');
     const fmAccountUsernameState =
       this.hass.states[entityIds.fmAccountUsername];
     const fmAccountPasswordState =
@@ -107,13 +108,19 @@ class EditScheduleSettingsDialog extends DialogBase {
         InputText.EMail,
         this._fmAccountUsername,
         fmAccountUsernameState,
-        evt => (this._fmAccountUsername = evt.target.value)
+        evt => (this._fmAccountUsername = evt.target.value),
+        emailError,
+        "email"
       )}
-      ${renderInputPassword(
+      ${renderInputText(
+        InputText.PassWord,
         this._fmAccountPassword,
         fmAccountPasswordState,
-        evt => (this._fmAccountPassword = evt.target.value)
+        evt => (this._fmAccountPassword = evt.target.value),
+        passwordError,
+        "password"
       )}
+
       ${renderInputBoolean(
         isUsingOtherServer,
         fmUseOtherServerState,
@@ -124,7 +131,9 @@ class EditScheduleSettingsDialog extends DialogBase {
             InputText.URL,
             this._fmHostUrl,
             fmHostUrlState,
-            evt => (this._fmHostUrl = evt.target.value)
+            evt => (this._fmHostUrl = evt.target.value),
+            urlError,
+            "url"
           )
         : nothing}
       ${this._isBusyConnecting()
@@ -174,10 +183,7 @@ class EditScheduleSettingsDialog extends DialogBase {
 
   private _renderLoginSuccessful() {
     return html`
-      <div class="success">
-        <ha-svg-icon .path=${mdiCheck}></ha-svg-icon>
-        <span>Login successful</span>
-      </div>
+      <ha-alert alert-type="success"> ${tp('login-success')} </ha-alert>
     `;
   }
 
