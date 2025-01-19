@@ -20,14 +20,14 @@ import * as entityIds from './entity-ids';
 export const tagName = 'edit-car-reservation-calendar-settings-dialog';
 const tp = partial('settings.car-reservation-calendar');
 
-enum CaldavConnectionStatus {
+const enum CaldavConnectionStatus {
   Connected = 'Successfully connected',
   Connecting = 'Trying to connect...',
   Failed = 'Failed to connect',
   TimedOut = 'Timed out',
 }
 type CalendarSourceType = 'remoteCaldav' | 'localIntegration' | null;
-const VALID_CALENDAR_SOURCE_TYPES: CalendarSourceType[] = ['remoteCaldav', 'localIntegration'];
+const ValidCalendarSourceTypes: CalendarSourceType[] = ['remoteCaldav', 'localIntegration'];
 
 @customElement(tagName)
 class EditCarReservationCalendarSettingsDialog extends DialogBase {
@@ -39,7 +39,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
   @state() private _carCalendarName: string;
   @state() private _integrationCalendarEntityName: string;
   @state() private _caldavConnectionStatus: string;
-  @state() private _hasTriedPrimaryAction: boolean;
+  @state() private _hasSelectedCalenderProvider: boolean;
 
   private _caldavCalendars: string[];
   private _homeAssistantCalendars: HassEntity[];
@@ -66,7 +66,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       this.hass.states[entityIds.integrationCalendarEntityName].state;
     this._caldavConnectionStatus = '';
     this._hasTriedToConnectToCaldav = false;
-    this._hasTriedPrimaryAction = false;
+    this._hasSelectedCalenderProvider = false;
     await this.updateComplete;
   }
 
@@ -105,7 +105,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
   }
 
   private _isValidCalendarSourceType(value: string): value is CalendarSourceType {
-    return VALID_CALENDAR_SOURCE_TYPES.includes(value as CalendarSourceType);
+    return ValidCalendarSourceTypes.includes(value as CalendarSourceType);
   }
 
   private _renderCarCalendarSourceSelection() {
@@ -120,11 +120,11 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       <p>${description}</p>
       <div class="select-options">
       <p class="select-name">${selectName}</p>
-      ${!isSelectionValid && this._hasTriedPrimaryAction
+      ${!isSelectionValid && this._hasSelectedCalenderProvider
           ? this._renderError(noSelectionError)
           : nothing
         }
-      ${VALID_CALENDAR_SOURCE_TYPES.map(option => {
+      ${ValidCalendarSourceTypes.map(option => {
         const label = html`
             <b>${tp(`source-selection.${option}-title`)}</b>
             <div class="option-description">
@@ -163,9 +163,9 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
 
   private _renderCaldavAccountDetails() {
     const description = tp('caldav.description');
-    const urlError= tp('caldav.url-error');
-    const usernameError= tp('caldav.username-error');
-    const passwordError= tp('caldav.password-error');
+    const urlError = tp('caldav.url-error');
+    const usernameError = tp('caldav.username-error');
+    const passwordError = tp('caldav.password-error');
     const calendarAccountUrlState =
       this.hass.states[entityIds.calendarAccountUrl];
     const calendarAccountUsernameState =
@@ -191,7 +191,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         usernameError
       )}
       ${renderInputText(
-        InputText.PassWord,
+        InputText.Password,
         this._calendarAccountPassword,
         calendarAccountPasswordState,
         evt => (this._calendarAccountPassword = evt.target.value),
@@ -341,7 +341,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
   }
 
   private _continue(): void {
-    this._hasTriedPrimaryAction = true;
+    this._hasSelectedCalenderProvider = true;
     if (this._calendarSourceType === 'remoteCaldav') {
       this._currentPage = 'caldav-calendar';
     } else if (this._calendarSourceType === 'localIntegration') {
@@ -415,5 +415,4 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       // }
       `
   ];
-  validationMessage
 }

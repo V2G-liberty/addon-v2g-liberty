@@ -4,14 +4,13 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderButton } from './util/render';
-import { partial } from './util/translate';
+import { t, partial } from './util/translate';
 import { styles } from './card.styles';
 import { elapsedTimeSince } from './util/time';
 import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.car-reservation-calendar');
-const tc = partial('setting.common');
 
 enum CaldavConnectionStatus {
   Connected = 'Successfully connected',
@@ -66,10 +65,10 @@ export class CarReservationCalendarSettingsCard extends LitElement {
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
         <div class="card-actions">
           ${renderButton(
-            this.hass,
+            this._hass,
             editCallback,
             true,
-            tc('configure')
+            t('settings.common.configure')
           )}
         </div>
       </div>
@@ -99,7 +98,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   }
 
   private _renderCaldavDetails() {
-    const title = tp(`source-selection.${this._carCalendarSource.state}-title`)
+    const title = tp(`source-selection.${this._carCalendarSource.state}.title`)
     return html`
           ${this._renderCaldavConnectionStatus()}
           <p>
@@ -130,7 +129,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderHomeAssistantDetails() {
     const calendarStateObj =
       this._hass.states[this._integrationCalendarEntityName.state];
-    const title = tp(`source-selection.${this._carCalendarSource.state}-title`)
+    const title = tp(`source-selection.${this._carCalendarSource.state}.title`)
 
     return html`
         <p>${tp('type')}: <strong>${title}</strong></p>

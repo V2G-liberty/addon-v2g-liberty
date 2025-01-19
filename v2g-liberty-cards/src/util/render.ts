@@ -236,7 +236,7 @@ export enum InputText {
   URL = '^https?:\\/\\/[\\w@:%.\\+\\-~#=]{1,256}\\b([a-zA-Z0-9\\(\\)@:%_\\+\\-.~#?&\\/=]*)$',
   // Among others tested for: 'http://localhost:1234', 'https://www.icloud.com/dav', 'https://seita.energy/'
   UserName = '^[\\w\\-.@]{2,}$',
-  PassWord = '.{4,}',
+  Password = '.{4,}',
 }
 
 export function renderInputText(
