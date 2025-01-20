@@ -18,7 +18,6 @@ That file also contains possible changes that the next release might include.
 - Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
 - Feature Request: New frontend for settings page (unnumbered)
 
-
 ## 0.4.6 2025-01-17
 
 ### Fixed
@@ -30,7 +29,6 @@ That file also contains possible changes that the next release might include.
 ### Fixed
 
 - 🔥 HOTFIX: 🪲 BUG: Local calendar events date parsing always results in all_day events (#210)
-
 
 ## 0.4.4 2024-12-19
 

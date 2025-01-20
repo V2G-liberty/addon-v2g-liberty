@@ -184,9 +184,6 @@ class ReservationsClient(ServiceResponseApp):
                 # Unfortunately the listener only get called when the first coming (or current)
                 # calendar item changes, not when other calendar items change. So we also set a
                 # polling timer.
-                # Unfortunately the listener only get called when the first coming (or current)
-                # calendar item changes, not when other calendar items change. So we also set a
-                # polling timer.
                 self.__cancel_timer(self.poll_timer_id)
                 self.poll_timer_id = await self.hass.run_every(
                     self.__poll_calendar_integration,
