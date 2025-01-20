@@ -112,6 +112,9 @@ class ReservationsClient(ServiceResponseApp):
 
         if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
             self.__log("remoteCaldav")
+
+        if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
+            self.__log("remoteCaldav")
             # A configuration has been made earlier, so it is expected the calendar can be
             # initialised and activated.
             if (
@@ -426,7 +429,7 @@ class ReservationsClient(ServiceResponseApp):
         """Utility function to silently cancel a timer.
         Born because the "silent" flag in cancel_timer does not work and the
         logs get flooded with useless warnings.
-        
+
         Args:
             timer_id: timer_handle to cancel
         """

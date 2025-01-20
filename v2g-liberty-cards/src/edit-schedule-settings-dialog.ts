@@ -113,7 +113,7 @@ class EditScheduleSettingsDialog extends DialogBase {
         "email"
       )}
       ${renderInputText(
-        InputText.PassWord,
+        InputText.Password,
         this._fmAccountPassword,
         fmAccountPasswordState,
         evt => (this._fmAccountPassword = evt.target.value),

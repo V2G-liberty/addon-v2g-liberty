@@ -1,6 +1,6 @@
 # Running the V2G-Liberty application in a devcontainer
 
-These instractions are specific to Visual Studio Code (VSC) IDE.
+These instructions are specific to Visual Studio Code (VSC) IDE.
 
 ## Set-up the devcontainer development environment
 
@@ -17,14 +17,14 @@ These instractions are specific to Visual Studio Code (VSC) IDE.
    `Dev Containers: Reopen in Container?` click Yes.<br/>
    If this question does not popup, run the commands menu (Cmd-Shift-P) and run the above command.
 
-4. This will automaticaly create and start three devcontainers:
+4. This will automatically create and start three devcontainers:
    - One running the vanilla Home Assistant core
-   - One for running the V2G-Liberty appdaemon
+   - One for running the V2G-Liberty AppDaemon
    - And one for developing the V2G-Liberty frontend cards
 
 During creation of the devcontainers, an initial homeassistant config folder
 is created with user "gebruiker" and password "wachtwoord".
-This also includes a long-lived access token shared with the appdaemon.
+This also includes a long-lived access token shared with the AppDaemon.
 
 Home Assistant is available on http://localhost:8123/
 
