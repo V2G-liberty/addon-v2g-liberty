@@ -532,20 +532,6 @@ script:
         event_data: {}
     mode: single
 
-  test_calendar_connection:
-    alias: TestCalendarConnection
-    sequence:
-      - event: TEST_CALENDAR_CONNECTION
-        event_data: {}
-    mode: single
-
-  test_fm_connection:
-    alias: TestFMconnection
-    sequence:
-      - event: TEST_FM_CONNECTION
-        event_data: {}
-    mode: single
-
   disconnectnow:
     alias: DisconnectNow
     sequence:

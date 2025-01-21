@@ -268,13 +268,13 @@ class ModbusEVSEclient:
     hass: Hass = None
 
     def __init__(self, hass: Hass):
+        """initialise modbus_evse_client
+        Setting up constants and variables.
+        Configuration and connecting the modbus client is done separately in initialise_charger.
+        """
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
-        """initialise modbus_evse_client
-        Setting up some constants and variables
-        Configuration and connecting the modbus client is do separately in initialise_charger
-        """
         self.CHARGER_ERROR_ENTITIES = [
             self.ENTITY_ERROR_1,
             self.ENTITY_ERROR_2,
@@ -302,6 +302,9 @@ class ModbusEVSEclient:
     ######################################################################
 
     async def test_charger_connection(self, host, port):
+        """Test client settings and return max_available_power in Watt.
+        To be called from UI (via globals). Works even if this module has not been
+        initialised yet."""
         self.__log(f"Testing Modbus EVSE client at {host}:{port}")
 
         client = modbusClient.AsyncModbusTcpClient(
@@ -330,6 +333,12 @@ class ModbusEVSEclient:
         min/max charge power.
         Activating the polling is done in set_active.
         """
+        if c.CHARGER_HOST_URL is None or c.CHARGER_PORT is None:
+            self.__log(
+                f"Could not configure Modbus EVSE client host or port are None."
+                f"reason: {v2g_args}"
+            )
+            return False, None
         self.__log(
             f"Configuring Modbus EVSE client at {c.CHARGER_HOST_URL}:{c.CHARGER_PORT}, "
             f"reason: {v2g_args}"
@@ -347,10 +356,14 @@ class ModbusEVSEclient:
         await self.client.connect()
         self.modbus_exception_counter = 0
         if self.client.connected:
-            await self.__process_min_max_charge_power()
-            return True
+            max_available_power_by_charger = await self.__force_get_register(
+                register=self.MAX_AVAILABLE_POWER_REGISTER,
+                min_value_at_forced_get=self.CHARGE_POWER_LOWER_LIMIT,
+                max_value_at_forced_get=self.CHARGE_POWER_UPPER_LIMIT,
+            )
+            return True, max_available_power_by_charger
         else:
-            return False
+            return False, None
 
     async def stop_charging(self):
         """Stop charging if it is in process and set charge power to 0."""
@@ -516,23 +529,6 @@ class ModbusEVSEclient:
         # As at init there most likely is no charging in progress this will be the first
         # opportunity to do a poll.
         await self.__get_car_soc()
-
-    async def __process_min_max_charge_power(self):
-        """Reads the maximum charge power setting from the charger."""
-        if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
-        else:
-            self.__log("called")
-
-        max_available_power_by_charger = await self.__force_get_register(
-            register=self.MAX_AVAILABLE_POWER_REGISTER,
-            min_value_at_forced_get=self.CHARGE_POWER_LOWER_LIMIT,
-            max_value_at_forced_get=self.CHARGE_POWER_UPPER_LIMIT,
-        )
-        await self.v2g_globals.process_max_power_settings(
-            min_acceptable_charge_power=self.CHARGE_POWER_LOWER_LIMIT,
-            max_available_charge_power=max_available_power_by_charger,
-        )
 
     async def __set_charger_control(self, take_or_give_control: str):
         """Set charger control: take control from the user or give control back to the user

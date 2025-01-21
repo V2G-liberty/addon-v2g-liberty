@@ -57,13 +57,7 @@ class V2GLibertyGlobals:
         "factory_default": None,
     }
 
-    # Settings related to optimisation
-    SETTING_OPTIMISATION_MODE = {
-        "entity_name": "optimisation_mode",
-        "entity_type": "input_select",
-        "value_type": "str",
-        "factory_default": "price",
-    }
+    # Settings related to energy contract
     ELECTRICITY_CONTRACT_SETTINGS_INITIALISED = {
         "entity_name": "electricity_contract_settings_initialised",
         "entity_type": "input_boolean",
@@ -75,6 +69,26 @@ class V2GLibertyGlobals:
         "entity_type": "input_select",
         "value_type": "str",
         "factory_default": "nl_generic",
+    }
+
+    # Settings related to VAT / Markup
+    SETTING_USE_VAT_AND_MARKUP = {
+        "entity_name": "use_vat_and_markup",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+    }
+    SETTING_ENERGY_PRICE_VAT = {
+        "entity_name": "energy_price_vat",
+        "entity_type": "input_number",
+        "value_type": "int",
+        "factory_default": 0,
+    }
+    SETTING_ENERGY_PRICE_MARKUP_PER_KWH = {
+        "entity_name": "energy_price_markup_per_kwh",
+        "entity_type": "input_number",
+        "value_type": "float",
+        "factory_default": 0,
     }
 
     # The entity_name's to which the third party integration
@@ -131,6 +145,28 @@ class V2GLibertyGlobals:
         "value_type": "int",
         "factory_default": 502,
     }
+    SETTING_USE_REDUCED_MAX_CHARGE_POWER = {
+        "entity_name": "use_reduced_max_charge_power",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+    }
+    SETTING_CHARGER_MAX_CHARGE_POWER = {
+        "entity_name": "charger_max_charging_power",
+        "entity_type": "input_number",
+        "value_type": "int",
+        "factory_default": 1380,
+        "min": 1380,
+        "max": 25000,
+    }  # min is not used yet...
+    SETTING_CHARGER_MAX_DISCHARGE_POWER = {
+        "entity_name": "charger_max_discharging_power",
+        "entity_type": "input_number",
+        "value_type": "int",
+        "factory_default": 1380,
+        "min": 1380,
+        "max": 25000,
+    }  # min is not used yet...
 
     # Settings related to car
     SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = {
@@ -153,6 +189,12 @@ class V2GLibertyGlobals:
     }
 
     # Settings related to optimisation
+    SETTING_OPTIMISATION_MODE = {
+        "entity_name": "optimisation_mode",
+        "entity_type": "input_select",
+        "value_type": "str",
+        "factory_default": "price",
+    }
     SETTING_CAR_MIN_SOC_IN_PERCENT = {
         "entity_name": "car_min_soc_in_percent",
         "entity_type": "input_number",
@@ -172,48 +214,6 @@ class V2GLibertyGlobals:
         "factory_default": 4,
         "min": 1,
         "max": 12,
-    }
-    SETTING_USE_REDUCED_MAX_CHARGE_POWER = {
-        "entity_name": "use_reduced_max_charge_power",
-        "entity_type": "input_boolean",
-        "value_type": "bool",
-        "factory_default": False,
-    }
-    SETTING_CHARGER_MAX_CHARGE_POWER = {
-        "entity_name": "charger_max_charging_power",
-        "entity_type": "input_number",
-        "value_type": "int",
-        "factory_default": 1380,
-        "min": 1380,
-        "max": 25000,
-    }
-    SETTING_CHARGER_MAX_DISCHARGE_POWER = {
-        "entity_name": "charger_max_discharging_power",
-        "entity_type": "input_number",
-        "value_type": "int",
-        "factory_default": 1380,
-        "min": 1380,
-        "max": 25000,
-    }
-
-    # Settings related to showing prices
-    SETTING_ENERGY_PRICE_VAT = {
-        "entity_name": "energy_price_vat",
-        "entity_type": "input_number",
-        "value_type": "int",
-        "factory_default": 0,
-    }
-    SETTING_ENERGY_PRICE_MARKUP_PER_KWH = {
-        "entity_name": "energy_price_markup_per_kwh",
-        "entity_type": "input_number",
-        "value_type": "float",
-        "factory_default": 0,
-    }
-    SETTING_USE_VAT_AND_MARKUP = {
-        "entity_name": "use_vat_and_markup",
-        "entity_type": "input_boolean",
-        "value_type": "bool",
-        "factory_default": False,
     }
 
     # Settings related to notifications
@@ -292,16 +292,16 @@ class V2GLibertyGlobals:
         config = await self.hass.get_plugin_config()
         # Use the HA time_zone, and not the TZ from appdaemon.yaml that AD uses.
         c.TZ = pytz.timezone(config["time_zone"])
-        # For footer of notifications
-        c.HA_NAME = config["location_name"]
-        # The currency is dictated by the energy provider so it is not retrieved from the config here.
-        self.__log(f"initialize | {c.HA_NAME=}, {c.TZ=}, local_now: {get_local_now()}.")
-
-        c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
-
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
+
+        # For footer of notifications
+        c.HA_NAME = config["location_name"]
+        # The currency is dictated by the energy provider so it is not retrieved from config here.
+        self.__log(f"initialize | {c.HA_NAME=}, {c.TZ=}, local_now: {get_local_now()}.")
+
+        c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
         self.hass.listen_event(
             self.__save_administrator_settings, "save_administrator_settings"
@@ -323,9 +323,6 @@ class V2GLibertyGlobals:
             self.__test_schedule_connection, "test_schedule_connection"
         )
 
-        # TODO: Remove these and their scripts
-        # self.hass.listen_event(self.__init_caldav_calendar, "TEST_CALENDAR_CONNECTION")
-        # self.hass.listen_event(self.__test_fm_connection, "TEST_FM_CONNECTION")
         self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
@@ -336,38 +333,12 @@ class V2GLibertyGlobals:
         self.__log("Completed initializing V2GLibertyGlobals")
 
     ######################################################################
-    #                         PUBLIC METHODS                             #
-    ######################################################################
-
-    # TODO: refactory this in a less indirect approach
-    async def process_max_power_settings(
-        self, min_acceptable_charge_power: int, max_available_charge_power: int
-    ):
-        """To be called from modbus_evse_client to check if setting in the charger
-        is lower than the setting by the user.
-        """
-        self.__log(
-            f"process_max_power_settings called with power {max_available_charge_power}."
-        )
-        self.SETTING_CHARGER_MAX_CHARGE_POWER["max"] = max_available_charge_power
-        self.SETTING_CHARGER_MAX_CHARGE_POWER["min"] = min_acceptable_charge_power
-        self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"] = max_available_charge_power
-        self.SETTING_CHARGER_MAX_DISCHARGE_POWER["min"] = min_acceptable_charge_power
-
-        # For showing this maximum in the UI.
-        await self.hass.set_state(
-            "sensor.charger_max_available_power", state=max_available_charge_power
-        )
-
-        # await self.__initialise_charger_settings()
-
-    ######################################################################
     #                    INITIALISATION METHODS                          #
     ######################################################################
 
     async def __kick_off_settings(self):
         # To be called from initialise or restart event
-        self.__log("__kick_off_settings called")
+        self.__log("called")
 
         self.v2g_settings.retrieve_settings()
         # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
@@ -398,10 +369,10 @@ class V2GLibertyGlobals:
 
         if len(c.NOTIFICATION_RECIPIENTS) == 0:
             message = (
-                f"No mobile devices (e.g. phone, tablet, etc.) have been registered in Home Assistant "
-                f"for notifications.<br/>"
-                f"It is highly recommended to do so. Please install the HA companion app on your mobile device "
-                f"and connect it to Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
+                "No mobile devices (e.g. phone, tablet, etc.) have been registered in "
+                "Home Assistant for notifications.<br/>It is highly recommended to do so. "
+                "Please install the HA companion app on your mobile device and connect it to "
+                "Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
             )
             self.__log(f"Configuration error: {message}.")
             # TODO: Research if showing this only to admin users is possible.
@@ -415,10 +386,7 @@ class V2GLibertyGlobals:
                 set(c.NOTIFICATION_RECIPIENTS)
             )  # Remove duplicates
             c.NOTIFICATION_RECIPIENTS.sort()
-            self.__log(
-                f"__initialise_devices - recipients for notifications: "
-                f"{c.NOTIFICATION_RECIPIENTS}."
-            )
+            self.__log(f"recipients for notifications: {c.NOTIFICATION_RECIPIENTS}.")
 
         self.__log("Completed Initializing devices configuration")
 
@@ -487,7 +455,7 @@ class V2GLibertyGlobals:
             self.__store_setting(
                 "input_number.energy_price_markup_per_kwh", data["markup"]
             )
-        if data["contract"] == "au_amber_electric":
+        elif data["contract"] == "au_amber_electric":
             self.__store_setting(
                 "input_text.own_consumption_price_entity_id",
                 data["consumptionPriceEntity"],
@@ -496,11 +464,11 @@ class V2GLibertyGlobals:
                 "input_text.own_production_price_entity_id",
                 data["productionPriceEntity"],
             )
-        if data["contract"] == "gb_octopus_energy":
+        elif data["contract"] == "gb_octopus_energy":
             self.__store_setting("input_text.octopus_import_code", data["importCode"])
             self.__store_setting("input_text.octopus_export_code", data["exportCode"])
             self.__store_setting("input_select.gb_dno_region", data["region"])
-        # TODO: make this text
+        # TODO: make this text. AJO 2025-01-20 Not needed, this is a fixed list
         self.__store_setting("input_select.electricity_provider", data["contract"])
         self.__store_setting(
             "input_boolean.electricity_contract_settings_initialised", True
@@ -539,7 +507,7 @@ class V2GLibertyGlobals:
         await self.v2g_main_app.initialise_v2g_liberty()
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
-        self.__log("__test_caldav_connection called")
+        self.__log("called")
         url = data["url"]
         username = data["username"]
         password = data["password"]
@@ -556,19 +524,19 @@ class V2GLibertyGlobals:
 
     async def __reset_to_factory_defaults(self, event=None, data=None, kwargs=None):
         """Reset to factory defaults by emptying the settings file"""
-        self.__log("__reset_to_factory_defaults called")
+        self.__log("called")
         self.v2g_settings.reset()
         await self.restart_v2g_liberty()
 
     async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
-        self.__log("restart_v2g_liberty called")
+        self.__log("called")
         await self.hass.call_service("homeassistant/restart")
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
     async def __test_charger_connection(self, event, data, kwargs):
         """Tests the connection with the charger and processes the maximum charge power read from the charger
         Called from the settings page."""
-        self.__log("__test_charger_connection called")
+        self.__log("Called")
         host = data["host"]
         port = data["port"]
         (
@@ -576,7 +544,7 @@ class V2GLibertyGlobals:
             max_available_power,
         ) = await self.evse_client_app.test_charger_connection(host, port)
         msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f'__test_charger_connection result: "{msg}", {max_available_power}')
+        self.__log(f'result: "{msg}", {max_available_power}')
         self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,
@@ -584,7 +552,7 @@ class V2GLibertyGlobals:
         )
 
     async def __test_schedule_connection(self, event, data, kwargs):
-        self.__log("__test_schedule_connection called")
+        self.__log("called")
         username = data["username"]
         password = data["password"]
         use_other_server = data["useOtherServer"]
@@ -595,7 +563,8 @@ class V2GLibertyGlobals:
                 host, username, password
             )
             msg = "Successfully connected"
-        except:
+        except Exception as e:
+            self.__log(f"failed. Exception: '{e}'.", level="WARNING")
             assets = None
             msg = "Failed to connect"
 
@@ -617,10 +586,7 @@ class V2GLibertyGlobals:
                 notification_id=notification_id,
             )
         except Exception as e:
-            self.__log(
-                f"create_persistent_notification failed. Exception: '{e}'",
-                level="WARNING",
-            )
+            self.__log(f"failed. Exception: '{e}'.", level="WARNING")
 
     async def __write_setting_to_ha(
         self,
@@ -634,7 +600,8 @@ class V2GLibertyGlobals:
         This method writes the value to the HA entity.
         :param setting: A setting object, o.a. containing the entity_id
         :param setting_value: The actual value to write
-        :param source: user_input, settings, factory_default, ha. Needed for the "initialised" attribute in the entity.
+        :param source: user_input, settings, factory_default, ha.
+                       Needed for the "initialised" attribute in the entity.
         :param min_allowed_value:
         :param max_allowed_value:
         :return: Nothing
@@ -642,7 +609,6 @@ class V2GLibertyGlobals:
         entity_name = setting["entity_name"]
         entity_type = setting["entity_type"]
         entity_id = f"{entity_type}.{entity_name}"
-        # self.__log(f"__write_setting_to_ha called with value '{setting_value}' for entity '{entity_id}'.")
 
         if setting_value is not None:
             # setting_value has a relevant setting_value to set to HA
@@ -657,22 +623,21 @@ class V2GLibertyGlobals:
                 initialised_sourced = ["user_input", "settings"]
                 new_attributes = {"initialised": (source in initialised_sourced)}
 
-                # Unfortunately the UI does not pick up these new limits from the attributes (maybe in a new version?),
-                # so need to check locally also.
+                # Unfortunately the UI does not pick up these new limits from the attributes
+                # (maybe in a new version?), so need to check locally also.
                 if min_allowed_value:
                     new_attributes["min"] = min_allowed_value
                 if max_allowed_value:
                     new_attributes["max"] = max_allowed_value
-                # self.__log(f"__write_setting_to_ha, attributes: {new_attributes}.")
                 await self.hass.set_state(
                     entity_id, state=setting_value, attributes=new_attributes
                 )
 
-    # FSC YESS, this can be ditched as in the cards this is generally replaced by a radiobutton group.
     async def __select_option(self, entity_id: str, option: str):
-        """Helper function to select an option in an input_select. It should be used instead of self.hass.select_option.
-           It overcomes the problem whereby an error is raised if the option is not available.
-           This sometimes kills the (web) server.
+        """Helper function to select an option in an input_select. It should be used instead of
+        self.hass.select_option.
+        It prevents the problem whereby an error is raised if the option is not available in the
+        input_select. This ususally kills the (web) server.
 
         Args:
             entity_id (str): full entity_id, must of course be input_select.xyz
@@ -682,11 +647,12 @@ class V2GLibertyGlobals:
             bool: If option was successfully selected or not
         """
 
-        self.__log("Called", level="WARNING")
+        self.__log("Called")
 
         if option == "Please choose an option":
             self.__log(
-                "option to select == 'Please choose an option'.", level="WARNING"
+                "aborted - option to select == 'Please choose an option'.",
+                level="WARNING",
             )
             return False
         if entity_id is None or entity_id[:13] != "input_select.":
@@ -702,140 +668,12 @@ class V2GLibertyGlobals:
             return False
         res = await self.hass.get_state(entity_id=entity_id, attribute="options")
         if res is None or option not in res:
-            self.__log(f"option '{option}' not in options {res}.", level="WARNING")
-            # This is the only way of handling this error situation, try - except fails...
-            # As we expect this to be a sort of race condition we just add this one option and
-            # assume the list will be completed later with this option selected. Risky?
-            await self.__set_select_options(
-                entity_id=entity_id, options=[option], option_to_select=option
-            )
-        else:
-            # self.__log(f"__select_option, option '{option}' selected.")
-            await self.hass.select_option(entity_id=entity_id, option=option)
-        return True
-
-    # FSC YESS, this can be ditched as in the cards this is generally replaced by a radiobutton group.
-    async def __set_select_options(
-        self,
-        entity_id: str,
-        options: list,
-        option_to_select: str = "",
-        pcao: bool = None,
-    ):
-        """Helper method to fill a select with options.
-            It overcomes the problem whereby an error is raised for the currently selected option is
-            not in the new options list.
-            It replaces the current options in the list by the new options list.
-            It also sorts the list, removes duplicates and None values.
-
-        Args:
-            + entity_id (str): full entity_id, must of course be input_select.xyz
-            + options (list): list of options (strings) with minimal 1 item.
-            + option_to_select (str, optional):
-              The option to select after the options have been added.
-              If none is given or the given option is not in the list of options the first option will be selected.
-            + pcao (bool, optional):
-              pcao is an acronym for "Please choose an option", if:
-               = True, a pcao option will be added
-               = False, will be removed (if existing)
-               = None, leave list untouched
-        """
-        self.__log(
-            f"__set_select_options called, entity_id: '{entity_id}', options: {options},"
-            f"option_to_select: {option_to_select}, pcao: {pcao}."
-        )
-        if entity_id is None or entity_id[:13] != "input_select.":
             self.__log(
-                f"__set_select_options - entity type is not input_select: '{entity_id[:13]}'.",
-                level="WARNING",
-            )
-            return False
-        if not self.hass.entity_exists(entity_id):
-            self.__log(
-                f"__set_select_options - entity_id does not exist: '{entity_id}'.",
-                level="WARNING",
-            )
-            return False
-        if options is None or len(options) == 0:
-            self.__log(
-                f"__set_select_options - invalid options: '{options}'.", level="WARNING"
+                f"aborted - option '{option}' not in options {res}.", level="WARNING"
             )
             return False
 
-        current_selected_option = await self.hass.get_state(entity_id, None)
-        self.__log(
-            f"__set_select_options - current_selected_option: '{current_selected_option}'."
-        )
-
-        # The list needs to be sorted alphabetically and should not have duplicates
-        # The list should not contain None options
-        # If a pcao option is required it has to be the first option.
-        pcao_option = "Please choose an option"
-        if pcao is None and (pcao_option in options):
-            self.__log("pcao is None but in current options, keeping it.")
-            pcao = True
-        options = list(set(options))  # Remove duplicates and sort
-        options.sort()  # set() does not sort properly
-
-        if None in options:
-            options.remove(None)
-        if pcao_option in options:
-            options.remove(pcao_option)
-        self.__log(
-            f"options, removed duplicates, pcao and None values and sorted: {options}"
-        )
-
-        if pcao:
-            pass
-            # options.insert(0, pcao_option)
-            # self.__log(f"__set_select_options options, added pcao again: {options}")
-
-        if current_selected_option == pcao_option:
-            self.__log(
-                "temporary BUGFIX, hard remove 'Please choose an option' option.",
-                level="WARNING",
-            )
-            current_selected_option = options[0]
-
-        tmp = ""
-        if (
-            current_selected_option is not None
-            and current_selected_option not in options
-        ):
-            tmp = options
-            tmp.append(current_selected_option)
-            # Set a new list with the old option selected to prevent an error,
-            # it will be removed later.
-            await self.hass.call_service(
-                "input_select/set_options", entity_id=entity_id, options=tmp
-            )
-            self.__log(
-                f"current_selected_option {current_selected_option} added to prevent HA error."
-            )
-        else:
-            await self.hass.call_service(
-                "input_select/set_options", entity_id=entity_id, options=options
-            )
-            self.__log("new options set in select")
-
-        if option_to_select in options:
-            so = option_to_select
-        elif current_selected_option in options:
-            so = current_selected_option
-        else:
-            so = options[0]
-        # self.__log(f"to select option is: {so}")
-
-        # Select the desired option.
-        await self.hass.select_option(entity_id=entity_id, option=so)
-
-        if tmp != "":
-            # If added, remove the current_selected_option
-            await self.hass.call_service(
-                "input_select/set_options", entity_id=entity_id, options=options
-            )
-            # self.__log("removed original selected option")
-
+        await self.hass.select_option(entity_id=entity_id, option=option)
         return True
 
     ######################################################################
@@ -849,7 +687,6 @@ class V2GLibertyGlobals:
             entity_id (str): setting name = the full entity_id from HA
             setting_value: the value to set.
         """
-        # self.__log(f"__store_setting, entity_id: '{entity_id}' to value '{setting_value}'.")
         if setting_value in ["unknown", "Please choose an option"]:
             return False
         self.v2g_settings.store_setting(entity_id, setting_value)
@@ -883,9 +720,6 @@ class V2GLibertyGlobals:
                 return_value, has_changed = await self.__check_and_convert_value(
                     setting_object, factory_default
                 )
-                # self.__log(f"__process_setting, Initial call. No relevant v2g_setting. "
-                #          f"Set constant and UI to factory_default: {return_value} "
-                #          f"{type(return_value)}.")
                 self.__store_setting(entity_id=entity_id, setting_value=return_value)
                 await self.__write_setting_to_ha(
                     setting=setting_object,
@@ -893,10 +727,11 @@ class V2GLibertyGlobals:
                     source="factory_default",
                 )
             else:
-                # This most likely is the situation after a re-install or "reset to factory defaults": no stored
-                # setting. Then there might be relevant information stored in the entity (in the UI).
-                # Store this setting, but not if it is empty or "unknown" or "Please choose an option" (the latter
-                # for input_select entities).
+                # This most likely is the situation after a re-install or
+                # "reset to factory defaults": no stored setting. Then there might be relevant
+                # information stored in the entity (in the UI). Store this setting, but not if it is
+                # empty or "unknown" or "Please choose an option" (the latter for input_select
+                # entities).
                 return_value = setting_entity.get("state", None)
                 if return_value is not None and return_value not in [
                     "",
@@ -918,17 +753,15 @@ class V2GLibertyGlobals:
             return_value, has_changed = await self.__check_and_convert_value(
                 setting_object, stored_setting_value
             )
-            # self.__log(f"__process_setting, Initial call. Relevant v2g_setting: {return_value}, "
-            #          f"write this to HA entity '{entity_id}'.")
             await self.__write_setting_to_ha(
                 setting=setting_object,
                 setting_value=return_value,
                 source="settings",
             )
-
+        # TODO: notify user of changed setting
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
-        message = f"v2g_globals, __process_setting set c.{entity_name.upper()} to"
+        message = f"set c.{entity_name.upper()} to"
         mode = setting_entity["attributes"].get("mode", "none").lower()
         if mode == "password":
             message = f"{message} ********"
@@ -945,7 +778,7 @@ class V2GLibertyGlobals:
         return return_value
 
     async def __initialise_charger_settings(self):
-        self.__log("__initialise_charger_settings called")
+        self.__log("called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.CHARGER_SETTINGS_INITIALISED
@@ -959,13 +792,33 @@ class V2GLibertyGlobals:
         c.CHARGER_PORT = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT
         )
-        await self.evse_client_app.initialise_charger()
+        (
+            connection,
+            max_power_by_charger,
+        ) = await self.evse_client_app.initialise_charger()
+
+        if not connection:
+            self.__log("Unable to connect to charger", level="WARNING")
+            # TODO: Set is_initialised to false? Set error state?
+            return
+
+        if max_power_by_charger is None:
+            self.__log("Could not initialise charger.", level="WARNING")
+            return
+
+        self.SETTING_CHARGER_MAX_CHARGE_POWER["max"] = max_power_by_charger
+        self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"] = max_power_by_charger
+
+        # For showing this maximum in the UI.
+        await self.hass.set_state(
+            "sensor.charger_max_available_power", state=max_power_by_charger
+        )
 
         use_reduced_max_charge_power = await self.__process_setting(
             setting_object=self.SETTING_USE_REDUCED_MAX_CHARGE_POWER
         )
         if use_reduced_max_charge_power:
-            # set c.CHARGER_MAX_CHARGE_POWER and c.CHARGER_MAX_DISCHARGE_POWER to max from settings page
+            # Use max from settings page
             c.CHARGER_MAX_CHARGE_POWER = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_CHARGE_POWER,
             )
@@ -973,19 +826,15 @@ class V2GLibertyGlobals:
                 setting_object=self.SETTING_CHARGER_MAX_DISCHARGE_POWER,
             )
         else:
-            # set c.CHARGER_MAX_CHARGE_POWER and c.CHARGER_MAX_DISCHARGE_POWER to max from charger
+            # Use max from charger
             c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
             c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
                 "max"
             ]
-        self.__log(
-            f"__initialise_charger_settings \n"
-            f"    c.CHARGER_MAX_CHARGE_POWER: {c.CHARGER_MAX_CHARGE_POWER}.\n"
-            f"    c.CHARGER_MAX_DISCHARGE_POWER: {c.CHARGER_MAX_DISCHARGE_POWER}."
-        )
+        self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
 
     async def __initialise_notification_settings(self):
-        self.__log("__initialise_notification_settings called")
+        self.__log("called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.ADMIN_SETTINGS_INITIALISED
@@ -1008,10 +857,10 @@ class V2GLibertyGlobals:
         if c.ADMIN_MOBILE_PLATFORM.lower() == "android":
             c.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
 
-        self.__log("__initialise_notification_settings completed")
+        self.__log("completed")
 
     async def __initialise_general_settings(self):
-        self.__log("__initialise_general_settings called")
+        self.__log("called")
 
         c.OPTIMISATION_MODE = await self.__process_setting(
             setting_object=self.SETTING_OPTIMISATION_MODE,
@@ -1050,10 +899,10 @@ class V2GLibertyGlobals:
         )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
 
-        self.__log("__initialise_general_settings completed")
+        self.__log("completed")
 
     async def __initialise_calendar_settings(self):
-        self.__log("__initialise_calendar_settings called")
+        self.__log("called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.CALENDAR_SETTINGS_INITIALISED
@@ -1085,15 +934,13 @@ class V2GLibertyGlobals:
             )
 
             res = await self.calendar_client.initialise_calendar()
-            self.__log(
-                f"__initialise_calendar_settings: init HA calendar result: '{res}'."
-            )
+            self.__log(f"init HA calendar result: '{res}'.")
 
-        self.__log("__initialise_calendar_settings completed")
+        self.__log("completed")
 
     async def __initialise_fm_client_settings(self):
         # Split for future when the python lib fm_client_app is used: that needs to be re-inited
-        self.__log("__initialise_fm_client_settings called")
+        self.__log("called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.SCHEDULE_SETTINGS_INITIALISED
@@ -1124,14 +971,13 @@ class V2GLibertyGlobals:
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
 
-        self.__log("__initialise_fm_client_settings completed")
+        self.__log("completed")
 
     async def __process_fm_sensors(self, sensors):
-        self.__log("__process_fm_sensors called")
+        self.__log("called")
 
         for sensor in sensors:
             sensor_name = sensor["name"].lower()
-            # self.__log(f"__get_and_process_fm_sensors, name: {sensor_name}.")
             if "power" in sensor_name and "aggregate" not in sensor_name:
                 # E.g. "aggregate power" and "Nissan Leaf Power"
                 c.FM_ACCOUNT_POWER_SENSOR_ID = sensor["id"]
@@ -1143,7 +989,6 @@ class V2GLibertyGlobals:
                 c.FM_ACCOUNT_COST_SENSOR_ID = sensor["id"]
 
             if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
-                # self.__log(f"__process_fm_sensors for au_amber_electric/gb_octopus_energy, sensor: '{sensor}'.")
                 if "consumption" in sensor_name:
                     # E.g. 'consumption price' or 'consumption tariff'
                     c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["id"]
@@ -1155,7 +1000,7 @@ class V2GLibertyGlobals:
                     c.FM_EMISSIONS_SENSOR_ID = sensor["id"]
 
         self.__log(
-            f"__process_fm_sensors: \n"
+            f"FM sensors: \n"
             f"    c.FM_ACCOUNT_POWER_SENSOR_ID: {c.FM_ACCOUNT_POWER_SENSOR_ID}. \n"
             f"    c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID: {c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID}. \n"
             f"    c.FM_ACCOUNT_SOC_SENSOR_ID: {c.FM_ACCOUNT_SOC_SENSOR_ID}. \n"
@@ -1164,16 +1009,16 @@ class V2GLibertyGlobals:
 
         if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
             self.__log(
-                f"__process_fm_sensors, (own_prices): \n"
+                f"FM sensors, (own_prices): \n"
                 f"    c.FM_PRICE_CONSUMPTION_SENSOR_ID:  {c.FM_PRICE_CONSUMPTION_SENSOR_ID}. \n"
                 f"    c.FM_PRICE_PRODUCTION_SENSOR_ID:  {c.FM_PRICE_PRODUCTION_SENSOR_ID}. \n"
                 f"    c.FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}."
             )
 
-        self.__log("__process_fm_sensors completed")
+        self.__log("completed")
 
     async def __initialise_electricity_contract_settings(self):
-        self.__log("__initialise_electricity_contract_settings called")
+        self.__log("called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.ELECTRICITY_CONTRACT_SETTINGS_INITIALISED
@@ -1230,7 +1075,7 @@ class V2GLibertyGlobals:
             c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
             c.UTILITY_CONTEXT_DISPLAY_NAME = context["display-name"]
             self.__log(
-                f"__initialise_electricity_contract_settings:\n"
+                f"FM sensors (generic):\n"
                 f"    FM_PRICE_PRODUCTION_SENSOR_ID: {c.FM_PRICE_PRODUCTION_SENSOR_ID}.\n"
                 f"    FM_PRICE_CONSUMPTION_SENSOR_ID: {c.FM_PRICE_CONSUMPTION_SENSOR_ID}.\n"
                 f"    FM_EMISSIONS_SENSOR_ID: {c.FM_EMISSIONS_SENSOR_ID}.\n"
@@ -1242,7 +1087,7 @@ class V2GLibertyGlobals:
         )
         # Only relevant for electricity_providers "generic" and possibly for none EPEX,
         # for others we expect netto prices (including VAT and Markup).
-        # If self_provided data (e.g. au_amber_electric, gb_octopus_energy) also includes VAT and markup.
+        # Self_provided data (e.g. au_amber_electric, gb_octopus_energy) includes VAT and markup.
         if c.USE_VAT_AND_MARKUP:
             c.ENERGY_PRICE_VAT = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,
@@ -1251,34 +1096,11 @@ class V2GLibertyGlobals:
                 setting_object=self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH,
             )
         else:
-            # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based on USE_VAT_AND_MARKUP
+            # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based
+            # on USE_VAT_AND_MARKUP.
             pass
 
         await self.__set_fm_optimisation_context()
-
-    # @Ard: is deze methode obsolete?
-    #       Volgens VS code wordt hij niet aangeroepen.
-    # @Ronald: Ja! Dit is vervangen door settingsmanager reset
-
-    async def __reset_to_factory_default(self, setting_object):
-        entity_name = setting_object["entity_name"]
-        entity_type = setting_object["entity_type"]
-        entity_id = f"{entity_type}.{entity_name}"
-        factory_default = setting_object["factory_default"]
-        if factory_default is None:
-            return_value = None
-        elif factory_default == "":
-            return_value = ""
-        else:
-            return_value, has_changed = await self.__check_and_convert_value(
-                setting_object, factory_default
-            )
-
-        self.__store_setting(entity_id=entity_id, setting_value=return_value)
-        await self.__write_setting_to_ha(
-            setting=setting_object, setting_value=return_value, source="factory_default"
-        )
-        return return_value
 
     async def __set_fm_optimisation_context(self):
         is_electricity_contract_initialised = await self.__process_setting(
@@ -1304,9 +1126,7 @@ class V2GLibertyGlobals:
                 "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
                 "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
             }
-        self.__log(
-            f"__set_fm_optimisation_context c.FM_OPTIMISATION_CONTEXT: '{c.FM_OPTIMISATION_CONTEXT}"
-        )
+        self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 
     ######################################################################
     #                           UTIL METHODS                             #
@@ -1370,7 +1190,7 @@ class V2GLibertyGlobals:
                 title="Automatically adjusted setting",
                 notification_id=ntf_id,
             )
-            self.__log(f"__check_and_convert_number {msg}")
+            self.__log(f"Value has changed: {msg}")
         return return_value, has_changed
 
 
@@ -1392,7 +1212,6 @@ def time_mod(time_to_mod, delta, epoch=None):
     return (time_to_mod - epoch) % delta
 
 
-# TODO: refactor to round_to_resolution where this function knows the resolution already and is not a parameter
 def time_round(time_to_round, delta, epoch=None):
     """From https://stackoverflow.com/a/57877961/13775459"""
     mod = time_mod(time_to_round, delta, epoch)

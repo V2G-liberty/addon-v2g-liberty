@@ -72,7 +72,8 @@ class FMClient:
         self.handle_for_repeater = ""
 
     async def test_fm_connection(self, host_url, username, password):
-        """Test if we can connect with given FlexMeasures host and port
+        """Test if we can connect with given FlexMeasures host and port.
+        Used from UI dialog flow.
 
         Args:
             host_url (str): FlexMeasures URL
@@ -121,10 +122,12 @@ class FMClient:
                 f"Could not get assets from fm_client. Exception: {e}.", level="WARNING"
             )
             await self.set_fm_connection_status(connected=False)
+            raise e
         finally:
             await client.close()
 
     async def initialise_and_test_fm_client(self) -> str:
+        """Initialise at startup"""
         self.__log("called")
         # Unusual place for the import, but it has to be in an async method otherwise it errors out
         # with problems with the async loop.
