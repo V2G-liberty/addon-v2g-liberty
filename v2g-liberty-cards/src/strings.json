@@ -109,10 +109,10 @@
       "invalid-host-error": "Please provide a valid IP-address.",
       "invalid-port-error": "Please provide a valid port.",
       "connection-error": "No communication with charger, please check connection.",
-      "connection-success": "Connected, last contact %{time} ago",
+      "connection-success": "Succesfully connected",
+      "connected-since": "Connected, last contact %{time} ago",
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
-      "safety-info": "**Electric safety must be provided by the hardware, not this software!**\nPlease consult a certified electrician what maximum power can be set on the charger.",
-      "do-not-reduce-max-power-description": "Do not reduce max. (dis)charge power.",
+      "safety-info": "**Electric safety must be provided by the hardware, not this software!**<br/>Please consult a certified electrician what maximum power can be set on the charger.",
       "reduce-max-power-description": "Reduce max. (dis)charge power.",
       "connection-details": {
         "description": "To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.",

@@ -126,9 +126,9 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         }
       ${ValidCalendarSourceTypes.map(option => {
         const label = html`
-            <b>${tp(`source-selection.${option}-title`)}</b>
+            <b>${tp(`source-selection.${option}.title`)}</b>
             <div class="option-description">
-              ${tp(`source-selection.${option}-description`)}
+              ${tp(`source-selection.${option}.description`)}
             </div>
         `;
         return html`

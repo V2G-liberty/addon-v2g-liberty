@@ -10,6 +10,7 @@ export const styles = css`
     flex-wrap: wrap;
   }
 
+  // For icon-buttons in rows on cards
   ha-icon-button {
     color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   }

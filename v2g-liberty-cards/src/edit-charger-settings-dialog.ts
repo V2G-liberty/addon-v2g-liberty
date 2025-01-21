@@ -1,4 +1,3 @@
-import { mdiCheck } from '@mdi/js';
 import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
 
@@ -18,7 +17,7 @@ import * as entityIds from './entity-ids';
 export const tagName = 'edit-charger-settings-dialog';
 const tp = partial('settings.charger');
 
-enum ConnectionStatus {
+const enum ConnectionStatus {
   Connected = 'Successfully connected',
   Connecting = 'Trying to connect...',
   Failed = 'Failed to connect',
@@ -184,10 +183,7 @@ class EditChargerSettingsDialog extends DialogBase {
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
 
     return html`
-      <div test-id="success" class="success">
-        <ha-svg-icon .path=${mdiCheck}></ha-svg-icon>
-        <span>Successfully connected</span>
-      </div>
+      <ha-alert alert-type="success">${tp('connection-success')}</ha-alert>
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${renderInputBoolean(
         isUsingReducedMaxPower,

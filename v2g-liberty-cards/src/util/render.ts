@@ -102,9 +102,11 @@ export function renderDialogHeader(
         .path="${mdiClose}"
         dialogAction="close"
         class="header_button"
+        style="margin-left: auto;"
       ></ha-icon-button>
     </div>
   `;
+  // Style 'margin-left' is added to repair flexbox behaviour and make button right-align.
 }
 
 export function renderInputBoolean(

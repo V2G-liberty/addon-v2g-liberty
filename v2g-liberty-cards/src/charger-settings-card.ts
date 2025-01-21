@@ -99,7 +99,7 @@ export class ChargerSettingsCard extends LitElement {
     const hasConnectionError =
       state === ChargerConnectionStatus.ConnectionError || state === ChargerConnectionStatus.Failed;
     const error = tp('connection-error');
-    const success = tp('connection-success', {
+    const success = tp('connected-since', {
       time: elapsedTimeSince(this._chargerConnectionStatus.last_updated),
     });
     return isConnected
@@ -118,7 +118,7 @@ export class ChargerSettingsCard extends LitElement {
     const isUsingReducedMaxPower = this._useReducedMaxPower.state === 'on';
     const usingReducedMaxPowerDescription = isUsingReducedMaxPower
       ? tp('reduce-max-power-description')
-      : tp('do-not-reduce-max-power-description');
+      : nothing;
     const maxChargingPowerEntityRows = isUsingReducedMaxPower
       ? html`
           ${renderEntityRow(this._chargerMaxChargingPower, {
