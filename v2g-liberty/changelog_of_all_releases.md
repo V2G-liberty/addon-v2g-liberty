@@ -3,6 +3,22 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.5.0 2025-01-??
+
+### Fixed
+
+- 🪲 BUG: ???
+
+### Added
+
+- ??
+
+### Changed
+
+- Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
+- Feature Request: New frontend for settings page (unnumbered)
+- ⬆️ Bump PyModbus library to v3.8.3
+
 ## 0.4.6 2025-01-17
 
 ### Fixed
