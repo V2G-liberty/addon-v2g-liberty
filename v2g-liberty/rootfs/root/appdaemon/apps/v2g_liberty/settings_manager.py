@@ -41,13 +41,16 @@ class SettingsManager:
         return settings
 
     def __upgrade_obsolete_settings(self, settings: dict):
+        self.__log("Called")
         for obsolete, new in {
             "input_select.admin_mobile_name": "input_text.admin_mobile_name",
             "input_select.fm_asset": "input_text.fm_asset",
             "input_select.integration_calendar_entity_name": "input_text.integration_calendar_entity_name",
             "input_select.car_calendar_source": "input_text.car_calendar_source",
+            "input_select.car_calendar_name": "input_text.car_calendar_name"
         }.items():
             if obsolete in settings:
+                self.__log(f"Changed obsolete setting: {obsolete} to {new}.")
                 value = settings.get(obsolete)
                 settings.update({new: value})
                 settings.pop(obsolete)
@@ -59,6 +62,7 @@ class SettingsManager:
         }.items():
             value = settings.get(setting_key)
             if value == obsolete:
+                self.__log(f"Changed obsolete setting: {obsolete} to {new}.")
                 settings.update({setting_key: new})
 
         return settings
@@ -131,11 +135,12 @@ class SettingsManager:
         return settings
 
     def __upgrade_schedule_settings_initialised(self, settings: dict):
+        # Earlier versions before 0.5.0 did not store the URL if the default was used.
+        # So, the input_text.fm_host_url cannot be used for testing initialisation.
         if (
             "input_text.fm_account_username" in settings
             and "input_text.fm_account_password" in settings
             and "input_boolean.fm_show_option_to_change_url" in settings
-            and "input_text.fm_host_url" in settings
             and "input_text.fm_asset" in settings
         ):
             settings["input_boolean.schedule_settings_initialised"] = True

@@ -486,9 +486,6 @@ class ReservationsClient(ServiceResponseApp):
     async def __process_v2g_events(self, new_v2g_events):
         # Check if list has changed and if so send these to v2g_main module
         new_v2g_events = sorted(new_v2g_events, key=lambda d: d["start"])
-        self.__log(
-            f"V2G Calendar Events\nNew: {new_v2g_events}\nOld: {self.v2g_events}"
-        )
 
         if self.v2g_events == new_v2g_events:
             # Nothing has changed...

@@ -26,7 +26,7 @@ class OptimisationSettingsCard extends LitElement {
   // private property
   private _hass: HomeAssistant;
 
-  setConfig(config: LovelaceCardConfig) {}
+  setConfig(config: LovelaceCardConfig) { }
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
@@ -69,6 +69,7 @@ class OptimisationSettingsCard extends LitElement {
 
   private _renderLowerChargeLimit() {
     const stateObj = this._lowerChargeLimit;
+    // @ts-ignore
     const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarBatteryLowerChargeLimitDialog(this, {
@@ -80,6 +81,7 @@ class OptimisationSettingsCard extends LitElement {
 
   private _renderUpperChargeLimit() {
     const stateObj = this._upperChargeLimit;
+    // @ts-ignore
     const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarBatteryUpperChargeLimitDialog(this, {
@@ -91,6 +93,7 @@ class OptimisationSettingsCard extends LitElement {
 
   private _renderAllowedDurationAboveMax() {
     const stateObj = this._allowedDurationAboveMax;
+    // @ts-ignore
     const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showAllowedDurationAboveMaxDialog(this, {
@@ -99,5 +102,4 @@ class OptimisationSettingsCard extends LitElement {
 
     return html`${renderEntityRow(stateObj, { callback, state })}`;
   }
-
 }

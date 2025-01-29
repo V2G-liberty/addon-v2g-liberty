@@ -62,6 +62,7 @@ class CarSettingsCard extends LitElement {
 
   private _renderUsableCapacity() {
     const stateObj = this._usableCapacity;
+    // @ts-ignore
     const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarBatteryUsableCapacityDialog(this, {
@@ -73,6 +74,7 @@ class CarSettingsCard extends LitElement {
 
   private _renderRoundtripEfficiency() {
     const stateObj = this._roundtripEfficiency;
+    // @ts-ignore
     const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showRoundtripEfficiencyDialog(this, {
@@ -84,6 +86,7 @@ class CarSettingsCard extends LitElement {
 
   private _renderCarEnergyConsumption() {
     const stateObj = this._carEnergyConsumption;
+    // @ts-ignore
     const state = this._hass.formatEntityState(stateObj);
     const callback = () =>
       showCarEnergyConsumptionDialog(this, {

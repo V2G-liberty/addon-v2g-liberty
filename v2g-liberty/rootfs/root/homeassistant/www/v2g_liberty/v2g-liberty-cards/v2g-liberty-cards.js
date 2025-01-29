@@ -10740,20 +10740,15 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
     align-content: center;
     flex-wrap: wrap;
   }
-
-  // For icon-buttons in rows on cards
-  ha-icon-button {
-    color: color-mix(in srgb, var(--primary-color) 55%, transparent);
+  div.card-content ha-settings-row ha-icon-button {
+    color: color-mix(in srgb, var(--primary-color) 65%, transparent) !important;
   }
-  ha-icon-button:hover {
-    color: var(--primary-color);
+  div.card-content ha-settings-row ha-icon-button:hover {
+    color: var(--primary-color) !important;
   }
 
   ha-settings-row {
     padding: 0;
-  }
-
-  ha-settings-row {
     overflow: hidden !important;
     height: 64px;
   }
@@ -13098,6 +13093,7 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     }
     _renderUsableCapacity() {
         const stateObj = this._usableCapacity;
+        // @ts-ignore
         const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$55fd632de47ce4c1)(this, {
                 entity_id: $755a87c9ee93218f$export$511a96d8a8b167fa
@@ -13109,6 +13105,7 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     }
     _renderRoundtripEfficiency() {
         const stateObj = this._roundtripEfficiency;
+        // @ts-ignore
         const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$ba081ffd3b039ad0)(this, {
                 entity_id: $755a87c9ee93218f$export$7c53730103b0e952
@@ -13120,6 +13117,7 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     }
     _renderCarEnergyConsumption() {
         const stateObj = this._carEnergyConsumption;
+        // @ts-ignore
         const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$ebe2794f5ddc465)(this, {
                 entity_id: $755a87c9ee93218f$export$a6bd64d0b150c939
@@ -13585,6 +13583,7 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
     }
     _renderLowerChargeLimit() {
         const stateObj = this._lowerChargeLimit;
+        // @ts-ignore
         const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$dc42f1b3097c9ee2)(this, {
                 entity_id: $755a87c9ee93218f$export$a81a922cb2dc8458
@@ -13596,6 +13595,7 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
     }
     _renderUpperChargeLimit() {
         const stateObj = this._upperChargeLimit;
+        // @ts-ignore
         const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$532d37680862eb69)(this, {
                 entity_id: $755a87c9ee93218f$export$e39cc2ab91dbbf48
@@ -13607,6 +13607,7 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
     }
     _renderAllowedDurationAboveMax() {
         const stateObj = this._allowedDurationAboveMax;
+        // @ts-ignore
         const state = this._hass.formatEntityState(stateObj);
         const callback = ()=>(0, $de105ef1fecb85b1$export$415f9c0b9250dca7)(this, {
                 entity_id: $755a87c9ee93218f$export$bcf5813544a68726

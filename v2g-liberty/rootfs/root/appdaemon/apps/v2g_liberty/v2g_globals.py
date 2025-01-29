@@ -574,7 +574,7 @@ class V2GLibertyGlobals:
     #                            HA METHODS                              #
     ######################################################################
 
-    # FSC, move to a separate utils module?
+    # TODO: move to a separate utils module?
     async def create_persistent_notification(
         self, message: str, title: str, notification_id: str
     ):
@@ -850,7 +850,7 @@ class V2GLibertyGlobals:
         )
 
         # Assume iOS as standard
-        # FSC: Move to module where notifications are sent.
+        # TODO: Move to module where notifications are sent?
         c.PRIORITY_NOTIFICATION_CONFIG = {
             "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}
         }

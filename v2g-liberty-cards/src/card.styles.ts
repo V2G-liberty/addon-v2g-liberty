@@ -9,20 +9,15 @@ export const styles = css`
     align-content: center;
     flex-wrap: wrap;
   }
-
-  // For icon-buttons in rows on cards
-  ha-icon-button {
-    color: color-mix(in srgb, var(--primary-color) 55%, transparent);
+  div.card-content ha-settings-row ha-icon-button {
+    color: color-mix(in srgb, var(--primary-color) 65%, transparent) !important;
   }
-  ha-icon-button:hover {
-    color: var(--primary-color);
+  div.card-content ha-settings-row ha-icon-button:hover {
+    color: var(--primary-color) !important;
   }
 
   ha-settings-row {
     padding: 0;
-  }
-
-  ha-settings-row {
     overflow: hidden !important;
     height: 64px;
   }
