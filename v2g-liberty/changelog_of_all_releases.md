@@ -7,7 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- 🪲 BUG: ???
+- 🪲 BUG: "no schedule available" not correctly reset (#219)
 
 ### Added
 

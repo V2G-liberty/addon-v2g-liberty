@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- 🪲 BUG: ???
+- 🪲 BUG: "no schedule available" not correctly reset (#219)
 
 ### Added
 
