@@ -7,7 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- 🪲 BUG: ???
+- 🪲 BUG: "no schedule available" not correctly reset (#219)
 
 ### Added
 
@@ -17,6 +17,7 @@ That file also contains possible changes that the next release might include.
 
 - Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
 - Feature Request: New frontend for settings page (unnumbered)
+- ⬆️ Bump PyModbus library to v3.8.3
 
 ## 0.4.6 2025-01-17
 

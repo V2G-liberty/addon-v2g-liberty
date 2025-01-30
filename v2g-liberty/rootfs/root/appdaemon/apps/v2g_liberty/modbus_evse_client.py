@@ -1553,7 +1553,7 @@ class ModbusEVSEclient:
         # self.__log("called")
         if self.modbus_exception_counter == 1:
             self.__log("There was an modbus exception, now solved.")
-            self.v2g_main_app.reset_charger_communication_fault()
+            await self.v2g_main_app.reset_charger_communication_fault()
         self.modbus_exception_counter = 0
         self.__cancel_timer(self.timer_id_check_modus_exception_state)
         self.timer_id_check_modus_exception_state = None
