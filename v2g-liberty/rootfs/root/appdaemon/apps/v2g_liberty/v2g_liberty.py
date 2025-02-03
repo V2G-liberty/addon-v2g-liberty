@@ -1016,10 +1016,6 @@ class V2Gliberty:
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="on"
             )
-            await self.hass.set_state(
-                entity_id="sensor.fm_connection_status",
-                state="Failed to connect/login.",
-            )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
                 self.notification_timer_handle = await self.hass.run_in(
@@ -1213,7 +1209,7 @@ class V2Gliberty:
         handles = []
         now = get_local_now()
         # To be able to differentiate between different schedules the time is added.
-        str_source = f'schedule@{now.strftime("%H:%M:%S")}'
+        str_source = f"schedule@{now.strftime('%H:%M:%S')}"
         timer_datetimes = [start + i * resolution for i in range(len(values))]
         # convert from MegaWatt from schedule to Watt for charger
         mw_to_w_factor = 1000000

@@ -5,6 +5,7 @@
 ### Fixed
 
 - 🪲 BUG: "no schedule available" not correctly reset (#219)
+- 🪲 BUG: No schedule leads to incorrect 'Not connected' notification (#224)
 
 ### Added
 
