@@ -27,7 +27,7 @@ class FMClient:
     # FM Authentication token
     fm_token: str
     # Helper to prevent parallel calls to FM for getting a schedule
-    fm_busy_getting_schedule: bool
+    fm_busy_getting_schedule: bool = False
     # Helper to prevent blocking the sequence of getting schedules.
     # Sometimes the previous bool is not reset (why we don't know), then it needs a timed reset.
     # stores the date_time of the last successful received schedule
@@ -704,6 +704,7 @@ class FMClient:
                 state = error_message
             else:
                 state = "Error"
+            self.__log(f"Could not connect to FM: '{state}'.")
 
         # Force a changed trigger even if the state does not change
         keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
