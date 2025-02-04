@@ -6,8 +6,6 @@ services:
     build:
       context: ../v2g-liberty
       dockerfile: Dockerfile.dev
-    # ports:
-    #   - 5050:5050
     volumes:
       - ..:/workspaces:cached
       - ./config:/homeassistant

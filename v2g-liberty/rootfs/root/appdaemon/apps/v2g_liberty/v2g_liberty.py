@@ -177,7 +177,6 @@ class V2Gliberty:
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
 
-        ####### V2G Liberty init complete ################
         await self.evse_client_app.complete_init()
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
@@ -533,7 +532,7 @@ class V2Gliberty:
                 )
 
     def clear_notification(self, tag: str):
-        """Wrapper methode for easy clearing of notifications"""
+        """Wrapper method for easy clearing of notifications"""
         self.__clear_notification_for_all_recipients(tag=tag)
 
     async def handle_calendar_change(self, v2g_events: List = None, v2g_args=None):
@@ -654,7 +653,7 @@ class V2Gliberty:
             )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
-        """Keep track of situations where no new schedules are available:
+        """Keep track of situations where no new schedule is available:
         - invalid schedule
         - timeouts on schedule
         - no communication with FM
@@ -1017,10 +1016,6 @@ class V2Gliberty:
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="on"
             )
-            await self.hass.set_state(
-                entity_id="sensor.fm_connection_status",
-                state="Failed to connect/login.",
-            )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
                 self.notification_timer_handle = await self.hass.run_in(
@@ -1059,11 +1054,11 @@ class V2Gliberty:
         # Work-around to have this in a separate function (without arguments) and not inline in
         # handle_no_new_schedule. This is needed because self.hass.run_in() with kwargs does not
         # really work well and results in this app crashing.
-        title = "No new schedules available"
+        title = "No new schedule available"
         message = (
-            f"The current schedule will remain active.\nUsually this problem is solved"
-            f" automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
-            f"charging manually via the chargers app."
+            "If available, the current schedule will remain active.\nUsually this problem is solved"
+            " automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
+            "charging manually via the chargers app."
         )
         self.notify_user(
             message=message,
@@ -1072,7 +1067,7 @@ class V2Gliberty:
             critical=False,
             send_to_all=True,
         )
-        self.__log("Notification 'No new schedules' sent.")
+        self.__log("Notification 'No new schedule' sent.")
 
     ######################################################################
     #                PRIVATE FUNCTIONS FOR TIMERS                        #
@@ -1214,7 +1209,7 @@ class V2Gliberty:
         handles = []
         now = get_local_now()
         # To be able to differentiate between different schedules the time is added.
-        str_source = f'schedule@{now.strftime("%H:%M:%S")}'
+        str_source = f"schedule@{now.strftime('%H:%M:%S')}"
         timer_datetimes = [start + i * resolution for i in range(len(values))]
         # convert from MegaWatt from schedule to Watt for charger
         mw_to_w_factor = 1000000

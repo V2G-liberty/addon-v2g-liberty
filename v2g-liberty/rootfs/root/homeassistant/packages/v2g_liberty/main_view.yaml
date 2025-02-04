@@ -302,9 +302,9 @@
             font-size: 80%;
             color: var(--primary-text-color);
             position: absolute !important;
-            width: calc(66% - 10px);
-            left: 10px;
-            top: 10px;
+            width: 125px;
+            right: 10px;
+            top: 90%;
             background-color: var(--primary-background-color);
             border: 1px solid var(--input-idle-line-color);
             border-radius: 8px;
@@ -532,11 +532,26 @@
       entities:
         - entity: input_select.optimisation_mode
         - entity: sensor.utility_display_name
+        - entity: input_boolean.error_no_new_schedule_available
+        - entity: input_boolean.error_epex_prices_cannot_be_retrieved
       content: >-
         <table><tbody><tr><th>Optimised on
         <span>{{states("input_select.optimisation_mode")}}</span> </th><td>
         {{states("sensor.utility_display_name")}}
         </td></tr></tbody></table>
+
+        {% if states('input_boolean.error_no_new_schedule_available') == "on" %}
+        <ha-alert alert-type="warning" title="No new schedule
+        available">If available, the current schedule will remain active.<br/> Usually
+        this problem is solved automatically within an hour.<br/> If the
+        schedule does not fit your needs, consider charging
+        manually.</ha-alert>
+        {% endif %}
+
+        {% if states('input_boolean.error_epex_prices_cannot_be_retrieved') == "on" %}
+        <ha-alert alert-type="warning" title="Price and/or emissions data not complete (yet)."></ha-alert>
+        {% endif %}
+
       card_mod:
         style:
           .: |
@@ -545,11 +560,14 @@
               border-top: none;
               border-top-left-radius: 0;
               border-top-right-radius: 0;
+              height: auto !important;
+              /* Height should not be needed but somehow this card renders at height 0 since HA version 2025.01 */
             }
           ha-markdown$: |
             table {
               width: 100%;
               max-width: 100%;
+              margin-bottom: 8px;
             }
             th {
               font-weight: normal;
@@ -562,49 +580,8 @@
             span {
               font-weight: bold;
             }
-    - type: conditional
-      conditions:
-        - entity: input_boolean.error_no_new_schedule_available
-          state: "on"
-      layout_options:
-        grid_columns: full
-      card:
-        type: markdown
-        layout_options:
-          grid_columns: full
-        content: >-
-          <ha-alert alert-type="warning" title="No new schedules
-          available"> The current schedule wil remain active.<br/> Usually
-          this problem is solved automatically within an hour.<br/> If the
-          schedule does not fit your needs, consider charging
-          manually.</ha-alert>
-        card_mod:
-          style: |
-            ha-card {
-              border-top: none;
-              border-top-left-radius: 0;
-              border-top-right-radius: 0;
-              margin-top: -22px;
-            }
-    - type: conditional
-      conditions:
-        - entity: input_boolean.error_epex_prices_cannot_be_retrieved
-          state: "on"
-      layout_options:
-        grid_columns: full
-      card:
-        type: markdown
-        layout_options:
-          grid_columns: full
-        content: >-
-          <ha-alert alert-type="warning">Price and/or emissions data incomplete.</ha-alert>
-        card_mod:
-          style: |
-            ha-card {
-              border-top: none;
-              border-top-left-radius: 0;
-              border-top-right-radius: 0;
-              margin-top: -22px;
+            ha-alert + ha-alert {
+              margin-top: 12px;
             }
   column_span: 2
 
@@ -736,4 +713,4 @@
             span {
               font-size: 60%;
             }
-
+    - type: custom:v2g-liberty-ping-card
