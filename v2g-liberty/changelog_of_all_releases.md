@@ -9,6 +9,7 @@ That file also contains possible changes that the next release might include.
 
 - 🪲 BUG: "no schedule available" not correctly reset (#219)
 - 🪲 BUG: No schedule leads to incorrect 'Not connected' notification (#224)
+- 🪲 BUG: No new schedule notification text and layout (#227)
 
 ### Added
 

@@ -653,7 +653,7 @@ class V2Gliberty:
             )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
-        """Keep track of situations where no new schedules are available:
+        """Keep track of situations where no new schedule is available:
         - invalid schedule
         - timeouts on schedule
         - no communication with FM
@@ -1054,9 +1054,9 @@ class V2Gliberty:
         # Work-around to have this in a separate function (without arguments) and not inline in
         # handle_no_new_schedule. This is needed because self.hass.run_in() with kwargs does not
         # really work well and results in this app crashing.
-        title = "No new schedules available"
+        title = "No new schedule available"
         message = (
-            "The current schedule will remain active.\nUsually this problem is solved"
+            "If available, the current schedule will remain active.\nUsually this problem is solved"
             " automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
             "charging manually via the chargers app."
         )
@@ -1067,7 +1067,7 @@ class V2Gliberty:
             critical=False,
             send_to_all=True,
         )
-        self.__log("Notification 'No new schedules' sent.")
+        self.__log("Notification 'No new schedule' sent.")
 
     ######################################################################
     #                PRIVATE FUNCTIONS FOR TIMERS                        #
