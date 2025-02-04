@@ -18,7 +18,7 @@ class ReservationsClient(ServiceResponseApp):
     MIN_EVENT_DURATION_IN_MINUTES: int = 30
 
     # Stores the user reply to a notification "Car still connected during calendar item:
-    # keep / dismiss?" It cannot be stored in the remote calendar item.
+    # keep / dismiss?", it cannot be stored in the remote calendar item.
     # When getting remote calendar items the dismissed status is added from this "local store".
     # Hash_id with True/False
     # Items are removed if v2g_events do not contain and event with this hash_id anymore.
@@ -38,6 +38,7 @@ class ReservationsClient(ServiceResponseApp):
         self.poll_timer_id = ""
         # TODO: Check if this can really be removed.
         # await self.initialise_calendar()
+        self.__log("Completed initialise ReservationsClient")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -86,6 +87,7 @@ class ReservationsClient(ServiceResponseApp):
         except Exception as e:
             self.__log(f"Unknown error: '{e}'.", level="WARNING")
             return "Unknown error"
+
 
     async def initialise_calendar(self):
         """Called by globals when:
