@@ -23,8 +23,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-s"],
-      "justMyCode": false
-    }
+      "args": ["-s"]
+    },
   ]
 }

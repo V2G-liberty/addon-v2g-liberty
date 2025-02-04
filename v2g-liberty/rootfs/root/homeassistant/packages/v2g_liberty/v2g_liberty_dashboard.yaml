@@ -8,10 +8,7 @@ views:
     max_columns: 3
     sections: !include main_view.yaml
 
-  - type: sections
-    dense_section_placement: true
-    path: settings
-    title: Settings
+  - title: Settings
+    type: masonry
     icon: mdi:cog
-    max_columns: 3
-    sections: !include settings_view.yaml
+    cards: !include settings_view.yaml

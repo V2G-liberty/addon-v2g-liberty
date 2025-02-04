@@ -3,24 +3,6 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.5.0 2025-02-04
-
-### Fixed
-
-- 🪲 BUG: "no schedule available" not correctly reset (#219)
-- 🪲 BUG: No schedule leads to incorrect 'Not connected' notification (#224)
-- 🪲 BUG: No new schedule notification text and layout (#227)
-
-### Added
-
-- None
-
-### Changed
-
-- Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
-- Feature Request: New frontend for settings page (unnumbered)
-- ⬆️ Bump PyModbus library to v3.8.3
-
 ## 0.4.6 2025-01-17
 
 ### Fixed
