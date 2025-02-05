@@ -933,8 +933,11 @@ class ModbusEVSEclient:
                             f"- {relaxed_max_value} but current value is None, so this polled value"
                             f" cannot be ignored, so new_value set to 'unavailable'."
                         )
-                # If there is a current value ignore the new value and keep that current value.
-                # This occurs when charger is idle, it then returns 0 for the SoC.
+                else:
+                    # If there is a current value ignore the new value and keep that current value.
+                    # This occurs when car is connected but charger is idle, it then
+                    # returns 0 for the SoC.
+                    continue
 
             await self.__update_ha_and_evse_entity(
                 evse_entity=entity, new_value=new_state
