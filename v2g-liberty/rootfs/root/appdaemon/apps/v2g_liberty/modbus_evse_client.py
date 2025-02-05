@@ -933,14 +933,8 @@ class ModbusEVSEclient:
                             f"- {relaxed_max_value} but current value is None, so this polled value"
                             f" cannot be ignored, so new_value set to 'unavailable'."
                         )
-                else:
-                    # Ignore new value, keep current value
-                    self.__log(
-                        f"New value {new_state} for entity '{entity_name}' "
-                        f"out of range {entity['minimum_value']} - {entity['maximum_value']} "
-                        f"so keep current value {entity['current_value']}."
-                    )
-                    continue
+                # If there is a current value ignore the new value and keep that current value.
+                # This occurs when charger is idle, it then returns 0 for the SoC.
 
             await self.__update_ha_and_evse_entity(
                 evse_entity=entity, new_value=new_state
