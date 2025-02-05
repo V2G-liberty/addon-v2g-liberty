@@ -3,6 +3,13 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.5.1 2025-02-05
+
+### Fixed
+
+- Build in extra safeguards not to accept a None or 0 value for the SoC (unnumbered)
+- Removed annoying log statement that flooded the logging (unnumbered)
+
 ## 0.5.0 2025-02-04
 
 ### Fixed
