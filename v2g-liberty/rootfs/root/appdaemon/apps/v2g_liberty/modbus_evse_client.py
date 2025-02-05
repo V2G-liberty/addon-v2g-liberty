@@ -528,7 +528,7 @@ class ModbusEVSEclient:
         # SoC is essential for many decisions, so we need to get it as soon as possible.
         # As at init there most likely is no charging in progress this will be the first
         # opportunity to do a poll.
-        await self.__get_car_soc()
+        await self.__get_car_soc(do_not_use_cache=True)
 
     async def __set_charger_control(self, take_or_give_control: str):
         """Set charger control: take control from the user or give control back to the user
@@ -796,6 +796,9 @@ class ModbusEVSEclient:
                     min_value_after_forced_get=relaxed_min_value,
                     max_value_after_forced_get=relaxed_max_value,
                 )
+                # This should can occure if charger is in error
+                if soc_in_charger in [None, 0]:
+                    soc_in_charger = "unavailable"
                 await self.__update_ha_and_evse_entity(
                     evse_entity=ecs, new_value=soc_in_charger
                 )
@@ -827,6 +830,9 @@ class ModbusEVSEclient:
                     charge_power=0, skip_min_soc_check=True, source="get_car_soc"
                 )  # This also sets action to stop
                 await self.__set_charger_action("stop", reason="try_get_new_soc")
+                # This should can occure if charger is in error
+                if soc_in_charger in [None, 0]:
+                    soc_in_charger = "unavailable"
                 # Do before restart polling
                 await self.__update_ha_and_evse_entity(
                     evse_entity=ecs, new_value=soc_in_charger
@@ -1294,9 +1300,6 @@ class ModbusEVSEclient:
                             f"After {total_time} sec. value {result} was retrieved."
                         )
                         break
-                    # else:
-                    #     self.__log(f"{result} out of range {min_value_at_forced_get} - "
-                    #                f"{max_value_at_forced_get}, retrying.")
                 except TypeError:
                     pass
             total_time += delay_between_reads
