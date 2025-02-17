@@ -1,12 +1,3 @@
-
-####################################### README #######################################
-#                                                                                    #
-#  This is a separate unit test for __generate_time_slots().                         #
-#  The function is an exact copy of the one in test_fm_client-ranges_integral.py,    #
-#  and as such this test forms a fundament for the integral test.                    #
-#                                                                                    #
-######################################################################################
-
 from datetime import datetime, timedelta
 from apps.v2g_liberty.time_slot_util import generate_time_slots
 
@@ -149,12 +140,3 @@ class TestGenerateTimeSlots():
 
 def format_time_slot(time_slot):
     return {k.strftime(DTF): [v] if isinstance(v, int) else v for k, v in time_slot.items()}
-
-
-def format_ranges(ranges):
-    return [(entry['start'].strftime(DTF), entry['end'].strftime(DTF), entry['value']) for entry in ranges]
-
-
-# Run the tests
-if __name__ == "__main__":
-    TestGenerateTimeSlots()
