@@ -1,21 +1,11 @@
-
-####################################### README #######################################
-#                                                                                    #
-#  This is a separate unit test for __generate_time_slots().                         #
-#  The function is an exact copy of the one in test_fm_client-ranges_integral.py,    #
-#  and as such this test forms a fundament for the integral test.                    #
-#                                                                                    #
-######################################################################################
-
 from datetime import datetime, timedelta
+from apps.v2g_liberty.time_slot_util import generate_time_slots
 
-c = type('c', (), {'EVENT_RESOLUTION': timedelta(minutes=5)})
+EVENT_RESOLUTION = timedelta(minutes=5)
 DTF = "%H:%M:%S"
 
 
 class TestGenerateTimeSlots():
-    def __init__(self):
-        self.test_generate_time_slots()
 
     def test_generate_time_slots(self):
         test_cases = [
@@ -136,7 +126,7 @@ class TestGenerateTimeSlots():
                 } for entry in case["input"]
             ]
 
-            result = generate_time_slots(input_ranges)
+            result = generate_time_slots(input_ranges, EVENT_RESOLUTION)
             result = format_time_slot(result)
             try:
                 assert result == case['expected']
@@ -147,47 +137,6 @@ class TestGenerateTimeSlots():
                 print(f"Got: {result} \n \n")
 
 
-def generate_time_slots(ranges):
-    """
-    Based on the ranges this function generates a dictionary of time slots with the minimum or maximum value.
-    key: [min, max] where key is a datetime and min/max are int values.
-    The key must be snapped to the resolution.
-    There can be gaps in the keys, the datetime values do not have to be successive.
-
-    :param ranges: dicts with start(datetime), end(datetime) and value (int)
-                   The start and end must be snapped to the resolution.
-    :return: dict, with the format:
-             key: [min, max] where key is a datetime and min/max are int values
-    """
-    time_slots = {}
-    sorted_ranges = sorted(ranges, key=lambda r: r['start'])
-
-    for time_range in sorted_ranges:
-        current_time = time_range['start']
-        end_time = time_range['end']
-        current_value = time_range['value']
-
-        while current_time <= end_time:
-            if current_time not in time_slots:
-                time_slots[current_time] = [current_value, current_value]
-            else:
-                min_value_to_add = min(time_slots[current_time][0], current_value)
-                max_value_to_add = max(time_slots[current_time][1], current_value)
-                time_slots[current_time] = [min_value_to_add, max_value_to_add]
-
-            current_time += c.EVENT_RESOLUTION
-
-    return time_slots
-
 
 def format_time_slot(time_slot):
     return {k.strftime(DTF): [v] if isinstance(v, int) else v for k, v in time_slot.items()}
-
-
-def format_ranges(ranges):
-    return [(entry['start'].strftime(DTF), entry['end'].strftime(DTF), entry['value']) for entry in ranges]
-
-
-# Run the tests
-if __name__ == "__main__":
-    TestGenerateTimeSlots()
