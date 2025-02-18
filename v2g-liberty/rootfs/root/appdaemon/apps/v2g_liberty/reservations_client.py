@@ -31,6 +31,7 @@ class ReservationsClient(AsyncIOEventEmitter):
     hass: ServiceResponseApp = None
 
     def __init__(self, hass: Hass):
+        super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
@@ -87,7 +88,6 @@ class ReservationsClient(AsyncIOEventEmitter):
         except Exception as e:
             self.__log(f"Unknown error: '{e}'.", level="WARNING")
             return "Unknown error"
-
 
     async def initialise_calendar(self):
         """Called by globals when:

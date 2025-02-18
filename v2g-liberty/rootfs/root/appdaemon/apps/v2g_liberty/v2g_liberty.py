@@ -137,7 +137,9 @@ class V2Gliberty:
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
 
-        self.reservations_client.add_listener("calendar_change", self.handle_calendar_change)
+        self.reservations_client.add_listener(
+            "calendar_change", self.handle_calendar_change
+        )
 
         await self.hass.listen_event(self.__pong, "ping")
 
