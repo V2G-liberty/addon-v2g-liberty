@@ -285,7 +285,7 @@ class ReservationsClient(AsyncIOEventEmitter):
         It is expected that this method is called when the first upcoming calendar item changes
         """
         self.__log("Called from listener")
-        self.__poll_calendar_integration()
+        await self.__poll_calendar_integration()
 
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
