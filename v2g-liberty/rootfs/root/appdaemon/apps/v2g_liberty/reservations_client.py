@@ -5,11 +5,12 @@ import constants as c
 import log_wrapper
 from v2g_globals import get_local_now
 import caldav
-from service_response_app import ServiceResponseApp
+from pyee.asyncio import AsyncIOEventEmitter
 from appdaemon.plugins.hass.hassapi import Hass
+from service_response_app import ServiceResponseApp
 
 
-class ReservationsClient(ServiceResponseApp):
+class ReservationsClient(AsyncIOEventEmitter):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
@@ -27,8 +28,7 @@ class ReservationsClient(ServiceResponseApp):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
-    v2g_main_app: object = None
-    hass: Hass = None
+    hass: ServiceResponseApp = None
 
     def __init__(self, hass: Hass):
         self.hass = hass
@@ -502,9 +502,8 @@ class ReservationsClient(ServiceResponseApp):
 
     async def __set_events_in_main_app(self, v2g_args: str = ""):
         try:
-            await self.v2g_main_app.handle_calendar_change(
-                v2g_events=self.v2g_events, v2g_args=v2g_args
-            )
+            self.emit("calendar_change", v2g_events=self.v2g_events, v2g_args=v2g_args)
+            await self.wait_for_complete()
         except Exception as e:
             self.__log(
                 f"Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
