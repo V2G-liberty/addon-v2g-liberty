@@ -137,6 +137,8 @@ class V2Gliberty:
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
 
+        self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+
         await self.hass.listen_event(self.__pong, "ping")
 
         await self.hass.listen_state(
