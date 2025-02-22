@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from pyee.asyncio import AsyncIOEventEmitter
 import isodate
 import math
 import constants as c
@@ -8,7 +9,7 @@ from time_slot_util import generate_time_slots
 from appdaemon.plugins.hass.hassapi import Hass
 
 
-class FMClient:
+class FMClient(AsyncIOEventEmitter):
     """This class manages the communication with the FlexMeasures platform, which delivers the
     charging schedules.
     - Saves charging schedule locally (sensor.charge_schedule)
@@ -48,6 +49,7 @@ class FMClient:
     client: object  # Should be FlexMeasuresClient but (early) import statement gives errors..
 
     def __init__(self, hass: Hass):
+        super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
@@ -672,17 +674,20 @@ class FMClient:
                 level="WARNING",
             )
             self.fm_busy_getting_schedule = False
-            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+            self.emit("no_new_schedule", "timeouts_on_schedule", error_state=True)
+            await self.wait_for_complete()
             return
 
         self.fm_busy_getting_schedule = False
 
         if schedule == {}:
             self.__log("schedule is empty")
-            await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", True)
+            self.emit("no_new_schedule", "timeouts_on_schedule", error_state=True)
+            await self.wait_for_complete()
             return
 
-        await self.v2g_main_app.handle_no_new_schedule("timeouts_on_schedule", False)
+        self.emit("no_new_schedule", "timeouts_on_schedule", error_state=False)
+        await self.wait_for_complete()
         self.fm_date_time_last_schedule = get_local_now()
         self.__log(f"schedule: {schedule}")
 
