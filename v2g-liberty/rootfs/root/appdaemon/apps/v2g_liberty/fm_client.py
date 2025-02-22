@@ -3,8 +3,8 @@ import isodate
 import math
 import constants as c
 import log_wrapper
-from .v2g_globals import time_round, get_local_now
-from .time_slot_util import generate_time_slots
+from v2g_globals import time_round, get_local_now
+from time_slot_util import generate_time_slots
 from appdaemon.plugins.hass.hassapi import Hass
 
 
