@@ -506,7 +506,7 @@ class ReservationsClient(AsyncIOEventEmitter):
             await self.wait_for_complete()
         except Exception as e:
             self.__log(
-                f"Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
+                f"Problem calendar_change event. Exception: {e}."
             )
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
