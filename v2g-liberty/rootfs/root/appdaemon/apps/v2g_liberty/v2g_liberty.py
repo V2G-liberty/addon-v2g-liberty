@@ -179,7 +179,14 @@ class V2Gliberty:
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
 
-        await self.evse_client_app.complete_init()
+        self.__log("Completed")
+
+    ######################################################################
+    #                         PUBLIC FUNCTIONS                           #
+    ######################################################################
+
+    async def initialise_v2g_liberty(self, v2g_args=None):
+        """Show the settings in the UI and kickoff set_next_action"""
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
@@ -189,16 +196,6 @@ class V2Gliberty:
             self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
             await self.evse_client_app.set_active()
 
-        await self.initialise_v2g_liberty(v2g_args="initialise")
-
-        self.__log("Completed")
-
-    ######################################################################
-    #                         PUBLIC FUNCTIONS                           #
-    ######################################################################
-
-    async def initialise_v2g_liberty(self, v2g_args=None):
-        """Show the settings in the UI and kickoff set_next_action"""
         await self.hass.set_state(
             entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
         )

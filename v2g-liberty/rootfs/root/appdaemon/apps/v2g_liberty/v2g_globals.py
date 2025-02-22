@@ -328,15 +328,13 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
 
-        await self.__kick_off_settings()
-
         self.__log("Completed initializing V2GLibertyGlobals")
 
     ######################################################################
     #                    INITIALISATION METHODS                          #
     ######################################################################
 
-    async def __kick_off_settings(self):
+    async def kick_off_settings(self):
         # To be called from initialise or restart event
         self.__log("called")
 
@@ -831,6 +829,9 @@ class V2GLibertyGlobals:
             c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
                 "max"
             ]
+
+        await self.evse_client_app.complete_init()
+
         self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
 
     async def __initialise_notification_settings(self):
