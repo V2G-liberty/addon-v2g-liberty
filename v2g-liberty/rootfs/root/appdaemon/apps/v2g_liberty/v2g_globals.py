@@ -4,7 +4,6 @@ import math
 from appdaemon.plugins.hass.hassapi import Hass
 import constants as c
 import log_wrapper
-from service_response_app import ServiceResponseApp
 from settings_manager import SettingsManager
 
 

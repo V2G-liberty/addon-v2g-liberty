@@ -138,6 +138,9 @@ class V2Gliberty:
         self.no_schedule_notification_is_planned = False
 
         self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+        self.reservations_client.add_listener(
+            "calendar_change", self.handle_calendar_change
+        )
 
         await self.hass.listen_event(self.__pong, "ping")
 

@@ -5,11 +5,12 @@ import constants as c
 import log_wrapper
 from v2g_globals import get_local_now
 import caldav
-from service_response_app import ServiceResponseApp
+from pyee.asyncio import AsyncIOEventEmitter
 from appdaemon.plugins.hass.hassapi import Hass
+from service_response_app import ServiceResponseApp
 
 
-class ReservationsClient(ServiceResponseApp):
+class ReservationsClient(AsyncIOEventEmitter):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
@@ -27,10 +28,10 @@ class ReservationsClient(ServiceResponseApp):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
-    v2g_main_app: object = None
-    hass: Hass = None
+    hass: ServiceResponseApp = None
 
     def __init__(self, hass: Hass):
+        super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
@@ -87,7 +88,6 @@ class ReservationsClient(ServiceResponseApp):
         except Exception as e:
             self.__log(f"Unknown error: '{e}'.", level="WARNING")
             return "Unknown error"
-
 
     async def initialise_calendar(self):
         """Called by globals when:
@@ -285,7 +285,7 @@ class ReservationsClient(ServiceResponseApp):
         It is expected that this method is called when the first upcoming calendar item changes
         """
         self.__log("Called from listener")
-        self.__poll_calendar_integration()
+        await self.__poll_calendar_integration()
 
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
@@ -502,12 +502,11 @@ class ReservationsClient(ServiceResponseApp):
 
     async def __set_events_in_main_app(self, v2g_args: str = ""):
         try:
-            await self.v2g_main_app.handle_calendar_change(
-                v2g_events=self.v2g_events, v2g_args=v2g_args
-            )
+            self.emit("calendar_change", v2g_events=self.v2g_events, v2g_args=v2g_args)
+            await self.wait_for_complete()
         except Exception as e:
             self.__log(
-                f"Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
+                f"Problem calendar_change event. Exception: {e}."
             )
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
