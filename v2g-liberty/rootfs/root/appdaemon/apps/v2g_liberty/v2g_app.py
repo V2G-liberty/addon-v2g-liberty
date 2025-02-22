@@ -36,8 +36,6 @@ class V2GLibertyApp(ServiceResponseApp):
 
         fm_client.v2g_main_app = v2g_liberty
 
-        reservations_client.v2g_main_app = v2g_liberty
-
         v2g_liberty.evse_client_app = modbus_evse_client
         v2g_liberty.fm_client_app = fm_client
         v2g_liberty.reservations_client = reservations_client
