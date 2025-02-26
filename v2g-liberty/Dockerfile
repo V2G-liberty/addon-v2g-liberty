@@ -8,14 +8,10 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Copy Python requirements file
 COPY requirements.txt /tmp/
 
-# We need to copy in the patches need during build
-COPY rootfs/patches /patches
-
 # Setup base
 # hadolint ignore=DL3003,DL3042
 RUN \
     apk add --no-cache --virtual .build-dependencies \
-        build-base=0.5-r3 \
         python3-dev \
     \
     && apk add --no-cache \
@@ -24,9 +20,6 @@ RUN \
         python3 \
     \
     && pip install -r /tmp/requirements.txt \
-    \
-    && cd /usr/lib/python3.11/site-packages/ \
-    && patch -p1 < /patches/force_recompile.patch \
     \
     && find /usr \
         \( -type d -a -name test -o -name tests -o -name '__pycache__' \) \
