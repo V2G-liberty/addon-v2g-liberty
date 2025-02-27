@@ -1,4 +1,15 @@
 ---
+quasar_load_balancer:
+  module: quasar_load_balancer
+  class: QuasarLoadBalancer
+
+  quasar_host: 192.168.2.55
+
+  total_power_limit: 25
+  max_charge_power: 25
+  adjustment_delay: 10
+  cooldown_period: 15
+
 v2g-app:
   module: v2g_app
   class: V2GLibertyApp
