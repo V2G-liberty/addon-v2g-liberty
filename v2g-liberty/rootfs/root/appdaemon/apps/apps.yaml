@@ -4,6 +4,7 @@ quasar_load_balancer:
   class: QuasarLoadBalancer
 
   quasar_host: 192.168.2.55
+  quasar_port: 502
 
   total_power_limit: 25
   max_charge_power: 25
@@ -13,3 +14,4 @@ quasar_load_balancer:
 v2g-app:
   module: v2g_app
   class: V2GLibertyApp
+  dependencies: quasar_load_balancer
