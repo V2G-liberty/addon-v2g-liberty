@@ -1,16 +1,17 @@
+import asyncio
 from appdaemon.plugins.hass.hassapi import Hass
 
 from server import Tcp2TcpProxyServer
 from request_modifier import RequestModifier
 from load_balancer import LoadBalancer
-from log_wrapper import get_class_method_logger
+from _log_wrapper import get_class_method_logger
 
 
 class QuasarLoadBalancer(Hass):
     async def initialize(self):
         self.print = get_class_method_logger(self.__log)
 
-        host = self.args.get("host", "")
+        host = self.args.get("host", "127.0.0.1")
         port = self.args.get("port", 5020)
         client_host = self.args.get("quasar_host", "localhost")
         client_port = self.args.get("quasar_port", 502)
@@ -33,7 +34,7 @@ class QuasarLoadBalancer(Hass):
         self.timeout_timer = None
         self.reset_timeout()
 
-        await self.proxy_server.run()
+        self.task = asyncio.create_task(self.proxy_server.run())
 
     def on_limit_changed(self, new):
         self.set_state(

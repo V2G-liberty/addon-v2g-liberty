@@ -1,6 +1,6 @@
 import statistics
 
-from log_wrapper import get_class_method_logger
+from _log_wrapper import get_class_method_logger
 
 
 class LoadBalancer:
