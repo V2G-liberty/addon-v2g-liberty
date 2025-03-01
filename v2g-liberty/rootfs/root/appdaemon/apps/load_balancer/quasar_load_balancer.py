@@ -1,6 +1,7 @@
 import asyncio
 from appdaemon.plugins.hass.hassapi import Hass
 
+from config_loader import ConfigLoader
 from server import Tcp2TcpProxyServer
 from request_modifier import RequestModifier
 from load_balancer import LoadBalancer
@@ -11,10 +12,17 @@ class QuasarLoadBalancer(Hass):
     async def initialize(self):
         self.print = get_class_method_logger(self.__log)
 
-        host = self.args.get("host", "127.0.0.1")
-        port = self.args.get("port", 5020)
-        client_host = self.args.get("quasar_host", "localhost")
-        client_port = self.args.get("quasar_port", 502)
+        config = ConfigLoader().load()
+        if not config.get("enabled"):
+            return
+
+        host = config.get("host", "127.0.0.1")
+        port = config.get("port", 5020)
+        client_host = config.get("quasar_host", "localhost")
+        client_port = config.get("quasar_port", 502)
+        total_power_entity_id = config.get(
+            "total_power_entity_id", "sensor.sdm_phase_2_power"
+        )
 
         self.proxy_server = Tcp2TcpProxyServer(
             host=host, port=port, client_host=client_host, client_port=client_port
@@ -26,11 +34,11 @@ class QuasarLoadBalancer(Hass):
         self.request_modifier.set_log(self.print)
 
         self.load_balancer = LoadBalancer(
-            hass=self, rate_limiter=self.request_modifier, config=self.args
+            hass=self, rate_limiter=self.request_modifier, config=config
         )
         self.load_balancer.set_log(self.print)
 
-        self.listen_state(self.on_total_power_changed, "sensor.sdm_phase_2_power")
+        self.listen_state(self.on_total_power_changed, total_power_entity_id)
         self.timeout_timer = None
         self.reset_timeout()
 
@@ -50,7 +58,7 @@ class QuasarLoadBalancer(Hass):
 
     def reset_timeout(self):
         self.set_state("input_binary.quasar_loadbalancer_no_total_power", state="off")
-        if self.timeout_timer:
+        if self.timeout_timer is not None:
             self.cancel_timer(self.timeout_timer)
         self.timeout_timer = self.run_in(self.total_power_changed_timeout, 60)
 

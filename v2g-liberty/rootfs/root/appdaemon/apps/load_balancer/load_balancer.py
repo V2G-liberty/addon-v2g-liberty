@@ -5,15 +5,15 @@ from _log_wrapper import get_class_method_logger
 
 class LoadBalancer:
     def __init__(self, hass, rate_limiter, config):
-        power_limit = int(config.get("total_power_limit", 25))
-        max_charge_power = int(config.get("max_charge_power", 25))
+        power_limit = int(config.get("total_power_limit", 5750))
+        max_charge_power = int(config.get("max_charge_power", 3680))
         adjustment_delay = int(config.get("adjustment_delay", 10))
         cooldown_period = int(config.get("cooldown_period", 15))
 
-        self.total_power_upper_limit = int((power_limit + 0.5) * 230)
-        self.total_power_lower_limit = int((power_limit - 0.5) * 230)
-        self.max_charge_power = max_charge_power * 230
-        self.min_charge_power = 1 * 230
+        self.total_power_upper_limit = power_limit
+        self.total_power_lower_limit = power_limit - 230
+        self.max_charge_power = max_charge_power
+        self.min_charge_power = 1 # Watt
 
         self.hass = hass
 

@@ -21,8 +21,8 @@ def rate_limiter() -> MagicMock:
 def load_balancer(hass, rate_limiter) -> LoadBalancer:
     """Setup de LoadBalancer app voor tests."""
     config = {
-        "total_power_limit": "10",
-        "max_charge_power": "8",
+        "total_power_limit": int(10.5 * 230),
+        "max_charge_power": 8 * 230,
     }
     return LoadBalancer(hass=hass, rate_limiter=rate_limiter, config=config)
 
@@ -38,7 +38,7 @@ def test_reduce_charge_on_high_power(
     assert not load_balancer.cooldown_timer
 
     load_balancer.reduce_power({})
-    rate_limiter.set_limit.assert_called_once_with(230)
+    rate_limiter.set_limit.assert_called_once_with(1)
     assert not load_balancer.high_timer
     assert load_balancer.cooldown_timer
 
@@ -54,7 +54,7 @@ def test_reduce_charge_on_high_negative_power(
     assert not load_balancer.cooldown_timer
 
     load_balancer.reduce_power({})
-    rate_limiter.set_limit.assert_called_once_with(230)
+    rate_limiter.set_limit.assert_called_once_with(1)
     assert not load_balancer.high_timer
     assert load_balancer.cooldown_timer
 

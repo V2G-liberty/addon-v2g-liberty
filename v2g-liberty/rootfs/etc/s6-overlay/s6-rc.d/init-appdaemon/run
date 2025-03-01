@@ -49,3 +49,5 @@ cp -aRv /root/homeassistant/www/v2g_liberty/v2g-liberty-cards/* /homeassistant/w
 cp -av /root/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
     || bashio::exit.nok 'Failed to copy v2g_liberty_example_configuration.yaml'
 
+cp -av /root/homeassistant/quasar_load_balancer.json-example /homeassistant/quasar_load_balancer.json-example \
+    || bashio::exit.nok 'Failed to copy quasar_load_balancer.json-example'
