@@ -13,7 +13,7 @@ class LoadBalancer:
         self.total_power_upper_limit = power_limit
         self.total_power_lower_limit = power_limit - 230
         self.max_charge_power = max_charge_power
-        self.min_charge_power = 1 # Watt
+        self.min_charge_power = 1  # Watt
 
         self.hass = hass
 
@@ -113,11 +113,11 @@ class LoadBalancer:
         self.low_values = []
 
     def start_cooldown(self):
-        """Start de cooldownperiode na een aanpassing."""
+        """Start the cooldown period after an adjustement."""
         self.log("Starting cooldown period.")
         self.cooldown_timer = self.hass.run_in(self.end_cooldown, self.cooldown_period)
 
     def end_cooldown(self, kwargs):
-        """Beëindig de cooldownperiode."""
+        """End the cooldown period."""
         self.log("Cooldown period ended.")
         self.cooldown_timer = None

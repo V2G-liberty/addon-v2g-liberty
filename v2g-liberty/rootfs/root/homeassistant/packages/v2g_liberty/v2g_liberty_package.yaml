@@ -78,6 +78,9 @@ input_select:
     icon: mdi:battery-charging-medium
 
 input_boolean:
+  quasar_loadbalancer_no_total_power:
+    name: Quasar loadbalancer no total power
+
   admin_settings_initialised:
     name: Administrator settings are initialised
 
@@ -259,6 +262,15 @@ sensor:
     # for a template sensor.
     # These are all to be set from Python code.
     sensors:
+
+      # Only applicable for the situation where the loadbalancer is active for the Quasar 1 charger.
+      quasar_loadbalancer_limit:
+        friendly_name: Quasar loadbalancer limit
+        device_class: power
+        unit_of_measurement: W
+        value_template: "{{ None }}"  # Default value 0 will be set at init to indicate the loadbalancer is active
+        icon_template: mdi:arrow-collapse-vertical
+
       car_state_of_charge:
         friendly_name: Car state of charge
         device_class: battery

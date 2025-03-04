@@ -49,12 +49,14 @@ class RequestModifier(EventEmitter):
             self.log(f"{result}")
 
     def server_trace_pdu(self, sending: bool, pdu: ModbusPDU) -> ModbusPDU:
-        #print(f"---> TRACE_PDU: {pdu}")
+        # print(f"---> TRACE_PDU: {pdu}")
         if isinstance(pdu, WriteSingleRegisterRequest):
             self._update_write_single_register_request(pdu)
         return pdu
 
-    def _update_write_single_register_request(self, request: WriteSingleRegisterRequest):
+    def _update_write_single_register_request(
+        self, request: WriteSingleRegisterRequest
+    ):
         address = request.address
         if address in self._write_handlers:
             self._write_handlers[address](request)
