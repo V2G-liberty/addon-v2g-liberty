@@ -2,15 +2,19 @@
 
 ### **_This module is provided without any guarantees. Use it at your own risk!_**
 
+The software has been tested with both hardware options and works fine. But authors do not take any responsibility for problems or harm caused by use of this software.
+
 ## Purpose
 
-The primary reason for implementing this software is to address issues related to failing firmware in the Wallbox Quasar 1 charger. By managing the power load dynamically, the system can prevent overloading. It only guards one phase as the Wallbox Quasar 1 is a one phase charger.
+The primary reason for implementing this software is to address the failing firmware in the Wallbox Quasar 1 charger that in-activates the build-in loadbalancing when the charger is controlled via modbus.
+
+By managing the power load dynamically, the system can prevent overloading. It only guards one phase as the Wallbox Quasar 1 is a one phase charger.
 
 ## Prerequisites
 
-For the load balancer to work it needs information about the current load (how much power is consumed or produced) on the phase. This typically is done via:
+For the load balancer to work it needs information about the current load (how much power is consumed or produced) on the phase. This typically is done via one of these options:
 
-- A cable that connects the Home Assistant hardware to the P1 port of your smart meter + the DSMR Integration.
+- A cable that connects the Home Assistant hardware to the P1 port of your smart meter + the [DSMR Integration](https://www.home-assistant.io/integrations/dsmr/).
 
 - A cable connection to connect a kWh meter (that was installed to work with the Quasar originally) to the Home Assistant hardware + a way to read the values from this device.
 
@@ -60,7 +64,7 @@ The load balancer is configured through the file `quasar_load_balancer.json` in 
 
 4. **total_power_entity_id**: `sensor.your_power_entity_here`
 
-   The entity ID used to track the instantaneous power reading in Watts. Replace `sensor.your_power_entity_here` with the actual sensor entity ID. See prerequisites. Make sure to choose the phase that the charger is coonnected to.
+   The entity ID used to track the instantaneous power reading in Watts. Replace `sensor.your_power_entity_here` with the actual sensor entity ID. See prerequisites. Make sure to choose the phase that the charger is connected to. If you aduse the yaml config above and your Quasar is connected to phase 2, the enity_id should be `sensor.net_power_l2`
 
 5. **total_power_limit**: `pppp`
 
