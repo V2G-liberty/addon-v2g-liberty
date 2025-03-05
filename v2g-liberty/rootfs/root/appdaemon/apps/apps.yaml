@@ -1,4 +1,9 @@
 ---
+quasar_load_balancer:
+  module: quasar_load_balancer
+  class: QuasarLoadBalancer
+
 v2g-app:
   module: v2g_app
   class: V2GLibertyApp
+  dependencies: quasar_load_balancer

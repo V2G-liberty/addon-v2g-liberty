@@ -1,6 +1,6 @@
 appdaemon==4.4.2
 isodate==0.6.1
-pymodbus==3.8.3
+pymodbus==3.8.5
 caldav==1.4.0
 flexmeasures-client==0.2.4
 pyee==12.1.1
