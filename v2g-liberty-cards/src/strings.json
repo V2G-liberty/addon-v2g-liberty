@@ -112,14 +112,23 @@
       "connection-success": "Succesfully connected",
       "connected-since": "Connected, last contact %{time} ago",
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
-      "safety-info": "**Electric safety must be provided by the hardware, not this software!**<br/>Please consult a certified electrician what maximum power can be set on the charger.",
+      "load-balancer": {
+        "enabled": {
+          "title": "V2G Liberty load balancer module enabled",
+          "info": "The V2G Liberty load balancer module is currently enabled.\n\n**Important**\nThis module is provided without any guarantees. Use it at your own risk.\n\nPlease consult a certified electrician what maximum power can be set on the charger.\n\n**Configuration**\n\n- The Charger host URL must be set to `127.0.0.1`\n\n- The port number must be set to `5020`\n\nFor further details please consult `readme.md` in the folder `load_balancer`."
+        },
+        "not_enabled": {
+          "title": "V2G Liberty load balancer module <u>not</u> enabled",
+          "info": "A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\n\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\n\nPlease consult a certified electrician what maximum power can be set on the charger."
+        }
+      },
       "reduce-max-power-description": "Reduce max. (dis)charge power.",
       "connection-details": {
         "description": "To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.",
         "port-description": "Default is 502, so if you haven’t changed it, keep this."
       },
       "charger-details": {
-        "description": "The charger is configured to (dis)charge at max. **%{value}** W.\n\nIt is recommended to use a load balancer (or power-boost in Wallbox terminology). This makes it possible to set a higher max. charge amperage in the charger, resulting in more efficient charging and higher yields.\n\n---",
+        "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
         "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger."
       }
     },

@@ -18,10 +18,7 @@ class QuasarLoadBalancer(Hass):
             self.print(
                 "Not initialising quasar_load_balancer, not enabled in quasar_load_balancer.json."
             )
-            # Eventhough the default is None, it can be intnitialised with a not None value and
-            # cached, so, explicity set it to None. This indicates in the UI that the loadbalancer
-            # is inactive.
-            self.on_limit_changed(None)
+            self.on_limit_changed("unknown")
             return
 
         total_power_entity_id = config.get("total_power_entity_id", None)
