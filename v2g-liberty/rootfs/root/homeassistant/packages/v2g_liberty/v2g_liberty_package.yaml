@@ -73,6 +73,7 @@ input_select:
     options:
       - Automatic
       - Max boost now
+      - Max discharge now
       - Stop
     # "Stop" used to be "Off" but this triggers HA to see it as False..
     icon: mdi:battery-charging-medium
@@ -123,11 +124,15 @@ input_boolean:
   #Three booleans to mimic a radio button group for the charge mode the user can set in the UI
   chargemodeautomatic:
     name: ChargeModeAutomatic
-    icon: mdi:battery-charging-80
+    icon: mdi:auto-fix
 
   chargemodemaxboostnow:
     name: ChargeModeMaxBoostNow
-    icon: mdi:battery-alert
+    icon: mdi:battery-arrow-up-outline
+
+  chargemodemaxdischarge:
+    name: ChargeModeDischarge
+    icon: mdi:battery-arrow-down-outline
 
   chargemodeoff:
     name: ChargeModeOff
@@ -620,6 +625,7 @@ automation:
           entity_id:
             - input_boolean.chargemodemaxboostnow
             - input_boolean.chargemodeoff
+            - input_boolean.chargemodemaxdischarge
     mode: single
 
 
@@ -647,6 +653,7 @@ automation:
           entity_id:
             - input_boolean.chargemodeautomatic
             - input_boolean.chargemodeoff
+            - input_boolean.chargemodemaxdischarge
     mode: single
 
 
@@ -674,4 +681,32 @@ automation:
           entity_id:
             - input_boolean.chargemodeautomatic
             - input_boolean.chargemodemaxboostnow
+            - input_boolean.chargemodemaxdischarge
+    mode: single
+
+  - id: "1633010384788"
+    alias: Chargemode to Discharge
+    description: See automation Chargemode to Automatic
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.chargemodemaxdischarge
+        from: "off"
+        to: "on"
+    conditions: []
+    actions:
+      - action: input_select.select_option
+        metadata: {}
+        data:
+          option: Max discharge now
+        target:
+          entity_id: input_select.charge_mode
+      - action: input_boolean.turn_off
+        metadata: {}
+        data: {}
+        target:
+          entity_id:
+            - input_boolean.chargemodeautomatic
+            - input_boolean.chargemodemaxboostnow
+            - input_boolean.chargemodeoff
     mode: single
