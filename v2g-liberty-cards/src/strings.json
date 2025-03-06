@@ -114,12 +114,12 @@
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
       "load-balancer": {
         "enabled": {
-          "title": "V2G Liberty Load Balancer Module Enabled",
+          "title": "V2G Liberty load balancer module enabled",
           "info": "The V2G Liberty load balancer module is currently enabled.\n\n**Important**\nThis module is provided without any guarantees. Use it at your own risk.\n\nPlease consult a certified electrician what maximum power can be set on the charger.\n\n**Configuration**\n\n- The Charger host URL must be set to `127.0.0.1`\n\n- The port number must be set to `5020`\n\nFor further details please consult `readme.md` in the folder `load_balancer`."
         },
         "not_enabled": {
-          "title": "No load balancer detected",
-          "info": "A load balancer is reccomended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\n\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correclty with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\n\nPlease consult a certified electrician what maximum power can be set on the charger."
+          "title": "V2G Liberty load balancer module <u>not</u> enabled",
+          "info": "A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\n\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\n\nPlease consult a certified electrician what maximum power can be set on the charger."
         }
       },
       "reduce-max-power-description": "Reduce max. (dis)charge power.",

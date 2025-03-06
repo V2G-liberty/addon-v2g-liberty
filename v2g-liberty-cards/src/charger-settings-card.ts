@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled } from './util/render';
 import { partial } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
@@ -27,7 +27,7 @@ export class ChargerSettingsCard extends LitElement {
   @state() private _useReducedMaxPower: HassEntity;
   @state() private _chargerMaxChargingPower: HassEntity;
   @state() private _chargerMaxDischargingPower: HassEntity;
-  @state() private _quasarLoadbalancerLimit: HassEntity;
+  @state() private _loadBalancerLimit: HassEntity;
 
 
   private _hass: HomeAssistant;
@@ -47,8 +47,7 @@ export class ChargerSettingsCard extends LitElement {
       hass.states[entityIds.chargerMaxChargingPower];
     this._chargerMaxDischargingPower =
       hass.states[entityIds.chargerMaxDischargingPower];
-    this._quasarLoadbalancerLimit =
-      hass.states[entityIds.quasarLoadbalancerLimit];
+    this._loadBalancerLimit = hass.states[entityIds.quasarLoadBalancerLimit];
   }
 
   render() {
@@ -77,49 +76,20 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderInitialisedContent() {
     const editCallback = () => showChargerSettingsDialog(this);
-
+    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._loadBalancerLimit.state)
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
         ${renderEntityBlock(this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        ${this._renderLoadbalancerInfo()}
+        ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
         <div class="card-actions">
           <mwc-button test-id="edit" @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
         </div>
       </div>
-    `;
-  }
-
-  private _isV2GlibertyLoadbalancerEnabled(): boolean {
-    const ql = this._quasarLoadbalancerLimit?.state.toLowerCase();
-    return !(
-      ql === null ||
-      ql === "unknown" ||
-      ql === "unavailable"
-   );
-  }
-
-  private _renderLoadbalancerInfo() {
-    const ql = this._quasarLoadbalancerLimit?.state.toLowerCase();
-    const loadbalancerEnabled = this._isV2GlibertyLoadbalancerEnabled();
-    const title = loadbalancerEnabled
-      ? tp('load-balancer.enabled.title')
-      : tp('load-balancer.not_enabled.title');
-
-    const info = loadbalancerEnabled
-      ? tp('load-balancer.enabled.info')
-      : tp('load-balancer.not_enabled.info');
-
-    const type = loadbalancerEnabled ? "info" : "warning";
-
-    return html`
-      <ha-alert title="${title}" alert-type="${type}">
-        <ha-markdown breaks .content=${info}></ha-markdown>
-      </ha-alert>
     `;
   }
 

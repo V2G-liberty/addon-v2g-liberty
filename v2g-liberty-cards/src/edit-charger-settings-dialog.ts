@@ -2,6 +2,8 @@ import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
+import { renderLoadbalancerInfo, isLoadbalancerEnabled } from './util/render';
+
 import {
   InputText,
   renderDialogHeader,
@@ -33,7 +35,7 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _chargerMaxDischargingPower: string;
   @state() private _chargerConnectionStatus: string;
   @state() private _hasTriedToConnect: boolean;
-  @state() private _quasarLoadbalancerLimit: string;
+  @state() private _quasarLoadBalancerLimit: string;
 
   @query(`[test-id='${entityIds.chargerHostUrl}']`) private _chargerHostField;
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
@@ -53,7 +55,7 @@ class EditChargerSettingsDialog extends DialogBase {
     this._chargerConnectionStatus = '';
     this._useReducedMaxPower =
       this.hass.states[entityIds.useReducedMaxChargePower].state;
-    this._quasarLoadbalancerLimit = this.hass.states[entityIds.quasarLoadbalancerLimit].state;
+    this._quasarLoadBalancerLimit = this.hass.states[entityIds.quasarLoadBalancerLimit].state;
     this._hasTriedToConnect = false;
     await this.updateComplete;
   }
@@ -81,42 +83,15 @@ class EditChargerSettingsDialog extends DialogBase {
     return this._chargerConnectionStatus === ConnectionStatus.Connected;
   }
 
-  private _isV2GlibertyLoadbalancerEnabled(): boolean {
-    const ql = this._quasarLoadbalancerLimit.toLowerCase();
-    return !(
-      ql === null ||
-      ql === "unknown" ||
-      ql === "unavailable"
-   );
-  }
-
-  private _renderLoadbalancerInfo() {
-    const loadbalancerEnabled = this._isV2GlibertyLoadbalancerEnabled()
-    const title = loadbalancerEnabled
-      ? tp('load-balancer.enabled.title')
-      : tp('load-balancer.not_enabled.title');
-
-    const info = loadbalancerEnabled
-      ? tp('load-balancer.enabled.info')
-      : tp('load-balancer.not_enabled.info');
-
-    const type = loadbalancerEnabled ? "info" : "warning";
-
-    return html`
-      <ha-alert title="${title}" alert-type="${type}">
-        <ha-markdown breaks .content=${info}></ha-markdown>
-      </ha-alert>
-    `;
-  }
-
   private _renderConnectionDetails() {
     const chargerHostState = this.hass.states[entityIds.chargerHostUrl];
     const chargerPortState = this.hass.states[entityIds.chargerPort];
     const portDescription = tp('connection-details.port-description');
+    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
       ${this._renderConnectionError()}
-      ${this._isV2GlibertyLoadbalancerEnabled()
+      ${_isLoadBalancerEnabled
         ? nothing
         : html`
           <ha-markdown breaks .content="${tp('connection-details.description')}"></ha-markdown><br/>
@@ -136,13 +111,13 @@ class EditChargerSettingsDialog extends DialogBase {
         '[0-9]+'
       )}
       ${this._renderInvalidPortError()}
-      ${this._isV2GlibertyLoadbalancerEnabled()
+      ${_isLoadBalancerEnabled
         ? nothing
         : html`
           <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
         `
       }
-      ${this._renderLoadbalancerInfo()}
+      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       ${this._isBusyConnecting()
         ? html`
             <ha-circular-progress
@@ -220,6 +195,7 @@ class EditChargerSettingsDialog extends DialogBase {
     const useReducedMaxPowerState =
       this.hass.states[entityIds.useReducedMaxChargePower];
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
+    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
       <ha-alert alert-type="success">${tp('connection-success')}</ha-alert>
@@ -230,7 +206,7 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
-      ${this._renderLoadbalancerInfo()}
+      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       <mwc-button test-id="save" @click=${this._save} slot="primaryAction">
         ${this.hass.localize('ui.common.save')}
       </mwc-button>
