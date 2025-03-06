@@ -2,6 +2,8 @@ import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
+import { renderLoadbalancerInfo, isLoadbalancerEnabled } from './util/render';
+
 import {
   InputText,
   renderDialogHeader,
@@ -33,6 +35,7 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _chargerMaxDischargingPower: string;
   @state() private _chargerConnectionStatus: string;
   @state() private _hasTriedToConnect: boolean;
+  @state() private _quasarLoadBalancerLimit: string;
 
   @query(`[test-id='${entityIds.chargerHostUrl}']`) private _chargerHostField;
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
@@ -52,6 +55,7 @@ class EditChargerSettingsDialog extends DialogBase {
     this._chargerConnectionStatus = '';
     this._useReducedMaxPower =
       this.hass.states[entityIds.useReducedMaxChargePower].state;
+    this._quasarLoadBalancerLimit = this.hass.states[entityIds.quasarLoadBalancerLimit].state;
     this._hasTriedToConnect = false;
     await this.updateComplete;
   }
@@ -80,14 +84,19 @@ class EditChargerSettingsDialog extends DialogBase {
   }
 
   private _renderConnectionDetails() {
-    const description = tp('connection-details.description');
     const chargerHostState = this.hass.states[entityIds.chargerHostUrl];
     const chargerPortState = this.hass.states[entityIds.chargerPort];
     const portDescription = tp('connection-details.port-description');
+    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
       ${this._renderConnectionError()}
-      <ha-markdown breaks .content=${description}></ha-markdown>
+      ${_isLoadBalancerEnabled
+        ? nothing
+        : html`
+          <ha-markdown breaks .content="${tp('connection-details.description')}"></ha-markdown><br/>
+        `
+      }
       ${renderInputText(
         InputText.IpAddress,
         this._chargerHost,
@@ -102,7 +111,13 @@ class EditChargerSettingsDialog extends DialogBase {
         '[0-9]+'
       )}
       ${this._renderInvalidPortError()}
-      <ha-markdown breaks .content=${portDescription}></ha-markdown>
+      ${_isLoadBalancerEnabled
+        ? nothing
+        : html`
+          <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
+        `
+      }
+      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       ${this._isBusyConnecting()
         ? html`
             <ha-circular-progress
@@ -177,10 +192,10 @@ class EditChargerSettingsDialog extends DialogBase {
     const description = tp('charger-details.description', {
       value: this._maxAvailablePower,
     });
-    const info = tp('safety-info');
     const useReducedMaxPowerState =
       this.hass.states[entityIds.useReducedMaxChargePower];
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
+    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
       <ha-alert alert-type="success">${tp('connection-success')}</ha-alert>
@@ -191,9 +206,7 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
-      <ha-alert alert-type="info">
-        <ha-markdown .content=${info}></ha-markdown>
-      </ha-alert>
+      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       <mwc-button test-id="save" @click=${this._save} slot="primaryAction">
         ${this.hass.localize('ui.common.save')}
       </mwc-button>

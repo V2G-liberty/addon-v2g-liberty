@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled } from './util/render';
 import { partial } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
@@ -27,6 +27,8 @@ export class ChargerSettingsCard extends LitElement {
   @state() private _useReducedMaxPower: HassEntity;
   @state() private _chargerMaxChargingPower: HassEntity;
   @state() private _chargerMaxDischargingPower: HassEntity;
+  @state() private _loadBalancerLimit: HassEntity;
+
 
   private _hass: HomeAssistant;
 
@@ -45,6 +47,7 @@ export class ChargerSettingsCard extends LitElement {
       hass.states[entityIds.chargerMaxChargingPower];
     this._chargerMaxDischargingPower =
       hass.states[entityIds.chargerMaxDischargingPower];
+    this._loadBalancerLimit = hass.states[entityIds.quasarLoadBalancerLimit];
   }
 
   render() {
@@ -72,18 +75,15 @@ export class ChargerSettingsCard extends LitElement {
   }
 
   private _renderInitialisedContent() {
-    const info = tp('safety-info');
     const editCallback = () => showChargerSettingsDialog(this);
-
+    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._loadBalancerLimit.state)
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
         ${renderEntityBlock(this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        <ha-alert alert-type="info">
-          <ha-markdown breaks .content=${info}></ha-markdown>
-        </ha-alert>
+        ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
         <div class="card-actions">
           <mwc-button test-id="edit" @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
