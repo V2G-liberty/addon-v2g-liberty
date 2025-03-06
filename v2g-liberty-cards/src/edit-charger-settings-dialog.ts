@@ -33,6 +33,7 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _chargerMaxDischargingPower: string;
   @state() private _chargerConnectionStatus: string;
   @state() private _hasTriedToConnect: boolean;
+  @state() private _quasarLoadbalancerLimit: string;
 
   @query(`[test-id='${entityIds.chargerHostUrl}']`) private _chargerHostField;
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
@@ -52,6 +53,7 @@ class EditChargerSettingsDialog extends DialogBase {
     this._chargerConnectionStatus = '';
     this._useReducedMaxPower =
       this.hass.states[entityIds.useReducedMaxChargePower].state;
+    this._quasarLoadbalancerLimit = this.hass.states[entityIds.quasarLoadbalancerLimit].state;
     this._hasTriedToConnect = false;
     await this.updateComplete;
   }
@@ -79,15 +81,47 @@ class EditChargerSettingsDialog extends DialogBase {
     return this._chargerConnectionStatus === ConnectionStatus.Connected;
   }
 
+  private _isV2GlibertyLoadbalancerEnabled(): boolean {
+    const ql = this._quasarLoadbalancerLimit.toLowerCase();
+    return !(
+      ql === null ||
+      ql === "unknown" ||
+      ql === "unavailable"
+   );
+  }
+
+  private _renderLoadbalancerInfo() {
+    const loadbalancerEnabled = this._isV2GlibertyLoadbalancerEnabled()
+    const title = loadbalancerEnabled
+      ? tp('load-balancer.enabled.title')
+      : tp('load-balancer.not_enabled.title');
+
+    const info = loadbalancerEnabled
+      ? tp('load-balancer.enabled.info')
+      : tp('load-balancer.not_enabled.info');
+
+    const type = loadbalancerEnabled ? "info" : "warning";
+
+    return html`
+      <ha-alert title="${title}" alert-type="${type}">
+        <ha-markdown breaks .content=${info}></ha-markdown>
+      </ha-alert>
+    `;
+  }
+
   private _renderConnectionDetails() {
-    const description = tp('connection-details.description');
     const chargerHostState = this.hass.states[entityIds.chargerHostUrl];
     const chargerPortState = this.hass.states[entityIds.chargerPort];
     const portDescription = tp('connection-details.port-description');
 
     return html`
       ${this._renderConnectionError()}
-      <ha-markdown breaks .content=${description}></ha-markdown>
+      ${this._isV2GlibertyLoadbalancerEnabled()
+        ? nothing
+        : html`
+          <ha-markdown breaks .content="${tp('connection-details.description')}"></ha-markdown><br/>
+        `
+      }
       ${renderInputText(
         InputText.IpAddress,
         this._chargerHost,
@@ -102,7 +136,13 @@ class EditChargerSettingsDialog extends DialogBase {
         '[0-9]+'
       )}
       ${this._renderInvalidPortError()}
-      <ha-markdown breaks .content=${portDescription}></ha-markdown>
+      ${this._isV2GlibertyLoadbalancerEnabled()
+        ? nothing
+        : html`
+          <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
+        `
+      }
+      ${this._renderLoadbalancerInfo()}
       ${this._isBusyConnecting()
         ? html`
             <ha-circular-progress
@@ -177,7 +217,6 @@ class EditChargerSettingsDialog extends DialogBase {
     const description = tp('charger-details.description', {
       value: this._maxAvailablePower,
     });
-    const info = tp('safety-info');
     const useReducedMaxPowerState =
       this.hass.states[entityIds.useReducedMaxChargePower];
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
@@ -191,9 +230,7 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
-      <ha-alert alert-type="info">
-        <ha-markdown .content=${info}></ha-markdown>
-      </ha-alert>
+      ${this._renderLoadbalancerInfo()}
       <mwc-button test-id="save" @click=${this._save} slot="primaryAction">
         ${this.hass.localize('ui.common.save')}
       </mwc-button>

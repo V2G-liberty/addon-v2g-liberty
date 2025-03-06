@@ -268,7 +268,7 @@ sensor:
         friendly_name: Quasar loadbalancer limit
         device_class: power
         unit_of_measurement: W
-        value_template: "{{ None }}"  # Default value 0 will be set at init to indicate the loadbalancer is active
+        value_template: "{{ None }}"  # Value 0 will be set at init to indicate the loadbalancer is active
         icon_template: mdi:arrow-collapse-vertical
 
       car_state_of_charge:

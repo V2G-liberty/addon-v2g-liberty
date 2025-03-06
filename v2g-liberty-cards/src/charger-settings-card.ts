@@ -27,6 +27,8 @@ export class ChargerSettingsCard extends LitElement {
   @state() private _useReducedMaxPower: HassEntity;
   @state() private _chargerMaxChargingPower: HassEntity;
   @state() private _chargerMaxDischargingPower: HassEntity;
+  @state() private _quasarLoadbalancerLimit: HassEntity;
+
 
   private _hass: HomeAssistant;
 
@@ -45,6 +47,8 @@ export class ChargerSettingsCard extends LitElement {
       hass.states[entityIds.chargerMaxChargingPower];
     this._chargerMaxDischargingPower =
       hass.states[entityIds.chargerMaxDischargingPower];
+    this._quasarLoadbalancerLimit =
+      hass.states[entityIds.quasarLoadbalancerLimit];
   }
 
   render() {
@@ -72,7 +76,6 @@ export class ChargerSettingsCard extends LitElement {
   }
 
   private _renderInitialisedContent() {
-    const info = tp('safety-info');
     const editCallback = () => showChargerSettingsDialog(this);
 
     return html`
@@ -81,15 +84,42 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityBlock(this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        <ha-alert alert-type="info">
-          <ha-markdown breaks .content=${info}></ha-markdown>
-        </ha-alert>
+        ${this._renderLoadbalancerInfo()}
         <div class="card-actions">
           <mwc-button test-id="edit" @click=${editCallback}>
             ${this._hass.localize('ui.common.edit')}
           </mwc-button>
         </div>
       </div>
+    `;
+  }
+
+  private _isV2GlibertyLoadbalancerEnabled(): boolean {
+    const ql = this._quasarLoadbalancerLimit?.state.toLowerCase();
+    return !(
+      ql === null ||
+      ql === "unknown" ||
+      ql === "unavailable"
+   );
+  }
+
+  private _renderLoadbalancerInfo() {
+    const ql = this._quasarLoadbalancerLimit?.state.toLowerCase();
+    const loadbalancerEnabled = this._isV2GlibertyLoadbalancerEnabled();
+    const title = loadbalancerEnabled
+      ? tp('load-balancer.enabled.title')
+      : tp('load-balancer.not_enabled.title');
+
+    const info = loadbalancerEnabled
+      ? tp('load-balancer.enabled.info')
+      : tp('load-balancer.not_enabled.info');
+
+    const type = loadbalancerEnabled ? "info" : "warning";
+
+    return html`
+      <ha-alert title="${title}" alert-type="${type}">
+        <ha-markdown breaks .content=${info}></ha-markdown>
+      </ha-alert>
     `;
   }
 

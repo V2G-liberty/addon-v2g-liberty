@@ -39,6 +39,8 @@ export const chargerMaxChargingPower =
   'input_number.charger_max_charging_power';
 export const chargerMaxDischargingPower =
   'input_number.charger_max_discharging_power';
+export const quasarLoadbalancerLimit =
+  'sensor.quasar_loadbalancer_limit';
 
 // Electricity contract
 export const electricityContractSettingsInitialised =

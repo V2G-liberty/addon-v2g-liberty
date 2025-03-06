@@ -56,7 +56,7 @@ The load balancer is configured through the file `quasar_load_balancer.json` in 
 
 2. **quasar_host**: `x.x.x.x`
 
-   The IP address of the Quasar host. Replace `x.x.x.x` with the actual IP address of your Quasar device.
+   The IP address of the Quasar host. Replace `x.x.x.x` with the actual IP address of your Quasar device. You can find these in the Wallbox app.\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) -> IP-address. Then you are asked to connect to the charger via Bluetooth.
 
 3. **quasar_port**: `502`
 
