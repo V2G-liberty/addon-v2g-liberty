@@ -109,7 +109,7 @@ EVENT_RESOLUTION: object
 
 # CONSTANTS for FM URL's
 # FSC: Used in fm_client only, move there.
-FM_BASE_URL = "https://seita.energy"
+FM_BASE_URL = "https://ems.seita.energy"
 # Based on ELECTRICITY_PROVIDER
 # FSC: Used in fm_client only, move there.
 FM_OPTIMISATION_CONTEXT: dict = {}
