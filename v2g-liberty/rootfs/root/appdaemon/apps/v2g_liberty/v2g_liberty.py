@@ -69,8 +69,8 @@ class V2Gliberty:
     call_next_action_at_least_every: int = 15 * 60
     scheduling_timer_handles: List[AsyncGenerator]
 
-    # This is a target datetime at which the SoC that is above the max_soc must return back to or below this value.
-    # It is dependent on the user setting for allowed duration above max soc.
+    # This is a target datetime at which the SoC that is above the max_soc must return back to or
+    # below this value. It is dependent on the user setting for allowed duration above max soc.
     back_to_max_soc: datetime
 
     in_boost_to_reach_min_soc: bool
@@ -257,7 +257,6 @@ class V2Gliberty:
             # update_charge_mode takes charger control already, not needed here.
             soc_kwh = await self.evse_client_app.get_car_soc_kwh()
             if soc_kwh in self.EMPTY_STATES:
-                # If this is unknown the soc in percent is unknown, only check this.
                 self.__log("SoC_kWh is 'unknown', abort.")
                 return
 
@@ -410,6 +409,40 @@ class V2Gliberty:
                 await self.set_records_in_chart(
                     chart_line_name=ChartLine.MAX_CHARGE_NOW,
                     records=max_charge_now_prognoses,
+                )
+
+        elif charge_mode == "Max discharge now":
+            if soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1):
+                self.__log(
+                    "Minimum soc reached: set charge_mode from 'Max discharge now' to 'Automatic'."
+                )
+                await self.__set_charge_mode_in_ui("Automatic")
+            else:
+                self.__log(
+                    "Starting 'Max discharge now' based on charge_mode = Max discharge now"
+                )
+                await self.__start_max_discharge_now()
+                max_discharge_now_prognoses = [dict(time=now.isoformat(), soc=soc)]
+                delta_to_min_soc_wh = (
+                    (soc - c.CAR_MIN_SOC_IN_PERCENT) * c.CAR_MAX_CAPACITY_IN_KWH * 10
+                )
+                delta_to_min_soc_wh = delta_to_min_soc_wh / (
+                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                )
+                minutes_to_reach_min_soc = int(
+                    math.ceil(
+                        (delta_to_min_soc_wh / c.CHARGER_MAX_DISCHARGE_POWER * 60)
+                    )
+                )
+                expected_min_soc_time = (
+                    now + timedelta(minutes=minutes_to_reach_min_soc)
+                ).isoformat()
+                max_discharge_now_prognoses.append(
+                    dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT)
+                )
+                await self.set_records_in_chart(
+                    chart_line_name=ChartLine.MAX_CHARGE_NOW,
+                    records=max_discharge_now_prognoses,
                 )
 
         elif charge_mode == "Stop":
@@ -799,7 +832,10 @@ class V2Gliberty:
         old_state = old.get("state", None)
         self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
-        if old_state == "Max boost now" and new_state == "Automatic":
+        if (
+            old_state in ["Max boost now", "Max discharge now"]
+            and new_state == "Automatic"
+        ):
             # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
             # Let schedule (later) decide if starting is needed
             await self.__set_charge_power(
@@ -808,7 +844,7 @@ class V2Gliberty:
                     "source": "Reset for 'Max boost now' to 'Automatic'",
                 }
             )
-        if old_state == "Automatic" and new_state == "Max boost now":
+        if old_state == "Automatic":
             self.__log(
                 "Charge mode changed from Automatic to Max boost now, "
                 "cancel timer and start charging."
@@ -820,8 +856,6 @@ class V2Gliberty:
             self.__log(
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
-            # Cancel previous scheduling timers
-            self.__cancel_charging_timers()
             await self.__clear_all_soc_chart_lines()
             self.in_boost_to_reach_min_soc = False
             await self.evse_client_app.set_inactive()
@@ -843,26 +877,22 @@ class V2Gliberty:
         self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
         await self.set_next_action(v2g_args="__handle_soc_change")
 
-        # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge
-        # while charging (not dis-charging).
-        if not await self.evse_client_app.is_charging():
-            return
-        car_soc = await self.evse_client_app.get_car_soc()
-        if car_soc != c.CAR_MAX_SOC_IN_PERCENT:
-            return
-
-        message = (
-            f"Car battery at {car_soc} %, "
-            f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
-        )
-        self.notify_user(
-            message=message,
-            title=None,
-            tag="battery_max_soc_reached",
-            critical=False,
-            send_to_all=True,
-            ttl=60 * 15,
-        )
+        if (
+            await self.evse_client_app.is_charging()
+            and reported_soc == c.CAR_MAX_SOC_IN_PERCENT
+        ):
+            message = (
+                f"Car battery at {reported_soc} %, "
+                f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
+            )
+            self.notify_user(
+                message=message,
+                title=None,
+                tag="battery_max_soc_reached",
+                critical=False,
+                send_to_all=True,
+                ttl=60 * 15,
+            )
 
     async def __disconnect_charger(self, *args, **kwargs):
         """Function to make it possible for the user to disconnect the charger.
@@ -1285,6 +1315,17 @@ class V2Gliberty:
         await self.hass.set_state(
             "sensor.current_scheduled_charging_power",
             state=charge_power,
+        )
+
+    async def __start_max_discharge_now(self):
+        # TODO: Check if .set_active() is really a good idea here?
+        #       If the client is not active there might be a good reason for that...
+        await self.evse_client_app.set_active()
+        await self.__set_charge_power(
+            {
+                "charge_power": -c.CHARGER_MAX_DISCHARGE_POWER,
+                "source": "__start_max_discharge_now",
+            }
         )
 
     async def __start_max_charge_now(self):
