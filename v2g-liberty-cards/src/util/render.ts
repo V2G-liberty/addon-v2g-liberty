@@ -236,7 +236,7 @@ export enum InputText {
   IpAddress = '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
   OctopusCode = '^[\\w\\d-]+$',
   URL = '^https?:\\/\\/[\\w@:%.\\+\\-~#=]{1,256}\\b([a-zA-Z0-9\\(\\)@:%_\\+\\-.~#?&\\/=]*)$',
-  // Among others tested for: 'http://localhost:1234', 'https://www.icloud.com/dav', 'https://seita.energy/'
+  // Among others tested for: 'http://localhost:1234', 'https://www.icloud.com/dav', 'https://ems.seita.energy/'
   UserName = '^[\\w\\-.@]{2,}$',
   Password = '.{4,}',
 }

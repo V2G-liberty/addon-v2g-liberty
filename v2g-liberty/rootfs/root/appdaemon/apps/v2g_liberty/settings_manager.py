@@ -43,6 +43,9 @@ class SettingsManager:
 
     def __upgrade_obsolete_settings(self, settings: dict):
         self.__log("Called")
+
+        # TODO: Review if this code can be removed again if all users have upgraded to
+        # version 0.5.0 (Feb 2025) or above."""
         for obsolete, new in {
             "input_select.admin_mobile_name": "input_text.admin_mobile_name",
             "input_select.fm_asset": "input_text.fm_asset",
@@ -56,6 +59,8 @@ class SettingsManager:
                 settings.update({new: value})
                 settings.pop(obsolete)
 
+        # TODO: Review if this code can be removed again if all users have upgraded to
+        # version 0.5.0 (Feb 2025) or above."""
         setting_key = "input_text.car_calendar_source"
         for obsolete, new in {
             "Home Assistant integration": "localIntegration",
@@ -66,14 +71,15 @@ class SettingsManager:
                 self.__log(f"Changed setting ({setting_key}): {obsolete} to {new}.")
                 settings.update({setting_key: new})
 
+        # TODO: Review if this code can be removed again if all users have upgraded to
+        # version 0.5.3 (March 2025) or above."""
         setting_key = "input_text.fm_host_url"
-        for obsolete, new in {
-            "https://seita.energy": "https://ems.seita.energy",
-        }.items():
-            value = settings.get(setting_key)
-            if value == obsolete:
-                self.__log(f"Changed setting ({setting_key}): {obsolete} to {new}.")
-                settings.update({setting_key: new})
+        value = settings.get(setting_key)
+        if value == "https://seita.energy":
+            self.__log(
+                f"Changed ({setting_key}): 'https://seita.energy' to 'https://ems.seita.energy'."
+            )
+            settings.update({setting_key: "https://ems.seita.energy"})
 
         return settings
 
