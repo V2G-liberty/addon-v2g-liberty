@@ -276,6 +276,22 @@ class TestRetrieveSettings:
             settings_manager.get("input_boolean.schedule_settings_initialised") is True
         )
 
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_fm_url(self, settings_manager):
+        # Arrange
+        saved_settings = json.dumps(
+            {
+                "input_text.fm_host_url": "https://seita.energy",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert (
+            settings_manager.get("input_text.fm_host_url") == "https://ems.seita.energy"
+        )
+
 
 @patch("builtins.open", mock_open())
 def test_store_setting(settings_manager, json_dump_mock):

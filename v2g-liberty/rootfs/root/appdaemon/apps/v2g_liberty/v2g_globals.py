@@ -48,7 +48,7 @@ class V2GLibertyGlobals:
         "entity_name": "fm_host_url",
         "entity_type": "input_text",
         "value_type": "str",
-        "factory_default": "https://seita.energy",
+        "factory_default": "https://ems.seita.energy",
     }
     SETTING_FM_ASSET = {
         "entity_name": "fm_asset",

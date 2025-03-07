@@ -3,6 +3,34 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.5.3 2025-03-06
+
+### Fixed
+
+- None
+
+### Added
+
+- None
+
+### Changed
+
+- Changed default url for the FlexMeasures cloud service from `https://seita.energy` to `https://ems.seita.energy`. This includes automated update of this setting for current clients.
+
+## 0.5.2 2025-02-19
+
+### Fixed
+
+- 🪲 BUG: Build problems due to updated `build-base` and `patches`.
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
 ## 0.5.1 2025-02-05
 
 ### Fixed

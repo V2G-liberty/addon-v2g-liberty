@@ -23,6 +23,7 @@ class SettingsManager:
                     settings = json.load(read_file)
                     if isinstance(settings, dict):
                         self.settings = self.__upgrade(settings)
+                        self.__write_to_file()
                     else:
                         self.__log(
                             f"loading file content error, no dict: '{settings}'.",
@@ -47,10 +48,10 @@ class SettingsManager:
             "input_select.fm_asset": "input_text.fm_asset",
             "input_select.integration_calendar_entity_name": "input_text.integration_calendar_entity_name",
             "input_select.car_calendar_source": "input_text.car_calendar_source",
-            "input_select.car_calendar_name": "input_text.car_calendar_name"
+            "input_select.car_calendar_name": "input_text.car_calendar_name",
         }.items():
             if obsolete in settings:
-                self.__log(f"Changed obsolete setting: {obsolete} to {new}.")
+                self.__log(f"Changed obsolete setting key: {obsolete} to {new}.")
                 value = settings.get(obsolete)
                 settings.update({new: value})
                 settings.pop(obsolete)
@@ -62,7 +63,16 @@ class SettingsManager:
         }.items():
             value = settings.get(setting_key)
             if value == obsolete:
-                self.__log(f"Changed obsolete setting: {obsolete} to {new}.")
+                self.__log(f"Changed setting ({setting_key}): {obsolete} to {new}.")
+                settings.update({setting_key: new})
+
+        setting_key = "input_text.fm_host_url"
+        for obsolete, new in {
+            "https://seita.energy": "https://ems.seita.energy",
+        }.items():
+            value = settings.get(setting_key)
+            if value == obsolete:
+                self.__log(f"Changed setting ({setting_key}): {obsolete} to {new}.")
                 settings.update({setting_key: new})
 
         return settings
