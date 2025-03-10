@@ -22,6 +22,7 @@ The next release might include:
 
 #### Adding
 
+- Manual dis-charge function
 - Support for uni-directional charging
 
 #### Changing

@@ -263,35 +263,46 @@
   cards:
     - type: button
       grid_options:
-        columns: 4
+        columns: 3
         rows: 2
-      name: Automatic
+      name: Auto
       hold_action:
         action: none
       entity: input_boolean.chargemodeautomatic
       show_state: false
-      icon_height: 40px
+      icon_height: 30px
     - type: button
       grid_options:
-        columns: 4
+        columns: 3
         rows: 2
-      name: Charge Now
-      icon: mdi:battery-alert
+      name: Charge
+      icon: mdi:battery-arrow-up-outline
       hold_action:
         action: none
       entity: input_boolean.chargemodemaxboostnow
       show_state: false
-      icon_height: 40px
+      icon_height: 30px
     - type: button
       grid_options:
-        columns: 4
+        columns: 3
+        rows: 2
+      name: Discharge
+      icon: mdi:battery-arrow-down-outline
+      hold_action:
+        action: none
+      entity: input_boolean.chargemodemaxdischarge
+      show_state: false
+      icon_height: 30px
+    - type: button
+      grid_options:
+        columns: 3
         rows: 2
       name: Pause
       icon: mdi:pause-box-outline
       hold_action:
         action: none
       entity: input_boolean.chargemodeoff
-      icon_height: 40px
+      icon_height: 30px
       show_state: false
       card_mod:
         style: |
@@ -313,15 +324,24 @@
           }
     - type: conditional
       conditions:
-        - entity: sensor.charger_state_text
-          state: No car connected
-        - entity: input_boolean.chargemodemaxboostnow
-          state: "on"
+        - condition: and
+          conditions:
+          - condition: state
+            entity: sensor.charger_state_text
+            state: "No car connected"
+          - condition: or
+            conditions:
+              - condition: state
+                entity: input_select.charge_mode
+                state: "Max boost now"
+              - condition: state
+                entity: input_select.charge_mode
+                state: "Max discharge now"
       card:
         type: markdown
         content: >-
           <ha-alert alert-type="warning" title="No car is connected">To
-          start Max-charge, please connect the car to the
+          start Max-charge or Max-discharge, please connect the car to the
           charger.</ha-alert>
         layout_options:
           grid_columns: full
@@ -509,7 +529,6 @@
           min: "|-2|"
           max: "|+2|"
       card_mod:
-        debug: true
         style: |
           ha-card:before {
             content: "¢ent/kWh";

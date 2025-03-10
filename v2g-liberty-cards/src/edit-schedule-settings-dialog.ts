@@ -48,7 +48,7 @@ class EditScheduleSettingsDialog extends DialogBase {
       ''
     );
     this._fmUseOtherServer = this.hass.states[entityIds.fmUseOtherServer].state;
-    this._fmHostUrl = defaultState(this.hass.states[entityIds.fmHostUrl], 'https://seita.energy');
+    this._fmHostUrl = defaultState(this.hass.states[entityIds.fmHostUrl], 'https://ems.seita.energy');
     this._fmAsset = this.hass.states[entityIds.fmAsset].state;
 
     this._fmConnectionStatus = '';
