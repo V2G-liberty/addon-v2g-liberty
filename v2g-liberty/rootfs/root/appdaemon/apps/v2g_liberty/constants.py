@@ -67,6 +67,7 @@ CAR_MAX_CAPACITY_IN_PERCENT: int = 97
 # Car consumption per km. Defaults to the Nissan Leaf average.
 # FSC: Used only in v2g_liberty module, move there.
 CAR_CONSUMPTION_WH_PER_KM: int = 175
+CAR_MAX_RANGE_IN_KM: int = 1
 
 # Average distance travelled for every hour that a calendar item lasts
 # E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
