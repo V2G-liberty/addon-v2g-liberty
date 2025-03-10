@@ -327,7 +327,7 @@ class FlexMeasuresDataImporter:
 
         if res is None:
             self.__log(
-                "get_sensor_data on fm_client_app returned None," " aborting.",
+                "get_sensor_data on fm_client_app returned None, aborting.",
                 level="WARNING",
             )
             return
@@ -453,7 +453,7 @@ class FlexMeasuresDataImporter:
         # and will be (more than) enough for the graph to show.
         start = time_floor(now - timedelta(days=self.DAYS_HISTORY), timedelta(days=1))
         resolution = f"PT{c.FM_EVENT_RESOLUTION_IN_MINUTES}M"
-        duration = f"P{ self.DAYS_HISTORY + 2 }D"
+        duration = f"P{self.DAYS_HISTORY + 2}D"
         failure_message = ""
 
         if self.fm_client_app is not None:
@@ -769,8 +769,8 @@ class FlexMeasuresDataImporter:
             and not self.production_price_is_up_to_date
         ):
             unavailable = "Consumption and production"
-        self.__log(f"{unavailable=}")
         if unavailable != "":
+            self.__log(f"Unavailable price(s): '{unavailable=}'.")
             self.v2g_main_app.notify_user(
                 message=f"{unavailable} price not available, cloud not check for negative prices. "
                 f"Scheduling should continue as normal.",
