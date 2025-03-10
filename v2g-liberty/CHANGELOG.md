@@ -1,29 +1,20 @@
 # What's changed?
 
-## 0.5.1 2025-02-05
+## 0.6.0 2025-03-??
 
 ### Fixed
 
-- Build in extra safeguards not to accept a None or 0 value for the SoC (unnumbered)
-- Removed annoying log statement that flooded the logging (unnumbered)
-
-## 0.5.0 2025-02-04
-
-### Fixed
-
-- 🪲 BUG: "no schedule available" not correctly reset (#219)
-- 🪲 BUG: No schedule leads to incorrect 'Not connected' notification (#224)
-- 🪲 BUG: No new schedule notification text and layout (#227)
+- 🪲 BUG:
 
 ### Added
 
-- None
+- Feature Request: Loadbalancer function (Unnumbered)
 
 ### Changed
 
-- Feature Request: Make ping card look & feel compliant with HA snackbar (#199)
-- Feature Request: New frontend for settings page (unnumbered)
-- ⬆️ Bump PyModbus library to v3.8.3
+- Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
+  This includes the option to set a target in km.
+- ⬆️ Bump PyModbus library to v3.8.5
 
 ### [Unreleased]
 
