@@ -346,7 +346,7 @@ class V2GLibertyGlobals:
         await self.__initialise_electricity_contract_settings()
         await self.__initialise_calendar_settings()
         await self.__initialise_general_settings()
-        # # FlexMeasures settings are influenced by the optimisation_ and general_settings.
+        # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
 
     async def __initialise_devices(self):
@@ -889,6 +889,12 @@ class V2GLibertyGlobals:
         c.CAR_MAX_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
         )
+        c.CAR_MAX_RANGE_IN_KM = round(
+            c.CAR_MAX_CAPACITY_IN_KWH
+            * (c.CAR_MAX_CAPACITY_IN_PERCENT / 100)
+            / c.CAR_CONSUMPTION_WH_PER_KM
+            * 1000
+        )
 
         c.ALLOWED_DURATION_ABOVE_MAX_SOC = await self.__process_setting(
             setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
@@ -926,15 +932,13 @@ class V2GLibertyGlobals:
             c.CAR_CALENDAR_NAME = await self.__process_setting(
                 setting_object=self.SETTING_CAR_CALENDAR_NAME
             )
-
-            await self.calendar_client.initialise_calendar()
         else:
             c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
                 setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
             )
 
-            res = await self.calendar_client.initialise_calendar()
-            self.__log(f"init HA calendar result: '{res}'.")
+        res = await self.calendar_client.initialise_calendar()
+        self.__log(f"init reservations_calendar result: '{res}'.")
 
         self.__log("completed")
 

@@ -1,18 +1,20 @@
 # What's changed?
 
-## 0.5.3 2025-03-06
+## 0.6.0 2025-03-??
 
 ### Fixed
 
-- None
+- 🪲 BUG:
 
 ### Added
 
-- None
+- Feature Request: Loadbalancer function (Unnumbered)
 
 ### Changed
 
-- Changed default url for the FlexMeasures cloud service from `https://seita.energy` to `https://ems.seita.energy`. This includes automated update of this setting for current clients.
+- Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
+  This includes the option to set a target in km.
+- ⬆️ Bump PyModbus library to v3.8.5
 
 ### [Unreleased]
 
