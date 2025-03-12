@@ -188,7 +188,7 @@ class V2Gliberty:
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
 
-    async def initialise_v2g_liberty(self, v2g_args=None):
+    async def kickoff_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")

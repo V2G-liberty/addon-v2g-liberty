@@ -60,4 +60,4 @@ class V2GLibertyApp(ServiceResponseApp):
         await octopus_price_data_manager.initialize()
 
         await v2g_globals.kick_off_settings()
-        await v2g_liberty.initialise_v2g_liberty(v2g_args="initialise")
+        await v2g_liberty.kickoff_v2g_liberty(v2g_args="initialise")
