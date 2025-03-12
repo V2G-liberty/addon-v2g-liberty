@@ -307,11 +307,14 @@ class V2Gliberty:
                 minutes_to_reach_min_soc = int(
                     math.ceil((delta_to_min_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
                 )
-                expected_min_soc_time = (
-                    now + timedelta(minutes=minutes_to_reach_min_soc)
-                ).isoformat()
+                expected_min_soc_time = now + timedelta(
+                    minutes=minutes_to_reach_min_soc
+                )
                 boost_schedule.append(
-                    dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT)
+                    dict(
+                        time=expected_min_soc_time.isoformat(),
+                        soc=c.CAR_MIN_SOC_IN_PERCENT,
+                    )
                 )
 
                 # This also clears other soc lines
@@ -321,7 +324,8 @@ class V2Gliberty:
                 message = (
                     f"Car battery state of charge ({soc}%) is too low.\n"
                     f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) "
-                    f"is reached.\nThis is expected around {expected_min_soc_time}."
+                    f"is reached.\nThis is expected around "
+                    f"{expected_min_soc_time.strftime(c.DATE_TIME_FORMAT)}."
                 )
                 self.notify_user(
                     message=message,
