@@ -333,7 +333,7 @@ class V2Gliberty:
                 )
                 return
 
-            if soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
+            if soc >= c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.__log(
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
                 )
