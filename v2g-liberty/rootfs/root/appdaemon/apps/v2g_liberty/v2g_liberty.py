@@ -297,10 +297,7 @@ class V2Gliberty:
                 # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_min_soc_wh = (
                     (c.CAR_MIN_SOC_IN_PERCENT - soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
-                )
-                delta_to_min_soc_wh = delta_to_min_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
-                )
+                ) / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
