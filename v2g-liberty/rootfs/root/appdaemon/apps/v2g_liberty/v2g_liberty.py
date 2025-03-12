@@ -209,7 +209,8 @@ class V2Gliberty:
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
     async def set_next_action(self, v2g_args=None):
-        """The function determines what action should be taken next based on current SoC, Charge_mode, Charger_state
+        """The function determines what action should be taken next based on
+        current SoC, Charge_mode, Charger_state
 
         This function is meant to be called upon:
         - Initialisation
@@ -218,7 +219,7 @@ class V2Gliberty:
         - Charger state updates
         - Charge mode updates
         - Changes in the reservations calendar
-        - New prices have been detected (Amber only, this is the only reason this is not a private method)
+        - New prices have been detected (Amber only)
         - Every 15 minutes if none of the above
         """
         # Only for debugging:
