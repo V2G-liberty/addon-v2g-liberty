@@ -968,10 +968,12 @@ class V2GLibertyGlobals:
         else:
             c.FM_BASE_URL = self.SETTING_FM_BASE_URL["factory_default"]
 
-        asset_name = await self.__process_setting(setting_object=self.SETTING_FM_ASSET)
+        c.FM_ASSET_NAME = await self.__process_setting(
+            setting_object=self.SETTING_FM_ASSET
+        )
 
         await self.fm_client_app.initialise_and_test_fm_client()
-        sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(asset_name)
+        sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
 
