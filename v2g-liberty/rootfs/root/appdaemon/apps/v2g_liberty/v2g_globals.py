@@ -422,7 +422,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_calendar_settings.result")
 
         await self.__initialise_calendar_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_charger_settings(self, event, data, kwargs):
         self.__store_setting("input_text.charger_host_url", data["host"])
@@ -444,7 +444,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_charger_settings.result")
 
         await self.__initialise_charger_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         if data["contract"] == "nl_generic":
@@ -473,7 +473,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_electricity_contract_settings.result")
 
         await self.__initialise_electricity_contract_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
         await self.fm_data_retrieve_client.finalize_initialisation(
             v2g_args="initialise_energy_contract"
         )
@@ -491,7 +491,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_schedule_settings.result")
 
         await self.__initialise_fm_client_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_setting(self, event, data, kwargs):
         self.__store_setting(data["entity"], data["value"])
@@ -501,7 +501,7 @@ class V2GLibertyGlobals:
         if data["entity"] == "input_select.optimisation_mode":
             await self.__set_fm_optimisation_context()
         await self.__initialise_general_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
         self.__log("called")

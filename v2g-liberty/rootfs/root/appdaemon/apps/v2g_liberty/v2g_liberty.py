@@ -188,7 +188,7 @@ class V2Gliberty:
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
 
-    async def initialise_v2g_liberty(self, v2g_args=None):
+    async def kick_off_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
@@ -209,7 +209,8 @@ class V2Gliberty:
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
     async def set_next_action(self, v2g_args=None):
-        """The function determines what action should be taken next based on current SoC, Charge_mode, Charger_state
+        """The function determines what action should be taken next based on
+        current SoC, Charge_mode, Charger_state
 
         This function is meant to be called upon:
         - Initialisation
@@ -218,7 +219,7 @@ class V2Gliberty:
         - Charger state updates
         - Charge mode updates
         - Changes in the reservations calendar
-        - New prices have been detected (Amber only, this is the only reason this is not a private method)
+        - New prices have been detected (Amber only)
         - Every 15 minutes if none of the above
         """
         # Only for debugging:
@@ -297,21 +298,21 @@ class V2Gliberty:
                 # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_min_soc_wh = (
                     (c.CAR_MIN_SOC_IN_PERCENT - soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
-                )
-                delta_to_min_soc_wh = delta_to_min_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
-                )
+                ) / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
                 minutes_to_reach_min_soc = int(
                     math.ceil((delta_to_min_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
                 )
-                expected_min_soc_time = (
-                    now + timedelta(minutes=minutes_to_reach_min_soc)
-                ).isoformat()
+                expected_min_soc_time = now + timedelta(
+                    minutes=minutes_to_reach_min_soc
+                )
                 boost_schedule.append(
-                    dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT)
+                    dict(
+                        time=expected_min_soc_time.isoformat(),
+                        soc=c.CAR_MIN_SOC_IN_PERCENT,
+                    )
                 )
 
                 # This also clears other soc lines
@@ -321,7 +322,8 @@ class V2Gliberty:
                 message = (
                     f"Car battery state of charge ({soc}%) is too low.\n"
                     f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) "
-                    f"is reached.\nThis is expected around {expected_min_soc_time}."
+                    f"is reached.\nThis is expected around "
+                    f"{expected_min_soc_time.strftime(c.DATE_TIME_FORMAT)}."
                 )
                 self.notify_user(
                     message=message,
@@ -333,7 +335,7 @@ class V2Gliberty:
                 )
                 return
 
-            if soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
+            if soc >= c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.__log(
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
                 )

@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- 🪲 BUG:
+- 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
 
 ### Added
 
