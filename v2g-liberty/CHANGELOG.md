@@ -14,6 +14,7 @@
 
 - Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
   This includes the option to set a target in km.
+- Feature: Send V2G Liberty version number to FlexMeasures (#245)
 - ⬆️ Bump PyModbus library to v3.8.5
 
 ### [Unreleased]

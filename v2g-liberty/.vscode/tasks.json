@@ -31,7 +31,11 @@
       "label": "pytest",
       "type": "shell",
       "command": "pytest",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
     }
   ]
 }
