@@ -877,11 +877,11 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
 
-        c.CAR_MIN_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
         c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
+        )
+        c.CAR_MIN_SOC_IN_KWH = (
+            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
         )
         c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
@@ -1285,7 +1285,7 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
 def parse_to_int(number_string, default_value: int):
     """Reliably parse a string, float or int to an int. If un-parsable return the default value.
     :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if paring failed.
+    :param default_value: int that is returned if parsing failed.
     :return: parsed int
     """
     try:
