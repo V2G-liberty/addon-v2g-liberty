@@ -344,10 +344,10 @@ class V2GLibertyGlobals:
 
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
-        await self.__initialise_calendar_settings()
         await self.__initialise_general_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
+        await self.__initialise_calendar_settings()
 
     async def __initialise_devices(self):
         # List of all the recipients to notify
