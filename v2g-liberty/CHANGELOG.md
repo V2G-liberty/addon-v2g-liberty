@@ -5,16 +5,22 @@
 ### Fixed
 
 - 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
+- 🪲 BUG: Too often "No new schedules" (#250)
 
 ### Added
 
-- Feature Request: Loadbalancer function (Unnumbered)
+- 🚀 Feature Request: Loadbalancer function (Unnumbered)
+- 🚀 Feature Request: 'Discarge now' button. (#240)
 
 ### Changed
 
-- Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
+- 🚀 Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
   This includes the option to set a target in km.
 - ⬆️ Bump PyModbus library to v3.8.5
+
+&nbsp;
+
+---
 
 ### [Unreleased]
 
@@ -22,7 +28,6 @@ The next release might include:
 
 #### Adding
 
-- Manual dis-charge function
 - Support for uni-directional charging
 
 #### Changing
