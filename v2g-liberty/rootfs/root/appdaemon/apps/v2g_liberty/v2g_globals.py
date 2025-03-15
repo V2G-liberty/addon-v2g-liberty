@@ -344,10 +344,10 @@ class V2GLibertyGlobals:
 
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
-        await self.__initialise_calendar_settings()
         await self.__initialise_general_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
+        await self.__initialise_calendar_settings()
 
     async def __initialise_devices(self):
         # List of all the recipients to notify
@@ -877,11 +877,11 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
 
-        c.CAR_MIN_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
         c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
+        )
+        c.CAR_MIN_SOC_IN_KWH = (
+            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
         )
         c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
@@ -1287,7 +1287,7 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
 def parse_to_int(number_string, default_value: int):
     """Reliably parse a string, float or int to an int. If un-parsable return the default value.
     :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if paring failed.
+    :param default_value: int that is returned if parsing failed.
     :return: parsed int
     """
     try:

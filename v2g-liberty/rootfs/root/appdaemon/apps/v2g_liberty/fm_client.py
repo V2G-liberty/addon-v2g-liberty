@@ -337,6 +337,14 @@ class FMClient(AsyncIOEventEmitter):
         """
         self.__log("called.")
         now = get_local_now()
+        if self.client is None:
+            # We are assuming this is a temporary situation and will be resolved soon,
+            # not notifying the user.
+            self.__log(
+                "Abort getting schedule, client not initialised (yet).", level="WARNING"
+            )
+            return
+
         if self.fm_busy_getting_schedule:
             self.__log(
                 f"busy with prior request since: {self.fm_date_time_last_schedule.isoformat()}."

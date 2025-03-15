@@ -3,6 +3,24 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.6.0 2025-03-??
+
+### Fixed
+
+- 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
+- 🪲 BUG: Too often "No new schedules" (#250)
+
+### Added
+
+- 🚀 Feature Request: Loadbalancer function (Unnumbered)
+- 🚀 Feature Request: 'Discarge now' button. (#240)
+
+### Changed
+
+- 🚀 Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
+  This includes the option to set a target in km.
+- ⬆️ Bump PyModbus library to v3.8.5
+
 ## 0.5.3 2025-03-06
 
 ### Fixed
