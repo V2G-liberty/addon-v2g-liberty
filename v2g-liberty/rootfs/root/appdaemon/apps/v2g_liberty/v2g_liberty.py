@@ -338,6 +338,7 @@ class V2Gliberty:
             if soc >= c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.__log(
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
+                    f"Stopping max_boost."
                 )
                 await self.__set_charge_power(
                     {
@@ -345,7 +346,6 @@ class V2Gliberty:
                         "source": "set_next_action: end_of_boost_to_min_soc",
                     }
                 )
-                self.__log("Stopping max charge now.")
                 self.in_boost_to_reach_min_soc = False
                 # Remove "boost schedule" from graph.
                 await self.set_records_in_chart(
@@ -366,8 +366,15 @@ class V2Gliberty:
                         }
                     )
 
-            # Not checking > max charge (97%), we could also want to discharge based on schedule
-            await self.__ask_for_new_schedule()
+            if not self.in_boost_to_reach_min_soc:
+                # Not checking > max charge (97%), we could also want to discharge based on schedule
+                # await self.__ask_for_new_schedule()
+                await self.fm_client_app.get_new_schedule(
+                    targets=self.calendar_targets,
+                    current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
+                    back_to_max_soc=self.back_to_max_soc,
+                )
+                self.__log("Requesting new schedule.")
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
@@ -1139,39 +1146,6 @@ class V2Gliberty:
     ######################################################################
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
     ######################################################################
-
-    async def __ask_for_new_schedule(self):
-        """
-        This function is meant to be called upon:
-        - SOC updates
-        - charger state updates
-        - every 15 minutes if none of the above
-        """
-        self.__log("__ask_for_new_schedule called")
-
-        # Check whether we're in automatic mode
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        if charge_mode != "Automatic":
-            self.__log(
-                f"Not getting new schedule, charge mode is not 'Automatic' but '{charge_mode}'."
-            )
-            return
-
-        # Check whether we're not in boost mode.
-        if self.in_boost_to_reach_min_soc:
-            self.__log(
-                "Not getting new schedule. SoC below minimum, boosting to reach that first."
-            )
-            return
-
-        # Adding the target one week from now is FM specific, so this is done in the fm_client_app
-        await self.fm_client_app.get_new_schedule(
-            targets=self.calendar_targets,
-            current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
-            back_to_max_soc=self.back_to_max_soc,
-        )
-
-        return
 
     async def __process_schedule(self, entity, attribute, old, new, kwargs):
         """Process a schedule by setting timers to start charging the car.
