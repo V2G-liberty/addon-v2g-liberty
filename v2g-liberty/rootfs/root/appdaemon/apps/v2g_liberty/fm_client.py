@@ -384,14 +384,16 @@ class FMClient(AsyncIOEventEmitter):
 
         soc_minima = []
 
-        # TODO: Add "soc-usage": soc_usage
-        # soc_usage = []
-        # The basis usage is 0 and can be lifted by adding other usage
-        # soc_usage.append({
-        #     "value": 0,
-        #     "start": rounded_now,
-        #     "end": schedule_end,
-        # })
+        soc_usage = []
+        # TODO: should basis be 0W or e.g. 800W?
+        # The basis usage can be lifted by adding other usage
+        # soc_usage.append(
+        #     {
+        #         "value": "800 W",
+        #         "start": rounded_now,
+        #         "end": schedule_end,
+        #     }
+        # )
 
         # The schedule should not take into account that during calendar items it cannot
         # charge/discharge.
@@ -414,9 +416,10 @@ class FMClient(AsyncIOEventEmitter):
         ]
 
         if targets is not None:
-            # TODO: Add "soc-usage"
-            # usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
-
+            usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
+            # self.__log(
+            #     f"usage_per_event_time_interval: '{usage_per_event_time_interval}'."
+            # )
             ##################################
             #    Make a list of soc_minima   #
             ##################################
@@ -433,7 +436,7 @@ class FMClient(AsyncIOEventEmitter):
                     {
                         "value": target_soc_kwh,
                         "start": target_start,
-                        "end": target_end,
+                        "end": target_start + c.EVENT_RESOLUTION,
                     }
                 )
                 max_consumption_power_ranges.append(
@@ -451,12 +454,13 @@ class FMClient(AsyncIOEventEmitter):
                     }
                 )
 
-                # TODO: soc_usage
-                # soc_usage.append({
-                #     "value": c.USAGE_PER_EVENT_TIME_INTERVAL,
-                #     "start": target_start,
-                #     "end": target_end,
-                # })
+                soc_usage.append(
+                    {
+                        "value": usage_per_event_time_interval,
+                        "start": target_start,
+                        "end": target_end,
+                    }
+                )
             # -- End for target in targets --
 
             # Always add a future target for scheduling to be made possible.
@@ -467,11 +471,6 @@ class FMClient(AsyncIOEventEmitter):
                     "end": end_of_schedule_input_period,
                 }
             )
-            # Remove any overlap and use the maximum in overlapping periods.
-            soc_minima = consolidate_time_ranges(soc_minima)
-
-            # TODO: soc_usage
-            # soc_usage = self.consolidate_time_ranges(soc_usage)
 
             ##################################
             #   Make a list of soc_maxima    #
@@ -672,8 +671,7 @@ class FMClient(AsyncIOEventEmitter):
             max_production_power_ranges
         )
 
-        # TODO: convert soc_usage
-        # soc_usage = convert_dates_to_iso_format(soc_usage)
+        soc_usage = convert_dates_to_iso_format(soc_usage)
 
         # TODO: Add "soc-usage"
         flex_model = {
@@ -683,6 +681,7 @@ class FMClient(AsyncIOEventEmitter):
             "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
             "soc-minima": soc_minima,
             "soc-maxima": soc_maxima,
+            "soc-usage": [soc_usage],
             "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,

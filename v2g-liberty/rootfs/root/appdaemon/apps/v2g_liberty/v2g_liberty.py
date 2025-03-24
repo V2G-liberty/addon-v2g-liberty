@@ -21,11 +21,12 @@ class ChartLine(enum.Enum):
     """
 
     SCHEDULE = 1
-    MAX_CHARGE_NOW = 2
-    BOOST = 3
-    CONSUMPTION_PRICE = 4
-    PRODUCTION_PRICE = 5
-    EMISSION = 6
+    SOC_USAGE = 2
+    MAX_CHARGE_NOW = 3
+    BOOST = 4
+    CONSUMPTION_PRICE = 5
+    PRODUCTION_PRICE = 6
+    EMISSION = 7
 
 
 class V2Gliberty:
@@ -57,6 +58,7 @@ class V2Gliberty:
 
     chart_line_entity = {
         ChartLine.SCHEDULE: "soc_prognosis",
+        ChartLine.SOC_USAGE: "soc_usage",
         ChartLine.MAX_CHARGE_NOW: "soc_prognosis_max_charge_now",
         ChartLine.BOOST: "soc_prognosis_boost",
         ChartLine.CONSUMPTION_PRICE: "consumption_prices",
@@ -255,7 +257,7 @@ class V2Gliberty:
         soc = await self.evse_client_app.get_car_soc()
 
         if charge_mode == "Automatic":
-            # update_charge_mode takes charger control already, not needed here.
+            # __handle_charge_mode_change takes charger control already, not needed here.
             soc_kwh = await self.evse_client_app.get_car_soc_kwh()
             if soc_kwh in self.EMPTY_STATES:
                 self.__log("SoC_kWh is 'unknown', abort.")
@@ -776,18 +778,21 @@ class V2Gliberty:
         }
         self.__clear_notification(identification)
 
-    async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
+    async def set_records_in_chart(
+        self, chart_line_name: ChartLine, records: dict, clear_others: bool = True
+    ):
         """Write or remove records in lines in the chart.
 
         If records = None the line_name line will be cleared (made invisible),
         e.g. when the car gets disconnected and the SoC prognosis boost is not relevant (any more)
 
         Parameters:
-            chart_line_name (ChartLine): indicating which line to write to
-            records(dict): a dictionary of time (isoformat) + value (e.g. cent/kWh or %) records
-
-        For the SoC related lines (prognoses, boost, max_charge_now): if there is data in records,
-        it is assumed that the other lines need to be erased.
+          chart_line_name (ChartLine): indicating which line to write to
+          records(dict):
+            A dictionary of time (isoformat) + value (e.g. cent/kWh or %) records. If None the
+            line will be cleared.
+          clear_others (bool):
+            Only applicable for SOC lines, if true (default) all other soc lines are cleared.
 
         Returns:
             Nothing
@@ -818,20 +823,22 @@ class V2Gliberty:
                 f"attributes: {str(result)[:50]} ... {str(result)[-25:]}."
             )
 
-            # If a soc line is set, clear the others
-            soc_lines = [ChartLine.SCHEDULE, ChartLine.BOOST, ChartLine.MAX_CHARGE_NOW]
-            if chart_line_name in soc_lines:
-                self.__log(
-                    f"chart_line_name '{chart_line_name}' in soc_lines, clear others."
-                )
-                for chart_line in soc_lines:
-                    if chart_line == chart_line_name:
-                        continue
-                    entity = f"sensor.{self.chart_line_entity[chart_line]}"
-                    await self.hass.set_state(
-                        entity, state=new_state, attributes=clear_line_records
-                    )
-                    self.__log(f"chart_line_name '{chart_line}' cleared.")
+            if clear_others:
+                soc_lines = [
+                    ChartLine.SCHEDULE,
+                    ChartLine.SOC_USAGE,
+                    ChartLine.BOOST,
+                    ChartLine.MAX_CHARGE_NOW,
+                ]
+                if chart_line_name in soc_lines:
+                    for chart_line in soc_lines:
+                        if chart_line == chart_line_name:
+                            continue
+                        entity = f"sensor.{self.chart_line_entity[chart_line]}"
+                        await self.hass.set_state(
+                            entity, state=new_state, attributes=clear_line_records
+                        )
+                        self.__log(f"chart_line_name '{chart_line}' cleared.")
 
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
@@ -967,6 +974,9 @@ class V2Gliberty:
     async def __clear_all_soc_chart_lines(self):
         await self.set_records_in_chart(
             chart_line_name=ChartLine.SCHEDULE, records=None
+        )
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.SOC_USAGE, records=None
         )
         await self.set_records_in_chart(chart_line_name=ChartLine.BOOST, records=None)
         await self.set_records_in_chart(
@@ -1284,27 +1294,64 @@ class V2Gliberty:
                 )
         self.__reset_charging_timers(handles)  # This also cancels previous timers
 
-        exp_soc_values = list(
-            accumulate(
-                [await self.evse_client_app.get_car_soc()]
-                + convert_MW_to_percentage_points(
-                    values,
-                    resolution,
-                    c.CAR_MAX_CAPACITY_IN_KWH,
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR,
-                )
+        e = c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+        scalar = (
+            resolution / timedelta(hours=1) * 1000 * 100 / c.CAR_MAX_CAPACITY_IN_KWH
+        )
+        usage_mw = c.USAGE_PER_EVENT_TIME_INTERVAL / 1000
+        # self.__log(f"Create soc prognosis/usage based on: {e=}, {scalar=}, {usage_mw=}.")
+        # Assumption, cars never return "emptier" than 1/3 of the min_soc.
+        min_soc_usage_based = c.CAR_MIN_SOC_IN_PERCENT / 3
+        current_soc = await self.evse_client_app.get_car_soc()
+
+        # Replace 0 values during calendar-items with virtual usage power
+        soc_prognosis = []
+        soc_usage = []
+
+        for i, value in enumerate(values):
+            current_date_time = start + i * resolution
+            if value > 0:
+                current_soc += value * scalar * e
+                add_to_schedule = round(current_soc, 2)
+                add_to_usage = None
+            elif value < 0:
+                current_soc += value * scalar / e
+                add_to_schedule = round(current_soc, 2)
+                add_to_usage = None
+            else:
+                if self.is_within_calendar_ranges(current_date_time):
+                    # Zero value during v2g_event
+                    current_soc -= usage_mw * scalar / e
+                    if current_soc < min_soc_usage_based:
+                        current_soc = min_soc_usage_based
+                    add_to_usage = round(current_soc, 2)
+                    add_to_schedule = None
+                else:
+                    add_to_usage = None
+                    add_to_schedule = round(current_soc, 2)
+
+            soc_prognosis.append(
+                {"time": current_date_time.isoformat(), "soc": add_to_schedule}
             )
+            soc_usage.append(
+                {"time": current_date_time.isoformat(), "soc": add_to_usage}
+            )
+
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.SCHEDULE, records=soc_prognosis, clear_others=True
+        )
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.SOC_USAGE, records=soc_usage, clear_others=False
         )
 
-        exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
-        expected_soc_based_on_scheduled_charges = [
-            dict(time=t.isoformat(), soc=round(v, 2))
-            for v, t in zip(exp_soc_values, exp_soc_datetimes)
-        ]
-        await self.set_records_in_chart(
-            chart_line_name=ChartLine.SCHEDULE,
-            records=expected_soc_based_on_scheduled_charges,
-        )
+    def is_within_calendar_ranges(self, check_date_time):
+        """Check if given datetime is within any of the calendar targets."""
+        for target in self.calendar_targets:
+            start = target["start"]
+            end = target["end"]
+            if start < check_date_time < end:
+                return True
+        return False
 
     async def __set_charge_power(self, kwargs: dict):
         """Wrapper function for start_charge_with_power on the modbus_evse module.
@@ -1545,29 +1592,3 @@ class V2Gliberty:
                 f"In valid charge_mode in UI setting: '{setting}'.", level="WARNING"
             )
             return
-
-
-######################################################################
-#                    PRIVATE UTILITY FUNCTIONS                       #
-######################################################################
-
-
-def convert_MW_to_percentage_points(
-    values_in_MW,
-    resolution: timedelta,
-    max_soc_in_kWh: float,
-    round_trip_efficiency: float,
-):
-    """
-    For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,
-    its SoC increases by just over 2.3%.
-    """
-    e = round_trip_efficiency**0.5
-    scalar = resolution / timedelta(hours=1) * 1000 * 100 / max_soc_in_kWh
-    lst = []
-    for v in values_in_MW:
-        if v >= 0:
-            lst.append(v * scalar * e)
-        else:
-            lst.append(v * scalar / e)
-    return lst

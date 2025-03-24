@@ -72,9 +72,8 @@ CAR_MAX_RANGE_IN_KM: int = 1
 # Average distance travelled for every hour that a calendar item lasts
 # E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
 # From this we derive an average usage.
-# TODO: Maybe make this a user setting?
-# FSC: Not used anywhere yet...
-KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
+# TODO: Make this a user setting.
+KM_PER_HOUR_OF_CALENDAR_ITEM: int = 45
 
 # Assumed car consumption during a calendar event per time_interval, calculate as follows:
 # (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)

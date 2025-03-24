@@ -504,6 +504,20 @@
             return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
+        - entity: sensor.soc_usage
+          show:
+            legend_value: false
+          type: line
+          color: "#fea602"
+          stroke_width: 2
+          stroke_dash: 2
+          curve: straight
+          extend_to: false
+          yaxis_id: SoC
+          data_generator: |
+            return entity.attributes.records.map((record, index) => {
+              return [new Date(record.time).getTime(), record.soc];
+            });
         - entity: sensor.car_state_of_charge
           show:
             legend_value: false
@@ -542,6 +556,7 @@
           }
           div[seriesname="Calendarxitemxinxchart"],
           div[seriesname="SoCxBoostxchartxdata"],
+          div[seriesname="SoCxusagexchartxdata"],
           div[seriesname="SoCxMaxxChargexNowxchartxdata"] {
             display: none;
           }

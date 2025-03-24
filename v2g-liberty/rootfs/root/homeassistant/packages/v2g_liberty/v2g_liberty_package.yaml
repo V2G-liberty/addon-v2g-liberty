@@ -428,6 +428,12 @@ sensor:
         friendly_name: SoC schedule chart data
         value_template: ""
 
+
+      # SoC decrease during calendar items, dashed line
+      soc_usage:
+        friendly_name: SoC usage chart data
+        value_template: ""
+
       # Based on the current SoC and max boost function (when SoC is below minimum).
       # This contains two values current SoC and min. SoC at expected time.
       # This is shown in the graph as a red prognosis line.
