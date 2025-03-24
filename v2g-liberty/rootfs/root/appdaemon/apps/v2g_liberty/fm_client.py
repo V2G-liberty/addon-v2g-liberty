@@ -5,7 +5,11 @@ import math
 import constants as c
 import log_wrapper
 from v2g_globals import time_round, get_local_now
-from time_slot_util import generate_time_slots
+from time_range_util import (
+    consolidate_time_ranges,
+    convert_dates_to_iso_format,
+    add_unit_to_values,
+)
 from appdaemon.plugins.hass.hassapi import Hass
 
 
@@ -446,10 +450,10 @@ class FMClient(AsyncIOEventEmitter):
                 }
             )
             # Remove any overlap and use the maximum in overlapping periods.
-            soc_minima = consolidate_time_ranges(soc_minima)
+            soc_minima = consolidate_time_ranges(soc_minima, c.EVENT_RESOLUTION)
 
             # TODO: soc_usage
-            # soc_usage = self.consolidate_time_ranges(soc_usage)
+            # soc_usage = self.consolidate_time_ranges(soc_usage, c.EVENT_RESOLUTION)
 
             ##################################
             #   Make a list of soc_maxima    #
@@ -625,23 +629,23 @@ class FMClient(AsyncIOEventEmitter):
                 )
         # -- End if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime) --
 
-        soc_maxima = consolidate_time_ranges(soc_maxima)
+        soc_maxima = consolidate_time_ranges(soc_maxima, c.EVENT_RESOLUTION)
         soc_maxima = convert_dates_to_iso_format(soc_maxima)
 
         soc_minima = convert_dates_to_iso_format(soc_minima)
 
         max_consumption_power_ranges = consolidate_time_ranges(
-            max_consumption_power_ranges, min_or_max="min"
+            max_consumption_power_ranges, c.EVENT_RESOLUTION, min_or_max="min"
         )
         max_consumption_power_ranges = add_unit_to_values(
             max_consumption_power_ranges, unit="W"
         )
         max_consumption_power_ranges = convert_dates_to_iso_format(
-            max_consumption_power_ranges
+            max_consumption_power_ranges, c.EVENT_RESOLUTION
         )
 
         max_production_power_ranges = consolidate_time_ranges(
-            max_production_power_ranges, min_or_max="min"
+            max_production_power_ranges, c.EVENT_RESOLUTION, min_or_max="min"
         )
         max_production_power_ranges = add_unit_to_values(
             max_production_power_ranges, unit="W"
@@ -742,124 +746,3 @@ def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
         host = url
 
     return host, ssl
-
-
-# See separate unit tests
-def consolidate_time_ranges(ranges, min_or_max: str = "max"):
-    """
-    Make ranges non-overlapping and, for the overlapping parts, use min/max value from the ranges.
-
-    :param ranges: dicts with start(datetime), end(datetime) and value (int)
-                   The start and end must be snapped to the resolution.
-    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values
-                       should be used for the overlapping parts.
-    :return: a list of dicts with start(datetime), end(datetime) and value (int) that are
-             none-overlapping, but possibly 'touching' (end of A = start of B).
-
-    Note!
-    It is not possible yet to correctly process non-overlapping ranges with a one-resolution
-    distance. As this is very rare in this context, and it's impact relatively small it has not been
-    solved yet and accepted as a not-perfect output.
-    """
-    if len(ranges) == 0:
-        return []
-    elif len(ranges) == 1:
-        return ranges
-
-    generated_slots = generate_time_slots(ranges, c.EVENT_RESOLUTION)
-    return __combine_time_slots(generated_slots, min_or_max=min_or_max)
-
-
-# See separate unit tests
-def __combine_time_slots(time_slots: dict, min_or_max: str = "max"):
-    """
-    Merges time slots into ranges with a constant value. The value to use is based on min_or_max
-    parameter.
-
-    :param time_slots: dict, with the format:
-                       key: [min, max] where key is a datetime and min/max are int values
-    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values
-                       should be used for the overlapping parts.
-    :return: dicts with start(datetime), end(datetime) and value (int) that are none-overlapping,
-             but possibly 'touching' (end of A = start of B).
-    """
-
-    combined_ranges = []
-    sorted_times = sorted(time_slots.keys())
-
-    min_max_index = 1 if min_or_max == "max" else 0
-
-    # Initialize the first time slot
-    current_range_start = sorted_times[0]
-
-    # Choose the first value based on min or max
-    current_range_value = time_slots[current_range_start][min_max_index]
-
-    for i in range(1, len(sorted_times)):
-        current_time = sorted_times[i]
-        expected_time = sorted_times[i - 1] + c.EVENT_RESOLUTION
-
-        # Determine the current value based on min or max
-        time_slot_value = time_slots[current_time][min_max_index]
-
-        # If there's a break in the range times, close the current range
-        if current_time != expected_time:
-            combined_ranges.append(
-                {
-                    "start": current_range_start,
-                    "end": sorted_times[i - 1],
-                    "value": current_range_value,
-                }
-            )
-            # Start a new range
-            current_range_start = current_time
-            current_range_value = time_slot_value
-
-        # If there's a break in the range value changes, close the current range
-        elif time_slot_value != current_range_value:
-            range_end_time = current_time
-            if (min_or_max != "max" and time_slot_value > current_range_value) or (
-                min_or_max == "max" and time_slot_value < current_range_value
-            ):
-                range_end_time = sorted_times[i - 1]
-
-            combined_ranges.append(
-                {
-                    "start": current_range_start,
-                    "end": range_end_time,
-                    "value": current_range_value,
-                }
-            )
-            # Start a new range
-            current_range_start = range_end_time
-            current_range_value = time_slot_value
-
-    # Add the last range
-    combined_ranges.append(
-        {
-            "start": current_range_start,
-            "end": sorted_times[-1],
-            "value": current_range_value,
-        }
-    )
-
-    return combined_ranges
-
-
-def convert_dates_to_iso_format(data):
-    for entry in data:
-        dts = entry.get("start", None)
-        if dts is not None and isinstance(dts, datetime):
-            entry["start"] = dts.isoformat()
-        dte = entry.get("end", None)
-        if dte is not None and isinstance(dte, datetime):
-            entry["end"] = dte.isoformat()
-    return data
-
-
-def add_unit_to_values(data, unit: str):
-    for entry in data:
-        value = entry.get("value", None)
-        if value is not None:
-            entry["value"] = f"{value} {unit}"
-    return data
