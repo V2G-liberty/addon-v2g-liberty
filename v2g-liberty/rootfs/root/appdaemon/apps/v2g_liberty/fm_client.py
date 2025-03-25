@@ -359,13 +359,17 @@ class FMClient(AsyncIOEventEmitter):
             rounded_now + self.FM_SCHEDULE_DURATION, c.EVENT_RESOLUTION
         )
 
-        # Add a placeholder target with soc CAR_MAX_SOC_IN_KWH (usually ≈80%) one week from now.
+        # Always add a placeholder target with soc CAR_MAX_SOC_IN_KWH one week from now.
         # FM needs this to be able to produce a schedule whereby the influence of this placeholder
-        # is none. Added to the soc_minima later on
+        # is none.
         end_of_schedule_input_period = rounded_now + timedelta(days=7)
-
-        soc_minima = []
-
+        soc_minima = [
+            {
+                "value": c.CAR_MAX_SOC_IN_KWH,
+                "start": end_of_schedule_input_period - c.EVENT_RESOLUTION,
+                "end": end_of_schedule_input_period,
+            }
+        ]
         # TODO: Add "soc-usage": soc_usage
         # soc_usage = []
         # The basis usage is 0 and can be lifted by adding other usage
@@ -399,9 +403,9 @@ class FMClient(AsyncIOEventEmitter):
             # TODO: Add "soc-usage"
             # usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
 
-            ##################################
-            #    Make a list of soc_minima   #
-            ##################################
+            ########################################################################################
+            #    Make a list of soc_minima, max_power_ranges for consumption and production        #
+            ########################################################################################
             self.__log("start generating soc_minima")
             for target in targets:
                 target_start = target["start"]
@@ -441,14 +445,6 @@ class FMClient(AsyncIOEventEmitter):
                 # })
             # -- End for target in targets --
 
-            # Always add a future target for scheduling to be made possible.
-            soc_minima.append(
-                {
-                    "value": c.CAR_MAX_SOC_IN_KWH,
-                    "start": end_of_schedule_input_period - c.EVENT_RESOLUTION,
-                    "end": end_of_schedule_input_period,
-                }
-            )
             # Remove any overlap and use the maximum in overlapping periods.
             soc_minima = consolidate_time_ranges(soc_minima, c.EVENT_RESOLUTION)
 
