@@ -1125,14 +1125,14 @@ class V2GLibertyGlobals:
             c.FM_OPTIMISATION_CONTEXT = {
                 "consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
                 "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID,
-                # "relax-soc-constraints": False,
+                # "relax-soc-constraints": True,
             }
         else:
             # Assumed optimisation = emissions
             c.FM_OPTIMISATION_CONTEXT = {
                 "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
                 "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
-                # "relax-soc-constraints": False,
+                # "relax-soc-constraints": True,
             }
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 

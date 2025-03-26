@@ -76,7 +76,10 @@ CAR_MAX_RANGE_IN_KM: int = 1
 KM_PER_HOUR_OF_CALENDAR_ITEM: int = 45
 
 # Assumed car consumption during a calendar event per time_interval, calculate as follows:
+# OLD:
 # (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)
+# NEW:
+# (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000)
 # FSC: Expected to be only used in fm_client. Move this and previous there.
 USAGE_PER_EVENT_TIME_INTERVAL: float = None
 

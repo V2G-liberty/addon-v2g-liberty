@@ -399,7 +399,7 @@ class FMClient(AsyncIOEventEmitter):
         # charge/discharge.
         # Further, if a b2ms is set, the schedule should not charge (but can dis-charge) until b2ms.
         # These power capacities are collected in the max_consumption_power_ranges and
-        # idle_ranges_production.
+        # max_production_power_ranges.
         max_consumption_power_ranges = [
             {
                 "value": c.CHARGER_MAX_CHARGE_POWER,
@@ -453,7 +453,6 @@ class FMClient(AsyncIOEventEmitter):
                         "end": target_end,
                     }
                 )
-
                 soc_usage.append(
                     {
                         "value": usage_per_event_time_interval,
@@ -673,7 +672,6 @@ class FMClient(AsyncIOEventEmitter):
 
         soc_usage = convert_dates_to_iso_format(soc_usage)
 
-        # TODO: Add "soc-usage"
         flex_model = {
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
