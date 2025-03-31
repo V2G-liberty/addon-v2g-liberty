@@ -138,6 +138,9 @@ class V2Gliberty:
         self.no_schedule_notification_is_planned = False
 
         self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+        self.fm_client_app.add_listener(
+            "unreachable_target", self.handle_unreachable_target
+        )
         self.reservations_client.add_listener(
             "calendar_change", self.handle_calendar_change
         )
@@ -695,6 +698,15 @@ class V2Gliberty:
                 send_to_all=True,
                 ttl=15 * 60,
             )
+
+    async def handle_unreachable_target(
+        self, soonest_at_target: datetime, max_target: int
+    ):
+        """Handle emitted event unreachable target."""
+        self.__log(
+            f"Handle to notify, soonest at target: {soonest_at_target.isoformat()}, "
+            f"max possible target: {max_target}."
+        )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """Keep track of situations where no new schedule is available:

@@ -370,14 +370,6 @@ class FMClient(AsyncIOEventEmitter):
                 "end": end_of_schedule_input_period,
             }
         ]
-        # TODO: Add "soc-usage": soc_usage
-        # soc_usage = []
-        # The basis usage is 0 and can be lifted by adding other usage
-        # soc_usage.append({
-        #     "value": 0,
-        #     "start": rounded_now,
-        #     "end": schedule_end,
-        # })
 
         # The schedule should not take into account that during calendar items it cannot
         # charge/discharge.
@@ -400,9 +392,6 @@ class FMClient(AsyncIOEventEmitter):
         ]
 
         if targets is not None:
-            # TODO: Add "soc-usage"
-            # usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
-
             ########################################################################################
             #    Make a list of soc_minima, max_power_ranges for consumption and production        #
             ########################################################################################
@@ -417,6 +406,7 @@ class FMClient(AsyncIOEventEmitter):
                 target_soc_kwh = target["target_soc_kwh"]
 
                 if i == 0:
+                    # Only for the first v2g_event check if the target soc can be reached in time.
                     delta_to_target = target_soc_kwh - current_soc_kwh
                     if delta_to_target > 0:
                         min_charge_time = math.ceil(
@@ -425,18 +415,47 @@ class FMClient(AsyncIOEventEmitter):
                             / (c.CHARGER_MAX_CHARGE_POWER / 1000)
                             * 60
                         )
-                        self.__log(
-                            f"Min charge time to first CI: '{min_charge_time}' minutes."
-                        )
                         soonest_at_target = time_ceil(
                             rounded_now + timedelta(minutes=min_charge_time),
                             c.EVENT_RESOLUTION,
                         )
-                        self.__log(f"Soonest at target at: '{soonest_at_target}'.")
                         if soonest_at_target > target_start:
-                            self.__log("Could not make it, relaxing target start time.")
+                            # Target soc cannot be reached at start of v2g_event,
+                            # relax the start time.
+                            virtual_target_end = target_end - c.EVENT_RESOLUTION
+                            max_target = None
+                            if virtual_target_end < soonest_at_target:
+                                # Target % cannot be reached within duration of v2g_event,
+                                # relax the target %.
+                                soonest_at_target = virtual_target_end
+                                # Calculate highest possible target soc
+                                minutes_left_to_charge = (
+                                    virtual_target_end - rounded_now
+                                ).total_seconds() / 60
+                                self.__log(
+                                    f"minutes_left_to_charge: '{minutes_left_to_charge}'."
+                                )
+                                max_target = current_soc_kwh + (
+                                    minutes_left_to_charge
+                                    / 60
+                                    * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                                    * (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                                )
+                                target_soc_kwh = max_target
+                                # Communicate the target soc to user in %
+                                max_target = int(
+                                    round(
+                                        (max_target / c.CAR_MAX_CAPACITY_IN_KWH) * 100,
+                                        0,
+                                    )
+                                )
                             target_start = soonest_at_target
-                            # Do some alerting if difference is more then X (7?) minutes.
+                            self.emit(
+                                "unreachable_target",
+                                soonest_at_target=soonest_at_target,
+                                max_target=max_target,
+                            )
+                            await self.wait_for_complete()
 
                 soc_minima.append(
                     {
@@ -459,20 +478,10 @@ class FMClient(AsyncIOEventEmitter):
                         "end": target_end,
                     }
                 )
-
-                # TODO: soc_usage
-                # soc_usage.append({
-                #     "value": c.USAGE_PER_EVENT_TIME_INTERVAL,
-                #     "start": target_start,
-                #     "end": target_end,
-                # })
             # -- End for target in targets --
 
             # Remove any overlap and use the maximum in overlapping periods.
             soc_minima = consolidate_time_ranges(soc_minima, c.EVENT_RESOLUTION)
-
-            # TODO: soc_usage
-            # soc_usage = self.consolidate_time_ranges(soc_usage, c.EVENT_RESOLUTION)
 
             ##################################
             #   Make a list of soc_maxima    #
@@ -673,10 +682,6 @@ class FMClient(AsyncIOEventEmitter):
             max_production_power_ranges
         )
 
-        # TODO: convert soc_usage
-        # soc_usage = convert_dates_to_iso_format(soc_usage)
-
-        # TODO: Add "soc-usage"
         flex_model = {
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
