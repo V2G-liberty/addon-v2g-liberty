@@ -4,7 +4,7 @@ import isodate
 import math
 import constants as c
 import log_wrapper
-from v2g_globals import time_round, get_local_now
+from v2g_globals import time_round, time_ceil, get_local_now
 from time_range_util import (
     consolidate_time_ranges,
     convert_dates_to_iso_format,
@@ -407,7 +407,7 @@ class FMClient(AsyncIOEventEmitter):
             #    Make a list of soc_minima, max_power_ranges for consumption and production        #
             ########################################################################################
             self.__log("start generating soc_minima")
-            for target in targets:
+            for i, target in enumerate(targets):
                 target_start = target["start"]
                 target_end = target["end"]
                 # Only add targets with a start in the schedule duration
@@ -415,6 +415,29 @@ class FMClient(AsyncIOEventEmitter):
                     # Assuming the targets list is sorted we can break (instead of continue)
                     break
                 target_soc_kwh = target["target_soc_kwh"]
+
+                if i == 0:
+                    delta_to_target = target_soc_kwh - current_soc_kwh
+                    if delta_to_target > 0:
+                        min_charge_time = math.ceil(
+                            delta_to_target
+                            / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
+                            / (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                            * 60
+                        )
+                        self.__log(
+                            f"Min charge time to first CI: '{min_charge_time}' minutes."
+                        )
+                        soonest_at_target = time_ceil(
+                            rounded_now + timedelta(minutes=min_charge_time),
+                            c.EVENT_RESOLUTION,
+                        )
+                        self.__log(f"Soonest at target at: '{soonest_at_target}'.")
+                        if soonest_at_target > target_start:
+                            self.__log("Could not make it, relaxing target start time.")
+                            target_start = soonest_at_target
+                            # Do some alerting if difference is more then X (7?) minutes.
+
                 soc_minima.append(
                     {
                         "value": target_soc_kwh,
@@ -483,7 +506,7 @@ class FMClient(AsyncIOEventEmitter):
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
                     )
-                    self.__log("window_duration: {window_duration}.")
+                    self.__log("window_duration: {window_duration} minutes.")
                     # srw = start_relaxation_window, erw = end_relaxation_window
                     srw = time_round(
                         (soc_minimum_start - timedelta(minutes=window_duration)),
@@ -637,7 +660,7 @@ class FMClient(AsyncIOEventEmitter):
             max_consumption_power_ranges, unit="W"
         )
         max_consumption_power_ranges = convert_dates_to_iso_format(
-            max_consumption_power_ranges, c.EVENT_RESOLUTION
+            max_consumption_power_ranges
         )
 
         max_production_power_ranges = consolidate_time_ranges(
