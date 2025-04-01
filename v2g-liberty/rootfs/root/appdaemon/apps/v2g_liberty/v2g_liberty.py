@@ -616,7 +616,7 @@ class V2Gliberty:
 
                 target_start = car_reservation["start"]
                 target_end = car_reservation["end"]
-                # Check target_soc above max_capacity and below min_soc is done in
+                # Check target_soc above max_soc and below min_soc is done in
                 # the reservations_client.
                 target = {
                     "start": time_round(target_start, c.EVENT_RESOLUTION),
@@ -645,8 +645,7 @@ class V2Gliberty:
                         v2g_event=car_reservation,
                     )
                     # Assumed is that the end will never be in the past as teh v2g_event then will
-                    # not be in the
-                    # list of v2g_events (any more).
+                    # not be in the list of v2g_events (any more).
                     self.__cancel_timer(self.timer_id_first_reservation_end)
                     self.timer_id_first_reservation_end = await self.hass.run_at(
                         callback=self.__handle_first_reservation_end,
@@ -700,12 +699,58 @@ class V2Gliberty:
             )
 
     async def handle_unreachable_target(
-        self, soonest_at_target: datetime, max_target: int
+        self, soonest_at_target: datetime, max_target: int = None
     ):
-        """Handle emitted event unreachable target."""
+        """Handle emitted event unreachable target (= soc at given datetime). This always only
+        applies to the current or first upcoming v2g_event.
+
+        param: soonest_at_target (datetime). Thet datetime at which the requested soc can be reached
+        param: max_target: if at the end of the v2g_event the target still cannot be reached, this
+               value represents the maxiumum that can be reached at the end. If None (default)the
+               soc can be reached before the end of the v2g_event.
+
+        This notification does influence and is not influenced by the processes
+        for 'dismiss event or not' or 'connect after event'.
+        """
+
         self.__log(
-            f"Handle to notify, soonest at target: {soonest_at_target.isoformat()}, "
+            f"Handle unreachable target soc soonest at target: {soonest_at_target.isoformat()}, "
             f"max possible target: {max_target}."
+        )
+        ve = self.calendar_targets[0]
+        delay_in_seconds = (soonest_at_target - ve["start"]).total_seconds()
+
+        if delay_in_seconds < 420:
+            self.__log(
+                f"Not notifying about unreachable target as the "
+                f"delay ({delay_in_seconds} sec.) is too short."
+            )
+            return
+
+        hours = int(delay_in_seconds // 3600)
+        minutes = int((delay_in_seconds % 3600) // 60)
+        duration = f"{hours:02}:{minutes:02}"
+        time_format = "%H:%M"
+
+        if max_target is None:
+            message = (
+                f"The target soc of the next calendar item is expected at "
+                f"{soonest_at_target.strftime(time_format)}, this is {duration} later "
+                f"than planned."
+            )
+        else:
+            message = (
+                f"The target soc of the next calendar item is expected to be {max_target}%"
+                f"at {ve['end'].strftime(time_format)}."
+            )
+
+        ttl = round((ve["end"] - get_local_now()).total_seconds(), 0)
+        self.__log(f"Notifying user for {ttl} sec.:\n'{message}'")
+        self.notify_user(
+            message=message,
+            tag="unreachable_target",
+            send_to_all=True,
+            ttl=ttl,
         )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):

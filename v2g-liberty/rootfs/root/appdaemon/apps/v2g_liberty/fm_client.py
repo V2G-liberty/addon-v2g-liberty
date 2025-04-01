@@ -312,10 +312,11 @@ class FMClient(AsyncIOEventEmitter):
         """Get a new schedule from FlexMeasures.
         But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
-        Params:
-        targets: a list of targets (=dict with start, end, soc)
-        back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back
-                         at max soc. Can be None.
+
+        param: targets (list) a list of targets (=dict with start, end, soc)
+        param: current_soc_kwh (float), the state of charge at the moment the schedule is requested
+        param: back_to_max_soc (datetime) if current SoC > Max_SoC this setting informs the schedule
+               when to be back at max soc. Can be None.
         """
         self.__log("called.")
         now = get_local_now()
