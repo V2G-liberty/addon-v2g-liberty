@@ -713,14 +713,14 @@ class FMClient(AsyncIOEventEmitter):
             except Exception as e:
                 if attempt < max_retries:
                     self.__log(
-                        f"trigger_and_get_schedule attempt {attempt + 1} failed, retrying."
+                        f"trigger_and_get_schedule attempt {attempt + 1} failed, retrying. "
                         f"Client exception: {e}.",
                         level="WARNING",
                     )
                     await self.hass.sleep(1)
                 else:
                     self.__log(
-                        f"trigger_and_get_schedule failed after {attempt + 1} attempts."
+                        f"trigger_and_get_schedule failed after {attempt + 1} attempts. "
                         f"Client exception: {e}.",
                         level="WARNING",
                     )

@@ -3,12 +3,12 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.6.0 2025-03-??
+## 0.6.0 2025-04-??
 
 ### Fixed
 
 - 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
-- 🪲 BUG: Too often "No new schedules" (#250)
+- 🪲 BUG: Too often "No new schedules". This includes relaxed scheduling. (#250)
 
 ### Added
 

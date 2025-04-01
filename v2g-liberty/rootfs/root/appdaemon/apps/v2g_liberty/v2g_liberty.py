@@ -72,8 +72,10 @@ class V2Gliberty:
     # This is a target datetime at which the SoC that is above the max_soc must return back to or
     # below this value. It is dependent on the user setting for allowed duration above max soc.
     back_to_max_soc: datetime
-
     in_boost_to_reach_min_soc: bool
+
+    # To determine if a new notification for 'unreachable target' should be sent.
+    last_soonest_target_date: datetime
 
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
@@ -118,6 +120,9 @@ class V2Gliberty:
 
         self.in_boost_to_reach_min_soc = False
         self.timer_handle_set_next_action = ""
+
+        # Avoid comparison with None
+        self.last_soonest_target_date = get_local_now()
 
         # For checking how long the charger has been in error
         self.date_reference = datetime(2000, 1, 1)
@@ -680,6 +685,7 @@ class V2Gliberty:
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
         self.clear_notification(tag="dismiss_event_or_not")
+        self.clear_notification(tag="unreachable_target")
 
         # Cancel current scheduling timers
         self.__cancel_charging_timers()
@@ -709,9 +715,16 @@ class V2Gliberty:
                value represents the maxiumum that can be reached at the end. If None (default)the
                soc can be reached before the end of the v2g_event.
 
+        Prevent sending several notifications. Only re-send if the soonest_at_target datetime
+        changes.
+
         This notification does influence and is not influenced by the processes
         for 'dismiss event or not' or 'connect after event'.
         """
+        if self.last_soonest_target_date == soonest_at_target:
+            # Needed to avoid repeated duplicat notifications about the same issue.
+            # Unfortunately HA does not filter excact duplicates automatically.
+            return
 
         self.__log(
             f"Handle unreachable target soc soonest at target: {soonest_at_target.isoformat()}, "
@@ -726,6 +739,8 @@ class V2Gliberty:
                 f"delay ({delay_in_seconds} sec.) is too short."
             )
             return
+
+        self.last_soonest_target_date = soonest_at_target
 
         hours = int(delay_in_seconds // 3600)
         minutes = int((delay_in_seconds % 3600) // 60)
