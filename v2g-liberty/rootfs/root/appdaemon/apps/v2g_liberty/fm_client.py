@@ -696,24 +696,40 @@ class FMClient(AsyncIOEventEmitter):
         }
         self.__log(f"flex_model: {flex_model}.")
         schedule = {}
-        try:
-            schedule = await self.client.trigger_and_get_schedule(
-                sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
-                duration=self.FM_SCHEDULE_DURATION_STR,
-                start=rounded_now.isoformat(),
-                flex_model=flex_model,
-                flex_context=c.FM_OPTIMISATION_CONTEXT,
-            )
-        except Exception as e:
-            # ContentTypeError, ValueError, timeout??:
-            self.__log(
-                f"failed to get schedule, client returned exception: {e}.",
-                level="WARNING",
-            )
-            self.fm_busy_getting_schedule = False
-            self.emit("no_new_schedule", "timeouts_on_schedule", error_state=True)
-            await self.wait_for_complete()
-            return
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            # Preferably the retry mechanism would be incorporated in the flexmeasures_client.
+            # But this seems to make the system much more relyable so it is implemented here
+            # until the fm client implements it.
+            try:
+                schedule = await self.client.trigger_and_get_schedule(
+                    sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+                    duration=self.FM_SCHEDULE_DURATION_STR,
+                    start=rounded_now.isoformat(),
+                    flex_model=flex_model,
+                    flex_context=c.FM_OPTIMISATION_CONTEXT,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries:
+                    self.__log(
+                        f"trigger_and_get_schedule attempt {attempt + 1} failed, retrying."
+                        f"Client exception: {e}.",
+                        level="WARNING",
+                    )
+                    await self.hass.sleep(1)
+                else:
+                    self.__log(
+                        f"trigger_and_get_schedule failed after {attempt + 1} attempts."
+                        f"Client exception: {e}.",
+                        level="WARNING",
+                    )
+                    self.fm_busy_getting_schedule = False
+                    self.emit(
+                        "no_new_schedule", "timeouts_on_schedule", error_state=True
+                    )
+                    await self.wait_for_complete()
+                    return
 
         self.fm_busy_getting_schedule = False
 
