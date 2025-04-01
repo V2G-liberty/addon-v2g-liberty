@@ -192,6 +192,47 @@ class FMClient(AsyncIOEventEmitter):
         await self.set_fm_connection_status(connected=True)
         return "Successfully connected"
 
+    async def log_version(self, v2g_liberty_version: str):
+        """Log V2G Liberty version number in the asset on FlexMeasures"""
+        asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
+
+        await self.__set_asset_attribute(
+            asset_id=asset_id,
+            attribute_name="v2g-liberty-version",
+            attribute_value=v2g_liberty_version,
+        )
+
+    async def __set_asset_attribute(
+        self, asset_id: int, attribute_name: str, attribute_value: str
+    ):
+        """Set attribute on asset in FM"""
+        if attribute_name is None or asset_id is None:
+            self.__log(
+                f"{asset_id=} or {attribute_name=} is None, abort.", level="WARNING"
+            )
+            return
+
+        inner_attributes = dict({attribute_name: attribute_value})
+        asset_attributes = dict(attributes=inner_attributes)
+
+        try:
+            res = await self.client.update_asset(asset_id, asset_attributes)
+        except Exception as e:
+            self.__log(
+                f"Update for {asset_id=}, {attribute_name=}, {attribute_value=} "
+                f"failed, client returned exception: '{e}'.",
+                level="WARNING",
+            )
+
+    async def __get_asset_id_by_name(self, asset_name: str):
+        # TODO: The asset_id is known already at first configuration time so could be stored then.
+        # See globals module where c.FM_ASSET_NAME is set.
+        assets = await self.client.get_assets()
+        for asset in assets:
+            if asset["name"] == asset_name:
+                return asset["id"]
+        return None
+
     async def get_fm_sensors_by_asset_name(self, asset_name: str):
         assets = await self.client.get_assets()
         for asset in assets:
@@ -199,25 +240,6 @@ class FMClient(AsyncIOEventEmitter):
                 sensors = [sensor for sensor in asset["sensors"]]
                 return sensors
         return []
-
-    # async def ping_server(self, *args):
-    # """ Ping function to check if server is alive """
-    # res = requests.get(c.FM_PING_URL)
-    # if res.status_code == 200:
-    #     if self.connection_error_counter > 0:
-    #         # There was an error before as the counter > 0
-    #         # So a timer must be running, but it is not needed any more, so cancel it.
-    #         await self.cancel_timer(self.handle_for_repeater, True)
-    #         await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", False)
-    #     self.connection_error_counter = 0
-    # else:
-    #     self.connection_error_counter += 1
-    #
-    # if self.connection_error_counter == 1:
-    #     # A first error occurred, retry in every minute now
-    #     self.handle_for_repeater = self.run_every(self.ping_server, "now+60", 60)
-    #     self.__log("No communication with FM! Increase tracking frequency.")
-    #     await self.v2g_main_app.handle_no_new_schedule("no_communication_with_fm", True)
 
     async def get_sensor_data(
         self,

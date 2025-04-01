@@ -189,11 +189,11 @@ class V2Gliberty:
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
-
+        await self.hass.run_in(self.__log_version, delay=15)
         self.__log("Completed")
 
     ######################################################################
-    #                         PUBLIC FUNCTIONS                           #
+    #                          PUBLIC METHODS                            #
     ######################################################################
 
     async def kick_off_v2g_liberty(self, v2g_args=None):
@@ -663,6 +663,21 @@ class V2Gliberty:
             # End for car_reservation loop
 
         await self.set_next_action(v2g_args)
+
+    ######################################################################
+    #                         PRIVATE METHODS                            #
+    ######################################################################
+
+    async def __log_version(self, args):
+        """
+        Log version, to be called once at initialisation.
+        """
+        version_number = await self.hass.get_state(
+            "update.v2g_liberty_update", attribute="installed_version"
+        )
+        if version_number is None:
+            return
+        await self.fm_client_app.log_version(version_number)
 
     async def __handle_car_connect(self, entity, attribute, old, new, kwargs):
         """

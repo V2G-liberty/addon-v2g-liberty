@@ -166,6 +166,9 @@ DEFAULT_UTILITY_CONTEXTS = {
 FM_ACCOUNT_USERNAME: str = ""
 FM_ACCOUNT_PASSWORD: str = ""
 
+# Name of the FM asset that is managed, e.g. "John's Quasar"
+FM_ASSET_NAME: str = ""
+
 # Sensor entity for sending and id for retrieving data to/from FM
 # FSC: Used in fm_client, get_fm_data, data_monitor, keep here.
 FM_ACCOUNT_POWER_SENSOR_ID: int = 0
