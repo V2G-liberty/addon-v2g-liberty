@@ -72,8 +72,10 @@ class V2Gliberty:
     # This is a target datetime at which the SoC that is above the max_soc must return back to or
     # below this value. It is dependent on the user setting for allowed duration above max soc.
     back_to_max_soc: datetime
-
     in_boost_to_reach_min_soc: bool
+
+    # To determine if a new notification for 'unreachable target' should be sent.
+    last_soonest_target_date: datetime
 
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
@@ -119,6 +121,9 @@ class V2Gliberty:
         self.in_boost_to_reach_min_soc = False
         self.timer_handle_set_next_action = ""
 
+        # Avoid comparison with None
+        self.last_soonest_target_date = get_local_now()
+
         # For checking how long the charger has been in error
         self.date_reference = datetime(2000, 1, 1)
         self.charger_in_error_since = self.date_reference
@@ -138,6 +143,9 @@ class V2Gliberty:
         self.no_schedule_notification_is_planned = False
 
         self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+        self.fm_client_app.add_listener(
+            "unreachable_target", self.handle_unreachable_target
+        )
         self.reservations_client.add_listener(
             "calendar_change", self.handle_calendar_change
         )
@@ -338,6 +346,7 @@ class V2Gliberty:
             if soc >= c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.__log(
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
+                    f"Stopping max_boost."
                 )
                 await self.__set_charge_power(
                     {
@@ -345,7 +354,6 @@ class V2Gliberty:
                         "source": "set_next_action: end_of_boost_to_min_soc",
                     }
                 )
-                self.__log("Stopping max charge now.")
                 self.in_boost_to_reach_min_soc = False
                 # Remove "boost schedule" from graph.
                 await self.set_records_in_chart(
@@ -366,8 +374,15 @@ class V2Gliberty:
                         }
                     )
 
-            # Not checking > max charge (97%), we could also want to discharge based on schedule
-            await self.__ask_for_new_schedule()
+            if not self.in_boost_to_reach_min_soc:
+                # Not checking > max charge (97%), we could also want to discharge based on schedule
+                # await self.__ask_for_new_schedule()
+                await self.fm_client_app.get_new_schedule(
+                    targets=self.calendar_targets,
+                    current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
+                    back_to_max_soc=self.back_to_max_soc,
+                )
+                self.__log("Requesting new schedule.")
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
@@ -606,7 +621,7 @@ class V2Gliberty:
 
                 target_start = car_reservation["start"]
                 target_end = car_reservation["end"]
-                # Check target_soc above max_capacity and below min_soc is done in
+                # Check target_soc above max_soc and below min_soc is done in
                 # the reservations_client.
                 target = {
                     "start": time_round(target_start, c.EVENT_RESOLUTION),
@@ -635,8 +650,7 @@ class V2Gliberty:
                         v2g_event=car_reservation,
                     )
                     # Assumed is that the end will never be in the past as teh v2g_event then will
-                    # not be in the
-                    # list of v2g_events (any more).
+                    # not be in the list of v2g_events (any more).
                     self.__cancel_timer(self.timer_id_first_reservation_end)
                     self.timer_id_first_reservation_end = await self.hass.run_at(
                         callback=self.__handle_first_reservation_end,
@@ -686,6 +700,7 @@ class V2Gliberty:
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
         self.clear_notification(tag="dismiss_event_or_not")
+        self.clear_notification(tag="unreachable_target")
 
         # Cancel current scheduling timers
         self.__cancel_charging_timers()
@@ -703,6 +718,70 @@ class V2Gliberty:
                 send_to_all=True,
                 ttl=15 * 60,
             )
+
+    async def handle_unreachable_target(
+        self, soonest_at_target: datetime, max_target: int = None
+    ):
+        """Handle emitted event unreachable target (= soc at given datetime). This always only
+        applies to the current or first upcoming v2g_event.
+
+        param: soonest_at_target (datetime). Thet datetime at which the requested soc can be reached
+        param: max_target: if at the end of the v2g_event the target still cannot be reached, this
+               value represents the maxiumum that can be reached at the end. If None (default)the
+               soc can be reached before the end of the v2g_event.
+
+        Prevent sending several notifications. Only re-send if the soonest_at_target datetime
+        changes.
+
+        This notification does influence and is not influenced by the processes
+        for 'dismiss event or not' or 'connect after event'.
+        """
+        if self.last_soonest_target_date == soonest_at_target:
+            # Needed to avoid repeated duplicat notifications about the same issue.
+            # Unfortunately HA does not filter excact duplicates automatically.
+            return
+
+        self.__log(
+            f"Handle unreachable target soc soonest at target: {soonest_at_target.isoformat()}, "
+            f"max possible target: {max_target}."
+        )
+        ve = self.calendar_targets[0]
+        delay_in_seconds = (soonest_at_target - ve["start"]).total_seconds()
+
+        if delay_in_seconds < 420:
+            self.__log(
+                f"Not notifying about unreachable target as the "
+                f"delay ({delay_in_seconds} sec.) is too short."
+            )
+            return
+
+        self.last_soonest_target_date = soonest_at_target
+
+        hours = int(delay_in_seconds // 3600)
+        minutes = int((delay_in_seconds % 3600) // 60)
+        duration = f"{hours:02}:{minutes:02}"
+        time_format = "%H:%M"
+
+        if max_target is None:
+            message = (
+                f"The target soc of the next calendar item is expected at "
+                f"{soonest_at_target.strftime(time_format)}, this is {duration} later "
+                f"than planned."
+            )
+        else:
+            message = (
+                f"The target soc of the next calendar item is expected to be {max_target}%"
+                f"at {ve['end'].strftime(time_format)}."
+            )
+
+        ttl = round((ve["end"] - get_local_now()).total_seconds(), 0)
+        self.__log(f"Notifying user for {ttl} sec.:\n'{message}'")
+        self.notify_user(
+            message=message,
+            tag="unreachable_target",
+            send_to_all=True,
+            ttl=ttl,
+        )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """Keep track of situations where no new schedule is available:
@@ -1154,39 +1233,6 @@ class V2Gliberty:
     ######################################################################
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
     ######################################################################
-
-    async def __ask_for_new_schedule(self):
-        """
-        This function is meant to be called upon:
-        - SOC updates
-        - charger state updates
-        - every 15 minutes if none of the above
-        """
-        self.__log("__ask_for_new_schedule called")
-
-        # Check whether we're in automatic mode
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        if charge_mode != "Automatic":
-            self.__log(
-                f"Not getting new schedule, charge mode is not 'Automatic' but '{charge_mode}'."
-            )
-            return
-
-        # Check whether we're not in boost mode.
-        if self.in_boost_to_reach_min_soc:
-            self.__log(
-                "Not getting new schedule. SoC below minimum, boosting to reach that first."
-            )
-            return
-
-        # Adding the target one week from now is FM specific, so this is done in the fm_client_app
-        await self.fm_client_app.get_new_schedule(
-            targets=self.calendar_targets,
-            current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
-            back_to_max_soc=self.back_to_max_soc,
-        )
-
-        return
 
     async def __process_schedule(self, entity, attribute, old, new, kwargs):
         """Process a schedule by setting timers to start charging the car.

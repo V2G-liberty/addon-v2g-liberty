@@ -4,8 +4,12 @@ import isodate
 import math
 import constants as c
 import log_wrapper
-from v2g_globals import time_round, get_local_now
-from time_slot_util import generate_time_slots
+from v2g_globals import time_round, time_ceil, get_local_now
+from time_range_util import (
+    consolidate_time_ranges,
+    convert_dates_to_iso_format,
+    add_unit_to_values,
+)
 from appdaemon.plugins.hass.hassapi import Hass
 
 
@@ -330,10 +334,11 @@ class FMClient(AsyncIOEventEmitter):
         """Get a new schedule from FlexMeasures.
         But not if still busy with getting previous schedule.
         Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
-        Params:
-        targets: a list of targets (=dict with start, end, soc)
-        back_to_max_soc: if current SoC > Max_SoC this setting informs the schedule when to be back
-                         at max soc. Can be None.
+
+        param: targets (list) a list of targets (=dict with start, end, soc)
+        param: current_soc_kwh (float), the state of charge at the moment the schedule is requested
+        param: back_to_max_soc (datetime) if current SoC > Max_SoC this setting informs the schedule
+               when to be back at max soc. Can be None.
         """
         self.__log("called.")
         now = get_local_now()
@@ -377,21 +382,17 @@ class FMClient(AsyncIOEventEmitter):
             rounded_now + self.FM_SCHEDULE_DURATION, c.EVENT_RESOLUTION
         )
 
-        # Add a placeholder target with soc CAR_MAX_SOC_IN_KWH (usually ≈80%) one week from now.
+        # Always add a placeholder target with soc CAR_MAX_SOC_IN_KWH one week from now.
         # FM needs this to be able to produce a schedule whereby the influence of this placeholder
-        # is none. Added to the soc_minima later on
+        # is none.
         end_of_schedule_input_period = rounded_now + timedelta(days=7)
-
-        soc_minima = []
-
-        # TODO: Add "soc-usage": soc_usage
-        # soc_usage = []
-        # The basis usage is 0 and can be lifted by adding other usage
-        # soc_usage.append({
-        #     "value": 0,
-        #     "start": rounded_now,
-        #     "end": schedule_end,
-        # })
+        soc_minima = [
+            {
+                "value": c.CAR_MAX_SOC_IN_KWH,
+                "start": end_of_schedule_input_period - c.EVENT_RESOLUTION,
+                "end": end_of_schedule_input_period,
+            }
+        ]
 
         # The schedule should not take into account that during calendar items it cannot
         # charge/discharge.
@@ -414,14 +415,11 @@ class FMClient(AsyncIOEventEmitter):
         ]
 
         if targets is not None:
-            # TODO: Add "soc-usage"
-            # usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
-
-            ##################################
-            #    Make a list of soc_minima   #
-            ##################################
+            ########################################################################################
+            #    Make a list of soc_minima, max_power_ranges for consumption and production        #
+            ########################################################################################
             self.__log("start generating soc_minima")
-            for target in targets:
+            for i, target in enumerate(targets):
                 target_start = target["start"]
                 target_end = target["end"]
                 # Only add targets with a start in the schedule duration
@@ -429,6 +427,59 @@ class FMClient(AsyncIOEventEmitter):
                     # Assuming the targets list is sorted we can break (instead of continue)
                     break
                 target_soc_kwh = target["target_soc_kwh"]
+
+                if i == 0:
+                    # Only for the first v2g_event check if the target soc can be reached in time.
+                    delta_to_target = target_soc_kwh - current_soc_kwh
+                    if delta_to_target > 0:
+                        min_charge_time = math.ceil(
+                            delta_to_target
+                            / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
+                            / (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                            * 60
+                        )
+                        soonest_at_target = time_ceil(
+                            rounded_now + timedelta(minutes=min_charge_time),
+                            c.EVENT_RESOLUTION,
+                        )
+                        if soonest_at_target > target_start:
+                            # Target soc cannot be reached at start of v2g_event,
+                            # relax the start time.
+                            virtual_target_end = target_end - c.EVENT_RESOLUTION
+                            max_target = None
+                            if virtual_target_end < soonest_at_target:
+                                # Target % cannot be reached within duration of v2g_event,
+                                # relax the target %.
+                                soonest_at_target = virtual_target_end
+                                # Calculate highest possible target soc
+                                minutes_left_to_charge = (
+                                    virtual_target_end - rounded_now
+                                ).total_seconds() / 60
+                                self.__log(
+                                    f"minutes_left_to_charge: '{minutes_left_to_charge}'."
+                                )
+                                max_target = current_soc_kwh + (
+                                    minutes_left_to_charge
+                                    / 60
+                                    * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                                    * (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                                )
+                                target_soc_kwh = max_target
+                                # Communicate the target soc to user in %
+                                max_target = int(
+                                    round(
+                                        (max_target / c.CAR_MAX_CAPACITY_IN_KWH) * 100,
+                                        0,
+                                    )
+                                )
+                            target_start = soonest_at_target
+                            self.emit(
+                                "unreachable_target",
+                                soonest_at_target=soonest_at_target,
+                                max_target=max_target,
+                            )
+                            await self.wait_for_complete()
+
                 soc_minima.append(
                     {
                         "value": target_soc_kwh,
@@ -450,28 +501,10 @@ class FMClient(AsyncIOEventEmitter):
                         "end": target_end,
                     }
                 )
-
-                # TODO: soc_usage
-                # soc_usage.append({
-                #     "value": c.USAGE_PER_EVENT_TIME_INTERVAL,
-                #     "start": target_start,
-                #     "end": target_end,
-                # })
             # -- End for target in targets --
 
-            # Always add a future target for scheduling to be made possible.
-            soc_minima.append(
-                {
-                    "value": c.CAR_MAX_SOC_IN_KWH,
-                    "start": end_of_schedule_input_period - c.EVENT_RESOLUTION,
-                    "end": end_of_schedule_input_period,
-                }
-            )
             # Remove any overlap and use the maximum in overlapping periods.
-            soc_minima = consolidate_time_ranges(soc_minima)
-
-            # TODO: soc_usage
-            # soc_usage = self.consolidate_time_ranges(soc_usage)
+            soc_minima = consolidate_time_ranges(soc_minima, c.EVENT_RESOLUTION)
 
             ##################################
             #   Make a list of soc_maxima    #
@@ -505,7 +538,7 @@ class FMClient(AsyncIOEventEmitter):
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
                     )
-                    self.__log("window_duration: {window_duration}.")
+                    self.__log("window_duration: {window_duration} minutes.")
                     # srw = start_relaxation_window, erw = end_relaxation_window
                     srw = time_round(
                         (soc_minimum_start - timedelta(minutes=window_duration)),
@@ -647,13 +680,13 @@ class FMClient(AsyncIOEventEmitter):
                 )
         # -- End if back_to_max_soc is not None and isinstance(back_to_max_soc, datetime) --
 
-        soc_maxima = consolidate_time_ranges(soc_maxima)
+        soc_maxima = consolidate_time_ranges(soc_maxima, c.EVENT_RESOLUTION)
         soc_maxima = convert_dates_to_iso_format(soc_maxima)
 
         soc_minima = convert_dates_to_iso_format(soc_minima)
 
         max_consumption_power_ranges = consolidate_time_ranges(
-            max_consumption_power_ranges, min_or_max="min"
+            max_consumption_power_ranges, c.EVENT_RESOLUTION, min_or_max="min"
         )
         max_consumption_power_ranges = add_unit_to_values(
             max_consumption_power_ranges, unit="W"
@@ -663,7 +696,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
         max_production_power_ranges = consolidate_time_ranges(
-            max_production_power_ranges, min_or_max="min"
+            max_production_power_ranges, c.EVENT_RESOLUTION, min_or_max="min"
         )
         max_production_power_ranges = add_unit_to_values(
             max_production_power_ranges, unit="W"
@@ -672,10 +705,6 @@ class FMClient(AsyncIOEventEmitter):
             max_production_power_ranges
         )
 
-        # TODO: convert soc_usage
-        # soc_usage = convert_dates_to_iso_format(soc_usage)
-
-        # TODO: Add "soc-usage"
         flex_model = {
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
@@ -689,24 +718,40 @@ class FMClient(AsyncIOEventEmitter):
         }
         self.__log(f"flex_model: {flex_model}.")
         schedule = {}
-        try:
-            schedule = await self.client.trigger_and_get_schedule(
-                sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
-                duration=self.FM_SCHEDULE_DURATION_STR,
-                start=rounded_now.isoformat(),
-                flex_model=flex_model,
-                flex_context=c.FM_OPTIMISATION_CONTEXT,
-            )
-        except Exception as e:
-            # ContentTypeError, ValueError, timeout??:
-            self.__log(
-                f"failed to get schedule, client returned exception: {e}.",
-                level="WARNING",
-            )
-            self.fm_busy_getting_schedule = False
-            self.emit("no_new_schedule", "timeouts_on_schedule", error_state=True)
-            await self.wait_for_complete()
-            return
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            # Preferably the retry mechanism would be incorporated in the flexmeasures_client.
+            # But this seems to make the system much more relyable so it is implemented here
+            # until the fm client implements it.
+            try:
+                schedule = await self.client.trigger_and_get_schedule(
+                    sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+                    duration=self.FM_SCHEDULE_DURATION_STR,
+                    start=rounded_now.isoformat(),
+                    flex_model=flex_model,
+                    flex_context=c.FM_OPTIMISATION_CONTEXT,
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries:
+                    self.__log(
+                        f"trigger_and_get_schedule attempt {attempt + 1} failed, retrying. "
+                        f"Client exception: {e}.",
+                        level="WARNING",
+                    )
+                    await self.hass.sleep(1)
+                else:
+                    self.__log(
+                        f"trigger_and_get_schedule failed after {attempt + 1} attempts. "
+                        f"Client exception: {e}.",
+                        level="WARNING",
+                    )
+                    self.fm_busy_getting_schedule = False
+                    self.emit(
+                        "no_new_schedule", "timeouts_on_schedule", error_state=True
+                    )
+                    await self.wait_for_complete()
+                    return
 
         self.fm_busy_getting_schedule = False
 
@@ -764,124 +809,3 @@ def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
         host = url
 
     return host, ssl
-
-
-# See separate unit tests
-def consolidate_time_ranges(ranges, min_or_max: str = "max"):
-    """
-    Make ranges non-overlapping and, for the overlapping parts, use min/max value from the ranges.
-
-    :param ranges: dicts with start(datetime), end(datetime) and value (int)
-                   The start and end must be snapped to the resolution.
-    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values
-                       should be used for the overlapping parts.
-    :return: a list of dicts with start(datetime), end(datetime) and value (int) that are
-             none-overlapping, but possibly 'touching' (end of A = start of B).
-
-    Note!
-    It is not possible yet to correctly process non-overlapping ranges with a one-resolution
-    distance. As this is very rare in this context, and it's impact relatively small it has not been
-    solved yet and accepted as a not-perfect output.
-    """
-    if len(ranges) == 0:
-        return []
-    elif len(ranges) == 1:
-        return ranges
-
-    generated_slots = generate_time_slots(ranges, c.EVENT_RESOLUTION)
-    return __combine_time_slots(generated_slots, min_or_max=min_or_max)
-
-
-# See separate unit tests
-def __combine_time_slots(time_slots: dict, min_or_max: str = "max"):
-    """
-    Merges time slots into ranges with a constant value. The value to use is based on min_or_max
-    parameter.
-
-    :param time_slots: dict, with the format:
-                       key: [min, max] where key is a datetime and min/max are int values
-    :param min_or_max: str, "min" or "max" (default) to indicate if the minimum or maximum values
-                       should be used for the overlapping parts.
-    :return: dicts with start(datetime), end(datetime) and value (int) that are none-overlapping,
-             but possibly 'touching' (end of A = start of B).
-    """
-
-    combined_ranges = []
-    sorted_times = sorted(time_slots.keys())
-
-    min_max_index = 1 if min_or_max == "max" else 0
-
-    # Initialize the first time slot
-    current_range_start = sorted_times[0]
-
-    # Choose the first value based on min or max
-    current_range_value = time_slots[current_range_start][min_max_index]
-
-    for i in range(1, len(sorted_times)):
-        current_time = sorted_times[i]
-        expected_time = sorted_times[i - 1] + c.EVENT_RESOLUTION
-
-        # Determine the current value based on min or max
-        time_slot_value = time_slots[current_time][min_max_index]
-
-        # If there's a break in the range times, close the current range
-        if current_time != expected_time:
-            combined_ranges.append(
-                {
-                    "start": current_range_start,
-                    "end": sorted_times[i - 1],
-                    "value": current_range_value,
-                }
-            )
-            # Start a new range
-            current_range_start = current_time
-            current_range_value = time_slot_value
-
-        # If there's a break in the range value changes, close the current range
-        elif time_slot_value != current_range_value:
-            range_end_time = current_time
-            if (min_or_max != "max" and time_slot_value > current_range_value) or (
-                min_or_max == "max" and time_slot_value < current_range_value
-            ):
-                range_end_time = sorted_times[i - 1]
-
-            combined_ranges.append(
-                {
-                    "start": current_range_start,
-                    "end": range_end_time,
-                    "value": current_range_value,
-                }
-            )
-            # Start a new range
-            current_range_start = range_end_time
-            current_range_value = time_slot_value
-
-    # Add the last range
-    combined_ranges.append(
-        {
-            "start": current_range_start,
-            "end": sorted_times[-1],
-            "value": current_range_value,
-        }
-    )
-
-    return combined_ranges
-
-
-def convert_dates_to_iso_format(data):
-    for entry in data:
-        dts = entry.get("start", None)
-        if dts is not None and isinstance(dts, datetime):
-            entry["start"] = dts.isoformat()
-        dte = entry.get("end", None)
-        if dte is not None and isinstance(dte, datetime):
-            entry["end"] = dte.isoformat()
-    return data
-
-
-def add_unit_to_values(data, unit: str):
-    for entry in data:
-        value = entry.get("value", None)
-        if value is not None:
-            entry["value"] = f"{value} {unit}"
-    return data

@@ -1,11 +1,11 @@
 # What's changed?
 
-## 0.6.0 2025-03-??
+## 0.6.0 2025-04-??
 
 ### Fixed
 
 - 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
-- 🪲 BUG: Too often "No new schedules" (#250)
+- 🪲 BUG: Too often "No new schedules". This includes relaxed scheduling. (#250)
 
 ### Added
 
@@ -32,7 +32,7 @@ The next release might include:
 
 #### Changing
 
-- ??
+- ?
 
 #### Removing
 
