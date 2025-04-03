@@ -16,7 +16,7 @@ For the load balancer to work it needs information about the current load (how m
 
 - A cable that connects the Home Assistant hardware to the P1 port of your smart meter + the [DSMR Integration](https://www.home-assistant.io/integrations/dsmr/).
 
-- A cable connection to connect a kWh meter (that was installed to work with the Quasar originally) to the Home Assistant hardware + a way to read the values from this device.
+- A (cable) connection to a kWh meter (that was installed to work with the Quasar originally) to the Home Assistant hardware + a way to read the values from this device. An example can be found [here](https://m0agx.eu/homeassistant-modbus-energy-meter.html).
 
 This should result in a (sensor) entity in Home Assistant that is updated frequently (at least every 5 to 10 seconds) with the actual load in Watt.
 
@@ -48,7 +48,7 @@ sensor:
 
 ## Configuration
 
-The load balancer is configured through the file `quasar_load_balancer.json` in the Home Assistant root folder (config). An example configuration file is provided there. Below is a detailed explanation of each configuration parameter and how to enable and configure the load balancer within a parent module.
+The load balancer is configured through the file `quasar_load_balancer.json` in the Home Assistant root folder (config). An example configuration file is provided there (rename this example file to the exact name above). Below is a detailed explanation of each configuration parameter and how to enable and configure the load balancer within a parent module.
 
 1. **enabled**: `false`
 
@@ -64,11 +64,11 @@ The load balancer is configured through the file `quasar_load_balancer.json` in 
 
 4. **total_power_entity_id**: `sensor.your_power_entity_here`
 
-   The entity ID used to track the instantaneous power reading in Watts. Replace `sensor.your_power_entity_here` with the actual sensor entity ID. See prerequisites. Make sure to choose the phase that the charger is connected to. If you aduse the yaml config above and your Quasar is connected to phase 2, the enity_id should be `sensor.net_power_l2`
+   The entity ID used to track the instantaneous power reading in Watts. Replace `sensor.your_power_entity_here` with the actual sensor entity ID. See prerequisites. Make sure to choose the phase that the charger is connected to. If you use the yaml config above and your Quasar is connected to phase 2, the enity_id should be `sensor.net_power_l2`
 
 5. **total_power_limit**: `pppp`
 
-   The maximum power limit in Watts for a single phase of the homoe connection. E.g. a for a 3 x 25A connection use 25A x 230V = 5750W. Use an integer between 1380 and 7400.
+   The maximum power limit in Watts for a single phase of the home connection. E.g. a for a 3 x 25A connection use 25A x 230V = 5750W. Use an integer between 1380 and 7400.
 
 6. **max_charge_power**: `mmmm`
 
@@ -83,7 +83,9 @@ The load balancer is configured through the file `quasar_load_balancer.json` in 
 
 ## Enabling the Load Balancer
 
-To enable the power load balancer, set the `enabled` parameter to `true`. Additionally, adjust the following settings in the V2G Liberty settings page:
+To enable the power load balancer, set the `enabled` parameter to `true` (see above).
+
+Additionally, adjust the following settings in the **V2G Liberty settings page**:
 
 - **Charger host URL**: `127.0.0.1`
 - **Port number**: `5020`
