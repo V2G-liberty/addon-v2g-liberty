@@ -1317,6 +1317,7 @@ class ModbusEVSEclient:
                 if (
                     min_value_after_forced_get is not None
                     and max_value_after_forced_get is not None
+                    and result is not None
                 ):
                     if (
                         min_value_after_forced_get
