@@ -3,6 +3,52 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.6.0 2025-04-??
+
+### Fixed
+
+- 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
+- 🪲 BUG: Too often "No new schedules". This includes relaxed scheduling. (#250)
+
+### Added
+
+- 🚀 Feature Request: Loadbalancer function (Unnumbered)
+- 🚀 Feature Request: 'Discarge now' button. (#240)
+
+### Changed
+
+- 🚀 Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
+  This includes the option to set a target in km.
+- ⬆️ Bump PyModbus library to v3.8.5
+
+## 0.5.3 2025-03-06
+
+### Fixed
+
+- None
+
+### Added
+
+- None
+
+### Changed
+
+- Changed default url for the FlexMeasures cloud service from `https://seita.energy` to `https://ems.seita.energy`. This includes automated update of this setting for current clients.
+
+## 0.5.2 2025-02-19
+
+### Fixed
+
+- 🪲 BUG: Build problems due to updated `build-base` and `patches`.
+
+### Added
+
+- None
+
+### Changed
+
+- None
+
 ## 0.5.1 2025-02-05
 
 ### Fixed

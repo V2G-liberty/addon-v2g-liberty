@@ -47,7 +47,7 @@ class V2GLibertyGlobals:
         "entity_name": "fm_host_url",
         "entity_type": "input_text",
         "value_type": "str",
-        "factory_default": "https://seita.energy",
+        "factory_default": "https://ems.seita.energy",
     }
     SETTING_FM_ASSET = {
         "entity_name": "fm_asset",
@@ -344,10 +344,10 @@ class V2GLibertyGlobals:
 
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
-        await self.__initialise_calendar_settings()
         await self.__initialise_general_settings()
-        # # FlexMeasures settings are influenced by the optimisation_ and general_settings.
+        # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
+        await self.__initialise_calendar_settings()
 
     async def __initialise_devices(self):
         # List of all the recipients to notify
@@ -422,7 +422,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_calendar_settings.result")
 
         await self.__initialise_calendar_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_charger_settings(self, event, data, kwargs):
         self.__store_setting("input_text.charger_host_url", data["host"])
@@ -444,7 +444,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_charger_settings.result")
 
         await self.__initialise_charger_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         if data["contract"] == "nl_generic":
@@ -473,7 +473,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_electricity_contract_settings.result")
 
         await self.__initialise_electricity_contract_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
         await self.fm_data_retrieve_client.finalize_initialisation(
             v2g_args="initialise_energy_contract"
         )
@@ -491,7 +491,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_schedule_settings.result")
 
         await self.__initialise_fm_client_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_setting(self, event, data, kwargs):
         self.__store_setting(data["entity"], data["value"])
@@ -501,7 +501,7 @@ class V2GLibertyGlobals:
         if data["entity"] == "input_select.optimisation_mode":
             await self.__set_fm_optimisation_context()
         await self.__initialise_general_settings()
-        await self.v2g_main_app.initialise_v2g_liberty()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
         self.__log("called")
@@ -877,17 +877,23 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
 
-        c.CAR_MIN_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
         c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
+        )
+        c.CAR_MIN_SOC_IN_KWH = (
+            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
         )
         c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
         c.CAR_MAX_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
+        )
+        c.CAR_MAX_RANGE_IN_KM = round(
+            c.CAR_MAX_CAPACITY_IN_KWH
+            * (c.CAR_MAX_CAPACITY_IN_PERCENT / 100)
+            / c.CAR_CONSUMPTION_WH_PER_KM
+            * 1000
         )
 
         c.ALLOWED_DURATION_ABOVE_MAX_SOC = await self.__process_setting(
@@ -926,15 +932,13 @@ class V2GLibertyGlobals:
             c.CAR_CALENDAR_NAME = await self.__process_setting(
                 setting_object=self.SETTING_CAR_CALENDAR_NAME
             )
-
-            await self.calendar_client.initialise_calendar()
         else:
             c.INTEGRATION_CALENDAR_ENTITY_NAME = await self.__process_setting(
                 setting_object=self.SETTING_INTEGRATION_CALENDAR_ENTITY_NAME,
             )
 
-            res = await self.calendar_client.initialise_calendar()
-            self.__log(f"init HA calendar result: '{res}'.")
+        res = await self.calendar_client.initialise_calendar()
+        self.__log(f"init reservations_calendar result: '{res}'.")
 
         self.__log("completed")
 
@@ -964,10 +968,12 @@ class V2GLibertyGlobals:
         else:
             c.FM_BASE_URL = self.SETTING_FM_BASE_URL["factory_default"]
 
-        asset_name = await self.__process_setting(setting_object=self.SETTING_FM_ASSET)
+        c.FM_ASSET_NAME = await self.__process_setting(
+            setting_object=self.SETTING_FM_ASSET
+        )
 
         await self.fm_client_app.initialise_and_test_fm_client()
-        sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(asset_name)
+        sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
 
@@ -1281,7 +1287,7 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
 def parse_to_int(number_string, default_value: int):
     """Reliably parse a string, float or int to an int. If un-parsable return the default value.
     :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if paring failed.
+    :param default_value: int that is returned if parsing failed.
     :return: parsed int
     """
     try:
