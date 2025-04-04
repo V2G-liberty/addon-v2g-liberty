@@ -1,4 +1,4 @@
-# Power Load Balancer Configuration Guide
+# Power Load Balancing Configuration Guide
 
 ### **_This module is provided without any guarantees. Use it at your own risk!_**
 
@@ -8,11 +8,15 @@ The software has been tested with both hardware options and works fine. But auth
 
 The primary reason for implementing this software is to address the failing firmware in the Wallbox Quasar 1 charger that in-activates the build-in loadbalancing when the charger is controlled via modbus.
 
-By managing the power load dynamically, the system can prevent overloading. It only guards one phase as the Wallbox Quasar 1 is a one phase charger.
+Load balancing is a service, not an device (although hardware is needed). It prevents overloading the electrical connection (to be precise, the one phase that the Quasar is connected to) by monitoring how much power is flowing through and if it reaches the maximum reducing the charge power of the Quasar. Active load balancing allows you to set a higher maximum charge power and thus make more efficient use of the installation.
+
+Load balancing is recommended but optional to use.
+
+This software only guards 1 phase as the Wallbox Quasar 1 is a one phase charger.
 
 ## Prerequisites
 
-For the load balancer to work it needs information about the current load (how much power is consumed or produced) on the phase. This typically is done via one of these options:
+For the load balancing to work it needs information about the current load (how much power is consumed or produced) on the phase. This typically is done via one of these options:
 
 - A cable that connects the Home Assistant hardware to the P1 port of your smart meter + the [DSMR Integration](https://www.home-assistant.io/integrations/dsmr/).
 
@@ -48,11 +52,11 @@ sensor:
 
 ## Configuration
 
-The load balancer is configured through the file `quasar_load_balancer.json` in the Home Assistant root folder (config). An example configuration file is provided there (rename this example file to the exact name above). Below is a detailed explanation of each configuration parameter and how to enable and configure the load balancer within a parent module.
+The load balancing is configured through the file `quasar_load_balancer.json` in the Home Assistant root folder (config). An example configuration file is provided there (rename this example file to the exact name above). Below is a detailed explanation of each configuration parameter and how to enable and configure the load balancing within a parent module.
 
 1. **enabled**: `false`
 
-   This parameter determines whether the power load balancer is active. Set it to `true` to enable the load balancer.
+   This parameter determines whether the power load balancing is active. Set it to `true` to enable the load balancing.
 
 2. **quasar_host**: `x.x.x.x`
 
@@ -81,21 +85,21 @@ The load balancer is configured through the file `quasar_load_balancer.json` in 
 8. **cooldown_period**: `15`
    - The period in seconds during which no new actions are taken after setting a new power limit. This prevents rapid fluctuations in power settings.
 
-## Enabling the Load Balancer
+## Enabling the Load balancing
 
-To enable the power load balancer, set the `enabled` parameter to `true` (see above).
+To enable the power load balancing, set the `enabled` parameter to `true` (see above).
 
 Additionally, adjust the following settings in the **V2G Liberty settings page**:
 
 - **Charger host URL**: `127.0.0.1`
 - **Port number**: `5020`
 
-These settings ensure that the parent module communicates correctly with the load balancer.
+These settings ensure that the parent module communicates correctly with the load balancing.
 
 ## Note
 
 Ensure that all IP addresses, entity IDs, and power limits are correctly configured to match your specific setup. Incorrect settings may lead to inefficient power management or system failures.
 
-By following this guide, you can effectively configure and enable the power load balancer to optimize your system's power consumption and mitigate issues related to failing charger firmware.
+By following this guide, you can effectively configure and enable the power load balancing to optimize your system's power consumption and mitigate issues related to failing charger firmware.
 
 Just to be sure you got this: This module is provided without any guarantees. Use it at your own risk.
