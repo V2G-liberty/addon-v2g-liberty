@@ -421,6 +421,9 @@ class ModbusEVSEclient:
         """To be called when charge_mode in UI is (switched to) Stop
         Do not cancel polling, the information is still relevant.
         """
+        if self.client is None:
+            self.__log("Client not initialised, aborting", level="WARNING")
+            return
         self.__log("made inactive")
         await self.stop_charging()
         await self.__set_charger_control("give")
@@ -1314,6 +1317,7 @@ class ModbusEVSEclient:
                 if (
                     min_value_after_forced_get is not None
                     and max_value_after_forced_get is not None
+                    and result is not None
                 ):
                     if (
                         min_value_after_forced_get

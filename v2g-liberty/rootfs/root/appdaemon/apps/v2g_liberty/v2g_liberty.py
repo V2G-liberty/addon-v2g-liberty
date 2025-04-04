@@ -69,11 +69,13 @@ class V2Gliberty:
     call_next_action_at_least_every: int = 15 * 60
     scheduling_timer_handles: List[AsyncGenerator]
 
-    # This is a target datetime at which the SoC that is above the max_soc must return back to or below this value.
-    # It is dependent on the user setting for allowed duration above max soc.
+    # This is a target datetime at which the SoC that is above the max_soc must return back to or
+    # below this value. It is dependent on the user setting for allowed duration above max soc.
     back_to_max_soc: datetime
-
     in_boost_to_reach_min_soc: bool
+
+    # To determine if a new notification for 'unreachable target' should be sent.
+    last_soonest_target_date: datetime
 
     # To keep track of duration of charger in error state.
     charger_in_error_since: datetime
@@ -119,6 +121,9 @@ class V2Gliberty:
         self.in_boost_to_reach_min_soc = False
         self.timer_handle_set_next_action = ""
 
+        # Avoid comparison with None
+        self.last_soonest_target_date = get_local_now()
+
         # For checking how long the charger has been in error
         self.date_reference = datetime(2000, 1, 1)
         self.charger_in_error_since = self.date_reference
@@ -136,6 +141,14 @@ class V2Gliberty:
 
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
+
+        self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+        self.fm_client_app.add_listener(
+            "unreachable_target", self.handle_unreachable_target
+        )
+        self.reservations_client.add_listener(
+            "calendar_change", self.handle_calendar_change
+        )
 
         await self.hass.listen_event(self.__pong, "ping")
 
@@ -176,8 +189,15 @@ class V2Gliberty:
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
+        await self.hass.run_in(self.__log_version, delay=15)
+        self.__log("Completed")
 
-        await self.evse_client_app.complete_init()
+    ######################################################################
+    #                          PUBLIC METHODS                            #
+    ######################################################################
+
+    async def kick_off_v2g_liberty(self, v2g_args=None):
+        """Show the settings in the UI and kickoff set_next_action"""
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
@@ -187,16 +207,6 @@ class V2Gliberty:
             self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
             await self.evse_client_app.set_active()
 
-        await self.initialise_v2g_liberty(v2g_args="initialise")
-
-        self.__log("Completed")
-
-    ######################################################################
-    #                         PUBLIC FUNCTIONS                           #
-    ######################################################################
-
-    async def initialise_v2g_liberty(self, v2g_args=None):
-        """Show the settings in the UI and kickoff set_next_action"""
         await self.hass.set_state(
             entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
         )
@@ -207,7 +217,8 @@ class V2Gliberty:
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
     async def set_next_action(self, v2g_args=None):
-        """The function determines what action should be taken next based on current SoC, Charge_mode, Charger_state
+        """The function determines what action should be taken next based on
+        current SoC, Charge_mode, Charger_state
 
         This function is meant to be called upon:
         - Initialisation
@@ -216,7 +227,7 @@ class V2Gliberty:
         - Charger state updates
         - Charge mode updates
         - Changes in the reservations calendar
-        - New prices have been detected (Amber only, this is the only reason this is not a private method)
+        - New prices have been detected (Amber only)
         - Every 15 minutes if none of the above
         """
         # Only for debugging:
@@ -255,7 +266,6 @@ class V2Gliberty:
             # update_charge_mode takes charger control already, not needed here.
             soc_kwh = await self.evse_client_app.get_car_soc_kwh()
             if soc_kwh in self.EMPTY_STATES:
-                # If this is unknown the soc in percent is unknown, only check this.
                 self.__log("SoC_kWh is 'unknown', abort.")
                 return
 
@@ -296,21 +306,21 @@ class V2Gliberty:
                 # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_min_soc_wh = (
                     (c.CAR_MIN_SOC_IN_PERCENT - soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
-                )
-                delta_to_min_soc_wh = delta_to_min_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
-                )
+                ) / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
                 minutes_to_reach_min_soc = int(
                     math.ceil((delta_to_min_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
                 )
-                expected_min_soc_time = (
-                    now + timedelta(minutes=minutes_to_reach_min_soc)
-                ).isoformat()
+                expected_min_soc_time = now + timedelta(
+                    minutes=minutes_to_reach_min_soc
+                )
                 boost_schedule.append(
-                    dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT)
+                    dict(
+                        time=expected_min_soc_time.isoformat(),
+                        soc=c.CAR_MIN_SOC_IN_PERCENT,
+                    )
                 )
 
                 # This also clears other soc lines
@@ -320,7 +330,8 @@ class V2Gliberty:
                 message = (
                     f"Car battery state of charge ({soc}%) is too low.\n"
                     f"Charging with maximum power until minimum of ({c.CAR_MIN_SOC_IN_PERCENT}%) "
-                    f"is reached.\nThis is expected around {expected_min_soc_time}."
+                    f"is reached.\nThis is expected around "
+                    f"{expected_min_soc_time.strftime(c.DATE_TIME_FORMAT)}."
                 )
                 self.notify_user(
                     message=message,
@@ -332,9 +343,10 @@ class V2Gliberty:
                 )
                 return
 
-            if soc > c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
+            if soc >= c.CAR_MIN_SOC_IN_PERCENT and self.in_boost_to_reach_min_soc:
                 self.__log(
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
+                    f"Stopping max_boost."
                 )
                 await self.__set_charge_power(
                     {
@@ -342,7 +354,6 @@ class V2Gliberty:
                         "source": "set_next_action: end_of_boost_to_min_soc",
                     }
                 )
-                self.__log("Stopping max charge now.")
                 self.in_boost_to_reach_min_soc = False
                 # Remove "boost schedule" from graph.
                 await self.set_records_in_chart(
@@ -363,8 +374,15 @@ class V2Gliberty:
                         }
                     )
 
-            # Not checking > max charge (97%), we could also want to discharge based on schedule
-            await self.__ask_for_new_schedule()
+            if not self.in_boost_to_reach_min_soc:
+                # Not checking > max charge (97%), we could also want to discharge based on schedule
+                # await self.__ask_for_new_schedule()
+                await self.fm_client_app.get_new_schedule(
+                    targets=self.calendar_targets,
+                    current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
+                    back_to_max_soc=self.back_to_max_soc,
+                )
+                self.__log("Requesting new schedule.")
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
@@ -408,6 +426,40 @@ class V2Gliberty:
                 await self.set_records_in_chart(
                     chart_line_name=ChartLine.MAX_CHARGE_NOW,
                     records=max_charge_now_prognoses,
+                )
+
+        elif charge_mode == "Max discharge now":
+            if soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1):
+                self.__log(
+                    "Minimum soc reached: set charge_mode from 'Max discharge now' to 'Automatic'."
+                )
+                await self.__set_charge_mode_in_ui("Automatic")
+            else:
+                self.__log(
+                    "Starting 'Max discharge now' based on charge_mode = Max discharge now"
+                )
+                await self.__start_max_discharge_now()
+                max_discharge_now_prognoses = [dict(time=now.isoformat(), soc=soc)]
+                delta_to_min_soc_wh = (
+                    (soc - c.CAR_MIN_SOC_IN_PERCENT) * c.CAR_MAX_CAPACITY_IN_KWH * 10
+                )
+                delta_to_min_soc_wh = delta_to_min_soc_wh / (
+                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                )
+                minutes_to_reach_min_soc = int(
+                    math.ceil(
+                        (delta_to_min_soc_wh / c.CHARGER_MAX_DISCHARGE_POWER * 60)
+                    )
+                )
+                expected_min_soc_time = (
+                    now + timedelta(minutes=minutes_to_reach_min_soc)
+                ).isoformat()
+                max_discharge_now_prognoses.append(
+                    dict(time=expected_min_soc_time, soc=c.CAR_MIN_SOC_IN_PERCENT)
+                )
+                await self.set_records_in_chart(
+                    chart_line_name=ChartLine.MAX_CHARGE_NOW,
+                    records=max_discharge_now_prognoses,
                 )
 
         elif charge_mode == "Stop":
@@ -569,7 +621,7 @@ class V2Gliberty:
 
                 target_start = car_reservation["start"]
                 target_end = car_reservation["end"]
-                # Check target_soc above max_capacity and below min_soc is done in
+                # Check target_soc above max_soc and below min_soc is done in
                 # the reservations_client.
                 target = {
                     "start": time_round(target_start, c.EVENT_RESOLUTION),
@@ -598,8 +650,7 @@ class V2Gliberty:
                         v2g_event=car_reservation,
                     )
                     # Assumed is that the end will never be in the past as teh v2g_event then will
-                    # not be in the
-                    # list of v2g_events (any more).
+                    # not be in the list of v2g_events (any more).
                     self.__cancel_timer(self.timer_id_first_reservation_end)
                     self.timer_id_first_reservation_end = await self.hass.run_at(
                         callback=self.__handle_first_reservation_end,
@@ -612,6 +663,21 @@ class V2Gliberty:
             # End for car_reservation loop
 
         await self.set_next_action(v2g_args)
+
+    ######################################################################
+    #                         PRIVATE METHODS                            #
+    ######################################################################
+
+    async def __log_version(self, args):
+        """
+        Log version, to be called once at initialisation.
+        """
+        version_number = await self.hass.get_state(
+            "update.v2g_liberty_update", attribute="installed_version"
+        )
+        if version_number is None:
+            return
+        await self.fm_client_app.log_version(version_number)
 
     async def __handle_car_connect(self, entity, attribute, old, new, kwargs):
         """
@@ -634,6 +700,7 @@ class V2Gliberty:
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
         self.clear_notification(tag="dismiss_event_or_not")
+        self.clear_notification(tag="unreachable_target")
 
         # Cancel current scheduling timers
         self.__cancel_charging_timers()
@@ -651,6 +718,70 @@ class V2Gliberty:
                 send_to_all=True,
                 ttl=15 * 60,
             )
+
+    async def handle_unreachable_target(
+        self, soonest_at_target: datetime, max_target: int = None
+    ):
+        """Handle emitted event unreachable target (= soc at given datetime). This always only
+        applies to the current or first upcoming v2g_event.
+
+        param: soonest_at_target (datetime). Thet datetime at which the requested soc can be reached
+        param: max_target: if at the end of the v2g_event the target still cannot be reached, this
+               value represents the maxiumum that can be reached at the end. If None (default)the
+               soc can be reached before the end of the v2g_event.
+
+        Prevent sending several notifications. Only re-send if the soonest_at_target datetime
+        changes.
+
+        This notification does influence and is not influenced by the processes
+        for 'dismiss event or not' or 'connect after event'.
+        """
+        if self.last_soonest_target_date == soonest_at_target:
+            # Needed to avoid repeated duplicat notifications about the same issue.
+            # Unfortunately HA does not filter excact duplicates automatically.
+            return
+
+        self.__log(
+            f"Handle unreachable target soc soonest at target: {soonest_at_target.isoformat()}, "
+            f"max possible target: {max_target}."
+        )
+        ve = self.calendar_targets[0]
+        delay_in_seconds = (soonest_at_target - ve["start"]).total_seconds()
+
+        if delay_in_seconds < 420:
+            self.__log(
+                f"Not notifying about unreachable target as the "
+                f"delay ({delay_in_seconds} sec.) is too short."
+            )
+            return
+
+        self.last_soonest_target_date = soonest_at_target
+
+        hours = int(delay_in_seconds // 3600)
+        minutes = int((delay_in_seconds % 3600) // 60)
+        duration = f"{hours:02}:{minutes:02}"
+        time_format = "%H:%M"
+
+        if max_target is None:
+            message = (
+                f"The target soc of the next calendar item is expected at "
+                f"{soonest_at_target.strftime(time_format)}, this is {duration} later "
+                f"than planned."
+            )
+        else:
+            message = (
+                f"The target soc of the next calendar item is expected to be {max_target}%"
+                f"at {ve['end'].strftime(time_format)}."
+            )
+
+        ttl = round((ve["end"] - get_local_now()).total_seconds(), 0)
+        self.__log(f"Notifying user for {ttl} sec.:\n'{message}'")
+        self.notify_user(
+            message=message,
+            tag="unreachable_target",
+            send_to_all=True,
+            ttl=ttl,
+        )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """Keep track of situations where no new schedule is available:
@@ -797,7 +928,10 @@ class V2Gliberty:
         old_state = old.get("state", None)
         self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
-        if old_state == "Max boost now" and new_state == "Automatic":
+        if (
+            old_state in ["Max boost now", "Max discharge now"]
+            and new_state == "Automatic"
+        ):
             # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
             # Let schedule (later) decide if starting is needed
             await self.__set_charge_power(
@@ -806,7 +940,7 @@ class V2Gliberty:
                     "source": "Reset for 'Max boost now' to 'Automatic'",
                 }
             )
-        if old_state == "Automatic" and new_state == "Max boost now":
+        if old_state == "Automatic":
             self.__log(
                 "Charge mode changed from Automatic to Max boost now, "
                 "cancel timer and start charging."
@@ -818,8 +952,6 @@ class V2Gliberty:
             self.__log(
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
-            # Cancel previous scheduling timers
-            self.__cancel_charging_timers()
             await self.__clear_all_soc_chart_lines()
             self.in_boost_to_reach_min_soc = False
             await self.evse_client_app.set_inactive()
@@ -841,26 +973,22 @@ class V2Gliberty:
         self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
         await self.set_next_action(v2g_args="__handle_soc_change")
 
-        # Notify user of reaching CAR_MAX_SOC_IN_PERCENT (default 80%) charge
-        # while charging (not dis-charging).
-        if not await self.evse_client_app.is_charging():
-            return
-        car_soc = await self.evse_client_app.get_car_soc()
-        if car_soc != c.CAR_MAX_SOC_IN_PERCENT:
-            return
-
-        message = (
-            f"Car battery at {car_soc} %, "
-            f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
-        )
-        self.notify_user(
-            message=message,
-            title=None,
-            tag="battery_max_soc_reached",
-            critical=False,
-            send_to_all=True,
-            ttl=60 * 15,
-        )
+        if (
+            await self.evse_client_app.is_charging()
+            and reported_soc == c.CAR_MAX_SOC_IN_PERCENT
+        ):
+            message = (
+                f"Car battery at {reported_soc} %, "
+                f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
+            )
+            self.notify_user(
+                message=message,
+                title=None,
+                tag="battery_max_soc_reached",
+                critical=False,
+                send_to_all=True,
+                ttl=60 * 15,
+            )
 
     async def __disconnect_charger(self, *args, **kwargs):
         """Function to make it possible for the user to disconnect the charger.
@@ -1106,39 +1234,6 @@ class V2Gliberty:
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
     ######################################################################
 
-    async def __ask_for_new_schedule(self):
-        """
-        This function is meant to be called upon:
-        - SOC updates
-        - charger state updates
-        - every 15 minutes if none of the above
-        """
-        self.__log("__ask_for_new_schedule called")
-
-        # Check whether we're in automatic mode
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        if charge_mode != "Automatic":
-            self.__log(
-                f"Not getting new schedule, charge mode is not 'Automatic' but '{charge_mode}'."
-            )
-            return
-
-        # Check whether we're not in boost mode.
-        if self.in_boost_to_reach_min_soc:
-            self.__log(
-                "Not getting new schedule. SoC below minimum, boosting to reach that first."
-            )
-            return
-
-        # Adding the target one week from now is FM specific, so this is done in the fm_client_app
-        await self.fm_client_app.get_new_schedule(
-            targets=self.calendar_targets,
-            current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
-            back_to_max_soc=self.back_to_max_soc,
-        )
-
-        return
-
     async def __process_schedule(self, entity, attribute, old, new, kwargs):
         """Process a schedule by setting timers to start charging the car.
 
@@ -1283,6 +1378,17 @@ class V2Gliberty:
         await self.hass.set_state(
             "sensor.current_scheduled_charging_power",
             state=charge_power,
+        )
+
+    async def __start_max_discharge_now(self):
+        # TODO: Check if .set_active() is really a good idea here?
+        #       If the client is not active there might be a good reason for that...
+        await self.evse_client_app.set_active()
+        await self.__set_charge_power(
+            {
+                "charge_power": -c.CHARGER_MAX_DISCHARGE_POWER,
+                "source": "__start_max_discharge_now",
+            }
         )
 
     async def __start_max_charge_now(self):

@@ -67,6 +67,7 @@ CAR_MAX_CAPACITY_IN_PERCENT: int = 97
 # Car consumption per km. Defaults to the Nissan Leaf average.
 # FSC: Used only in v2g_liberty module, move there.
 CAR_CONSUMPTION_WH_PER_KM: int = 175
+CAR_MAX_RANGE_IN_KM: int = 1
 
 # Average distance travelled for every hour that a calendar item lasts
 # E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
@@ -164,6 +165,9 @@ DEFAULT_UTILITY_CONTEXTS = {
 # FSC: Used in fm_client only, move there.
 FM_ACCOUNT_USERNAME: str = ""
 FM_ACCOUNT_PASSWORD: str = ""
+
+# Name of the FM asset that is managed, e.g. "John's Quasar"
+FM_ASSET_NAME: str = ""
 
 # Sensor entity for sending and id for retrieving data to/from FM
 # FSC: Used in fm_client, get_fm_data, data_monitor, keep here.

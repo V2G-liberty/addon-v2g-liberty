@@ -5,11 +5,12 @@ import constants as c
 import log_wrapper
 from v2g_globals import get_local_now
 import caldav
-from service_response_app import ServiceResponseApp
+from pyee.asyncio import AsyncIOEventEmitter
 from appdaemon.plugins.hass.hassapi import Hass
+from service_response_app import ServiceResponseApp
 
 
-class ReservationsClient(ServiceResponseApp):
+class ReservationsClient(AsyncIOEventEmitter):
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
@@ -27,18 +28,19 @@ class ReservationsClient(ServiceResponseApp):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
-    v2g_main_app: object = None
-    hass: Hass = None
+    hass: ServiceResponseApp = None
 
     def __init__(self, hass: Hass):
+        super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
         self.principal = None
         self.poll_timer_id = ""
+
         # TODO: Check if this can really be removed.
         # await self.initialise_calendar()
-        self.__log("Completed initialise ReservationsClient")
+        self.__log("Completed __init__ ReservationsClient")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
@@ -88,7 +90,6 @@ class ReservationsClient(ServiceResponseApp):
             self.__log(f"Unknown error: '{e}'.", level="WARNING")
             return "Unknown error"
 
-
     async def initialise_calendar(self):
         """Called by globals when:
         + constants have been loaded from config
@@ -98,6 +99,7 @@ class ReservationsClient(ServiceResponseApp):
             string: Connection status
         """
 
+        self.__log("Initialise ReservationsClient")
         # Cancel the lister that could be active because the previous setting
         # for c.CAR_CALENDAR_SOURCE was "localIntegration".
         # If source is "remoteCaldav" no listener is used as the calendar gets polled.
@@ -111,9 +113,6 @@ class ReservationsClient(ServiceResponseApp):
         # If changing from one calendar source type to another this needs to be cleared.
         self.v2g_events.clear()
         self.v2g_events = [{"state": "un-initiated"}]
-
-        if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
-            self.__log("remoteCaldav")
 
         if c.CAR_CALENDAR_SOURCE == "remoteCaldav":
             self.__log("remoteCaldav")
@@ -285,7 +284,7 @@ class ReservationsClient(ServiceResponseApp):
         It is expected that this method is called when the first upcoming calendar item changes
         """
         self.__log("Called from listener")
-        self.__poll_calendar_integration()
+        await self.__poll_calendar_integration()
 
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
@@ -502,13 +501,10 @@ class ReservationsClient(ServiceResponseApp):
 
     async def __set_events_in_main_app(self, v2g_args: str = ""):
         try:
-            await self.v2g_main_app.handle_calendar_change(
-                v2g_events=self.v2g_events, v2g_args=v2g_args
-            )
+            self.emit("calendar_change", v2g_events=self.v2g_events, v2g_args=v2g_args)
+            await self.wait_for_complete()
         except Exception as e:
-            self.__log(
-                f"Could not call v2g_main_app.handle_calendar_change. Exception: {e}."
-            )
+            self.__log(f"Problem calendar_change event. Exception: {e}.")
 
     def __add_target_soc(self, v2g_event: dict) -> dict:
         """Add a target SoC to a v2g_event dict based upon the summary and description.
@@ -524,13 +520,23 @@ class ReservationsClient(ServiceResponseApp):
             filter(None, [v2g_event["summary"], v2g_event["description"]])
         )
 
-        # Removed searching for a number in kWh, not used?
-        # Try searching for a number in %
-        # ToDo: Add possibility to set target in km
         target_soc_percent = search_for_soc_target("%", text_to_search_in)
-        if target_soc_percent is None or target_soc_percent > 100:
-            # self.__log(f"__add_target_soc: target soc {target_soc_percent} changed to 100%.")
-            target_soc_percent = 100
+        if target_soc_percent is None:
+            km = search_for_soc_target("km", text_to_search_in)
+            if km is not None:
+                target_soc_percent = int(round(float(km / c.CAR_MAX_RANGE_IN_KM * 100)))
+                self.__log(f"Target {km} km converted to {target_soc_percent}%.")
+
+        if target_soc_percent is None:
+            # Default % for calendar item with a target in summary or description
+            # This used to be 100%, issueu #244 changed this.
+            target_soc_percent = c.CAR_MAX_SOC_IN_PERCENT
+
+        if target_soc_percent > c.CAR_MAX_CAPACITY_IN_PERCENT:
+            target_soc_percent = c.CAR_MAX_CAPACITY_IN_PERCENT
+            self.__log(
+                f"{target_soc_percent=} lowered to meet {c.CAR_MAX_CAPACITY_IN_PERCENT=}"
+            )
         elif target_soc_percent < c.CAR_MIN_SOC_IN_PERCENT:
             self.__log(
                 f"{target_soc_percent=} raised to meet {c.CAR_MIN_SOC_IN_PERCENT=}"
@@ -580,6 +586,24 @@ class ReservationsClient(ServiceResponseApp):
                 # The hash_id in self.events_dismissed_statuses is not current anymore.
                 self.events_dismissed_statuses.pop(dismissed_event_hash_id)
 
+    ######################################################################
+    #                TEST FUNCTIONS (SHOULD BE REMOVED)                  #
+    ######################################################################
+
+    def get_constant_range_in_km(self):
+        """
+        TODO: The ReservationsClient should not have a method to get_constant_range_in_km
+              but it is the only way i could get the test_reservations_client.py to work.
+        """
+        return c.CAR_MAX_RANGE_IN_KM
+
+    def set_constant_range_in_km(self, range_in_km: int):
+        """
+        TODO: The ReservationsClient should not have a method to set_constant_range_in_km
+              but it is the only way i could get the test_reservations_client.py to work.
+        """
+        c.CAR_MAX_RANGE_IN_KM = range_in_km
+
 
 ######################################################################
 #                    PRIVATE UTILITY FUNCTIONS                       #
@@ -621,9 +645,11 @@ def search_for_soc_target(search_unit: str, string_to_search_in: str) -> int:
     Returns:
         integer number or None if nothing is found
     """
-    if string_to_search_in is None:
+    if string_to_search_in is None or search_unit is None:
         return None
+
     string_to_search_in = string_to_search_in.lower()
+
     pattern = re.compile(rf"(?P<quantity>\d+) *{search_unit.lower()}")
     match = pattern.search(string_to_search_in)
     if match:

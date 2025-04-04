@@ -34,10 +34,6 @@ class V2GLibertyApp(ServiceResponseApp):
         modbus_evse_client.v2g_main_app = v2g_liberty
         modbus_evse_client.v2g_globals = v2g_globals
 
-        fm_client.v2g_main_app = v2g_liberty
-
-        reservations_client.v2g_main_app = v2g_liberty
-
         v2g_liberty.evse_client_app = modbus_evse_client
         v2g_liberty.fm_client_app = fm_client
         v2g_liberty.reservations_client = reservations_client
@@ -56,9 +52,12 @@ class V2GLibertyApp(ServiceResponseApp):
         octopus_price_data_manager.get_fm_data_module = get_fm_data
 
         await v2g_globals.initialize()
-
         await v2g_liberty.initialize()
+
         await data_monitor.initialize()
         await get_fm_data.initialize()
         await amber_price_data_manager.initialize()
         await octopus_price_data_manager.initialize()
+
+        await v2g_globals.kick_off_settings()
+        await v2g_liberty.kick_off_v2g_liberty(v2g_args="initialise")

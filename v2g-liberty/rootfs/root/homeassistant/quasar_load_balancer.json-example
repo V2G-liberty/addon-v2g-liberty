@@ -1,0 +1,17 @@
+{
+    "enabled": false,
+
+    "quasar_host": "192.168.2.55",
+    "quasar_port": 502,
+
+    "-": "HA entity used to track the instantanous power (W) reading",
+    "total_power_entity_id": "sensor.sdm_phase_2_power",
+    " -": "Maximum/minimum power (W) on a single phase",
+    "total_power_limit": 5750,
+    "  -": "Maximum power (W) Quasar can (dis)charge with",
+    "max_charge_power": 5555,
+    "   -": "# seconds delay before a new limit is set",
+    "adjustment_delay": 10,
+    "    -": "# seconds of no action after setting a new limit",
+    "cooldown_period": 15
+}

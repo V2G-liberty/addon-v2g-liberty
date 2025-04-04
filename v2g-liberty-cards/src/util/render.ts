@@ -3,7 +3,28 @@ import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, nothing, TemplateResult } from 'lit';
 
-import { t, to } from '../util/translate';
+import { t, to, partial } from '../util/translate';
+
+export function renderLoadbalancerInfo(loadbalancerEnabled: boolean) {
+  const tp = partial('settings.charger');
+  const title = loadbalancerEnabled
+    ? tp('load-balancer.enabled.title')
+    : tp('load-balancer.not_enabled.title');
+  const info = loadbalancerEnabled
+    ? tp('load-balancer.enabled.info')
+    : tp('load-balancer.not_enabled.info');
+  const type = loadbalancerEnabled ? "info" : "warning";
+
+  return html`
+    <ha-alert title="${title}" alert-type="${type}">
+      <ha-markdown breaks .content=${info}></ha-markdown>
+    </ha-alert>
+  `;
+}
+
+export function isLoadbalancerEnabled(quasarLoadBalancerLimit: string): boolean {
+  return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
+}
 
 export function renderButton(
   hass: HomeAssistant,
