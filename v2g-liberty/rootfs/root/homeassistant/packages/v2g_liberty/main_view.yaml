@@ -380,7 +380,7 @@
         chart:
           height: 400px
           zoom:
-            enabled: true
+            enabled: false
           animations:
             enabled: false
       graph_span: 24h
@@ -498,6 +498,7 @@
           type: line
           color: "#fea602"
           stroke_width: 2
+          curve: straight
           extend_to: false
           yaxis_id: SoC
           data_generator: |

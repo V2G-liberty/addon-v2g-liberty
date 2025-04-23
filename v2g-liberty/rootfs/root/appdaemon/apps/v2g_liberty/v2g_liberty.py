@@ -890,6 +890,9 @@ class V2Gliberty:
             )
             self.__log(f"chart_line_name '{chart_line_name}' cleared.")
         else:
+            if chart_line_name == ChartLine.SCHEDULE:
+                records = reduce_data_points(records)
+
             result = {"records": records}
             await self.hass.set_state(entity, state=new_state, attributes=result)
             self.__log(
@@ -1596,6 +1599,32 @@ class V2Gliberty:
 ######################################################################
 #                    PRIVATE UTILITY FUNCTIONS                       #
 ######################################################################
+
+
+def reduce_data_points(records: list) -> list:
+    """Remove unnecessary soc points for efficient rendering"""
+    if not records:
+        return records
+
+    last_item_index = len(records) - 1
+    reduced_records = [records[0]]
+    previous_difference = float(records[1]["soc"]) - float(records[0]["soc"])
+
+    for index, item in enumerate(records):
+        if index == 0:
+            continue
+
+        if index == last_item_index:
+            reduced_records.append(item)
+            break
+
+        difference = float(records[index + 1]["soc"]) - float(item["soc"])
+
+        if not math.isclose(previous_difference, difference, rel_tol=0, abs_tol=0.25):
+            reduced_records.append(item)
+        previous_difference = difference
+
+    return reduced_records
 
 
 def convert_MW_to_percentage_points(
