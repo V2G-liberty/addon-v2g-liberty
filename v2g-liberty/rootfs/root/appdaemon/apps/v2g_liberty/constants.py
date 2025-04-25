@@ -73,29 +73,21 @@ CAR_MAX_RANGE_IN_KM: int = 1
 # E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
 # From this we derive an average usage.
 # TODO: Make this a user setting.
-KM_PER_HOUR_OF_CALENDAR_ITEM: int = 45
+KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
 
 # Assumed car consumption during a calendar event per time_interval, calculate as follows:
-# OLD:
-# (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)
-# NEW:
-# (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000)
-# FSC: Expected to be only used in fm_client. Move this and previous there.
-USAGE_PER_EVENT_TIME_INTERVAL: float = None
+# (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) = X kWh/hour
+# FSC: Only used in fm_client, move there.
+USAGE_DURING_EVENT_KWH_PER_HOUR: float = None
 
 # Duration in hours, defaults to 4 should be between 2 and 12 hours
-# FSC: Used in v2g_liberty and fm_client module, keep here?
 ALLOWED_DURATION_ABOVE_MAX_SOC: int = 4
 
-# FSC: Used in v2g_liberty and amber (why not Octopus?) module, keep here?
 OPTIMISATION_MODE: str = "price"
 
-# FSC: Used in amber and Octopus module, keep here?
 ELECTRICITY_PROVIDER: str = "nl_generic"
-# FSC: Used in get_fm_data, Octopus (why not Amber?) module, keep here?
 EMISSIONS_UOM: str = "kg/MWh"  # For some ELECTRICITY_PROVIDER-s this can be %
 # For some ELECTRICITY_PROVIDER-s this can be different, e.g. GBP or AUD.
-# FSC: Used in get_fm_data, Octopus and Amber module, keep here?
 CURRENCY: str = "EUR"
 # FSC: A fixed value for Octopus and Amber modules, move there.
 PRICE_RESOLUTION_MINUTES: int = 60  # For some ELECTRICITY_PROVIDER-s this can be 30

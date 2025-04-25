@@ -869,8 +869,11 @@ class V2GLibertyGlobals:
         c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
         )
-        c.USAGE_PER_EVENT_TIME_INTERVAL = (
+        c.USAGE_DURING_EVENT_KWH_PER_HOUR = (
             c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000
+        )
+        self.__log(
+            f"USAGE_DURING_EVENT_KWH_PER_HOUR: {c.USAGE_DURING_EVENT_KWH_PER_HOUR} kWh/hour"
         )
 
         c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
@@ -1123,16 +1126,14 @@ class V2GLibertyGlobals:
 
         if c.OPTIMISATION_MODE == "price":
             c.FM_OPTIMISATION_CONTEXT = {
-                "consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID,
-                # "relax-soc-constraints": True,
+                "consumption-price": {"sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID},
+                "production-price": {"sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID},
             }
         else:
             # Assumed optimisation = emissions
             c.FM_OPTIMISATION_CONTEXT = {
                 "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
                 "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
-                # "relax-soc-constraints": True,
             }
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 

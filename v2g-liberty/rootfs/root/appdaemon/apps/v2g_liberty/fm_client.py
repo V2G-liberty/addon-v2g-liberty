@@ -383,17 +383,7 @@ class FMClient(AsyncIOEventEmitter):
         end_of_schedule_input_period = rounded_now + timedelta(days=7)
 
         soc_minima = []
-
         soc_usage = []
-        # TODO: should basis be 0W or e.g. 800W?
-        # The basis usage can be lifted by adding other usage
-        # soc_usage.append(
-        #     {
-        #         "value": "800 W",
-        #         "start": rounded_now,
-        #         "end": schedule_end,
-        #     }
-        # )
 
         # The schedule should not take into account that during calendar items it cannot
         # charge/discharge.
@@ -416,10 +406,6 @@ class FMClient(AsyncIOEventEmitter):
         ]
 
         if targets is not None:
-            usage_per_event_time_interval = f"{str(c.USAGE_PER_EVENT_TIME_INTERVAL)} kW"
-            # self.__log(
-            #     f"usage_per_event_time_interval: '{usage_per_event_time_interval}'."
-            # )
             ##################################
             #    Make a list of soc_minima   #
             ##################################
@@ -453,11 +439,29 @@ class FMClient(AsyncIOEventEmitter):
                         "end": target_end,
                     }
                 )
+
+                # All cumulated usage need to be set just after the taget_end as otherwise FM does
+                # compensate for the usage during the event and raises the soc before the start to
+                # have exactly the target soc at the end of the event.
+                cumulative_usage_kwh = (
+                    (target_end - target_start).total_seconds()
+                    / 3600
+                    * c.USAGE_DURING_EVENT_KWH_PER_HOUR
+                )
+                self.__log(f"cumulative_usage_kwh: {cumulative_usage_kwh}.")
+                # This is kWh, to reach this in 5 minutes (te interval we are using) we need a power
+                # of 60 min./resloution * cumulative_usage_kwh
+                power_in_interval = (
+                    cumulative_usage_kwh * 60 / c.FM_EVENT_RESOLUTION_IN_MINUTES
+                )
+                power_in_interval = f"{str(power_in_interval)} kW"
+                self.__log(f"power_in_interval: {power_in_interval}.")
+
                 soc_usage.append(
                     {
-                        "value": usage_per_event_time_interval,
-                        "start": target_start,
-                        "end": target_end,
+                        "value": power_in_interval,
+                        "start": target_end,
+                        "end": target_end + c.EVENT_RESOLUTION,
                     }
                 )
             # -- End for target in targets --

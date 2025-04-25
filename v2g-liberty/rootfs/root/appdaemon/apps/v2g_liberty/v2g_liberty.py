@@ -1298,7 +1298,7 @@ class V2Gliberty:
         scalar = (
             resolution / timedelta(hours=1) * 1000 * 100 / c.CAR_MAX_CAPACITY_IN_KWH
         )
-        usage_mw = c.USAGE_PER_EVENT_TIME_INTERVAL / 1000
+        usage_mw = c.USAGE_DURING_EVENT_KWH_PER_HOUR / 1000
         # self.__log(f"Create soc prognosis/usage based on: {e=}, {scalar=}, {usage_mw=}.")
         # Assumption, cars never return "emptier" than 1/3 of the min_soc.
         min_soc_usage_based = c.CAR_MIN_SOC_IN_PERCENT / 3
