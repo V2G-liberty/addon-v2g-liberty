@@ -9,6 +9,7 @@ from data_monitor import DataMonitor
 from get_fm_data import FlexMeasuresDataImporter
 from amber_price_data_manager import ManageAmberPriceData
 from octopus_price_data_manager import ManageOctopusPriceData
+from nissan_leaf_monitor import NissanLeafMonitor
 
 
 class V2GLibertyApp(ServiceResponseApp):
@@ -22,6 +23,7 @@ class V2GLibertyApp(ServiceResponseApp):
         get_fm_data = FlexMeasuresDataImporter(self)
         amber_price_data_manager = ManageAmberPriceData(self)
         octopus_price_data_manager = ManageOctopusPriceData(self)
+        nissan_leaf_monitor = NissanLeafMonitor(self)
 
         v2g_globals.v2g_main_app = v2g_liberty
         v2g_globals.evse_client_app = modbus_evse_client
@@ -44,6 +46,8 @@ class V2GLibertyApp(ServiceResponseApp):
         get_fm_data.v2g_main_app = v2g_liberty
         get_fm_data.fm_client_app = fm_client
 
+        nissan_leaf_monitor.evse_client_app = modbus_evse_client
+
         amber_price_data_manager.fm_client_app = fm_client
         amber_price_data_manager.v2g_main_app = v2g_liberty
         amber_price_data_manager.get_fm_data_module = get_fm_data
@@ -56,6 +60,9 @@ class V2GLibertyApp(ServiceResponseApp):
 
         await data_monitor.initialize()
         await get_fm_data.initialize()
+
+        await nissan_leaf_monitor.initialize()
+
         await amber_price_data_manager.initialize()
         await octopus_price_data_manager.initialize()
 

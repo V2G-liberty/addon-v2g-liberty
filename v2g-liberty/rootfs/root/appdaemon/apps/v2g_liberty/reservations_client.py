@@ -38,8 +38,6 @@ class ReservationsClient(AsyncIOEventEmitter):
         self.principal = None
         self.poll_timer_id = ""
 
-        # TODO: Check if this can really be removed.
-        # await self.initialise_calendar()
         self.__log("Completed __init__ ReservationsClient")
 
     ######################################################################
