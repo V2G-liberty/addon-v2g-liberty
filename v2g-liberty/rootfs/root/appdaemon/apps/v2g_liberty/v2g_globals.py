@@ -1123,14 +1123,14 @@ class V2GLibertyGlobals:
 
         if c.OPTIMISATION_MODE == "price":
             c.FM_OPTIMISATION_CONTEXT = {
-                "consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                "consumption-price": {"sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID},
+                "production-price": {"sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID},
             }
         else:
             # Assumed optimisation = emissions
             c.FM_OPTIMISATION_CONTEXT = {
-                "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
-                "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
+                "consumption-price": {"sensor": c.FM_EMISSIONS_SENSOR_ID},
+                "production-price": {"sensor": c.FM_EMISSIONS_SENSOR_ID},
             }
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 
