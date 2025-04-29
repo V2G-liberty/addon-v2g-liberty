@@ -7,6 +7,9 @@ WORKDIR /tmp
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
+#For testing:
+RUN pip install pytest-asyncio
+
 WORKDIR /workspaces
 
 # Set the default shell to bash instead of sh

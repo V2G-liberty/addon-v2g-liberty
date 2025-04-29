@@ -4,12 +4,15 @@ import constants as c
 import log_wrapper
 from v2g_globals import get_local_now, parse_to_int
 import pymodbus.client as modbusClient
+from pyee.asyncio import AsyncIOEventEmitter
+
+from event_bus import EventBus
 from pymodbus.exceptions import ModbusException
 
 from appdaemon.plugins.hass.hassapi import Hass
 
 
-class ModbusEVSEclient:
+class ModbusEVSEclient(AsyncIOEventEmitter):
     """Communicate with the Electric Vehicle Supply Equipment (EVSE) via modbus.
     It does this mainly by polling the EVSE for states and values in an
     asynchronous way, as the charger might not always react instantly.
@@ -17,6 +20,8 @@ class ModbusEVSEclient:
     Values of the EVSE (like charger status or car SoC) are then written to
     Home Assistant entities for other modules to use / subscribe to.
     """
+
+    event_bus: EventBus = None
 
     #######################################################################################
     #   This file contains the Modbus address information for the Wallbox Quasar 1 EVSE.  #
@@ -267,13 +272,16 @@ class ModbusEVSEclient:
 
     hass: Hass = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         """initialise modbus_evse_client
         Setting up constants and variables.
         Configuration and connecting the modbus client is done separately in initialise_charger.
         """
+        super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
+
+        self.event_bus = event_bus
 
         self.CHARGER_ERROR_ENTITIES = [
             self.ENTITY_ERROR_1,
@@ -606,12 +614,14 @@ class ModbusEVSEclient:
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
 
-    async def __handle_soc_change(self):
+    async def __handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changed soc, set remaining range sensor."""
         await self.__update_ha_entity(
             entity_id="sensor.car_remaining_range",
             new_value=await self.get_car_remaining_range(),
         )
+
+        self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
@@ -989,7 +999,9 @@ class ModbusEVSEclient:
                         old_charger_state=current_value,
                     )
                 elif str_action == "__handle_soc_change":
-                    await self.__handle_soc_change()
+                    await self.__handle_soc_change(
+                        new_soc=new_value, old_soc=current_value
+                    )
                 elif str_action == "__handle_charger_error_state_change":
                     # This is the case for the ENTITY_ERROR_1..4. The charger_state
                     # does not necessarily change only (one or more of) these error-states.
