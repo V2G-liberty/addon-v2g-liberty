@@ -1,72 +1,126 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock, call
+from apps.v2g_liberty.nissan_leaf_monitor import NissanLeafMonitor
+from apps.v2g_liberty.event_bus import EventBus
 import apps.v2g_liberty.constants as c
-import log_wrapper
-from apps.v2g_liberty.nissan_leaf_monitor import (
-    NissanLeafMonitor,
-)
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 @pytest.fixture
-def hass_mock():
-    return MagicMock()
+def mock_hass():
+    """Mock the Hass object."""
+    hass = MagicMock(spec=Hass)
+    hass.log = MagicMock()
+    return hass
 
 
 @pytest.fixture
-def nissan_leaf_monitor(hass_mock):
-    monitor = NissanLeafMonitor(hass_mock)
-    monitor.evse_client_app = MagicMock()
-    monitor.__log = MagicMock()
+def mock_event_bus():
+    """Mock the EventBus object."""
+    return MagicMock(spec=EventBus)
+
+
+@pytest.fixture
+def mock_v2g_main_app():
+    """Mock the V2Gliberty app."""
+    v2g_main_app = MagicMock()
+    v2g_main_app.notify_user = MagicMock()
+    return v2g_main_app
+
+
+@pytest.fixture
+def nissan_leaf_monitor(mock_hass, mock_event_bus, mock_v2g_main_app):
+    """Create an instance of NissanLeafMonitor with mocked dependencies."""
+    c.CAR_MIN_SOC_IN_PERCENT = 20  # Set the minimum SoC threshold for the test
+    monitor = NissanLeafMonitor(hass=mock_hass, event_bus=mock_event_bus)
+    monitor.v2g_main_app = mock_v2g_main_app  # Inject mock V2GLiberty app
     return monitor
 
 
-@pytest.mark.asyncio
-async def test_handle_soc_change_skipped_min_soc(nissan_leaf_monitor):
-    # Arrange
+def test_handle_soc_change_skip(
+    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_v2g_main_app
+):
+    """
+    Test _handle_soc_change behavior when the SoC skips the threshold.
+    """
     new_soc = 19
     old_soc = 21
-    c.CAR_MIN_SOC_IN_PERCENT = 20
 
-    # Act
-    await nissan_leaf_monitor._handle_soc_change(new_soc, old_soc)
+    # Call the method
+    nissan_leaf_monitor._handle_soc_change(new_soc, old_soc)
 
-    # Assert
-    nissan_leaf_monitor.__log.assert_any_call(
-        "_handle_soc_change: new_soc '19', old_soc '21'."
-    )
-    nissan_leaf_monitor.__log.assert_any_call("TA-TU-TA-TU! Skipped Min-SoC!")
+    # Verify logging
+    log_call = mock_hass.log.call_args_list
+    assert any(
+        "SoC change jump: old_soc '21', new_soc '19'," in call.kwargs.get("msg", "")
+        for call in log_call
+    ), "Expected log message not found!"
 
-
-@pytest.mark.asyncio
-async def test_handle_soc_change_invalid_soc(nissan_leaf_monitor):
-    # Arrange
-    new_soc = "unknown"
-    old_soc = 21
-
-    # Act
-    await nissan_leaf_monitor._handle_soc_change(new_soc, old_soc)
-
-    # Assert
-    nissan_leaf_monitor.__log.assert_any_call(
-        "_handle_soc_change: new_soc 'unknown', old_soc '21'."
-    )
-    nissan_leaf_monitor.__log.assert_any_call(
-        "Aborting: new_soc 'unknown' and/or old_soc '21' not an int."
+    # Verify notification
+    mock_v2g_main_app.notify_user.assert_called_once_with(
+        message=(
+            f"The Nissan Leaf faulted, skipping the state-of-charge "
+            f"{c.CAR_MIN_SOC_IN_PERCENT}%. This often leads to toggled charging. "
+            f"A possible solution is to change the setting for 'schedule lower limit'"
+            f"to 1%-point higher or lower."
+        ),
+        tag="soc_skipped",
+        ttl=24 * 60 * 60,
     )
 
-
-@pytest.mark.asyncio
-async def test_handle_soc_change_no_skip(nissan_leaf_monitor):
-    # Arrange
-    new_soc = 22
-    old_soc = 21
-    c.CAR_MIN_SOC_IN_PERCENT = 20
-
-    # Act
-    await nissan_leaf_monitor._handle_soc_change(new_soc, old_soc)
-
-    # Assert
-    nissan_leaf_monitor.__log.assert_any_call(
-        "_handle_soc_change: new_soc '22', old_soc '21'."
+    # Verify event listener removal and re-registration
+    mock_event_bus.remove_event_listener.assert_called_once_with(
+        "soc_change", nissan_leaf_monitor._handle_soc_change
     )
-    nissan_leaf_monitor.__log.assert_not_called("TA-TU-TA-TU! Skipped Min-SoC!")
+    mock_hass.run_in.assert_called_once_with(
+        nissan_leaf_monitor._initialize, 24 * 60 * 60
+    )
+
+
+def test_handle_soc_change_no_skip(
+    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_v2g_main_app
+):
+    """
+    Test _handle_soc_change behavior when the SoC does not skip the threshold.
+    """
+    new_soc = 21
+    old_soc = 22
+
+    # Reset the log mock to clear initialization log calls
+    mock_hass.log.reset_mock()
+
+    # Call the method
+    nissan_leaf_monitor._handle_soc_change(new_soc, old_soc)
+
+    # Verify no logging for skip warning
+    mock_hass.log.assert_not_called()
+
+    # Verify no notification sent
+    mock_v2g_main_app.notify_user.assert_not_called()
+
+    # Verify event listener not removed
+    mock_event_bus.remove_event_listener.assert_not_called()
+
+
+def test_handle_soc_change_invalid_soc(
+    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_v2g_main_app
+):
+    new_soc = None
+    old_soc = "unknown"
+
+    # Call the method
+    nissan_leaf_monitor._handle_soc_change(new_soc, old_soc)
+
+    # Verify logging for invalid input
+    log_call = mock_hass.log.call_args_list
+    assert any(
+        "Aborting: new_soc 'None' and/or old_soc 'unknown'"
+        in call.kwargs.get("msg", "")
+        for call in log_call
+    ), "Expected log message not found!"
+
+    # Verify no notification sent
+    mock_v2g_main_app.notify_user.assert_not_called()
+
+    # Verify event listener not removed
+    mock_event_bus.remove_event_listener.assert_not_called()

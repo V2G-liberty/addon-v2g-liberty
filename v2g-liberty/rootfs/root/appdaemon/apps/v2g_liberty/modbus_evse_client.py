@@ -5,6 +5,8 @@ import log_wrapper
 from v2g_globals import get_local_now, parse_to_int
 import pymodbus.client as modbusClient
 from pyee.asyncio import AsyncIOEventEmitter
+
+from event_bus import EventBus
 from pymodbus.exceptions import ModbusException
 
 from appdaemon.plugins.hass.hassapi import Hass
@@ -18,6 +20,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     Values of the EVSE (like charger status or car SoC) are then written to
     Home Assistant entities for other modules to use / subscribe to.
     """
+
+    event_bus: EventBus = None
 
     #######################################################################################
     #   This file contains the Modbus address information for the Wallbox Quasar 1 EVSE.  #
@@ -268,7 +272,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
     hass: Hass = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         """initialise modbus_evse_client
         Setting up constants and variables.
         Configuration and connecting the modbus client is done separately in initialise_charger.
@@ -276,6 +280,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
+
+        self.event_bus = event_bus
 
         self.CHARGER_ERROR_ENTITIES = [
             self.ENTITY_ERROR_1,
@@ -614,11 +620,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             entity_id="sensor.car_remaining_range",
             new_value=await self.get_car_remaining_range(),
         )
-        try:
-            self.emit("soc_change", new_soc=new_soc, old_soc=old_soc)
-            await self.wait_for_complete()
-        except Exception as e:
-            self.__log(f"Problem soc_change event. Exception: {e}.")
+
+        self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
