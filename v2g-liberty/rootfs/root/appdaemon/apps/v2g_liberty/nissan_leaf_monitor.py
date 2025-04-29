@@ -1,6 +1,6 @@
 import constants as c
 from event_bus import EventBus
-from apps.v2g_liberty.v2g_liberty import V2Gliberty
+from v2g_liberty import V2Gliberty
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
 
