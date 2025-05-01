@@ -34,22 +34,15 @@ class Notifier:
         # Make __init__() run quick, no need to wait for initialisation
         self.hass.run_in(self._get_recipients, delay=1)
         self.__log("Completed __init__ Notifier")
+        # self.hass.listen_event(self.service_registered_listener, "service_registered")
+        # From log:
+        # Service registered: data={'domain': 'notify', 'service': 'mobile_app_lm_q610_fg', ...
+        # Send a test message when this is triggered.
+        # De-registration is not announced by an event..
 
-    # async def entity_registry_listener(self, event_name, data, kwargs):
-    #     """
-    #     Event listener for entity registry updates.
-    #     Args:
-    #         event_name: Name of the event (e.g., 'entity_registry_updated').
-    #         data: Event data containing details of the change.
-    #         kwargs: Additional parameters.
-    #     """
-
-    #     self.__log(f"Reg update: {data=}, {kwargs=}")
-    #     # Look for 'device_tracker' in entity_id:
-    #     # Reg update: data={'action': 'create', 'entity_id': 'device_tracker.iphone_van_a',...
-    #     # Reg update: data={'action': 'update', 'entity_id': 'device_tracker.iphone_van_a',...
-    #     # Reg update: data={'action': 'remove', 'entity_id': 'device_tracker.iphone_van_a'...
-    #     # Ignore all other entity_id's like person.xyz, sensor.xyz, etc.
+    # def service_registered_listener(self, event_name, data, kwargs):
+    #     domain = data.get("domain")
+    #     service = data.get("service")
 
     async def _get_recipients(self, kwargs):
         # List of all the recipients to notify
