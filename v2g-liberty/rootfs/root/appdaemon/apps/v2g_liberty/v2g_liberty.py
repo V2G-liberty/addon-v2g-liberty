@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import isodate
 from typing import AsyncGenerator, List, Optional
+from notifier_util import Notifier
 from itertools import accumulate
 import math
 import asyncio
@@ -92,14 +93,17 @@ class V2Gliberty:
     evse_client_app: object = None
     fm_client_app: object = None
     reservations_client: object = None
+    notifier: Notifier = None
     hass: Hass = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
+        self.notifier = notifier
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
+
         await self.hass.set_state(
             entity_id="sensor.last_reboot_at",
             state=get_local_now().strftime(c.DATE_TIME_FORMAT),
@@ -333,7 +337,7 @@ class V2Gliberty:
                     f"is reached.\nThis is expected around "
                     f"{expected_min_soc_time.strftime(c.DATE_TIME_FORMAT)}."
                 )
-                self.notify_user(
+                self.notifier.notify_user(
                     message=message,
                     title="Car battery is too low",
                     tag="battery_too_low",
@@ -482,111 +486,6 @@ class V2Gliberty:
                 "input_boolean.error_epex_prices_cannot_be_retrieved"
             )
 
-    def notify_user(
-        self,
-        message: str,
-        title: Optional[str] = None,
-        tag: Optional[str] = None,
-        critical: bool = False,
-        send_to_all: bool = False,
-        ttl: Optional[int] = 0,
-        actions: list = None,
-    ):
-        """
-        Utility method to send notifications to the user. An ADMIN is assumed always to be
-        configured and there might be several other users that need to be notified.
-        When a new call to this function with the same tag is made, the previous message will be
-        overwritten if it still exists.
-
-        Args:
-            message (str):
-                Message text to be sent.
-
-            title (Optional[str], optional):
-                Title of the message. Defaults to None.
-
-            tag (Optional[str], optional):
-                ID that can be used to replace or clear a previous message. Defaults to None.
-
-            critical (bool, optional):
-                Send with high priority to Admin only. Always delivered and sound is play.
-                Use with caution.. Defaults to False.
-
-            send_to_all (bool, optional):
-                Send to all users (can't be combined with critical), default = only send to Admin.
-                Defaults to False.
-
-            ttl (Optional[int], optional):
-                Time to live in seconds, after that the message will be cleared. 0 = do not clear.
-                A tag is required. Defaults to 0.
-
-            actions (list, optional):
-                A list of dicts with action and title stings. Defaults to None.
-        """
-
-        if c.ADMIN_MOBILE_NAME == "":
-            self.__log(
-                "notify_user: No registered devices to notify, cancel notification."
-            )
-            return
-
-        # All notifications always get sent to admin
-        to_notify = [c.ADMIN_MOBILE_NAME]
-
-        # Use abbreviation to make more room for title itself.
-        title = "V2G-L: " + title if title else "V2G Liberty"
-
-        notification_data = {}
-
-        # critical trumps send_to_all
-        if critical:
-            self.__log(f"notify_user: Critical! Send to: {to_notify}.")
-            notification_data = c.PRIORITY_NOTIFICATION_CONFIG
-
-        if send_to_all and not critical:
-            self.__log(
-                f"notify_user: Send to all and not critical! Send to: {to_notify}."
-            )
-            to_notify = c.NOTIFICATION_RECIPIENTS
-
-        if tag:
-            notification_data["tag"] = tag
-
-        if actions:
-            notification_data["actions"] = actions
-
-        message = message + " [" + c.HA_NAME + "]"
-
-        self.__log(
-            f"Notifying recipients: {to_notify} with message: '{message[0:15]}...'"
-            f"data: {notification_data}."
-        )
-        for recipient in to_notify:
-            service = "notify/mobile_app_" + recipient
-            try:
-                if notification_data:
-                    self.hass.call_service(
-                        service, title=title, message=message, data=notification_data
-                    )
-                else:
-                    self.hass.call_service(service, title=title, message=message)
-            except Exception as e:
-                self.__log(
-                    f"notify_user. Could not notify: exception on {recipient}. Exception: {e}."
-                )
-
-            if ttl > 0 and tag and not critical:
-                # Remove the notification after a time-to-live.
-                # A tag is required for clearing.
-                # Critical notifications should not auto clear.
-                self.hass.run_in(
-                    self.__clear_notification, delay=ttl, recipient=recipient, tag=tag
-                )
-
-    def clear_notification(self, tag: str):
-        """Wrapper method for easy clearing of notifications"""
-        self.__clear_notification_for_all_recipients(tag=tag)
-
     async def handle_calendar_change(self, v2g_events: List = None, v2g_args=None):
         """
         Draws the calendar items (v2g_events) in the UI.
@@ -685,7 +584,7 @@ class V2Gliberty:
         """
         # There might be a notification to remind the user to connect,
         # if the car gets connected this notification can be removed.
-        self.clear_notification(tag="reminder_to_connect")
+        self.notifier.clear_notification(tag="reminder_to_connect")
         await self.set_next_action(v2g_args="handle_car_connect")
 
     async def __handle_car_disconnect(self, entity, attribute, old, new, kwargs):
@@ -699,8 +598,8 @@ class V2Gliberty:
 
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
-        self.clear_notification(tag="dismiss_event_or_not")
-        self.clear_notification(tag="unreachable_target")
+        self.notifier.clear_notification(tag="dismiss_event_or_not")
+        self.notifier.clear_notification(tag="unreachable_target")
 
         # Cancel current scheduling timers
         self.__cancel_charging_timers()
@@ -710,7 +609,7 @@ class V2Gliberty:
         charge_mode = await self.hass.get_state("input_select.charge_mode", None)
         if charge_mode == "Max boost now":
             await self.__set_charge_mode_in_ui("Automatic")
-            self.notify_user(
+            self.notifier.notify_user(
                 message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
                 title=None,
                 tag="charge_mode_change",
@@ -776,7 +675,7 @@ class V2Gliberty:
 
         ttl = round((ve["end"] - get_local_now()).total_seconds(), 0)
         self.__log(f"Notifying user for {ttl} sec.:\n'{message}'")
-        self.notify_user(
+        self.notifier.notify_user(
             message=message,
             tag="unreachable_target",
             send_to_all=True,
@@ -834,7 +733,7 @@ class V2Gliberty:
         )
         # Do not send a critical warning if car was not connected.
         critical = was_car_connected
-        self.notify_user(
+        self.notifier.notify_user(
             message=message,
             title=title,
             tag="charger_modbus_crashed",
@@ -969,8 +868,8 @@ class V2Gliberty:
 
     async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
         """Function to handle updates in the car SoC"""
-        reported_soc = new["state"]
-        self.__log(f"__handle_soc_change called with raw SoC: {reported_soc}")
+        reported_soc = int(round(float(new["state"]), 0))
+        # self.__log(f"Called with raw SoC: {reported_soc}%")
         await self.set_next_action(v2g_args="__handle_soc_change")
 
         if (
@@ -981,11 +880,10 @@ class V2Gliberty:
                 f"Car battery at {reported_soc} %, "
                 f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
             )
-            self.notify_user(
+            self.__log(f"{message=}")
+            self.notifier.notify_user(
                 message=message,
-                title=None,
                 tag="battery_max_soc_reached",
-                critical=False,
                 send_to_all=True,
                 ttl=60 * 15,
             )
@@ -999,11 +897,9 @@ class V2Gliberty:
 
         await self.evse_client_app.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
-        self.notify_user(
+        self.notifier.notify_user(
             message="Charger is disconnected",
-            title=None,
             tag="charger_disconnected",
-            critical=False,
             send_to_all=True,
             ttl=5 * 60,
         )
@@ -1020,7 +916,7 @@ class V2Gliberty:
         self.__log("Called.")
 
         # The notification can be removed for other users.
-        self.clear_notification(tag="dismiss_event_or_not")
+        self.notifier.clear_notification(tag="dismiss_event_or_not")
 
         action_parts = str(data["action"]).split("~")
         action = action_parts[0]
@@ -1051,38 +947,6 @@ class V2Gliberty:
         await self.set_records_in_chart(
             chart_line_name=ChartLine.MAX_CHARGE_NOW, records=None
         )
-
-    ######################################################################
-    #               PRIVATE GENERAL NOTIFICATION METHODS                 #
-    ######################################################################
-
-    def __clear_notification_for_all_recipients(self, tag: str):
-        for recipient in c.NOTIFICATION_RECIPIENTS:
-            identification = {"recipient": recipient, "tag": tag}
-            self.__clear_notification(identification)
-
-    def __clear_notification(self, identification: dict):
-        self.__log(f"Clearing notification. Data: {identification}")
-        recipient = identification["recipient"]
-        if recipient == "" or recipient is None:
-            self.__log(f"Cannot clear notification, recipient is empty '{recipient}'.")
-            return
-        tag = identification["tag"]
-        if tag == "" or tag is None:
-            self.__log(f"Cannot clear notification, tag is empty '{tag}'.")
-            return
-
-        # Clear the notification
-        try:
-            self.hass.call_service(
-                "notify/mobile_app_" + recipient,
-                message="clear_notification",
-                data={"tag": tag},
-            )
-        except Exception as e:
-            self.__log(
-                f"Could not clear notification: exception on {recipient}. Exception: {e}."
-            )
 
     ######################################################################
     #                PRIVATE FUNCTIONS FOR NO-NEW-SCHEDULE               #
@@ -1128,7 +992,7 @@ class V2Gliberty:
                     f"__notify_no_new_schedule, notification timer cancelled: {res}."
                 )
             self.no_schedule_notification_is_planned = False
-            self.__clear_notification_for_all_recipients(tag="no_new_schedule")
+            self.notifier.clear_notification(tag="no_new_schedule")
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="off"
             )
@@ -1168,7 +1032,7 @@ class V2Gliberty:
                     "If you've set charging via the chargers app, "
                     "consider to end that and use automatic charging again."
                 )
-                self.notify_user(
+                self.notifier.notify_user(
                     message=message,
                     title=title,
                     tag="no_new_schedule",
@@ -1188,7 +1052,7 @@ class V2Gliberty:
             " automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
             "charging manually via the chargers app."
         )
-        self.notify_user(
+        self.notifier.notify_user(
             message=message,
             title=title,
             tag="no_new_schedule",
@@ -1481,7 +1345,7 @@ class V2Gliberty:
                 {"action": f"dismiss_event~{hid}", "title": "Dismiss reservation"},
                 {"action": f"keep_event~{hid}", "title": "Keep reservation"},
             ]
-            self.notify_user(
+            self.notifier.notify_user(
                 message=message,
                 title="Keep reservation for scheduling?",
                 tag="dismiss_event_or_not",
@@ -1503,7 +1367,7 @@ class V2Gliberty:
             self.__log(
                 "__remind_user_to_connect_after_event, car not connected, notifying users."
             )
-            self.notify_user(
+            self.notifier.notify_user(
                 message="The car is not connected while it was expected to have returned after a reservation. ",
                 tag="reminder_to_connect",
                 send_to_all=True,

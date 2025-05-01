@@ -1,6 +1,6 @@
 import constants as c
 from event_bus import EventBus
-from v2g_liberty import V2Gliberty
+from notifier_util import Notifier
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -22,13 +22,17 @@ class NissanLeafMonitor:
 
     hass: Hass = None
     event_bus: EventBus = None
-    v2g_main_app: V2Gliberty = None
+    notifier: Notifier = None
 
-    def __init__(self, hass: Hass, event_bus: EventBus):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.notifier = notifier
         self.event_bus = event_bus
+
+        self.__log = log_wrapper.get_class_method_logger(hass.log)
+
         self._initialize()
+
         self.__log("Completed __init__ NissanLeafMonitor")
 
     def _initialize(self):
@@ -69,7 +73,7 @@ class NissanLeafMonitor:
             )
             try:
                 relevant_duration = 24 * 60 * 60
-                self.v2g_main_app.notify_user(
+                self.notifier.notify_user(
                     message=message, tag="soc_skipped", ttl=relevant_duration
                 )
                 # Stop listening (and possibly repeating the message) for a day.

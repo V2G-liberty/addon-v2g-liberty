@@ -2,6 +2,7 @@ from datetime import datetime
 import asyncio
 import constants as c
 import log_wrapper
+from notifier_util import Notifier
 from v2g_globals import get_local_now, parse_to_int
 import pymodbus.client as modbusClient
 from pyee.asyncio import AsyncIOEventEmitter
@@ -242,9 +243,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     WAIT_AFTER_MODBUS_WRITE_IN_MS: int = 2500
     WAIT_AFTER_MODBUS_READ_IN_MS: int = 50
 
-    # For sending notifications to the user.
+    # For handling non responsive charger.
+    # TODO: Implement with event_bus instead?
     v2g_main_app: object
-    v2g_globals: object
 
     # Handle for polling_timer, needed for cancelling polling.
     poll_timer_handle: object
@@ -271,8 +272,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     _am_i_active: bool = None
 
     hass: Hass = None
+    event_bus: EventBus = None
+    notifier: Notifier = None
 
-    def __init__(self, hass: Hass, event_bus: EventBus):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         """initialise modbus_evse_client
         Setting up constants and variables.
         Configuration and connecting the modbus client is done separately in initialise_charger.
@@ -1445,15 +1448,15 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     async def __handle_bad_modbus_config(self):
         """Function to call when no connection with the modbus server could be made.
         This is only expected at startup.
-        A persistent notification will be set pointing out that the configuration might not be ok.
+        A sticky memo will be posted pointing out that the configuration might not be ok.
         Polling is canceled as this is pointless without a connection.
         """
 
-        self.v2g_globals.create_persistent_notification(
+        self.notifier.post_sticky_memo(
             title="Error in charger configuration",
             message="Please check if charger is powered, has IP connection and "
             "if Host/Port are correct in configuration.",
-            id="no_comm_with_evse",
+            memo_id="no_comm_with_evse",
         )
         await self.__cancel_polling(reason="no modbus connection")
 

@@ -1,6 +1,7 @@
 from service_response_app import ServiceResponseApp
 
 from event_bus import EventBus
+from notifier_util import Notifier
 
 from v2g_globals import V2GLibertyGlobals
 from modbus_evse_client import ModbusEVSEclient
@@ -17,16 +18,22 @@ from nissan_leaf_monitor import NissanLeafMonitor
 class V2GLibertyApp(ServiceResponseApp):
     async def initialize(self):
         event_bus = EventBus(self)
-        v2g_globals = V2GLibertyGlobals(self)
-        modbus_evse_client = ModbusEVSEclient(self, event_bus=event_bus)
+        notifier = Notifier(self)
+        v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
+        modbus_evse_client = ModbusEVSEclient(
+            self, event_bus=event_bus, notifier=notifier
+        )
         fm_client = FMClient(self)
         reservations_client = ReservationsClient(self)
-        v2g_liberty = V2Gliberty(self)
+        v2g_liberty = V2Gliberty(self, notifier=notifier)
         data_monitor = DataMonitor(self)
-        get_fm_data = FlexMeasuresDataImporter(self)
+        nissan_leaf_monitor = NissanLeafMonitor(
+            self, event_bus=event_bus, notifier=notifier
+        )
+        get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
+
         amber_price_data_manager = ManageAmberPriceData(self)
         octopus_price_data_manager = ManageOctopusPriceData(self)
-        nissan_leaf_monitor = NissanLeafMonitor(self, event_bus=event_bus)
 
         v2g_globals.v2g_main_app = v2g_liberty
         v2g_globals.evse_client_app = modbus_evse_client
@@ -48,8 +55,6 @@ class V2GLibertyApp(ServiceResponseApp):
 
         get_fm_data.v2g_main_app = v2g_liberty
         get_fm_data.fm_client_app = fm_client
-
-        nissan_leaf_monitor.v2g_main_app = v2g_liberty
 
         amber_price_data_manager.fm_client_app = fm_client
         amber_price_data_manager.v2g_main_app = v2g_liberty
