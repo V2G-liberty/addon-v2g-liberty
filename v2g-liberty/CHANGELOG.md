@@ -1,22 +1,14 @@
 # What's changed?
 
-## 0.6.0 2025-04-04
+## 0.6.1 2025-05-??
 
 ### Fixed
 
-- 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
-- 🪲 BUG: Too often "No new schedules". This includes relaxed scheduling. (#250)
-
 ### Added
-
-- 🚀 Feature Request: Loadbalancer function (Unnumbered)
-- 🚀 Feature Request: 'Discarge now' button. (#240)
 
 ### Changed
 
-- 🚀 Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
-  This includes the option to set a target in km.
-- ⬆️ Bump PyModbus library to v3.8.5
+- 🛠️ Refactoring: Separate notification functionality from V2G Liberty module (#266)
 
 &nbsp;
 
