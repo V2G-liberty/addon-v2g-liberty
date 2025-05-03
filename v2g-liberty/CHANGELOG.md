@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- 🪲 BUG: fluctuating charging around min-soc (#259)
+
 ### Added
 
 ### Changed

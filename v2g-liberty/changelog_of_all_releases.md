@@ -7,6 +7,8 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: fluctuating charging around min-soc (#259)
+
 ### Added
 
 ### Changed
