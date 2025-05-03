@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock, call
 from apps.v2g_liberty.nissan_leaf_monitor import NissanLeafMonitor
 from apps.v2g_liberty.event_bus import EventBus
+from apps.v2g_liberty.notifier_util import Notifier
 import apps.v2g_liberty.constants as c
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -21,24 +22,26 @@ def mock_event_bus():
 
 
 @pytest.fixture
-def mock_v2g_main_app():
-    """Mock the V2Gliberty app."""
-    v2g_main_app = MagicMock()
-    v2g_main_app.notify_user = MagicMock()
-    return v2g_main_app
+def mock_notifier():
+    """Mock the Notifier object."""
+    notifier = MagicMock(spec=Notifier)
+    # notifier.notify_user = MagicMock()
+    return notifier
 
 
 @pytest.fixture
-def nissan_leaf_monitor(mock_hass, mock_event_bus, mock_v2g_main_app):
+def nissan_leaf_monitor(mock_hass, mock_event_bus, mock_notifier):
     """Create an instance of NissanLeafMonitor with mocked dependencies."""
     c.CAR_MIN_SOC_IN_PERCENT = 20  # Set the minimum SoC threshold for the test
-    monitor = NissanLeafMonitor(hass=mock_hass, event_bus=mock_event_bus)
-    monitor.v2g_main_app = mock_v2g_main_app  # Inject mock V2GLiberty app
+    monitor = NissanLeafMonitor(
+        hass=mock_hass, event_bus=mock_event_bus, notifier=mock_notifier
+    )
+    monitor.notifier = mock_notifier
     return monitor
 
 
 def test_handle_soc_change_skip(
-    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_v2g_main_app
+    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_notifier
 ):
     """
     Test _handle_soc_change behavior when the SoC skips the threshold.
@@ -57,7 +60,7 @@ def test_handle_soc_change_skip(
     ), "Expected log message not found!"
 
     # Verify notification
-    mock_v2g_main_app.notify_user.assert_called_once_with(
+    mock_notifier.notify_user.assert_called_once_with(
         message=(
             f"The Nissan Leaf faulted, skipping the state-of-charge "
             f"{c.CAR_MIN_SOC_IN_PERCENT}%. This often leads to toggled charging. "
@@ -78,7 +81,7 @@ def test_handle_soc_change_skip(
 
 
 def test_handle_soc_change_no_skip(
-    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_v2g_main_app
+    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_notifier
 ):
     """
     Test _handle_soc_change behavior when the SoC does not skip the threshold.
@@ -96,14 +99,14 @@ def test_handle_soc_change_no_skip(
     mock_hass.log.assert_not_called()
 
     # Verify no notification sent
-    mock_v2g_main_app.notify_user.assert_not_called()
+    mock_notifier.notify_user.assert_not_called()
 
     # Verify event listener not removed
     mock_event_bus.remove_event_listener.assert_not_called()
 
 
 def test_handle_soc_change_invalid_soc(
-    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_v2g_main_app
+    nissan_leaf_monitor, mock_hass, mock_event_bus, mock_notifier
 ):
     new_soc = None
     old_soc = "unknown"
@@ -120,7 +123,7 @@ def test_handle_soc_change_invalid_soc(
     ), "Expected log message not found!"
 
     # Verify no notification sent
-    mock_v2g_main_app.notify_user.assert_not_called()
+    mock_notifier.notify_user.assert_not_called()
 
     # Verify event listener not removed
     mock_event_bus.remove_event_listener.assert_not_called()

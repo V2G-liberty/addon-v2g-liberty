@@ -3,6 +3,18 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.6.1 2025-05-??
+
+### Fixed
+
+- 🪲 BUG: fluctuating charging around min-soc (#259)
+
+### Added
+
+### Changed
+
+- 🛠️ Refactoring: Separate notification functionality from V2G Liberty module (#266)
+
 ## 0.6.0 2025-04-04
 
 ### Fixed

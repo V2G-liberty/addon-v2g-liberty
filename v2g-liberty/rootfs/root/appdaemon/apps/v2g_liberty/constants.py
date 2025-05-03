@@ -18,11 +18,7 @@ TZ = ""
 # FSC: Only used in v2g_liberty module, move there.
 HA_NAME: str = ""
 
-# FSC: Next 2, Only used in V2G Liberty module, move there.
-NOTIFICATION_RECIPIENTS: list = []
 ADMIN_MOBILE_NAME: str = ""
-
-# FSC, only used here
 ADMIN_MOBILE_PLATFORM: str = ""
 
 # FSC: holds knowledge of HA specifics, based on previous, move to v2g_liberty module and
