@@ -645,7 +645,10 @@ class V2Gliberty:
             f"max possible target: {max_target}."
         )
         ve = self.calendar_targets[0]
-        delay_in_seconds = (soonest_at_target - ve["start"]).total_seconds()
+        ve_start = ve["start"]
+        ve_end = ve["end"]
+        delay_in_seconds = (soonest_at_target - ve_start).total_seconds()
+        time_format = "%H:%M"
 
         if delay_in_seconds < 420:
             self.__log(
@@ -654,12 +657,23 @@ class V2Gliberty:
             )
             return
 
+        half_time_ve = ve_start + (ve_end - ve_start) / 2
+        # self.__log(f"Half-time-ve: {half_time_ve.strftime(time_format)}.")
+        if get_local_now() > half_time_ve:
+            # This can be the case if:
+            # + a calendar item is added with a start-time in the past.
+            # + the car is connected during a current calendar item.
+            self.__log(
+                "Not notifying about unreachable target as the "
+                "calendar item has passed it's half-time already."
+            )
+            return
+
         self.last_soonest_target_date = soonest_at_target
 
         hours = int(delay_in_seconds // 3600)
         minutes = int((delay_in_seconds % 3600) // 60)
         duration = f"{hours:02}:{minutes:02}"
-        time_format = "%H:%M"
 
         if max_target is None:
             message = (
@@ -670,10 +684,10 @@ class V2Gliberty:
         else:
             message = (
                 f"The target soc of the next calendar item is expected to be {max_target}%"
-                f"at {ve['end'].strftime(time_format)}."
+                f"at {ve_end.strftime(time_format)}."
             )
 
-        ttl = round((ve["end"] - get_local_now()).total_seconds(), 0)
+        ttl = round((ve_end - get_local_now()).total_seconds(), 0)
         self.__log(f"Notifying user for {ttl} sec.:\n'{message}'")
         self.notifier.notify_user(
             message=message,
