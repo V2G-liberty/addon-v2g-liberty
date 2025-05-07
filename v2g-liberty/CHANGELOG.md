@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
 - 🪲 BUG: fluctuating charging around min-soc (#259)
 
 ### Added

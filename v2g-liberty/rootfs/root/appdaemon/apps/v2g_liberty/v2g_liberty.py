@@ -1105,6 +1105,14 @@ class V2Gliberty:
         Finally, the expected SoC (given the schedule) is calculated and saved to
         sensor.soc_prognosis.
         """
+
+        if await self.hass.get_state("input_select.charge_mode", None) != "Automatic":
+            # This situation can occure when chargemode changed (quicky) during past moments
+            # (seconds) from Automatic (triggering a schedule to be fetched and this process is not
+            # stopped by switching to an other charge_mode) to any other charge mode.
+            self.__log("aborted: charge_mode is not automatic (any more).")
+            return
+
         if not await self.evse_client_app.is_car_connected():
             self.__log("aborted: car is not connected")
             return
