@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
 - 🪲 BUG: When connecting during a calendar reservation period, the "target cannot be reached" process kicks in while it should not (#261)
 - 🪲 BUG: fluctuating charging around min-soc (#259)
 
