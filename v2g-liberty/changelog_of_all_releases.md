@@ -15,6 +15,7 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- ⬆️ BUMP base-x version to 3.0.11 (#274)
 - 🛠️ Refactoring: Separate notification functionality from V2G Liberty module (#266)
 
 ## 0.6.0 2025-04-04
