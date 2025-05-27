@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Check for max power incorrect (#276)
 - 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
 - 🪲 BUG: When connecting during a calendar reservation period, the "target cannot be reached" process kicks in while it should not (#261)
 - 🪲 BUG: fluctuating charging around min-soc (#259)
@@ -27,7 +28,7 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
-- 🚀 Feature Request: Loadbalancer function (Unnumbered)
+- 🚀 Feature Request: Load-balancer function (Unnumbered)
 - 🚀 Feature Request: 'Discarge now' button. (#240)
 
 ### Changed

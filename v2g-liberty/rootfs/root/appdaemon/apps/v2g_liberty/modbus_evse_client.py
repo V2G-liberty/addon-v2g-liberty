@@ -1123,7 +1123,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                 f"Requested charge power {charge_power} Watt too high.", level="WARNING"
             )
             charge_power = c.CHARGER_MAX_CHARGE_POWER
-        elif abs(charge_power) > c.CHARGER_MAX_DISCHARGE_POWER:
+        elif charge_power < -c.CHARGER_MAX_DISCHARGE_POWER:
             self.__log(
                 f"Requested discharge power {charge_power} Watt too high.",
                 level="WARNING",
