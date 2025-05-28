@@ -367,7 +367,7 @@ sensor:
         value_template: "{{ None }}"  # Dummy
 
       charger_connection_status:
-        friendly_name: Calendar account connection status
+        friendly_name: Charger connection status
         value_template: ""
 
       poll_refresh_indicator:
