@@ -766,7 +766,7 @@ class V2Gliberty:
             "recipient": c.ADMIN_MOBILE_NAME,
             "tag": "charger_modbus_crashed",
         }
-        self.__clear_notification(identification)
+        self.notifier.clear_notification(identification)
 
     async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
         """Write or remove records in lines in the chart.
