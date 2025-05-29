@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import isodate
 from typing import AsyncGenerator, List, Optional
 from notifier_util import Notifier
+from event_bus import EventBus
 from itertools import accumulate
 import math
 import asyncio
@@ -94,11 +95,13 @@ class V2Gliberty:
     fm_client_app: object = None
     reservations_client: object = None
     notifier: Notifier = None
+    event_bus: EventBus = None
     hass: Hass = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
+        self.event_bus = event_bus
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
@@ -180,11 +183,8 @@ class V2Gliberty:
             self.__handle_user_dismiss_choice, event="mobile_app_notification_action"
         )
 
-        await self.hass.listen_state(
-            self.__handle_soc_change,
-            "sensor.car_state_of_charge",
-            attribute="all",
-        )
+        self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
+
         await self.hass.listen_state(
             self.__process_schedule, "sensor.charge_schedule", attribute="all"
         )
@@ -880,18 +880,17 @@ class V2Gliberty:
         await self.set_next_action(v2g_args="__handle_charge_mode_change")
         return
 
-    async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
+    async def __handle_soc_change(self, new_soc: int, old_soc: int):
         """Function to handle updates in the car SoC"""
-        reported_soc = int(round(float(new["state"]), 0))
-        # self.__log(f"Called with raw SoC: {reported_soc}%")
+        self.__log(f"new_soc: {new_soc}%, old_soc: {old_soc}%.")
         await self.set_next_action(v2g_args="__handle_soc_change")
 
         if (
             await self.evse_client_app.is_charging()
-            and reported_soc == c.CAR_MAX_SOC_IN_PERCENT
+            and new_soc == c.CAR_MAX_SOC_IN_PERCENT
         ):
             message = (
-                f"Car battery at {reported_soc} %, "
+                f"Car battery at {new_soc} %, "
                 f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
             )
             self.__log(f"{message=}")

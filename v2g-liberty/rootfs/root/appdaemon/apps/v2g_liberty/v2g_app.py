@@ -25,7 +25,7 @@ class V2GLibertyApp(ServiceResponseApp):
         )
         fm_client = FMClient(self)
         reservations_client = ReservationsClient(self)
-        v2g_liberty = V2Gliberty(self, notifier=notifier)
+        v2g_liberty = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
         data_monitor = DataMonitor(self)
         nissan_leaf_monitor = NissanLeafMonitor(
             self, event_bus=event_bus, notifier=notifier
