@@ -1033,6 +1033,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             attributes (dict, optional):
               The dict the attributes should be written with. Defaults to {}.
         """
+        if entity_id == "sensor.car_state_of_charge":
+            # Is handled by ha_ui_manager
+            return
+
         new_attributes = {}
         if self.hass.entity_exists(entity_id):
             entity_state = await self.hass.get_state(entity_id, attribute="all")

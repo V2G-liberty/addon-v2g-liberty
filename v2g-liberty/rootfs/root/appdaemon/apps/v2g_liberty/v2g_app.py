@@ -1,6 +1,7 @@
 from service_response_app import ServiceResponseApp
 
 from event_bus import EventBus
+from ha_ui_manager import HAUIManager
 from notifier_util import Notifier
 
 from v2g_globals import V2GLibertyGlobals
@@ -18,6 +19,7 @@ from nissan_leaf_monitor import NissanLeafMonitor
 class V2GLibertyApp(ServiceResponseApp):
     async def initialize(self):
         event_bus = EventBus(self)
+        ha_ui_manager = HAUIManager(self, event_bus=event_bus)
         notifier = Notifier(self)
         v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
         modbus_evse_client = ModbusEVSEclient(
