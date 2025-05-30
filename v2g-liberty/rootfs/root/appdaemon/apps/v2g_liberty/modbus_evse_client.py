@@ -49,7 +49,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         "minimum_value": -7400,
         "maximum_value": 7400,
         "current_value": None,
-        "ha_entity_name": "charger_real_charging_power",
+        "change_handler": "__handle_charge_power_change",
     }
     ENTITY_CHARGER_STATE = {
         "modbus_address": 537,
@@ -57,7 +57,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         "maximum_value": 11,
         "current_value": None,
         "change_handler": "__handle_charger_state_change",
-        "ha_entity_name": "charger_state_int",
     }
     ENTITY_CAR_SOC = {
         "modbus_address": 538,
@@ -602,13 +601,16 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
 
-    async def __handle_soc_change(self, new_soc: int, old_soc: int):
-        """Handle changed soc, set remaining range sensor."""
-        self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
+    async def __handle_soc_change(self, new_soc: int):
+        """Handle changed soc"""
+        self.event_bus.emit_event("soc_change", new_soc=new_soc)
         self.event_bus.emit_event(
             "remaining_range_change",
             remaining_range=await self.get_car_remaining_range(),
         )
+
+    async def __handle_charge_power_change(self, new_power: int):
+        self.event_bus.emit_event("charge_power_change", new_power=new_power)
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
@@ -619,17 +621,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self.__log(f"called {new_charger_state=}, {old_charger_state=}.")
         if not self._am_i_active:
             self.__log("called while _am_i_active == False. Not blocking.")
-        # Also make a text version of the state available in the UI
-        charger_state_text = self.CHARGER_STATES.get(new_charger_state, None)
-        if charger_state_text is not None and not self.try_get_new_soc_in_process:
-            # self.try_get_new_soc_in_process should not happen as polling is stopped,
-            # just to be safe...
-            await self.__update_ha_entity(
-                entity_id="sensor.charger_state_text", new_value=charger_state_text
-            )
-            self.__log(f"set state in text for UI = {charger_state_text}.")
-        else:
-            self.__log(f"Unknown charger state: {new_charger_state}.", level="WARNING")
 
         if (
             new_charger_state in self.ERROR_STATES
@@ -640,15 +631,25 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                 {"new_charger_state": new_charger_state, "is_final_check": False}
             )
 
+        if self.try_get_new_soc_in_process:
+            return
+
+        charger_state_text = self.CHARGER_STATES.get(new_charger_state, None)
+        self.event_bus.emit_event(
+            "charger_state_change",
+            new_charger_state=new_charger_state,
+            new_charger_state_str=charger_state_text,
+        )
+
         if new_charger_state in self.DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
             # When disconnected the SoC of the car is unavailable.
-            await self.__update_ha_and_evse_entity(
-                evse_entity=self.ENTITY_CAR_SOC,
-                new_value="unavailable",
+            await self.__update_evse_entity(
+                evse_entity=self.ENTITY_CAR_SOC, new_value="unavailable"
             )
+
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
             await self.__set_charger_action("stop", reason="car disconnected")
@@ -993,14 +994,14 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                         old_charger_state=current_value,
                     )
                 elif str_action == "__handle_soc_change":
-                    await self.__handle_soc_change(
-                        new_soc=new_value, old_soc=current_value
-                    )
+                    await self.__handle_soc_change(new_soc=new_value)
                 elif str_action == "__handle_charger_error_state_change":
                     # This is the case for the ENTITY_ERROR_1..4. The charger_state
                     # does not necessarily change only (one or more of) these error-states.
                     # So the state is not added to the call.
                     await self.__handle_charger_error_state_change({"dummy": None})
+                elif str_action == "__handle_charge_power_change":
+                    await self.__handle_charge_power_change(new_power=new_value)
                 else:
                     self.__log(f"unknown action: '{str_action}'.", level="WARNING")
 

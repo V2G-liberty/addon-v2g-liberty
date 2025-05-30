@@ -37,6 +37,12 @@ class HAUIManager:
         self.event_bus.add_event_listener(
             "evse_polled", self._update_poll_indicator_in_ui
         )
+        self.event_bus.add_event_listener(
+            "charger_state_change", self._handle_charger_state_change
+        )
+        self.event_bus.add_event_listener(
+            "charge_power_change", self._handle_charge_power_change
+        )
 
         self.__log("Completed initialize")
 
@@ -45,7 +51,13 @@ class HAUIManager:
             entity_id="sensor.charger_info", new_value=charger_info
         )
 
-    async def _handle_soc_change(self, new_soc: int, old_soc: int):
+    async def _handle_charge_power_change(self, new_power: int):
+        """Handle changes in the actual charge power."""
+        await self.__update_ha_entity(
+            entity_id="sensor.charger_real_charging_power", new_value=new_power
+        )
+
+    async def _handle_soc_change(self, new_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
         await self.__update_ha_entity(
             entity_id="sensor.car_state_of_charge", new_value=new_soc
@@ -66,6 +78,17 @@ class HAUIManager:
             self.poll_update_text = ""
         await self.__update_ha_entity(
             entity_id="sensor.poll_refresh_indicator", new_value=self.poll_update_text
+        )
+
+    async def _handle_charger_state_change(
+        self, new_charger_state: int, new_charger_state_str: str
+    ):
+        """Handle changes in the charger state."""
+        await self.__update_ha_entity(
+            entity_id="sensor.charger_state_int", new_value=new_charger_state
+        )
+        await self.__update_ha_entity(
+            entity_id="sensor.charger_state_text", new_value=new_charger_state_str
         )
 
     async def __update_ha_entity(

@@ -16,22 +16,32 @@ class EventBus(AsyncIOEventEmitter):
         serial number, etc. Mainly for debugging, usually set at startup.
         - **Emitted by** modbus_evse_client
         - **Arguments**:
-            - `charger_info` (str): Genral info "".
+            - `charger_info` (str): General info "".
 
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
-          When the SoC value changes, this event is emitted with the new and old values.
         - **Emitted by** modbus_evse_client
         - **Arguments**:
-            - `new_soc` (int): The new state of charge value (1–100).
-            - `old_soc` (int): The previous state of charge value (1–100).
-            Note that both of these can be 'unknown'.
+            - `new_soc` (int): The new state of charge value (1–100), can be 'unavailable'.
         - **Example**:
           ```python
-          def _handle_soc_change(new_soc, old_soc):
-              print(f"State of Charge changed from {old_soc}% to {new_soc}%")
+          def _handle_soc_change(new_soc):
+              print(f"State of Charge changed to {new_soc}%")
           event_bus.add_event_listener("soc_change", _handle_soc_change)
           ```
+
+    - `charge_power_change`:
+        - **Description**: Monitors changes in the chargers actual (real) charge power.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be 'unavailable'.
+
+    - `charger_state_change`:
+        - **Description**: Monitors changes in the chargers state (charging, idle, error etc.).
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
+            - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
 
     - `evse_polled`:
         - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
@@ -54,7 +64,8 @@ class EventBus(AsyncIOEventEmitter):
         Emit (aka fire or publish) an event with associated arguments.
         Warns if no listeners are registered for the event.
         """
-        self.__log(f"Emitting event: '{event}' with args: {args}, kwargs: {kwargs}")
+        if event != "evse_polled":
+            self.__log(f"Emitting event: '{event}' with args: {args}, kwargs: {kwargs}")
         try:
             if not self.listeners(event):
                 self.__log(f"Event '{event}' has no listeners.", level="WARNING")
