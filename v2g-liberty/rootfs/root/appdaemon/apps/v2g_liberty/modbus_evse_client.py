@@ -67,7 +67,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         "relaxed_max_value": 100,
         "current_value": None,
         "change_handler": "__handle_soc_change",
-        "ha_entity_name": "car_state_of_charge",
     }
     # About the relaxed minimum value of 1%:
     # The minimum is used for correct processing of the SoC as the charger reports a SoC of 0 when:
@@ -251,8 +250,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     poll_timer_handle: object
     BASE_POLLING_INTERVAL_SECONDS: int = 5
     MINIMAL_POLLING_INTERVAL_SECONDS: int = 15
-    # For indication to the user if/how fast polling is in progress
-    poll_update_text: str = ""
 
     try_get_new_soc_in_process: bool = False
 
@@ -619,12 +616,11 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
     async def __handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changed soc, set remaining range sensor."""
-        await self.__update_ha_entity(
-            entity_id="sensor.car_remaining_range",
-            new_value=await self.get_car_remaining_range(),
-        )
-
         self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
+        self.event_bus.emit_event(
+            "remaining_range_change",
+            remaining_range=await self.get_car_remaining_range(),
+        )
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
@@ -907,7 +903,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             return
 
         for entity in entities:
-            entity_name = f"sensor.{entity['ha_entity_name']}"
+            # TODO: remove entity_name in this method.
+            entity_name = entity.get("ha_entity_name", "now_handled_via_events")
+            entity_name = f"sensor.{entity_name}"
             register_index = entity["modbus_address"] - start
             new_state = results[register_index]
             if new_state is None:
@@ -973,8 +971,13 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     ):
         """Helper method to update both the evse- and ha-entity at the same time"""
         await self.__update_evse_entity(evse_entity=evse_entity, new_value=new_value)
-        entity_id = f"sensor.{evse_entity['ha_entity_name']}"
-        await self.__update_ha_entity(entity_id=entity_id, new_value=new_value)
+
+        # To support phase-out of setting ha_ui_entities from this module.
+        # TODO: remove when refactoring is complete.
+        ee = evse_entity.get("ha_entity_name", None)
+        if ee is not None and ee != "":
+            entity_id = f"sensor.{ee}"
+            await self.__update_ha_entity(entity_id=entity_id, new_value=new_value)
 
     async def __update_evse_entity(
         self,
@@ -1033,9 +1036,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             attributes (dict, optional):
               The dict the attributes should be written with. Defaults to {}.
         """
-        if entity_id == "sensor.car_state_of_charge":
-            # Is handled by ha_ui_manager
-            return
 
         new_attributes = {}
         if self.hass.entity_exists(entity_id):
@@ -1158,16 +1158,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     #                   POLLING RELATED FUNCTIONS                        #
     ######################################################################
 
-    async def __update_poll_indicator_in_ui(self, reset: bool = False):
-        # Toggles the char in the UI to indicate polling activity,
-        # as the "last_changed" attribute also changes, an "age" can be shown based on this as well.
-        self.poll_update_text = "↺" if self.poll_update_text != "↺" else "↻"
-        if reset:
-            self.poll_update_text = ""
-        await self.__update_ha_entity(
-            entity_id="sensor.poll_refresh_indicator", new_value=self.poll_update_text
-        )
-
     async def __set_poll_strategy(self):
         """Poll strategy:
         Should only be called if connection state has really changed.
@@ -1223,7 +1213,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self.__log(f"reason: {reason}")
         self.__cancel_timer(self.poll_timer_handle)
         self.poll_timer_handle = None
-        await self.__update_poll_indicator_in_ui(reset=True)
+        self.event_bus.emit_event("evse_polled", stop=True)
 
     async def __minimal_polling(self, kwargs):
         """Should only be called from set_poll_strategy
@@ -1235,7 +1225,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         # modbus addresses in between them do not exist in the EVSE.
         await self.__get_and_process_registers([self.ENTITY_CHARGER_STATE])
         await self.__get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
-        await self.__update_poll_indicator_in_ui()
+        self.event_bus.emit_event("evse_polled", stop=False)
 
     async def __base_polling(self, kwargs):
         """Should only be called from set_poll_strategy
@@ -1247,7 +1237,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         # modbus addresses in between them do not exist in the EVSE.
         await self.__get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self.__get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
-        await self.__update_poll_indicator_in_ui()
+        self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################
     #                   MODBUS RELATED FUNCTIONS                         #

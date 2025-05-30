@@ -12,6 +12,9 @@ class HAUIManager:
     hass: Hass = None
     event_bus: EventBus = None
 
+    # For indication to the user if/how fast polling is in progress
+    poll_update_text: str = ""
+
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.event_bus = event_bus
@@ -24,13 +27,36 @@ class HAUIManager:
 
     def _initialize(self):
         self.event_bus.add_event_listener("soc_change", self._handle_soc_change)
+        self.event_bus.add_event_listener(
+            "remaining_range_change", self._handle_remaining_range_change
+        )
+        self.event_bus.add_event_listener(
+            "evse_polled", self._update_poll_indicator_in_ui
+        )
+
         self.__log("Completed initialize")
 
     async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
-        self.__log(f"handling new_soc: {new_soc}.")
         await self.__update_ha_entity(
             entity_id="sensor.car_state_of_charge", new_value=new_soc
+        )
+
+    async def _handle_remaining_range_change(self, remaining_range: int):
+        """Handle changes in the car's remaining range."""
+        self.__log(f"handling remaining range: {remaining_range}.")
+        await self.__update_ha_entity(
+            entity_id="sensor.car_remaining_range", new_value=remaining_range
+        )
+
+    async def _update_poll_indicator_in_ui(self, stop: bool = False):
+        # Toggles the char in the UI to indicate polling activity,
+        # as the "last_changed" attribute also changes, an "age" can be shown based on this as well.
+        self.poll_update_text = "↺" if self.poll_update_text != "↺" else "↻"
+        if stop:
+            self.poll_update_text = ""
+        await self.__update_ha_entity(
+            entity_id="sensor.poll_refresh_indicator", new_value=self.poll_update_text
         )
 
     async def __update_ha_entity(

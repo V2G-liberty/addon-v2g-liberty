@@ -26,6 +26,14 @@ class EventBus(AsyncIOEventEmitter):
           event_bus.add_event_listener("soc_change", _handle_soc_change)
           ```
 
+    - `evse_polled`:
+        - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
+          change in frequency. Mainly aimed at showing in the UI.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `stop` (bool): If True stop the poll indicator, set text to "".
+
+
     """
 
     def __init__(self, hass: Hass):
