@@ -11,6 +11,13 @@ class EventBus(AsyncIOEventEmitter):
     via this event bus without directly knowing each other.
 
     ### List of Events:
+    - `update_charger_info`:
+        - **Description**: Update general info about the charger such as name, firmware,
+        serial number, etc. Mainly for debugging, usually set at startup.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `charger_info` (str): Genral info "".
+
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
           When the SoC value changes, this event is emitted with the new and old values.

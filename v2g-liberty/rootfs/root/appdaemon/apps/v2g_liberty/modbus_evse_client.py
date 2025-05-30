@@ -127,30 +127,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         "ha_entity_name": "charger_locked",
     }
 
-    ENTITY_FIRMWARE_VERSION = {
-        "modbus_address": 1,
-        "minimum_value": 0,
-        "maximum_value": 65535,
-        "current_value": None,
-        "ha_entity_name": "firmware_version",
-    }
-
-    ENTITY_SERIAL_NUMBER_HIGH = {
-        "modbus_address": 2,
-        "minimum_value": 0,
-        "maximum_value": 65535,
-        "current_value": None,
-        "ha_entity_name": "serial_number_high",
-    }
-
-    ENTITY_SERIAL_NUMBER_LOW = {
-        "modbus_address": 3,
-        "minimum_value": 0,
-        "maximum_value": 65535,
-        "current_value": None,
-        "ha_entity_name": "serial_number_low",
-    }
-
     # Groups of entities for efficient reading of the modbus registers.
     CHARGER_POLLING_ENTITIES: list
     CHARGER_ERROR_ENTITIES: list
@@ -297,11 +273,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.ENTITY_ERROR_2,
             self.ENTITY_ERROR_3,
             self.ENTITY_ERROR_4,
-        ]
-        self.CHARGER_INFO_ENTITIES = [
-            self.ENTITY_FIRMWARE_VERSION,
-            self.ENTITY_SERIAL_NUMBER_HIGH,
-            self.ENTITY_SERIAL_NUMBER_LOW,
         ]
         self.poll_timer_handle = None
 
@@ -525,12 +496,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             return
         self.__log("kicking off")
 
-        # So the status page can show if communication with charge is ok.
-        for entity in self.CHARGER_INFO_ENTITIES:
-            # Reset values
-            entity_name = f"sensor.{entity['ha_entity_name']}"
-            await self.__update_ha_entity(entity_id=entity_name, new_value="unknown")
-        await self.__get_and_process_registers(self.CHARGER_INFO_ENTITIES)
+        self.event_bus.emit_event(
+            "update_charger_info", charger_info=await self._get_charger_info()
+        )
 
         # We always at least need all the information to get started
         # This also creates the entities in HA that many modules depend upon.
@@ -540,6 +508,26 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         # As at init there most likely is no charging in progress this will be the first
         # opportunity to do a poll.
         await self.__get_car_soc(do_not_use_cache=True)
+
+    async def _get_charger_info(self):
+        firware_version_modbus_address = 1
+        # serial_number_high_modbus_address = 2
+        serial_number_low_modbus_address = 3
+
+        length = serial_number_low_modbus_address - firware_version_modbus_address + 1
+        try:
+            results = await self.__modbus_read(
+                address=firware_version_modbus_address,
+                length=length,
+                source="_get_charger_info",
+            )
+            charger_info = (
+                f"Wallbox Quasar 1 - Firmware version: {results[0]}, "
+                f"Serial number high: {results[1]}, Serial Number Low: {results[2]}."
+            )
+            return charger_info
+        except:
+            return "unknown"
 
     async def __set_charger_control(self, take_or_give_control: str):
         """Set charger control: take control from the user or give control back to the user

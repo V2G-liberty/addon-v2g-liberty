@@ -26,6 +26,10 @@ class HAUIManager:
         self.__log("Completed __init__")
 
     def _initialize(self):
+        self.event_bus.add_event_listener(
+            "update_charger_info", self._update_charger_info
+        )
+
         self.event_bus.add_event_listener("soc_change", self._handle_soc_change)
         self.event_bus.add_event_listener(
             "remaining_range_change", self._handle_remaining_range_change
@@ -35,6 +39,11 @@ class HAUIManager:
         )
 
         self.__log("Completed initialize")
+
+    async def _update_charger_info(self, charger_info: str):
+        await self.__update_ha_entity(
+            entity_id="sensor.charger_info", new_value=charger_info
+        )
 
     async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
