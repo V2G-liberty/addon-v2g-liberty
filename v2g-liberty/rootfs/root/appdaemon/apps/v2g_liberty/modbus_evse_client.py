@@ -601,9 +601,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
 
-    async def __handle_soc_change(self, new_soc: int):
+    async def __handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changed soc"""
-        self.event_bus.emit_event("soc_change", new_soc=new_soc)
+        self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
         self.event_bus.emit_event(
             "remaining_range_change",
             remaining_range=await self.get_car_remaining_range(),
@@ -994,7 +994,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                         old_charger_state=current_value,
                     )
                 elif str_action == "__handle_soc_change":
-                    await self.__handle_soc_change(new_soc=new_value)
+                    await self.__handle_soc_change(
+                        new_soc=new_value, old_soc=current_value
+                    )
                 elif str_action == "__handle_charger_error_state_change":
                     # This is the case for the ENTITY_ERROR_1..4. The charger_state
                     # does not necessarily change only (one or more of) these error-states.

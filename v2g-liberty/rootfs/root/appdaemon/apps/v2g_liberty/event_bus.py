@@ -20,13 +20,16 @@ class EventBus(AsyncIOEventEmitter):
 
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
+          When the SoC value changes, this event is emitted with the new and old values.
         - **Emitted by** modbus_evse_client
         - **Arguments**:
-            - `new_soc` (int): The new state of charge value (1–100), can be 'unavailable'.
+            - `new_soc` (int): The new state of charge value (1–100).
+            - `old_soc` (int): The previous state of charge value (1–100).
+            Note that both of these can be 'unknown'.
         - **Example**:
           ```python
-          def _handle_soc_change(new_soc):
-              print(f"State of Charge changed to {new_soc}%")
+          def _handle_soc_change(new_soc, old_soc):
+              print(f"State of Charge changed from {old_soc}% to {new_soc}%")
           event_bus.add_event_listener("soc_change", _handle_soc_change)
           ```
 

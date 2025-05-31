@@ -57,7 +57,7 @@ class HAUIManager:
             entity_id="sensor.charger_real_charging_power", new_value=new_power
         )
 
-    async def _handle_soc_change(self, new_soc: int):
+    async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
         await self.__update_ha_entity(
             entity_id="sensor.car_state_of_charge", new_value=new_soc
