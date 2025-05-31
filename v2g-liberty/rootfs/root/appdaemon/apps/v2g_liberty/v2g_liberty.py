@@ -168,15 +168,8 @@ class V2Gliberty:
         # This is a disconnect request from the user through the UI.
         await self.hass.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
 
-        await self.hass.listen_state(
-            self.__handle_car_connect,
-            "binary_sensor.is_car_connected",
-            new="on",
-        )
-        await self.hass.listen_state(
-            self.__handle_car_disconnect,
-            "binary_sensor.is_car_connected",
-            new="off",
+        self.event_bus.add_event_listener(
+            "is_car_connected", self._update_car_connected
         )
 
         await self.hass.listen_event(
@@ -567,6 +560,13 @@ class V2Gliberty:
     #                         PRIVATE METHODS                            #
     ######################################################################
 
+    async def _update_car_connected(self, is_car_connected: bool):
+        self.__log(f"Acting on conneted stae of car: {is_car_connected}.")
+        if is_car_connected:
+            await self.__handle_car_connect()
+        else:
+            await self.__handle_car_disconnect()
+
     async def __log_version(self, args):
         """
         Log version, to be called once at initialisation.
@@ -578,7 +578,7 @@ class V2Gliberty:
             return
         await self.fm_client_app.log_version(version_number)
 
-    async def __handle_car_connect(self, entity, attribute, old, new, kwargs):
+    async def __handle_car_connect(self):
         """
         Called by listener when car gets connected (the plug is inserted in the socket).
         """
@@ -587,7 +587,7 @@ class V2Gliberty:
         self.notifier.clear_notification(tag="reminder_to_connect")
         await self.set_next_action(v2g_args="handle_car_connect")
 
-    async def __handle_car_disconnect(self, entity, attribute, old, new, kwargs):
+    async def __handle_car_disconnect(self):
         """
         Called by listener when car gets disconnected.
         Goes to this status when the plug is removed from the socket (not when disconnect is

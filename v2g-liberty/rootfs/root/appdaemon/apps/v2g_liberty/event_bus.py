@@ -53,6 +53,11 @@ class EventBus(AsyncIOEventEmitter):
         - **Arguments**:
             - `stop` (bool): If True stop the poll indicator, set text to "".
 
+    - `is_car_connected`:
+        - **Description**: Monitors if a car is connected to the charger.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `is_car_connected` (bool): connected state.
 
     """
 

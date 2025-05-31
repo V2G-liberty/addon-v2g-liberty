@@ -654,20 +654,14 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             # explicitly send a stop-charging command:
             await self.__set_charger_action("stop", reason="car disconnected")
             await self.__set_poll_strategy()
-            await self.__update_ha_entity(
-                entity_id="binary_sensor.is_car_connected",
-                new_value="off",
-            )
-        elif old_charger_state in self.DISCONNECTED_STATES:
+            self.event_bus.emit_event("is_car_connected", is_car_connected=False)
+        elif old_charger_state in self.DISCONNECTED_STATES or old_charger_state is None:
             # new_charger_state must be a connected state, so if the old state was disconnected
             # there was a change in connected state.
             self.__log("From disconnected to connected: try to refresh the SoC")
             await self.__get_car_soc(do_not_use_cache=True)
             await self.__set_poll_strategy()
-            await self.__update_ha_entity(
-                entity_id="binary_sensor.is_car_connected",
-                new_value="on",
-            )
+            self.event_bus.emit_event("is_car_connected", is_car_connected=True)
         else:
             # From one connected state to an other connected state: not a change that this method
             # needs to react upon.
@@ -1603,10 +1597,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         )
         await self.__update_ha_and_evse_entity(
             evse_entity=self.ENTITY_CAR_SOC, new_value="unavailable"
-        )
-        await self.__update_ha_entity(
-            entity_id="binary_sensor.is_car_connected",
-            new_value="unavailable",
         )
 
     def __cancel_timer(self, timer_id: str):
