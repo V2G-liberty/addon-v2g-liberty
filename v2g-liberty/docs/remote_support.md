@@ -32,14 +32,14 @@ This is needed so that it can later be revoked and so that it does not interfere
 
 1. Open Home Assistant web interface
 
-2. Go to `Settings -> People -> Add person`
+2. Go to `Settings` -> `People` -> `Add person`
 
 3. `Name`: v2g-liberty-support \
 Set `Allow person to login` to `On`
 
 4. `Display name`: v2g-liberty-support \
-`Username`: v2g-liberty-support \
-`Password`: **** \
+   `Username`: v2g-liberty-support \
+   `Password`: **** \
 Create one and write it down in your fav. Password manager (or a Word doc) \
 Set `Local access only` to `Off` \
 Set `Administrator` to `On`
@@ -56,7 +56,7 @@ Tailscale is a VPN free service that makes the devices and applications you own 
 
 1. Open Home Assistant web interface
 
-2. Go to `Settings ->Add-ons ->Add-on Store`
+2. Go to `Settings` -> `Add-ons` -> `Add-on Store`
 
 3. Search for Tailscale and select it
 
@@ -70,10 +70,15 @@ However, if you intend to use it for remote access for yourself, the first two a
 7. Sometimes a message appears about an expired key, then just hit `Re-authenticate`
 
 8. Login to connect \
-Tailscale uses other cloud services (Google, Microsoft, Apple, etc.) for login on a Tailscale account, so you are presented a list of so called identity providers (ID-P’s). \
-You most likely do not have a Tailscale account yet, no problem, just use your favourite ID-P to login and an account is created automatically. \
-If you don’t have an account for any of the ID-P’s we suggest you create a Github account at https://github.com/join. Do this before you proceed here.\
-It is advisable to use a private account for the ID-P's, not a work account for this.
+   - Tailscale uses other cloud services (Google, Microsoft, Apple, etc.) for login on a Tailscale account, so you are presented a list of so called identity providers (ID-P’s). \
+   - You most likely do not have a Tailscale account yet, no problem, just use your favourite ID-P to login and an account is created automatically. \
+   - If you don’t have an account for any of the ID-P’s we suggest you create a Github account at https://github.com/join. Do this before you proceed here.\
+   - It is advisable to use a private account for the ID-P's, do not use a work account for this.
+   - If you do not get acces ("Login not possible"), you can try the following:
+       * In Home Assistant, go to `Settings` > `Add-ons` > `Tailscale`.
+       * Open the `Log` (top-right corner).
+       * Wait for the logs to load, then look for a Tailscale login URL (starts with `https://login.tailscale.com`).
+       * Copy the link, open it in your browser, and re-authenticate.
 
 9. Once you have logged in your asked to connect the device. Do this by clicking the button `Connect`
 
