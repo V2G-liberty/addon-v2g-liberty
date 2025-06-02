@@ -109,6 +109,9 @@ That was just clicking and coping, no sweat! Keep the share link safe, it does g
 
 You can ignore the `Exit node` and `Subnets` stuff, they are not needed.
 
+6. Tip: I is advisable to disable key expiry: \
+   In the tailscale.com `Machines` tab, find your machine and click the three dots next to it and select `Disable key expiry`.
+
 ## **4. Send the HA account and Tailscale share link to us**
 
 We prefer sending the data via Signal or Whatsapp as they have encryption. In the invoice for the SmartSchedules you can find contact info for both these platforms.
