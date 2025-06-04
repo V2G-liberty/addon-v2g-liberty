@@ -634,6 +634,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self.event_bus.emit_event(
             "charger_state_change",
             new_charger_state=new_charger_state,
+            old_charger_state=old_charger_state,
             new_charger_state_str=charger_state_text,
         )
 
@@ -1139,8 +1140,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     #                   MODBUS RELATED FUNCTIONS                         #
     ######################################################################
 
-    async def __update_charger_connection_state(self, is_alive: bool):
-        self.event_bus.emit_event("update_charger_connection_state", is_alive=is_alive)
+    async def __update_charger_communication_state(self, can_communicate: bool):
+        self.event_bus.emit_event(
+            "charger_communication_state_change", can_communicate=can_communicate
+        )
 
     async def __force_get_register(
         self,
@@ -1239,7 +1242,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             continue
         # End of while loop
 
-        await self.__update_charger_connection_state(is_alive=True)
+        await self.__update_charger_communication_state(can_communicate=True)
         await asyncio.sleep(self.WAIT_AFTER_MODBUS_READ_IN_MS / 1000)
         return result
 
@@ -1460,7 +1463,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self.modbus_exception_counter = 0
         self.__cancel_timer(self.timer_id_check_modus_exception_state)
         self.timer_id_check_modus_exception_state = None
-        await self.__update_charger_connection_state(is_alive=True)
+        await self.__update_charger_communication_state(can_communicate=True)
 
     async def __handle_un_recoverable_error(
         self, reason: str = None, source: str = None
@@ -1494,7 +1497,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         await self.v2g_main_app.handle_none_responsive_charger(
             was_car_connected=await self.is_car_connected()
         )
-        await self.__update_charger_connection_state(is_alive=False)
+        await self.__update_charger_communication_state(can_communicate=False)
 
         # The soc and power are not known any more so let's represent this in the app
         await self.__update_evse_entity(

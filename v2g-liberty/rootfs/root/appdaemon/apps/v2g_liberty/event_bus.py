@@ -11,12 +11,12 @@ class EventBus(AsyncIOEventEmitter):
     via this event bus without directly knowing each other.
 
     ### List of Events:
-    - `update_charger_connection_state`:
-        - **Description**: Update charger connection status (is comm. possible). Kept up to date
-          with polling frequency.
+    - `charger_communication_state_change`:
+        - **Description**: Update charger communication status (is functional communication
+          possible). Kept up to date with polling frequency.
         - **Emitted by** modbus_evse_client
         - **Arguments**:
-            - `is_alive` (bool): communication possible or not.
+            - `can_communicate` (bool): communication possible or not.
 
     - `update_charger_info`:
         - **Description**: Update general info about the charger such as name, firmware,
@@ -51,6 +51,7 @@ class EventBus(AsyncIOEventEmitter):
         - **Emitted by** modbus_evse_client
         - **Arguments**:
             - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
+            - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
             - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
 
     - `evse_polled`:
@@ -66,6 +67,12 @@ class EventBus(AsyncIOEventEmitter):
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
 
+    - `fm_connection_status`:
+        - **Description**: Monitors if V2G Liberty can communicate with FlexMeasures.
+        - **Emitted by** fm_client
+        - **Arguments**:
+            - `state` (str): connected state.
+
     """
 
     def __init__(self, hass: Hass):
@@ -79,7 +86,7 @@ class EventBus(AsyncIOEventEmitter):
         Emit (aka fire or publish) an event with associated arguments.
         Warns if no listeners are registered for the event.
         """
-        if event not in ["evse_polled", "update_charger_connection_state"]:
+        if event not in ["evse_polled", "charger_communication_state_change"]:
             self.__log(f"Emitting event: '{event}' with args: {args}, kwargs: {kwargs}")
         try:
             if not self.listeners(event):

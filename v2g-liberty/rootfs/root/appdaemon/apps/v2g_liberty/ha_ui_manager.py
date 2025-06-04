@@ -28,9 +28,9 @@ class HAUIManager:
 
     def _initialize(self):
         self.event_bus.add_event_listener(
-            "update_charger_connection_state", self._update_charger_connection_state
+            "charger_communication_state_change",
+            self._update_charger_communication_state,
         )
-
         self.event_bus.add_event_listener(
             "update_charger_info", self._update_charger_info
         )
@@ -47,17 +47,22 @@ class HAUIManager:
         self.event_bus.add_event_listener(
             "charge_power_change", self._handle_charge_power_change
         )
+        self.event_bus.add_event_listener(
+            "fm_connection_status", self._update_fm_connection_status
+        )
 
         self.__log("Completed initialize")
 
-    async def _update_charger_connection_state(self, is_alive: bool):
-        keep_alive = {"set_at": datetime.datetime.now()}
-        # self.__log(f"Dictionary keep_alive: {keep_alive}.")
-        msg = "Successfully connected" if is_alive else "Connection error"
+    ##########################################################################
+    #                        PRIVATE CALLBACK METHODS                        #
+    ##########################################################################
+
+    async def _update_charger_communication_state(self, can_communicate: bool):
+        msg = "Successfully connected" if can_communicate else "Connection error"
         await self.__update_ha_entity(
             entity_id="sensor.charger_connection_status",
             new_value=msg,
-            attributes=keep_alive,
+            add_keep_alive=True,
         )
 
     async def _update_charger_info(self, charger_info: str):
@@ -95,7 +100,7 @@ class HAUIManager:
         )
 
     async def _handle_charger_state_change(
-        self, new_charger_state: int, new_charger_state_str: str
+        self, new_charger_state: int, old_charger_state: int, new_charger_state_str: str
     ):
         """Handle changes in the charger state."""
         await self.__update_ha_entity(
@@ -105,11 +110,16 @@ class HAUIManager:
             entity_id="sensor.charger_state_text", new_value=new_charger_state_str
         )
 
+    ##########################################################################
+    #                          PRIVATE HA METHODS                            #
+    ##########################################################################
+
     async def __update_ha_entity(
         self,
         entity_id: str,
         new_value=None,
         attributes: dict = None,
+        add_keep_alive: bool = False,
     ):
         """
         Generic function for updating the state of an entity in Home Assistant
@@ -124,6 +134,10 @@ class HAUIManager:
               "unknown" (treated as unavailable).
             attributes (dict, optional):
               The dict the attributes should be written with. Defaults to None.
+            add_keep_alive (bool optional):
+              Add a keep_alive timestamp to the attributes to force a changed trigger even if the
+              new_value is the same as the current.
+
         """
         if attributes is None:
             attributes = {}
@@ -137,6 +151,10 @@ class HAUIManager:
             new_attributes.update(attributes)
         else:
             new_attributes = attributes
+
+        if add_keep_alive:
+            # Force a changed trigger even if the state does not change
+            new_attributes.update({"set_at": datetime.datetime.now()})
 
         if entity_id.startswith("binary_sensor."):
             if new_value in [None, "unavailable", "unknown", ""]:
