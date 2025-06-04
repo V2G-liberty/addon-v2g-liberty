@@ -385,12 +385,6 @@ sensor:
         friendly_name: When was V2G Liberty add-on last restarted
         value_template: ""
 
-      # Used to store the (serialised) charge schedule HA receives from the
-      # backend FM, not used in UI.
-      charge_schedule:
-        friendly_name: Charge schedule chart data
-        value_template: ""
-
       # Used to store the (serialized) list of dynamic consumption prices that is fetched by
       # get_fm_data code from FM. This then is shown in the UI in the graph.
       consumption_prices:

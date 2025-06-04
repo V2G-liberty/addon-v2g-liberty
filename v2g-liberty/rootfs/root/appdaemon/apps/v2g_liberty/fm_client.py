@@ -45,11 +45,7 @@ class FMClient(AsyncIOEventEmitter):
     handle_for_repeater: str
     connection_ping_interval: int
     errored_connection_ping_interval: int
-
-    # For calling handle_no_new_schedule
-    v2g_main_app: object
     hass: Hass = None
-
     client: object  # Should be FlexMeasuresClient but (early) import statement gives errors..
 
     def __init__(self, hass: Hass):
@@ -716,6 +712,7 @@ class FMClient(AsyncIOEventEmitter):
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }
+
         self.__log(f"flex_model: {flex_model}.")
         schedule = {}
         max_retries = 2
@@ -761,20 +758,11 @@ class FMClient(AsyncIOEventEmitter):
             await self.wait_for_complete()
             return
 
+        self.fm_date_time_last_schedule = get_local_now()
         self.emit("no_new_schedule", "timeouts_on_schedule", error_state=False)
         await self.wait_for_complete()
-        self.fm_date_time_last_schedule = get_local_now()
-        self.__log(f"schedule: {schedule}")
-
-        # To trigger state change we add the date to the state. State change is not triggered by
-        # attributes.
-        await self.hass.set_state(
-            entity_id="sensor.charge_schedule",
-            state="Charge schedule available "
-            + self.fm_date_time_last_schedule.isoformat(),
-            attributes=schedule,
-        )
         await self.set_fm_connection_status(connected=True)
+        return schedule
 
     async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
         """Helper to set fm connection status in HA entity"""

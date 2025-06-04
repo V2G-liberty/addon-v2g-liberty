@@ -107,11 +107,6 @@ class V2Gliberty:
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
 
-        await self.hass.set_state(
-            entity_id="sensor.last_reboot_at",
-            state=get_local_now().strftime(c.DATE_TIME_FORMAT),
-        )
-
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
 
@@ -211,6 +206,11 @@ class V2Gliberty:
             entity_id="sensor.utility_display_name",
             state=c.UTILITY_CONTEXT_DISPLAY_NAME,
         )
+        await self.hass.set_state(
+            entity_id="sensor.last_reboot_at",
+            state=get_local_now().strftime(c.DATE_TIME_FORMAT),
+        )
+
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
     async def set_next_action(self, v2g_args=None):
@@ -373,13 +373,21 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                # await self.__ask_for_new_schedule()
-                await self.fm_client_app.get_new_schedule(
-                    targets=self.calendar_targets,
-                    current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
-                    back_to_max_soc=self.back_to_max_soc,
-                )
-                self.__log("Requesting new schedule.")
+                soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+                schedule = None
+                try:
+                    schedule = await self.fm_client_app.get_new_schedule(
+                        targets=self.calendar_targets,
+                        current_soc_kwh=soc_kwh,
+                        back_to_max_soc=self.back_to_max_soc,
+                    )
+                except Exception as e:
+                    self.__log(f"Exception getting schedule: {e}.")
+                if schedule is None:
+                    self.__log("Schedule is None, not processing.")
+                else:
+                    self.__log(f"New schedule: {schedule}")
+                    await self.__process_schedule(schedule=schedule)
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
@@ -1111,7 +1119,7 @@ class V2Gliberty:
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
     ######################################################################
 
-    async def __process_schedule(self, entity, attribute, old, new, kwargs):
+    async def __process_schedule(self, schedule: dict):
         """Process a schedule by setting timers to start charging the car.
 
         If appropriate, also starts a charge directly.
@@ -1134,7 +1142,6 @@ class V2Gliberty:
             self.__log("aborted: soc is 'unknown'")
             return
 
-        schedule = new.get("attributes", None)
         if schedule is None:
             self.__log("aborted: no schedule found.")
             return
@@ -1161,7 +1168,7 @@ class V2Gliberty:
         # Check against expected control signal resolution
         if resolution < c.EVENT_RESOLUTION:
             self.__log(
-                f"__process_schedule aborted: the resolution ({resolution}) is below "
+                f"aborted: the resolution ({resolution}) is below "
                 f"the set minimum ({c.EVENT_RESOLUTION})."
             )
             await self.handle_no_new_schedule("invalid_schedule", True)
