@@ -1,5 +1,6 @@
 from event_bus import EventBus
 import log_wrapper
+import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 
 
@@ -27,9 +28,12 @@ class HAUIManager:
 
     def _initialize(self):
         self.event_bus.add_event_listener(
-            "update_charger_info", self._update_charger_info
+            "update_charger_connection_state", self._update_charger_connection_state
         )
 
+        self.event_bus.add_event_listener(
+            "update_charger_info", self._update_charger_info
+        )
         self.event_bus.add_event_listener("soc_change", self._handle_soc_change)
         self.event_bus.add_event_listener(
             "remaining_range_change", self._handle_remaining_range_change
@@ -45,6 +49,16 @@ class HAUIManager:
         )
 
         self.__log("Completed initialize")
+
+    async def _update_charger_connection_state(self, is_alive: bool):
+        keep_alive = {"set_at": datetime.datetime.now()}
+        # self.__log(f"Dictionary keep_alive: {keep_alive}.")
+        msg = "Successfully connected" if is_alive else "Connection error"
+        await self.__update_ha_entity(
+            entity_id="sensor.charger_connection_status",
+            new_value=msg,
+            attributes=keep_alive,
+        )
 
     async def _update_charger_info(self, charger_info: str):
         await self.__update_ha_entity(
@@ -95,7 +109,7 @@ class HAUIManager:
         self,
         entity_id: str,
         new_value=None,
-        attributes: dict = {},
+        attributes: dict = None,
     ):
         """
         Generic function for updating the state of an entity in Home Assistant
@@ -109,8 +123,11 @@ class HAUIManager:
               The value the entity should be written with. Defaults to None, can be "unavailable" or
               "unknown" (treated as unavailable).
             attributes (dict, optional):
-              The dict the attributes should be written with. Defaults to {}.
+              The dict the attributes should be written with. Defaults to None.
         """
+        if attributes is None:
+            attributes = {}
+
         new_attributes = {}
         if self.hass.entity_exists(entity_id):
             entity_state = await self.hass.get_state(entity_id, attribute="all")
@@ -121,7 +138,7 @@ class HAUIManager:
         else:
             new_attributes = attributes
 
-        if entity_id.startswith("binary_sensor"):
+        if entity_id.startswith("binary_sensor."):
             if new_value in [None, "unavailable", "unknown", ""]:
                 availability = "off"
             else:
@@ -131,7 +148,7 @@ class HAUIManager:
                 else:
                     new_value = "off"
 
-            # A work-around, sighhh...
+            # A work-around, sighhh... but not used currently
             # This should be done by parameter availability=False in the set_state call (not as part
             # of the attributes) but that does not work..
             # So, there is an extra sensor with the same name as the original + _availability that

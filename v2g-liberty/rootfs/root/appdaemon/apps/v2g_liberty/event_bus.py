@@ -11,12 +11,19 @@ class EventBus(AsyncIOEventEmitter):
     via this event bus without directly knowing each other.
 
     ### List of Events:
+    - `update_charger_connection_state`:
+        - **Description**: Update charger connection status (is comm. possible). Kept up to date
+          with polling frequency.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `is_alive` (bool): communication possible or not.
+
     - `update_charger_info`:
         - **Description**: Update general info about the charger such as name, firmware,
         serial number, etc. Mainly for debugging, usually set at startup.
         - **Emitted by** modbus_evse_client
         - **Arguments**:
-            - `charger_info` (str): General info "".
+            - `charger_info` (str): General charger info.
 
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
