@@ -11,6 +11,7 @@ from time_range_util import (
     add_unit_to_values,
 )
 from appdaemon.plugins.hass.hassapi import Hass
+from event_bus import EventBus
 
 
 class FMClient(AsyncIOEventEmitter):
@@ -19,6 +20,8 @@ class FMClient(AsyncIOEventEmitter):
     - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
     """
+
+    event_bus: EventBus = None
 
     # Constants
     FM_SCHEDULE_DURATION: datetime
@@ -48,10 +51,12 @@ class FMClient(AsyncIOEventEmitter):
     hass: Hass = None
     client: object  # Should be FlexMeasuresClient but (early) import statement gives errors..
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
+
+        self.event_bus = event_bus
 
         # Maybe add these to constants / settings?
         self.FM_SCHEDULE_DURATION_STR = "PT27H"
@@ -774,13 +779,7 @@ class FMClient(AsyncIOEventEmitter):
             else:
                 state = "Error"
             self.__log(f"Could not connect to FM: '{state}'.")
-
-        # Force a changed trigger even if the state does not change
-        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
-
-        await self.hass.set_state(
-            "sensor.fm_connection_status", state=state, attributes=keep_alive
-        )
+        self.event_bus.emit_event("fm_connection_status", state=state)
 
 
 def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:

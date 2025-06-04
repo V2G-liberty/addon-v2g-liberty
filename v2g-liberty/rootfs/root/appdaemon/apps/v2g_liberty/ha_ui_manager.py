@@ -99,6 +99,15 @@ class HAUIManager:
             entity_id="sensor.poll_refresh_indicator", new_value=self.poll_update_text
         )
 
+    async def _update_fm_connection_status(self, state: str = ""):
+        """Set fm connection status in HA entity"""
+
+        await self.__update_ha_entity(
+            entity_id="sensor.fm_connection_status",
+            new_value=state,
+            add_keep_alive=True,
+        )
+
     async def _handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int, new_charger_state_str: str
     ):
