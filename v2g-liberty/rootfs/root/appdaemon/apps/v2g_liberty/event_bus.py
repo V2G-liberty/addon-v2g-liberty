@@ -86,8 +86,6 @@ class EventBus(AsyncIOEventEmitter):
         Emit (aka fire or publish) an event with associated arguments.
         Warns if no listeners are registered for the event.
         """
-        if event not in ["evse_polled", "charger_communication_state_change"]:
-            self.__log(f"Emitting event: '{event}' with args: {args}, kwargs: {kwargs}")
         try:
             if not self.listeners(event):
                 self.__log(f"Event '{event}' has no listeners.", level="WARNING")
