@@ -1,14 +1,18 @@
+"""Module to initialise settings and CONSTANTS"""
+
+import math
 from datetime import datetime, timedelta
 import pytz
-import math
-from appdaemon.plugins.hass.hassapi import Hass
 from notifier_util import Notifier
 import constants as c
 import log_wrapper
 from settings_manager import SettingsManager
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 class V2GLibertyGlobals:
+    """Class to initialise settings and CONSTANTS"""
+
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object

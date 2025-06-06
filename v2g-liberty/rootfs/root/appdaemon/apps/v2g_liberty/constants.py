@@ -1,11 +1,10 @@
-### V2G Liberty constants ###
+"""V2G Liberty constants"""
 
 ######################## Feature Settings Card (FSC) ########################
 # Many of these constants do not have to be set here but should be
 # passed to the (re-) init method of a specific class. This is mentioned
 # a comment marked by FSC (Feature Settings Card).
 #############################################################################
-
 
 # For showing dates in UI
 # FSC: Now in 3 modules, should be used wider.

@@ -1,3 +1,5 @@
+"""Module to monitor Nissan Leaf for strange charging behaviour"""
+
 import constants as c
 from event_bus import EventBus
 from notifier_util import Notifier

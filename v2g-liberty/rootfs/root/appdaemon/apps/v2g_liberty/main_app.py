@@ -1,17 +1,17 @@
-from datetime import datetime, timedelta
-import isodate
-from typing import AsyncGenerator, List, Optional
-from notifier_util import Notifier
-from event_bus import EventBus
+"""Main app to manage the charging process"""
+
+import enum
 from itertools import accumulate
 import math
-import asyncio
+from typing import AsyncGenerator, List, Optional
+from datetime import datetime, timedelta
+import isodate
+from notifier_util import Notifier
+from event_bus import EventBus
 from v2g_globals import time_round, he, get_local_now, parse_to_int
-from v2g_globals import V2GLibertyGlobals
 import constants as c
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
-import enum
 
 
 class ChartLine(enum.Enum):

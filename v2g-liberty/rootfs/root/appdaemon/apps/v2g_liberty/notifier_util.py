@@ -1,13 +1,15 @@
-from event_bus import EventBus
+"""Utility module to handle sending notifications to users"""
+
+from typing import Optional
+
 import constants as c
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
-from typing import Optional
 
 
 class Notifier:
     """
-    Utility module to handle sending notifications to users:
+    Utility class to handle sending notifications to users:
     + App notifications via HA companion app
     + Persistent notifications via HA
 
@@ -34,15 +36,6 @@ class Notifier:
         # Make __init__() run quick, no need to wait for initialisation
         self.hass.run_in(self._get_recipients, delay=1)
         self.__log("Completed __init__ Notifier")
-        # self.hass.listen_event(self.service_registered_listener, "service_registered")
-        # From log:
-        # Service registered: data={'domain': 'notify', 'service': 'mobile_app_lm_q610_fg', ...
-        # Send a test message when this is triggered.
-        # De-registration is not announced by an event..
-
-    # def service_registered_listener(self, event_name, data, kwargs):
-    #     domain = data.get("domain")
-    #     service = data.get("service")
 
     async def _get_recipients(self, kwargs):
         # List of all the recipients to notify
@@ -120,9 +113,9 @@ class Notifier:
                 A list of dicts with action and title stings. Defaults to None.
         """
 
-        if c.ADMIN_MOBILE_NAME == "":
+        if c.ADMIN_MOBILE_NAME == "" and not self.recipients:
             self.__log(
-                "notify_user: No registered devices to notify, cancel notification."
+                "No registered devices to notify, cancel notification.", level="WARNING"
             )
             return
 

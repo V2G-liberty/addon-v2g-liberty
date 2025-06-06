@@ -1,12 +1,13 @@
+"""Module to collect and formats data to send it to FlexMeasures"""
+
 from datetime import datetime, timedelta
 import math
+from typing import List, Union
 import constants as c
 import log_wrapper
-from typing import List, Union
-from v2g_globals import get_local_now
-from appdaemon.plugins.hass.hassapi import Hass
-from v2g_globals import time_round, time_ceil
+from v2g_globals import get_local_now, time_round, time_ceil
 from event_bus import EventBus
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 # TODO:
@@ -15,7 +16,7 @@ from event_bus import EventBus
 
 class DataMonitor:
     """
-    This module monitors data changes, collects this data and formats in the right way.
+    This class monitors data changes, collects this data and formats in the right way.
     It sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
     + Average charge power in kW
     + Availability of car and charger for automatic charging (% of time)

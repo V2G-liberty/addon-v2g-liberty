@@ -1,5 +1,7 @@
-import pytest
+"""Unit test (pytest) for nissan_leaf_monitor module."""
+
 from unittest.mock import MagicMock, call
+import pytest
 from apps.v2g_liberty.nissan_leaf_monitor import NissanLeafMonitor
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.notifier_util import Notifier

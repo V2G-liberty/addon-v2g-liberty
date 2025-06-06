@@ -1,3 +1,5 @@
+"""Module for importing price and usgae data from FlexMeaures"""
+
 from datetime import datetime, timedelta
 import math
 from v2g_globals import (
@@ -10,9 +12,7 @@ from v2g_globals import (
 import constants as c
 from notifier_util import Notifier
 import log_wrapper
-from v2g_liberty import ChartLine
-
-# from typing import List
+from main_app import ChartLine
 
 from appdaemon.plugins.hass.hassapi import Hass
 
