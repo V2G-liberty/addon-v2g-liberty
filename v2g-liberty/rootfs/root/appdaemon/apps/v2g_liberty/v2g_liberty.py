@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import isodate
 from typing import AsyncGenerator, List, Optional
 from notifier_util import Notifier
+from event_bus import EventBus
 from itertools import accumulate
 import math
 import asyncio
@@ -94,20 +95,17 @@ class V2Gliberty:
     fm_client_app: object = None
     reservations_client: object = None
     notifier: Notifier = None
+    event_bus: EventBus = None
     hass: Hass = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
+        self.event_bus = event_bus
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
-
-        await self.hass.set_state(
-            entity_id="sensor.last_reboot_at",
-            state=get_local_now().strftime(c.DATE_TIME_FORMAT),
-        )
 
         # If this variable is None it means the current SoC is below the max-soc.
         self.back_to_max_soc = None
@@ -165,26 +163,16 @@ class V2Gliberty:
         # This is a disconnect request from the user through the UI.
         await self.hass.listen_event(self.__disconnect_charger, "DISCONNECT_CHARGER")
 
-        await self.hass.listen_state(
-            self.__handle_car_connect,
-            "binary_sensor.is_car_connected",
-            new="on",
-        )
-        await self.hass.listen_state(
-            self.__handle_car_disconnect,
-            "binary_sensor.is_car_connected",
-            new="off",
+        self.event_bus.add_event_listener(
+            "is_car_connected", self._update_car_connected
         )
 
         await self.hass.listen_event(
             self.__handle_user_dismiss_choice, event="mobile_app_notification_action"
         )
 
-        await self.hass.listen_state(
-            self.__handle_soc_change,
-            "sensor.car_state_of_charge",
-            attribute="all",
-        )
+        self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
+
         await self.hass.listen_state(
             self.__process_schedule, "sensor.charge_schedule", attribute="all"
         )
@@ -218,6 +206,11 @@ class V2Gliberty:
             entity_id="sensor.utility_display_name",
             state=c.UTILITY_CONTEXT_DISPLAY_NAME,
         )
+        await self.hass.set_state(
+            entity_id="sensor.last_reboot_at",
+            state=get_local_now().strftime(c.DATE_TIME_FORMAT),
+        )
+
         await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
 
     async def set_next_action(self, v2g_args=None):
@@ -380,13 +373,21 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                # await self.__ask_for_new_schedule()
-                await self.fm_client_app.get_new_schedule(
-                    targets=self.calendar_targets,
-                    current_soc_kwh=await self.evse_client_app.get_car_soc_kwh(),
-                    back_to_max_soc=self.back_to_max_soc,
-                )
-                self.__log("Requesting new schedule.")
+                soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+                schedule = None
+                try:
+                    schedule = await self.fm_client_app.get_new_schedule(
+                        targets=self.calendar_targets,
+                        current_soc_kwh=soc_kwh,
+                        back_to_max_soc=self.back_to_max_soc,
+                    )
+                except Exception as e:
+                    self.__log(f"Exception getting schedule: {e}.")
+                if schedule is None:
+                    self.__log("Schedule is None, not processing.")
+                else:
+                    self.__log(f"New schedule: {schedule}")
+                    await self.__process_schedule(schedule=schedule)
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
@@ -567,6 +568,13 @@ class V2Gliberty:
     #                         PRIVATE METHODS                            #
     ######################################################################
 
+    async def _update_car_connected(self, is_car_connected: bool):
+        self.__log(f"Acting on conneted stae of car: {is_car_connected}.")
+        if is_car_connected:
+            await self.__handle_car_connect()
+        else:
+            await self.__handle_car_disconnect()
+
     async def __log_version(self, args):
         """
         Log version, to be called once at initialisation.
@@ -578,7 +586,7 @@ class V2Gliberty:
             return
         await self.fm_client_app.log_version(version_number)
 
-    async def __handle_car_connect(self, entity, attribute, old, new, kwargs):
+    async def __handle_car_connect(self):
         """
         Called by listener when car gets connected (the plug is inserted in the socket).
         """
@@ -587,7 +595,7 @@ class V2Gliberty:
         self.notifier.clear_notification(tag="reminder_to_connect")
         await self.set_next_action(v2g_args="handle_car_connect")
 
-    async def __handle_car_disconnect(self, entity, attribute, old, new, kwargs):
+    async def __handle_car_disconnect(self):
         """
         Called by listener when car gets disconnected.
         Goes to this status when the plug is removed from the socket (not when disconnect is
@@ -766,7 +774,7 @@ class V2Gliberty:
             "recipient": c.ADMIN_MOBILE_NAME,
             "tag": "charger_modbus_crashed",
         }
-        self.__clear_notification(identification)
+        self.notifier.clear_notification(identification)
 
     async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
         """Write or remove records in lines in the chart.
@@ -880,18 +888,17 @@ class V2Gliberty:
         await self.set_next_action(v2g_args="__handle_charge_mode_change")
         return
 
-    async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
+    async def __handle_soc_change(self, new_soc: int, old_soc: int):
         """Function to handle updates in the car SoC"""
-        reported_soc = int(round(float(new["state"]), 0))
-        # self.__log(f"Called with raw SoC: {reported_soc}%")
+        self.__log(f"new_soc: {new_soc}%, old_soc: {old_soc}%.")
         await self.set_next_action(v2g_args="__handle_soc_change")
 
         if (
             await self.evse_client_app.is_charging()
-            and reported_soc == c.CAR_MAX_SOC_IN_PERCENT
+            and new_soc == c.CAR_MAX_SOC_IN_PERCENT
         ):
             message = (
-                f"Car battery at {reported_soc} %, "
+                f"Car battery at {new_soc} %, "
                 f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
             )
             self.__log(f"{message=}")
@@ -1112,7 +1119,7 @@ class V2Gliberty:
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
     ######################################################################
 
-    async def __process_schedule(self, entity, attribute, old, new, kwargs):
+    async def __process_schedule(self, schedule: dict):
         """Process a schedule by setting timers to start charging the car.
 
         If appropriate, also starts a charge directly.
@@ -1135,7 +1142,6 @@ class V2Gliberty:
             self.__log("aborted: soc is 'unknown'")
             return
 
-        schedule = new.get("attributes", None)
         if schedule is None:
             self.__log("aborted: no schedule found.")
             return
@@ -1162,7 +1168,7 @@ class V2Gliberty:
         # Check against expected control signal resolution
         if resolution < c.EVENT_RESOLUTION:
             self.__log(
-                f"__process_schedule aborted: the resolution ({resolution}) is below "
+                f"aborted: the resolution ({resolution}) is below "
                 f"the set minimum ({c.EVENT_RESOLUTION})."
             )
             await self.handle_no_new_schedule("invalid_schedule", True)

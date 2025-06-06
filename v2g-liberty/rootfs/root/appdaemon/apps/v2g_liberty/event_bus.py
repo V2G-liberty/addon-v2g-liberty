@@ -1,9 +1,9 @@
-from pyee import EventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
 
 
-class EventBus(EventEmitter):
+class EventBus(AsyncIOEventEmitter):
     """
     A robust, centralized Event Bus for loosely coupled communication.
 
@@ -11,6 +11,20 @@ class EventBus(EventEmitter):
     via this event bus without directly knowing each other.
 
     ### List of Events:
+    - `charger_communication_state_change`:
+        - **Description**: Update charger communication status (is functional communication
+          possible). Kept up to date with polling frequency.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `can_communicate` (bool): communication possible or not.
+
+    - `update_charger_info`:
+        - **Description**: Update general info about the charger such as name, firmware,
+        serial number, etc. Mainly for debugging, usually set at startup.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `charger_info` (str): General charger info.
+
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
           When the SoC value changes, this event is emitted with the new and old values.
@@ -26,6 +40,39 @@ class EventBus(EventEmitter):
           event_bus.add_event_listener("soc_change", _handle_soc_change)
           ```
 
+    - `charge_power_change`:
+        - **Description**: Monitors changes in the chargers actual (real) charge power.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be 'unavailable'.
+
+    - `charger_state_change`:
+        - **Description**: Monitors changes in the chargers state (charging, idle, error etc.).
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
+            - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
+            - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
+
+    - `evse_polled`:
+        - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
+          change in frequency. Mainly aimed at showing in the UI.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `stop` (bool): If True stop the poll indicator, set text to "".
+
+    - `is_car_connected`:
+        - **Description**: Monitors if a car is connected to the charger.
+        - **Emitted by** modbus_evse_client
+        - **Arguments**:
+            - `is_car_connected` (bool): connected state.
+
+    - `fm_connection_status`:
+        - **Description**: Monitors if V2G Liberty can communicate with FlexMeasures.
+        - **Emitted by** fm_client
+        - **Arguments**:
+            - `state` (str): connected state.
+
     """
 
     def __init__(self, hass: Hass):
@@ -36,20 +83,19 @@ class EventBus(EventEmitter):
 
     def emit_event(self, event, *args, **kwargs):
         """
-        Emit an event with associated arguments.
+        Emit (aka fire or publish) an event with associated arguments.
         Warns if no listeners are registered for the event.
         """
-        self.__log(f"Emitting event: '{event}' with args: {args}, kwargs: {kwargs}")
         try:
             if not self.listeners(event):
-                self.__log(f"Event '{event}' has no listeners!", level="WARNING")
+                self.__log(f"Event '{event}' has no listeners.", level="WARNING")
             self.emit(event, *args, **kwargs)
         except Exception as e:
             self.__log(f"Error while emitting event '{event}': {e}", level="WARNING")
 
     def add_event_listener(self, event, f):
         """
-        Add a listener for a specific event.
+        Add a listener for a specific event (aka subscribe).
         Warns if the listener is already registered.
         """
         self.__log(f"Adding listener for event '{event}': {f}")
@@ -68,7 +114,7 @@ class EventBus(EventEmitter):
 
     def remove_event_listener(self, event, f):
         """
-        Remove a specific listener for an event.
+        Remove a specific listener for an event (aka un-subscribe).
         Warns if the listener is not found.
         """
         self.__log(f"Removing listener for event '{event}': {f}")

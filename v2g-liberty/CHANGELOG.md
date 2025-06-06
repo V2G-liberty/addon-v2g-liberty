@@ -13,6 +13,7 @@
 
 ### Changed
 
+- 🛠️ Refactoring: Use event-bus instead of HA entities (#265)
 - ⬆️ BUMP base-x version to 3.0.11 (#274)
 - 🛠️ Refactoring: Separate notification functionality from V2G Liberty module (#266)
 

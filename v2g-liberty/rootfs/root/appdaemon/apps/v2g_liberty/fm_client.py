@@ -11,6 +11,7 @@ from time_range_util import (
     add_unit_to_values,
 )
 from appdaemon.plugins.hass.hassapi import Hass
+from event_bus import EventBus
 
 
 class FMClient(AsyncIOEventEmitter):
@@ -19,6 +20,8 @@ class FMClient(AsyncIOEventEmitter):
     - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
     """
+
+    event_bus: EventBus = None
 
     # Constants
     FM_SCHEDULE_DURATION: datetime
@@ -45,17 +48,15 @@ class FMClient(AsyncIOEventEmitter):
     handle_for_repeater: str
     connection_ping_interval: int
     errored_connection_ping_interval: int
-
-    # For calling handle_no_new_schedule
-    v2g_main_app: object
     hass: Hass = None
-
     client: object  # Should be FlexMeasuresClient but (early) import statement gives errors..
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
+
+        self.event_bus = event_bus
 
         # Maybe add these to constants / settings?
         self.FM_SCHEDULE_DURATION_STR = "PT27H"
@@ -716,6 +717,7 @@ class FMClient(AsyncIOEventEmitter):
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }
+
         self.__log(f"flex_model: {flex_model}.")
         schedule = {}
         max_retries = 2
@@ -761,20 +763,11 @@ class FMClient(AsyncIOEventEmitter):
             await self.wait_for_complete()
             return
 
+        self.fm_date_time_last_schedule = get_local_now()
         self.emit("no_new_schedule", "timeouts_on_schedule", error_state=False)
         await self.wait_for_complete()
-        self.fm_date_time_last_schedule = get_local_now()
-        self.__log(f"schedule: {schedule}")
-
-        # To trigger state change we add the date to the state. State change is not triggered by
-        # attributes.
-        await self.hass.set_state(
-            entity_id="sensor.charge_schedule",
-            state="Charge schedule available "
-            + self.fm_date_time_last_schedule.isoformat(),
-            attributes=schedule,
-        )
         await self.set_fm_connection_status(connected=True)
+        return schedule
 
     async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
         """Helper to set fm connection status in HA entity"""
@@ -786,13 +779,7 @@ class FMClient(AsyncIOEventEmitter):
             else:
                 state = "Error"
             self.__log(f"Could not connect to FM: '{state}'.")
-
-        # Force a changed trigger even if the state does not change
-        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
-
-        await self.hass.set_state(
-            "sensor.fm_connection_status", state=state, attributes=keep_alive
-        )
+        self.event_bus.emit_event("fm_connection_status", state=state)
 
 
 def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:
