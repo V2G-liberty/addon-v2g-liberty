@@ -1,3 +1,5 @@
+"""Utility module for making time ranges non-overlapping."""
+
 from datetime import datetime, timedelta
 
 

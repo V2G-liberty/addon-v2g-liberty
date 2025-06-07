@@ -1,20 +1,21 @@
-from datetime import datetime
+"""Module to communicate with the Electric Vehicle Supply Equipment (EVSE) via modbus"""
+
 import asyncio
 import constants as c
 import log_wrapper
 from notifier_util import Notifier
 from v2g_globals import get_local_now, parse_to_int
-import pymodbus.client as modbusClient
-from pyee.asyncio import AsyncIOEventEmitter
-
 from event_bus import EventBus
+
+import pymodbus.client as modbusClient
 from pymodbus.exceptions import ModbusException
+from pyee.asyncio import AsyncIOEventEmitter
 
 from appdaemon.plugins.hass.hassapi import Hass
 
 
 class ModbusEVSEclient(AsyncIOEventEmitter):
-    """Communicate with the Electric Vehicle Supply Equipment (EVSE) via modbus.
+    """Class to communicate with the Electric Vehicle Supply Equipment (EVSE) via modbus.
     It does this mainly by polling the EVSE for states and values in an
     asynchronous way, as the charger might not always react instantly.
 

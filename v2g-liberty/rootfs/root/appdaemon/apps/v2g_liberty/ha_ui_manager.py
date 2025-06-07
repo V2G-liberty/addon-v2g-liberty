@@ -1,13 +1,14 @@
+"""Utility module for managing writing to Home Assistant entities."""
+
+import datetime
 from event_bus import EventBus
 import log_wrapper
-import datetime
-from appdaemon.plugins.hass.hassapi import Hass
+from appdaemon.plugins.hass.hassapi import Hass  # pylint: disable=import-error,no-name-in-module
 
 
 class HAUIManager:
     """
-    Decouples code from UI, specifically the need to know about specific entity_id's.
-    Writes
+    Decouples other modules from UI (Home Assistant entity_id's).
     """
 
     hass: Hass = None

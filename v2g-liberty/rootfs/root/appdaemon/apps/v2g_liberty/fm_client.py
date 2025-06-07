@@ -1,9 +1,12 @@
+"""Module to manage the communication with the FlexMeasures platform"""
+
+import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
 import isodate
-import math
 import constants as c
 import log_wrapper
+from event_bus import EventBus
 from v2g_globals import time_round, time_ceil, get_local_now
 from time_range_util import (
     consolidate_time_ranges,
@@ -11,7 +14,6 @@ from time_range_util import (
     add_unit_to_values,
 )
 from appdaemon.plugins.hass.hassapi import Hass
-from event_bus import EventBus
 
 
 class FMClient(AsyncIOEventEmitter):

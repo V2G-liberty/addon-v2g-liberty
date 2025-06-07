@@ -1,3 +1,5 @@
+"""A centralised Evnet Bus module"""
+
 from pyee.asyncio import AsyncIOEventEmitter
 import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
@@ -5,12 +7,15 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 class EventBus(AsyncIOEventEmitter):
     """
-    A robust, centralized Event Bus for loosely coupled communication.
+    A centralized Event Bus for loosely coupled communication.
 
     Publishers (emitters) and subscribers (listeners) communicate
     via this event bus without directly knowing each other.
 
     ### List of Events:
+
+    #### Charger / car related
+
     - `charger_communication_state_change`:
         - **Description**: Update charger communication status (is functional communication
           possible). Kept up to date with polling frequency.
@@ -66,6 +71,8 @@ class EventBus(AsyncIOEventEmitter):
         - **Emitted by** modbus_evse_client
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
+
+    #### FlexMeasures related
 
     - `fm_connection_status`:
         - **Description**: Monitors if V2G Liberty can communicate with FlexMeasures.

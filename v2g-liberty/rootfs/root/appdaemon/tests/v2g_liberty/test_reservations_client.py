@@ -1,7 +1,8 @@
-import pytest
+"""Unit test (pytest) for reservations_client module."""
+
 from unittest.mock import MagicMock, patch
+import pytest
 from apps.v2g_liberty.reservations_client import ReservationsClient
-import constants as c
 
 
 # Mock the log_wrapper to avoid actual logging
