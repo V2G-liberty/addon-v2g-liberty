@@ -3,10 +3,11 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.6.1 2025-05-??
+## 0.6.1 2025-06-??
 
 ### Fixed
 
+- 🪲 BUG: The max-charge power setting of V2G Liberty is overruled by FM asset setting (#279)
 - 🪲 BUG: Check for max power incorrect (#276)
 - 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
 - 🪲 BUG: When connecting during a calendar reservation period, the "target cannot be reached" process kicks in while it should not (#261)
