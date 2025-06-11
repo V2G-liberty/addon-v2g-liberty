@@ -709,6 +709,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
         flex_model = {
+            "power-capacity": f"{c.CHARGER_MAX_CHARGE_POWER} W",
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
             "soc-min": c.CAR_MIN_SOC_IN_KWH,
