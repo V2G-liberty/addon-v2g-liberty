@@ -4,6 +4,7 @@ pymodbus==3.8.5
 caldav==1.4.0
 flexmeasures-client==0.2.4
 pyee==12.1.1
+goodwe==0.4.8
 
 # Work around for https://github.com/hassio-addons/addon-appdaemon/issues/345
 numpy<2

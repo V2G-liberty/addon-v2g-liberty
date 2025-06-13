@@ -9,6 +9,8 @@ arch:
   - amd64
   - armv7
 init: false
+host_network: true
+hassio_api: true
 homeassistant_api: true
 uart: true
 map:
