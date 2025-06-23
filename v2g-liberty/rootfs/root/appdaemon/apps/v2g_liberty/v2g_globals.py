@@ -22,6 +22,7 @@ class V2GLibertyGlobals:
     fm_data_retrieve_client: object
     amber_price_data_manager: object
     octopus_price_data_manager: object
+    goodwe_inverter: object
 
     # Settings related to FlexMeasures
     SCHEDULE_SETTINGS_INITIALISED = {
@@ -730,6 +731,19 @@ class V2GLibertyGlobals:
     async def __initialise_charger_settings(self):
         self.__log("called")
 
+        #################################################################################
+        #          GoodWe beta code                                                     #
+        #################################################################################
+        config = {
+            "ip_address": "192.168.178.218",
+            "battery_capacity_kwh": 59,
+            "max_charge_power_w": 10000,
+        }
+        self.goodwe_inverter.initialise_charger(config=config)
+        self.__log("initi goodwe ET inverter")
+        await self.goodwe_inverter.kick_off_polling()
+        self.__log("kicked of polling on  goodwe ET inverter")
+
         is_initialised = await self.__process_setting(
             setting_object=self.CHARGER_SETTINGS_INITIALISED
         )
@@ -783,7 +797,6 @@ class V2GLibertyGlobals:
             ]
 
         await self.evse_client_app.complete_init()
-
         self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
 
     async def __initialise_notification_settings(self):
