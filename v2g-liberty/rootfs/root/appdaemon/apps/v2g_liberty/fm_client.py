@@ -467,7 +467,6 @@ class FMClient(AsyncIOEventEmitter):
                                     * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
                                     * (c.CHARGER_MAX_CHARGE_POWER / 1000)
                                 )
-                                target_soc_kwh = max_target
                                 # Communicate the target soc to user in %
                                 max_target = int(
                                     round(
@@ -475,7 +474,6 @@ class FMClient(AsyncIOEventEmitter):
                                         0,
                                     )
                                 )
-                            target_start = soonest_at_target
                             self.emit(
                                 "unreachable_target",
                                 soonest_at_target=soonest_at_target,

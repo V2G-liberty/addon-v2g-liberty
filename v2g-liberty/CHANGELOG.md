@@ -14,6 +14,7 @@
 
 ### Changed
 
+- 🛠️ Refactoring: Use FlexMeasures relaxation (instead of V2G Liberty version) (#264)
 - 🛠️ Refactoring: Reduce number of pylint problems. (#281)
 - 🛠️ Refactoring: Use event-bus instead of HA entities (#265)
 - ⬆️ BUMP base-x version to 3.0.11 (#274)
