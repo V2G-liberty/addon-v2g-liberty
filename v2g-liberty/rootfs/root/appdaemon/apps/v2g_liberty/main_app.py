@@ -173,10 +173,6 @@ class V2Gliberty:
 
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
-        await self.hass.listen_state(
-            self.__process_schedule, "sensor.charge_schedule", attribute="all"
-        )
-
         self.scheduling_timer_handles = []
 
         # Set to initial 'empty' values, makes rendering of graph faster.

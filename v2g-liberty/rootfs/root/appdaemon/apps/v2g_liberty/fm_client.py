@@ -19,7 +19,6 @@ from appdaemon.plugins.hass.hassapi import Hass
 class FMClient(AsyncIOEventEmitter):
     """This class manages the communication with the FlexMeasures platform, which delivers the
     charging schedules.
-    - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
     """
 
