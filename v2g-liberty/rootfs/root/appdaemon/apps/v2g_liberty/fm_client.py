@@ -19,7 +19,6 @@ from appdaemon.plugins.hass.hassapi import Hass
 class FMClient(AsyncIOEventEmitter):
     """This class manages the communication with the FlexMeasures platform, which delivers the
     charging schedules.
-    - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
     """
 
@@ -197,6 +196,8 @@ class FMClient(AsyncIOEventEmitter):
 
     async def log_version(self, v2g_liberty_version: str):
         """Log V2G Liberty version number in the asset on FlexMeasures"""
+        if self.client is None:
+            return False
         asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
 
         await self.__set_asset_attribute(
@@ -204,6 +205,10 @@ class FMClient(AsyncIOEventEmitter):
             attribute_name="v2g-liberty-version",
             attribute_value=v2g_liberty_version,
         )
+        self.__log(
+            f"Logged version '{v2g_liberty_version}' in FM asset_id '{asset_id}'."
+        )
+        return True
 
     async def __set_asset_attribute(
         self, asset_id: int, attribute_name: str, attribute_value: str

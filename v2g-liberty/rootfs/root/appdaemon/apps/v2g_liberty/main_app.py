@@ -173,10 +173,6 @@ class V2Gliberty:
 
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
-        await self.hass.listen_state(
-            self.__process_schedule, "sensor.charge_schedule", attribute="all"
-        )
-
         self.scheduling_timer_handles = []
 
         # Set to initial 'empty' values, makes rendering of graph faster.
@@ -575,16 +571,22 @@ class V2Gliberty:
         else:
             await self.__handle_car_disconnect()
 
-    async def __log_version(self, args):
+    async def __log_version(self, _args):
         """
-        Log version, to be called once at initialisation.
+        Log version, to be called at initialisation and retried if log_version fails.
         """
         version_number = await self.hass.get_state(
             "update.v2g_liberty_update", attribute="installed_version"
         )
         if version_number is None:
+            self.__log("Failed to retrieve V2G Liberty version number", level="WARNING")
             return
-        await self.fm_client_app.log_version(version_number)
+
+        res = await self.fm_client_app.log_version(version_number)
+        if not res:
+            # log_version failed
+            self.__log("Failed to log_version, retrying in 15 sec.", level="WARNING")
+            await self.hass.run_in(self.__log_version, delay=15)
 
     async def __handle_car_connect(self):
         """

@@ -355,7 +355,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                 expand=True,
             )
         except Exception as e:
-            self.log(
+            self.__log(
                 f"Could not retrieve caldav items. Exception: '{e}'.", level="WARNING"
             )
             await self.__set_caldav_connection_status(connected=False)
