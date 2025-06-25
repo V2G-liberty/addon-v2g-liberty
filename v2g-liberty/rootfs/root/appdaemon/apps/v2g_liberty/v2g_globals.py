@@ -1085,6 +1085,13 @@ class V2GLibertyGlobals:
                 "consumption-price": {"sensor": c.FM_EMISSIONS_SENSOR_ID},
                 "production-price": {"sensor": c.FM_EMISSIONS_SENSOR_ID},
             }
+
+        c.FM_OPTIMISATION_CONTEXT.update(
+            {
+                "relax-soc-constraints": True,
+                "relax-capacity-constraints": True,
+            }
+        )
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 
     ######################################################################
