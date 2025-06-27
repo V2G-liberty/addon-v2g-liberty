@@ -1,7 +1,10 @@
 {
-"python.testing.pytestArgs": [
-    "."
-],
-"python.testing.unittestEnabled": false,
-"python.testing.pytestEnabled": true
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": ["rootfs/root/appdaemon"],
+    "python.analysis.extraPaths": ["rootfs/root/appdaemon/apps"],
+    "python.linting.pylintArgs": [
+        "--init-hook=import sys; sys.path.append('rootfs/root/appdaemon/apps')"
+    ]
 }

@@ -1,11 +1,13 @@
+"""Module to collect and formats data to send it to FlexMeasures"""
+
 from datetime import datetime, timedelta
 import math
+from typing import List, Union
 import constants as c
 import log_wrapper
-from typing import List, Union
-from v2g_globals import get_local_now
+from v2g_globals import get_local_now, time_round, time_ceil
+from event_bus import EventBus
 from appdaemon.plugins.hass.hassapi import Hass
-from v2g_globals import time_round, time_ceil
 
 
 # TODO:
@@ -14,7 +16,7 @@ from v2g_globals import time_round, time_ceil
 
 class DataMonitor:
     """
-    This module monitors data changes, collects this data and formats in the right way.
+    This class monitors data changes, collects this data and formats in the right way.
     It sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
     + Average charge power in kW
     + Availability of car and charger for automatic charging (% of time)
@@ -38,6 +40,8 @@ class DataMonitor:
     The State of Charge is a % that is a momentary measure, no calculations are performed as
     the SoC does not change very often in an interval.
     """
+
+    event_bus: EventBus = None
 
     # CONSTANTS
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
@@ -77,12 +81,13 @@ class DataMonitor:
     evse_client_app: object = None
     hass: Hass = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.event_bus = event_bus
 
     async def initialize(self):
-        self.__log("Initializing SetFMdata.")
+        self.__log("Initializing DataMonitor.")
 
         local_now = get_local_now()
 
@@ -94,11 +99,10 @@ class DataMonitor:
         self.current_availability_since = local_now
         await self.__record_availability(True)
 
-        await self.hass.listen_state(
-            self.__handle_charger_state_change,
-            "sensor.charger_state_int",
-            attribute="all",
+        self.event_bus.add_event_listener(
+            "charger_state_change", self._handle_charger_state_change
         )
+
         await self.hass.listen_state(
             self.__handle_charge_mode_change,
             "input_select.charge_mode",
@@ -106,32 +110,20 @@ class DataMonitor:
         )
 
         # Power related initialisation
-        power = await self.hass.get_state("sensor.charger_real_charging_power", "state")
+        # power = 0
         self.current_power_since = local_now
         self.power_period_duration = 0
         self.period_power_x_duration = 0
         self.power_readings = []
-        if power not in self.EMPTY_STATES:
-            # Ignore a state change to 'unavailable' and None
-            self.current_power = int(float(power))
-        else:
-            self.current_power = 0
-        await self.hass.listen_state(
-            self.__handle_charge_power_change,
-            "sensor.charger_real_charging_power",
-            attribute="all",
+        self.current_power = 0
+        self.event_bus.add_event_listener(
+            "charge_power_change", self._process_power_change
         )
 
         # SoC related
         self.connected_car_soc = None
         self.soc_readings = []
-        await self.hass.listen_state(
-            self.__handle_soc_change,
-            "sensor.car_state_of_charge",
-            attribute="all",
-        )
-        soc = await self.hass.get_state("sensor.car_state_of_charge", "state")
-        await self.__process_soc_change(soc)
+        self.event_bus.add_event_listener("soc_change", self._process_soc_change)
 
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         self.hourly_power_readings_since = runtime
@@ -144,30 +136,16 @@ class DataMonitor:
         resolution = timedelta(minutes=60)
         runtime = time_ceil(runtime, resolution)
         await self.hass.run_hourly(self.__try_send_data, runtime)
-        self.__log("Completed initializing SetFMdata")
+        self.__log("Completed initializing DataMonitor")
 
-    async def __handle_soc_change(self, entity, attribute, old, new, kwargs):
-        """Handle changes in the car's state of charge (SoC)."""
-        if new is None:
-            self.connected_car_soc = None
-            return
-        reported_soc = new.get("state", None)
-        await self.__process_soc_change(reported_soc)
-
-    async def __process_soc_change(self, soc: int):
-        if soc in self.EMPTY_STATES:
+    async def _process_soc_change(self, new_soc: int, old_soc: int):
+        if new_soc in self.EMPTY_STATES:
             # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
             self.connected_car_soc = None
             return
 
-        if isinstance(soc, str):
-            if not soc.isnumeric():
-                self.connected_car_soc = None
-                return
-            soc = int(round(float(soc), 0))
-
-        if isinstance(soc, int):
-            self.connected_car_soc = soc
+        if isinstance(new_soc, int):
+            self.connected_car_soc = new_soc
         else:
             self.connected_car_soc = None
             return
@@ -177,18 +155,17 @@ class DataMonitor:
         """Handle changes in charger (car) state (eg automatic or not)"""
         await self.__record_availability()
 
-    async def __handle_charger_state_change(self, entity, attribute, old, new, kwargs):
-        """Handle changes in charger (car) state (eg connected or not)
-        Ignore states with string "unavailable".
-        (This is not a value related to the availability that is recorded here)
+    async def _handle_charger_state_change(
+        self, new_charger_state: int, old_charger_state: int, new_charger_state_str: str
+    ):
+        """Handle changes in charger (car) state (eg not_connected, idle, charging, error, etc.)
+        Ignore states with string "unavailable", this is not a value related to the availability
+        that is recorded here.
         """
-        self.__log("Called")
-        if old is None:
-            return
-        else:
-            old = old.get("state", "unavailable")
-        new = new.get("state", "unavailable")
-        if old in self.EMPTY_STATES or new in self.EMPTY_STATES:
+        if (
+            old_charger_state in self.EMPTY_STATES
+            or new_charger_state in self.EMPTY_STATES
+        ):
             # Ignore state changes related to unavailable. These are not of influence on
             # availability of charger/car.
             return
@@ -199,7 +176,6 @@ class DataMonitor:
         Called at charge_mode_change and charger_status_change
         Use __conclude_interval argument to conclude an interval (without changing the availability)
         """
-        self.__log(f"Record availability, __conclude_interval: {conclude_interval}.")
         if (
             self.current_availability != await self.__is_available()
             or conclude_interval
@@ -219,31 +195,21 @@ class DataMonitor:
 
             self.current_availability_since = local_now
 
-    async def __handle_charge_power_change(self, entity, attribute, old, new, kwargs):
-        """Handle a state change in the power sensor."""
-        power = new["state"]
-        if power in self.EMPTY_STATES:
-            # Ignore a state change to 'unavailable'
-            return
-        power = int(float(power))
-        await self.__process_power_change(power)
-
-    async def __process_power_change(self, power: int):
+    async def _process_power_change(self, new_power: int):
         """Keep track of updated power changes within a regular interval."""
         local_now = get_local_now()
         duration = int((local_now - self.current_power_since).total_seconds())
-        self.period_power_x_duration += duration * power
+        self.period_power_x_duration += duration * new_power
         self.power_period_duration += duration
         self.current_power_since = local_now
-        self.current_power = power
+        self.current_power = new_power
 
     async def __conclude_interval(self, *args):
         """Conclude a regular interval.
         Called every c.FM_EVENT_RESOLUTION_IN_MINUTES minutes (usually 5 minutes)
         """
-        self.__log("Concluding interval")
 
-        await self.__process_power_change(self.current_power)
+        await self._process_power_change(self.current_power)
         await self.__record_availability(True)
 
         # At initialise there might be an incomplete period,
@@ -267,11 +233,6 @@ class DataMonitor:
                 self.power_readings.append(average_period_power)
 
             # Availability related processing
-            self.__log(
-                f"Concluded availability interval, un_/availability was: "
-                f"{self.un_availability_duration_in_current_interval} / "
-                f"{self.availability_duration_in_current_interval} ms."
-            )
             percentile_availability = round(
                 100
                 * (
@@ -288,11 +249,6 @@ class DataMonitor:
             # SoC does not change very quickly, so we just read it at conclude time and do not do
             # any calculation.
             self.soc_readings.append(self.connected_car_soc)
-
-            self.__log(
-                f"Conclude called. Average power in this period: {average_period_power} MW, "
-                f"Availability: {percentile_availability}%, SoC: {self.connected_car_soc}%."
-            )
 
         else:
             self.__log(
@@ -317,19 +273,19 @@ class DataMonitor:
         start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
         res = await self.__post_power_data()
         if res is True:
-            self.__log(f"Power data successfully sent, resetting readings")
+            self.__log("Power data successfully sent.")
             self.hourly_power_readings_since = start_from
             self.power_readings.clear()
 
         res = await self.__post_availability_data()
         if res is True:
-            self.__log("Availability data successfully sent, resetting readings")
+            self.__log("Availability data successfully sent.")
             self.hourly_availability_readings_since = start_from
             self.availability_readings.clear()
 
         res = await self.__post_soc_data()
         if res is True:
-            self.__log(f"SoC data successfully sent, resetting readings")
+            self.__log("SoC data successfully sent")
             self.hourly_soc_readings_since = start_from
             self.soc_readings.clear()
 
@@ -340,7 +296,7 @@ class DataMonitor:
         Return false if un-successful"""
         # If self.soc_readings is empty there is nothing to send.
         if len(self.soc_readings) == 0:
-            self.__log("List of soc readings is 0 length..")
+            self.__log("List of soc readings is 0 length..", level="WARNING")
             return False
 
         str_duration = len_to_iso_duration(len(self.soc_readings))
@@ -359,7 +315,7 @@ class DataMonitor:
         Return false if un-successful"""
         # If self.availability_readings is empty there is nothing to send.
         if len(self.availability_readings) == 0:
-            self.__log("List of availability readings is 0 length..")
+            self.__log("List of availability readings is 0 length..", level="WARNING")
             return False
 
         str_duration = len_to_iso_duration(len(self.availability_readings))
@@ -378,7 +334,7 @@ class DataMonitor:
         Return false if un-successful"""
         # If self.power_readings is empty there is nothing to send.
         if len(self.power_readings) == 0:
-            self.__log("List of power readings is 0 length..")
+            self.__log("List of power readings is 0 length..", level="WARNING")
             return False
 
         str_duration = len_to_iso_duration(len(self.power_readings))

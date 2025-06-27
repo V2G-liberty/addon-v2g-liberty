@@ -4,19 +4,25 @@
 
 ### Fixed
 
-- 🪲 BUG: When boosting for min-soc and this is reached, software hangs, no new schedule is requested. (#247)
-- 🪲 BUG: Too often "No new schedules". This includes relaxed scheduling. (#250)
+- 🪲 BUG: Logging version_number to FM fails (#293)
+- 🪲 BUG: Load balancer produces errors in log (#290)
+- 🪲 MINOR BUGS (#288)
+- 🪲 BUG: The max-charge power setting of V2G Liberty is overruled by FM asset setting (#279)
+- 🪲 BUG: Check for max power incorrect (#276)
+- 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
+- 🪲 BUG: When connecting during a calendar reservation period, the "target cannot be reached" process kicks in while it should not (#261)
+- 🪲 BUG: fluctuating charging around min-soc (#259)
 
 ### Added
 
-- 🚀 Feature Request: Loadbalancer function (Unnumbered)
-- 🚀 Feature Request: 'Discarge now' button. (#240)
-
 ### Changed
 
-- 🚀 Feature Request: Make default % for calendar item the schedule upper limit setting (#244)
-  This includes the option to set a target in km.
-- ⬆️ Bump PyModbus library to v3.8.5
+- 🛠️ Refactoring: Make logging of DataMonitor module less verbose (#295)
+- 🛠️ Refactoring: Use FlexMeasures relaxation (instead of V2G Liberty version) (#264)
+- 🛠️ Refactoring: Reduce number of pylint problems. (#281)
+- 🛠️ Refactoring: Use event-bus instead of HA entities (#265)
+- ⬆️ BUMP base-x version to 3.0.11 (#274)
+- 🛠️ Refactoring: Separate notification functionality from V2G Liberty module (#266)
 
 &nbsp;
 
@@ -29,6 +35,7 @@ The next release might include:
 #### Adding
 
 - Support for uni-directional charging
+- Support for multiple chargers/cars
 
 #### Changing
 

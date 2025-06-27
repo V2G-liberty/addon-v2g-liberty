@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
+    "base-x": "^3.0.11",
     "custom-card-helpers": "^1.9.0",
     "home-assistant-js-websocket": "^9.4.0",
     "lit": "^2.7.4",

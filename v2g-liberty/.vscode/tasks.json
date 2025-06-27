@@ -32,6 +32,12 @@
       "type": "shell",
       "command": "pytest",
       "problemMatcher": []
+    },
+    {
+      "label": "Restart V2G Liberty App",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Stop V2G-Liberty app", "Clean logging", "Run V2G-Liberty app"],
+      "problemMatcher": []
     }
   ]
 }

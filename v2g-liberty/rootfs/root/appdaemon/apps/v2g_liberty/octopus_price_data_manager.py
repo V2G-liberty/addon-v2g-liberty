@@ -1,16 +1,18 @@
+"""Module to read data from (publicly) available Britisch electricity price data"""
+
 from datetime import datetime
-import isodate
 import json
+import isodate
 import requests
 import constants as c
 import log_wrapper
-from appdaemon.plugins.hass.hassapi import Hass
 from v2g_globals import time_round, get_local_now, convert_to_duration_string
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 class ManageOctopusPriceData:
     """
-    App reads data from (publicly) available price data at:
+    Class reads data from (publicly) available price data at:
     https://api.octopus.energy/v1/products/
 
     This code is based upon:

@@ -9,6 +9,9 @@ from _log_wrapper import get_class_method_logger
 
 
 class QuasarLoadBalancer(Hass):
+    # Holds timer id
+    timeout_timer: str = None
+
     async def initialize(self):
         self.print = get_class_method_logger(self.__log)
         self.print("QuasarLoadBalancer: start initialise.")
@@ -24,14 +27,16 @@ class QuasarLoadBalancer(Hass):
         total_power_entity_id = config.get("total_power_entity_id", None)
         if total_power_entity_id is None:
             self.print(
-                "Not initialising quasar_load_balancer, total_power_entity_id not found in quasar_load_balancer.json."
+                "Not initialising quasar_load_balancer, total_power_entity_id not found in "
+                "quasar_load_balancer.json."
             )
             return
 
         client_host = config.get("quasar_host", None)
         if client_host is None:
             self.print(
-                "Not initialising quasar_load_balancer, client_host not found in quasar_load_balancer.json."
+                "Not initialising quasar_load_balancer, client_host not found in "
+                "quasar_load_balancer.json."
             )
             return
 
@@ -72,19 +77,24 @@ class QuasarLoadBalancer(Hass):
         )
 
     def on_total_power_changed(self, entity, attribute, old, new, kwargs):
+        try:
+            total_power = int(new)
+        except ValueError:
+            self.__log(f"incoming power not int: {new=}.")
+            return
         total_power = int(new)
         self.load_balancer.total_power_changed(total_power)
         self.reset_timeout()
 
     def reset_timeout(self):
-        self.set_state("input_boolean.quasar_loadbalancer_no_total_power", state="off")
-        if self.timeout_timer is not None:
-            self.cancel_timer(self.timeout_timer)
+        self.turn_off("input_boolean.quasar_loadbalancer_no_total_power")
+        if self.timer_running(self.timeout_timer):
+            self.cancel_timer(self.timeout_timer, silent=True)
         self.timeout_timer = self.run_in(self.total_power_changed_timeout, 60)
 
     def total_power_changed_timeout(self, kwargs):
         self.reset_timeout()
-        self.set_state("input_boolean.quasar_loadbalancer_no_total_power", state="on")
+        self.turn_on("input_boolean.quasar_loadbalancer_no_total_power")
         self.print("No new total power received for more than 60 sec.")
 
     def __log(self, msg):
