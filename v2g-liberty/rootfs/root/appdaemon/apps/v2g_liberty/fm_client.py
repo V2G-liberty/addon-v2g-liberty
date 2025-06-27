@@ -50,7 +50,9 @@ class FMClient(AsyncIOEventEmitter):
     connection_ping_interval: int
     errored_connection_ping_interval: int
     hass: Hass = None
-    client: object  # Should be FlexMeasuresClient but (early) import statement gives errors..
+
+    # Should be FlexMeasuresClient but (early) import statement gives errors..
+    client = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()

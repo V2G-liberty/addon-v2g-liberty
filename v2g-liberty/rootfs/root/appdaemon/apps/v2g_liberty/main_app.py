@@ -571,7 +571,7 @@ class V2Gliberty:
         else:
             await self.__handle_car_disconnect()
 
-    async def __log_version(self, _args):
+    async def __log_version(self, kwargs):
         """
         Log version, to be called at initialisation and retried if log_version fails.
         """
@@ -580,13 +580,21 @@ class V2Gliberty:
         )
         if version_number is None:
             self.__log("Failed to retrieve V2G Liberty version number", level="WARNING")
-            return
-
+            version_number = "unknown"
         res = await self.fm_client_app.log_version(version_number)
         if not res:
             # log_version failed
-            self.__log("Failed to log_version, retrying in 15 sec.", level="WARNING")
-            await self.hass.run_in(self.__log_version, delay=15)
+            attempt = kwargs.get("attempt", 0) + 1
+            if attempt == 5:
+                self.__log(
+                    "Failed to log_version after 5 attempts, aborting.", level="WARNING"
+                )
+                return
+            self.__log(
+                f"Attempt {attempt} to log_version failed, retrying in 15 sec.",
+                level="WARNING",
+            )
+            await self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
 
     async def __handle_car_connect(self):
         """
