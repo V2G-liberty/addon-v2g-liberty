@@ -1,13 +1,18 @@
+"""Module to initialise settings and CONSTANTS"""
+
+import math
 from datetime import datetime, timedelta
 import pytz
-import math
-from appdaemon.plugins.hass.hassapi import Hass
+from notifier_util import Notifier
 import constants as c
 import log_wrapper
 from settings_manager import SettingsManager
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 class V2GLibertyGlobals:
+    """Class to initialise settings and CONSTANTS"""
+
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
@@ -280,9 +285,11 @@ class V2GLibertyGlobals:
     }
 
     hass: Hass = None
+    notifier: Notifier = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
+        self.notifier = notifier
         self.__log = log_wrapper.get_class_method_logger(hass.log)
         self.v2g_settings = SettingsManager(log=self.__log)
 
@@ -338,8 +345,6 @@ class V2GLibertyGlobals:
         self.__log("called")
 
         self.v2g_settings.retrieve_settings()
-        # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
-        await self.__initialise_devices()
         await self.__initialise_notification_settings()
 
         await self.__initialise_charger_settings()
@@ -348,44 +353,6 @@ class V2GLibertyGlobals:
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
-
-    async def __initialise_devices(self):
-        # List of all the recipients to notify
-        # Check if Admin is configured correctly
-        # Warn user about bad config with persistent notification in UI.
-        self.__log("Initializing devices configuration")
-
-        c.NOTIFICATION_RECIPIENTS.clear()
-        # Service "mobile_app_" seems more reliable than using get_trackers,
-        # as these names do not always match with the service.
-        for service in self.hass.list_services():
-            if service["service"].startswith("mobile_app_"):
-                c.NOTIFICATION_RECIPIENTS.append(
-                    service["service"].replace("mobile_app_", "")
-                )
-
-        if len(c.NOTIFICATION_RECIPIENTS) == 0:
-            message = (
-                "No mobile devices (e.g. phone, tablet, etc.) have been registered in "
-                "Home Assistant for notifications.<br/>It is highly recommended to do so. "
-                "Please install the HA companion app on your mobile device and connect it to "
-                "Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
-            )
-            self.__log(f"Configuration error: {message}.")
-            # TODO: Research if showing this only to admin users is possible.
-            await self.create_persistent_notification(
-                title="Configuration error",
-                message=message,
-                notification_id="notification_config_error",
-            )
-        else:
-            c.NOTIFICATION_RECIPIENTS = list(
-                set(c.NOTIFICATION_RECIPIENTS)
-            )  # Remove duplicates
-            c.NOTIFICATION_RECIPIENTS.sort()
-            self.__log(f"recipients for notifications: {c.NOTIFICATION_RECIPIENTS}.")
-
-        self.__log("Completed Initializing devices configuration")
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -570,20 +537,6 @@ class V2GLibertyGlobals:
     ######################################################################
     #                            HA METHODS                              #
     ######################################################################
-
-    # TODO: move to a separate utils module?
-    async def create_persistent_notification(
-        self, message: str, title: str, notification_id: str
-    ):
-        try:
-            await self.hass.call_service(
-                service="persistent_notification/create",
-                title=title,
-                message=message,
-                notification_id=notification_id,
-            )
-        except Exception as e:
-            self.__log(f"failed. Exception: '{e}'.", level="WARNING")
 
     async def __write_setting_to_ha(
         self,
@@ -1123,15 +1076,22 @@ class V2GLibertyGlobals:
 
         if c.OPTIMISATION_MODE == "price":
             c.FM_OPTIMISATION_CONTEXT = {
-                "consumption-price-sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID,
-                "production-price-sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID,
+                "consumption-price": {"sensor": c.FM_PRICE_CONSUMPTION_SENSOR_ID},
+                "production-price": {"sensor": c.FM_PRICE_PRODUCTION_SENSOR_ID},
             }
         else:
             # Assumed optimisation = emissions
             c.FM_OPTIMISATION_CONTEXT = {
-                "consumption-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
-                "production-price-sensor": c.FM_EMISSIONS_SENSOR_ID,
+                "consumption-price": {"sensor": c.FM_EMISSIONS_SENSOR_ID},
+                "production-price": {"sensor": c.FM_EMISSIONS_SENSOR_ID},
             }
+
+        c.FM_OPTIMISATION_CONTEXT.update(
+            {
+                "relax-soc-constraints": True,
+                "relax-capacity-constraints": True,
+            }
+        )
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 
     ######################################################################
@@ -1190,11 +1150,11 @@ class V2GLibertyGlobals:
 
         if has_changed:
             msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
-            ntf_id = f"auto_adjusted_setting_{entity_id}"
-            await self.create_persistent_notification(
+            memo_id = f"auto_adjusted_setting_{entity_id}"
+            await self.notifier.post_sticky_memo(
                 message=msg,
                 title="Automatically adjusted setting",
-                notification_id=ntf_id,
+                memo_id=memo_id,
             )
             self.__log(f"Value has changed: {msg}")
         return return_value, has_changed

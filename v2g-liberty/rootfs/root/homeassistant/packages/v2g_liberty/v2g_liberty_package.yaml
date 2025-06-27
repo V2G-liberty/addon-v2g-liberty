@@ -247,18 +247,6 @@ template:
         availability: >
           {{ has_value('sensor.current_scheduled_charging_power') and has_value('sensor.charger_real_charging_power') }}
 
-      # The following sensors are to be set from the Python code.
-      - name: is_car_connected
-        # Is the charger plug inserted into the car socket
-        # Should be 'unavailable' if charger is in error
-        device_class: plug
-        state: "{{ None }}" # Dummy
-        availability: "{{ states('binary_sensor.is_car_connected_availability') }}"
-
-      - name: is_car_connected_availability
-        # Helper sensor to be able to set the availability of the original sensor
-        state: "{{ False }}"  # Sets initial value to 'unavailable'
-
 sensor:
   - platform: template
     # The platform: number would have been more suitable but HA does not support that
@@ -367,7 +355,7 @@ sensor:
         value_template: "{{ None }}"  # Dummy
 
       charger_connection_status:
-        friendly_name: Calendar account connection status
+        friendly_name: Charger connection status
         value_template: ""
 
       poll_refresh_indicator:
@@ -395,12 +383,6 @@ sensor:
       # Helper, for setting text in dashboard.
       last_reboot_at:
         friendly_name: When was V2G Liberty add-on last restarted
-        value_template: ""
-
-      # Used to store the (serialised) charge schedule HA receives from the
-      # backend FM, not used in UI.
-      charge_schedule:
-        friendly_name: Charge schedule chart data
         value_template: ""
 
       # Used to store the (serialized) list of dynamic consumption prices that is fetched by

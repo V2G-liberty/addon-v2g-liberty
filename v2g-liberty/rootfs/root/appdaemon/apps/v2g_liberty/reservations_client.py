@@ -1,3 +1,5 @@
+"""Module to read and process calander data for reservations"""
+
 import datetime as dt
 import re
 import requests
@@ -7,10 +9,11 @@ from v2g_globals import get_local_now
 import caldav
 from pyee.asyncio import AsyncIOEventEmitter
 from appdaemon.plugins.hass.hassapi import Hass
-from service_response_app import ServiceResponseApp
 
 
 class ReservationsClient(AsyncIOEventEmitter):
+    """Class to read and process calander data for reservations"""
+
     cal_client: caldav.DAVClient
     principal: object
     car_reservation_calendar: object
@@ -28,7 +31,7 @@ class ReservationsClient(AsyncIOEventEmitter):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
-    hass: ServiceResponseApp = None
+    hass: Hass = None
 
     def __init__(self, hass: Hass):
         super().__init__()
@@ -38,8 +41,6 @@ class ReservationsClient(AsyncIOEventEmitter):
         self.principal = None
         self.poll_timer_id = ""
 
-        # TODO: Check if this can really be removed.
-        # await self.initialise_calendar()
         self.__log("Completed __init__ ReservationsClient")
 
     ######################################################################
@@ -354,7 +355,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                 expand=True,
             )
         except Exception as e:
-            self.log(
+            self.__log(
                 f"Could not retrieve caldav items. Exception: '{e}'.", level="WARNING"
             )
             await self.__set_caldav_connection_status(connected=False)

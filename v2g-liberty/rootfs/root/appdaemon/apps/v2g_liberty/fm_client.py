@@ -1,9 +1,12 @@
+"""Module to manage the communication with the FlexMeasures platform"""
+
+import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
 import isodate
-import math
 import constants as c
 import log_wrapper
+from event_bus import EventBus
 from v2g_globals import time_round, time_ceil, get_local_now
 from time_range_util import (
     consolidate_time_ranges,
@@ -16,9 +19,10 @@ from appdaemon.plugins.hass.hassapi import Hass
 class FMClient(AsyncIOEventEmitter):
     """This class manages the communication with the FlexMeasures platform, which delivers the
     charging schedules.
-    - Saves charging schedule locally (sensor.charge_schedule)
     - Reports on errors via v2g_liberty module handle_no_schedule()
     """
+
+    event_bus: EventBus = None
 
     # Constants
     FM_SCHEDULE_DURATION: datetime
@@ -45,17 +49,17 @@ class FMClient(AsyncIOEventEmitter):
     handle_for_repeater: str
     connection_ping_interval: int
     errored_connection_ping_interval: int
-
-    # For calling handle_no_new_schedule
-    v2g_main_app: object
     hass: Hass = None
 
-    client: object  # Should be FlexMeasuresClient but (early) import statement gives errors..
+    # Should be FlexMeasuresClient but (early) import statement gives errors..
+    client = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
         self.__log = log_wrapper.get_class_method_logger(hass.log)
+
+        self.event_bus = event_bus
 
         # Maybe add these to constants / settings?
         self.FM_SCHEDULE_DURATION_STR = "PT27H"
@@ -194,6 +198,8 @@ class FMClient(AsyncIOEventEmitter):
 
     async def log_version(self, v2g_liberty_version: str):
         """Log V2G Liberty version number in the asset on FlexMeasures"""
+        if self.client is None:
+            return False
         asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
 
         await self.__set_asset_attribute(
@@ -201,6 +207,10 @@ class FMClient(AsyncIOEventEmitter):
             attribute_name="v2g-liberty-version",
             attribute_value=v2g_liberty_version,
         )
+        self.__log(
+            f"Logged version '{v2g_liberty_version}' in FM asset_id '{asset_id}'."
+        )
+        return True
 
     async def __set_asset_attribute(
         self, asset_id: int, attribute_name: str, attribute_value: str
@@ -464,7 +474,6 @@ class FMClient(AsyncIOEventEmitter):
                                     * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
                                     * (c.CHARGER_MAX_CHARGE_POWER / 1000)
                                 )
-                                target_soc_kwh = max_target
                                 # Communicate the target soc to user in %
                                 max_target = int(
                                     round(
@@ -472,7 +481,6 @@ class FMClient(AsyncIOEventEmitter):
                                         0,
                                     )
                                 )
-                            target_start = soonest_at_target
                             self.emit(
                                 "unreachable_target",
                                 soonest_at_target=soonest_at_target,
@@ -706,6 +714,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
         flex_model = {
+            "power-capacity": f"{c.CHARGER_MAX_CHARGE_POWER} W",
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
             "soc-min": c.CAR_MIN_SOC_IN_KWH,
@@ -716,6 +725,7 @@ class FMClient(AsyncIOEventEmitter):
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }
+
         self.__log(f"flex_model: {flex_model}.")
         schedule = {}
         max_retries = 2
@@ -761,20 +771,11 @@ class FMClient(AsyncIOEventEmitter):
             await self.wait_for_complete()
             return
 
+        self.fm_date_time_last_schedule = get_local_now()
         self.emit("no_new_schedule", "timeouts_on_schedule", error_state=False)
         await self.wait_for_complete()
-        self.fm_date_time_last_schedule = get_local_now()
-        self.__log(f"schedule: {schedule}")
-
-        # To trigger state change we add the date to the state. State change is not triggered by
-        # attributes.
-        await self.hass.set_state(
-            entity_id="sensor.charge_schedule",
-            state="Charge schedule available "
-            + self.fm_date_time_last_schedule.isoformat(),
-            attributes=schedule,
-        )
         await self.set_fm_connection_status(connected=True)
+        return schedule
 
     async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
         """Helper to set fm connection status in HA entity"""
@@ -786,13 +787,7 @@ class FMClient(AsyncIOEventEmitter):
             else:
                 state = "Error"
             self.__log(f"Could not connect to FM: '{state}'.")
-
-        # Force a changed trigger even if the state does not change
-        keep_alive = {"keep_alive": get_local_now().strftime(c.DATE_TIME_FORMAT)}
-
-        await self.hass.set_state(
-            "sensor.fm_connection_status", state=state, attributes=keep_alive
-        )
+        self.event_bus.emit_event("fm_connection_status", state=state)
 
 
 def get_host_and_ssl_from_url(url: str) -> tuple[str, bool]:

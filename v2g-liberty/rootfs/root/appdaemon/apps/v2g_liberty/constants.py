@@ -1,11 +1,10 @@
-### V2G Liberty constants ###
+"""V2G Liberty constants"""
 
 ######################## Feature Settings Card (FSC) ########################
 # Many of these constants do not have to be set here but should be
 # passed to the (re-) init method of a specific class. This is mentioned
 # a comment marked by FSC (Feature Settings Card).
 #############################################################################
-
 
 # For showing dates in UI
 # FSC: Now in 3 modules, should be used wider.
@@ -18,11 +17,7 @@ TZ = ""
 # FSC: Only used in v2g_liberty module, move there.
 HA_NAME: str = ""
 
-# FSC: Next 2, Only used in V2G Liberty module, move there.
-NOTIFICATION_RECIPIENTS: list = []
 ADMIN_MOBILE_NAME: str = ""
-
-# FSC, only used here
 ADMIN_MOBILE_PLATFORM: str = ""
 
 # FSC: holds knowledge of HA specifics, based on previous, move to v2g_liberty module and

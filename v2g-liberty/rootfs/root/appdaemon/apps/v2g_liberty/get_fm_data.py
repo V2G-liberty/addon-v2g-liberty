@@ -1,3 +1,5 @@
+"""Module for importing price and usgae data from FlexMeaures"""
+
 from datetime import datetime, timedelta
 import math
 from v2g_globals import (
@@ -8,10 +10,9 @@ from v2g_globals import (
     convert_to_duration_string,
 )
 import constants as c
+from notifier_util import Notifier
 import log_wrapper
-from v2g_liberty import ChartLine
-
-# from typing import List
+from main_app import ChartLine
 
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -57,14 +58,16 @@ class FlexMeasuresDataImporter:
     v2g_main_app: object = None
     # For getting data from FM server
     fm_client_app: object = None
+    notifier: Notifier = None
 
     first_future_negative_consumption_price_point: dict
     first_future_negative_production_price_point: dict
 
     hass: Hass = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
+        self.notifier = notifier
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
@@ -771,7 +774,7 @@ class FlexMeasuresDataImporter:
             unavailable = "Consumption and production"
         if unavailable != "":
             self.__log(f"Unavailable price(s): '{unavailable=}'.")
-            self.v2g_main_app.notify_user(
+            self.notifier.notify_user(
                 message=f"{unavailable} price not available, cloud not check for negative prices. "
                 f"Scheduling should continue as normal.",
                 title=None,
@@ -810,7 +813,7 @@ class FlexMeasuresDataImporter:
             and self.consumption_price_is_up_to_date
         ):
             await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
-            self.v2g_main_app.clear_notification(tag="no_price_data")
+            self.notifier.clear_notification(tag="no_price_data")
             self.__log("prices up to date again: notification cleared.")
         else:
             if run_once:
@@ -884,10 +887,10 @@ class FlexMeasuresDataImporter:
                 msg += f"From {ppp['time'].strftime(c.DATE_TIME_FORMAT)} production price is {ppp['price']} cent/kWh."
 
         if msg == " ":
-            self.v2g_main_app.clear_notification(tag="negative_energy_prices")
+            self.notifier.clear_notification(tag="negative_energy_prices")
             self.__log("Clearing negative price notification")
         else:
-            self.v2g_main_app.notify_user(
+            self.notifier.notify_user(
                 message=msg,
                 title="Negative electricity price",
                 tag="negative_energy_prices",

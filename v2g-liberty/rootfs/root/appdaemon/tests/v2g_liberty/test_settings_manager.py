@@ -1,6 +1,8 @@
+"""Unit test (pytest) for settings_manager module."""
+
+from unittest.mock import ANY, Mock, mock_open, patch
 import json
 import pytest
-from unittest.mock import ANY, Mock, mock_open, patch
 from apps.v2g_liberty.settings_manager import SettingsManager
 
 
