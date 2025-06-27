@@ -5,6 +5,7 @@
 ### Fixed
 
 - 🪲 BUG: Load balancer produces errors in log (#290)
+- 🪲 MINOR BUGS (#288)
 - 🪲 BUG: The max-charge power setting of V2G Liberty is overruled by FM asset setting (#279)
 - 🪲 BUG: Check for max power incorrect (#276)
 - 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
