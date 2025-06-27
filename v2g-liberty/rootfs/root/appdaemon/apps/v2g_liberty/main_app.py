@@ -581,7 +581,6 @@ class V2Gliberty:
         if version_number is None:
             self.__log("Failed to retrieve V2G Liberty version number", level="WARNING")
             version_number = "unknown"
-            self.__log(f"version_number: '{version_number}'.")
         res = await self.fm_client_app.log_version(version_number)
         if not res:
             # log_version failed
