@@ -16,12 +16,12 @@ In addition, the EV's battery is used to:
  
   <span class="sub-text">You can choose any contract but V2G is only relevant for contracts with dynamic 
   (e.g. hourly changing) electricity prices.<br/>
-  At the time of writing, October 2024 we are testing with new CCS2 chargers and compatible cars. 
-  We hope to announce new compatible chargers and cars soon.</span>
+  At the time of writing, April 2025, Wallbox is taking preorders for the Quasar 2 for June 2025 in the United States.
+  We hope to announce new compatible CCS 2 chargers and cars soon.</span>
  
 V2G&nbsp;Liberty is a practical local app that works in the browser and on your phone.
 
-![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2024/12/ui_v0_4_3.png)
+![The V2G&nbsp;Liberty Dashboard](https://v2g-liberty.eu/wp-content/uploads/2025/04/ui_v0_6_0.png)
 
 The schedules are optimised to maximise revenues ór minimising emissions. The optimised schedules
 are produced by [FlexMeasures](https://flexmeasures.io/), our smart backend by Seita. While the price optimisation already 
@@ -111,6 +111,9 @@ Further steps in the proces of installation and configuration are explained in t
 Charging is fully automatic an optimised, so you can just connect your EV and forget about it.
 You can tweak the charging process by setting min- and max-limits, min- and max-charge power etc.
 
+## Load balancing
+
+V2G Liberty has build in load balancing service (it is not a device although additional hardware is needed). See documentation in the app for further details.
 
 ## Updates
 
