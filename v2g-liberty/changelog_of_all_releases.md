@@ -20,6 +20,7 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- 🛠️ Refactoring: Make logging of DataMonitor module less verbose (#295)
 - 🛠️ Refactoring: Use FlexMeasures relaxation (instead of V2G Liberty version) (#264)
 - 🛠️ Refactoring: Reduce number of pylint problems. (#281)
 - 🛠️ Refactoring: Use event-bus instead of HA entities (#265)
