@@ -611,8 +611,10 @@
       entities:
         - sensor.calendar_events
       content: >-
-        <div>Target SoC is read from the event summary, if not found, 100%
-        is used.</div>  {% if state_attr('sensor.calendar_events',
+        <div>The charge target is read from the event summary (e.g. 100%).
+        If not found your "schedule upper limit" setting
+        ({{states("input_number.car_max_soc_in_percent")}}%)
+        is used.</div> {% if state_attr('sensor.calendar_events',
         'v2g_ui_event_calendar') == None %} Calendar configuration seems
         invalid, please check settings. {% else %} {% if
         states.sensor.calendar_events.attributes.v2g_ui_event_calendar
@@ -639,7 +641,7 @@
         style:
           ha-markdown$: |
             div {
-              margin-top: 0px !important;
+              margin-top: -20px !important;
               margin-bottom: 24px !important;
               font-size: 90%;
               color: var(--secondary-text-color);
