@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+-🪲 BUG: Height of SoC % box too high (#301)
 -🪲 BUG: Text above calendar events has error (#299)
 
 ### Added
