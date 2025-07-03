@@ -4,6 +4,7 @@
 
 ### Fixed
 
+-🪲 BUG: Height of SoC % box too high (#301)
 -🪲 BUG: Text above calendar events has error (#299)
 
 ### Added
