@@ -49,8 +49,9 @@
     "nl_anwb_energie": "ANWB Energie",
     "nl_greenchoice": "Greenchoice",
     "nl_next_energy": "Next Energy",
+    "nl_zonneplan": "Zonneplan",
     "nl_tibber": "Tibber",
-    "no_generic": "xxx"
+    "no_generic": "Not implemented"
   },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",

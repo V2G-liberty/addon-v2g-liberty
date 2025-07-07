@@ -58,6 +58,7 @@ input_select:
       - nl_greenchoice
       - nl_next_energy
       - nl_tibber
+      - nl_zonneplan
       - no_generic
       - gb_octopus_energy
       - au_amber_electric
