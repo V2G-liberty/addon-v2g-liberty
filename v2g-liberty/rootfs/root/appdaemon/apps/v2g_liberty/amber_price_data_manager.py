@@ -1,6 +1,6 @@
 """Module for reading and transforming Amber price data and making it available to fm_client."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import isodate
 import constants as c
 import log_wrapper
@@ -178,7 +178,12 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    parameters = {"price_type": "consumption"}
+                    # Give some slack for later commparison
+                    min_latest_price_dt = end_cpf - timedelta(minutes=5)
+                    parameters = {
+                        "min_latest_price_dt": min_latest_price_dt,
+                        "price_type": "consumption",
+                    }
                     await self.get_fm_data_module.get_prices(parameters)
                 else:
                     self.__log(
@@ -278,7 +283,12 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    parameters = {"price_type": "production"}
+                    # Give some slack for later commparison
+                    min_latest_price_dt = end_ppf - timedelta(minutes=5)
+                    parameters = {
+                        "min_latest_price_dt": min_latest_price_dt,
+                        "price_type": "production",
+                    }
                     await self.get_fm_data_module.get_prices(parameters)
                 else:
                     self.__log(

@@ -947,14 +947,20 @@ class V2GLibertyGlobals:
             elif "charging cost" in sensor_name:
                 c.FM_ACCOUNT_COST_SENSOR_ID = sensor["id"]
 
-            if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
+            if c.ELECTRICITY_PROVIDER in [
+                "nl_zonneplan",
+                "au_amber_electric",
+                "gb_octopus_energy",
+            ]:
                 if "consumption" in sensor_name:
                     # E.g. 'consumption price' or 'consumption tariff'
                     c.FM_PRICE_CONSUMPTION_SENSOR_ID = sensor["id"]
                 elif "production" in sensor_name:
                     # E.g. 'production price' or 'production tariff'
                     c.FM_PRICE_PRODUCTION_SENSOR_ID = sensor["id"]
-                elif "intensity" in sensor_name:
+
+            if c.ELECTRICITY_PROVIDER in ["au_amber_electric", "gb_octopus_energy"]:
+                if "intensity" in sensor_name:
                     # E.g. 'Amber CO₂ intensity'
                     c.FM_EMISSIONS_SENSOR_ID = sensor["id"]
 
@@ -1020,6 +1026,15 @@ class V2GLibertyGlobals:
 
             await self.octopus_price_data_manager.kick_off_octopus_price_management()
 
+        elif c.ELECTRICITY_PROVIDER == "nl_zonneplan":
+            c.EMISSIONS_UOM = "kg/MWh"
+            c.CURRENCY = "EUR"
+            c.PRICE_RESOLUTION_MINUTES = 60
+            c.UTILITY_CONTEXT_DISPLAY_NAME = "Zonneplan"
+            c.FM_EMISSIONS_SENSOR_ID = c.DEFAULT_UTILITY_CONTEXTS["nl_generic"][
+                "emissions-sensor"
+            ]
+
         else:
             context = c.DEFAULT_UTILITY_CONTEXTS.get(
                 c.ELECTRICITY_PROVIDER,
@@ -1058,7 +1073,7 @@ class V2GLibertyGlobals:
             # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based
             # on USE_VAT_AND_MARKUP.
             pass
-
+        c.VAT_FACTOR = (c.ENERGY_PRICE_VAT +100)/100
         await self.__set_fm_optimisation_context()
 
     async def __set_fm_optimisation_context(self):

@@ -1,6 +1,7 @@
 """Module for importing price and usgae data from FlexMeaures"""
 
 from datetime import datetime, timedelta
+import isodate
 import math
 from v2g_globals import (
     time_ceil,
@@ -10,6 +11,7 @@ from v2g_globals import (
     convert_to_duration_string,
 )
 import constants as c
+from event_bus import EventBus
 from notifier_util import Notifier
 import log_wrapper
 from main_app import ChartLine
@@ -40,6 +42,8 @@ class FlexMeasuresDataImporter:
     # Delay between checks when no data was found
     CHECK_RESOLUTION_SECONDS: int = 30 * 60
 
+    FM_RAW_CONSUMPTION_PRICE_SENSOR_ID: int = 14
+
     consumption_price_is_up_to_date: bool = False
     production_price_is_up_to_date: bool = False
     emission_data_is_up_to_date: bool = False
@@ -59,21 +63,22 @@ class FlexMeasuresDataImporter:
     # For getting data from FM server
     fm_client_app: object = None
     notifier: Notifier = None
+    event_bus: EventBus = None
 
     first_future_negative_consumption_price_point: dict
     first_future_negative_production_price_point: dict
 
     hass: Hass = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
+        self.event_bus = event_bus
         self.__log = log_wrapper.get_class_method_logger(hass.log)
 
     async def initialize(self):
         """
-        Get prices, emissions and cost data for display in the UI. Only the consumption prices
-        and not the production (aka feed_in) prices are retrieved (and displayed).
+        Get prices, emissions and cost data for display in the UI.
 
         Price/emissions data fetched daily when:
         For providers with contracts based on a (EPEX) day-ahead market this should be fetched daily
@@ -81,14 +86,14 @@ class FlexMeasuresDataImporter:
         These times are related to the attempts in the FM server for retrieving EPEX price data.
 
         Price/emissions data fetched on data change:
-        When price data comes in through an (external) HA integration (e.g. Amber Electric or Octopus),
-        V2G Liberty sends this to FM to base the charge-schedules on. This is handled by separate modules
-        (e.g. amber_price_data_manager).
-        Those modules do not provide the data for display in the UI directly (even-though this could be more
-        efficient). Instead, they trigger get_prices() and get_emission_intensities() when a change
-        in the data is detected (after it has been sent to FM successfully).
+        When price data comes in through an (external) HA integration (e.g. Amber Electric or
+        Octopus), V2G Liberty sends this to FM to base the charge-schedules on. This is handled by
+        separate modules (e.g. amber_price_data_manager).
+        Those modules do not provide the data for display in the UI directly (even-though this could
+        be more efficient). Instead, they trigger get_prices() and get_emission_intensities() when a
+        change in the data is detected (after it has been sent to FM successfully).
 
-        The retrieved data is written to the HA entities for HA to render the data in the UI (chart).
+        The retrieved data is written to the HA entities for HA to render in the UI (chart).
 
         The cost data is, independent of price_type of provider contract, fetched daily in the early
         morning.
@@ -97,9 +102,10 @@ class FlexMeasuresDataImporter:
 
         self.emission_intensities = {}
 
-        # These are variables are used to decide what message to send to the user and can have eh following values:
+        # These are variables are used to decide what message to send to the user and can have the
+        # following values:
         # - None: when no prices have been collected yet.
-        # - "No negative price": if there are no negative prices.
+        # - A string: "No negative price", if there are no negative prices.
         # - A price_point dict: When a negative price is detected.
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
@@ -207,13 +213,27 @@ class FlexMeasuresDataImporter:
         """
         self.__log(f"Called, args: {args}.")
 
+        min_latest_price_dt = get_local_now() + timedelta(days=1)
+        # Round it to the end of the day
+        min_latest_price_dt = time_ceil(min_latest_price_dt, timedelta(days=1))
+        # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to
+        # subtract one hour and a little extra to give it some slack.
+        min_latest_price_dt -= timedelta(minutes=65)
+        min_dt_param = {"min_latest_price_dt": min_latest_price_dt}
+
+        if c.ELECTRICITY_PROVIDER == "nl_zonneplan":
+            # For EP Zonneplan:
+            # 1. get raw epex price data (here)
+            # 2. calculate consumption and production price (in zonneplan module)
+            # 3. send price data to FM (in zonneplan module)
+            # 4. get final prices (here)
+            await self.get_prices({**min_dt_param, "price_type": "raw_consumption"})
+
         self.consumption_price_is_up_to_date = None
-        parameters = {"price_type": "consumption"}
-        await self.get_prices(parameters)
+        await self.get_prices({**min_dt_param, "price_type": "consumption"})
 
         self.production_price_is_up_to_date = None
-        parameters = {"price_type": "production"}
-        await self.get_prices(parameters)
+        await self.get_prices({**min_dt_param, "price_type": "production"})
 
         self.__log("completed")
 
@@ -576,10 +596,17 @@ class FlexMeasuresDataImporter:
         :return: string or boolean (not used).
         """
         price_type = parameters.get("price_type", None)
-
-        if price_type not in ["consumption", "production"]:
+        if price_type not in ["raw_consumption", "consumption", "production"]:
             self.__log(
                 f"called with unknown price_type: '{price_type}'.", level="WARNING"
+            )
+            return False
+
+        expected_last_price_dt = parameters.get("min_latest_price_dt", None)
+        if not isinstance(expected_last_price_dt, datetime):
+            self.__log(
+                f"called with expected_last_price_dt: '{expected_last_price_dt}'.",
+                level="WARNING",
             )
             return False
 
@@ -594,131 +621,172 @@ class FlexMeasuresDataImporter:
         else:
             days_back = 2
         start = time_floor(now - timedelta(days=days_back), timedelta(days=1))
+
         if self.fm_client_app is not None:
-            sensor_id = (
-                c.FM_PRICE_CONSUMPTION_SENSOR_ID
-                if price_type == "consumption"
-                else c.FM_PRICE_PRODUCTION_SENSOR_ID
-            )
-            prices = await self.fm_client_app.get_sensor_data(
+            # For showing in the UI and calculation of costs/revenues the final prices need to
+            # be fetched for more than one day.
+            duration_str = "P3D"
+            if price_type == "consumption":
+                sensor_id = c.FM_PRICE_CONSUMPTION_SENSOR_ID
+            elif price_type == "production":
+                sensor_id = c.FM_PRICE_PRODUCTION_SENSOR_ID
+            else:
+                # Assume raw_comsumption
+                sensor_id = self.FM_RAW_CONSUMPTION_PRICE_SENSOR_ID
+                # Only calculate prices for one (the upcomming day, not for longer history.
+                duration_str = "P1D"
+
+            price_data = await self.fm_client_app.get_sensor_data(
                 sensor_id=sensor_id,
                 start=start.isoformat(),
-                duration="P3D",
+                duration=duration_str,
                 resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
                 uom=f"{c.CURRENCY}/MWh",
             )
             # self.__log(f"({price_type}) | sensor_id: {sensor_id}, prices: {prices}.")
-            date_latest_price = None
-            net_price = None
-            if prices is None:
-                failure_message = f"get_prices failed for {price_type}"
+
+            duration = price_data.get("duration", None)
+            uom = price_data.get("unit", None)
+            raw_prices = price_data.get("values", None)
+            start = price_data.get("start", None)
+
+            if start is None or uom is None or raw_prices is None or duration is None:
+                self.__log("price data incomplete, aborting", level="WARNING")
+                failure_message = f"failed for {price_type}, incomplete price data."
             else:
-                price_points = []
-                first_future_negative_price_point = "No negative prices"
-                prices = prices["values"]
-
-                for i, price in enumerate(prices):
-                    if price is None:
-                        continue
-
-                    dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
-                    date_latest_price = dt
-                    net_price = round(
-                        (
-                            (float(price) * self.price_conversion_factor)
-                            + self.markup_per_kwh
-                        )
-                        * self.vat_factor,
-                        2,
-                    )
-
-                    data_point = {"time": dt.isoformat(), "price": net_price}
-                    price_points.append(data_point)
-
-                    if (
-                        first_future_negative_price_point == "No negative prices"
-                        and data_point["price"] < 0
-                        and dt > now
-                    ):
-                        self.__log(
-                            f"({price_type}), negative price: {data_point['price']} at: {dt}."
-                        )
-                        first_future_negative_price_point = {
-                            "time": dt,
-                            "price": data_point["price"],
-                        }
-
-                self.__check_negative_price_notification(
-                    first_future_negative_price_point, price_type=price_type
+                duration_timedelta = isodate.parse_duration(duration)
+                resolution_in_minutes = (
+                    duration_timedelta.total_seconds() / 60 / len(raw_prices)
                 )
 
-                # To make the step-line in the chart extend to the end of the last (half)hour (or
-                # what the resolution might be), a value is added at the end. Not an ideal solution
-                # but the chart does not have the option to do this.
-                if net_price is not None:
-                    data_point = {
-                        "time": (
-                            dt + timedelta(minutes=c.PRICE_RESOLUTION_MINUTES)
-                        ).isoformat(),
-                        "price": net_price,
-                    }
-                    price_points.append(data_point)
-
-                await self.v2g_main_app.set_records_in_chart(
-                    chart_line_name=ChartLine.CONSUMPTION_PRICE
-                    if price_type == "consumption"
-                    else ChartLine.PRODUCTION_PRICE,
-                    records=price_points,
-                )
-
-                if date_latest_price is None:
-                    failure_message = f"no valid {price_type} prices received"
-                elif is_price_epex_based():
-                    # We expect prices till the end of the day tomorrow
-                    # (or today if prices are really late).
-                    if is_local_now_between(
-                        start_time=self.GET_PRICES_TIME, end_time="23:59:59"
-                    ):
-                        expected_price_dt = now + timedelta(days=1)
-                    else:
-                        expected_price_dt = now
-                    # Round it to the end of the day
-                    expected_price_dt = time_ceil(expected_price_dt, timedelta(days=1))
-
-                    # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to
-                    # subtract one hour and a little extra to give it some slack.
-                    expected_price_dt -= timedelta(minutes=65)
-                    is_up_to_date = date_latest_price > expected_price_dt
-                    if not is_up_to_date:
-                        # Set it in th UI right away, no matter which price type it is.
-                        # Notification is done later via __check_if_prices_are_up_to_date()
-                        await self.v2g_main_app.set_price_is_up_to_date(
-                            is_up_to_date=False
-                        )
-
+                # Check against expected resolution
+                if resolution_in_minutes < c.PRICE_RESOLUTION_MINUTES:
                     self.__log(
-                        f"({price_type}): is up to date: '{is_up_to_date}' based on "
-                        f"latest_price ({date_latest_price}) > "
-                        f"expected_price_dt ({expected_price_dt})."
+                        f"aborting: the resolution ({resolution_in_minutes} minutes) is below "
+                        f"the set minimum ({c.PRICE_RESOLUTION_MINUTES} minutes).",
+                        level="WARNING",
                     )
-                    price_is_up_to_date = (
-                        self.consumption_price_is_up_to_date
-                        if price_type == "consumption"
-                        else self.production_price_is_up_to_date
+                    failure_message = (
+                        f"failed for {price_type}, resolution below minimum."
                     )
-                    needs_update_check = not price_is_up_to_date and is_up_to_date
-                    if price_type == "consumption":
-                        self.consumption_price_is_up_to_date = is_up_to_date
+                else:
+                    date_latest_price = None
+                    net_price = None
+
+                    start = isodate.parse_datetime(start)
+
+                    if price_type == "raw_consumption":
+                        # prices = prices["values"]
+                        date_latest_price = start + timedelta(
+                            minutes=(len(raw_prices) * c.PRICE_RESOLUTION_MINUTES)
+                        )
+                        if date_latest_price > expected_last_price_dt:
+                            self.event_bus.emit_event(
+                                "new_raw_prices", price_data=price_data
+                            )
+                        else:
+                            failure_message = (
+                                "raw_consumption prices not up to date yet"
+                            )
                     else:
-                        self.production_price_is_up_to_date = is_up_to_date
+                        price_points = []
+                        first_future_negative_price_point = "No negative prices"
 
-                    if not is_up_to_date:
-                        failure_message = "prices not up to date"
-                        self.__log(f"({price_type}), {failure_message}.")
+                        for i, price in enumerate(raw_prices):
+                            if price is None:
+                                continue
 
-                    if needs_update_check:
-                        self.__log(f"{price_type} prices are up to date again.")
-                        await self.__check_if_prices_are_up_to_date_again(run_once=True)
+                            dt = start + timedelta(
+                                minutes=(i * c.PRICE_RESOLUTION_MINUTES)
+                            )
+                            date_latest_price = dt
+                            net_price = round(
+                                (
+                                    (float(price) * self.price_conversion_factor)
+                                    + self.markup_per_kwh
+                                )
+                                * self.vat_factor,
+                                2,
+                            )
+
+                            data_point = {"time": dt.isoformat(), "price": net_price}
+                            price_points.append(data_point)
+
+                            if (
+                                first_future_negative_price_point
+                                == "No negative prices"
+                                and data_point["price"] < 0
+                                and dt > now
+                            ):
+                                self.__log(
+                                    f"({price_type}), negative price: {data_point['price']} at: {dt}."
+                                )
+                                first_future_negative_price_point = {
+                                    "time": dt,
+                                    "price": data_point["price"],
+                                }
+
+                        self.__check_negative_price_notification(
+                            first_future_negative_price_point, price_type=price_type
+                        )
+
+                        # To make the step-line in the chart extend to the end of the last (half)hour (or
+                        # what the resolution might be), a value is added at the end. Not an ideal solution
+                        # but the chart does not have the option to do this.
+                        if net_price is not None:
+                            data_point = {
+                                "time": (
+                                    dt + timedelta(minutes=c.PRICE_RESOLUTION_MINUTES)
+                                ).isoformat(),
+                                "price": net_price,
+                            }
+                            price_points.append(data_point)
+
+                        await self.v2g_main_app.set_records_in_chart(
+                            chart_line_name=ChartLine.CONSUMPTION_PRICE
+                            if price_type == "consumption"
+                            else ChartLine.PRODUCTION_PRICE,
+                            records=price_points,
+                        )
+
+                        if date_latest_price is None:
+                            failure_message = f"no valid {price_type} prices received"
+                        elif is_price_epex_based():
+                            is_up_to_date = date_latest_price > expected_last_price_dt
+                            if not is_up_to_date:
+                                # Set it in th UI right away, no matter which price type it is.
+                                # Notification is done later via __check_if_prices_are_up_to_date()
+                                await self.v2g_main_app.set_price_is_up_to_date(
+                                    is_up_to_date=False
+                                )
+
+                            self.__log(
+                                f"({price_type}): is up to date: '{is_up_to_date}' based on "
+                                f"latest_price ({date_latest_price}) > "
+                                f"expected_price_dt ({expected_last_price_dt})."
+                            )
+                            price_is_up_to_date = (
+                                self.consumption_price_is_up_to_date
+                                if price_type == "consumption"
+                                else self.production_price_is_up_to_date
+                            )
+                            needs_update_check = (
+                                not price_is_up_to_date and is_up_to_date
+                            )
+                            if price_type == "consumption":
+                                self.consumption_price_is_up_to_date = is_up_to_date
+                            else:
+                                self.production_price_is_up_to_date = is_up_to_date
+
+                            if not is_up_to_date:
+                                failure_message = "prices not up to date"
+                                self.__log(f"({price_type}), {failure_message}.")
+
+                            if needs_update_check:
+                                self.__log(f"{price_type} prices are up to date again.")
+                                await self.__check_if_prices_are_up_to_date_again(
+                                    run_once=True
+                                )
         else:
             self.__log(
                 f"({price_type}). Could not call get_sensor_data on fm_client_app as it is None."
@@ -737,6 +805,7 @@ class FlexMeasuresDataImporter:
                     self.get_prices,
                     delay=self.CHECK_RESOLUTION_SECONDS,
                     price_type=price_type,
+                    min_latest_price_dt=expected_last_price_dt,
                 )
                 self.__log(
                     f"({price_type}): {failure_message}, "
@@ -752,7 +821,7 @@ class FlexMeasuresDataImporter:
         self.__log(f"{price_type} prices successfully retrieved.")
         return "prices successfully retrieved."
 
-    async def __check_if_prices_are_up_to_date(self, *args):
+    async def __check_if_prices_are_up_to_date(self, *_args):
         """
         Only used for EPEX based contracts, only aimed at price data, not emissions data.
         Checks if price data is uptodate and, if not, notifies user and kicks off proces to keep

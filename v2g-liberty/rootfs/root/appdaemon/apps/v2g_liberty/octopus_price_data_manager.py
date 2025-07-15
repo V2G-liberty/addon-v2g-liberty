@@ -1,6 +1,6 @@
 """Module to read data from (publicly) available Britisch electricity price data"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import isodate
 import requests
@@ -226,14 +226,19 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_measurements on fm_client_app as it is None."
             )
             res = False
 
         self.__log(f"__get_octopus_import_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
-                parameters = {"price_type": "consumption"}
+                # Give some slack for later commparison
+                min_latest_price_dt = end - timedelta(minutes=5)
+                parameters = {
+                    "min_latest_price_dt": min_latest_price_dt,
+                    "price_type": "consumption",
+                }
                 await self.get_fm_data_module.get_prices(parameters)
             else:
                 self.__log(
@@ -296,14 +301,19 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                f"__get_octopus_import_prices. Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_measurements on fm_client_app as it is None."
             )
             res = False
 
         self.__log(f"__get_octopus_export_prices res: {res}.")
         if res:
             if self.get_fm_data_module is not None:
-                parameters = {"price_type": "production"}
+                # Give some slack for later commparison
+                min_latest_price_dt = end - timedelta(minutes=5)
+                parameters = {
+                    "min_latest_price_dt": min_latest_price_dt,
+                    "price_type": "production",
+                }
                 await self.get_fm_data_module.get_prices(parameters)
             else:
                 self.__log(

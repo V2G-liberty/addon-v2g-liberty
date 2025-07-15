@@ -13,6 +13,7 @@ from data_monitor import DataMonitor
 from get_fm_data import FlexMeasuresDataImporter
 from amber_price_data_manager import ManageAmberPriceData
 from octopus_price_data_manager import ManageOctopusPriceData
+from price_data_managers.zonneplan import ZonneplanPriceDataManager
 from nissan_leaf_monitor import NissanLeafMonitor
 
 
@@ -32,10 +33,13 @@ class V2GLibertyApp(ServiceResponseApp):
         nissan_leaf_monitor = NissanLeafMonitor(
             self, event_bus=event_bus, notifier=notifier
         )
-        get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
+        get_fm_data = FlexMeasuresDataImporter(
+            self, event_bus=event_bus, notifier=notifier
+        )
 
         amber_price_data_manager = ManageAmberPriceData(self)
         octopus_price_data_manager = ManageOctopusPriceData(self)
+        zonneplan_data_manager = ZonneplanPriceDataManager(self, event_bus=event_bus)
 
         v2g_globals.v2g_main_app = main_app
         v2g_globals.evse_client_app = modbus_evse_client
@@ -65,6 +69,8 @@ class V2GLibertyApp(ServiceResponseApp):
         octopus_price_data_manager.fm_client_app = fm_client
         octopus_price_data_manager.get_fm_data_module = get_fm_data
 
+        zonneplan_data_manager.fm_client_app = fm_client
+
         await v2g_globals.initialize()
         await main_app.initialize()
 
@@ -73,6 +79,7 @@ class V2GLibertyApp(ServiceResponseApp):
 
         await amber_price_data_manager.initialize()
         await octopus_price_data_manager.initialize()
+        await zonneplan_data_manager.initialize()
 
         await v2g_globals.kick_off_settings()
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")

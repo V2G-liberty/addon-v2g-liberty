@@ -29,6 +29,7 @@ PRIORITY_NOTIFICATION_CONFIG: str = ""
 # VAT and Markup are initialised with "no effect value".
 USE_VAT_AND_MARKUP: bool = False
 ENERGY_PRICE_VAT: int = 0
+VAT_FACTOR: float = None
 # Usually a markup per kWh for transport and sustainability
 ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 
