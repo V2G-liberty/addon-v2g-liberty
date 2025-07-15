@@ -620,6 +620,12 @@ class FlexMeasuresDataImporter:
             days_back = 1
         else:
             days_back = 2
+
+        ### TESTCODE ####
+        # days_back = 2
+        # expected_last_price_dt -= timedelta(days=1)
+        ### TESTCODE ####
+
         start = time_floor(now - timedelta(days=days_back), timedelta(days=1))
 
         if self.fm_client_app is not None:
