@@ -11,6 +11,8 @@
 
 ### Changed
 
+- ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
+
 &nbsp;
 
 ---

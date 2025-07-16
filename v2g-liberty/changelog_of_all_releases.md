@@ -14,6 +14,8 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
+
 ## 0.6.1 2025-06-27
 
 ### Fixed
