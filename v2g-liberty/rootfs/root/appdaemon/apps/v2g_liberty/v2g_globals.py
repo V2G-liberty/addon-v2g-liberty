@@ -1225,12 +1225,15 @@ def he(text):
 
 def convert_to_duration_string(duration_in_minutes: int) -> str:
     """
+    Converts minutes to ISO 8601 duration formated string e.g. PT9H35M
+
     Args:
         duration_in_minutes (int): duration in minutes to convert
 
     Returns:
-        str: a duration string e.g. PT9H35M
+        str: a duration in ISO 8601 format
     """
+
     duration_in_minutes = round(duration_in_minutes, c.FM_EVENT_RESOLUTION_IN_MINUTES)
     MIH = 60  # Minutes In an Hour
     MID = MIH * 24  # Minutes In a Day
@@ -1242,6 +1245,39 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
     else:
         str_days = ""
     return f"P{str_days}T{str(hours)}H{str(minutes)}M"
+
+
+def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -> bool:
+    """Replacement for (and based upon) AppDaemon the now_is_between function,
+    this had a problem with timezones.
+    """
+    today_date = datetime.today().date()
+    if now_time is None:
+        now = get_local_now()
+    else:
+        time_obj = datetime.strptime(now_time, "%H:%M:%S").time()
+        now = c.TZ.localize(datetime.combine(today_date, time_obj))
+
+    time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
+    start_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
+    end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+
+    if end_dt < start_dt:
+        # self.__log(f"end_dt < start_dt ...")
+        # Start and end time backwards, so it spans midnight.
+        # Let's start by assuming end_dt is wrong and should be tomorrow.
+        # This will be true if we are currently after start_dt
+        end_dt += timedelta(days=1)
+        if now < start_dt and now < end_dt:
+            # If both times are now in the future, we crossed into a new day and things changed.
+            # Now all times have shifted relative to the new day, shift back and
+            # set start_dt and end_dt back a day.
+            start_dt -= timedelta(days=1)
+            end_dt -= timedelta(days=1)
+
+    result = start_dt <= now <= end_dt
+    return result
 
 
 def parse_to_int(number_string, default_value: int):

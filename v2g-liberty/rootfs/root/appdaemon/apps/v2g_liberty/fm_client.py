@@ -331,7 +331,8 @@ class FMClient(AsyncIOEventEmitter):
             # ContentTypeError, ValueError, timeout??:
             self.__log(
                 f"failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
-                f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'."
+                f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'.",
+                level="WARNING",
             )
             await self.set_fm_connection_status(connected=False)
             return False

@@ -7,6 +7,7 @@ from v2g_globals import (
     time_floor,
     get_local_now,
     is_price_epex_based,
+    is_local_now_between,
     convert_to_duration_string,
 )
 import constants as c
@@ -908,42 +909,9 @@ class FlexMeasuresDataImporter:
 
 
 def format_duration(duration_in_minutes: int):
-    """Format a duration in minutes (eg. 86735 = 1d 5h 35m)"""
+    """Format a duration in minutes for presentation in UI (eg. 86735 = 1d 5h 35m)"""
     MINUTES_IN_A_DAY = 60 * 24
     days = math.floor(duration_in_minutes / MINUTES_IN_A_DAY)
     hours = math.floor((duration_in_minutes - days * MINUTES_IN_A_DAY) / 60)
     minutes = duration_in_minutes - days * MINUTES_IN_A_DAY - hours * 60
     return f"{days:02d}d {hours:02d}h {minutes:02d}m"
-
-
-def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -> bool:
-    """Replacement for (and based upon) AppDaemon the now_is_between function,
-    this had a problem with timezones.
-    """
-    today_date = datetime.today().date()
-    if now_time is None:
-        now = get_local_now()
-    else:
-        time_obj = datetime.strptime(now_time, "%H:%M:%S").time()
-        now = c.TZ.localize(datetime.combine(today_date, time_obj))
-
-    time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
-    start_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
-    time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
-    end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
-
-    if end_dt < start_dt:
-        # self.__log(f"end_dt < start_dt ...")
-        # Start and end time backwards, so it spans midnight.
-        # Let's start by assuming end_dt is wrong and should be tomorrow.
-        # This will be true if we are currently after start_dt
-        end_dt += timedelta(days=1)
-        if now < start_dt and now < end_dt:
-            # If both times are now in the future, we crossed into a new day and things changed.
-            # Now all times have shifted relative to the new day, shift back and
-            # set start_dt and end_dt back a day.
-            start_dt -= timedelta(days=1)
-            end_dt -= timedelta(days=1)
-
-    result = start_dt <= now <= end_dt
-    return result
