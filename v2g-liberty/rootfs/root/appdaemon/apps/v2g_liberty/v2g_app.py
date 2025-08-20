@@ -32,8 +32,8 @@ class V2GLibertyApp(ServiceResponseApp):
         nissan_leaf_monitor = NissanLeafMonitor(
             self, event_bus=event_bus, notifier=notifier
         )
-        get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
 
+        get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
         amber_price_data_manager = ManageAmberPriceData(self)
         octopus_price_data_manager = ManageOctopusPriceData(self)
 
@@ -67,9 +67,6 @@ class V2GLibertyApp(ServiceResponseApp):
 
         await v2g_globals.initialize()
         await main_app.initialize()
-
-        await data_monitor.initialize()
-        await get_fm_data.initialize()
 
         await amber_price_data_manager.initialize()
         await octopus_price_data_manager.initialize()

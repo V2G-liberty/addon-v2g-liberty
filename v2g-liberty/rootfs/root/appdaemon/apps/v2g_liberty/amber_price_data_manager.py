@@ -178,8 +178,12 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    parameters = {"price_type": "consumption"}
-                    await self.get_fm_data_module.get_prices(parameters)
+                    # FM needs process time for the just uploaded prices before they can be queried
+                    self.hass.run_in(
+                        self.get_fm_data_module.get_prices_wrapper,
+                        delay=45,
+                        price_type="consumption",
+                    )
                 else:
                     self.__log(
                         "Could not call get_consumption_prices on "
@@ -278,8 +282,12 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    parameters = {"price_type": "production"}
-                    await self.get_fm_data_module.get_prices(parameters)
+                    # FM needs process time for the just uploaded prices before they can be queried
+                    self.hass.run_in(
+                        self.get_fm_data_module.get_prices_wrapper,
+                        delay=45,
+                        price_type="production",
+                    )
                 else:
                     self.__log(
                         "Could not call get_production_prices on "

@@ -432,7 +432,6 @@ class V2GLibertyGlobals:
             self.__store_setting("input_text.octopus_import_code", data["importCode"])
             self.__store_setting("input_text.octopus_export_code", data["exportCode"])
             self.__store_setting("input_select.gb_dno_region", data["region"])
-        # TODO: make this text. AJO 2025-01-20 Not needed, this is a fixed list
         self.__store_setting("input_select.electricity_provider", data["contract"])
         self.__store_setting(
             "input_boolean.electricity_contract_settings_initialised", True
@@ -1218,14 +1217,13 @@ _html_escape_table = {
 
 
 def he(text):
-    # 'he' is short for HTML Escape.
-    # Produce entities within text.
+    """HTML Escape function"""
     return "".join(_html_escape_table.get(c, c) for c in text)
 
 
 def convert_to_duration_string(duration_in_minutes: int) -> str:
     """
-    Converts minutes to ISO 8601 duration formated string e.g. PT9H35M
+    Converts minutes to ISO 8601 duration formated string e.g. PT9H35M or P2D
 
     Args:
         duration_in_minutes (int): duration in minutes to convert
@@ -1244,7 +1242,19 @@ def convert_to_duration_string(duration_in_minutes: int) -> str:
         str_days = str(days) + "D"
     else:
         str_days = ""
-    return f"P{str_days}T{str(hours)}H{str(minutes)}M"
+    if hours > 0:
+        str_hours = str(hours) + "H"
+    else:
+        str_hours = ""
+    if minutes > 0:
+        str_minutes = str(minutes) + "M"
+    else:
+        str_minutes = ""
+    if str_hours == "" and str_minutes == "":
+        str_t = ""
+    else:
+        str_t = "T"
+    return f"P{str_days}{str_t}{str_hours}{str_minutes}"
 
 
 def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -> bool:

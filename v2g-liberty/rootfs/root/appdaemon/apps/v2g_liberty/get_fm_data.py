@@ -19,11 +19,37 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 
 class FlexMeasuresDataImporter:
+    """
+    Get prices, emissions and cost data for display in the UI. Only the consumption prices
+    and not the production (aka feed_in) prices are retrieved (and displayed).
+
+    Price/emissions data fetched daily when:
+    For providers with contracts based on a (EPEX) day-ahead market this should be fetched daily
+    after the prices have been published, usually around 14:35. When this fails retry at 18:30.
+    These times are related to the attempts in the FM server for retrieving EPEX price data.
+
+    Price/emissions data fetched on data change:
+    When price data comes in through an (external) HA integration (e.g. Amber Electric or
+    Octopus Energy), V2G Liberty sends this to FM to base the charge-schedules on. This is
+    handled by separate modules (e.g. amber_price_data_manager).
+    Those modules do not provide the data for display in the UI directly (even-though this could
+    be more efficient). Instead, they trigger get_prices() and get_emission_intensities() when a
+    change in the data is detected (after it has been sent to FM successfully).
+
+    The retrieved data is written to the HA entities for HA to render the data in the UI chart.
+
+    The cost data is, independent of price_type of provider contract, fetched daily in the early
+    morning.
+    """
+
     # CONSTANTS
     DAYS_HISTORY: int = 7
 
     # For converting raw EPEX prices from FM to user_friendly UI values
-    price_conversion_factor: float = 1 / 10
+    # From FM format (€/MWh) to user desired format (€ct/kWh)
+    # = * 100/1000 = 1/10.
+    PRICE_CONVERSION_FACTOR: float = 1 / 10
+
     vat_factor: float = 1
     markup_per_kwh: float = 0
 
@@ -70,63 +96,44 @@ class FlexMeasuresDataImporter:
         self.hass = hass
         self.notifier = notifier
         self.__log = log_wrapper.get_class_method_logger(hass.log)
-
-    async def initialize(self):
-        """
-        Get prices, emissions and cost data for display in the UI. Only the consumption prices
-        and not the production (aka feed_in) prices are retrieved (and displayed).
-
-        Price/emissions data fetched daily when:
-        For providers with contracts based on a (EPEX) day-ahead market this should be fetched daily
-        after the prices have been published, usually around 14:35. When this fails retry at 18:30.
-        These times are related to the attempts in the FM server for retrieving EPEX price data.
-
-        Price/emissions data fetched on data change:
-        When price data comes in through an (external) HA integration (e.g. Amber Electric or Octopus),
-        V2G Liberty sends this to FM to base the charge-schedules on. This is handled by separate modules
-        (e.g. amber_price_data_manager).
-        Those modules do not provide the data for display in the UI directly (even-though this could be more
-        efficient). Instead, they trigger get_prices() and get_emission_intensities() when a change
-        in the data is detected (after it has been sent to FM successfully).
-
-        The retrieved data is written to the HA entities for HA to render the data in the UI (chart).
-
-        The cost data is, independent of price_type of provider contract, fetched daily in the early
-        morning.
-        """
-        self.__log("Called")
+        self.hass.run_daily(self.daily_kickoff_charging_data, start="01:15:00")
 
         self.emission_intensities = {}
 
-        # These are variables are used to decide what message to send to the user and can have eh following values:
+        # These are variables are used to decide what message to send to the user and can have the
+        # following values:
         # - None: when no prices have been collected yet.
         # - "No negative price": if there are no negative prices.
         # - A price_point dict: When a negative price is detected.
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
 
-        await self.hass.run_daily(self.daily_kickoff_charging_data, start="01:15:00")
-
-        await self.finalize_initialisation("module initialize")
+        # await self.finalize_initialisation("module initialize")
 
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
         ##########################################################################
-        # self.log(f"initialize, TESTDATA: Currency = EUR, moet GBP/AUD zijn!", level="WARNING")
+        # self.__log(
+        #     "- - - T E S T D A T A - - -: Currency = EUR, moet GBP/AUD zijn!",
+        #     level="WARNING",
+        # )
         # c.CURRENCY = "EUR"
 
         ##########################################################################
         # TESTDATA: EMISSIONS_UOM = "%", should be kg/MWh
         ##########################################################################
-        # self.log(f"__get_gb_region_emissions, TESTDATA: self.EMISSIONS_UOM = %, moet kg/MWh zijn!", level="WARNING")
+        # self.__log(
+        #     "- - - T E S T D A T A - - -: self.EMISSIONS_UOM = %, moet kg/MWh zijn!",
+        #     level="WARNING",
+        # )
         # c.EMISSIONS_UOM = "%"
 
         self.__log("Complete")
 
     async def finalize_initialisation(self, v2g_args: str):
         """
-        Finalize the initialisation. This is run from initialise and from globals when
-        settings have changed. This is separated :
+        Second and final stage of initialisation. This is run from globals when
+        settings have initialised/changed. This is separated :
         - is not always around self.first_try_time (for day-ahead contracts)
         - the data-changed might not fire at startup (external HA integration provided data)
         This is delayed as it's not high priority and gives globals the time to get all settings
@@ -135,9 +142,6 @@ class FlexMeasuresDataImporter:
 
         self.__log(f"Called from source: {v2g_args}.")
 
-        # From FM format (€/MWh) to user desired format (€ct/kWh)
-        # = * 100/1000 = 1/10.
-        self.price_conversion_factor = 1 / 10
         # This way the markup/vat can be retained "underwater" in the settings and do not have
         # to be reset
         if c.USE_VAT_AND_MARKUP:
@@ -166,7 +170,9 @@ class FlexMeasuresDataImporter:
         await self.__cancel_timer(self.timer_id_daily_check_is_data_up_to_date)
 
         if is_price_epex_based():
-            self.__log("price update interval is daily")
+            self.__log(
+                f"price update interval is daily based on EP: {c.ELECTRICITY_PROVIDER}."
+            )
             self.timer_id_daily_kickoff_price_data = await self.hass.run_daily(
                 self.daily_kickoff_price_data, start=self.GET_PRICES_TIME
             )
@@ -179,14 +185,16 @@ class FlexMeasuresDataImporter:
                 self.__check_if_prices_are_up_to_date, start=self.CHECK_DATA_STATUS_TIME
             )
 
-        initial_delay_sec = 45
-        await self.hass.run_in(self.daily_kickoff_price_data, delay=initial_delay_sec)
-        await self.hass.run_in(
-            self.daily_kickoff_emissions_data, delay=initial_delay_sec
-        )
-        await self.hass.run_in(
-            self.daily_kickoff_charging_data, delay=initial_delay_sec
-        )
+            initial_delay_sec = 45
+            await self.hass.run_in(
+                self.daily_kickoff_price_data, delay=initial_delay_sec
+            )
+            await self.hass.run_in(
+                self.daily_kickoff_emissions_data, delay=initial_delay_sec
+            )
+            await self.hass.run_in(
+                self.daily_kickoff_charging_data, delay=initial_delay_sec
+            )
         self.__log("completed.")
 
     # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
@@ -209,12 +217,10 @@ class FlexMeasuresDataImporter:
         self.__log(f"Called, args: {args}.")
 
         self.consumption_price_is_up_to_date = None
-        parameters = {"price_type": "consumption"}
-        await self.get_prices(parameters)
+        await self.get_prices(price_type="consumption")
 
         self.production_price_is_up_to_date = None
-        parameters = {"price_type": "production"}
-        await self.get_prices(parameters)
+        await self.get_prices(price_type="production")
 
         self.__log("completed")
 
@@ -223,9 +229,7 @@ class FlexMeasuresDataImporter:
         This sets off the daily routine to check for new emission data.
         Only called when is_price_epex_based() is true.
         """
-        # self.__log("Called")
         await self.get_emission_intensities()
-        # self.__log(f"get_emission_intensities returned: {res}.")
 
     async def daily_kickoff_charging_data(self, *args):
         """This sets off the daily routine to check for charging cost."""
@@ -556,7 +560,13 @@ class FlexMeasuresDataImporter:
         # The method needs to return something for the awaited calls to this method to work...
         return "emissions successfully retrieved."
 
-    async def get_prices(self, parameters: dict):
+    async def get_prices_wrapper(self, kwargs):
+        """Wrapper to fix strange run_in behaviour"""
+        price_type = kwargs.get("price_type")
+        self.__log(f"WRAPPER, price_type: {price_type}")
+        await self.get_prices(price_type=price_type)
+
+    async def get_prices(self, price_type: str):
         """
         Gets consumption / production prices from the server via the fm_client.
 
@@ -576,7 +586,6 @@ class FlexMeasuresDataImporter:
         :param parameters: dict {'price_type': 'consumption' or 'production'}
         :return: string or boolean (not used).
         """
-        price_type = parameters.get("price_type", None)
 
         if price_type not in ["consumption", "production"]:
             self.__log(
@@ -601,6 +610,12 @@ class FlexMeasuresDataImporter:
                 if price_type == "consumption"
                 else c.FM_PRICE_PRODUCTION_SENSOR_ID
             )
+            ##########################################################################
+            # TESTDATA: Currency = EUR, should be GBP! Is set in class definition.
+            ##########################################################################
+            # self.__log("- - - T E S T D A T A - - -: Currency = EUR!", level="WARNING")
+            # c.CURRENCY = "EUR"
+
             prices = await self.fm_client_app.get_sensor_data(
                 sensor_id=sensor_id,
                 start=start.isoformat(),
@@ -626,7 +641,7 @@ class FlexMeasuresDataImporter:
                     date_latest_price = dt
                     net_price = round(
                         (
-                            (float(price) * self.price_conversion_factor)
+                            (float(price) * self.PRICE_CONVERSION_FACTOR)
                             + self.markup_per_kwh
                         )
                         * self.vat_factor,
@@ -735,12 +750,12 @@ class FlexMeasuresDataImporter:
                 start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
             ):
                 await self.hass.run_in(
-                    self.get_prices,
+                    self.get_prices_wrapper,
                     delay=self.CHECK_RESOLUTION_SECONDS,
                     price_type=price_type,
                 )
                 self.__log(
-                    f"({price_type}): {failure_message}, "
+                    f"Failed to get {price_type}: {failure_message}, "
                     f"try again in '{self.CHECK_RESOLUTION_SECONDS}' sec."
                 )
             else:
@@ -804,7 +819,8 @@ class FlexMeasuresDataImporter:
 
         :param run_once: To prevent extra threads where this method calls itself,
                          used when get_prices detects a change
-                         in self.consumption_price_is_up_to_date or self.consumption_price_is_up_to_date.
+                         in self.consumption_price_is_up_to_date or
+                         self.consumption_price_is_up_to_date.
         :param args: Not used, only for compatibility with 'run_in' method.
         :return: None
         """
@@ -877,15 +893,24 @@ class FlexMeasuresDataImporter:
         msg = ""
         if cpp != "No negative prices" and cpp == ppp:
             # For NL contracts
-            msg = f"From {cpp['time'].strftime(c.DATE_TIME_FORMAT)} price is {cpp['price']} cent/kWh."
+            msg = (
+                f"From {cpp['time'].strftime(c.DATE_TIME_FORMAT)} price is "
+                f"{cpp['price']} cent/kWh."
+            )
         else:
             if cpp != "No negative prices":
                 # There was a no consumption price point but now there is
-                msg = f"From {cpp['time'].strftime(c.DATE_TIME_FORMAT)} consumption price is {cpp['price']} cent/kWh."
+                msg = (
+                    f"From {cpp['time'].strftime(c.DATE_TIME_FORMAT)} consumption price is "
+                    f"{cpp['price']} cent/kWh."
+                )
 
             msg += " "
             if ppp != "No negative prices":
-                msg += f"From {ppp['time'].strftime(c.DATE_TIME_FORMAT)} production price is {ppp['price']} cent/kWh."
+                msg += (
+                    f"From {ppp['time'].strftime(c.DATE_TIME_FORMAT)} production price is "
+                    f"{ppp['price']} cent/kWh."
+                )
 
         if msg == " ":
             self.notifier.clear_notification(tag="negative_energy_prices")
@@ -910,8 +935,8 @@ class FlexMeasuresDataImporter:
 
 def format_duration(duration_in_minutes: int):
     """Format a duration in minutes for presentation in UI (eg. 86735 = 1d 5h 35m)"""
-    MINUTES_IN_A_DAY = 60 * 24
-    days = math.floor(duration_in_minutes / MINUTES_IN_A_DAY)
-    hours = math.floor((duration_in_minutes - days * MINUTES_IN_A_DAY) / 60)
-    minutes = duration_in_minutes - days * MINUTES_IN_A_DAY - hours * 60
+    mid = 60 * 24  # Minutes in a day
+    days = math.floor(duration_in_minutes / mid)
+    hours = math.floor((duration_in_minutes - days * mid) / 60)
+    minutes = duration_in_minutes - days * mid - hours * 60
     return f"{days:02d}d {hours:02d}h {minutes:02d}m"
