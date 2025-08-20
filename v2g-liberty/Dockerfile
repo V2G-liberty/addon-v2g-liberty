@@ -30,6 +30,7 @@ RUN \
 
 # Copy root filesystem
 COPY rootfs /
+RUN chmod +x /etc/s6-overlay/s6-rc.d/init-appdaemon/run
 
 # Build arguments
 ARG BUILD_ARCH

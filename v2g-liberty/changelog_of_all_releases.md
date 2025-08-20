@@ -3,10 +3,11 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.6.2 2025-07-??
+## 0.6.2 2025-08-??
 
 ### Fixed
 
+-🪲 BUG: run file does not have right permissions (#306)
 -🪲 BUG: Height of SoC % box too high (#301)
 -🪲 BUG: Text above calendar events has error (#299)
 

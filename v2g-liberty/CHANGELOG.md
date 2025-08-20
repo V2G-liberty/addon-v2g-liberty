@@ -1,9 +1,10 @@
 # What's changed?
 
-## 0.6.2 2025-07-??
+## 0.6.2 2025-08-??
 
 ### Fixed
 
+-🪲 BUG: run file does not have right permissions (#306)
 -🪲 BUG: Height of SoC % box too high (#301)
 -🪲 BUG: Text above calendar events has error (#299)
 
