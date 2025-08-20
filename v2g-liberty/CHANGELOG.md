@@ -11,6 +11,7 @@
 
 ### Changed
 
+- Change getting prices in octopus_price_data_manager to hourly (#123)
 - ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
 
 &nbsp;
