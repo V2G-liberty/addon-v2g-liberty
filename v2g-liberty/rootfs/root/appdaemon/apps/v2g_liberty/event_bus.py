@@ -97,9 +97,48 @@ class EventBus(AsyncIOEventEmitter):
         Warns if no listeners are registered for the event.
         """
         try:
-            if not self.listeners(event):
+            listeners = self.listeners(event)
+            if not listeners:
                 self.__log(f"Event '{event}' has no listeners.", level="WARNING")
-            self.emit(event, *args, **kwargs)
+
+            for listener in listeners:
+                # Sync listener wrapper
+                def run_sync_listener(listener=listener):
+                    start = time.perf_counter()
+                    try:
+                        listener(*args, **kwargs)
+                    except Exception as e:
+                        self.__log(
+                            f"Error in listener {listener} for '{event}': {e}",
+                            level="WARNING",
+                        )
+                    elapsed_ms = (time.perf_counter() - start) * 1000
+                    if elapsed_ms > 200:
+                        self.__log(
+                            f"Listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
+                        )
+
+                if inspect.iscoroutinefunction(listener):
+                    # Async listener wrapper
+                    async def run_async_listener(listener=listener):
+                        start = time.perf_counter()
+                        try:
+                            await listener(*args, **kwargs)
+                        except Exception as e:
+                            self.__log(
+                                f"Error in async listener {listener} for '{event}': {e}",
+                                level="WARNING",
+                            )
+                        elapsed_ms = (time.perf_counter() - start) * 1000
+                        if elapsed_ms > 200:
+                            self.__log(
+                                f"Async listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
+                            )
+
+                    asyncio.create_task(run_async_listener())
+                else:
+                    run_sync_listener()
+
         except Exception as e:
             self.__log(f"Error while emitting event '{event}': {e}", level="WARNING")
 

@@ -42,7 +42,7 @@ class NissanLeafMonitor:
         self.event_bus.add_event_listener("soc_change", self._handle_soc_change)
         self.__log("Completed initialize")
 
-    def _handle_soc_change(self, new_soc: int, old_soc: int):
+    async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC).
         Assumption:
         soc values are numbers from 1 to 100, but can be "unknow" or None
