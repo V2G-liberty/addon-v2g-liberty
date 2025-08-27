@@ -1,17 +1,17 @@
 """Module to communicate with the Electric Vehicle Supply Equipment (EVSE) via modbus"""
 
 import asyncio
-import constants as c
-import log_wrapper
-from notifier_util import Notifier
-from v2g_globals import get_local_now, parse_to_int
-from event_bus import EventBus
-
 import pymodbus.client as modbusClient
 from pymodbus.exceptions import ModbusException
 from pyee.asyncio import AsyncIOEventEmitter
 
 from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .notifier_util import Notifier
+from .v2g_globals import get_local_now, parse_to_int
+from .event_bus import EventBus
 
 
 class ModbusEVSEclient(AsyncIOEventEmitter):
@@ -251,7 +251,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         """
         super().__init__()
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         self.event_bus = event_bus
 

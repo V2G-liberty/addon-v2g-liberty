@@ -1,22 +1,23 @@
 """Module to read data from (publicly) available Britisch electricity price data"""
 
 from datetime import datetime, timedelta, timezone
-import pytz
 import json
+import asyncio
+import pytz
 import isodate
 import aiohttp
-import asyncio
 from aiohttp import ClientTimeout, ClientError
-import constants as c
-import log_wrapper
-from v2g_globals import (
+
+from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import (
     time_round,
     get_local_now,
     convert_to_duration_string,
     is_local_now_between,
 )
-
-from appdaemon.plugins.hass.hassapi import Hass
 
 
 class ManageOctopusPriceData:
@@ -82,7 +83,7 @@ class ManageOctopusPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("Initializing")

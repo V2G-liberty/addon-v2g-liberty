@@ -4,16 +4,16 @@ import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
 import isodate
-import constants as c
-import log_wrapper
-from event_bus import EventBus
-from v2g_globals import time_round, time_ceil, get_local_now
-from time_range_util import (
+from appdaemon.plugins.hass.hassapi import Hass
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .event_bus import EventBus
+from .v2g_globals import time_round, time_ceil, get_local_now
+from .time_range_util import (
     consolidate_time_ranges,
     convert_dates_to_iso_format,
     add_unit_to_values,
 )
-from appdaemon.plugins.hass.hassapi import Hass
 
 
 class FMClient(AsyncIOEventEmitter):
@@ -57,7 +57,7 @@ class FMClient(AsyncIOEventEmitter):
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         self.event_bus = event_bus
 
@@ -732,7 +732,7 @@ class FMClient(AsyncIOEventEmitter):
         max_retries = 2
         for attempt in range(max_retries + 1):
             # Preferably the retry mechanism would be incorporated in the flexmeasures_client.
-            # But this seems to make the system much more relyable so it is implemented here
+            # But this seems to make the system much more reliable so it is implemented here
             # until the fm client implements it.
             try:
                 schedule = await self.client.trigger_and_get_schedule(

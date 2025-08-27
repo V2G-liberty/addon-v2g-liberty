@@ -1,8 +1,11 @@
-"""A centralised Evnet Bus module"""
+"""A centralised Event Bus module"""
 
+import time
+import inspect
+import asyncio
 from pyee.asyncio import AsyncIOEventEmitter
-import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
+from .log_wrapper import get_class_method_logger
 
 
 class EventBus(AsyncIOEventEmitter):
@@ -85,7 +88,7 @@ class EventBus(AsyncIOEventEmitter):
     def __init__(self, hass: Hass):
         super().__init__()
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
         self.__log("EventBus initialized successfully.")
 
     def emit_event(self, event, *args, **kwargs):

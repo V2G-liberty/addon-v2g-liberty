@@ -1,9 +1,9 @@
 """Utility module for managing writing to Home Assistant entities."""
 
 import datetime
-from event_bus import EventBus
-import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass  # pylint: disable=import-error,no-name-in-module
+from .event_bus import EventBus
+from .log_wrapper import get_class_method_logger
 
 
 class HAUIManager:
@@ -21,7 +21,7 @@ class HAUIManager:
         self.hass = hass
         self.event_bus = event_bus
 
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         self._initialize()
 

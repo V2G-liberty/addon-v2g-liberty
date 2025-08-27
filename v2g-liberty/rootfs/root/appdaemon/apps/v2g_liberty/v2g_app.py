@@ -1,22 +1,23 @@
 """Main module for setting up the app."""
 
-from service_response_app import ServiceResponseApp
-from event_bus import EventBus
-from ha_ui_manager import HAUIManager
-from notifier_util import Notifier
-from v2g_globals import V2GLibertyGlobals
-from modbus_evse_client import ModbusEVSEclient
-from fm_client import FMClient
-from reservations_client import ReservationsClient
-from main_app import V2Gliberty
-from data_monitor import DataMonitor
-from get_fm_data import FlexMeasuresDataImporter
-from amber_price_data_manager import ManageAmberPriceData
-from octopus_price_data_manager import ManageOctopusPriceData
-from nissan_leaf_monitor import NissanLeafMonitor
+from .service_response_app import ServiceResponseApp
+from appdaemon.plugins.hass.hassapi import Hass
+from .event_bus import EventBus
+from .ha_ui_manager import HAUIManager
+from .notifier_util import Notifier
+from .v2g_globals import V2GLibertyGlobals
+from .modbus_evse_client import ModbusEVSEclient
+from .fm_client import FMClient
+from .reservations_client import ReservationsClient
+from .main_app import V2Gliberty
+from .data_monitor import DataMonitor
+from .get_fm_data import FlexMeasuresDataImporter
+from .amber_price_data_manager import ManageAmberPriceData
+from .octopus_price_data_manager import ManageOctopusPriceData
+from .nissan_leaf_monitor import NissanLeafMonitor
 
 
-class V2GLibertyApp(ServiceResponseApp):
+class V2GLibertyApp(Hass):
     async def initialize(self):
         event_bus = EventBus(self)
         ha_ui_manager = HAUIManager(self, event_bus=event_bus)

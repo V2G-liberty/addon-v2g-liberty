@@ -3,12 +3,14 @@
 import datetime as dt
 import re
 import requests
-import constants as c
-import log_wrapper
-from v2g_globals import get_local_now
 import caldav
 from pyee.asyncio import AsyncIOEventEmitter
+
 from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import get_local_now
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -36,7 +38,7 @@ class ReservationsClient(AsyncIOEventEmitter):
     def __init__(self, hass: Hass):
         super().__init__()
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         self.principal = None
         self.poll_timer_id = ""

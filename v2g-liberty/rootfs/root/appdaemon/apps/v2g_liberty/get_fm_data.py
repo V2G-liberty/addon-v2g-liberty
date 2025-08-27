@@ -2,7 +2,8 @@
 
 from datetime import datetime, timedelta
 import math
-from v2g_globals import (
+from appdaemon.plugins.hass.hassapi import Hass
+from .v2g_globals import (
     time_ceil,
     time_floor,
     get_local_now,
@@ -10,12 +11,10 @@ from v2g_globals import (
     is_local_now_between,
     convert_to_duration_string,
 )
-import constants as c
-from notifier_util import Notifier
-import log_wrapper
-from main_app import ChartLine
-
-from appdaemon.plugins.hass.hassapi import Hass
+from . import constants as c
+from .notifier_util import Notifier
+from .log_wrapper import get_class_method_logger
+from .main_app import ChartLine
 
 
 class FlexMeasuresDataImporter:
@@ -95,7 +94,7 @@ class FlexMeasuresDataImporter:
     def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
         self.hass.run_daily(self.daily_kickoff_charging_data, start="01:15:00")
 
         self.emission_intensities = {}

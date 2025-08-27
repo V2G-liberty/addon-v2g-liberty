@@ -1,10 +1,10 @@
 """Utility module to handle sending notifications to users"""
 
 from typing import Optional
-
-import constants as c
-import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
 
 
 class Notifier:
@@ -24,7 +24,7 @@ class Notifier:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         # self.event_bus = event_bus
         # self.event_bus.add_event_listener("notify_user", self.notify_user)
