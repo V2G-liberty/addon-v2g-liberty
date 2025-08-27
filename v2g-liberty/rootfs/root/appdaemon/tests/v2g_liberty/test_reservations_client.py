@@ -9,7 +9,7 @@ from apps.v2g_liberty.reservations_client import ReservationsClient
 @pytest.fixture
 def mock_log_wrapper():
     with patch(
-        "apps.v2g_liberty.reservations_client.log_wrapper.get_class_method_logger",
+        "apps.v2g_liberty.reservations_client.get_class_method_logger",
         return_value=MagicMock(),
     ):
         yield
