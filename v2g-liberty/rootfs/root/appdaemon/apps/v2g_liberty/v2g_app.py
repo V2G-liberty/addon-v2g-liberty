@@ -1,6 +1,5 @@
 """Main module for setting up the app."""
 
-from .service_response_app import ServiceResponseApp
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
 from .ha_ui_manager import HAUIManager

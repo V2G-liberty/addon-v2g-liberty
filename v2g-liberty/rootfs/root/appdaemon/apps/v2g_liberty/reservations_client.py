@@ -306,18 +306,21 @@ class ReservationsClient(AsyncIOEventEmitter):
         start = now.isoformat()
         end = (now + dt.timedelta(days=7)).isoformat()
         local_events = await self.hass.call_service(
-            "calendar.get_events",
+            "calendar/get_events",
             entity_id=c.INTEGRATION_CALENDAR_ENTITY_NAME,
             start_date_time=start,
             end_date_time=end,
-            return_result=True,
         )
         if local_events is None:
             self.__log("Could not retrieve events, aborting", level="WARNING")
             return
         # Peel off some unneeded layers
-        local_events = local_events.get(c.INTEGRATION_CALENDAR_ENTITY_NAME, None)
-        local_events = local_events.get("events", None)
+        local_events = (
+            local_events.get("result", {})
+            .get("response", {})
+            .get(c.INTEGRATION_CALENDAR_ENTITY_NAME, {})
+            .get("events", [])
+        )
         tmp_v2g_events = []
 
         for local_event in local_events:

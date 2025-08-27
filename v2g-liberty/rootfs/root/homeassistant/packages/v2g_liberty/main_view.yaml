@@ -611,32 +611,26 @@
       entities:
         - sensor.calendar_events
       content: >-
-        <div>The charge target is read from the event summary (e.g. 100%).
-        If not found your "schedule upper limit" setting
-        ({{states("input_number.car_max_soc_in_percent")}}%)
-        is used.</div> {% if state_attr('sensor.calendar_events',
-        'v2g_ui_event_calendar') == None %} Calendar configuration seems
-        invalid, please check settings. {% else %} {% if
-        states.sensor.calendar_events.attributes.v2g_ui_event_calendar
-        == [] %} No reservations in the next seven days. {% else %}
-        <table>{% for cal_day in
-        states.sensor.calendar_events.attributes.v2g_ui_event_calendar
-        %} <thead> <tr> <th colspan=4>{{ as_timestamp(cal_day.day) |
-        timestamp_custom("%A") }}</th> <td>{{ as_timestamp(cal_day.day) |
-        timestamp_custom("%Y-%m-%d") }}</td> </tr> </thead>{% for event in
-        cal_day.events %}<tbody><tr> {% if event.dismissed == true %}
-        <td><s>{{ as_timestamp(event.start) | timestamp_custom("%H:%M")
-        }}</s></td><td><span>-</span></td> <td><s>{{
-        as_timestamp(event.end) | timestamp_custom("%H:%M") }}</s></td>
-        <td></td> <th><s>{{ event.summary }}</s><b>(dismissed by user)</b>
-        {% if event.description != "" %}<s><span>{{ event.description
-        }}</span></s>{% endif %}</th> {% else %} <td>{{
-        as_timestamp(event.start) | timestamp_custom("%H:%M")
-        }}</td><td><span>-</span></td> <td>{{ as_timestamp(event.end) |
-        timestamp_custom("%H:%M") }}</td> <td><strong>●</strong></td>
-        <th>{{ event.summary }}{% if event.description != "" %}<span>{{
-        event.description }}</span>{% endif %}</th> {% endif %} </tr>{%
-        endfor %} </tbody>{% endfor %}</table>{% endif %}{% endif %}
+        <div>
+          The charge target is read from the event summary (e.g. 100%).
+          If not found your "schedule upper limit" setting
+          ({{ states("input_number.car_max_soc_in_percent") }}%) is used.
+        </div> {% set cal = state_attr('sensor.calendar_events',
+        'v2g_ui_event_calendar') %}{% if cal is none %}Calendar configuration
+        seems invalid, please check settings.{% elif cal | count == 0 %}No
+        reservations in the next seven days.{% else %}<table>{% for cal_day in cal
+        %}<thead><tr><th colspan="4">{{ as_timestamp(cal_day.day) | timestamp_custom("%A") }}
+        </th><td>{{ as_timestamp(cal_day.day) | timestamp_custom("%Y-%m-%d") }}</td></tr>
+        </thead><tbody>{% for event in cal_day.events %}<tr>{%
+        if event.dismissed is defined and event.dismissed %}<td><s>
+        {{ as_timestamp(event.start) | timestamp_custom("%H:%M") }}</s></td><td>-</td><td><s>
+        {{ as_timestamp(event.end) | timestamp_custom("%H:%M") }}</s></td><td></td><th><s>
+        {{ event.summary }}</s> <b>(dismissed by user)</b>{% if event.description %}<s><span>
+        {{ event.description }}</span></s>{% endif %}</th>{% else %}<td>
+        {{ as_timestamp(event.start) | timestamp_custom("%H:%M") }}</td><td>-</td><td>
+        {{ as_timestamp(event.end) | timestamp_custom("%H:%M") }}</td><td><strong>●</strong></td>
+        <th>{{ event.summary }}{% if event.description %}<span>{{ event.description }}</span>
+        {% endif %}</th>{% endif %}</tr>{% endfor %}</tbody>{% endfor %}</table>{% endif %}
       card_mod:
         style:
           ha-markdown$: |
@@ -676,7 +670,7 @@
               border-top: 1px solid var(--divider-color);
             }
             tbody s {
-              color:  var(--secondary-text-color);
+              color: var(--secondary-text-color);
             }
             tbody * {
               vertical-align: top;
@@ -689,12 +683,13 @@
               width: 90%;
               padding-left: 16px;
             }
-            tbody th span{
+            tbody th span {
               font-size: 90%;
               color: #797979;
               display: block;
               padding: 4px 0 0 0;
             }
+
 
     - type: markdown
       layout_options:
