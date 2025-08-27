@@ -85,8 +85,26 @@ class ManageOctopusPriceData:
         self.hass = hass
         self.__log = get_class_method_logger(hass.log)
 
-    async def initialize(self):
-        self.__log("Initializing")
+    # async def initialize(self):
+    #     self.__log("Initializing")
+
+    #     self.__log("Completed")
+
+    async def kick_off_octopus_price_management(self):
+        """
+        'Second stage' of initialisation.
+        To be called from 'initialize' and from the globals module collective_action()
+        when the settings have changed.
+
+         :param initial: Only for the first call from the initialisation of the module.
+         :return: Nothing
+        """
+        if c.ELECTRICITY_PROVIDER != "gb_octopus_energy":
+            self.__log(
+                f"Not kicking off ManageOctopusPriceData module."
+                f"Electricity provider is not 'gb_octopus_energy' but {c.ELECTRICITY_PROVIDER}."
+            )
+            return
 
         if c.TZ != self.UK_TZ:
             self.__log(
@@ -105,24 +123,6 @@ class ManageOctopusPriceData:
         # c.CURRENCY = "EUR"
         # self.UOM = "EUR/MWh"
         # c.TZ = self.UK_TZ
-
-        self.__log("Completed")
-
-    async def kick_off_octopus_price_management(self):
-        """
-        'Second stage' of initialisation.
-        To be called from 'initialize' and from the globals module collective_action()
-        when the settings have changed.
-
-         :param initial: Only for the first call from the initialisation of the module.
-         :return: Nothing
-        """
-        if c.ELECTRICITY_PROVIDER != "gb_octopus_energy":
-            self.__log(
-                f"Not kicking off ManageOctopusPriceData module."
-                f"Electricity provider is not 'gb_octopus_energy' but {c.ELECTRICITY_PROVIDER}."
-            )
-            return
 
         un_initiated_values = ["unknown", "", "Please choose an option", None]
         if c.GB_DNO_REGION in un_initiated_values:
