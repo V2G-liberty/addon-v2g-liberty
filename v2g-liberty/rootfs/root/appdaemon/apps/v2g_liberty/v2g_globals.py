@@ -3,11 +3,13 @@
 import math
 from datetime import datetime, timedelta
 import pytz
-from notifier_util import Notifier
-import constants as c
-import log_wrapper
-from settings_manager import SettingsManager
+
 from appdaemon.plugins.hass.hassapi import Hass
+
+from .notifier_util import Notifier
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .settings_manager import SettingsManager
 
 
 class V2GLibertyGlobals:
@@ -290,7 +292,7 @@ class V2GLibertyGlobals:
     def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
         self.v2g_settings = SettingsManager(log=self.__log)
 
     async def initialize(self):

@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.6.2 2025-07-??
+## 0.6.2 2025-09-??
 
 ### Fixed
 
@@ -14,6 +14,7 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- ⬆️ Bump AppDaemon to version 4.5 (#278)
 - Change getting prices in octopus_price_data_manager to hourly (#123)
 - ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
 

@@ -1,22 +1,23 @@
 """Module to read data from (publicly) available Britisch electricity price data"""
 
 from datetime import datetime, timedelta, timezone
-import pytz
 import json
+import asyncio
+import pytz
 import isodate
 import aiohttp
-import asyncio
 from aiohttp import ClientTimeout, ClientError
-import constants as c
-import log_wrapper
-from v2g_globals import (
+
+from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import (
     time_round,
     get_local_now,
     convert_to_duration_string,
     is_local_now_between,
 )
-
-from appdaemon.plugins.hass.hassapi import Hass
 
 
 class ManageOctopusPriceData:
@@ -82,10 +83,28 @@ class ManageOctopusPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
-    async def initialize(self):
-        self.__log("Initializing")
+    # async def initialize(self):
+    #     self.__log("Initializing")
+
+    #     self.__log("Completed")
+
+    async def kick_off_octopus_price_management(self):
+        """
+        'Second stage' of initialisation.
+        To be called from 'initialize' and from the globals module collective_action()
+        when the settings have changed.
+
+         :param initial: Only for the first call from the initialisation of the module.
+         :return: Nothing
+        """
+        if c.ELECTRICITY_PROVIDER != "gb_octopus_energy":
+            self.__log(
+                f"Not kicking off ManageOctopusPriceData module."
+                f"Electricity provider is not 'gb_octopus_energy' but {c.ELECTRICITY_PROVIDER}."
+            )
+            return
 
         if c.TZ != self.UK_TZ:
             self.__log(
@@ -104,24 +123,6 @@ class ManageOctopusPriceData:
         # c.CURRENCY = "EUR"
         # self.UOM = "EUR/MWh"
         # c.TZ = self.UK_TZ
-
-        self.__log("Completed")
-
-    async def kick_off_octopus_price_management(self):
-        """
-        'Second stage' of initialisation.
-        To be called from 'initialize' and from the globals module collective_action()
-        when the settings have changed.
-
-         :param initial: Only for the first call from the initialisation of the module.
-         :return: Nothing
-        """
-        if c.ELECTRICITY_PROVIDER != "gb_octopus_energy":
-            self.__log(
-                f"Not kicking off ManageOctopusPriceData module."
-                f"Electricity provider is not 'gb_octopus_energy' but {c.ELECTRICITY_PROVIDER}."
-            )
-            return
 
         un_initiated_values = ["unknown", "", "Please choose an option", None]
         if c.GB_DNO_REGION in un_initiated_values:

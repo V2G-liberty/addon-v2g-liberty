@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.6.2 2025-07-??
+## 0.6.2 2025-09-??
 
 ### Fixed
 
@@ -11,6 +11,7 @@
 
 ### Changed
 
+- ⬆️ Bump AppDaemon to version 4.5 (#278)
 - Change getting prices in octopus_price_data_manager to hourly (#123)
 - ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
 

@@ -1,4 +1,4 @@
-appdaemon==4.4.2
+appdaemon==4.5.11
 isodate==0.6.1
 pymodbus==3.8.5
 caldav==1.4.0

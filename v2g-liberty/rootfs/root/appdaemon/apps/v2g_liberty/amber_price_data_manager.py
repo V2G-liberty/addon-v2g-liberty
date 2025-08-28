@@ -2,10 +2,10 @@
 
 from datetime import datetime
 import isodate
-import constants as c
-import log_wrapper
-from v2g_globals import time_round, convert_to_duration_string
 from appdaemon.plugins.hass.hassapi import Hass
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import time_round, convert_to_duration_string
 
 
 class ManageAmberPriceData:
@@ -59,7 +59,7 @@ class ManageAmberPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("ManageAmberPriceData.")
