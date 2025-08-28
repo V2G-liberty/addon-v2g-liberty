@@ -69,7 +69,6 @@ class V2GLibertyApp(Hass):
         await main_app.initialize()
 
         await amber_price_data_manager.initialize()
-        await octopus_price_data_manager.initialize()
 
         await v2g_globals.kick_off_settings()
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")
