@@ -6,4 +6,6 @@ flexmeasures-client==0.7.0
 pyee==12.1.1
 
 # Work around for https://github.com/hassio-addons/addon-appdaemon/issues/345
-numpy<2
+# numpy<2
+
+pandas==2.3.2
