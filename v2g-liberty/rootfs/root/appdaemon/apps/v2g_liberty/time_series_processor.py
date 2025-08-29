@@ -72,14 +72,18 @@ def weighted_resample_5t(
     pd_end = pd.Timestamp(dt_end)
     if df.index.tz != pd_start.tz or df.index.tz != pd_end.tz:
         raise ValueError(
-            "dt_start, dt_end and df.index must all have the same timezone"
+            f"dt_start({pd_start.tz}), dt_end ({pd_end.tz}) and df.index ({df.index.tz}) "
+            f"have different timezones"
         )
 
     if not _is_5min_aligned(dt_start) or not _is_5min_aligned(dt_end):
         raise ValueError("dt_start and dt_end must be rounded to 5 minutes")
 
-    if pd_end <= pd_start:
-        raise ValueError(f"dt_end ({dt_end}) must be after dt_start ({dt_start})")
+    if pd_end < pd_start + pd.Timedelta(minutes=5):
+        raise ValueError(
+            f"dt_end ({dt_end.isoformat()}) must be at least 5 min. after "
+            f"dt_start ({dt_start.isoformat()})"
+        )
 
     df_min = df.index.min()
     if df_min > pd_end:
@@ -109,6 +113,7 @@ def weighted_resample_5t(
     result = df_grided.resample(
         "5min", origin=pd_start, label="left", closed="left"
     ).apply(apply_weighted_avg)
-    result = result.to_frame(name="value")
+    result = result[result.index < pd_end]
+    result = pd.DataFrame({"value": result})
     print(f"Result:\n{result}")
     return result

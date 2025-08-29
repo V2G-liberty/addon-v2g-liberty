@@ -44,10 +44,10 @@ def test_weighted_resample_5t_valueerrors():
         )
 
     # 2. dt_end <= dt_start
-    with pytest.raises(ValueError, match="must be after dt_start"):
+    with pytest.raises(ValueError, match="must be at least 5 min. after"):
         weighted_resample_5t(
             df,
-            dt_start=datetime(2025, 8, 28, 14, 5),
+            dt_start=datetime(2025, 8, 28, 14, 15),
             dt_end=datetime(2025, 8, 28, 14, 0),
         )
 
@@ -56,7 +56,7 @@ def test_weighted_resample_5t_valueerrors():
     tz_df.index = tz_df.index.tz_localize("UTC")
     naive_start = datetime(2025, 8, 28, 14, 0)  # naive datetime
     naive_end = datetime(2025, 8, 28, 14, 5)
-    with pytest.raises(ValueError, match="timezone"):
+    with pytest.raises(ValueError, match="have different timezones"):
         weighted_resample_5t(tz_df, dt_start=naive_start, dt_end=naive_end)
 
     # 4. dt_start or dt_end not 5-min aligned
@@ -65,11 +65,11 @@ def test_weighted_resample_5t_valueerrors():
     with pytest.raises(ValueError, match="rounded to 5 minutes"):
         weighted_resample_5t(df, dt_start=misaligned_start, dt_end=aligned_end)
 
-    # 5. No overlap with df.index
+    # 5. df.index start (14:00) after dt_end
     df_range = df.copy()
     start = datetime(2025, 8, 28, 12, 0)
-    end = datetime(2025, 8, 28, 12, 5)
-    with pytest.raises(ValueError, match="must start before dt_end"):
+    end = datetime(2025, 8, 28, 12, 10)
+    with pytest.raises(ValueError, match="range time series must start before dt_end"):
         weighted_resample_5t(df_range, dt_start=start, dt_end=end)
 
 
@@ -112,7 +112,7 @@ def test_weighted_resample_5t_multiple_intervals():
     result = weighted_resample_5t(df, dt_start=dt_start, dt_end=dt_end)
 
     # Check index matches 5-min intervals
-    expected_index = pd.date_range(start=dt_start, end=dt_end, freq="5min")
+    expected_index = pd.date_range(start=dt_start, periods=2, freq="5min")
     assert all(result.index == expected_index)
 
     # Compute expected values manually using _weighted_avg for each interval
@@ -122,6 +122,29 @@ def test_weighted_resample_5t_multiple_intervals():
         pytest.approx(a) == b
         for a, b in zip(result["value"].iloc[:-1], expected_values)
     )
+
+
+def test_weighted_resample_5t_single_value():
+    # Data spanning multiple 5-min intervals
+    values = [2]
+    index = pd.to_datetime(
+        [
+            "2025-08-28 14:05:30",
+        ]
+    )
+    df = pd.DataFrame({"value": values}, index=index)
+
+    dt_start = datetime(2025, 8, 28, 14, 0, 0)
+    dt_end = datetime(2025, 8, 28, 14, 10, 0)
+
+    result = weighted_resample_5t(df, dt_start=dt_start, dt_end=dt_end)
+
+    # Check index matches 5-min intervals
+    expected_index = pd.date_range(start=dt_start, periods=2, freq="5min")
+    assert all(result.index == expected_index)
+
+    assert math.isnan(result["value"].iloc[0])
+    assert pytest.approx(result["value"].iloc[1]) == 2
 
 
 def test_weighted_resample_5t_with_none():
@@ -144,7 +167,7 @@ def test_weighted_resample_5t_with_none():
     result = weighted_resample_5t(df, dt_start=dt_start, dt_end=dt_end)
 
     # Check that the index is exactly 5-min intervals
-    expected_index = pd.date_range(start=dt_start, end=dt_end, freq="5min")
+    expected_index = pd.date_range(start=dt_start, periods=2, freq="5min")
     assert all(result.index == expected_index)
 
     # Only check non-None intervals
