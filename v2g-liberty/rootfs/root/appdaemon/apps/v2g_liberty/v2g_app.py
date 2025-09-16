@@ -72,3 +72,5 @@ class V2GLibertyApp(Hass):
 
         await v2g_globals.kick_off_settings()
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")
+
+        await get_fm_data.initialize()

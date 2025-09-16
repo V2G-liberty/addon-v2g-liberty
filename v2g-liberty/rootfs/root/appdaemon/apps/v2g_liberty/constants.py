@@ -88,19 +88,14 @@ ELECTRICITY_PROVIDER: str = "nl_generic"
 # FSC: Used in get_fm_data, Octopus (why not Amber?) module, keep here?
 EMISSIONS_UOM: str = "kg/MWh"  # For some ELECTRICITY_PROVIDER-s this can be %
 # For some ELECTRICITY_PROVIDER-s this can be different, e.g. GBP or AUD.
-# FSC: Used in get_fm_data, Octopus and Amber module, keep here?
 CURRENCY: str = "EUR"
-# FSC: A fixed value for Octopus and Amber modules, move there.
-PRICE_RESOLUTION_MINUTES: int = 60  # For some ELECTRICITY_PROVIDER-s this can be 30
+PRICE_RESOLUTION_MINUTES: int = 15  # For some ELECTRICITY_PROVIDER-s this can be 30
 
 # FlexMeasures settings
-
 # This represents how often schedules should refresh. Keep at this setting.
-# FSC: Used many modules, keep here
 FM_EVENT_RESOLUTION_IN_MINUTES: int = 5
 
 # Should be timedelta but do not want to import that here, see globals.
-# FSC: Used many modules, keep here
 EVENT_RESOLUTION: object
 
 # CONSTANTS for FM URL's
