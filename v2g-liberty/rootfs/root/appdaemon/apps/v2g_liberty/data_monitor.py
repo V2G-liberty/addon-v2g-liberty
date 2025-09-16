@@ -4,13 +4,14 @@ from datetime import datetime, timedelta
 import math
 from typing import List, Union
 
+import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now, time_round, time_ceil
 from .event_bus import EventBus
-
+from .time_series_processor import weighted_resample_5t
 
 # TODO:
 # Start times of Posting data sometimes seem incorrect, it is recommended to research them.
@@ -67,6 +68,11 @@ class DataMonitor:
 
     # Holds the averaged power readings until successfully sent to backend.
     power_readings: List[float] = []
+    power_readings_df: pd.DataFrame
+
+    # How frequent posting should take place. Normally every hour, for testing this constant is set
+    # to 10 minutes.
+    _POST_EVERY_X_MINUTES: int = 10
 
     # Total seconds that charger and car have been available in the current hour.
     current_availability: bool
@@ -87,6 +93,7 @@ class DataMonitor:
         self.hass = hass
         self.__log = get_class_method_logger(hass.log)
         self.event_bus = event_bus
+        self.__log("Completed __init__ DataMonitor.")
 
     async def initialize(self):
         self.__log("Initializing DataMonitor.")
@@ -122,6 +129,10 @@ class DataMonitor:
             "charge_power_change", self._process_power_change
         )
 
+        idx = pd.DatetimeIndex([])
+        idx = idx.tz_localize(c.TZ)
+        self.power_readings_df = pd.DataFrame(columns=["value"], index=idx)
+
         # SoC related
         self.connected_car_soc = None
         self.soc_readings = []
@@ -135,7 +146,7 @@ class DataMonitor:
             self.__conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
         )
 
-        resolution = timedelta(minutes=60)
+        resolution = timedelta(minutes=self._POST_EVERY_X_MINUTES)
         runtime = time_ceil(runtime, resolution)
         await self.hass.run_hourly(self.__try_send_data, runtime)
         self.__log("Completed initializing DataMonitor")
@@ -206,7 +217,11 @@ class DataMonitor:
         self.current_power_since = local_now
         self.current_power = new_power
 
-    async def __conclude_interval(self, *args):
+        new_row = pd.DataFrame({"value": new_power}, index=[local_now])
+        self.power_readings_df = pd.concat([self.power_readings_df, new_row])
+        self.__log(self.power_readings_df.head(10))
+
+    async def __conclude_interval(self, *_args):
         """Conclude a regular interval.
         Called every c.FM_EVENT_RESOLUTION_IN_MINUTES minutes (usually 5 minutes)
         """
@@ -273,6 +288,15 @@ class DataMonitor:
         self.__log("Trying to send data")
 
         start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
+        end_df = start_from
+        start_df = end_df - timedelta(minutes=self._POST_EVERY_X_MINUTES)
+        try:
+            result_df = weighted_resample_5t(self.power_readings_df, start_df, end_df)
+        except ValueError as ve:
+            self.__log(f"Could not resample, ValueError: '{ve}'.", level="WARNING")
+            return
+        self.__log(f"weighted_resample_5t result:\n{result_df}")
+
         res = await self.__post_power_data()
         if res is True:
             self.__log("Power data successfully sent.")
