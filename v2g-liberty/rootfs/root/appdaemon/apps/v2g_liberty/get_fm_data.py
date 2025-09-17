@@ -624,9 +624,10 @@ class FlexMeasuresDataImporter:
                 price_points = []
                 first_future_negative_price_point = "No negative prices"
                 prices = prices["values"]
-
+                none_prices = 0
                 for i, price in enumerate(prices):
                     if price is None:
+                        none_prices += 1
                         continue
                     dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
                     date_latest_price = dt
@@ -648,6 +649,11 @@ class FlexMeasuresDataImporter:
                             "time": dt,
                             "price": data_point["price"],
                         }
+
+                self.__log(
+                    f"({price_type}) | number of prices: '{len(price_points)}', "
+                    f"number of none values '{none_prices}'."
+                )
 
                 self.__check_negative_price_notification(
                     first_future_negative_price_point, price_type=price_type
