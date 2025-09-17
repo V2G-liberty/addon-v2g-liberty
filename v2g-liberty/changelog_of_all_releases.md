@@ -14,6 +14,7 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- 🚀 Feature Request: Prepare for dynamic prices per 15 min (#314)
 - ⬆️ Bump AppDaemon to version 4.5 (#278)
 - Change getting prices in octopus_price_data_manager to hourly (#123)
 - ⬆️ Bump FlexMeasures client to 0.7.0 (#304)

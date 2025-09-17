@@ -416,7 +416,10 @@ class V2GLibertyGlobals:
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
+        self.__log("Saving electricity contract settings")
+        c.USE_VAT_AND_MARKUP = False
         if data["contract"] == "nl_generic":
+            c.USE_VAT_AND_MARKUP = True
             self.__store_setting("input_number.energy_price_vat", data["vat"])
             self.__store_setting(
                 "input_number.energy_price_markup_per_kwh", data["markup"]
@@ -442,9 +445,10 @@ class V2GLibertyGlobals:
 
         await self.__initialise_electricity_contract_settings()
         await self.v2g_main_app.kick_off_v2g_liberty()
-        await self.fm_data_retrieve_client.finalize_initialisation(
-            v2g_args="initialise_energy_contract"
+        await self.fm_data_retrieve_client.initialize(
+            v2g_args="changed energy contract settings"
         )
+        self.__log("Completed saving electricity contract settings")
 
     async def __save_schedule_settings(self, event, data, kwargs):
         self.__store_setting("input_text.fm_account_username", data["username"])
@@ -1028,7 +1032,7 @@ class V2GLibertyGlobals:
             )
             c.EMISSIONS_UOM = "kg/MWh"
             c.CURRENCY = "EUR"
-            c.PRICE_RESOLUTION_MINUTES = 60
+            c.PRICE_RESOLUTION_MINUTES = 15
             # TODO Notify user if fallback "nl_generic" is used..
             c.FM_PRICE_PRODUCTION_SENSOR_ID = context["production-sensor"]
             c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
@@ -1042,12 +1046,11 @@ class V2GLibertyGlobals:
                 f"    UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}."
             )
 
-        c.USE_VAT_AND_MARKUP = await self.__process_setting(
-            setting_object=self.SETTING_USE_VAT_AND_MARKUP,
-        )
-        # Only relevant for electricity_providers "generic" and possibly for none EPEX,
-        # for others we expect netto prices (including VAT and Markup).
-        # Self_provided data (e.g. au_amber_electric, gb_octopus_energy) includes VAT and markup.
+        c.USE_VAT_AND_MARKUP = c.ELECTRICITY_PROVIDER == "nl_generic"
+        # VAT & Markup are only relevant for electricity_providers "generic", for others we expect
+        # netto prices including VAT and Markup. This also applies to self_provided data (e.g.
+        # au_amber_electric and gb_octopus_energy).
+
         if c.USE_VAT_AND_MARKUP:
             c.ENERGY_PRICE_VAT = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,

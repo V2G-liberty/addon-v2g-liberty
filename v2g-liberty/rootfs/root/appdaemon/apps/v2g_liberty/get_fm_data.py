@@ -41,13 +41,8 @@ class FlexMeasuresDataImporter:
     morning.
     """
 
-    # CONSTANTS
+    # CONSTANTS and variables
     DAYS_HISTORY: int = 7
-
-    # For converting raw EPEX prices from FM to user_friendly UI values
-    # From FM format (€/MWh) to user desired format (€ct/kWh)
-    # = * 100/1000 = 1/10.
-    PRICE_CONVERSION_FACTOR: float = 1 / 10
 
     vat_factor: float = 1
     markup_per_kwh: float = 0
@@ -107,8 +102,6 @@ class FlexMeasuresDataImporter:
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
 
-        # await self.finalize_initialisation("module initialize")
-
         ##########################################################################
         # TESTDATA: Currency = EUR, moet AUD zijn! Wordt in class definitie al gezet.
         ##########################################################################
@@ -129,7 +122,7 @@ class FlexMeasuresDataImporter:
 
         self.__log("Complete")
 
-    async def finalize_initialisation(self, v2g_args: str):
+    async def initialize(self, v2g_args: str = None):
         """
         Second and final stage of initialisation. This is run from globals when
         settings have initialised/changed. This is separated :
@@ -620,9 +613,9 @@ class FlexMeasuresDataImporter:
                 start=start.isoformat(),
                 duration="P3D",
                 resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
-                uom=f"{c.CURRENCY}/MWh",
+                uom=f"c{c.CURRENCY}/kWh",
             )
-            # self.__log(f"({price_type}) | sensor_id: {sensor_id}, prices: {prices}.")
+            self.__log(f"({price_type}) | sensor_id: {sensor_id}, prices: {prices}.")
             date_latest_price = None
             net_price = None
             if prices is None:
@@ -631,22 +624,16 @@ class FlexMeasuresDataImporter:
                 price_points = []
                 first_future_negative_price_point = "No negative prices"
                 prices = prices["values"]
-
+                none_prices = 0
                 for i, price in enumerate(prices):
                     if price is None:
+                        none_prices += 1
                         continue
-
                     dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
                     date_latest_price = dt
                     net_price = round(
-                        (
-                            (float(price) * self.PRICE_CONVERSION_FACTOR)
-                            + self.markup_per_kwh
-                        )
-                        * self.vat_factor,
-                        2,
+                        (price + self.markup_per_kwh) * self.vat_factor, 2
                     )
-
                     data_point = {"time": dt.isoformat(), "price": net_price}
                     price_points.append(data_point)
 
@@ -662,6 +649,11 @@ class FlexMeasuresDataImporter:
                             "time": dt,
                             "price": data_point["price"],
                         }
+
+                self.__log(
+                    f"({price_type}) | number of prices: '{len(price_points)}', "
+                    f"number of none values '{none_prices}'."
+                )
 
                 self.__check_negative_price_notification(
                     first_future_negative_price_point, price_type=price_type
