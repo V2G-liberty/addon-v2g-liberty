@@ -60,18 +60,18 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderUninitialisedContent() {
     const editCallback = () => showCarReservationCalendarSettingsDialog(this);
     // One would expect 'configure' to be available as a home assistant ui.common.configure
-    // string, but it is not..
+    // string, but it is not.
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
-        <div class="card-actions">
-          ${renderButton(
-            this._hass,
-            editCallback,
-            true,
-            t('settings.common.configure')
-          )}
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          t('settings.common.configure')
+        )}
       </div>
     `;
   }
@@ -86,14 +86,14 @@ export class CarReservationCalendarSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${content}
-        <div class="card-actions">
-          ${renderButton(
-            this.hass,
-            editCallback,
-            true,
-            this._hass.localize('ui.common.edit')
-          )}
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this.hass,
+          editCallback,
+          true,
+          this._hass.localize('ui.common.edit')
+        )}
       </div>
     `;
   }

@@ -42,14 +42,20 @@ export function renderButton(
   const slot = isPrimaryAction
     ? 'primaryAction'
     : 'secondaryAction'
+  const appearance = isPrimaryAction
+    ? 'filled'
+    : 'outlined'
+  const variant = isPrimaryAction
+    ? 'brand'
+    : 'secondary'
   const chevronIcon = !isPrimaryAction
     ? html`<ha-svg-icon .path=${mdiChevronLeft}></ha-svg-icon> `
     : nothing;
 
   return html`
-    <mwc-button @click=${action} slot=${slot}>
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} size='small'>
       ${chevronIcon}${label}
-    </mwc-button>
+    </ha-button>
   `;
 }
 
