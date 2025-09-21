@@ -1,4 +1,4 @@
-import { mdiClose, mdiPencil, mdiChevronLeft } from '@mdi/js';
+import { mdiClose, mdiPencil } from '@mdi/js';
 import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, nothing, TemplateResult } from 'lit';
@@ -31,6 +31,8 @@ export function renderButton(
   action: (() => void),
   isPrimaryAction: boolean = true,
   label: string = null,
+  isDisabled: boolean = false,
+  testId: string = null
 ) {
   if (label === null) {
     if (isPrimaryAction) {
@@ -49,12 +51,19 @@ export function renderButton(
     ? 'brand'
     : 'secondary'
   const chevronIcon = !isPrimaryAction
-    ? html`<ha-svg-icon .path=${mdiChevronLeft}></ha-svg-icon> `
+    ? html`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>`
     : nothing;
 
+  if (testId === null) {
+    testId = isPrimaryAction
+      ? 'continue'
+      : 'previous'
+  }
+
   return html`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} size='small'>
-      ${chevronIcon}${label}
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small'>
+      ${chevronIcon}
+      ${label}
     </ha-button>
   `;
 }
@@ -63,6 +72,7 @@ export function renderSpinner() {
   // To replace primaryAction button while busy
   return html`
     <ha-circular-progress
+      test-id="progress"
       size="small"
       indeterminate
       slot='primaryAction'

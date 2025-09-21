@@ -2,9 +2,11 @@ import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderLoadbalancerInfo, isLoadbalancerEnabled } from './util/render';
-
 import {
+  renderLoadbalancerInfo,
+  isLoadbalancerEnabled,
+  renderSpinner,
+  renderButton,
   InputText,
   renderDialogHeader,
   renderInputBoolean,
@@ -119,23 +121,13 @@ class EditChargerSettingsDialog extends DialogBase {
       }
       ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       ${this._isBusyConnecting()
-        ? html`
-            <ha-circular-progress
-              test-id="progress"
-              size="small"
-              indeterminate
-              slot="primaryAction"
-            ></ha-circular-progress>
-          `
-        : html`
-            <mwc-button
-              test-id="continue"
-              @click=${this._continue}
-              slot="primaryAction"
-            >
-              ${this.hass.localize('ui.common.continue')}
-            </mwc-button>
-          `}
+        ? renderSpinner()
+        : renderButton(
+          this.hass,
+          this._continue,
+          true,
+          this.hass.localize('ui.common.continue')
+        )}
     `;
   }
 
@@ -207,9 +199,14 @@ class EditChargerSettingsDialog extends DialogBase {
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
       ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
-      <mwc-button test-id="save" @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._save,
+        true,
+        this.hass.localize('ui.common.save'),
+        false,
+        'save'
+      )}
     `;
   }
 

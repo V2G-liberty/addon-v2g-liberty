@@ -4,6 +4,7 @@ import { customElement, state } from 'lit/decorators';
 import { callFunction } from './util/appdaemon';
 import {
   InputText,
+  renderButton,
   renderDialogHeader,
   renderInputNumber,
   renderInputSelect,
@@ -103,13 +104,14 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         'gb_octopus_energy' === current,
         callback
       )}
-      <mwc-button
-        @click=${this._continue}
-        ?disabled=${!isSelectionValid}
-        slot="primaryAction"
-      >
-        ${this.hass.localize('ui.common.continue')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._continue,
+        true,
+        this.hass.localize('ui.common.continue'),
+        !isSelectionValid,
+        null,
+      )}
     `;
 
     function filterNLProviders(options) {
@@ -158,12 +160,22 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         productionPriceIdState,
         productionPriceEntityIdChanged
       )}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._back,
+        false,
+        this.hass.localize('ui.common.back'),
+        false,
+        'back'
+      )}
+      ${renderButton(
+        this.hass,
+        this._save,
+        true,
+        this.hass.localize('ui.common.save'),
+        false,
+        'save'
+      )}
     `;
   }
 
@@ -194,12 +206,22 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         exportCodeChanged
       )}
       ${renderInputSelect(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._back,
+        false,
+        this.hass.localize('ui.common.back'),
+        false,
+        'back'
+      )}
+      ${renderButton(
+        this.hass,
+        this._save,
+        true,
+        this.hass.localize('ui.common.save'),
+        false,
+        'save'
+      )}
     `;
   }
 
@@ -211,12 +233,23 @@ class EditElectricityContractSettingsDialog extends DialogBase {
     return html`
       <ha-markdown breaks .content=${subHeader}></ha-markdown>
       ${this._renderNLGenericContractDetails()}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._back,
+        false,
+        this.hass.localize('ui.common.back'),
+        false,
+        'back'
+      )}
+      ${renderButton(
+        this.hass,
+        this._save,
+        true,
+        this.hass.localize('ui.common.save'),
+        false,
+        'save'
+      )}
+
     `;
   }
 

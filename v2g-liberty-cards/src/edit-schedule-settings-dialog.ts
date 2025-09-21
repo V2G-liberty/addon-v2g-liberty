@@ -8,6 +8,8 @@ import {
   renderInputBoolean,
   renderInputSelect,
   renderInputText,
+  renderButton,
+  renderSpinner,
 } from './util/render';
 import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -137,18 +139,9 @@ class EditScheduleSettingsDialog extends DialogBase {
           )
         : nothing}
       ${this._isBusyConnecting()
-        ? html`
-            <ha-circular-progress
-              size="small"
-              indeterminate
-              slot="primaryAction"
-            ></ha-circular-progress>
-          `
-        : html`
-            <mwc-button @click=${this._continue} slot="primaryAction">
-              ${this.hass.localize('ui.common.continue')}
-            </mwc-button>
-          `}
+        ? renderSpinner()
+        : renderButton(this.hass, this._continue)
+      }
     `;
   }
 
@@ -175,9 +168,12 @@ class EditScheduleSettingsDialog extends DialogBase {
     return html`
       ${this._renderLoginSuccessful()}
       <ha-alert alert-type="error"> ${tp('no-asset-error')} </ha-alert>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._back,
+        false,
+        this.hass.localize('ui.common.back'),
+      )}
     `;
   }
 
@@ -193,12 +189,18 @@ class EditScheduleSettingsDialog extends DialogBase {
       ${this._renderLoginSuccessful()}
       <strong>Asset</strong>
       <div>${this._fmAsset}</div>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._back,
+        false,
+        this.hass.localize('ui.common.back'),
+      )}
+      ${renderButton(
+        this.hass,
+        this._save,
+        true,
+        this.hass.localize('ui.common.save'),
+      )}
     `;
   }
 
@@ -216,12 +218,18 @@ class EditScheduleSettingsDialog extends DialogBase {
         options
       )}
       ${this._renderNoAssetSelectedError()}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${renderButton(
+        this.hass,
+        this._back,
+        false,
+        this.hass.localize('ui.common.back'),
+      )}
+      ${renderButton(
+        this.hass,
+        this._save,
+        true,
+        this.hass.localize('ui.common.save'),
+      )}
     `;
   }
 
