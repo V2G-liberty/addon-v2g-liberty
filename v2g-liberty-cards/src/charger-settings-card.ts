@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
 import { partial } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
@@ -61,15 +61,19 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderUninitialisedContent() {
     const editCallback = () => showChargerSettingsDialog(this);
+    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
 
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
-        <div class="card-actions">
-          <mwc-button test-id="configure" @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          labelConfigure
+        )}
       </div>
     `;
   }
@@ -84,11 +88,14 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
-        <div class="card-actions">
-          <mwc-button test-id="edit" @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          this._hass.localize('ui.common.edit')
+        )}
       </div>
     `;
   }

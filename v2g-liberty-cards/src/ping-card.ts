@@ -88,7 +88,7 @@ export class PingCard extends LitElement {
     return this._isResponding
       ? nothing
       : html`
-          <mwc-snackbar
+          <ha-toast
             ?open=${this._isSnackbarOpen}
             labelText=${this._isRestarting ? tp('restarting') : tp('error')}
             timeoutMs="-1"  <!-- Persistent until closed -->
@@ -96,10 +96,10 @@ export class PingCard extends LitElement {
             @closed=${_onSnackbarClose}
           >
             ${!this._isRestarting
-              ? html`<mwc-button slot="action" @click=${this._restart}>${tp('restart')}</mwc-button>`
+              ? html`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${tp('restart')}</ha-button>`
               : nothing
             }
-          </mwc-snackbar>
+          </ha-toast>
         `;
   }
 

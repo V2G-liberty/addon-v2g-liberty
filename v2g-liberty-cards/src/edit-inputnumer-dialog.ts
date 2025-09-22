@@ -3,7 +3,7 @@ import { customElement, query, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderInputNumber } from './util/render';
+import { renderDialogHeader, renderInputNumber, renderButton } from './util/render';
 import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
@@ -46,9 +46,14 @@ class EditInputNumberDialog extends DialogBase {
         )}
         ${this._renderInvalidInputAlert(stateObj)}
         <ha-markdown breaks .content=${description}></ha-markdown>
-        <mwc-button @click=${this._save} slot="primaryAction">
-          ${this.hass.localize('ui.common.save')}
-        </mwc-button>
+        ${renderButton(
+          this.hass,
+          this._save,
+          true,
+          this.hass.localize('ui.common.save'),
+          false,
+          'save'
+        )}
       </ha-dialog>
     `;
   }

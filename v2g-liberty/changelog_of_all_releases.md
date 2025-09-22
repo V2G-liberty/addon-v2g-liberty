@@ -3,12 +3,13 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.6.2 2025-09-??
+## 0.6.2 2025-09-22
 
 ### Fixed
 
--🪲 BUG: Height of SoC % box too high (#301)
--🪲 BUG: Text above calendar events has error (#299)
+- 🪲 BUG: Appearance of buttons in settings dialogs is broken (#313)
+- 🪲 BUG: Height of SoC % box too high (#301)
+- 🪲 BUG: Text above calendar events has error (#299)
 
 ### Added
 

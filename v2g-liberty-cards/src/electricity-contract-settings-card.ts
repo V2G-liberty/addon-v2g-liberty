@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderButton } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
 import { showElectricityContractSettingsDialog } from './show-dialogs';
@@ -58,15 +58,19 @@ export class ElectricityContractSettingsCard extends LitElement {
   private _renderUninitialisedContent() {
     const alert = tp('alert');
     const editCallback = () => showElectricityContractSettingsDialog(this);
+    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
 
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          labelConfigure
+        )}
       </div>
     `;
   }
@@ -80,11 +84,14 @@ export class ElectricityContractSettingsCard extends LitElement {
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          this._hass.localize('ui.common.edit')
+        )}
       </div>
     `;
   }
@@ -93,9 +100,11 @@ export class ElectricityContractSettingsCard extends LitElement {
     return this._electricityProvider.state === 'nl_generic'
       ? html`
           ${renderEntityRow(this._energyPriceVat, {
+            // @ts-ignore
             state: this._hass.formatEntityState(this._energyPriceVat),
           })}
           ${renderEntityRow(this._energyPriceMarkup, {
+            // @ts-ignore
             state: this._hass.formatEntityState(this._energyPriceMarkup),
           })}
         `

@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock } from './util/render';
+import { renderEntityBlock, renderButton } from './util/render';
 import { partial } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
@@ -55,15 +55,19 @@ export class ScheduleSettingsCard extends LitElement {
   private _renderUninitialisedContent() {
     const alert = tp('alert');
     const editCallback = () => showScheduleSettingsDialog(this);
+    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
 
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          labelConfigure
+        )}
       </div>
     `;
   }
@@ -84,11 +88,14 @@ export class ScheduleSettingsCard extends LitElement {
             `
           : nothing }
         ${renderEntityBlock(this._fmAsset)}
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          this._hass.localize('ui.common.edit')
+        )}
       </div>
     `;
   }
