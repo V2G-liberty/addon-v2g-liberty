@@ -71,12 +71,11 @@ export function renderButton(
 export function renderSpinner() {
   // To replace primaryAction button while busy
   return html`
-    <ha-circular-progress
+    <ha-spinner
       test-id="progress"
       size="small"
-      indeterminate
       slot='primaryAction'
-    ></ha-circular-progress>
+    ></ha-spinner>
   `;
 }
 
