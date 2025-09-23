@@ -1360,7 +1360,6 @@ var $24c52f343453d62d$export$2e2bcd8739ae039 = {
 };
 
 
-
 /**
  * @license
  * Copyright 2019 Google LLC
@@ -10574,12 +10573,11 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
 function $4dbea3927e6cdc74$export$403c249a0a70d814() {
     // To replace primaryAction button while busy
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-circular-progress
+    <ha-spinner
       test-id="progress"
       size="small"
-      indeterminate
       slot='primaryAction'
-    ></ha-circular-progress>
+    ></ha-spinner>
   `;
 }
 function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj, { state: state } = {}) {
@@ -10876,7 +10874,6 @@ var $8944235bd8be49ac$export$f4fd60e41371f80d = {
     hour: 22,
     day: 5
 };
-
 
 
 var $ee1328194d522913$export$27bce688931fdfcc, $ee1328194d522913$export$7fd1ce15b01d50ca, $ee1328194d522913$export$1a0dc7c974e8444d = function(e, t) {
