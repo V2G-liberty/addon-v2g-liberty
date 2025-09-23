@@ -3,12 +3,14 @@
 import datetime as dt
 import re
 import requests
-import constants as c
-import log_wrapper
-from v2g_globals import get_local_now
 import caldav
 from pyee.asyncio import AsyncIOEventEmitter
+
 from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import get_local_now
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -36,7 +38,7 @@ class ReservationsClient(AsyncIOEventEmitter):
     def __init__(self, hass: Hass):
         super().__init__()
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         self.principal = None
         self.poll_timer_id = ""
@@ -304,18 +306,21 @@ class ReservationsClient(AsyncIOEventEmitter):
         start = now.isoformat()
         end = (now + dt.timedelta(days=7)).isoformat()
         local_events = await self.hass.call_service(
-            "calendar.get_events",
+            "calendar/get_events",
             entity_id=c.INTEGRATION_CALENDAR_ENTITY_NAME,
             start_date_time=start,
             end_date_time=end,
-            return_result=True,
         )
         if local_events is None:
             self.__log("Could not retrieve events, aborting", level="WARNING")
             return
         # Peel off some unneeded layers
-        local_events = local_events.get(c.INTEGRATION_CALENDAR_ENTITY_NAME, None)
-        local_events = local_events.get("events", None)
+        local_events = (
+            local_events.get("result", {})
+            .get("response", {})
+            .get(c.INTEGRATION_CALENDAR_ENTITY_NAME, {})
+            .get("events", [])
+        )
         tmp_v2g_events = []
 
         for local_event in local_events:

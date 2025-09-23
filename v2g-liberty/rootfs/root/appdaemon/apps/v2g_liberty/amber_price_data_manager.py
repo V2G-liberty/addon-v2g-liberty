@@ -2,10 +2,10 @@
 
 from datetime import datetime
 import isodate
-import constants as c
-import log_wrapper
-from v2g_globals import time_round, convert_to_duration_string
 from appdaemon.plugins.hass.hassapi import Hass
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import time_round, convert_to_duration_string
 
 
 class ManageAmberPriceData:
@@ -59,7 +59,7 @@ class ManageAmberPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("ManageAmberPriceData.")
@@ -178,8 +178,12 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    parameters = {"price_type": "consumption"}
-                    await self.get_fm_data_module.get_prices(parameters)
+                    # FM needs process time for the just uploaded prices before they can be queried
+                    self.hass.run_in(
+                        self.get_fm_data_module.get_prices_wrapper,
+                        delay=45,
+                        price_type="consumption",
+                    )
                 else:
                     self.__log(
                         "Could not call get_consumption_prices on "
@@ -278,8 +282,12 @@ class ManageAmberPriceData:
 
             if res:
                 if self.get_fm_data_module is not None:
-                    parameters = {"price_type": "production"}
-                    await self.get_fm_data_module.get_prices(parameters)
+                    # FM needs process time for the just uploaded prices before they can be queried
+                    self.hass.run_in(
+                        self.get_fm_data_module.get_prices_wrapper,
+                        delay=45,
+                        price_type="production",
+                    )
                 else:
                     self.__log(
                         "Could not call get_production_prices on "

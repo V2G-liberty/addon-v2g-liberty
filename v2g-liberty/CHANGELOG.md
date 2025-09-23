@@ -1,28 +1,21 @@
 # What's changed?
 
-## 0.6.1 2025-06-27
+## 0.6.2 2025-09-22
 
 ### Fixed
 
-- 🪲 BUG: Logging version_number to FM fails (#293)
-- 🪲 BUG: Load balancer produces errors in log (#290)
-- 🪲 MINOR BUGS (#288)
-- 🪲 BUG: The max-charge power setting of V2G Liberty is overruled by FM asset setting (#279)
-- 🪲 BUG: Check for max power incorrect (#276)
-- 🪲 BUG: Quickly switching between charge mode automatic and other results in schedule being followed (#260)
-- 🪲 BUG: When connecting during a calendar reservation period, the "target cannot be reached" process kicks in while it should not (#261)
-- 🪲 BUG: fluctuating charging around min-soc (#259)
+- 🪲 BUG: Appearance of buttons in settings dialogs is broken (#313)
+- 🪲 BUG: Height of SoC % box too high (#301)
+- 🪲 BUG: Text above calendar events has error (#299)
 
 ### Added
 
 ### Changed
 
-- 🛠️ Refactoring: Make logging of DataMonitor module less verbose (#295)
-- 🛠️ Refactoring: Use FlexMeasures relaxation (instead of V2G Liberty version) (#264)
-- 🛠️ Refactoring: Reduce number of pylint problems. (#281)
-- 🛠️ Refactoring: Use event-bus instead of HA entities (#265)
-- ⬆️ BUMP base-x version to 3.0.11 (#274)
-- 🛠️ Refactoring: Separate notification functionality from V2G Liberty module (#266)
+- 🚀 Feature Request: Prepare for dynamic prices per 15 min (#314)
+- ⬆️ Bump AppDaemon to version 4.5 (#278)
+- Change getting prices in octopus_price_data_manager to hourly (#123)
+- ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
 
 &nbsp;
 

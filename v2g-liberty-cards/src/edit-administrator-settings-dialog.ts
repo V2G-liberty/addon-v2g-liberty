@@ -2,7 +2,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderInputSelect } from './util/render';
+import { renderDialogHeader, renderInputSelect, renderButton } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
 import { defaultState, DialogBase } from './dialog-base';
@@ -61,9 +61,12 @@ class EditAdministratorSettingsDialog extends DialogBase {
           evt => (this._mobilePlatform = evt.target.value)
         )}
         ${this._renderError(this._mobilePlatform)}
-        <mwc-button @click=${this._save} slot="primaryAction">
-          ${this.hass.localize('ui.common.save')}
-        </mwc-button>
+        ${renderButton(
+          this.hass,
+          this._save,
+          true,
+          this.hass.localize('ui.common.save')
+        )}
       </ha-dialog>
     `;
   }

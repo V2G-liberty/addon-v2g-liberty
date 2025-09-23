@@ -2495,7 +2495,7 @@ var $9c12443e84042152$exports = {};
  * This can be used to log issues in development environments in critical
  * paths. Removing the logging code for production environments will keep the
  * same logic and follow the same code paths.
- */ var $9c12443e84042152$var$__DEV__ = false;
+ */ var $9c12443e84042152$var$__DEV__ = true;
 var $9c12443e84042152$var$warning = function() {};
 if ($9c12443e84042152$var$__DEV__) {
     var $9c12443e84042152$var$printWarning = function printWarning(format, args) {
@@ -3033,15 +3033,15 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
     render() {
         const _onSnackbarClose = ()=>this._isSnackbarOpen = false;
         return this._isResponding ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <mwc-snackbar
+          <ha-toast
             ?open=${this._isSnackbarOpen}
             labelText=${this._isRestarting ? $c5d85a824175067e$var$tp('restarting') : $c5d85a824175067e$var$tp('error')}
             timeoutMs="-1"  <!-- Persistent until closed -->
             persistent
             @closed=${_onSnackbarClose}
           >
-            ${!this._isRestarting ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<mwc-button slot="action" @click=${this._restart}>${$c5d85a824175067e$var$tp('restart')}</mwc-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-          </mwc-snackbar>
+            ${!this._isRestarting ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${$c5d85a824175067e$var$tp('restart')}</ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          </ha-toast>
         `;
     }
     _resetIsRestarting() {
@@ -10553,27 +10553,31 @@ function $4dbea3927e6cdc74$export$ce5035b7317f6169(loadbalancerEnabled) {
 function $4dbea3927e6cdc74$export$e5b3375ee042fbb7(quasarLoadBalancerLimit) {
     return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
 }
-function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction = true, label = null) {
+function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction = true, label = null, isDisabled = false, testId = null) {
     if (label === null) {
         if (isPrimaryAction) label = hass.localize('ui.common.continue');
         else label = hass.localize('ui.common.back');
     }
     const slot = isPrimaryAction ? 'primaryAction' : 'secondaryAction';
-    const chevronIcon = !isPrimaryAction ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-svg-icon .path=${0, $04557c061247a0a6$export$556b61a2971f3696}></ha-svg-icon> ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    const appearance = isPrimaryAction ? 'filled' : 'outlined';
+    const variant = isPrimaryAction ? 'brand' : 'secondary';
+    const chevronIcon = !isPrimaryAction ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <mwc-button @click=${action} slot=${slot}>
-      ${chevronIcon}${label}
-    </mwc-button>
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small'>
+      ${chevronIcon}
+      ${label}
+    </ha-button>
   `;
 }
 function $4dbea3927e6cdc74$export$403c249a0a70d814() {
     // To replace primaryAction button while busy
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-circular-progress
+    <ha-spinner
+      test-id="progress"
       size="small"
-      indeterminate
       slot='primaryAction'
-    ></ha-circular-progress>
+    ></ha-spinner>
   `;
 }
 function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj, { state: state } = {}) {
@@ -11730,9 +11734,7 @@ class $8be8b3713888253d$var$EditAdministratorSettingsDialog extends (0, $942308f
         ${this._renderError(this._mobileName)}
         ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobilePlatform, mobilePlatformState, (evt)=>this._mobilePlatform = evt.target.value)}
         ${this._renderError(this._mobilePlatform)}
-        <mwc-button @click=${this._save} slot="primaryAction">
-          ${this.hass.localize('ui.common.save')}
-        </mwc-button>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
       </ha-dialog>
     `;
     }
@@ -12117,22 +12119,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
           <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
         `}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-      ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <ha-circular-progress
-              test-id="progress"
-              size="small"
-              indeterminate
-              slot="primaryAction"
-            ></ha-circular-progress>
-          ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <mwc-button
-              test-id="continue"
-              @click=${this._continue}
-              slot="primaryAction"
-            >
-              ${this.hass.localize('ui.common.continue')}
-            </mwc-button>
-          `}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'))}
     `;
     }
     _renderConnectionError() {
@@ -12177,9 +12164,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingReducedMaxPower, useReducedMaxPowerState, (evt)=>this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-      <mwc-button test-id="save" @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
     `;
     }
     _renderReducedMaxPower() {
@@ -12357,13 +12342,7 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
       ${(0, $4dbea3927e6cdc74$export$6989c9d413240856)('au_amber_electric', 'au_amber_electric' === current, callback)}
       <p><strong>${$528a5968cd9760bd$var$tp('gb')}</strong></p>
       ${(0, $4dbea3927e6cdc74$export$6989c9d413240856)('gb_octopus_energy', 'gb_octopus_energy' === current, callback)}
-      <mwc-button
-        @click=${this._continue}
-        ?disabled=${!isSelectionValid}
-        slot="primaryAction"
-      >
-        ${this.hass.localize('ui.common.continue')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'), !isSelectionValid, null)}
     `;
         function filterNLProviders(options) {
             const result = options.filter((option)=>option.startsWith('nl_') && option !== 'nl_generic');
@@ -12391,12 +12370,8 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownConsumptionPriceEntityId, consumptionPriceIdState, consumptionPriceEntityIdChanged)}
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownProductionPriceEntityId, productionPriceIdState, productionPriceEntityIdChanged)}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back')}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
     `;
     }
     _renderOctopusContractDetails() {
@@ -12412,12 +12387,8 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusImportCode, importCodeState, importCodeChanged)}
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusExportCode, exportCodeState, exportCodeChanged)}
       ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back')}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
     `;
     }
     _renderNLContractDetails() {
@@ -12428,12 +12399,9 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${subHeader}></ha-markdown>
       ${this._renderNLGenericContractDetails()}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back')}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
+
     `;
     }
     _renderNLGenericContractDetails() {
@@ -12597,17 +12565,7 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
 
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingOtherServer, fmUseOtherServerState, useOtherServerChanged)}
       ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url") : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-      ${this._isBusyConnecting() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <ha-circular-progress
-              size="small"
-              indeterminate
-              slot="primaryAction"
-            ></ha-circular-progress>
-          ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <mwc-button @click=${this._continue} slot="primaryAction">
-              ${this.hass.localize('ui.common.continue')}
-            </mwc-button>
-          `}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue)}
     `;
     }
     _renderConnectionError() {
@@ -12622,9 +12580,7 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderLoginSuccessful()}
       <ha-alert alert-type="error"> ${$ba2cc41e8ffaff3b$var$tp('no-asset-error')} </ha-alert>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'))}
     `;
     }
     _renderLoginSuccessful() {
@@ -12638,12 +12594,8 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
       ${this._renderLoginSuccessful()}
       <strong>Asset</strong>
       <div>${this._fmAsset}</div>
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
     }
     _renderMultipleAssets() {
@@ -12655,12 +12607,8 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
       <strong>Asset</strong>
       ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._fmAsset, fmAssetState, (evt)=>this._fmAsset = evt.target.value, options)}
       ${this._renderNoAssetSelectedError()}
-      <mwc-button @click=${this._back} slot="secondaryAction">
-        &lt; ${this.hass.localize('ui.common.back')}
-      </mwc-button>
-      <mwc-button @click=${this._save} slot="primaryAction">
-        ${this.hass.localize('ui.common.save')}
-      </mwc-button>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
     }
     _renderNoAssetSelectedError() {
@@ -12785,9 +12733,7 @@ class $967516c80143d3e3$var$EditInputNumberDialog extends (0, $942308f826de48c4$
         ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._value, stateObj, (evt)=>this._value = evt.target.value)}
         ${this._renderInvalidInputAlert(stateObj)}
         <ha-markdown breaks .content=${description}></ha-markdown>
-        <mwc-button @click=${this._save} slot="primaryAction">
-          ${this.hass.localize('ui.common.save')}
-        </mwc-button>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
       </ha-dialog>
     `;
     }
@@ -12874,9 +12820,7 @@ class $7283b140e865221f$var$EditInputNumberDialog extends (0, $942308f826de48c4$
           ${stateObj.attributes.options.map((option)=>(0, $4dbea3927e6cdc74$export$6989c9d413240856)(option, option === this._value, (evt)=>this._value = evt.target.value))}
         </div>
         <ha-markdown breaks .content=${description}></ha-markdown>
-        <mwc-button @click=${this._save} slot="primaryAction">
-          ${this.hass.localize('ui.common.save')}
-        </mwc-button>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
       </ha-dialog>
     `;
     }
@@ -13033,25 +12977,22 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobileName)}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobilePlatform)}
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
       </div>
-    `;
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+      </div>
+      `;
     }
     _renderUninitialisedContent() {
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$37fb422a613a50b6)(this);
+        const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure';
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$ce5bce3a7c4706d2$var$tp('alert')}</ha-alert>
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, labelConfigure)}
       </div>
     `;
     }
@@ -13213,13 +13154,13 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
     _renderUninitialisedContent() {
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$b220f18fecfa2078)(this);
         // One would expect 'configure' to be available as a home assistant ui.common.configure
-        // string, but it is not..
+        // string, but it is not.
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$8b666ded8df00928$var$tp('alert')}</ha-alert>
-        <div class="card-actions">
-          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, (0, $aa1795080f053cd4$export$625550452a3fa3ec)('settings.common.configure'))}
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, (0, $aa1795080f053cd4$export$625550452a3fa3ec)('settings.common.configure'))}
       </div>
     `;
     }
@@ -13230,9 +13171,9 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${content}
-        <div class="card-actions">
-          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, this._hass.localize('ui.common.edit'))}
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
@@ -13332,14 +13273,13 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     }
     _renderUninitialisedContent() {
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$e19f22a93e56ff3b)(this);
+        const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure';
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${$8462057a459186b4$var$tp('alert')}</ha-alert>
-        <div class="card-actions">
-          <mwc-button test-id="configure" @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, labelConfigure)}
       </div>
     `;
     }
@@ -13353,11 +13293,9 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-        <div class="card-actions">
-          <mwc-button test-id="edit" @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
@@ -13474,14 +13412,13 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
     _renderUninitialisedContent() {
         const alert = $31e0aca5546fddf6$var$tp('alert');
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$941ad84dd3f4024)(this);
+        const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure';
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, labelConfigure)}
       </div>
     `;
     }
@@ -13493,20 +13430,20 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
     _renderNLGenericContractDetails() {
         return this._electricityProvider.state === 'nl_generic' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._energyPriceVat, {
+            // @ts-ignore
             state: this._hass.formatEntityState(this._energyPriceVat)
         })}
           ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._energyPriceMarkup, {
+            // @ts-ignore
             state: this._hass.formatEntityState(this._energyPriceMarkup)
         })}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
@@ -13696,14 +13633,13 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
     _renderUninitialisedContent() {
         const alert = $8fab4e1af811a2cc$var$tp('alert');
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$95b8b2b42f3b1e17)(this);
+        const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure';
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <ha-alert alert-type="warning">${alert}</ha-alert>
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, labelConfigure)}
       </div>
     `;
     }
@@ -13720,11 +13656,9 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
               ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmHostUrl)}
             ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAsset)}
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }

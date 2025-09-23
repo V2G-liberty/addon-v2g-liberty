@@ -6,12 +6,12 @@ import math
 from typing import AsyncGenerator, List, Optional
 from datetime import datetime, timedelta
 import isodate
-from notifier_util import Notifier
-from event_bus import EventBus
-from v2g_globals import time_round, he, get_local_now, parse_to_int
-import constants as c
-import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
+from .notifier_util import Notifier
+from .event_bus import EventBus
+from .v2g_globals import time_round, he, get_local_now, parse_to_int
+from . import constants as c
+from .log_wrapper import get_class_method_logger
 
 
 class ChartLine(enum.Enum):
@@ -102,7 +102,7 @@ class V2Gliberty:
         self.hass = hass
         self.notifier = notifier
         self.event_bus = event_bus
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
@@ -493,9 +493,7 @@ class V2Gliberty:
         :param v2g_args: Only for logging/debugging
         :return: Nothing
         """
-        self.__log(
-            f"handle_calendar_change called with {len(v2g_events)} items from '{v2g_args}'."
-        )
+        self.__log(f"called with {len(v2g_events)} items from '{v2g_args}'.")
         await self.__write_events_in_ui_entity(v2g_events=v2g_events)
         await self.__draw_event_in_graph(v2g_events=v2g_events)
 

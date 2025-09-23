@@ -4,15 +4,37 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run V2G-Liberty app",
-      "type": "shell",
-      "command": "python -m appdaemon -c rootfs/root/appdaemon -C appdaemon.devcontainer.yaml -D INFO",
-      "problemMatcher": []
+        "label": "Start V2G-Liberty app",
+        "type": "shell",
+        "command": "python3",
+        "args": [
+            "-m", "appdaemon",
+            "-c", "rootfs/root/appdaemon",
+            "-C", "rootfs/root/appdaemon/appdaemon.devcontainer.yaml",
+            "-D", "INFO"
+        ],
+        "problemMatcher": [],
     },
     {
       "label": "Stop V2G-Liberty app",
       "type": "shell",
-      "command": "kill -9 $(ps -ef | grep \"python -m appdaemon\" | grep -v grep | cut -c 10-17)",
+      "command": "bash",
+      "args": [
+        "-c",
+        "pids=$(lsof -t -i:5050); if [ -n \"$pids\" ]; then kill -TERM $pids; sleep 0.5; kill -KILL $pids 2>/dev/null || true; fi; while lsof -i:5050 >/dev/null 2>&1; do sleep 0.1; done"
+      ],
+      "description": "This task kills any process listening on port 5050 because AppDaemon binds to that port. Using the port ensures we target the correct process even if pkill by name fails."
+    },
+    {
+      "label": "Clean logging",
+      "type": "shell",
+      "command": "rm -f logs/*(N)",
+      "problemMatcher": []
+    },
+    {
+      "label": "Restart V2G Liberty App",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Stop V2G-Liberty app", "Clean logging", "Start V2G-Liberty app"],
       "problemMatcher": []
     },
     {
@@ -22,22 +44,10 @@
       "problemMatcher": []
     },
     {
-      "label": "Clean logging",
-      "type": "shell",
-      "command": "rm -f logs/*",
-      "problemMatcher": []
-    },
-    {
       "label": "pytest",
       "type": "shell",
-      "command": "pytest",
+      "command": "clear && pytest -v",
       "problemMatcher": []
     },
-    {
-      "label": "Restart V2G Liberty App",
-      "dependsOrder": "sequence",
-      "dependsOn": ["Stop V2G-Liberty app", "Clean logging", "Run V2G-Liberty app"],
-      "problemMatcher": []
-    }
   ]
 }

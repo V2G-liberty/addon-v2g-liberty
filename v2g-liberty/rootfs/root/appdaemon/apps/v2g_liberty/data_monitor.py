@@ -3,11 +3,13 @@
 from datetime import datetime, timedelta
 import math
 from typing import List, Union
-import constants as c
-import log_wrapper
-from v2g_globals import get_local_now, time_round, time_ceil
-from event_bus import EventBus
+
 from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .log_wrapper import get_class_method_logger
+from .v2g_globals import get_local_now, time_round, time_ceil
+from .event_bus import EventBus
 
 
 # TODO:
@@ -83,7 +85,7 @@ class DataMonitor:
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
         self.event_bus = event_bus
 
     async def initialize(self):

@@ -3,7 +3,7 @@ from pymodbus.datastore import ModbusServerContext
 from pymodbus.datastore.remote import RemoteSlaveContext
 from pymodbus.server import ModbusTcpServer
 
-from _log_wrapper import get_class_method_logger
+from ._log_wrapper import get_class_method_logger
 
 
 class Tcp2TcpProxyServer:

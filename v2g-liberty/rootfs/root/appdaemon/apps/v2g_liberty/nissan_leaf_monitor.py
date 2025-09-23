@@ -1,10 +1,11 @@
 """Module to monitor Nissan Leaf for strange charging behaviour"""
 
-import constants as c
-from event_bus import EventBus
-from notifier_util import Notifier
-import log_wrapper
 from appdaemon.plugins.hass.hassapi import Hass
+
+from . import constants as c
+from .event_bus import EventBus
+from .notifier_util import Notifier
+from .log_wrapper import get_class_method_logger
 
 
 class NissanLeafMonitor:
@@ -31,7 +32,7 @@ class NissanLeafMonitor:
         self.notifier = notifier
         self.event_bus = event_bus
 
-        self.__log = log_wrapper.get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(hass.log)
 
         self._initialize()
 
@@ -41,7 +42,7 @@ class NissanLeafMonitor:
         self.event_bus.add_event_listener("soc_change", self._handle_soc_change)
         self.__log("Completed initialize")
 
-    def _handle_soc_change(self, new_soc: int, old_soc: int):
+    async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC).
         Assumption:
         soc values are numbers from 1 to 100, but can be "unknow" or None

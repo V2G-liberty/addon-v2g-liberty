@@ -2,7 +2,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderSelectOption } from './util/render';
+import { renderDialogHeader, renderSelectOption, renderButton } from './util/render';
 import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
@@ -49,9 +49,14 @@ class EditInputNumberDialog extends DialogBase {
           )}
         </div>
         <ha-markdown breaks .content=${description}></ha-markdown>
-        <mwc-button @click=${this._save} slot="primaryAction">
-          ${this.hass.localize('ui.common.save')}
-        </mwc-button>
+        ${renderButton(
+          this.hass,
+          this._save,
+          true,
+          this.hass.localize('ui.common.save'),
+          false,
+          'save'
+        )}
       </ha-dialog>
     `;
   }

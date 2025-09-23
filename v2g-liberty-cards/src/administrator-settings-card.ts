@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock } from './util/render';
+import { renderEntityBlock, renderButton } from './util/render';
 import { partial, t } from './util/translate';
 import { styles } from './card.styles';
 import { showAdministratorSettingsDialog } from './show-dialogs';
@@ -45,27 +45,33 @@ export class AdministratorSettingsCard extends LitElement {
         <div class="description">${tp('sub-header')}</div>
         ${renderEntityBlock(this._adminMobileName)}
         ${renderEntityBlock(this._adminMobilePlatform)}
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.edit')}
-          </mwc-button>
-        </div>
       </div>
-    `;
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          this._hass.localize('ui.common.edit')
+        )}
+      </div>
+      `;
   }
 
   private _renderUninitialisedContent() {
     const editCallback = () => showAdministratorSettingsDialog(this);
-
+    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
         <div class="description">${tp('sub-header')}</div>
-        <div class="card-actions">
-          <mwc-button @click=${editCallback}>
-            ${this._hass.localize('ui.common.configure') || 'Configure'}
-          </mwc-button>
-        </div>
+      </div>
+      <div class="card-actions">
+        ${renderButton(
+          this._hass,
+          editCallback,
+          true,
+          labelConfigure
+        )}
       </div>
     `;
   }

@@ -3,8 +3,8 @@ from pyee.base import EventEmitter
 from pymodbus.pdu import ModbusPDU
 from pymodbus.pdu.register_message import WriteSingleRegisterRequest
 
-from _log_wrapper import get_class_method_logger
-from server import Tcp2TcpProxyServer
+from ._log_wrapper import get_class_method_logger
+from .server import Tcp2TcpProxyServer
 
 
 class RegisterAddress(int, enum.Enum):

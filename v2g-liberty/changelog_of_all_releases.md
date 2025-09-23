@@ -3,6 +3,23 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.6.2 2025-09-22
+
+### Fixed
+
+- 🪲 BUG: Appearance of buttons in settings dialogs is broken (#313)
+- 🪲 BUG: Height of SoC % box too high (#301)
+- 🪲 BUG: Text above calendar events has error (#299)
+
+### Added
+
+### Changed
+
+- 🚀 Feature Request: Prepare for dynamic prices per 15 min (#314)
+- ⬆️ Bump AppDaemon to version 4.5 (#278)
+- Change getting prices in octopus_price_data_manager to hourly (#123)
+- ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
+
 ## 0.6.1 2025-06-27
 
 ### Fixed

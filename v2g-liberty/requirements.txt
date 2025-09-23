@@ -1,8 +1,8 @@
-appdaemon==4.4.2
+appdaemon==4.5.11
 isodate==0.6.1
 pymodbus==3.8.5
 caldav==1.4.0
-flexmeasures-client==0.2.4
+flexmeasures-client==0.7.0
 pyee==12.1.1
 
 # Work around for https://github.com/hassio-addons/addon-appdaemon/issues/345
