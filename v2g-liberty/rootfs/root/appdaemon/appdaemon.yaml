@@ -17,6 +17,7 @@ appdaemon:
   plugins:
     HASS:
       type: hass
+      token: !env_var SUPERVISOR_TOKEN
 
 logs:
   main_log:
