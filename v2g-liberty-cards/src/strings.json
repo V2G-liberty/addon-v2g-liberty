@@ -57,6 +57,10 @@
     "restarting": "Connection with V2G Liberty lost. Restarting...",
     "restart": "Restart"
   },
+  "settings-alert-card": {
+    "error": "The settings for V2G Liberty are incomplete or have errors.",
+    "go_to_settings": "Go to settings"
+  },
   "settings": {
     "common": {
       "configure": "Configure"

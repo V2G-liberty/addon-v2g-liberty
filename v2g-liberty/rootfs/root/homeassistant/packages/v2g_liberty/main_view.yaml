@@ -730,3 +730,4 @@
               font-size: 60%;
             }
     - type: custom:v2g-liberty-ping-card
+    - type: custom:v2g-liberty-settings-error-alert-card
