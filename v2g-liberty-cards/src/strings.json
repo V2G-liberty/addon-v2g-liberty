@@ -57,9 +57,19 @@
     "restarting": "Connection with V2G Liberty lost. Restarting...",
     "restart": "Restart"
   },
-  "settings-alert-card": {
-    "error": "The settings for V2G Liberty are incomplete or have errors.",
-    "go_to_settings": "Go to settings"
+  "settings-alert-dialog": {
+    "header": "App not configured correctly",
+    "error": "The app is not configured correctly and probably does not work.",
+    "message": "The following settings are incomplete or have errors:",
+    "cta": "Please go to the settings page and correct all settings.",
+    "go_to_settings": "Go to settings",
+    "entity_names": {
+      "input_boolean.schedule_settings_initialised": "Schedule Settings",
+      "input_boolean.admin_settings_initialised": "Administrator Settings",
+      "input_boolean.calendar_settings_initialised": "Calendar Settings",
+      "input_boolean.electricity_contract_settings_initialised": "Electricity Contract Settings",
+      "input_boolean.charger_settings_initialised": "Charger Settings"
+    }
   },
   "settings": {
     "common": {

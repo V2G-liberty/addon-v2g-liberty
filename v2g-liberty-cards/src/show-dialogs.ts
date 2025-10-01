@@ -5,6 +5,7 @@ import { tagName as editCarReservationCalendarSettingsDialogTag } from './edit-c
 import { tagName as editChargerSettingsDialogTag } from './edit-charger-settings-dialog';
 import { tagName as editElectricityContractSettingsDialogTag } from './edit-electricity-contract-settings-dialog';
 import { tagName as editScheduleSettingsDialogTag } from './edit-schedule-settings-dialog';
+import { tagName as showSettingsErrorAlertDialogTag } from './settings-error-alert-dialog';
 
 import { tagName as editInputNumberDialogTag } from './edit-inputnumer-dialog';
 import { tagName as editInputSelectDialogTag } from './edit-inputselect-dialog';
@@ -12,6 +13,17 @@ import { tagName as editInputSelectDialogTag } from './edit-inputselect-dialog';
 import { t, partial } from './util/translate';
 
 const tp = partial('settings.dialogs');
+
+// --- Show Settings Error Alert ---
+
+export const showSettingsErrorAlertDialog = (element: HTMLElement): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: showSettingsErrorAlertDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams: {},
+  });
+};
+
 
 // --- Administrator Settings ---
 

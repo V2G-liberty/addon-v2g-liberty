@@ -282,7 +282,7 @@ export function renderInputText(
   value: string,
   stateObj: HassEntity,
   changedCallback,
-  validationMessage,
+  validationMessage: string = "Validation error",
   type: string = "text"
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
