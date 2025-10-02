@@ -1,21 +1,14 @@
 # What's changed?
 
-## 0.7.0 2025-09-23
+## 0.7.1 2025-10-??
 
 ### Fixed
-
-- 🪲 BUG: Appearance of buttons in settings dialogs is broken (#313)
-- 🪲 BUG: Height of SoC % box too high (#301)
-- 🪲 BUG: Text above calendar events has error (#299)
 
 ### Added
 
 ### Changed
 
-- 🚀 Feature Request: Prepare for dynamic prices per 15 min (#314)
-- ⬆️ Bump AppDaemon to version 4.5 (#278)
-- Change getting prices in octopus_price_data_manager to hourly (#123)
-- ⬆️ Bump FlexMeasures client to 0.7.0 (#304)
+- 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
 
 &nbsp;
 
