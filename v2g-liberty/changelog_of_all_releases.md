@@ -3,6 +3,16 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.7.1 2025-10-??
+
+### Fixed
+
+### Added
+
+### Changed
+
+- 🛠️ Refactoring: Add commercial license (#331)
+
 ## 0.7.0 2025-09-23
 
 ### Fixed
