@@ -10,6 +10,7 @@ import { showElectricityContractSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.electricity-contract');
+const tc = partial('settings.common');
 
 @customElement('v2g-liberty-electricity-contract-settings-card')
 export class ElectricityContractSettingsCard extends LitElement {
@@ -58,7 +59,6 @@ export class ElectricityContractSettingsCard extends LitElement {
   private _renderUninitialisedContent() {
     const alert = tp('alert');
     const editCallback = () => showElectricityContractSettingsDialog(this);
-    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
 
     return html`
       <div class="card-content">
@@ -69,7 +69,7 @@ export class ElectricityContractSettingsCard extends LitElement {
           this._hass,
           editCallback,
           true,
-          labelConfigure
+          tc('configure')
         )}
       </div>
     `;
