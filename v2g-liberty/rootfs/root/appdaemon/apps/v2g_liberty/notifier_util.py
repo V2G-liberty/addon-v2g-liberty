@@ -2,6 +2,7 @@
 
 from typing import Optional
 from appdaemon.plugins.hass.hassapi import Hass
+from .event_bus import EventBus
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -15,27 +16,93 @@ class Notifier:
 
     """
 
-    # TODO: Discuss if notifications via eventbus might be a good idea?
-    # event_bus: EventBus = None
+    event_bus: EventBus = None
     hass: Hass = None
     recipients: list = []
 
-    # def __init__(self, hass: Hass, event_bus: EventBus):
-
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.__log = get_class_method_logger(hass.log)
 
-        # self.event_bus = event_bus
+        self.event_bus = event_bus
+        # not used yet
         # self.event_bus.add_event_listener("notify_user", self.notify_user)
         # self.event_bus.add_event_listener("clear_notification", self.clear_notification)
 
         # TODO: Add listener to see if any devices are (de-) registered
         # self.hass.listen_event(self.entity_registry_listener, "entity_registry_updated")
 
+        # Fired in UI / custom_card
+        self.hass.listen_event(self._send_test_notification, "send_test_notification")
+
+        # Fired when user clicks a button on an actionable notification
+        self.hass.listen_event(
+            self.__handle_notification_action, event="mobile_app_notification_action"
+        )
+
         # Make __init__() run quick, no need to wait for initialisation
         self.hass.run_in(self._get_recipients, delay=1)
-        self.__log("Completed __init__ Notifier")
+        self.__log("Completed initilisation of Notifier")
+
+    async def __handle_notification_action(self, event_name, data, kwargs):
+        """To be called when the user takes action on a actionable notification.
+
+        :param event_name: always the same: mobile_app_notification_action
+        :param data: holds the action
+        :param kwargs: not used
+        :return: nothing
+        """
+        self.__log(f"Called, event_name: '{event_name}'.")
+
+        action = data["action"]
+
+        if action is None or action == "":
+            self.__log("Aborting: action is empty.")
+            return
+
+        action = action.lower()
+        if action.startswith("reservation"):
+            # User reacted to question to keep or dismiss a reservation.
+            # The notification can be removed for other users.
+            self.clear_notification(tag="dismiss_event_or_not")
+
+            action_parts = str(action).split("~")
+            reservation_action = action_parts[0]
+            hid = action_parts[1]
+            if reservation_action == "reservation_dismiss":
+                dismiss = True
+            elif reservation_action == "reservation_keep":
+                dismiss = False
+            else:
+                self.__log(f"aborting: unknown action: '{reservation_action}'.")
+                return
+
+            await self.event_bus.emit_event(
+                "event_dismissed_status_change", event_hash_id=hid, status=dismiss
+            )
+            # await self.reservations_client.set_event_dismissed_status(
+            #     event_hash_id=hid, status=dismiss
+            # )
+        elif action.startswith("test_notification_confirmation"):
+            self.hass.fire_event("send_test_notification.result")
+            self.__log("test_notification_confirmation")
+
+    async def _send_test_notification(self, event, data, kwargs):
+        user_actions = [
+            {
+                "action": "test_notification_confirmation",
+                "title": data["notificationButtonLabel"],
+            },
+        ]
+        self.notify_user(
+            message=data["notificationMessage"],
+            title=data["notificationTitle"],
+            tag="test_notification",
+            critical=False,
+            send_to_all=False,
+            ttl=None,
+            actions=user_actions,
+        )
 
     async def _get_recipients(self, kwargs):
         # List of all the recipients to notify
@@ -133,9 +200,7 @@ class Notifier:
             notification_data = c.PRIORITY_NOTIFICATION_CONFIG
 
         if send_to_all and not critical:
-            self.__log(
-                f"notify_user: Send to all and not critical! Send to: {to_notify}."
-            )
+            self.__log(f"Send to all and not critical! Send to: {to_notify}.")
             to_notify = self.recipients
 
         if tag:
@@ -161,10 +226,10 @@ class Notifier:
                     self.hass.call_service(service, title=title, message=message)
             except Exception as e:
                 self.__log(
-                    f"notify_user. Could not notify: exception on {recipient}. Exception: {e}."
+                    f"Could not notify: exception on {recipient}. Exception: {e}."
                 )
 
-        if ttl > 0 and tag and not critical:
+        if ttl is not None and ttl > 0 and tag and not critical:
             # Remove the notification after a time-to-live.
             # A tag is required for clearing.
             # Critical notifications should never auto clear.
@@ -227,4 +292,4 @@ class Notifier:
                 notification_id=memo_id,
             )
         except Exception as e:
-            self.__log(f"failed. Exception: '{e}'.", level="WARNING")
+            self.__log(f"Failed. Exception: '{e}'.", level="WARNING")

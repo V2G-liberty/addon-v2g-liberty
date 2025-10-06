@@ -67,6 +67,15 @@
       "sub-header": "High priority notifications get sent to the administrator's mobile device.",
       "error": "Please select an option"
     },
+    "test_notification": {
+      "send-test-notification": "Send a test notification",
+      "notification-title": "Test notification",
+      "notification-message": "This is a test notification, please longpress me to see actions, then click 'Confirm'.",
+      "notification-button-label": "Confirm",
+      "how-to-react-on-mobile-device": "A test notification has been sent to your mobile phone. Long press the notification and a button 'Confim' will show up. Please press that button.",
+      "test-notification-timeout": "The test timed out, Please edit the administrator configuration.",
+      "test-notification-success": "The administrator setup is perfect! Notification received and well handeld."
+    },
     "car": {
       "header": "Car",
       "alert": "Please configure all data elements, V2G Liberty needs this to work."

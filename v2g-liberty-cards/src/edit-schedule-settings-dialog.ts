@@ -173,6 +173,9 @@ class EditScheduleSettingsDialog extends DialogBase {
         this._back,
         false,
         this.hass.localize('ui.common.back'),
+        false,
+        null,
+        true
       )}
     `;
   }
@@ -194,6 +197,9 @@ class EditScheduleSettingsDialog extends DialogBase {
         this._back,
         false,
         this.hass.localize('ui.common.back'),
+        false,
+        null,
+        true
       )}
       ${renderButton(
         this.hass,
@@ -223,6 +229,9 @@ class EditScheduleSettingsDialog extends DialogBase {
         this._back,
         false,
         this.hass.localize('ui.common.back'),
+        false,
+        null,
+        true
       )}
       ${renderButton(
         this.hass,

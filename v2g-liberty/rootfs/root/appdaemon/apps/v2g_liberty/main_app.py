@@ -167,10 +167,6 @@ class V2Gliberty:
             "is_car_connected", self._update_car_connected
         )
 
-        await self.hass.listen_event(
-            self.__handle_user_dismiss_choice, event="mobile_app_notification_action"
-        )
-
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
         self.scheduling_timer_handles = []
@@ -933,37 +929,6 @@ class V2Gliberty:
             ttl=5 * 60,
         )
 
-    async def __handle_user_dismiss_choice(self, event_name, data, kwargs):
-        """To be called when the user takes action on the question to keep or dismiss an event for
-        scheduling.
-
-        :param event_name: not used
-        :param data: holds the action and the identifier of the event
-        :param kwargs: not used
-        :return: nothing
-        """
-        self.__log("Called.")
-
-        # The notification can be removed for other users.
-        self.notifier.clear_notification(tag="dismiss_event_or_not")
-
-        action_parts = str(data["action"]).split("~")
-        action = action_parts[0]
-        hid = action_parts[1]
-        if action == "dismiss_event":
-            dismiss = True
-        elif action == "keep_event":
-            dismiss = False
-        else:
-            self.__log(
-                f"__handle_user_dismiss_choice, aborting: unknown action: '{action}'."
-            )
-            return
-
-        await self.reservations_client.set_event_dismissed_status(
-            event_hash_id=hid, status=dismiss
-        )
-
     ######################################################################
     #               PRIVATE UTILITY METHODS                              #
     ######################################################################
@@ -1378,8 +1343,11 @@ class V2Gliberty:
                 f"What would you like to do?"
             )
             user_actions = [
-                {"action": f"dismiss_event~{hid}", "title": "Dismiss reservation"},
-                {"action": f"keep_event~{hid}", "title": "Keep reservation"},
+                {
+                    "action": f"reservation_dismiss~{hid}",
+                    "title": "Dismiss reservation",
+                },
+                {"action": f"reservation_keep~{hid}", "title": "Keep reservation"},
             ]
             self.notifier.notify_user(
                 message=message,
