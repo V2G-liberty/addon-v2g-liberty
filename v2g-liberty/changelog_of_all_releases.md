@@ -3,6 +3,18 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.7.1 2025-10-??
+
+### Fixed
+
+- 🪲 BUG: Calendare reservations wrongly visualised in chart (#335)
+
+### Added
+
+### Changed
+
+- 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
+
 ## 0.7.0 2025-09-23
 
 ### Fixed

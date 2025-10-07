@@ -1415,6 +1415,9 @@ class V2Gliberty:
                 status = ci.get("dismissed", None)
                 if status is not None and status == True:
                     continue
+
+                # Add to create a gap between ci's in the graph.
+                ci_chart_items.append({"time": ci["start"].isoformat(), "soc": 0})
                 ci_chart_items.append(
                     {"time": ci["start"].isoformat(), "soc": ci["target_soc_percent"]}
                 )
@@ -1422,12 +1425,7 @@ class V2Gliberty:
                     {"time": ci["end"].isoformat(), "soc": ci["target_soc_percent"]}
                 )
                 # Add to create a gap between ci's in the graph.
-                ci_chart_items.append(
-                    {
-                        "time": (ci["end"] + timedelta(minutes=1)).isoformat(),
-                        "soc": None,
-                    }
-                )
+                ci_chart_items.append({"time": ci["end"].isoformat(), "soc": 0})
 
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = f"Calendar item available at {now.isoformat()}."
