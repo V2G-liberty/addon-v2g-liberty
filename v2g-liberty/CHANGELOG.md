@@ -10,6 +10,7 @@
 
 ### Changed
 
+- 🛠️ Refactoring: Add commercial license (#331)
 - 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
 
 &nbsp;
