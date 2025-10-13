@@ -11,7 +11,7 @@ import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.car-reservation-calendar');
-const tc = partial('setting.common');
+const tc = partial('settings.common');
 
 enum CaldavConnectionStatus {
   Connected = 'Successfully connected',
@@ -59,8 +59,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
 
   private _renderUninitialisedContent() {
     const editCallback = () => showCarReservationCalendarSettingsDialog(this);
-    // One would expect 'configure' to be available as a home assistant ui.common.configure
-    // string, but it is not.
+
     return html`
       <div class="card-content">
         <ha-alert alert-type="warning">${tp('alert')}</ha-alert>
@@ -70,7 +69,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
           this._hass,
           editCallback,
           true,
-          t('settings.common.configure')
+          tc('configure')
         )}
       </div>
     `;

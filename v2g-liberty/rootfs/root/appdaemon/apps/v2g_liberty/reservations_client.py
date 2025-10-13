@@ -7,6 +7,7 @@ import caldav
 from pyee.asyncio import AsyncIOEventEmitter
 
 from appdaemon.plugins.hass.hassapi import Hass
+from .event_bus import EventBus
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -33,11 +34,16 @@ class ReservationsClient(AsyncIOEventEmitter):
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
     calender_listener_id: str = ""
+    event_bus: EventBus = None
     hass: Hass = None
 
-    def __init__(self, hass: Hass):
+    def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
+        self.event_bus = event_bus
+        self.event_bus.add_event_listener(
+            "event_dismissed_status_change", self.set_event_dismissed_status
+        )
         self.__log = get_class_method_logger(hass.log)
 
         self.principal = None
