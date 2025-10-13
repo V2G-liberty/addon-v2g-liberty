@@ -6,9 +6,9 @@
 
 ### Added
 
-### Changed
-
 - 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
+
+### Changed
 
 &nbsp;
 

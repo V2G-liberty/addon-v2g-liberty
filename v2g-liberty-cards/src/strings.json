@@ -73,7 +73,8 @@
   },
   "settings": {
     "common": {
-      "configure": "Configure"
+      "configure": "Configure",
+      "validation_error": "Problem with input (not specified)"
     },
     "administrator": {
       "header": "Administrator",

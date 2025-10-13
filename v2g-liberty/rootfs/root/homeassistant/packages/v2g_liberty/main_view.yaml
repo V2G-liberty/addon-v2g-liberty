@@ -732,4 +732,4 @@
 
     - type: custom:v2g-liberty-ping-card
 
-    - type: custom:settings-error-alert-card
+    - type: custom:v2g-liberty-settings-error-alert-card

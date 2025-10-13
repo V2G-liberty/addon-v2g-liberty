@@ -282,11 +282,17 @@ export function renderInputText(
   value: string,
   stateObj: HassEntity,
   changedCallback,
-  validationMessage: string = "Validation error",
+  validationMessage: string = "",
   type: string = "text"
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   // Not happy with fixed height but can't get helper text error to render correctly.
+  if (validationMessage === "") {
+    // Use generic fallback validation message
+    const tp = partial('settings.common');
+    validationMessage = tp("validation_error");
+  }
+
   return html`
     <ha-settings-row style="height: 85px;">
       <span slot="heading">

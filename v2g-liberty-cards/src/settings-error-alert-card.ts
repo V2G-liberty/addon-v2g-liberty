@@ -4,7 +4,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { showSettingsErrorAlertDialog } from './show-dialogs';
 import { hasUninitializedEntities } from './util/settings-error-alert';
 
-@customElement('settings-error-alert-card')
+@customElement('v2g-liberty-settings-error-alert-card')
 export class SettingsErrorAlertCard extends LitElement {
   private _hass: HomeAssistant;
 

@@ -9,9 +9,9 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
-### Changed
-
 - 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
+
+### Changed
 
 ## 0.7.0 2025-09-23
 

@@ -1,10 +1,10 @@
-import { css, html, nothing } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
-import { HomeAssistant, LovelaceCardConfig, navigate } from 'custom-card-helpers';
+import { navigate } from 'custom-card-helpers';
 import { renderDialogHeader, renderButton } from './util/render';
 import { partial } from './util/translate';
-import { DialogBase } from './dialog-base';
 import { renderUninitializedEntitiesList } from './util/settings-error-alert';
+import { DialogBase } from './dialog-base';
 
 export const tagName = 'settings-error-alert-dialog';
 const tp = partial('settings-alert-dialog');
