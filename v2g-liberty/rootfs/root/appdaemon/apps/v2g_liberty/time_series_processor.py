@@ -65,16 +65,27 @@ def weighted_resample_5t(
         Data frame with timeseries of evenly distributed 5 min. intervals with the
         (duration) weighted average value for the intervals. Starting at start_dt ending at end_dt.
     """
-    if df.empty:
+    if df.empty or len(df.index) == 0:
         raise ValueError("df must not be empty")
+    if dt_start.tzinfo is None or dt_end.tzinfo is None:
+        raise ValueError("dt_start and dt_end must be timezone-aware")
+    if df.index.tz is None:
+        raise ValueError("df index must be timezone-aware")
 
+    if dt_start is None or dt_end is None:
+        raise ValueError("dt_start and/or dt_end must not be empty")
+
+    first_date = df.index[0]
     pd_start = pd.Timestamp(dt_start)
     pd_end = pd.Timestamp(dt_end)
-    if df.index.tz != pd_start.tz or df.index.tz != pd_end.tz:
-        raise ValueError(
-            f"dt_start({pd_start.tz}), dt_end ({pd_end.tz}) and df.index ({df.index.tz}) "
-            f"have different timezones"
-        )
+
+    # Get the UTC offsets
+    df_offset = df.index.tz.utcoffset(first_date)
+    start_offset = pd_start.tz.utcoffset(pd_start)
+    end_offset = pd_end.tz.utcoffset(pd_end)
+
+    if df_offset != start_offset or df_offset != end_offset:
+        raise ValueError("Dates must not have different timezone off-sets.")
 
     if not _is_5min_aligned(dt_start) or not _is_5min_aligned(dt_end):
         raise ValueError("dt_start and dt_end must be rounded to 5 minutes")
@@ -92,7 +103,8 @@ def weighted_resample_5t(
     df = df.copy()
     df.sort_index(inplace=True)
 
-    grid = pd.date_range(start=pd_start, end=pd_end, freq="5min", tz=df.index.tz)
+    # grid = pd.date_range(start=pd_start, end=pd_end, freq="5min", tz=df.index.tz)
+    grid = pd.date_range(start=pd_start, end=pd_end, freq="5min")
 
     # Reindex to include grid points
     df_grided = df.reindex(df.index.union(grid))

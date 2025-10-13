@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 import pandas as pd
 from apps.v2g_liberty.time_series_processor import _weighted_avg, weighted_resample_5t
@@ -8,6 +8,11 @@ from apps.v2g_liberty.time_series_processor import _weighted_avg, weighted_resam
 # Helper to create DataFrame with datetime index
 def _make_df(values, start="2025-08-28 14:00:00", freq="1min"):
     index = pd.date_range(start=start, periods=len(values), freq=freq)
+    # Make sure the index is timezone aware and UTC
+    if index.tz is None:
+        index = index.tz_localize("UTC")
+    else:
+        index = index.tz_convert("UTC")
     return pd.DataFrame({"value": values}, index=index)
 
 
@@ -30,45 +35,45 @@ def test_weighted_avg(values, expected):
     else:
         assert pytest.approx(result) == expected
 
-
 def test_weighted_resample_5t_valueerrors():
-    df = _make_df([1, 2, 3])
-
     # 1. Empty df
     empty_df = pd.DataFrame(columns=["value"])
     with pytest.raises(ValueError, match="df must not be empty"):
         weighted_resample_5t(
             empty_df,
-            dt_start=datetime(2025, 8, 28, 14, 0),
-            dt_end=datetime(2025, 8, 28, 14, 5),
+            dt_start=datetime(2025, 8, 28, 14, 0, tzinfo=timezone.utc),
+            dt_end=datetime(2025, 8, 28, 14, 5, tzinfo=timezone.utc),
         )
 
     # 2. dt_end <= dt_start
+    df = _make_df([1, 2, 3])
+
     with pytest.raises(ValueError, match="must be at least 5 min. after"):
         weighted_resample_5t(
             df,
-            dt_start=datetime(2025, 8, 28, 14, 15),
-            dt_end=datetime(2025, 8, 28, 14, 0),
+            dt_start=datetime(2025, 8, 28, 14, 15, tzinfo=timezone.utc),
+            dt_end=datetime(2025, 8, 28, 14, 0, tzinfo=timezone.utc),
         )
 
-    # 3. Timezone mismatch
-    tz_df = df.copy()
-    tz_df.index = tz_df.index.tz_localize("UTC")
-    naive_start = datetime(2025, 8, 28, 14, 0)  # naive datetime
+    # 3. Timezone mismatch (This is the only case where we won't use UTC)
+    tz_df = df.copy()  # _make_df returns timezone aware index.
+    naive_start = datetime(2025, 8, 28, 14, 0)  # naive datetime (no tz)
     naive_end = datetime(2025, 8, 28, 14, 5)
-    with pytest.raises(ValueError, match="have different timezones"):
+
+    # We will now pass a timezone-aware `dt_start`/`dt_end` but with a mismatch:
+    with pytest.raises(ValueError, match="must be timezone-aware"):
         weighted_resample_5t(tz_df, dt_start=naive_start, dt_end=naive_end)
 
     # 4. dt_start or dt_end not 5-min aligned
-    misaligned_start = datetime(2025, 8, 28, 14, 2)
-    aligned_end = datetime(2025, 8, 28, 14, 5)
+    misaligned_start = datetime(2025, 8, 28, 14, 2, tzinfo=timezone.utc)
+    aligned_end = datetime(2025, 8, 28, 14, 5, tzinfo=timezone.utc)
     with pytest.raises(ValueError, match="rounded to 5 minutes"):
         weighted_resample_5t(df, dt_start=misaligned_start, dt_end=aligned_end)
 
     # 5. df.index start (14:00) after dt_end
     df_range = df.copy()
-    start = datetime(2025, 8, 28, 12, 0)
-    end = datetime(2025, 8, 28, 12, 10)
+    start = datetime(2025, 8, 28, 12, 0, tzinfo=timezone.utc)
+    end = datetime(2025, 8, 28, 12, 10, tzinfo=timezone.utc)
     with pytest.raises(ValueError, match="range time series must start before dt_end"):
         weighted_resample_5t(df_range, dt_start=start, dt_end=end)
 
@@ -76,12 +81,15 @@ def test_weighted_resample_5t_valueerrors():
 def test_weighted_resample_5t_simple():
     # Step-change data
     values = [3, 6]
-    index = pd.to_datetime(["2025-08-28 13:58:21", "2025-08-28 14:01:21"])
+    # Localize the index to UTC
+    index = pd.to_datetime(["2025-08-28 13:58:21", "2025-08-28 14:01:21"]).tz_localize(
+        "UTC"
+    )
     df = pd.DataFrame({"value": values}, index=index)
 
-    # Define start and end explicitly (5-min aligned)
-    dt_start = datetime(2025, 8, 28, 14, 0, 0)
-    dt_end = datetime(2025, 8, 28, 14, 5, 0)
+    # Define start and end explicitly (5-min aligned), and make them timezone-aware in UTC
+    dt_start = datetime(2025, 8, 28, 14, 0, 0, tzinfo=timezone.utc)
+    dt_end = datetime(2025, 8, 28, 14, 5, 0, tzinfo=timezone.utc)
 
     result = weighted_resample_5t(df, dt_start=dt_start, dt_end=dt_end)
 

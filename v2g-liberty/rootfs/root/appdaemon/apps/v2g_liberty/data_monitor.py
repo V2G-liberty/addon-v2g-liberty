@@ -9,7 +9,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .v2g_globals import get_local_now, time_round, time_ceil
+from .v2g_globals import get_local_now, time_round, time_ceil, time_floor
 from .event_bus import EventBus
 from .time_series_processor import weighted_resample_5t
 
@@ -211,11 +211,11 @@ class DataMonitor:
     async def _process_power_change(self, new_power: int):
         """Keep track of updated power changes within a regular interval."""
         local_now = get_local_now()
-        duration = int((local_now - self.current_power_since).total_seconds())
-        self.period_power_x_duration += duration * new_power
-        self.power_period_duration += duration
-        self.current_power_since = local_now
-        self.current_power = new_power
+        # duration = int((local_now - self.current_power_since).total_seconds())
+        # self.period_power_x_duration += duration * new_power
+        # self.power_period_duration += duration
+        # self.current_power_since = local_now
+        # self.current_power = new_power
 
         new_row = pd.DataFrame({"value": new_power}, index=[local_now])
         self.power_readings_df = pd.concat([self.power_readings_df, new_row])
@@ -226,7 +226,7 @@ class DataMonitor:
         Called every c.FM_EVENT_RESOLUTION_IN_MINUTES minutes (usually 5 minutes)
         """
 
-        await self._process_power_change(self.current_power)
+        # await self._process_power_change(self.current_power)
         await self.__record_availability(True)
 
         # At initialise there might be an incomplete period,
@@ -287,32 +287,24 @@ class DataMonitor:
         Reset reading list/variables if sending was successful"""
         self.__log("Trying to send data")
 
-        start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
-        end_df = start_from
-        start_df = end_df - timedelta(minutes=self._POST_EVERY_X_MINUTES)
-        try:
-            result_df = weighted_resample_5t(self.power_readings_df, start_df, end_df)
-        except ValueError as ve:
-            self.__log(f"Could not resample, ValueError: '{ve}'.", level="WARNING")
-            return
-        self.__log(f"weighted_resample_5t result:\n{result_df}")
+        rounded_now = time_round(get_local_now(), c.EVENT_RESOLUTION)
 
         res = await self.__post_power_data()
         if res is True:
             self.__log("Power data successfully sent.")
-            self.hourly_power_readings_since = start_from
+            self.hourly_power_readings_since = rounded_now
             self.power_readings.clear()
 
         res = await self.__post_availability_data()
         if res is True:
             self.__log("Availability data successfully sent.")
-            self.hourly_availability_readings_since = start_from
+            self.hourly_availability_readings_since = rounded_now
             self.availability_readings.clear()
 
         res = await self.__post_soc_data()
         if res is True:
             self.__log("SoC data successfully sent")
-            self.hourly_soc_readings_since = start_from
+            self.hourly_soc_readings_since = rounded_now
             self.soc_readings.clear()
 
         return
@@ -355,19 +347,30 @@ class DataMonitor:
         )
         return res
 
-    async def __post_power_data(self, *args, **kwargs):
+    async def __post_power_data(self):
         """Try to Post power readings to FM.
         Return false if un-successful"""
         # If self.power_readings is empty there is nothing to send.
-        if len(self.power_readings) == 0:
-            self.__log("List of power readings is 0 length..", level="WARNING")
+        # if len(self.power_readings) == 0:
+        #     self.__log("List of power readings is 0 length..", level="WARNING")
+        #     return False
+
+        try:
+            result_df = weighted_resample_5t(
+                self.power_readings_df,
+                dt_start=self.hourly_power_readings_since,
+                dt_end=time_floor(get_local_now(), c.EVENT_RESOLUTION),
+            )
+        except ValueError as ve:
+            self.__log(f"Could not resample, ValueError: '{ve}'.", level="WARNING")
             return False
 
-        str_duration = len_to_iso_duration(len(self.power_readings))
+        str_duration = len_to_iso_duration(result_df.size)
+        self.__log(f"powers:{result_df}\nduration: {str_duration}\n")
 
         res = await self.fm_client_app.post_measurements(
             sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
-            values=self.power_readings,
+            values=result_df["value"].tolist(),
             start=self.hourly_power_readings_since.isoformat(),
             duration=str_duration,
             uom="MW",
