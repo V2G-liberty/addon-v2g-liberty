@@ -11,10 +11,11 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
+- 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
+
 ### Changed
 
 - 🛠️ Refactoring: Add commercial license (#331)
-- 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
 
 ## 0.7.0 2025-09-23
 
