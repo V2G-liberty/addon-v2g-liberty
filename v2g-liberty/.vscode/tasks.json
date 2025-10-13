@@ -28,7 +28,7 @@
     {
       "label": "Clean logging",
       "type": "shell",
-      "command": "rm -f logs/*(N)",
+      "command": "clear && rm -f logs/*(N)",
       "problemMatcher": []
     },
     {

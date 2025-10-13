@@ -20,13 +20,13 @@ class V2GLibertyApp(Hass):
     async def initialize(self):
         event_bus = EventBus(self)
         ha_ui_manager = HAUIManager(self, event_bus=event_bus)
-        notifier = Notifier(self)
+        notifier = Notifier(self, event_bus=event_bus)
         v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
         modbus_evse_client = ModbusEVSEclient(
             self, event_bus=event_bus, notifier=notifier
         )
         fm_client = FMClient(self, event_bus=event_bus)
-        reservations_client = ReservationsClient(self)
+        reservations_client = ReservationsClient(self, event_bus=event_bus)
         main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
         data_monitor = DataMonitor(self, event_bus=event_bus)
         nissan_leaf_monitor = NissanLeafMonitor(

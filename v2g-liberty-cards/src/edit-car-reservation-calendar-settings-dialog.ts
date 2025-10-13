@@ -199,7 +199,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         "password"
       )}
       ${this._renderConnectionError()}
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${this._isBusyConnecting()
         ? renderSpinner()
         : renderButton(this.hass, this._continueCaldav)
@@ -233,7 +233,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     return html`
       ${this._renderLoginSuccessful()}
       <ha-alert alert-type="error">${tp('caldav.error')}</ha-alert>
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
     `;
   }
   private _renderLoginSuccessful() {
@@ -253,7 +253,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       <strong>Calendar name</strong>
       <div>${this._carCalendarName}</div>
 
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${renderButton(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
   }
@@ -271,7 +271,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         evt => (this._carCalendarName = evt.target.value),
         this._caldavCalendars
     )}
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${renderButton(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
   }
@@ -288,7 +288,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
   private _renderHomeAssistantNoCalendar() {
     return html`
       <ha-alert alert-type="error"> ${tp('homeassistant.error')} </ha-alert>
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
     `;
   }
 
@@ -300,7 +300,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
     return html`
       <strong>Calendar name</strong>
       <div>${entity.attributes.friendly_name}</div>
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${renderButton(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
   }
@@ -330,7 +330,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         callback,
         options
       )}
-      ${renderButton(this.hass, this._backToSourceSelection, false)}
+      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${renderButton(this.hass, this._save, true, this.hass.localize('ui.common.save'))}
     `;
   }

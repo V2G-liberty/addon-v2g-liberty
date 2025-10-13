@@ -32,7 +32,8 @@ export function renderButton(
   isPrimaryAction: boolean = true,
   label: string = null,
   isDisabled: boolean = false,
-  testId: string = null
+  testId: string = null,
+  isBackButton: boolean = false
 ) {
   if (label === null) {
     if (isPrimaryAction) {
@@ -50,7 +51,7 @@ export function renderButton(
   const variant = isPrimaryAction
     ? 'brand'
     : 'secondary'
-  const chevronIcon = !isPrimaryAction
+  const chevronIcon = isBackButton
     ? html`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>`
     : nothing;
 
@@ -69,7 +70,6 @@ export function renderButton(
 }
 
 export function renderSpinner() {
-  // To replace primaryAction button while busy
   return html`
     <ha-spinner
       test-id="progress"
