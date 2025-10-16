@@ -581,13 +581,9 @@ class V2Gliberty:
             attempt = kwargs.get("attempt", 0) + 1
             if attempt == 5:
                 self.__log(
-                    "Failed to log_version after 5 attempts, aborting.", level="WARNING"
+                    "Failed to log_version to FM after 5 attempts, aborting.", level="WARNING"
                 )
                 return
-            self.__log(
-                f"Attempt {attempt} to log_version failed, retrying in 15 sec.",
-                level="WARNING",
-            )
             await self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
 
     async def __handle_car_connect(self):
@@ -607,6 +603,9 @@ class V2Gliberty:
         """
         # Reset any possible target for discharge due to SoC > max-soc
         self.back_to_max_soc = None
+
+        # Just to be sure, this also is done when disconnect ir requested
+        self.in_boost_to_reach_min_soc = False
 
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
@@ -919,6 +918,11 @@ class V2Gliberty:
         """
         self.__log("charger disconnect requested")
         await self.__reset_no_new_schedule()
+
+        # When disconnection during boost_to_reach_min_soc this needsa to be reset to allow
+        # reactivating this mode when car does not get disconnected.
+        # This also is set when car is actually disconnected
+        self.in_boost_to_reach_min_soc = False
 
         await self.evse_client_app.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
