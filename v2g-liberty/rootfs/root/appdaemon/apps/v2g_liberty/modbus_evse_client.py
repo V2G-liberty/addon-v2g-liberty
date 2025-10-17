@@ -643,7 +643,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
-            # When disconnected the SoC of the car is unavailable.
+            # When disconnected the SoC of the car goes from cur soc to unavailable.
             await self.__update_evse_entity(
                 evse_entity=self.ENTITY_CAR_SOC, new_value="unavailable"
             )

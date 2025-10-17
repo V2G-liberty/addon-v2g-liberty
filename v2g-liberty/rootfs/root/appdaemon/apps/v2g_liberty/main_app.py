@@ -280,8 +280,7 @@ class V2Gliberty:
                 # Cancel previous scheduling timers as they might have discharging instructions
                 # as well.
                 self.__log(
-                    f"set_next_action | start Boost charge as soc {soc} is "
-                    f"below minimum '{c.CAR_MIN_SOC_IN_PERCENT}'."
+                    f"Start Boost charge: SoC '{soc}%' < minimum '{c.CAR_MIN_SOC_IN_PERCENT}%'."
                 )
                 self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
@@ -852,6 +851,10 @@ class V2Gliberty:
         old_state = old.get("state", None)
         self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
+        if old_state == "Automatic":
+            self.__log("Cancel scheduled charging (timers).")
+            self.__cancel_charging_timers()
+
         if (
             old_state in ["Max boost now", "Max discharge now"]
             and new_state == "Automatic"
@@ -864,12 +867,6 @@ class V2Gliberty:
                     "source": "Reset for 'Max boost now' to 'Automatic'",
                 }
             )
-        if old_state == "Automatic":
-            self.__log(
-                "Charge mode changed from Automatic to Max boost now, "
-                "cancel timer and start charging."
-            )
-            self.__cancel_charging_timers()
 
         if old_state != "Stop" and new_state == "Stop":
             # New mode "Stop" is handled by set_next_action
@@ -1259,6 +1256,7 @@ class V2Gliberty:
                 "source": "__start_max_discharge_now",
             }
         )
+        self.log("Started")
 
     async def __start_max_charge_now(self):
         # TODO: Check if .set_active() is really a good idea here?
@@ -1270,6 +1268,7 @@ class V2Gliberty:
                 "source": "__start_max_charge_now",
             }
         )
+        self.log("Started")
 
     ######################################################################
     #              PRIVATE METHODS FOR CALENDAR RESERVATIONS             #
