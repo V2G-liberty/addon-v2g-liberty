@@ -79,6 +79,22 @@ class HAUIManager:
 
     async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
+        if new_soc == "unavailable" or old_soc == "unavailable":
+
+            # We want a realistic gap in the SoC chart-line for "unavailable" time-slots (Ⓑ to Ⓒ):
+            #
+            # -----ⒶⒷ
+            #                ⒸⒹ------
+            #
+            # ~~~~~~~~~~~~~~~~~~~~~~~~ x-axis SoC = 0
+            #
+            # To do this we set old_soc int value at Ⓐ or old_soc "unavailable" at Ⓒ,
+            # the new values are set an instant later at Ⓑ ("unavailable") or Ⓓ (an int value).
+
+            await self.__update_ha_entity(
+                entity_id="sensor.car_state_of_charge", new_value=old_soc
+            )
+
         await self.__update_ha_entity(
             entity_id="sensor.car_state_of_charge", new_value=new_soc
         )
