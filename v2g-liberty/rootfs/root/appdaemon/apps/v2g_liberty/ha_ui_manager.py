@@ -94,6 +94,7 @@ class HAUIManager:
             await self.__update_ha_entity(
                 entity_id="sensor.car_state_of_charge", new_value=old_soc
             )
+            self.__log(f"'Edge SoC' with new_soc: '{new_soc}', old_soc: '{old_soc}'.")
 
         await self.__update_ha_entity(
             entity_id="sensor.car_state_of_charge", new_value=new_soc
