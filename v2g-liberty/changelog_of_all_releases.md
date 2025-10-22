@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Forced charge not always working (#337)
 - 🪲 BUG: Calendare reservations wrongly visualised in chart (#335)
 
 ### Added

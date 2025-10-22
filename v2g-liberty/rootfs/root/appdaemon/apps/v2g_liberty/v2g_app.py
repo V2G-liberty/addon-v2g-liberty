@@ -14,10 +14,12 @@ from .get_fm_data import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .nissan_leaf_monitor import NissanLeafMonitor
+from datetime import datetime
 
 
 class V2GLibertyApp(Hass):
     async def initialize(self):
+        start = datetime.now()
         event_bus = EventBus(self)
         ha_ui_manager = HAUIManager(self, event_bus=event_bus)
         notifier = Notifier(self, event_bus=event_bus)
@@ -74,3 +76,10 @@ class V2GLibertyApp(Hass):
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")
 
         await get_fm_data.initialize()
+
+        now = datetime.now()
+        delta = now - start
+        hours, remainder = divmod(delta.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        time_diff = f"{delta.days * 24 + hours}:{minutes:02d}:{seconds:02d}"
+        print(f"[{now.isoformat(sep=' ')}] V2GLibertyApp initialised in {time_diff}.")
