@@ -851,6 +851,8 @@ class V2Gliberty:
         old_state = old.get("state", None)
         self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
+        await self.__clear_all_soc_chart_lines()
+
         if old_state == "Automatic":
             self.__log("Cancel scheduled charging (timers).")
             self.__cancel_charging_timers()
@@ -873,7 +875,6 @@ class V2Gliberty:
             self.__log(
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
-            await self.__clear_all_soc_chart_lines()
             self.in_boost_to_reach_min_soc = False
             await self.evse_client_app.set_inactive()
             # For monitoring
@@ -1256,7 +1257,6 @@ class V2Gliberty:
                 "source": "__start_max_discharge_now",
             }
         )
-        self.log("Started")
 
     async def __start_max_charge_now(self):
         # TODO: Check if .set_active() is really a good idea here?
@@ -1268,7 +1268,6 @@ class V2Gliberty:
                 "source": "__start_max_charge_now",
             }
         )
-        self.log("Started")
 
     ######################################################################
     #              PRIVATE METHODS FOR CALENDAR RESERVATIONS             #
