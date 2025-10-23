@@ -14,6 +14,7 @@
 
 ### Changed
 
+- 🛠️ Refactoring: Integrate none-released-version 0.6.2 changes to octopus_price-data_manager module (#344)
 - 🛠️ Refactoring: Add commercial license (#331)
 
 &nbsp;
