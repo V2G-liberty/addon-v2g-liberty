@@ -3,15 +3,16 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.7.1 2025-10-??
+## 0.7.1 2025-10-28
 
 ### Fixed
 
 - 🪲 BUG: Forced charge not always working (#337)
-- 🪲 BUG: Calendare reservations wrongly visualised in chart (#335)
+- 🪲 BUG: Calendar reservations wrongly visualised in chart (#335)
 
 ### Added
 
+- 🚀 Feature Request: Add "sent test notification" to admin dialog (#333)
 - 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
 
 ### Changed
