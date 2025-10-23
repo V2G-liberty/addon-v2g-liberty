@@ -153,27 +153,20 @@ This repository is created by Ard Jonker, [Seita B.V.](https://github.com/seitab
 
 ## License
 
-Apache 2.0 License
+This project is available under two licenses:
 
-Copyright (c) 2021 - 2024 Ard Jonker
+- AGPL-3.0 (Open Source): Free for open source and non-commercial use. See the LICENSE.md file for details.
+- Commercial License: Required for proprietary or closed-source use. See the COMMERCIAL_LICENSE.md file for terms and conditions.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Which license applies to you?
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Use the AGPL-3.0 if you are an open source project or individual developer.
+If you intend to **use V2G Liberty for commercial purposes**, you must obtain a commercial license from the copyright holder.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+For commercial licensing inquiries, please contact us. Contact details can be found in the COMMERCIAL_LICENSE.md.
+
+
+### Third-Party Open Source Components
 
 The V2G Liberty add-on is based upon the AppDaemon add-on by Franck Nijhof:
 
