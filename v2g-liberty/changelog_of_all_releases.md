@@ -17,6 +17,7 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- 🛠️ Refactoring: Integrate none-released-version 0.6.2 changes to octopus_price-data_manager module (#344)
 - 🛠️ Refactoring: Add commercial license (#331)
 
 ## 0.7.0 2025-09-23
