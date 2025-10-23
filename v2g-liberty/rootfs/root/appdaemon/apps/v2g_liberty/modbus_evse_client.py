@@ -686,30 +686,27 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         Returns:
             nothing
         """
-        if reason != "":
-            reason = f" Reason for action: '{reason}'."
+        self.__log(f"Called with action '{action}', reason: '{reason}'.")
 
         if not self._am_i_active:
             self.__log("called while _am_i_active == False. Not blocking.")
 
         action_value = ""
-        if not await self.is_car_connected():
-            self.__log(
-                f"Not performing charger action '{action}': No car connected.{reason}"
-            )
-            return False
 
         if action == "start":
+            if not await self.is_car_connected():
+                self.__log("Not performing charger action 'start': No car connected.")
+                return
             if await self.__is_charging_or_discharging():
-                self.__log(
-                    f"Not performing charger action 'start': already charging.{reason}"
-                )
-                return True
+                self.__log("Not performing charger action 'start': Already charging.")
+                return
             action_value = self.ACTIONS["start_charging"]
+
         elif action == "stop":
             # Stop needs to be very reliable, so we always perform this action, even if currently
             # not charging.
             action_value = self.ACTIONS["stop_charging"]
+
         else:
             # Restart not implemented
             self.__log(
