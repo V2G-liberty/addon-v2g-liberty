@@ -856,6 +856,7 @@ class V2Gliberty:
         if old_state == "Automatic":
             self.__log("Cancel scheduled charging (timers).")
             self.__cancel_charging_timers()
+            await self.__reset_no_new_schedule()
 
         if (
             old_state in ["Max boost now", "Max discharge now"]
@@ -950,11 +951,10 @@ class V2Gliberty:
 
     async def __reset_no_new_schedule(self):
         """Sets all errors to False and removes notification / UI messages
-
-        To be used when the car gets disconnected, so that while it stays in this state there is no
+        To be used when:
+        - The car gets disconnected, so that while it stays in this state there is no
         unneeded "alarming" message/notification.
-        Also, when the car returns with an SoC below the minimum no new schedule is retrieved and
-        in that case the message / notification would remain without a need.
+        - Chargemode is no longer "Automatic": then no schedules are fetched.
         """
 
         for error_name in self.no_schedule_errors:

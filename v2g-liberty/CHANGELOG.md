@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: The "No new schedules available" message in the UI remains even if no car connected (#24)
 - 🪲 BUG: Forced charge not always working (#337)
 - 🪲 BUG: Calendar reservations wrongly visualised in chart (#335)
 
