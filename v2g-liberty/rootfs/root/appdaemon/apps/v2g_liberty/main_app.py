@@ -558,7 +558,7 @@ class V2Gliberty:
     ######################################################################
 
     async def _update_car_connected(self, is_car_connected: bool):
-        self.__log(f"Acting on conneted stae of car: {is_car_connected}.")
+        self.__log(f"Acting on conneted state of car: {is_car_connected}.")
         if is_car_connected:
             await self.__handle_car_connect()
         else:

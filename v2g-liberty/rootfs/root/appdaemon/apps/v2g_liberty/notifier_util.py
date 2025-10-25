@@ -40,8 +40,7 @@ class Notifier:
             self.__handle_notification_action, event="mobile_app_notification_action"
         )
 
-        # Make __init__() run quick, no need to wait for initialisation
-        self.hass.run_in(self._get_recipients, delay=1)
+        self._get_recipients()
         self.__log("Completed initilisation of Notifier")
 
     async def __handle_notification_action(self, event_name, data, kwargs):
@@ -80,9 +79,6 @@ class Notifier:
             await self.event_bus.emit_event(
                 "event_dismissed_status_change", event_hash_id=hid, status=dismiss
             )
-            # await self.reservations_client.set_event_dismissed_status(
-            #     event_hash_id=hid, status=dismiss
-            # )
         elif action.startswith("test_notification_confirmation"):
             self.hass.fire_event("send_test_notification.result")
             self.__log("test_notification_confirmation")
@@ -104,7 +100,7 @@ class Notifier:
             actions=user_actions,
         )
 
-    async def _get_recipients(self, kwargs):
+    def _get_recipients(self):
         # List of all the recipients to notify
         # Warn user about bad config with sticky memo in UI.
 
@@ -180,7 +176,7 @@ class Notifier:
                 A list of dicts with action and title stings. Defaults to None.
         """
 
-        if c.ADMIN_MOBILE_NAME == "" and not self.recipients:
+        if c.ADMIN_MOBILE_NAME == "" or not self.recipients:
             self.__log(
                 "No registered devices to notify, cancel notification.", level="WARNING"
             )

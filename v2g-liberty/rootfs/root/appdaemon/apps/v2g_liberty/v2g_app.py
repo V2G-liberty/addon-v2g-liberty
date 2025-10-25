@@ -14,6 +14,7 @@ from .get_fm_data import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .nissan_leaf_monitor import NissanLeafMonitor
+from.monitor_pause_at_reconnect import MonitorPauseAtReconnect
 from datetime import datetime
 
 class V2GLibertyApp(Hass):
@@ -60,6 +61,10 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         nissan_leaf_monitor = NissanLeafMonitor(self, event_bus=event_bus, notifier=notifier)
         self._log_init_time("NissanLeafMonitor", start_module)
+
+        start_module = datetime.now()
+        pause_at_reconnect = MonitorPauseAtReconnect(self, event_bus=event_bus, notifier=notifier)
+        self._log_init_time("MonitorPauseAtReconnect", start_module)
 
         start_module = datetime.now()
         get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
