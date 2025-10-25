@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: No realisation available in UI due to no data sent to FM (#349)
 - 🪲 BUG: Car starts charging after reconnect while charge mode is 'Paused'(#347)
 - 🪲 BUG: The "No new schedules available" message in the UI remains even if no car connected (#24)
 - 🪲 BUG: Forced charge not always working (#337)
@@ -12,7 +13,7 @@
 ### Added
 
 - 🚀 Feature Request: Add "sent test notification" to admin dialog (#333)
-- 🚀 Feature Request: Add notification on mainscreen if settings are incompleet/incorrect (#324)
+- 🚀 Feature Request: Add notification on main screen if settings are incompleet/incorrect (#324)
 
 ### Changed
 

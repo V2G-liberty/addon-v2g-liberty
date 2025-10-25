@@ -119,6 +119,10 @@ class V2GLibertyApp(Hass):
         await get_fm_data.initialize()
         self._log_init_time("get_fm_data.initialize()", start_module)
 
+        start_module = datetime.now()
+        await data_monitor.initialize()
+        self._log_init_time("data_monitor()", start_module)
+
         self._log_init_time("V2GLibertyApp (total)", start_app, True)
 
     def _log_init_time(self, name: str, start: datetime, forced: bool = False):
