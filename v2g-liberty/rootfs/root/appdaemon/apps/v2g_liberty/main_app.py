@@ -45,7 +45,8 @@ class V2Gliberty:
     # CONSTANTS
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
-
+    RESERVATION_ACTION_DISMISS:str = "dismiss"
+    RESERVATION_ACTION_KEEP:str = "keep"
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
     # timer_id's for reminders at start/end of the first/current event.
@@ -167,10 +168,6 @@ class V2Gliberty:
             "is_car_connected", self._update_car_connected
         )
 
-        await self.hass.listen_event(
-            self.__handle_user_dismiss_choice, event="mobile_app_notification_action"
-        )
-
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
         self.scheduling_timer_handles = []
@@ -284,8 +281,7 @@ class V2Gliberty:
                 # Cancel previous scheduling timers as they might have discharging instructions
                 # as well.
                 self.__log(
-                    f"set_next_action | start Boost charge as soc {soc} is "
-                    f"below minimum '{c.CAR_MIN_SOC_IN_PERCENT}'."
+                    f"Start Boost charge: SoC '{soc}%' < minimum '{c.CAR_MIN_SOC_IN_PERCENT}%'."
                 )
                 self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
@@ -562,13 +558,6 @@ class V2Gliberty:
     #                         PRIVATE METHODS                            #
     ######################################################################
 
-    async def _update_car_connected(self, is_car_connected: bool):
-        self.__log(f"Acting on conneted stae of car: {is_car_connected}.")
-        if is_car_connected:
-            await self.__handle_car_connect()
-        else:
-            await self.__handle_car_disconnect()
-
     async def __log_version(self, kwargs):
         """
         Log version, to be called at initialisation and retried if log_version fails.
@@ -585,14 +574,17 @@ class V2Gliberty:
             attempt = kwargs.get("attempt", 0) + 1
             if attempt == 5:
                 self.__log(
-                    "Failed to log_version after 5 attempts, aborting.", level="WARNING"
+                    "Failed to log_version to FM after 5 attempts, aborting.", level="WARNING"
                 )
                 return
-            self.__log(
-                f"Attempt {attempt} to log_version failed, retrying in 15 sec.",
-                level="WARNING",
-            )
             await self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
+
+    async def _update_car_connected(self, is_car_connected: bool):
+        self.__log(f"Acting on conneted state of car: {is_car_connected}.")
+        if is_car_connected:
+            await self.__handle_car_connect()
+        else:
+            await self.__handle_car_disconnect()
 
     async def __handle_car_connect(self):
         """
@@ -612,6 +604,9 @@ class V2Gliberty:
         # Reset any possible target for discharge due to SoC > max-soc
         self.back_to_max_soc = None
 
+        # Just to be sure, this also is done when disconnect ir requested
+        self.in_boost_to_reach_min_soc = False
+
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
         self.notifier.clear_notification(tag="dismiss_event_or_not")
@@ -623,10 +618,10 @@ class V2Gliberty:
 
         # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
         charge_mode = await self.hass.get_state("input_select.charge_mode", None)
-        if charge_mode == "Max boost now":
+        if charge_mode == "Max boost now" or charge_mode == "Max discharge now":
             await self.__set_charge_mode_in_ui("Automatic")
             self.notifier.notify_user(
-                message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
+                message=f"Charge mode set from '{charge_mode}' to 'Automatic' as car is disconnected.",
                 title=None,
                 tag="charge_mode_change",
                 critical=False,
@@ -857,6 +852,13 @@ class V2Gliberty:
         old_state = old.get("state", None)
         self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
+        await self.__clear_all_soc_chart_lines()
+
+        if old_state == "Automatic":
+            self.__log("Cancel scheduled charging (timers).")
+            self.__cancel_charging_timers()
+            await self.__reset_no_new_schedule()
+
         if (
             old_state in ["Max boost now", "Max discharge now"]
             and new_state == "Automatic"
@@ -869,19 +871,12 @@ class V2Gliberty:
                     "source": "Reset for 'Max boost now' to 'Automatic'",
                 }
             )
-        if old_state == "Automatic":
-            self.__log(
-                "Charge mode changed from Automatic to Max boost now, "
-                "cancel timer and start charging."
-            )
-            self.__cancel_charging_timers()
 
         if old_state != "Stop" and new_state == "Stop":
             # New mode "Stop" is handled by set_next_action
             self.__log(
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
-            await self.__clear_all_soc_chart_lines()
             self.in_boost_to_reach_min_soc = False
             await self.evse_client_app.set_inactive()
             # For monitoring
@@ -924,6 +919,11 @@ class V2Gliberty:
         self.__log("charger disconnect requested")
         await self.__reset_no_new_schedule()
 
+        # When disconnection during boost_to_reach_min_soc this needsa to be reset to allow
+        # reactivating this mode when car does not get disconnected.
+        # This also is set when car is actually disconnected
+        self.in_boost_to_reach_min_soc = False
+
         await self.evse_client_app.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
         self.notifier.notify_user(
@@ -931,37 +931,6 @@ class V2Gliberty:
             tag="charger_disconnected",
             send_to_all=True,
             ttl=5 * 60,
-        )
-
-    async def __handle_user_dismiss_choice(self, event_name, data, kwargs):
-        """To be called when the user takes action on the question to keep or dismiss an event for
-        scheduling.
-
-        :param event_name: not used
-        :param data: holds the action and the identifier of the event
-        :param kwargs: not used
-        :return: nothing
-        """
-        self.__log("Called.")
-
-        # The notification can be removed for other users.
-        self.notifier.clear_notification(tag="dismiss_event_or_not")
-
-        action_parts = str(data["action"]).split("~")
-        action = action_parts[0]
-        hid = action_parts[1]
-        if action == "dismiss_event":
-            dismiss = True
-        elif action == "keep_event":
-            dismiss = False
-        else:
-            self.__log(
-                f"__handle_user_dismiss_choice, aborting: unknown action: '{action}'."
-            )
-            return
-
-        await self.reservations_client.set_event_dismissed_status(
-            event_hash_id=hid, status=dismiss
         )
 
     ######################################################################
@@ -983,11 +952,10 @@ class V2Gliberty:
 
     async def __reset_no_new_schedule(self):
         """Sets all errors to False and removes notification / UI messages
-
-        To be used when the car gets disconnected, so that while it stays in this state there is no
+        To be used when:
+        - The car gets disconnected, so that while it stays in this state there is no
         unneeded "alarming" message/notification.
-        Also, when the car returns with an SoC below the minimum no new schedule is retrieved and
-        in that case the message / notification would remain without a need.
+        - Chargemode is no longer "Automatic": then no schedules are fetched.
         """
 
         for error_name in self.no_schedule_errors:
@@ -1333,7 +1301,7 @@ class V2Gliberty:
             start=run_at,
             v2g_event=v2g_event,
         )
-        self.__log("__ask_user_dismiss_event_or_not is set.")
+        self.__log(f"__ask_user_dismiss_event_or_not is set to run at {run_at.isoformat}.")
 
     async def __handle_first_reservation_end(self, v2g_args: str = ""):
         # To prevent the call to __remind_user_to_connect_after_event() being cancelled due to
@@ -1353,12 +1321,12 @@ class V2Gliberty:
             await self.hass.run_at(
                 callback=self.__remind_user_to_connect_after_event,
                 start=run_at,
-                v2g_args=f"even {self.MAX_EVENT_WAIT_TO_DISCONNECT} sec. after event car still not connected",
+                v2g_args=f"after {self.MAX_EVENT_WAIT_TO_DISCONNECT}s event-start car still not connected",
             )
 
     async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
         self.__log(
-            f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}."
+            f"called with v2g_event: {v2g_event}."
         )
 
         v2g_event = v2g_event["v2g_event"]
@@ -1367,9 +1335,9 @@ class V2Gliberty:
                 filter(None, [v2g_event["summary"], v2g_event["description"]])
             )
             if len(identification) > 25:
-                identification = identification[0:25] + "..."
+                identification = identification[0:25] + "…"
             self.__log(
-                f"__ask_user_dismiss_event_or_not, event_title: {identification}."
+                f"event_title: {identification}."
             )
             # Will be cancelled when car gets disconnected.
             hid = v2g_event["hash_id"]
@@ -1378,8 +1346,11 @@ class V2Gliberty:
                 f"What would you like to do?"
             )
             user_actions = [
-                {"action": f"dismiss_event~{hid}", "title": "Dismiss reservation"},
-                {"action": f"keep_event~{hid}", "title": "Keep reservation"},
+                {
+                    "action": f"{self.RESERVATION_ACTION_DISMISS}+{hid}",
+                    "title": "Dismiss reservation",
+                },
+                {"action": f"{self.RESERVATION_ACTION_KEEP}+{hid}", "title": "Keep reservation"},
             ]
             self.notifier.notify_user(
                 message=message,
@@ -1387,12 +1358,32 @@ class V2Gliberty:
                 tag="dismiss_event_or_not",
                 send_to_all=True,
                 actions=user_actions,
+                callback=self._cb_ask_user__dismiss_event_or_not,
             )
         else:
             self.__log(
                 f"__ask_user_dismiss_event_or_not, unexpected call for event with "
                 f"hash_id {v2g_event['hash_id']} as car is already disconnected."
             )
+
+    async def _cb_ask_user__dismiss_event_or_not(self, user_action):
+        self.__log(f"user_action: '{user_action}'.")
+        self.notifier.clear_notification(tag="dismiss_event_or_not")
+
+        # User reacted to question to keep or dismiss a reservation.
+        # The notification can be removed for other users.
+        action_parts = str(user_action).split("+")
+        reservation_action = action_parts[0]
+        hid = action_parts[1]
+        if reservation_action == self.RESERVATION_ACTION_DISMISS:
+            dismiss = True
+        elif reservation_action == self.RESERVATION_ACTION_KEEP:
+            dismiss = False
+        else:
+            self.__log(f"aborting: unknown action: '{reservation_action}'.")
+            return
+
+        await self.reservations_client.set_event_dismissed_status(event_hash_id=hid, status=dismiss)
 
     async def __remind_user_to_connect_after_event(self, v2g_args: str = ""):
         # Only to be called from __handle_first_reservation_end().
@@ -1447,6 +1438,9 @@ class V2Gliberty:
                 status = ci.get("dismissed", None)
                 if status is not None and status == True:
                     continue
+
+                # Add to create a gap between ci's in the graph.
+                ci_chart_items.append({"time": ci["start"].isoformat(), "soc": 0})
                 ci_chart_items.append(
                     {"time": ci["start"].isoformat(), "soc": ci["target_soc_percent"]}
                 )
@@ -1454,12 +1448,7 @@ class V2Gliberty:
                     {"time": ci["end"].isoformat(), "soc": ci["target_soc_percent"]}
                 )
                 # Add to create a gap between ci's in the graph.
-                ci_chart_items.append(
-                    {
-                        "time": (ci["end"] + timedelta(minutes=1)).isoformat(),
-                        "soc": None,
-                    }
-                )
+                ci_chart_items.append({"time": ci["end"].isoformat(), "soc": 0})
 
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = f"Calendar item available at {now.isoformat()}."
@@ -1480,17 +1469,14 @@ class V2Gliberty:
             # Used when car gets disconnected and ChargeMode was MaxBoostNow.
             await self.hass.turn_on("input_boolean.chargemodeautomatic")
         elif setting == "MaxBoostNow":
-            # Not used for now, just here for completeness.
-            # The situation with SoC below the set minimum is handled without setting the UI to MaxBoostNow
+            # Not used for now, just here for completeness. The situation with SoC below the set
+            # minimum is handled without setting the UI to MaxBoostNow
             await self.hass.turn_on("input_boolean.chargemodemaxboostnow")
         elif setting == "Stop":
             # Used when charger crashes to stop further processing
             await self.hass.turn_on("input_boolean.chargemodeoff")
         else:
-            self.__log(
-                f"In valid charge_mode in UI setting: '{setting}'.", level="WARNING"
-            )
-            return
+            self.__log(f"Invalid charge_mode in UI setting: '{setting}'.", level="WARNING")
 
 
 ######################################################################

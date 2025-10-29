@@ -1,11 +1,15 @@
 """Unit test (pytest) for notifier_util module."""
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, AsyncMock, ANY
 import pytest
 from apps.v2g_liberty.notifier_util import Notifier
 from apps.v2g_liberty import constants as c
 from appdaemon.plugins.hass.hassapi import Hass
+from apps.v2g_liberty.event_bus import EventBus
 
+@pytest.fixture
+def event_bus():
+    return AsyncMock(spec=EventBus)
 
 @pytest.fixture
 def mock_hass():
@@ -24,13 +28,13 @@ def mock_hass():
 
 
 @pytest.fixture
-def notifier(mock_hass):
+def notifier(mock_hass, event_bus):
     """Create an instance of Notifier with mocked dependencies."""
     print("TEST constants id:", id(c), "HA_NAME =", c.HA_NAME)
     c.ADMIN_MOBILE_NAME = "john"  # Set an admin user for the tests
     c.PRIORITY_NOTIFICATION_CONFIG = {"priority": "high"}
     c.HA_NAME = "HomeAssistant"
-    notifier_instance = Notifier(hass=mock_hass)
+    notifier_instance = Notifier(hass=mock_hass, event_bus=event_bus)
     notifier_instance.recipients = ["jane", "john"]  # simulate recipient discovery
     return notifier_instance
 
@@ -48,7 +52,7 @@ def test_notify_user_to_admin(notifier, mock_hass):
     # Verify the correct notification is sent
     mock_hass.call_service.assert_called_with(
         "notify/mobile_app_john",
-        title="V2G-L: Test Title",
+        title="Test Title",
         message="Test message [HomeAssistant]",
         data={"priority": "high", "tag": "test_tag"},
     )
@@ -68,13 +72,15 @@ def test_notify_user_to_all(notifier, mock_hass, monkeypatch):
         [
             call(
                 "notify/mobile_app_jane",
-                title="V2G-L: Test Title",
+                title="Test Title",
                 message="Test message [HomeAssistant]",
+                data=ANY,
             ),
             call(
                 "notify/mobile_app_john",
-                title="V2G-L: Test Title",
+                title="Test Title",
                 message="Test message [HomeAssistant]",
+                data=ANY,
             ),
         ],
         any_order=True,

@@ -1,9 +1,13 @@
 """Unit test (pytest) for reservations_client module."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
 from apps.v2g_liberty.reservations_client import ReservationsClient
+from apps.v2g_liberty.event_bus import EventBus
 
+@pytest.fixture
+def event_bus():
+    return AsyncMock(spec=EventBus)
 
 # Mock the log_wrapper to avoid actual logging
 @pytest.fixture
@@ -46,7 +50,7 @@ def test_add_target_soc(
 
     # Arrange
     hass = MagicMock()
-    reservations_client = ReservationsClient(hass)
+    reservations_client = ReservationsClient(hass, event_bus=event_bus)
 
     # TODO: The ReservationsClient should not have a method to set/get_constant_range_in_km
     # but it is the only way i could get this to work.

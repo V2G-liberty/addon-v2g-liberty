@@ -1,15 +1,13 @@
-"""Module to read data from (publicly) available Britisch electricity price data"""
+"""Module to read electricity price data from api.octopus.energy and
+carbon intensity data from /api.carbonintensity.org.uk/."""
 
 from datetime import datetime, timedelta, timezone
-import json
-import asyncio
 import pytz
+import json
 import isodate
 import aiohttp
+import asyncio
 from aiohttp import ClientTimeout, ClientError
-
-from appdaemon.plugins.hass.hassapi import Hass
-
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import (
@@ -18,6 +16,8 @@ from .v2g_globals import (
     convert_to_duration_string,
     is_local_now_between,
 )
+
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 class ManageOctopusPriceData:
@@ -85,10 +85,28 @@ class ManageOctopusPriceData:
         self.hass = hass
         self.__log = get_class_method_logger(hass.log)
 
-    # async def initialize(self):
-    #     self.__log("Initializing")
+    async def initialize(self):
+        self.__log("Initializing")
 
-    #     self.__log("Completed")
+        if c.TZ != self.UK_TZ:
+            self.__log(
+                f"HA timezone is not 'UK' but '{c.TZ}', this app will not work correctly!",
+                level="ERROR",
+            )
+            # TODO: Warn user
+
+        ##########################################################################
+        # TESTDATA: Currency = EUR, should be GBP! Is set in class definition.
+        ##########################################################################
+        # self.__log(
+        #     "- - - T E S T D A T A - - -: Currency = EUR, should be GBP!",
+        #     level="WARNING",
+        # )
+        # c.CURRENCY = "EUR"
+        # self.UOM = "EUR/MWh"
+        # c.TZ = self.UK_TZ
+
+        self.__log("Completed")
 
     async def kick_off_octopus_price_management(self):
         """
@@ -105,24 +123,6 @@ class ManageOctopusPriceData:
                 f"Electricity provider is not 'gb_octopus_energy' but {c.ELECTRICITY_PROVIDER}."
             )
             return
-
-        if c.TZ != self.UK_TZ:
-            self.__log(
-                f"Home Assistant timezone is not UK but {c.TZ}, V2G Liberty might not work correctly!",
-                level="WARNING",
-            )
-            # TODO: Warn user
-
-        ##########################################################################
-        # TESTDATA: Currency = EUR, should be GBP! Is set in class definition.
-        ##########################################################################
-        # self.__log(
-        #     "- - - T E S T D A T A - - -: Currency = EUR, should be GBP!",
-        #     level="WARNING",
-        # )
-        # c.CURRENCY = "EUR"
-        # self.UOM = "EUR/MWh"
-        # c.TZ = self.UK_TZ
 
         un_initiated_values = ["unknown", "", "Please choose an option", None]
         if c.GB_DNO_REGION in un_initiated_values:

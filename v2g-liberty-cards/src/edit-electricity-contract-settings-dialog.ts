@@ -166,7 +166,8 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         false,
         this.hass.localize('ui.common.back'),
         false,
-        'back'
+        'back',
+        true
       )}
       ${renderButton(
         this.hass,
@@ -212,7 +213,8 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         false,
         this.hass.localize('ui.common.back'),
         false,
-        'back'
+        'back',
+        true
       )}
       ${renderButton(
         this.hass,
@@ -239,7 +241,8 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         false,
         this.hass.localize('ui.common.back'),
         false,
-        'back'
+        'back',
+        true
       )}
       ${renderButton(
         this.hass,

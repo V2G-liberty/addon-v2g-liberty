@@ -11,6 +11,7 @@ import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.charger');
+const tc = partial('settings.common');
 
 enum ChargerConnectionStatus {
   Connected = 'Successfully connected',
@@ -61,7 +62,6 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderUninitialisedContent() {
     const editCallback = () => showChargerSettingsDialog(this);
-    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
 
     return html`
       <div class="card-content">
@@ -72,7 +72,7 @@ export class ChargerSettingsCard extends LitElement {
           this._hass,
           editCallback,
           true,
-          labelConfigure
+          tc('configure')
         )}
       </div>
     `;

@@ -32,7 +32,8 @@ export function renderButton(
   isPrimaryAction: boolean = true,
   label: string = null,
   isDisabled: boolean = false,
-  testId: string = null
+  testId: string = null,
+  isBackButton: boolean = false
 ) {
   if (label === null) {
     if (isPrimaryAction) {
@@ -50,7 +51,7 @@ export function renderButton(
   const variant = isPrimaryAction
     ? 'brand'
     : 'secondary'
-  const chevronIcon = !isPrimaryAction
+  const chevronIcon = isBackButton
     ? html`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>`
     : nothing;
 
@@ -69,7 +70,6 @@ export function renderButton(
 }
 
 export function renderSpinner() {
-  // To replace primaryAction button while busy
   return html`
     <ha-spinner
       test-id="progress"
@@ -282,11 +282,17 @@ export function renderInputText(
   value: string,
   stateObj: HassEntity,
   changedCallback,
-  validationMessage,
+  validationMessage: string = "",
   type: string = "text"
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   // Not happy with fixed height but can't get helper text error to render correctly.
+  if (validationMessage === "") {
+    // Use generic fallback validation message
+    const tp = partial('settings.common');
+    validationMessage = tp("validation_error");
+  }
+
   return html`
     <ha-settings-row style="height: 85px;">
       <span slot="heading">

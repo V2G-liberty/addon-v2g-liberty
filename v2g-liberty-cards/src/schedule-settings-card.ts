@@ -11,6 +11,7 @@ import { showScheduleSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
 
 const tp = partial('settings.schedule');
+const tc = partial('settings.common');
 
 enum ServerConnectionStatus {
   Connected = 'Successfully connected',
@@ -55,7 +56,6 @@ export class ScheduleSettingsCard extends LitElement {
   private _renderUninitialisedContent() {
     const alert = tp('alert');
     const editCallback = () => showScheduleSettingsDialog(this);
-    const labelConfigure = this._hass.localize('ui.common.configure') || 'Configure'
 
     return html`
       <div class="card-content">
@@ -66,7 +66,7 @@ export class ScheduleSettingsCard extends LitElement {
           this._hass,
           editCallback,
           true,
-          labelConfigure
+          tc('configure')
         )}
       </div>
     `;
