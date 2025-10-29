@@ -45,7 +45,8 @@ class V2Gliberty:
     # CONSTANTS
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
-
+    RESERVATION_ACTION_DISMISS:str = "dismiss"
+    RESERVATION_ACTION_KEEP:str = "keep"
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
     # timer_id's for reminders at start/end of the first/current event.
@@ -557,13 +558,6 @@ class V2Gliberty:
     #                         PRIVATE METHODS                            #
     ######################################################################
 
-    async def _update_car_connected(self, is_car_connected: bool):
-        self.__log(f"Acting on conneted stae of car: {is_car_connected}.")
-        if is_car_connected:
-            await self.__handle_car_connect()
-        else:
-            await self.__handle_car_disconnect()
-
     async def __log_version(self, kwargs):
         """
         Log version, to be called at initialisation and retried if log_version fails.
@@ -584,6 +578,13 @@ class V2Gliberty:
                 )
                 return
             await self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
+
+    async def _update_car_connected(self, is_car_connected: bool):
+        self.__log(f"Acting on conneted state of car: {is_car_connected}.")
+        if is_car_connected:
+            await self.__handle_car_connect()
+        else:
+            await self.__handle_car_disconnect()
 
     async def __handle_car_connect(self):
         """
@@ -617,10 +618,10 @@ class V2Gliberty:
 
         # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
         charge_mode = await self.hass.get_state("input_select.charge_mode", None)
-        if charge_mode == "Max boost now":
+        if charge_mode == "Max boost now" or charge_mode == "Max discharge now":
             await self.__set_charge_mode_in_ui("Automatic")
             self.notifier.notify_user(
-                message="Charge mode set from 'Max charge now' to 'Automatic' as car is disconnected.",
+                message=f"Charge mode set from '{charge_mode}' to 'Automatic' as car is disconnected.",
                 title=None,
                 tag="charge_mode_change",
                 critical=False,
@@ -1300,7 +1301,7 @@ class V2Gliberty:
             start=run_at,
             v2g_event=v2g_event,
         )
-        self.__log("__ask_user_dismiss_event_or_not is set.")
+        self.__log(f"__ask_user_dismiss_event_or_not is set to run at {run_at.isoformat}.")
 
     async def __handle_first_reservation_end(self, v2g_args: str = ""):
         # To prevent the call to __remind_user_to_connect_after_event() being cancelled due to
@@ -1320,12 +1321,12 @@ class V2Gliberty:
             await self.hass.run_at(
                 callback=self.__remind_user_to_connect_after_event,
                 start=run_at,
-                v2g_args=f"even {self.MAX_EVENT_WAIT_TO_DISCONNECT} sec. after event car still not connected",
+                v2g_args=f"after {self.MAX_EVENT_WAIT_TO_DISCONNECT}s event-start car still not connected",
             )
 
     async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
         self.__log(
-            f"__ask_user_dismiss_event_or_not, called with v2g_event: {v2g_event}."
+            f"called with v2g_event: {v2g_event}."
         )
 
         v2g_event = v2g_event["v2g_event"]
@@ -1334,9 +1335,9 @@ class V2Gliberty:
                 filter(None, [v2g_event["summary"], v2g_event["description"]])
             )
             if len(identification) > 25:
-                identification = identification[0:25] + "..."
+                identification = identification[0:25] + "…"
             self.__log(
-                f"__ask_user_dismiss_event_or_not, event_title: {identification}."
+                f"event_title: {identification}."
             )
             # Will be cancelled when car gets disconnected.
             hid = v2g_event["hash_id"]
@@ -1346,10 +1347,10 @@ class V2Gliberty:
             )
             user_actions = [
                 {
-                    "action": f"reservation_dismiss~{hid}",
+                    "action": f"{self.RESERVATION_ACTION_DISMISS}+{hid}",
                     "title": "Dismiss reservation",
                 },
-                {"action": f"reservation_keep~{hid}", "title": "Keep reservation"},
+                {"action": f"{self.RESERVATION_ACTION_KEEP}+{hid}", "title": "Keep reservation"},
             ]
             self.notifier.notify_user(
                 message=message,
@@ -1357,12 +1358,32 @@ class V2Gliberty:
                 tag="dismiss_event_or_not",
                 send_to_all=True,
                 actions=user_actions,
+                callback=self._cb_ask_user__dismiss_event_or_not,
             )
         else:
             self.__log(
                 f"__ask_user_dismiss_event_or_not, unexpected call for event with "
                 f"hash_id {v2g_event['hash_id']} as car is already disconnected."
             )
+
+    async def _cb_ask_user__dismiss_event_or_not(self, user_action):
+        self.__log(f"user_action: '{user_action}'.")
+        self.notifier.clear_notification(tag="dismiss_event_or_not")
+
+        # User reacted to question to keep or dismiss a reservation.
+        # The notification can be removed for other users.
+        action_parts = str(user_action).split("+")
+        reservation_action = action_parts[0]
+        hid = action_parts[1]
+        if reservation_action == self.RESERVATION_ACTION_DISMISS:
+            dismiss = True
+        elif reservation_action == self.RESERVATION_ACTION_KEEP:
+            dismiss = False
+        else:
+            self.__log(f"aborting: unknown action: '{reservation_action}'.")
+            return
+
+        await self.reservations_client.set_event_dismissed_status(event_hash_id=hid, status=dismiss)
 
     async def __remind_user_to_connect_after_event(self, v2g_args: str = ""):
         # Only to be called from __handle_first_reservation_end().
@@ -1448,17 +1469,14 @@ class V2Gliberty:
             # Used when car gets disconnected and ChargeMode was MaxBoostNow.
             await self.hass.turn_on("input_boolean.chargemodeautomatic")
         elif setting == "MaxBoostNow":
-            # Not used for now, just here for completeness.
-            # The situation with SoC below the set minimum is handled without setting the UI to MaxBoostNow
+            # Not used for now, just here for completeness. The situation with SoC below the set
+            # minimum is handled without setting the UI to MaxBoostNow
             await self.hass.turn_on("input_boolean.chargemodemaxboostnow")
         elif setting == "Stop":
             # Used when charger crashes to stop further processing
             await self.hass.turn_on("input_boolean.chargemodeoff")
         else:
-            self.__log(
-                f"In valid charge_mode in UI setting: '{setting}'.", level="WARNING"
-            )
-            return
+            self.__log(f"Invalid charge_mode in UI setting: '{setting}'.", level="WARNING")
 
 
 ######################################################################

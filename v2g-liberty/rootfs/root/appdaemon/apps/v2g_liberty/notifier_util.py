@@ -1,12 +1,12 @@
 """Utility module to handle sending notifications to users"""
 
-from typing import Optional
+from typing import Optional, Callable
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-
+import uuid
 
 class Notifier:
     """
@@ -19,6 +19,11 @@ class Notifier:
     event_bus: EventBus = None
     hass: Hass = None
     recipients: list = []
+    _notification_callbacks: dict = {}
+
+    ########################################################################
+    #                         INITIALISATIO METHOD                         #
+    ########################################################################
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
@@ -40,103 +45,13 @@ class Notifier:
             self.__handle_notification_action, event="mobile_app_notification_action"
         )
 
-        # Make __init__() run quick, no need to wait for initialisation
-        self.hass.run_in(self._get_recipients, delay=1)
+        self._get_recipients()
         self.__log("Completed initilisation of Notifier")
 
-    async def __handle_notification_action(self, event_name, data, kwargs):
-        """To be called when the user takes action on a actionable notification.
 
-        :param event_name: always the same: mobile_app_notification_action
-        :param data: holds the action
-        :param kwargs: not used
-        :return: nothing
-        """
-        self.__log(f"Called, event_name: '{event_name}'.")
-
-        action = data["action"]
-
-        if action is None or action == "":
-            self.__log("Aborting: action is empty.")
-            return
-
-        action = action.lower()
-        if action.startswith("reservation"):
-            # User reacted to question to keep or dismiss a reservation.
-            # The notification can be removed for other users.
-            self.clear_notification(tag="dismiss_event_or_not")
-
-            action_parts = str(action).split("~")
-            reservation_action = action_parts[0]
-            hid = action_parts[1]
-            if reservation_action == "reservation_dismiss":
-                dismiss = True
-            elif reservation_action == "reservation_keep":
-                dismiss = False
-            else:
-                self.__log(f"aborting: unknown action: '{reservation_action}'.")
-                return
-
-            await self.event_bus.emit_event(
-                "event_dismissed_status_change", event_hash_id=hid, status=dismiss
-            )
-            # await self.reservations_client.set_event_dismissed_status(
-            #     event_hash_id=hid, status=dismiss
-            # )
-        elif action.startswith("test_notification_confirmation"):
-            self.hass.fire_event("send_test_notification.result")
-            self.__log("test_notification_confirmation")
-
-    async def _send_test_notification(self, event, data, kwargs):
-        user_actions = [
-            {
-                "action": "test_notification_confirmation",
-                "title": data["notificationButtonLabel"],
-            },
-        ]
-        self.notify_user(
-            message=data["notificationMessage"],
-            title=data["notificationTitle"],
-            tag="test_notification",
-            critical=False,
-            send_to_all=False,
-            ttl=None,
-            actions=user_actions,
-        )
-
-    async def _get_recipients(self, kwargs):
-        # List of all the recipients to notify
-        # Warn user about bad config with sticky memo in UI.
-
-        self.__log("getting recipients")
-        # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
-
-        # Service "mobile_app_" seems more reliable than using get_trackers,
-        # as these names do not always match with the service.
-        for service in self.hass.list_services():
-            if service["service"].startswith("mobile_app_"):
-                self.recipients.append(service["service"].replace("mobile_app_", ""))
-
-        if len(self.recipients) == 0:
-            message = (
-                "No mobile devices (e.g. phone, tablet, etc.) have been registered in "
-                "Home Assistant for notifications.<br/>It is highly recommended to do so. "
-                "Please install the HA companion app on your mobile device and connect it to "
-                "Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
-            )
-            self.__log(f"Configuration error: {message}.")
-            # TODO: Research if showing this only to admin users is possible.
-            self.post_sticky_memo(
-                title="Configuration error",
-                message=message,
-                memo_id="notification_config_error",
-            )
-        else:
-            self.recipients = list(set(self.recipients))  # Remove duplicates
-            self.recipients.sort()
-            self.__log(f"recipients for notifications: {self.recipients}.")
-
-        self.__log("Completed get recipients")
+    ########################################################################
+    #                            PUBLIC METHODS                            #
+    ########################################################################
 
     def notify_user(
         self,
@@ -147,6 +62,7 @@ class Notifier:
         send_to_all: bool = False,
         ttl: Optional[int] = 0,
         actions: Optional[list] = None,
+        callback: Optional[Callable] = None,
     ):
         """
         Method to send notifications to the user. An ADMIN is assumed always to be
@@ -157,30 +73,27 @@ class Notifier:
         Args:
             message (str):
                 Message text to be sent.
-
             title (Optional[str], optional):
                 Title of the message. Defaults to None.
-
             tag (Optional[str], optional):
                 ID that can be used to replace or clear a previous message. Defaults to None.
-
             critical (bool, optional):
-                Send with high priority to Admin only. Always delivered and sound is play.
-                Use with caution.. Defaults to False.
-
+                Send with high priority to Admin only. Always delivered and sound is played.
+                Use with caution. Defaults to False.
             send_to_all (bool, optional):
                 Send to all users (can't be combined with critical), default = only send to Admin.
                 Defaults to False.
-
             ttl (Optional[int], optional):
                 Time to live in seconds, after that the message will be cleared. 0 = do not clear.
                 A tag is required. Defaults to 0.
-
             actions (list, optional):
-                A list of dicts with action and title stings. Defaults to None.
+                A list of dicts with action and title strings. Defaults to None.
+            callback (Callable, optional):
+                An async(!) callable that will be called with the selected action name when the user responds.
+                Defaults to None. A tag is needed for this to work.
         """
 
-        if c.ADMIN_MOBILE_NAME == "" and not self.recipients:
+        if c.ADMIN_MOBILE_NAME == "" or not self.recipients:
             self.__log(
                 "No registered devices to notify, cancel notification.", level="WARNING"
             )
@@ -190,7 +103,7 @@ class Notifier:
         to_notify = [c.ADMIN_MOBILE_NAME]
 
         # Use abbreviation to make more room for title itself.
-        title = "V2G-L: " + title if title else "V2G Liberty"
+        title = title if title else "V2G Liberty"
 
         notification_data = {}
 
@@ -203,11 +116,24 @@ class Notifier:
             self.__log(f"Send to all and not critical! Send to: {to_notify}.")
             to_notify = self.recipients
 
-        if tag:
-            notification_data["tag"] = tag
+        if tag is None:
+            tag = str(uuid.uuid4())
+
+        notification_data["tag"] = tag
+
+        if callback is not None:
+            self._register_notification_callback(tag, callback)
 
         if actions:
-            notification_data["actions"] = actions
+            # Prepend the tag to each action for later matching with callback
+            tagged_actions = [
+                {
+                    "action": f"{tag}~{action['action']}",
+                    "title": action["title"]
+                }
+                for action in actions
+            ]
+            notification_data["actions"] = tagged_actions
 
         message = message + " [" + c.HA_NAME + "]"
 
@@ -293,3 +219,97 @@ class Notifier:
             )
         except Exception as e:
             self.__log(f"Failed. Exception: '{e}'.", level="WARNING")
+
+
+    ########################################################################
+    #                       PRIVATE (UTILITY) FUNCTIONS                    #
+    ########################################################################
+
+    def _register_notification_callback(self, tag: str, callback: Callable):
+        self.__log(f"Callback '{callback}' registered under tag '{tag}'.")
+        self._notification_callbacks[tag] = callback
+
+    async def __handle_notification_action(self, event_name, data, kwargs):
+        """To be called when the user takes action on a actionable notification.
+
+        :param event_name: always the same: mobile_app_notification_action
+        :param data: holds the action, do not use a tilde (~) in this string
+        :param kwargs: not used
+        :return: nothing
+        """
+
+        action_data = data["action"]
+
+        if action_data is None or action_data == "":
+            self.__log("Aborting: action_data is empty.")
+            return
+
+        action_parts = str(action_data).split("~")
+        tag = action_parts[0]
+        action= action_parts[1]
+        self.__log(f"Retrieved tag: '{tag}' and action: '{action}' from action_data.")
+
+        if tag in self._notification_callbacks:
+            try:
+                callback = self._notification_callbacks[tag]
+                await callback(action)  # Call the callback with the action name
+                del self._notification_callbacks[tag]  # Clean up the callback
+            except Exception as e:
+                self.__log(f"Could not call callback '{callback}', exception: '{e}'.", level="WARNING")
+
+    async def _cb_test_notification(self, *args):
+        self.hass.fire_event("send_test_notification.result")
+        self.__log("test_notification_confirmation")
+
+    async def _send_test_notification(self, event, data, kwargs):
+        user_actions = [
+            {
+                "action": "test_notification_confirmation",
+                "title": data["notificationButtonLabel"],
+            },
+        ]
+        self.notify_user(
+            message=data["notificationMessage"],
+            title=data["notificationTitle"],
+            tag="test_notification",
+            critical=False,
+            send_to_all=False,
+            ttl=None,
+            actions=user_actions,
+            callback=self._cb_test_notification,
+        )
+
+    def _get_recipients(self):
+        # List of all the recipients to notify
+        # Warn user about bad config with sticky memo in UI.
+
+        self.__log("getting recipients")
+        # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
+
+        # Service "mobile_app_" seems more reliable than using get_trackers,
+        # as these names do not always match with the service.
+        for service in self.hass.list_services():
+            if service["service"].startswith("mobile_app_"):
+                self.recipients.append(service["service"].replace("mobile_app_", ""))
+
+        if len(self.recipients) == 0:
+            message = (
+                "No mobile devices (e.g. phone, tablet, etc.) have been registered in "
+                "Home Assistant for notifications.<br/>It is highly recommended to do so. "
+                "Please install the HA companion app on your mobile device and connect it to "
+                "Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
+            )
+            self.__log(f"Configuration error: {message}.")
+            # TODO: Research if showing this only to admin users is possible.
+            self.post_sticky_memo(
+                title="Configuration error",
+                message=message,
+                memo_id="notification_config_error",
+            )
+        else:
+            self.recipients = list(set(self.recipients))  # Remove duplicates
+            self.recipients.sort()
+            self.__log(f"recipients for notifications: {self.recipients}.")
+
+        self.__log("Completed get recipients")
+

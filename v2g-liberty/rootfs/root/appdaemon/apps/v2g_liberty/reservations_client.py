@@ -41,9 +41,6 @@ class ReservationsClient(AsyncIOEventEmitter):
         super().__init__()
         self.hass = hass
         self.event_bus = event_bus
-        self.event_bus.add_event_listener(
-            "event_dismissed_status_change", self.set_event_dismissed_status
-        )
         self.__log = get_class_method_logger(hass.log)
 
         self.principal = None
