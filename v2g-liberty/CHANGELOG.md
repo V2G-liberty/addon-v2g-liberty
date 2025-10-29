@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.7.1 2025-10-28
+## 0.7.1 2025-10-29
 
 ### Fixed
 
@@ -12,6 +12,7 @@
 
 ### Added
 
+- 🚀 Feature request: Add notification when connecting car while chargemode is Pause (#339)
 - 🚀 Feature Request: Add "sent test notification" to admin dialog (#333)
 - 🚀 Feature Request: Add notification on main screen if settings are incompleet/incorrect (#324)
 
