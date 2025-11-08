@@ -5,7 +5,7 @@ from .event_bus import EventBus
 from .ha_ui_manager import HAUIManager
 from .notifier_util import Notifier
 from .v2g_globals import V2GLibertyGlobals
-from .modbus_evse_client import ModbusEVSEclient
+from v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
 from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
@@ -39,8 +39,8 @@ class V2GLibertyApp(Hass):
         self._log_init_time("V2GLibertyGlobals", start_module)
 
         start_module = datetime.now()
-        modbus_evse_client = ModbusEVSEclient(self, event_bus=event_bus, notifier=notifier)
-        self._log_init_time("ModbusEVSEclient", start_module)
+        quasar1_evse_client = WallboxQuasar1Client(self, event_bus=event_bus)
+        self._log_init_time("WallboxQuasar1Client", start_module)
 
         start_module = datetime.now()
         fm_client = FMClient(self, event_bus=event_bus)
@@ -79,24 +79,26 @@ class V2GLibertyApp(Hass):
         self._log_init_time("ManageOctopusPriceData", start_module)
 
         v2g_globals.v2g_main_app = main_app
-        v2g_globals.evse_client_app = modbus_evse_client
         v2g_globals.fm_client_app = fm_client
         v2g_globals.calendar_client = reservations_client
         v2g_globals.amber_price_data_manager = amber_price_data_manager
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager
         v2g_globals.fm_data_retrieve_client = get_fm_data
-        modbus_evse_client.v2g_main_app = main_app
-        modbus_evse_client.v2g_globals = v2g_globals
-        main_app.evse_client_app = modbus_evse_client
+        v2g_globals.quasar1 = quasar1_evse_client
+
+        main_app.quasar1_evse = quasar1_evse_client
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
-        data_monitor.evse_client_app = modbus_evse_client
+
         data_monitor.fm_client_app = fm_client
+
         get_fm_data.v2g_main_app = main_app
         get_fm_data.fm_client_app = fm_client
+
         amber_price_data_manager.fm_client_app = fm_client
         amber_price_data_manager.v2g_main_app = main_app
         amber_price_data_manager.get_fm_data_module = get_fm_data
+
         octopus_price_data_manager.fm_client_app = fm_client
         octopus_price_data_manager.get_fm_data_module = get_fm_data
 

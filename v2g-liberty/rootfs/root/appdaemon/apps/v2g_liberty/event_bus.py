@@ -19,24 +19,35 @@ class EventBus(AsyncIOEventEmitter):
 
     #### Charger / car related
 
+    TODO: check if `charger_communication_state_change`, `evse_polled` and
+          `charger_error_state_change` are overlapping and can be combined.
+
+    - `charger_error_state_change`:
+        - **Description**: Update charger error state (is functional communication
+          possible).
+        - **Emitted by** wallbox_quasar_1
+        - **Arguments**:
+            - `persistent_error` (bool): communication possible or not.
+            - `was_car_connected` (bool): was the car connected at just before comm was lost
+
     - `charger_communication_state_change`:
         - **Description**: Update charger communication status (is functional communication
           possible). Kept up to date with polling frequency.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `can_communicate` (bool): communication possible or not.
 
     - `update_charger_info`:
         - **Description**: Update general info about the charger such as name, firmware,
         serial number, etc. Mainly for debugging, usually set at startup.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `charger_info` (str): General charger info.
 
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
           When the SoC value changes, this event is emitted with the new and old values.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `new_soc` (int): The new state of charge value (1–100).
             - `old_soc` (int): The previous state of charge value (1–100).
@@ -50,13 +61,13 @@ class EventBus(AsyncIOEventEmitter):
 
     - `charge_power_change`:
         - **Description**: Monitors changes in the chargers actual (real) charge power.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be 'unavailable'.
 
     - `charger_state_change`:
         - **Description**: Monitors changes in the chargers state (charging, idle, error etc.).
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
             - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
@@ -65,13 +76,13 @@ class EventBus(AsyncIOEventEmitter):
     - `evse_polled`:
         - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
           change in frequency. Mainly aimed at showing in the UI.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `stop` (bool): If True stop the poll indicator, set text to "".
 
     - `is_car_connected`:
         - **Description**: Monitors if a car is connected to the charger.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
 

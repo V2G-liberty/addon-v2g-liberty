@@ -7,11 +7,15 @@ from typing import AsyncGenerator, List, Optional
 from datetime import datetime, timedelta
 import isodate
 from appdaemon.plugins.hass.hassapi import Hass
+
+from .util import parse_to_int
 from .notifier_util import Notifier
 from .event_bus import EventBus
-from .v2g_globals import time_round, he, get_local_now, parse_to_int
+from .v2g_globals import time_round, he, get_local_now
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .chargers.base_bidirectional_evse import BidirectionalEVSE
+from .enum import DataStatus as ds
 
 
 class ChartLine(enum.Enum):
@@ -47,7 +51,7 @@ class V2Gliberty:
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
     RESERVATION_ACTION_DISMISS:str = "dismiss"
     RESERVATION_ACTION_KEEP:str = "keep"
-    EMPTY_STATES = [None, "unknown", "unavailable", ""]
+    EMPTY_STATES = [None, "unknown", "unavailable", "", ds.UNAVAILABLE]
 
     # timer_id's for reminders at start/end of the first/current event.
     timer_id_first_reservation_start: str = ""
@@ -65,7 +69,7 @@ class V2Gliberty:
         ChartLine.CONSUMPTION_PRICE: "consumption_prices",
         ChartLine.PRODUCTION_PRICE: "production_prices",
         ChartLine.EMISSION: "co2_emissions",
-    }  # Price/emission lines are populated from get_fm_date module
+    }  # Price/emission lines are populated from get_fm_data module
 
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: object = None
@@ -92,7 +96,7 @@ class V2Gliberty:
     user_was_notified_of_no_schedule: bool
     no_schedule_notification_is_planned: bool
 
-    evse_client_app: object = None
+    quasar1_evse: BidirectionalEVSE = None
     fm_client_app: object = None
     reservations_client: object = None
     notifier: Notifier = None
@@ -167,7 +171,9 @@ class V2Gliberty:
         self.event_bus.add_event_listener(
             "is_car_connected", self._update_car_connected
         )
-
+        self.event_bus.add_event_listener(
+            "charger_error_state_change", self.__handle_charger_error_state_change
+        )
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
         self.scheduling_timer_handles = []
@@ -176,6 +182,7 @@ class V2Gliberty:
         await self.__clear_all_soc_chart_lines()
         await self.hass.run_in(self.__log_version, delay=15)
         self.__log("Completed")
+
 
     ######################################################################
     #                          PUBLIC METHODS                            #
@@ -186,11 +193,11 @@ class V2Gliberty:
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
-            self.__log("Charge_mode == 'Stop' -> Setting EVSE client to in_active!")
-            await self.evse_client_app.set_inactive()
+            self.__log("Charge_mode == 'Stop' -> Setting EVSE client to inactive!")
+            await self.quasar1_evse.set_inactive()
         else:
             self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
-            await self.evse_client_app.set_active()
+            await self.quasar1_evse.set_active()
 
         await self.hass.set_state(
             entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
@@ -235,12 +242,8 @@ class V2Gliberty:
             delay=self.call_next_action_at_least_every,
         )
 
-        if not await self.evse_client_app.is_car_connected():
+        if not await self.quasar1_evse.is_car_connected():
             self.__log("No car connected (or error), abort.")
-            return
-
-        if self.evse_client_app.try_get_new_soc_in_process:
-            self.__log("evse_client_app.try_get_new_soc_in_process, abort.")
             return
 
         charge_mode = await self.hass.get_state(
@@ -250,11 +253,11 @@ class V2Gliberty:
 
         # Needed in many of the cases further in this method
         now = get_local_now()
-        soc = await self.evse_client_app.get_car_soc()
+        soc = await self.quasar1_evse.get_car_soc()
 
         if charge_mode == "Automatic":
             # update_charge_mode takes charger control already, not needed here.
-            soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+            soc_kwh = await self.quasar1_evse.get_car_soc_kwh()
             if soc_kwh in self.EMPTY_STATES:
                 self.__log("SoC_kWh is 'unknown', abort.")
                 return
@@ -352,7 +355,7 @@ class V2Gliberty:
             if soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1):
                 # Fail-safe, this should not happen...
                 # Assume discharging to be safe
-                if await self.evse_client_app.is_discharging():
+                if await self.quasar1_evse.is_discharging():
                     self.__log(
                         f"Discharging while SoC has reached minimum ({c.CAR_MIN_SOC_IN_PERCENT}%)."
                     )
@@ -365,7 +368,7 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+                soc_kwh = await self.quasar1_evse.get_car_soc_kwh()
                 schedule = None
                 try:
                     schedule = await self.fm_client_app.get_new_schedule(
@@ -729,7 +732,16 @@ class V2Gliberty:
         self.no_schedule_errors[error_name] = error_state
         await self.__notify_no_new_schedule()
 
-    async def handle_none_responsive_charger(self, was_car_connected: bool):
+
+    async def __handle_charger_error_state_change(
+        self, persistent_error: bool, was_car_connected: bool
+    ):
+        if persistent_error:
+            await self._persistent_charger_error(was_car_connected)
+        else:
+            await self._persistent_charger_error_solved()
+
+    async def _persistent_charger_error(self, was_car_connected: bool):
         """Handle a none-responsive charger:
         - Stop charging
         - Set message in UI
@@ -767,7 +779,7 @@ class V2Gliberty:
         )
         return
 
-    async def reset_charger_communication_fault(self):
+    async def _persistent_charger_error_solved(self):
         """To clear UI alert and notification if it is still present."""
         self.__log("Called")
         await self.hass.set_state(
@@ -878,7 +890,7 @@ class V2Gliberty:
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
             self.in_boost_to_reach_min_soc = False
-            await self.evse_client_app.set_inactive()
+            await self.quasar1_evse.set_inactive()
             # For monitoring
             await self.hass.set_state(
                 "sensor.current_scheduled_charging_power",
@@ -886,7 +898,7 @@ class V2Gliberty:
             )
 
         if old_state == "Stop" and new_state != "Stop":
-            await self.evse_client_app.set_active()
+            await self.quasar1_evse.set_active()
 
         await self.set_next_action(v2g_args="__handle_charge_mode_change")
         return
@@ -897,12 +909,12 @@ class V2Gliberty:
         await self.set_next_action(v2g_args="__handle_soc_change")
 
         if (
-            await self.evse_client_app.is_charging()
+            await self.quasar1_evse.is_charging()
             and new_soc == c.CAR_MAX_SOC_IN_PERCENT
         ):
             message = (
                 f"Car battery at {new_soc} %, "
-                f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
+                f"range ≈ {await self.quasar1_evse.get_car_remaining_range_km()} km."
             )
             self.__log(f"{message=}")
             self.notifier.notify_user(
@@ -924,7 +936,7 @@ class V2Gliberty:
         # This also is set when car is actually disconnected
         self.in_boost_to_reach_min_soc = False
 
-        await self.evse_client_app.stop_charging()
+        await self.quasar1_evse.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
         self.notifier.notify_user(
             message="Charger is disconnected",
@@ -1110,11 +1122,11 @@ class V2Gliberty:
             self.__log("aborted: charge_mode is not automatic (any more).")
             return
 
-        if not await self.evse_client_app.is_car_connected():
+        if not await self.quasar1_evse.is_car_connected():
             self.__log("aborted: car is not connected")
             return
 
-        if await self.evse_client_app.get_car_soc() in self.EMPTY_STATES:
+        if await self.quasar1_evse.get_car_soc() in self.EMPTY_STATES:
             self.__log("aborted: soc is 'unknown'")
             return
 
@@ -1200,7 +1212,7 @@ class V2Gliberty:
 
         exp_soc_values = list(
             accumulate(
-                [await self.evse_client_app.get_car_soc()]
+                [await self.quasar1_evse.get_car_soc()]
                 + convert_MW_to_percentage_points(
                     values,
                     resolution,
@@ -1238,8 +1250,8 @@ class V2Gliberty:
 
         source = kwargs.get("source", "unknown source")
 
-        await self.evse_client_app.start_charge_with_power(
-            charge_power=charge_power_in_watt,
+        await self.quasar1_evse.start_charging(
+            power_in_watt=charge_power_in_watt,
             source=source,
         )
         # For monitoring
@@ -1251,7 +1263,7 @@ class V2Gliberty:
     async def __start_max_discharge_now(self):
         # TODO: Check if .set_active() is really a good idea here?
         #       If the client is not active there might be a good reason for that...
-        await self.evse_client_app.set_active()
+        await self.quasar1_evse.set_active()
         await self.__set_charge_power(
             {
                 "charge_power": -c.CHARGER_MAX_DISCHARGE_POWER,
@@ -1262,7 +1274,7 @@ class V2Gliberty:
     async def __start_max_charge_now(self):
         # TODO: Check if .set_active() is really a good idea here?
         #       If the client is not active there might be a good reason for that...
-        await self.evse_client_app.set_active()
+        await self.quasar1_evse.set_active()
         await self.__set_charge_power(
             {
                 "charge_power": c.CHARGER_MAX_CHARGE_POWER,
@@ -1313,7 +1325,7 @@ class V2Gliberty:
         self.__log(
             f"__handle_first_reservation_end called with v2g_args = '{v2g_args}'."
         )
-        if not await self.evse_client_app.is_car_connected():
+        if not await self.quasar1_evse.is_car_connected():
             run_at = get_local_now() + self.MAX_EVENT_WAIT_TO_DISCONNECT
             self.__log(
                 f"setting __remind_user_to_connect_after_event at {run_at.isoformat()}"
@@ -1330,7 +1342,7 @@ class V2Gliberty:
         )
 
         v2g_event = v2g_event["v2g_event"]
-        if await self.evse_client_app.is_car_connected():
+        if await self.quasar1_evse.is_car_connected():
             identification = " ".join(
                 filter(None, [v2g_event["summary"], v2g_event["description"]])
             )
@@ -1390,7 +1402,7 @@ class V2Gliberty:
         # If the car is not connected a little after a reservations ends we remind the users to
         # connect it as it is assumed they forgot to do so.
         self.__log(f"__remind_user_to_connect_after_event, called {v2g_args=}.")
-        if not await self.evse_client_app.is_car_connected():
+        if not await self.quasar1_evse.is_car_connected():
             self.__log(
                 "__remind_user_to_connect_after_event, car not connected, notifying users."
             )

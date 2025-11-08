@@ -10,15 +10,16 @@ from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .settings_manager import SettingsManager
-
+from v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
+# from .main_app import V2Gliberty
 
 class V2GLibertyGlobals:
     """Class to initialise settings and CONSTANTS"""
 
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
-    v2g_main_app: object
-    evse_client_app: object
+    v2g_main_app: object  # V2Gliberty
+    quasar1: WallboxQuasar1Client
     fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
@@ -511,7 +512,7 @@ class V2GLibertyGlobals:
         (
             success,
             max_available_power,
-        ) = await self.evse_client_app.test_charger_connection(host, port)
+        ) = await self.quasar1.get_max_power_pre_init(host=host, port=port)
         msg = "Successfully connected" if success else "Failed to connect"
         self.__log(f'result: "{msg}", {max_available_power}')
         self.hass.fire_event(
@@ -747,19 +748,22 @@ class V2GLibertyGlobals:
         c.CHARGER_PORT = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT
         )
-        (
-            connection,
-            max_power_by_charger,
-        ) = await self.evse_client_app.initialise_charger()
 
-        if not connection:
+        (connected, max_power_by_charger) = await self.quasar1.get_max_power_pre_init(
+            host=c.CHARGER_HOST_URL, port=c.CHARGER_PORT
+        )
+        if not connected or max_power_by_charger is None:
             self.__log("Unable to connect to charger", level="WARNING")
             # TODO: Set is_initialised to false? Set error state?
             return
 
-        if max_power_by_charger is None:
-            self.__log("Could not initialise charger.", level="WARNING")
-            return
+        communication_config = {
+            "host": c.CHARGER_HOST_URL,
+            "port": c.CHARGER_PORT,
+        }
+        await self.quasar1.initialise_evse(
+            communication_config=communication_config,
+        )
 
         self.SETTING_CHARGER_MAX_CHARGE_POWER["max"] = max_power_by_charger
         self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"] = max_power_by_charger
@@ -780,14 +784,16 @@ class V2GLibertyGlobals:
             c.CHARGER_MAX_DISCHARGE_POWER = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_DISCHARGE_POWER,
             )
+            self.quasar1.set_max_charge_power(c.CHARGER_MAX_CHARGE_POWER)
         else:
             # Use max from charger
             c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
             c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
                 "max"
             ]
+            await self.quasar1.set_max_charge_power(max_power_by_charger)
 
-        await self.evse_client_app.complete_init()
+        await self.quasar1.complete_init()
 
         self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
 
@@ -834,6 +840,7 @@ class V2GLibertyGlobals:
         c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
+        await self.quasar1.set_car_battery_capacity_kwh(c.CAR_MAX_CAPACITY_IN_KWH)
 
         c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
@@ -860,6 +867,9 @@ class V2GLibertyGlobals:
 
         c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+        )
+        await self.quasar1.set_roundtrip_efficiency_percent(
+            c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
 
@@ -1295,13 +1305,3 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
     return result
 
 
-def parse_to_int(number_string, default_value: int):
-    """Reliably parse a string, float or int to an int. If un-parsable return the default value.
-    :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if parsing failed.
-    :return: parsed int
-    """
-    try:
-        return int(float(number_string))
-    except:
-        return default_value
