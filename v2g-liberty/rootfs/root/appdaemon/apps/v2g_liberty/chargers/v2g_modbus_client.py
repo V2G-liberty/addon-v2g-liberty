@@ -112,7 +112,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             return False
 
         if not self._mbc.connected:
-            self._mbc.connect()
+            await self._mbc.connect()
 
         if value < 0:
             # Modbus cannot handle negative values directly.
@@ -164,7 +164,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         if not self._mbc.connected:
             print("Connecting Modbus client")
-            self._mbc.connect()
+            await self._mbc.connect()
 
         result = None
         try:
@@ -220,7 +220,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             return None
 
         if not self._mbc.connected:
-            self._mbc.connect()
+            await self._mbc.connect()
 
         # Times in seconds
         total_time = 0
