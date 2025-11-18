@@ -12,8 +12,6 @@
 
 from .v2g_modbus_client import V2GmodbusClient
 from .base_bidirectional_evse import BidirectionalEVSE
-from v2g_liberty.enum import DataStatus as ds
-from v2g_liberty.enum import MaybeData
 from v2g_liberty import constants as c
 from appdaemon.plugins.hass.hassapi import Hass
 from v2g_liberty.event_bus import EventBus
@@ -235,8 +233,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self.car_battery_capacity_kwh: int | None = None
 
         # Live evse data
-        self.car_battery_soc_percent: int | ds = ds.UNAVAILABLE
-        self.evse_actual_charge_power: int | ds = ds.UNAVAILABLE
+        self.car_battery_soc_percent: int | None = None
+        self.evse_actual_charge_power: int | None = None
 
         # Polling variables
         self.poll_timer_handle: str | None= None
@@ -379,12 +377,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # Eventhough it probably did not stop
         await self._kick_off_polling()
 
-    async def get_hardware_power_limit(self) -> MaybeData[int]:
+    async def get_hardware_power_limit(self) -> int | None:
         if self._mb_client is None:
             self.__log(
                 "Modbus client not initialised, cannot get hardware power limit", level="WARNING"
             )
-            return ds.UNAVAILABLE
+            return None
         result = await self._mb_client.modbus_read(
             self.MAX_AVAILABLE_POWER_REGISTER, length=1, source="get_hardware_power_limit"
         )
@@ -394,7 +392,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 f"No valid read hardware limit {result}", level="WARNING"
             )
             await self._emit_modbus_communication_state(can_communicate=False)
-            return ds.UNAVAILABLE
+            return None
         result = self._process_number(result[0])
         await self._emit_modbus_communication_state(can_communicate=True)
         return result
@@ -457,42 +455,46 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         return self.evse_efficiency
 
 
-    async def get_car_battery_capacity_kwh(self) -> MaybeData[int]:
-        """Returns car battery capacity in kWh, or DataStatus.UNAVAILABLE"""
+    async def get_car_battery_capacity_kwh(self) -> int | None:
+        """Returns car battery capacity in kWh, or None"""
         return self.car_battery_capacity_kwh
 
     async def set_car_battery_capacity_kwh(self, capacity_kwh: int):
-        """Sets car battery capacity in kWh, or DataStatus.UNAVAILABLE"""
+        """Sets car battery capacity in kWh"""
         self.car_battery_capacity_kwh = capacity_kwh
+        self._eb.emit_event(
+            "remaining_range_change",
+            remaining_range=await self.get_car_remaining_range_km(),
+        )
 
 
-    async def get_car_soc(self) -> MaybeData[int]:
+    async def get_car_soc(self) -> int | None:
         """Return car SoC in percent."""
         return await self._get_car_soc(force_renew=False)
 
-    async def get_car_soc_kwh(self) -> MaybeData[float]:
+    async def get_car_soc_kwh(self) -> float | None:
         """Return car SoC in kWh."""
-        # this prevents error cannot compute int * DataStatus
+        # this prevents error cannot compute int * None
         soc = await self._get_car_soc(force_renew=False)
         capacity = self.car_battery_capacity_kwh
 
-        if isinstance(soc, ds):
-            self.__log("Car SoC percent is of type DataStatus, cannot compute SoC kWh.", level="WARNING")
-            return ds.UNAVAILABLE
+        if soc is None:
+            self.__log("Car SoC percent is None, cannot compute SoC kWh.", level="WARNING")
+            return None
         if not isinstance(soc, int):
             self.__log("Car SoC percent is not an integer type, cannot compute SoC kWh.", level="WARNING")
-            return ds.UNAVAILABLE
+            return None
         if not isinstance(capacity, (int, float)):
             self.__log("Car battery capacity is not an int or float type, cannot compute SoC kWh.", level="WARNING")
-            return ds.UNAVAILABLE
+            return None
         soc_kwh = round(soc * capacity / 100, 2)
         return soc_kwh
 
-    async def get_car_remaining_range_km(self) -> MaybeData[int]:
+    async def get_car_remaining_range_km(self) -> int | None:
         """Return car remaining range in km"""
         soc_kwh = await self.get_car_soc_kwh()
-        if soc_kwh in [None, ds.UNAVAILABLE, "unknown"]:
-            return ds.UNAVAILABLE
+        if soc_kwh is None:
+            return None
         else:
             return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
 
@@ -573,7 +575,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     #                           PRIVATE METHODS                          #
     ######################################################################
 
-    async def _get_charger_info(self):
+    async def _get_charger_info(self) -> str:
         firmware_version_modbus_address = 1
         # serial_number_high_modbus_address = 2
         serial_number_low_modbus_address = 3
@@ -599,15 +601,22 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._emit_modbus_communication_state(can_communicate=False)
         return "unknown"
 
-    async def _kick_off_polling(self):
-        """Start polling"""
+    async def _kick_off_polling(self, reason: str = ""):
+        """Start polling
+
+        Args:
+            reason (str, optional): For debugging only
+        """
+
         self._cancel_timer(self.poll_timer_handle)
         self.poll_timer_handle = await self.hass.run_every(
             self._get_and_process_evse_data,
             "now",
             self.POLLING_INTERVAL_SECONDS,
         )
-        self.__log("Kicked off polling.")
+        if reason:
+            reason = f", reason: {reason}"
+        self.__log(f"Kicked off polling{reason}.")
 
     async def _cancel_polling(self, reason: str = ""):
         """Stop the polling process by cancelling the polling timer.
@@ -683,12 +692,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                     relaxed_min_value = entity.get("relaxed_min_value", None)
                     relaxed_max_value = entity.get("relaxed_max_value", None)
                     if relaxed_min_value is None or relaxed_max_value is None:
-                        new_state = ds.UNAVAILABLE
+                        new_state = None
                         self.__log(
                             f"New value {new_state} for entity '{entity_name}' "
                             f"out of range {entity['minimum_value']} "
                             f"- {entity['maximum_value']} but current value is None, so this polled"
-                            f" value cannot be ignored, so new_value set to 'unavailable'."
+                            f" value cannot be ignored, so new_value set to None."
                         )
                     elif relaxed_min_value <= new_state <= relaxed_max_value:
                         self.__log(
@@ -698,12 +707,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                             f"polled value is still used."
                         )
                     else:
-                        new_state = ds.UNAVAILABLE
+                        new_state = None
                         self.__log(
                             f"New value {new_state} for entity '{entity_name}' "
                             f"out of relaxed range {relaxed_min_value} "
                             f"- {relaxed_max_value} but current value is None, so this polled value"
-                            f" cannot be ignored, so new_value set to 'unavailable'."
+                            f" cannot be ignored, so new_value set to None."
                         )
                 else:
                     # If there is a current value ignore the new value and keep that current value.
@@ -722,7 +731,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """
         Update evse_entity.
         :param evse_entity: evse_entity
-        :param new_value: new_value, can be "unavailable"
+        :param new_value: new_value, can be None
         :return: Nothing
         """
         current_value = evse_entity["current_value"]
@@ -739,9 +748,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                         old_charger_state=current_value,
                     )
                 elif str_action == "_handle_soc_change":
-                    # await self._handle_soc_change(
-                    #     new_soc=new_value, old_soc=current_value
-                    # )
                     self._eb.emit_event("soc_change", new_soc=new_value, old_soc=current_value)
                     self._eb.emit_event(
                         "remaining_range_change",
@@ -790,9 +796,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
-            # When disconnected the SoC of the car goes from cur soc to unavailable.
+            # When disconnected the SoC of the car goes from current soc to None.
             await self._update_evse_entity(
-                evse_entity=self.ENTITY_CAR_SOC, new_value=ds.UNAVAILABLE
+                evse_entity=self.ENTITY_CAR_SOC, new_value=None
             )
 
             # To prevent the charger from auto-start charging after the car gets connected again,
@@ -812,17 +818,17 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         return
 
-    async def _get_charge_power(self) -> int:
+    async def _get_charge_power(self) -> int | None:
         state = self.ENTITY_CHARGER_CURRENT_POWER["current_value"]
-        if state in [None, ds.UNAVAILABLE]:
+        if state is None:
             # This can be the case before initialisation has finished.
             await self._get_and_process_registers([self.ENTITY_CHARGER_CURRENT_POWER])
             state = self.ENTITY_CHARGER_CURRENT_POWER["current_value"]
         return state
 
-    async def _get_charger_state(self) -> int:
+    async def _get_charger_state(self) -> int | None:
         charger_state = self.ENTITY_CHARGER_STATE["current_value"]
-        if charger_state in [None, ds.UNAVAILABLE]:
+        if charger_state is None:
             # This can be the case before initialisation has finished.
             await self._get_and_process_registers([self.ENTITY_CHARGER_STATE])
             charger_state = self.ENTITY_CHARGER_STATE["current_value"]
@@ -830,7 +836,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     async def _is_charging_or_discharging(self) -> bool:
         state = await self._get_charger_state()
-        if state  in [None, ds.UNAVAILABLE]:
+        if state is None:
             # The connection to the charger probably is not setup yet.
             self.__log(
                 "charger state is None (not setup yet?). Assume not (dis-)charging."
@@ -842,24 +848,24 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         )
         return is_charging
 
-    async def _get_car_soc(self, force_renew: bool = True) -> MaybeData[int]:
+    async def _get_car_soc(self, force_renew: bool = True) -> int | None:
         """Checks if a SoC value is new enough to return directly or if it should be updated first.
 
         :param force_renew (bool):
         This forces the method to get the soc from the car and bypass any cached value.
 
         :return (int):
-        SoC value from 2 to 97 (%) or "unavailable".
-        If the car is disconnected the charger returns 0 representing "unavailable".
+        SoC value from 2 to 97 (%) or None.
+        If the car is disconnected the charger returns 0 representing None.
         """
         if not await self.is_car_connected():
-            self.__log("no car connected, returning SoC = 'unavailable'")
-            return ds.UNAVAILABLE
+            self.__log("no car connected, returning SoC = None")
+            return None
 
         ecs = self.ENTITY_CAR_SOC
         soc_value = ecs["current_value"]
         should_be_renewed = False
-        if soc_value in [None, ds.UNAVAILABLE]:
+        if soc_value is None:
             # This can occur if it is queried for the first time and no polling has taken place
             # yet. Then the entity does not exist yet and returns None.
             self.__log("current_value is None so should_be_renewed = True")
@@ -888,7 +894,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                     min_value_after_forced_get=relaxed_min_value,
                     max_value_after_forced_get=relaxed_max_value,
                 )
-                # This should can occure if charger is in error
+                # This can occure if charger is in error
                 if soc_in_charger in [None, 0]:
                     soc_in_charger = "unavailable"
                 await self._update_evse_entity(
@@ -903,12 +909,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 # charging_to_read_soc is used to prevent polling to start again from
                 # elsewhere and to stop other processes.
                 self.charging_to_read_soc = True
-                await self._cancel_polling(reason="charging to read soc")
+                await self._cancel_polling(reason="Charging to force reading soc")
                 await self._set_charger_control("take")
                 await self._set_charge_power(
                     charge_power=1, skip_min_soc_check=True, source="get_car_soc"
                 )
-                await self._set_charger_action("start", reason="charging_to_read_soc")
+                await self._set_charger_action("start", reason="Charging to force reading soc")
                 # Reading the actual SoC
                 soc_in_charger = await self._mb_client.force_get_register(
                     register=soc_address,
@@ -921,7 +927,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 await self._set_charge_power(
                     charge_power=0, skip_min_soc_check=True, source="get_car_soc"
                 )  # This also sets action to stop
-                await self._set_charger_action("stop", reason="charging_to_read_soc")
+                await self._set_charger_action("stop", reason="After force reading soc")
                 # This should can occure if charger is in error
                 if soc_in_charger in [None, 0]:
                     soc_in_charger = "unavailable"
@@ -930,6 +936,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                     evse_entity=ecs, new_value=soc_in_charger
                 )
                 self.charging_to_read_soc = False
+                await self._kick_off_polling(reason="After force reading soc")
             soc_value = soc_in_charger
         self.__log(f"returning: '{soc_value}'.")
         return soc_value
@@ -1007,7 +1014,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
             current_soc = await self._get_car_soc()
-            if current_soc in [ds.UNAVAILABLE, "unknown"]:
+            if current_soc is None:
                 self.__log(
                     "current SoC is 'unavailable', only expected when car is not connected",
                     level="WARNING",
@@ -1154,10 +1161,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         # The soc and power are not known any more so let's represent this in the app
         await self.__update_evse_entity(
-            evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value=ds.UNAVAILABLE
+            evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value=None
         )
         await self.__update_evse_entity(
-            evse_entity=self.ENTITY_CAR_SOC, new_value=ds.UNAVAILABLE
+            evse_entity=self.ENTITY_CAR_SOC, new_value=None
         )
 
     async def _modbus_communication_restored(self):
@@ -1266,10 +1273,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         min_value: int | float = None,
         max_value: int | float = None,
         number_name: str = None,
-    ) -> MaybeData[int]:
+    ) -> int | None:
 
-        if number_to_process == ds.UNAVAILABLE or number_to_process is None:
-            return ds.UNAVAILABLE
+        if number_to_process is None:
+            return None
 
         try:
             processed_number = int(float(number_to_process))
@@ -1279,7 +1286,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 f"due to ValueError: {ve}.",
                 level="WARNING",
             )
-            return ds.UNAVAILABLE
+            return None
 
         if isinstance(min_value, (int, float)) and isinstance(max_value, (int, float)):
             if min_value <= processed_number <= max_value:
@@ -1290,7 +1297,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                     f"min '{min_value}' - max '{max_value}'.",
                     level="WARNING",
                 )
-                return ds.UNAVAILABLE
+                return None
         else:
             return processed_number
 

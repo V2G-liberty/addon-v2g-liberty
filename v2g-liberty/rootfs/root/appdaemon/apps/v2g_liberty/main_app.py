@@ -15,8 +15,6 @@ from .v2g_globals import time_round, he, get_local_now
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .chargers.base_bidirectional_evse import BidirectionalEVSE
-from .enum import DataStatus as ds
-
 
 class ChartLine(enum.Enum):
     """Used for indicating what line to write to in the chart
@@ -51,7 +49,7 @@ class V2Gliberty:
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
     RESERVATION_ACTION_DISMISS:str = "dismiss"
     RESERVATION_ACTION_KEEP:str = "keep"
-    EMPTY_STATES = [None, "unknown", "unavailable", "", ds.UNAVAILABLE]
+    EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
     # timer_id's for reminders at start/end of the first/current event.
     timer_id_first_reservation_start: str = ""

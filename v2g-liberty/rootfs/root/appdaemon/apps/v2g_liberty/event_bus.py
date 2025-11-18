@@ -63,15 +63,15 @@ class EventBus(AsyncIOEventEmitter):
         - **Description**: Monitors changes in the chargers actual (real) charge power.
         - **Emitted by** wallbox_quasar_1
         - **Arguments**:
-            - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be 'unavailable'.
+            - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be None.
 
     - `charger_state_change`:
         - **Description**: Monitors changes in the chargers state (charging, idle, error etc.).
         - **Emitted by** wallbox_quasar_1
         - **Arguments**:
-            - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
-            - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
-            - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
+            - `new_charger_state` (int): The new state of the charger, can None.
+            - `old_charger_state` (int): The old (previous) state of the charger, can None.
+            - `new_charger_state_str` (str): text version to show in directly, can be None.
 
     - `evse_polled`:
         - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can

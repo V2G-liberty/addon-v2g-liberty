@@ -824,7 +824,7 @@ class V2GLibertyGlobals:
         self.__log("completed")
 
     async def __initialise_general_settings(self):
-        self.__log("called")
+        self.__log("IGS called")
 
         c.OPTIMISATION_MODE = await self.__process_setting(
             setting_object=self.SETTING_OPTIMISATION_MODE,
@@ -868,7 +868,7 @@ class V2GLibertyGlobals:
         c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
-        await self.quasar1.set_roundtrip_efficiency_percent(
+        await self.quasar1.set_charging_efficiency(
             c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100

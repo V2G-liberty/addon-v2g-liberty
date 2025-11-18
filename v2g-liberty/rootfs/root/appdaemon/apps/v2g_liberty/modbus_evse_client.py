@@ -7,10 +7,12 @@ from pyee.asyncio import AsyncIOEventEmitter
 
 from appdaemon.plugins.hass.hassapi import Hass
 
+from .util import parse_to_int
+
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .notifier_util import Notifier
-from .v2g_globals import get_local_now, parse_to_int
+from .v2g_globals import get_local_now
 from .event_bus import EventBus
 
 
@@ -22,8 +24,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     Values of the EVSE (like charger status or car SoC) are then written to
     Home Assistant entities for other modules to use / subscribe to.
     """
-
-    event_bus: EventBus = None
 
     #######################################################################################
     #   This file contains the Modbus address information for the Wallbox Quasar 1 EVSE.  #

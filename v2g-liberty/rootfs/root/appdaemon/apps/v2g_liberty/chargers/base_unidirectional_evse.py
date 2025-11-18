@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 from pyee.asyncio import AsyncIOEventEmitter
-from v2g_liberty.enum import DataStatus
-from typing import Union
 
 class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     def __init__(self):
@@ -77,15 +75,15 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
 
 
     @abstractmethod
-    async def get_car_battery_capacity_kwh(self) -> Union[int, DataStatus]:
-        """Returns car battery capacity in kWh, or DataStatus.UNAVAILABLE"""
+    async def get_car_battery_capacity_kwh(self) -> int | None:
+        """Returns car battery capacity in kWh, or None if unavailable"""
         raise NotImplementedError(
             "Subclasses must implement get_car_battery_capacity_kwh()"
         )
 
     @abstractmethod
     async def set_car_battery_capacity_kwh(self, capacity_kwh: int):
-        """Sets car battery capacity in kWh, or DataStatus.UNAVAILABLE"""
+        """Sets car battery capacity in kWh, or None if unavailable"""
         raise NotImplementedError(
             "Subclasses must implement set_car_battery_capacity_kwh()"
         )
@@ -93,19 +91,19 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
 
     #TODO: Should this not be a @property?
     @abstractmethod
-    async def get_car_soc(self) -> Union[float, DataStatus]:
-        """Returns SOC in %, or DataStatus.UNAVAILABLE"""
+    async def get_car_soc(self) -> float | None:
+        """Returns SOC in %, or None if unavailable"""
         raise NotImplementedError("Subclasses must implement get_car_soc()")
 
     #TODO: Should this not be a @property?
     @abstractmethod
-    async def get_car_soc_kwh(self) -> Union[int, DataStatus]:
+    async def get_car_soc_kwh(self) -> int | None:
         """State of charge in kWh"""
         raise NotImplementedError("Subclasses must implement get_car_soc_kwh()")
 
     #TODO: Should this not be a @property?
     @abstractmethod
-    async def get_car_remaining_range_km(self) -> Union[int, DataStatus]:
+    async def get_car_remaining_range_km(self) -> int | None:
         """Remaining range in km"""
         raise NotImplementedError("Subclasses must implement get_car_remaining_range_km()")
 
