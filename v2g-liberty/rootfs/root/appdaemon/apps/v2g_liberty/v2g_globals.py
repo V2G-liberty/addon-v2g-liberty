@@ -7,18 +7,20 @@ import pytz
 from appdaemon.plugins.hass.hassapi import Hass
 
 from .notifier_util import Notifier
+from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .settings_manager import SettingsManager
 from v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
-# from .main_app import V2Gliberty
+from v2g_liberty.evs.electric_vehicle import ElectricVehicle
 
 class V2GLibertyGlobals:
     """Class to initialise settings and CONSTANTS"""
 
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
-    v2g_main_app: object  # V2Gliberty
+
+    v2g_main_app: object #V2Gliberty, cannot be typed here because of circular referencing...
     quasar1: WallboxQuasar1Client
     fm_client_app: object
     calendar_client: object
@@ -290,8 +292,9 @@ class V2GLibertyGlobals:
     hass: Hass = None
     notifier: Notifier = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
+        self.event_bus = event_bus
         self.notifier = notifier
         self.__log = get_class_method_logger(hass.log)
         self.v2g_settings = SettingsManager(log=self.__log)
@@ -345,17 +348,21 @@ class V2GLibertyGlobals:
 
     async def kick_off_settings(self):
         # To be called from initialise or restart event
-        self.__log("called")
+        self.__log("KOS called")
 
         self.v2g_settings.retrieve_settings()
         await self.__initialise_notification_settings()
 
+        await self.__initialise_general_settings()
+        # Charger needs car settings done which are in general settings.
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
-        await self.__initialise_general_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
+
+        self.__log("KOS completed")
+
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -734,7 +741,7 @@ class V2GLibertyGlobals:
         return return_value
 
     async def __initialise_charger_settings(self):
-        self.__log("called")
+        self.__log("ICS called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.CHARGER_SETTINGS_INITIALISED
@@ -793,7 +800,7 @@ class V2GLibertyGlobals:
             ]
             await self.quasar1.set_max_charge_power(max_power_by_charger)
 
-        await self.quasar1.complete_init()
+        await self.quasar1.kick_off_evse()
 
         self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
 
@@ -840,7 +847,6 @@ class V2GLibertyGlobals:
         c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
-        await self.quasar1.set_car_battery_capacity_kwh(c.CAR_MAX_CAPACITY_IN_KWH)
 
         c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
@@ -872,6 +878,17 @@ class V2GLibertyGlobals:
             c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
+
+        ev = ElectricVehicle(self.hass, self.event_bus)
+        ev.initialise_ev(
+            name="NissanLeaf",
+            battery_capacity_kwh=c.CAR_MAX_CAPACITY_IN_KWH,
+            charging_efficiency_percent=c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+            consumption_wh_per_km=c.CAR_CONSUMPTION_WH_PER_KM,
+            min_soc_percent=c.CAR_MIN_SOC_IN_PERCENT,
+            max_soc_percent=c.CAR_MAX_SOC_IN_PERCENT,
+        )
+        self.v2g_main_app.add_vehicle(ev)
 
         self.__log("completed")
 

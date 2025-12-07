@@ -47,7 +47,7 @@ class EventBus(AsyncIOEventEmitter):
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
           When the SoC value changes, this event is emitted with the new and old values.
-        - **Emitted by** wallbox_quasar_1
+        - **Emitted by** ElectricVehicle class
         - **Arguments**:
             - `new_soc` (int): The new state of charge value (1–100).
             - `old_soc` (int): The previous state of charge value (1–100).
@@ -57,6 +57,18 @@ class EventBus(AsyncIOEventEmitter):
           def _handle_soc_change(new_soc, old_soc):
               print(f"State of Charge changed from {old_soc}% to {new_soc}%")
           event_bus.add_event_listener("soc_change", _handle_soc_change)
+          ```
+
+    - `remaining_range_change`:
+        - **Description**: Monitors changes in the car's estimated remaining range.
+        - **Emitted by** ElectricVehicle class
+        - **Arguments**:
+            - `remaining_range` (float): The new estimated remaining range in kilometers.
+        - **Example**:
+          ```python
+          def _handle_remaining_range_change(remaining_range):
+              print(f"Remaining range updated to {remaining_range} km")
+          event_bus.add_event_listener("remaining_range_change", _handle_remaining_range_change)
           ```
 
     - `charge_power_change`:

@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import Callable, Optional
+from appdaemon import Hass
 import pymodbus.client as modbusClient
 from pymodbus.exceptions import ModbusException
 from pyee.asyncio import AsyncIOEventEmitter
@@ -20,7 +21,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
     MAX_MODBUS_EXCEPTION_STATE_DURATION_IN_SECONDS: int = 60
 
-    def __init__(self, cb_modbus_state: Optional[Callable[[bool], None]] = None):
+    def __init__(self, hass: Hass, cb_modbus_state: Optional[Callable[[bool], None]] = None):
         """Initialise ModbusClient
         Configuration and connecting the modbus client is done separately in initialise_charger.
 
@@ -30,6 +31,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             has crashed and needs to be restarted.
         """
         super().__init__()
+        self.hass = hass
         self._cb_modbus_state = cb_modbus_state
         # ModBusClient
         self._mbc = None

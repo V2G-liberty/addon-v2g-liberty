@@ -56,28 +56,27 @@ CAR_MAX_SOC_IN_KWH: float = 0
 
 # A practical absolute max. capacity of the car battery in percent.
 # E.g. a Quasar + Nissan Leaf will never charge higher than 97%.
-# FSC: Used only in v2g_liberty module, move there.
+# TODO: move to electric vehicle.
 CAR_MAX_CAPACITY_IN_PERCENT: int = 97
 
 # Car consumption per km. Defaults to the Nissan Leaf average.
-# FSC: Used only in v2g_liberty module, move there.
+# TODO: move to electric vehicle.
 CAR_CONSUMPTION_WH_PER_KM: int = 175
 CAR_MAX_RANGE_IN_KM: int = 1
 
 # Average distance travelled for every hour that a calendar item lasts
 # E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
 # From this we derive an average usage.
-# TODO: Maybe make this a user setting?
-# FSC: Not used anywhere yet...
+# TODO: move to electric vehicle.
 KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
 
 # Assumed car consumption during a calendar event per time_interval, calculate as follows:
 # (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)
-# FSC: Expected to be only used in fm_client. Move this and previous there.
+# TODO: move to electric vehicle.
 USAGE_PER_EVENT_TIME_INTERVAL: float = None
 
 # Duration in hours, defaults to 4 should be between 2 and 12 hours
-# FSC: Used in v2g_liberty and fm_client module, keep here?
+# TODO: move to electric vehicle.
 ALLOWED_DURATION_ABOVE_MAX_SOC: int = 4
 
 # FSC: Used in v2g_liberty and amber (why not Octopus?) module, keep here?

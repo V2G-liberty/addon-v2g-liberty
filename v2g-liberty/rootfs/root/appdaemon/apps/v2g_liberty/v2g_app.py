@@ -35,11 +35,19 @@ class V2GLibertyApp(Hass):
         self._log_init_time("Notifier", start_module)
 
         start_module = datetime.now()
-        v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
+        v2g_globals = V2GLibertyGlobals(self, event_bus=event_bus, notifier=notifier)
         self._log_init_time("V2GLibertyGlobals", start_module)
 
         start_module = datetime.now()
-        quasar1_evse_client = WallboxQuasar1Client(self, event_bus=event_bus)
+        main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
+        self._log_init_time("V2Gliberty", start_module)
+
+        start_module = datetime.now()
+        quasar1_evse_client = WallboxQuasar1Client(
+            self,
+            event_bus=event_bus,
+            get_vehicle_by_name_func=main_app.get_vehicle_by_name
+        )
         self._log_init_time("WallboxQuasar1Client", start_module)
 
         start_module = datetime.now()
@@ -49,10 +57,6 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         reservations_client = ReservationsClient(self, event_bus=event_bus)
         self._log_init_time("ReservationsClient", start_module)
-
-        start_module = datetime.now()
-        main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
-        self._log_init_time("V2Gliberty", start_module)
 
         start_module = datetime.now()
         data_monitor = DataMonitor(self, event_bus=event_bus)

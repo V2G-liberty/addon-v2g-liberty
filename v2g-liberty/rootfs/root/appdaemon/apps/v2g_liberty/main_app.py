@@ -106,6 +106,7 @@ class V2Gliberty:
         self.notifier = notifier
         self.event_bus = event_bus
         self.__log = get_class_method_logger(hass.log)
+        self._vehicles = []
 
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
@@ -186,6 +187,26 @@ class V2Gliberty:
     #                          PUBLIC METHODS                            #
     ######################################################################
 
+    def add_vehicle(self, vehicle):
+        """Setter: Add or replace an ElectricVehicle instance in the list."""
+        # Remove existing vehicle with the same name, if any
+        existing = self.get_vehicle_by_name(vehicle.name)
+        if existing is not None:
+            self._vehicles.remove(existing)
+            self.__log(f"Replaced existing vehicle with name '{vehicle.name}'.")
+        # Add the new vehicle
+        else:
+            self.__log(f"Added new vehicle with name '{vehicle.name}'.")
+
+        self._vehicles.append(vehicle)
+
+    def get_vehicle_by_name(self, name: str):
+        """Getter: Retrieve an ElectricVehicle by its name."""
+        for vehicle in self._vehicles:
+            if vehicle.name == name:
+                return vehicle
+        return None
+
     async def kick_off_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
 
@@ -209,7 +230,7 @@ class V2Gliberty:
             state=get_local_now().strftime(c.DATE_TIME_FORMAT),
         )
 
-        await self.set_next_action(v2g_args=v2g_args)  # on initializing the app
+        await self.set_next_action(v2g_args=v2g_args)
 
     async def set_next_action(self, v2g_args=None):
         """The function determines what action should be taken next based on
@@ -244,6 +265,13 @@ class V2Gliberty:
             self.__log("No car connected (or error), abort.")
             return
 
+        ev = await self.quasar1_evse.get_connected_car()
+        if ev is None:
+            # Unlikely after previous check, just to be sure.
+            self.__log("No connected car found, abort.")
+            return
+        soc = ev.soc
+
         charge_mode = await self.hass.get_state(
             "input_select.charge_mode", attribute="state"
         )
@@ -251,11 +279,10 @@ class V2Gliberty:
 
         # Needed in many of the cases further in this method
         now = get_local_now()
-        soc = await self.quasar1_evse.get_car_soc()
 
         if charge_mode == "Automatic":
             # update_charge_mode takes charger control already, not needed here.
-            soc_kwh = await self.quasar1_evse.get_car_soc_kwh()
+            soc_kwh = ev.soc_kwh
             if soc_kwh in self.EMPTY_STATES:
                 self.__log("SoC_kWh is 'unknown', abort.")
                 return
@@ -366,7 +393,7 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                soc_kwh = await self.quasar1_evse.get_car_soc_kwh()
+                soc_kwh = ev.soc_kwh
                 schedule = None
                 try:
                     schedule = await self.fm_client_app.get_new_schedule(
@@ -389,7 +416,6 @@ class V2Gliberty:
                 self.__log(
                     "Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
-                # TODO: Wait 15m., than ask user if they want to postpone scheduled charging or not.
                 await self.__set_charge_mode_in_ui("Automatic")
             else:
                 self.__log(
@@ -910,9 +936,13 @@ class V2Gliberty:
             await self.quasar1_evse.is_charging()
             and new_soc == c.CAR_MAX_SOC_IN_PERCENT
         ):
+            ev = await self.quasar1_evse.get_connected_car()
+            if ev is None:
+                self.__log("No connected car found, abort.")
+                return
             message = (
                 f"Car battery at {new_soc} %, "
-                f"range ≈ {await self.quasar1_evse.get_car_remaining_range_km()} km."
+                f"range ≈ {ev.remaining_range_km} km."
             )
             self.__log(f"{message=}")
             self.notifier.notify_user(
@@ -1124,7 +1154,11 @@ class V2Gliberty:
             self.__log("aborted: car is not connected")
             return
 
-        if await self.quasar1_evse.get_car_soc() in self.EMPTY_STATES:
+        ev = await self.quasar1_evse.get_connected_car()
+        if ev is None:
+            self.__log("aborted: no connected car found.")
+            return
+        if ev.soc in self.EMPTY_STATES:
             self.__log("aborted: soc is 'unknown'")
             return
 
@@ -1210,7 +1244,7 @@ class V2Gliberty:
 
         exp_soc_values = list(
             accumulate(
-                [await self.quasar1_evse.get_car_soc()]
+                [ev.soc]
                 + convert_MW_to_percentage_points(
                     values,
                     resolution,
