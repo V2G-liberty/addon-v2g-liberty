@@ -13,7 +13,7 @@
         "-c",
         "rootfs/root/appdaemon",
         "-C",
-        "appdaemon.devcontainer.yaml",
+        "rootfs/root/appdaemon/appdaemon.devcontainer.yaml",
         "-D",
         "INFO"
       ]
@@ -23,7 +23,9 @@
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["-s"],
+      "args": [
+        "-s"
+      ],
       "justMyCode": false
     }
   ]
