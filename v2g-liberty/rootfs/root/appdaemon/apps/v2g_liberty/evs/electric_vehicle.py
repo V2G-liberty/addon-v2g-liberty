@@ -1,9 +1,9 @@
 """Generic electric vehicle (EV) class."""
 
-from v2g_liberty.evs.base_ev import BaseEV
+from apps.v2g_liberty.evs.base_ev import BaseEV
 from appdaemon.plugins.hass.hassapi import Hass
-from v2g_liberty.event_bus import EventBus
-from v2g_liberty.log_wrapper import get_class_method_logger
+from apps.v2g_liberty.event_bus import EventBus
+from apps.v2g_liberty.log_wrapper import get_class_method_logger
 
 class ElectricVehicle(BaseEV):
     """Generic electric vehicle (EV) class."""

@@ -1,7 +1,7 @@
 """Unit test (pytest) for reservations_client module."""
-
 from unittest.mock import MagicMock, patch, AsyncMock
 import pytest
+from datetime import datetime
 from apps.v2g_liberty.reservations_client import ReservationsClient
 from apps.v2g_liberty.event_bus import EventBus
 
@@ -18,6 +18,12 @@ def mock_log_wrapper():
     ):
         yield
 
+# Mock get_local_now
+@pytest.fixture
+def mock_get_local_now():
+    with patch("apps.v2g_liberty.v2g_globals.get_local_now") as mock:
+        mock.return_value = datetime(2025, 1, 1, 12, 0, 0)  # Example fixed time
+        yield mock
 
 # Test cases
 @pytest.mark.parametrize(
@@ -39,7 +45,7 @@ def mock_log_wrapper():
     ],
 )
 def test_add_target_soc(
-    mock_log_wrapper, monkeypatch, summary, description, expected_soc
+    mock_log_wrapper, monkeypatch, mock_get_local_now, event_bus, summary, description, expected_soc
 ):
     """Test the _add_target_soc method
     Assumed defaults in constants.py
@@ -47,26 +53,20 @@ def test_add_target_soc(
     c.CAR_MAX_CAPACITY_IN_PERCENT = 97
     c.CAR_MIN_SOC_IN_PERCENT = 20
     """
-
     # Arrange
     hass = MagicMock()
     reservations_client = ReservationsClient(hass, event_bus=event_bus)
-
     # TODO: The ReservationsClient should not have a method to set/get_constant_range_in_km
     # but it is the only way i could get this to work.
     org_value = reservations_client.get_constant_range_in_km()
     reservations_client.set_constant_range_in_km(300)
-
     v2g_event = {"summary": summary, "description": description}
-
     # Act
     result = reservations_client._ReservationsClient__add_target_soc(v2g_event)
-
     # Assert
     assert result["target_soc_percent"] == expected_soc, (
         f"Test failed for summary: {summary}, description: {description}. Expected {expected_soc}, but got {result['target_soc_percent']}."
     )
-
     # TODO: The ReservationsClient should not have a method set_constant_range_in_km
     # but it is the only way i could get this to work.
     reservations_client.set_constant_range_in_km(org_value)
