@@ -11,7 +11,6 @@ from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now, time_round, time_ceil
 from .event_bus import EventBus
 
-
 # TODO:
 # Start times of Posting data sometimes seem incorrect, it is recommended to research them.
 
@@ -142,6 +141,13 @@ class DataMonitor:
         runtime = time_ceil(runtime, resolution)
         await self.hass.run_hourly(self.__try_send_data, runtime)
         self.__log("Completed initializing DataMonitor")
+
+    def set_min_soc(self, min_soc_percent: float):
+        """
+        :params
+         - min_soc_percent (float): Minimum state of charge (Expected 10.0 - 55.0).
+        """
+        self.min_soc_percent = min_soc_percent
 
     async def _process_soc_change(self, new_soc: int, old_soc: int):
         if new_soc in self.EMPTY_STATES:
@@ -370,7 +376,7 @@ class DataMonitor:
                 return False
             else:
                 # Forced charging in progress if SoC is below the minimum SoC setting
-                return self.connected_car_soc >= c.CAR_MIN_SOC_IN_PERCENT
+                return self.connected_car_soc >= self.min_soc_percent
         return False
 
 def len_to_iso_duration(nr_of_intervals: int) -> str:

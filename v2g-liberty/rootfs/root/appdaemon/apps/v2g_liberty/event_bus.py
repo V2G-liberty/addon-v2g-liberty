@@ -59,6 +59,16 @@ class EventBus(AsyncIOEventEmitter):
           event_bus.add_event_listener("soc_change", _handle_soc_change)
           ```
 
+    - `nissan_leaf_min_soc_skipped`:
+        - **Description**: Specific to Nissan Leaf vehicles, this event is emitted when
+          the car's state of charge (SoC) skips below a predefined minimum threshold during
+          a charging cycle. This is to handle the Leaf's unique behavior of occasionally
+          skipping SoC values.
+        - **Emitted by** ElectricVehicle class
+        - **Arguments**:
+            - `min_soc` (int): The minimum SoC in % that was skipped.
+            - `ev_name` (int): The name of the EV that skipped the SoC.
+
     - `remaining_range_change`:
         - **Description**: Monitors changes in the car's estimated remaining range.
         - **Emitted by** ElectricVehicle class

@@ -1,8 +1,6 @@
 """Module to monitor Nissan Leaf for strange charging behaviour"""
 
 from appdaemon.plugins.hass.hassapi import Hass
-
-from . import constants as c
 from .event_bus import EventBus
 from .notifier_util import Notifier
 from .log_wrapper import get_class_method_logger
@@ -36,57 +34,33 @@ class NissanLeafMonitor:
 
         self._initialize()
 
-        self.__log("Completed __init__ NissanLeafMonitor")
+        self.__log("Completed")
 
     def _initialize(self):
-        self.event_bus.add_event_listener("soc_change", self._handle_soc_change)
-        self.__log("Completed initialize")
+        self.event_bus.add_event_listener("nissan_leaf_soc_skipped", self._check_notification)
 
-    async def _handle_soc_change(self, new_soc: int, old_soc: int):
-        """Handle changes in the car's state of charge (SoC).
-        Assumption:
-        soc values are numbers from 1 to 100, but can be "unknow" or None
-        """
-
-        if not isinstance(new_soc, (int, float)) or not isinstance(
-            old_soc, (int, float)
-        ):
-            self.__log(
-                f"Aborting: new_soc '{new_soc}' and/or old_soc '{old_soc}' not an int."
+    async def _check_notification(self, min_soc: int, ev_name: str):
+        """Handles notification when soc skip detected."""
+        message = (
+            f"The '{ev_name}' faulted, skipping the battery state-of-charge "
+            f"{min_soc}%. This often leads to toggled charging. "
+            f"A possible solution is to change the setting for 'schedule lower limit'"
+            f"to 1%-point higher or lower."
+        )
+        try:
+            relevant_duration = 24 * 60 * 60
+            self.notifier.notify_user(
+                message=message, tag="soc_skipped", ttl=relevant_duration
             )
-            return
+            # Stop listening (and possibly repeating the message) for a day.
+            self.event_bus.remove_event_listener(
+                "nissan_leaf_soc_skipped", self._check_notification
+            )
+            self.hass.run_in(self._initialize, relevant_duration)
+            self.__log(f"Notified user with message:/n{message}.")
 
-        if (new_soc < c.CAR_MIN_SOC_IN_PERCENT < old_soc) or (
-            old_soc < c.CAR_MIN_SOC_IN_PERCENT < new_soc
-        ):
+        except Exception as e:
             self.__log(
-                f"SoC change jump: old_soc '{old_soc}', new_soc '{new_soc}', "
-                f"skipped c.CAR_MIN_SOC_IN_PERCENT '{c.CAR_MIN_SOC_IN_PERCENT}'. "
-                f"Warning user and not checking for the next 24h.",
+                f"Problem soc_skipped_warning event. Exception: {e}.",
                 level="WARNING",
             )
-
-            # As the skip-problem is specific to the Nissan Leaf it's message content (incl. a
-            # solution) is documented here in this module and not in the general module V2G Liberty.
-            message = (
-                f"The Nissan Leaf faulted, skipping the state-of-charge "
-                f"{c.CAR_MIN_SOC_IN_PERCENT}%. This often leads to toggled charging. "
-                f"A possible solution is to change the setting for 'schedule lower limit'"
-                f"to 1%-point higher or lower."
-            )
-            try:
-                relevant_duration = 24 * 60 * 60
-                self.notifier.notify_user(
-                    message=message, tag="soc_skipped", ttl=relevant_duration
-                )
-                # Stop listening (and possibly repeating the message) for a day.
-                self.event_bus.remove_event_listener(
-                    "soc_change", self._handle_soc_change
-                )
-                self.hass.run_in(self._initialize, relevant_duration)
-
-            except Exception as e:
-                self.__log(
-                    f"Problem soc_skipped_warning event. Exception: {e}.",
-                    level="WARNING",
-                )

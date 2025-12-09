@@ -11,8 +11,9 @@ from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .settings_manager import SettingsManager
-from v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
-from v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
+from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
+
 
 class V2GLibertyGlobals:
     """Class to initialise settings and CONSTANTS"""
@@ -20,13 +21,15 @@ class V2GLibertyGlobals:
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
 
-    v2g_main_app: object #V2Gliberty, cannot be typed here because of circular referencing...
+    # V2Gliberty, cannot be typed here because of circular referencing...
+    v2g_main_app: object
     quasar1: WallboxQuasar1Client
     fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
     amber_price_data_manager: object
     octopus_price_data_manager: object
+    datamonitor: object
 
     # Settings related to FlexMeasures
     SCHEDULE_SETTINGS_INITIALISED = {
@@ -362,7 +365,6 @@ class V2GLibertyGlobals:
         await self.__initialise_calendar_settings()
 
         self.__log("KOS completed")
-
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -837,6 +839,7 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
+        # TODO: Move all c.CAR_xyz to ElectricVehicle class
         c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
         )
@@ -848,12 +851,10 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
 
-        c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
+        car_min_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
         )
-        c.CAR_MIN_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
+        c.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * car_min_soc_in_percent / 100
         c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
@@ -885,10 +886,12 @@ class V2GLibertyGlobals:
             battery_capacity_kwh=c.CAR_MAX_CAPACITY_IN_KWH,
             charging_efficiency_percent=c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
             consumption_wh_per_km=c.CAR_CONSUMPTION_WH_PER_KM,
-            min_soc_percent=c.CAR_MIN_SOC_IN_PERCENT,
+            min_soc_percent=car_min_soc_in_percent,
             max_soc_percent=c.CAR_MAX_SOC_IN_PERCENT,
         )
         self.v2g_main_app.add_vehicle(ev)
+        self.datamonitor.set_min_soc(car_min_soc_in_percent)
+        self.calendar_client.set_vehicle(ev)
 
         self.__log("completed")
 
@@ -1320,5 +1323,3 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
 
     result = start_dt <= now <= end_dt
     return result
-
-

@@ -34,13 +34,8 @@ ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 
 
 # USER PREFERENCE
-# See remark for charger constants
-# Battery protection boundaries
-# A hard setting that is always respected (and used for Max_Charge_Now when
-# car is connected with a SoC below this value)
-# Defaults to 20 (to be safe)
-# FSC: Used in several modules, keep here for now.
-CAR_MIN_SOC_IN_PERCENT: int = 20
+### Replaced by ev.min_soc_percent.
+# CAR_MIN_SOC_IN_PERCENT: int = 20
 # Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
 # FSC: Used in fm_client only, move there.
 CAR_MIN_SOC_IN_KWH: float = 0

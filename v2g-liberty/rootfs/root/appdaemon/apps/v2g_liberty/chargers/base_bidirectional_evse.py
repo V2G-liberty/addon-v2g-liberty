@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from appdaemon.plugins.hass.hassapi import Hass
 
-from v2g_liberty.chargers.base_unidirectional_evse import UnidirectionalEVSE
+from apps.v2g_liberty.chargers.base_unidirectional_evse import UnidirectionalEVSE
+
 
 class BidirectionalEVSE(UnidirectionalEVSE, ABC):
     hass: Hass = None
@@ -14,7 +15,7 @@ class BidirectionalEVSE(UnidirectionalEVSE, ABC):
         """
         raise NotImplementedError("Subclasses must implement start_charging()")
 
-    #TODO: Should this not be a @property?
+    # TODO: Should this not be a @property?
     @abstractmethod
     async def is_discharging(self) -> bool:
         """

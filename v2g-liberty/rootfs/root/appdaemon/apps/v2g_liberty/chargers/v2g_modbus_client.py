@@ -6,7 +6,7 @@ from appdaemon import Hass
 import pymodbus.client as modbusClient
 from pymodbus.exceptions import ModbusException
 from pyee.asyncio import AsyncIOEventEmitter
-from v2g_liberty.util import parse_to_int
+from apps.v2g_liberty.util import parse_to_int
 
 
 class V2GmodbusClient(AsyncIOEventEmitter):
@@ -21,7 +21,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
     MAX_MODBUS_EXCEPTION_STATE_DURATION_IN_SECONDS: int = 60
 
-    def __init__(self, hass: Hass, cb_modbus_state: Optional[Callable[[bool], None]] = None):
+    def __init__(
+        self, hass: Hass, cb_modbus_state: Optional[Callable[[bool], None]] = None
+    ):
         """Initialise ModbusClient
         Configuration and connecting the modbus client is done separately in initialise_charger.
 
@@ -46,8 +48,8 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         print("V2GmodbusClient init completed")
 
     async def adhoc_read_register(
-            self, modbus_address: int, host: str, port: int = 502
-        ) -> tuple[bool, int | None]:
+        self, modbus_address: int, host: str, port: int = 502
+    ) -> tuple[bool, int | None]:
         """Adhoc reading of a value from a modbus register with a given host without the need for
         prior initialisation.
         It's usedfor testing user entered host/port in the charger settings dialog.
@@ -142,9 +144,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         return True
 
-    async def modbus_read(
-        self, address: int, length: int = 1, source: str = "unknown"
-    ):
+    async def modbus_read(self, address: int, length: int = 1, source: str = "unknown"):
         """Generic modbus read function.
            Reading from the modbus server is preferably done through this function
 
@@ -186,11 +186,12 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             await self._reset_modbus_exception()
 
         if result is None:
-            print(f"[WARNING] Result is None for address '{address}' and length '{length}'.")
+            print(
+                f"[WARNING] Result is None for address '{address}' and length '{length}'."
+            )
             return None
         result = list(map(self._get_2comp, result.registers))
         return result
-
 
     async def force_get_register(
         self,
@@ -239,7 +240,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 )
             except ModbusException as me:
                 print(f"[WARNING] ModbusException {me}")
-                is_unrecoverable = await self._handle_modbus_exception(source="force_get_register")
+                is_unrecoverable = await self._handle_modbus_exception(
+                    source="force_get_register"
+                )
                 if is_unrecoverable:
                     return
             else:
@@ -250,9 +253,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                     result = self._get_2comp(result.registers[0])
                     if min_value_at_forced_get <= result <= max_value_at_forced_get:
                         # Acceptable result retrieved
-                        print(
-                            f"After {total_time} sec. value {result} was retrieved."
-                        )
+                        print(f"After {total_time} sec. value {result} was retrieved.")
                         break
                 except TypeError:
                     pass

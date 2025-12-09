@@ -89,6 +89,7 @@ class V2GLibertyApp(Hass):
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager
         v2g_globals.fm_data_retrieve_client = get_fm_data
         v2g_globals.quasar1 = quasar1_evse_client
+        v2g_globals.datamonitor = data_monitor
 
         main_app.quasar1_evse = quasar1_evse_client
         main_app.fm_client_app = fm_client

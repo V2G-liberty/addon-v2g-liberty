@@ -12,6 +12,7 @@ from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now
+from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -46,11 +47,21 @@ class ReservationsClient(AsyncIOEventEmitter):
         self.principal = None
         self.poll_timer_id = ""
 
+        self._ev: object = None
+
         self.__log("Completed __init__ ReservationsClient")
 
     ######################################################################
     #                         PUBLIC FUNCTIONS                           #
     ######################################################################
+
+    def set_vehicle(self, ev: ElectricVehicle):
+        """Set the ElectricVehicle instance to use for soc limits
+
+        Args:
+            ev (ElectricVehicle): electric vehicle instance
+        """
+        self._ev = ev
 
     def test_caldav_connection(self, url, username, password):
         """Test caldav connection and return calendar names.
@@ -533,24 +544,24 @@ class ReservationsClient(AsyncIOEventEmitter):
         if target_soc_percent is None:
             km = search_for_soc_target("km", text_to_search_in)
             if km is not None:
-                target_soc_percent = int(round(float(km / c.CAR_MAX_RANGE_IN_KM * 100)))
+                target_soc_percent = int(round(float(km / self._ev.max_range_km * 100)))
                 self.__log(f"Target {km} km converted to {target_soc_percent}%.")
 
         if target_soc_percent is None:
             # Default % for calendar item with a target in summary or description
             # This used to be 100%, issueu #244 changed this.
-            target_soc_percent = c.CAR_MAX_SOC_IN_PERCENT
+            target_soc_percent = self._ev.max_soc_percent
 
-        if target_soc_percent > c.CAR_MAX_CAPACITY_IN_PERCENT:
-            target_soc_percent = c.CAR_MAX_CAPACITY_IN_PERCENT
+        if target_soc_percent > self._ev.soc_system_limit_percent:
+            target_soc_percent = self._ev.soc_system_limit_percent
             self.__log(
-                f"{target_soc_percent=} lowered to meet {c.CAR_MAX_CAPACITY_IN_PERCENT=}"
+                f"{target_soc_percent=} lowered to meet sys_limit {self._ev.soc_system_limit_percent}"
             )
-        elif target_soc_percent < c.CAR_MIN_SOC_IN_PERCENT:
+        elif target_soc_percent < self._ev.min_soc_percent:
             self.__log(
-                f"{target_soc_percent=} raised to meet {c.CAR_MIN_SOC_IN_PERCENT=}"
+                f"{target_soc_percent=} raised to meet min. soc {self._ev.min_soc_percent}%."
             )
-            target_soc_percent = c.CAR_MIN_SOC_IN_PERCENT
+            target_soc_percent = self._ev.min_soc_percent
 
         v2g_event["target_soc_percent"] = target_soc_percent
         return v2g_event
@@ -594,24 +605,6 @@ class ReservationsClient(AsyncIOEventEmitter):
             if not hash_id_in_v2g_events:
                 # The hash_id in self.events_dismissed_statuses is not current anymore.
                 self.events_dismissed_statuses.pop(dismissed_event_hash_id)
-
-    ######################################################################
-    #                TEST FUNCTIONS (SHOULD BE REMOVED)                  #
-    ######################################################################
-
-    def get_constant_range_in_km(self):
-        """
-        TODO: The ReservationsClient should not have a method to get_constant_range_in_km
-              but it is the only way i could get the test_reservations_client.py to work.
-        """
-        return c.CAR_MAX_RANGE_IN_KM
-
-    def set_constant_range_in_km(self, range_in_km: int):
-        """
-        TODO: The ReservationsClient should not have a method to set_constant_range_in_km
-              but it is the only way i could get the test_reservations_client.py to work.
-        """
-        c.CAR_MAX_RANGE_IN_KM = range_in_km
 
 
 ######################################################################

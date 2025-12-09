@@ -12,11 +12,10 @@
 
 from .v2g_modbus_client import V2GmodbusClient
 from .base_bidirectional_evse import BidirectionalEVSE
-from v2g_liberty import constants as c
 from appdaemon.plugins.hass.hassapi import Hass
-from v2g_liberty.event_bus import EventBus
-from v2g_liberty.log_wrapper import get_class_method_logger
-from v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from apps.v2g_liberty.event_bus import EventBus
+from apps.v2g_liberty.log_wrapper import get_class_method_logger
+from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
 
 
 class WallboxQuasar1Client(BidirectionalEVSE):
@@ -212,7 +211,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     # After a restart of the charger, errors can be present for up to 5 minutes.
     MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 300
 
-    def __init__(self, hass: Hass, event_bus: EventBus, get_vehicle_by_name_func: callable):
+    def __init__(
+        self, hass: Hass, event_bus: EventBus, get_vehicle_by_name_func: callable
+    ):
         super().__init__()
         self.hass = hass
         self._eb = event_bus
@@ -221,7 +222,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # function to get the connected vehicle by name from v2g-liberty
         self.get_vehicle_by_name = get_vehicle_by_name_func
 
-        #Modbus specifics
+        # Modbus specifics
         self._mb_client: V2GmodbusClient | None = None
         self._mb_host: str | None = None
         self._mb_port: int = 502
@@ -233,12 +234,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self.evse_max_charge_power_w: int | None = None
         self.evse_max_discharge_power_w: int | None = None
 
-
         self._connected_car: ElectricVehicle | None = None
         self.evse_actual_charge_power: int | None = None
 
         # Polling variables
-        self.poll_timer_handle: str | None= None
+        self.poll_timer_handle: str | None = None
 
         self._timer_id_check_error_state: str | None = None
 
@@ -249,7 +249,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         self.__log("WallboxQuasar1Client initialized.")
 
-    async def get_max_power_pre_init(self, host: str, port: int | None = None) -> tuple[bool, int | None]:
+    async def get_max_power_pre_init(
+        self, host: str, port: int | None = None
+    ) -> tuple[bool, int | None]:
         """Tests the Modbus TCP connection to the EVSE charger before full initialization.
 
         This method is designed to validate communication settings (host and port)
@@ -281,7 +283,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._emit_modbus_communication_state(can_communicate=connected)
         return connected, max_hardware_power
 
-
     async def initialise_evse(
         self,
         communication_config: dict,
@@ -289,7 +290,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """Initialise Wallbox Quasar 1 EVSE
         To be called from globals.
         """
-        self.__log(f"Initialising WallboxQuasar1Client with config: {communication_config}")
+        self.__log(
+            f"Initialising WallboxQuasar1Client with config: {communication_config}"
+        )
 
         host = communication_config.get("host", None)
         if not host:
@@ -332,7 +335,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         if self._mb_host is None:
             self.__log(
                 "The mb_client is not initialised (host missing?), cannot complete init. Aborting",
-                level="WARNING"
+                level="WARNING",
             )
             return
         self.__log("Kicking off Wallbox Quasar 1 EVSE client.")
@@ -380,17 +383,18 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     async def get_hardware_power_limit(self) -> int | None:
         if self._mb_client is None:
             self.__log(
-                "Modbus client not initialised, cannot get hardware power limit", level="WARNING"
+                "Modbus client not initialised, cannot get hardware power limit",
+                level="WARNING",
             )
             return None
         result = await self._mb_client.modbus_read(
-            self.MAX_AVAILABLE_POWER_REGISTER, length=1, source="get_hardware_power_limit"
+            self.MAX_AVAILABLE_POWER_REGISTER,
+            length=1,
+            source="get_hardware_power_limit",
         )
 
         if not result:
-            self.__log(
-                f"No valid read hardware limit {result}", level="WARNING"
-            )
+            self.__log(f"No valid read hardware limit {result}", level="WARNING")
             await self._emit_modbus_communication_state(can_communicate=False)
             return None
         result = self._process_number(result[0])
@@ -404,14 +408,16 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         if not isinstance(hardware_power_limit, int):
             self.__log(
-                "Cannot set max charge power, hardware limit unavailable", level="WARNING",
+                "Cannot set max charge power, hardware limit unavailable",
+                level="WARNING",
             )
             return False
 
         if power_in_watt > hardware_power_limit:
             self.__log(
                 f"Requested max charge power {power_in_watt}W exceeds hardware limit "
-                f"{hardware_power_limit}W", level="WARNING",
+                f"{hardware_power_limit}W",
+                level="WARNING",
             )
             power_in_watt = hardware_power_limit
         elif power_in_watt < hardware_power_limit:
@@ -427,10 +433,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         self.evse_max_charge_power_w = power_in_watt
         self.evse_max_discharge_power_w = power_in_watt
-        #TODO: Implement separate max_discharge_power, min_charge_power and min_discharge_power
+        # TODO: Implement separate max_discharge_power, min_charge_power and min_discharge_power
         # You would add code to apply this limit to the evse if supported
         return True
-
 
     async def set_charging_efficiency(self, efficiency_percent: int):
         """Set the EVSE roundtrip charging efficiency.
@@ -452,12 +457,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """Get the EVSE roundtrip charging efficiency as a float between 0.1 and 1.0"""
         return self.evse_efficiency
 
-
-
     async def get_connected_car(self) -> ElectricVehicle | None:
         """Return the connected car, or None if no car is connected."""
         return self._connected_car
-    #TODO: Make propperty, also in abstract class..
+
+    # TODO: Make propperty, also in abstract class..
     # @property
     # def connected_car(self) -> ElectricVehicle | None:
     #     return self._connected_car
@@ -536,7 +540,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             return False
         return state == self.DISCHARGING_STATE
 
-
     ######################################################################
     #                           PRIVATE METHODS                          #
     ######################################################################
@@ -562,7 +565,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 await self._emit_modbus_communication_state(can_communicate=True)
                 return charger_info
         except Exception as e:
-            self.__log(f"Wallbox Quasar 1 EVSE - Failed to get charger info: {e}", level="WARNING")
+            self.__log(
+                f"Wallbox Quasar 1 EVSE - Failed to get charger info: {e}",
+                level="WARNING",
+            )
 
         await self._emit_modbus_communication_state(can_communicate=False)
         return "unknown"
@@ -767,7 +773,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
-
             self._connected_car = None
 
             # When disconnected the SoC of the car goes from current soc to None.
@@ -783,7 +788,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             # new_charger_state must be a connected state, so if the old state was disconnected
             # there was a change in connected state.
 
-            self.__log("From disconnected to connected: get connected car and try to get the SoC")
+            self.__log(
+                "From disconnected to connected: get connected car and try to get the SoC"
+            )
             success = self.try_set_connected_vehicle()
             if success:
                 await self._get_car_soc(force_renew=True)
@@ -908,7 +915,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 await self._set_charge_power(
                     charge_power=1, skip_min_soc_check=True, source="get_car_soc"
                 )
-                await self._set_charger_action("start", reason="Charging to force reading soc")
+                await self._set_charger_action(
+                    "start", reason="Charging to force reading soc"
+                )
                 # Reading the actual SoC
                 soc_in_charger = await self._mb_client.force_get_register(
                     register=soc_address,
@@ -1003,8 +1012,14 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """
         self.__log(f"called from {source}, power {charge_power}.")
         if not self._am_i_active:
-            self.__log("called while _am_i_active is false, not blocking.", level="WARNING")
+            self.__log(
+                "called while _am_i_active is false, not blocking.", level="WARNING"
+            )
 
+        ev = await self.get_connected_car()
+        if ev is None:
+            self.__log("No car connected, cannot set charge power.", level="WARNING")
+            return
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
             current_soc = await self._get_car_soc()
@@ -1013,11 +1028,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                     "current SoC is 'unavailable', only expected when car is not connected",
                     level="WARNING",
                 )
-            elif current_soc <= c.CAR_MIN_SOC_IN_PERCENT:
+            elif current_soc <= ev.min_soc_percent:
                 # Fail-safe, this should never happen...
                 self.__log(
                     f"A discharge is attempted from {source=}, while the current SoC is below the "
-                    f"minimum ({c.CAR_MIN_SOC_IN_PERCENT})%. Stopping discharging.",
+                    f"minimum ({ev.min_soc_percent})%. Stopping discharging.",
                     level="WARNING",
                 )
                 charge_power = 0
@@ -1025,7 +1040,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # Clip values to min/max charging current
         if charge_power > self.evse_max_charge_power_w:
             self.__log(
-                f"Requested charge power {charge_power} W too high, reducing.", level="WARNING"
+                f"Requested charge power {charge_power} W too high, reducing.",
+                level="WARNING",
             )
             charge_power = self.evse_max_charge_power_w
         elif charge_power < -self.evse_max_discharge_power_w:
@@ -1047,7 +1063,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         )
 
         if not res:
-            self.__log(f"Failed to set charge power to {charge_power} W.", level="WARNING")
+            self.__log(
+                f"Failed to set charge power to {charge_power} W.", level="WARNING"
+            )
             # If negative value (always) fails, check if grid code is set correct in charger.
 
         return
@@ -1078,7 +1096,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             if not self._am_i_active:
                 self.__log(
                     "Trying to take control while _am_i_active == False. Not blocking.",
-                    level="WARNING"
+                    level="WARNING",
                 )
             await self._mb_client.modbus_write(
                 address=self.SET_CHARGER_CONTROL_REGISTER,
@@ -1150,16 +1168,14 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._eb.emit_event(
             "charger_error_state_change",
             persistent_error=True,
-            was_car_connected=await self.is_car_connected()
+            was_car_connected=await self.is_car_connected(),
         )
 
         # The soc and power are not known any more so let's represent this in the app
         await self.__update_evse_entity(
             evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value=None
         )
-        await self.__update_evse_entity(
-            evse_entity=self.ENTITY_CAR_SOC, new_value=None
-        )
+        await self.__update_evse_entity(evse_entity=self.ENTITY_CAR_SOC, new_value=None)
 
     async def _modbus_communication_restored(self):
         self.__log("Modbus connection to Wallbox Quasar 1 EVSE restored.")
@@ -1167,9 +1183,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # TODO: check if it is wise to use this same event for both
         # modbus communication lost and charger error
         self._eb.emit_event(
-            "charger_error_state_change",
-            persistent_error=False,
-            was_car_connected=None
+            "charger_error_state_change", persistent_error=False, was_car_connected=None
         )
         # It could be that the charger was switched off to adjust settings. Re-check if the
         # hardware power limit has changed:
@@ -1182,7 +1196,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._eb.emit_event(
             "charger_communication_state_change", can_communicate=can_communicate
         )
-
 
     ################################ CHARGER ERROR HANDLING #################################
 
@@ -1236,7 +1249,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 self._eb.emit_event(
                     "charger_error_state_change",
                     persistent_error=True,
-                    was_car_connected=await self.is_car_connected()
+                    was_car_connected=await self.is_car_connected(),
                 )
 
             elif self._timer_id_check_error_state is None:
@@ -1255,9 +1268,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._eb.emit_event(
                 "charger_error_state_change",
                 persistent_error=False,
-                was_car_connected=None
+                was_car_connected=None,
             )
-
 
     ################################# UTILITIES ################################
 
@@ -1268,7 +1280,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         max_value: int | float = None,
         number_name: str = None,
     ) -> int | None:
-
         if number_to_process is None:
             return None
 
