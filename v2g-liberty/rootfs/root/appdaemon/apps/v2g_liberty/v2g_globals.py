@@ -851,7 +851,7 @@ class V2GLibertyGlobals:
         car_min_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
         )
-        c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
+        car_max_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
 
@@ -859,22 +859,21 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
         )
 
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
+        charger_plus_car_roundtrip_efficiency = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
         await self.quasar1.set_charging_efficiency(
-            c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
+            charger_plus_car_roundtrip_efficiency
         )
-        c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
 
         ev = ElectricVehicle(self.hass, self.event_bus)
         ev.initialise_ev(
             name="NissanLeaf",
             battery_capacity_kwh=battery_capacity_kwh,
-            charging_efficiency_percent=c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+            charging_efficiency_percent=charger_plus_car_roundtrip_efficiency,
             consumption_wh_per_km=ev_consumption_wh_per_km,
             min_soc_percent=car_min_soc_in_percent,
-            max_soc_percent=c.CAR_MAX_SOC_IN_PERCENT,
+            max_soc_percent=car_max_soc_in_percent,
         )
         self.v2g_main_app.add_vehicle(ev)
         self.datamonitor.set_min_soc(car_min_soc_in_percent)

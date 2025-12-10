@@ -469,7 +469,7 @@ class FMClient(AsyncIOEventEmitter):
                     if delta_to_target > 0:
                         min_charge_time = math.ceil(
                             delta_to_target
-                            / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
+                            / (roundtrip_efficiency**0.5)
                             / (c.CHARGER_MAX_CHARGE_POWER / 1000)
                             * 60
                         )
@@ -496,7 +496,7 @@ class FMClient(AsyncIOEventEmitter):
                                 max_target = current_soc_kwh + (
                                     minutes_left_to_charge
                                     / 60
-                                    * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                                    * roundtrip_efficiency**0.5
                                     * (c.CHARGER_MAX_CHARGE_POWER / 1000)
                                 )
                                 # Communicate the target soc to user in %

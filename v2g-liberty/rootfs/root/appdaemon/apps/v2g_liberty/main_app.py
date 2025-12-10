@@ -427,7 +427,7 @@ class V2Gliberty:
                     (ev.soc_system_limit_percent - soc) * ev.battery_capacity_kwh * 10
                 )
                 delta_to_max_soc_wh = delta_to_max_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                    ev.charging_efficiency**0.5
                 )
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid
@@ -463,7 +463,7 @@ class V2Gliberty:
                     (soc - ev.min_soc_percent) * ev.battery_capacity_kwh * 10
                 )
                 delta_to_min_soc_wh = delta_to_min_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                    ev.charging_efficiency**0.5
                 )
                 minutes_to_reach_min_soc = int(
                     math.ceil(
@@ -1242,7 +1242,7 @@ class V2Gliberty:
                     values,
                     resolution,
                     ev.battery_capacity_kwh,
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR,
+                    ev.charging_efficiency,
                 )
             )
         )
