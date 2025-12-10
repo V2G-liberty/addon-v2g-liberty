@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from pyee.asyncio import AsyncIOEventEmitter
 from v2g_liberty.evs.electric_vehicle import ElectricVehicle
 
+
 class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     def __init__(self):
         super().__init__()
@@ -38,7 +39,7 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
 
     ############### GETTER/SETTER METHODS ###############
 
-    #TODO: Should this not be a @property?
+    # TODO: Should this not be a @property?
     @abstractmethod
     async def get_hardware_power_limit(self) -> int | None:
         """Get the EVSE (or car) hardware charge power limit in Watt.
@@ -47,43 +48,51 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
             "Subclasses must implement get_hardware_power_limit()"
         )
 
+    @property
+    @abstractmethod
+    def max_charge_power_w(self) -> int:
+        """Get the maximum charge power in Watt (usually above 1380 and below 25000)."""
+        raise NotImplementedError("Subclasses must implement max_charge_power_w")
+
+    @property
+    @abstractmethod
+    def max_discharge_power_w(self) -> int:
+        """Get the maximum discharge power in Watt (usually above 1380 and below 25000)."""
+        raise NotImplementedError("Subclasses must implement max_discharge_power_w")
+
     @abstractmethod
     async def set_max_charge_power(self, power_in_watt: int):
-        """Must be lower than EVSE hardware limit, see get_EVSE_charge_power_limit.
+        """Must be lower than EVSE hardware limit, see get_hardware_power_limit.
         If not set the hardware limit will be used."""
         raise NotImplementedError("Subclasses must implement set_max_charge_power()")
 
+    # # TODO: Split efficiency in EVSE and EV part, for now: only use EV.
+    # @abstractmethod
+    # async def set_charging_efficiency(self, efficiency_percent: int):
+    #     """Must be between 10 and 100.
+    #     If not set the hardware limit will be used.
+    #     Preferably this is read from the charger.
+    #     """
+    #     raise NotImplementedError("Subclasses must implement set_charging_efficiency()")
 
-    # TODO: Should also be a @property?
-    @abstractmethod
-    async def set_charging_efficiency(self, efficiency_percent: int):
-        """Must be between 10 and 100.
-        If not set the hardware limit will be used.
-        Preferably this is read from the charger.
-        """
-        raise NotImplementedError("Subclasses must implement set_charging_efficiency()")
-
-    # TODO: Should also be a @property?
-    @abstractmethod
-    async def get_charging_efficiency(self) -> float:
-        """Is float between 0.1 and 1.0.
-        Preferably this is read from the charger.
-        """
-        raise NotImplementedError("Subclasses must implement get_charging_efficiency()")
-
+    # @abstractmethod
+    # async def get_charging_efficiency(self) -> float:
+    #     """Is float between 0.1 and 1.0.
+    #     Preferably this is read from the charger.
+    #     """
+    #     raise NotImplementedError("Subclasses must implement get_charging_efficiency()")
 
     ####################### STATUS METHODS ######################
 
-    #TODO: Should this not be a @property?
+    # TODO: Should this not be a @property?
     @abstractmethod
     async def get_connected_car(self) -> ElectricVehicle:
         raise NotImplementedError("Subclasses must implement get_connected_car()")
 
-    #TODO: Should this not be a @property?
+    # TODO: Should this not be a @property?
     @abstractmethod
     async def is_charging(self) -> bool:
         raise NotImplementedError("Subclasses must implement is_charging()")
-
 
     ################### Protected event emitters #####################
 

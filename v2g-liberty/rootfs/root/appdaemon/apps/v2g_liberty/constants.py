@@ -151,11 +151,6 @@ OCTOPUS_IMPORT_CODE: str = ""
 OCTOPUS_EXPORT_CODE: str = ""
 GB_DNO_REGION: str = ""
 
-# CHARGER CONSTANTS
-# IP address and port for charger modbus communication
-# FSC: Used in evse module only, move there.
-CHARGER_HOST_URL: str = ""
-CHARGER_PORT: int = 502
 
 # Defaults to min current setting of 6A * 230V = 1380W
 # FSC: Used in fm_client, v2g_liberty, evse_client keep here.

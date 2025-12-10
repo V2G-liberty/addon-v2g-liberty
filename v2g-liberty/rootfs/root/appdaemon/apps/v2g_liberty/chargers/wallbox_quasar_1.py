@@ -227,12 +227,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._mb_host: str | None = None
         self._mb_port: int = 502
 
-        # Is the default that is normal for the Quasar 1. Can be overruled by user settings.
-        self.evse_efficiency: float = 0.85
-
         # User limit the max (dis-)charger power.
-        self.evse_max_charge_power_w: int | None = None
-        self.evse_max_discharge_power_w: int | None = None
+        self._max_charge_power_w: int | None = None
+        self._max_discharge_power_w: int | None = None
 
         self._connected_car: ElectricVehicle | None = None
         self.evse_actual_charge_power: int | None = None
@@ -321,7 +318,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         self.__log(
             f"Wallbox Quasar 1 EVSE initialised with host: {self._mb_host}, "
-            f"Max (dis-)charge power: {self.evse_max_charge_power_w} W"
+            f"Max (dis-)charge power: {self._max_charge_power_w} W"
         )
 
     ######################################################################
@@ -401,6 +398,14 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._emit_modbus_communication_state(can_communicate=True)
         return result
 
+    @property
+    def max_charge_power_w(self) -> int | None:
+        return self._max_charge_power_w
+
+    @property
+    def max_discharge_power_w(self) -> int | None:
+        return self._max_discharge_power_w
+
     async def set_max_charge_power(self, power_in_watt: int):
         """Set the maximum charge power in Watt.
         Used for reducing the hardware limit."""
@@ -431,31 +436,13 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 f"{hardware_power_limit}W maximum."
             )
 
-        self.evse_max_charge_power_w = power_in_watt
-        self.evse_max_discharge_power_w = power_in_watt
-        # TODO: Implement separate max_discharge_power, min_charge_power and min_discharge_power
+        self._max_charge_power_w = power_in_watt
+        self._max_discharge_power_w = power_in_watt
+        # TODO: Implement separate min_charge_power and min_discharge_power
         # You would add code to apply this limit to the evse if supported
         return True
 
-    async def set_charging_efficiency(self, efficiency_percent: int):
-        """Set the EVSE roundtrip charging efficiency.
-        Args:
-        Efficiency percent (int): Must be between 10 and 100.
-        If not set the hardware limit will be used.
-        """
-        if efficiency_percent < 10 or efficiency_percent > 100:
-            self.__log(
-                f"Efficiency percent {efficiency_percent} is out of bounds (10-100).",
-                level="WARNING",
-            )
-            return False
-        self.evse_efficiency = round(efficiency_percent / 100, 2)
-        self.__log(f"Set EVSE charging efficiency to {self.evse_efficiency}.")
-        return True
-
-    async def get_charging_efficiency(self) -> float:
-        """Get the EVSE roundtrip charging efficiency as a float between 0.1 and 1.0"""
-        return self.evse_efficiency
+    # TODO: make separate efficiency for charger and car.
 
     async def get_connected_car(self) -> ElectricVehicle | None:
         """Return the connected car, or None if no car is connected."""
@@ -1003,7 +990,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         Args:
             charge_power (int):
                 Power in Watt, is checked to be between
-                CHARGER_MAX_CHARGE_POWER and -CHARGER_MAX_DISCHARGE_POWER
+                self._max_charge_power_w and -self._max_discharge_power_w
             skip_min_soc_check (bool, optional):
                 boolean is used when the check for the minimum soc needs to be skipped.
                 This is used when this method is called from the __get_car_soc Defaults to False.
@@ -1038,18 +1025,18 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 charge_power = 0
 
         # Clip values to min/max charging current
-        if charge_power > self.evse_max_charge_power_w:
+        if charge_power > self._max_charge_power_w:
             self.__log(
                 f"Requested charge power {charge_power} W too high, reducing.",
                 level="WARNING",
             )
-            charge_power = self.evse_max_charge_power_w
-        elif charge_power < -self.evse_max_discharge_power_w:
+            charge_power = self._max_charge_power_w
+        elif charge_power < -self._max_discharge_power_w:
             self.__log(
                 f"Requested discharge power {charge_power} W too high, reducing.",
                 level="WARNING",
             )
-            charge_power = -self.evse_max_discharge_power_w
+            charge_power = -self._max_discharge_power_w
 
         current_charge_power = await self._get_charge_power()
 
@@ -1185,10 +1172,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._eb.emit_event(
             "charger_error_state_change", persistent_error=False, was_car_connected=None
         )
-        # It could be that the charger was switched off to adjust settings. Re-check if the
-        # hardware power limit has changed:
-        self.set_max_charge_power(self.evse_max_charge_power_w)
-
+        # It could be that the charger was switched off to adjust settings, re-check if the
+        # current max_charge_power is lower than the hardware power limit (that can have changed).
+        self.set_max_charge_power(self._max_charge_power_w)
         self._kick_off_polling()
 
     async def _emit_modbus_communication_state(self, can_communicate: bool):

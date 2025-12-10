@@ -320,7 +320,9 @@ class V2Gliberty:
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
                 minutes_to_reach_min_soc = int(
-                    math.ceil((ev.wh_to_min_soc() / c.CHARGER_MAX_CHARGE_POWER * 60))
+                    math.ceil(
+                        (ev.wh_to_min_soc() / self.quasar1_evse.max_charge_power_w * 60)
+                    )
                 )
                 expected_min_soc_time = now + timedelta(
                     minutes=minutes_to_reach_min_soc
@@ -393,6 +395,7 @@ class V2Gliberty:
                         min_soc_kwh=ev.min_soc_kwh,
                         max_soc_kwh=ev.max_soc_kwh,
                         max_capacity_kwh=ev.battery_capacity_kwh,
+                        max_charge_power_w=self.quasar1_evse.max_charge_power_w,
                         roundtrip_efficiency=ev.charging_efficiency,
                         back_to_max_soc=self.back_to_max_soc,
                     )
@@ -433,7 +436,13 @@ class V2Gliberty:
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
                 minutes_to_reach_max_soc = int(
-                    math.ceil((delta_to_max_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
+                    math.ceil(
+                        (
+                            delta_to_max_soc_wh
+                            / self.quasar1_evse.max_charge_power_w
+                            * 60
+                        )
+                    )
                 )
                 expected_max_soc_time = (
                     now + timedelta(minutes=minutes_to_reach_max_soc)
@@ -1258,7 +1267,7 @@ class V2Gliberty:
         )
 
     async def __set_charge_power(self, kwargs: dict):
-        """Wrapper function for start_charge_with_power on the modbus_evse module.
+        """Wrapper function for start_charging on the evse module.
         Also writes to the current_scheduled_charging_power sensor.
 
         Args:
@@ -1291,7 +1300,7 @@ class V2Gliberty:
         await self.quasar1_evse.set_active()
         await self.__set_charge_power(
             {
-                "charge_power": -c.CHARGER_MAX_DISCHARGE_POWER,
+                "charge_power": -self.quasar1_evse.max_discharge_power_w,
                 "source": "__start_max_discharge_now",
             }
         )
@@ -1302,7 +1311,7 @@ class V2Gliberty:
         await self.quasar1_evse.set_active()
         await self.__set_charge_power(
             {
-                "charge_power": c.CHARGER_MAX_CHARGE_POWER,
+                "charge_power": self.quasar1_evse.max_charge_power_w,
                 "source": "__start_max_charge_now",
             }
         )

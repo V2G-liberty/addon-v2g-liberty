@@ -751,15 +751,15 @@ class V2GLibertyGlobals:
         if not is_initialised:
             return
 
-        c.CHARGER_HOST_URL = await self.__process_setting(
+        charger_host_url = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL
         )
-        c.CHARGER_PORT = await self.__process_setting(
+        charger_port = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT
         )
 
         (connected, max_power_by_charger) = await self.quasar1.get_max_power_pre_init(
-            host=c.CHARGER_HOST_URL, port=c.CHARGER_PORT
+            host=charger_host_url, port=charger_port
         )
         if not connected or max_power_by_charger is None:
             self.__log("Unable to connect to charger", level="WARNING")
@@ -767,8 +767,8 @@ class V2GLibertyGlobals:
             return
 
         communication_config = {
-            "host": c.CHARGER_HOST_URL,
-            "port": c.CHARGER_PORT,
+            "host": charger_host_url,
+            "port": charger_port,
         }
         await self.quasar1.initialise_evse(
             communication_config=communication_config,
@@ -839,7 +839,6 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
-        # TODO: Move all c.CAR_xyz to ElectricVehicle class
         ev_consumption_wh_per_km = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
         )
@@ -861,9 +860,6 @@ class V2GLibertyGlobals:
 
         charger_plus_car_roundtrip_efficiency = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
-        )
-        await self.quasar1.set_charging_efficiency(
-            charger_plus_car_roundtrip_efficiency
         )
 
         ev = ElectricVehicle(self.hass, self.event_bus)
