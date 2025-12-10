@@ -854,7 +854,6 @@ class V2GLibertyGlobals:
         car_min_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
         )
-        c.CAR_MIN_SOC_IN_KWH = c.CAR_MAX_CAPACITY_IN_KWH * car_min_soc_in_percent / 100
         c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )

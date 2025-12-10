@@ -340,16 +340,37 @@ class FMClient(AsyncIOEventEmitter):
         return True
 
     async def get_new_schedule(
-        self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime
+        self,
+        targets: list,
+        current_soc_kwh: float,
+        min_soc_kwh: float,
+        max_capacity_kwh: float,
+        roundtrip_efficiency: float,
+        back_to_max_soc: datetime,
     ):
         """Get a new schedule from FlexMeasures.
-        But not if still busy with getting previous schedule.
-        Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
 
-        param: targets (list) a list of targets (=dict with start, end, soc)
-        param: current_soc_kwh (float), the state of charge at the moment the schedule is requested
-        param: back_to_max_soc (datetime) if current SoC > Max_SoC this setting informs the schedule
-               when to be back at max soc. Can be None.
+        This method requests a new schedule from FlexMeasures, but only if not already
+        busy retrieving a previous schedule. It triggers the computation of a new schedule
+        and sets a timer to retrieve it by its schedule ID.
+
+        Args:
+            targets (list[dict]):
+                A list of target dictionaries, each containing:
+                - start (datetime): Start time of the target.
+                - end (datetime): End time of the target.
+                - soc (float): Target state of charge (in kWh) for the period.
+            current_soc_kwh (float):
+                The current state of charge (in kWh) at the moment the schedule is requested.
+            min_soc_kwh (float):
+                The minimum allowed state of charge (in kWh) for the schedule.
+            max_capacity_kwh (float):
+                The maximum battery capacity (in kWh).
+            roundtrip_efficiency (float):
+                The roundtrip efficiency of the battery (0.0 to 1.0).
+            back_to_max_soc (datetime | None):
+                If the current SoC is above the maximum SoC, this setting informs the schedule
+                when the battery should be back at maximum SoC. Can be None if not applicable.
         """
         self.__log("called.")
         now = get_local_now()
@@ -718,11 +739,11 @@ class FMClient(AsyncIOEventEmitter):
             "power-capacity": f"{c.CHARGER_MAX_CHARGE_POWER} W",
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
-            "soc-min": c.CAR_MIN_SOC_IN_KWH,
-            "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
+            "soc-min": min_soc_kwh,
+            "soc-max": max_capacity_kwh,
             "soc-minima": soc_minima,
             "soc-maxima": soc_maxima,
-            "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
+            "roundtrip-efficiency": roundtrip_efficiency,
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }

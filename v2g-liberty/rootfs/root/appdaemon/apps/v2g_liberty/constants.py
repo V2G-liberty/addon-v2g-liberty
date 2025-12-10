@@ -36,9 +36,9 @@ ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 # USER PREFERENCE
 ### Replaced by ev.min_soc_percent.
 # CAR_MIN_SOC_IN_PERCENT: int = 20
-# Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
-# FSC: Used in fm_client only, move there.
-CAR_MIN_SOC_IN_KWH: float = 0
+
+### Replaced by ev.min_soc_kwh
+# CAR_MIN_SOC_IN_KWH: float = 0
 
 ### Replaced by ev.max_soc_percent.
 # CAR_MAX_SOC_IN_PERCENT: int = 80
