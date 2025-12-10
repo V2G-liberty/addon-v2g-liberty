@@ -27,7 +27,8 @@ class ElectricVehicle(BaseEV):
         self._max_soc_kwh: int | None = None
         self._max_range_km: int | None = None
 
-        # The ev + evse will never charge higher than this limit
+        # A practical absolute max. capacity of the car battery in percent.
+        # Quasar + Nissan Leaf will never charge higher than 97%.
         self._SOC_SYSTEM_LIMIT_PERCENT: int = 97
 
     def initialise_ev(

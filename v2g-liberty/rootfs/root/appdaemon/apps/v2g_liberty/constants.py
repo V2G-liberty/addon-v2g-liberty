@@ -40,19 +40,15 @@ ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 # FSC: Used in fm_client only, move there.
 CAR_MIN_SOC_IN_KWH: float = 0
 
-# A 'soft' setting, that is respected during normal cycling but is ignored when
-# a calendar item requires a higher SoC.
-# Defaults to 80% (to be safe)
-# FSC: Used only in v2g_liberty module, move there? See next...
-CAR_MAX_SOC_IN_PERCENT: int = 80
+### Replaced by ev.max_soc_percent.
+# CAR_MAX_SOC_IN_PERCENT: int = 80
+
 # Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
 # FSC: Used in v2g_liberty and fm_client module, keep here?
 CAR_MAX_SOC_IN_KWH: float = 0
 
-# A practical absolute max. capacity of the car battery in percent.
-# E.g. a Quasar + Nissan Leaf will never charge higher than 97%.
-# TODO: move to electric vehicle.
-CAR_MAX_CAPACITY_IN_PERCENT: int = 97
+### Replaced by ev.max_soc_percent.
+# CAR_MAX_CAPACITY_IN_PERCENT: int = 97
 
 # Car consumption per km. Defaults to the Nissan Leaf average.
 # TODO: move to electric vehicle.

@@ -385,12 +385,11 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                soc_kwh = ev.soc_kwh
                 schedule = None
                 try:
                     schedule = await self.fm_client_app.get_new_schedule(
                         targets=self.calendar_targets,
-                        current_soc_kwh=soc_kwh,
+                        current_soc_kwh=ev.soc_kwh,
                         back_to_max_soc=self.back_to_max_soc,
                     )
                 except Exception as e:
@@ -404,7 +403,7 @@ class V2Gliberty:
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
             # If charger_state = "not connected", the UI shows an (error) message.
-            if soc >= c.CAR_MAX_CAPACITY_IN_PERCENT:
+            if soc >= ev.soc_system_limit_percent:
                 self.__log(
                     "Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
@@ -421,9 +420,7 @@ class V2Gliberty:
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
                 # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_max_soc_wh = (
-                    (c.CAR_MAX_CAPACITY_IN_PERCENT - soc)
-                    * c.CAR_MAX_CAPACITY_IN_KWH
-                    * 10
+                    (ev.soc_system_limit_percent - soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
                 )
                 delta_to_max_soc_wh = delta_to_max_soc_wh / (
                     c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
@@ -438,7 +435,7 @@ class V2Gliberty:
                     now + timedelta(minutes=minutes_to_reach_max_soc)
                 ).isoformat()
                 max_charge_now_prognoses.append(
-                    dict(time=expected_max_soc_time, soc=c.CAR_MAX_CAPACITY_IN_PERCENT)
+                    dict(time=expected_max_soc_time, soc=ev.soc_system_limit_percent)
                 )
                 await self.set_records_in_chart(
                     chart_line_name=ChartLine.MAX_CHARGE_NOW,
