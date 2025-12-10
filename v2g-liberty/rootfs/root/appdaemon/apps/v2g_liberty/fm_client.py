@@ -725,6 +725,7 @@ class FMClient(AsyncIOEventEmitter):
             "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
+            "state-of-charge": {"sensor": c.FM_ACCOUNT_SOC_SENSOR_ID},
         }
 
         self.__log(f"flex_model: {flex_model}.")
