@@ -424,7 +424,7 @@ class V2Gliberty:
                 # How much energy (wh) is needed, taking roundtrip efficiency into account
                 # For % /100, for kwh to wh * 1000 results in *10...
                 delta_to_max_soc_wh = (
-                    (ev.soc_system_limit_percent - soc) * c.CAR_MAX_CAPACITY_IN_KWH * 10
+                    (ev.soc_system_limit_percent - soc) * ev.battery_capacity_kwh * 10
                 )
                 delta_to_max_soc_wh = delta_to_max_soc_wh / (
                     c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
@@ -460,7 +460,7 @@ class V2Gliberty:
                 max_discharge_now_prognoses = [dict(time=now.isoformat(), soc=soc)]
                 # TODO: Move to EV.
                 delta_to_min_soc_wh = (
-                    (soc - ev.min_soc_percent) * c.CAR_MAX_CAPACITY_IN_KWH * 10
+                    (soc - ev.min_soc_percent) * ev.battery_capacity_kwh * 10
                 )
                 delta_to_min_soc_wh = delta_to_min_soc_wh / (
                     c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
@@ -519,6 +519,12 @@ class V2Gliberty:
         is_first_reservation = True
         self.calendar_targets = []
         if v2g_events is not None and len(v2g_events) > 0:
+            # TODO: Refactor, now one can only edit calendar items when car is connected. Not how it
+            # is supposed to work. The calendar should be a child to the electricvehicle instance.
+            ev = await self.quasar1_evse.get_connected_car()
+            if ev is None:
+                self.__log("No connected car found, abort.")
+                return
             for car_reservation in v2g_events:
                 if car_reservation == "un-initiated":
                     self.__log(
@@ -542,7 +548,7 @@ class V2Gliberty:
                     "target_soc_kwh": round(
                         float(car_reservation["target_soc_percent"])
                         / 100
-                        * c.CAR_MAX_CAPACITY_IN_KWH,
+                        * ev.battery_capacity_kwh,
                         2,
                     ),
                 }
@@ -1239,7 +1245,7 @@ class V2Gliberty:
                 + convert_MW_to_percentage_points(
                     values,
                     resolution,
-                    c.CAR_MAX_CAPACITY_IN_KWH,
+                    ev.battery_capacity_kwh,
                     c.ROUNDTRIP_EFFICIENCY_FACTOR,
                 )
             )

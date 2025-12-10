@@ -502,7 +502,7 @@ class FMClient(AsyncIOEventEmitter):
                                 # Communicate the target soc to user in %
                                 max_target = int(
                                     round(
-                                        (max_target / c.CAR_MAX_CAPACITY_IN_KWH) * 100,
+                                        (max_target / max_capacity_kwh) * 100,
                                         0,
                                     )
                                 )

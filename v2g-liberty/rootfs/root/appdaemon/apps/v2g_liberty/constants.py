@@ -49,24 +49,22 @@ ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 ### Replaced by ev.max_soc_percent.
 # CAR_MAX_CAPACITY_IN_PERCENT: int = 97
 
-# Car consumption per km. Defaults to the Nissan Leaf average.
-# TODO: move to electric vehicle.
-CAR_CONSUMPTION_WH_PER_KM: int = 175
-CAR_MAX_RANGE_IN_KM: int = 1
+### Replaced by ev.car_consumption_wh_per_km.
+# CAR_CONSUMPTION_WH_PER_KM: int = 175
 
-# Average distance travelled for every hour that a calendar item lasts
-# E.g. with value of 20km and a duration of 2 hours estimated distance is 40km
-# From this we derive an average usage.
-# TODO: move to electric vehicle.
-KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
+### Replaced by ev.battery_capacity_kwh.
+# CAR_MAX_CAPACITY_IN_KWH: int = 24
 
-# Assumed car consumption during a calendar event per time_interval, calculate as follows:
-# (KM_PER_HOUR_OF_CALENDAR_ITEM * CAR_CONSUMPTION_WH_PER_KM / 1000) / (60 / FM_EVENT_RESOLUTION_IN_MINUTES)
-# TODO: move to electric vehicle.
-USAGE_PER_EVENT_TIME_INTERVAL: float = None
+### Removed, not used anymore.
+# CAR_MAX_RANGE_IN_KM: int = 1
+
+### Removed, not used anymore.
+# KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
+
+### Removed, not used anymore.
+# USAGE_PER_EVENT_TIME_INTERVAL: float = None
 
 # Duration in hours, defaults to 4 should be between 2 and 12 hours
-# TODO: move to electric vehicle.
 ALLOWED_DURATION_ABOVE_MAX_SOC: int = 4
 
 # FSC: Used in v2g_liberty and amber (why not Octopus?) module, keep here?
@@ -198,12 +196,6 @@ CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: int = 85
 # FSC: Used in fm_client, v2g_liberty, evse_client keep here.
 CHARGER_MAX_CHARGE_POWER: int = 1380
 CHARGER_MAX_DISCHARGE_POWER: int = 1380
-
-# CAR CONSTANTS
-# See remark for charger constants
-# Defaults to 24 (to be safe)
-# FSC: Used in fm_client, v2g_liberty, keep here.
-CAR_MAX_CAPACITY_IN_KWH: int = 24
 
 # CALENDAR CONSTANTS
 # FSC: Used in reservations_client only, move there.

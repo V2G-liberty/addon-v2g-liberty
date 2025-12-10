@@ -223,7 +223,7 @@ class ElectricVehicle(BaseEV):
 
     @property
     def charging_efficiency(self) -> float:
-        return self.charging_efficiency_percent / 100.0
+        return self._charging_efficiency
 
     @property
     def battery_capacity_kwh(self) -> int | None:

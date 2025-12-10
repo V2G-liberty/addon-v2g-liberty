@@ -726,7 +726,7 @@ class V2GLibertyGlobals:
         # TODO: notify user of changed setting
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
-        message = f"set c.{entity_name.upper()} to"
+        message = f"set '{entity_name}' to"
         mode = setting_entity["attributes"].get("mode", "none").lower()
         if mode == "password":
             message = f"{message} ********"
@@ -840,14 +840,11 @@ class V2GLibertyGlobals:
         )
 
         # TODO: Move all c.CAR_xyz to ElectricVehicle class
-        c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
+        ev_consumption_wh_per_km = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
         )
-        c.USAGE_PER_EVENT_TIME_INTERVAL = (
-            c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000
-        ) / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
-        c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
+        battery_capacity_kwh = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
 
@@ -873,9 +870,9 @@ class V2GLibertyGlobals:
         ev = ElectricVehicle(self.hass, self.event_bus)
         ev.initialise_ev(
             name="NissanLeaf",
-            battery_capacity_kwh=c.CAR_MAX_CAPACITY_IN_KWH,
+            battery_capacity_kwh=battery_capacity_kwh,
             charging_efficiency_percent=c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
-            consumption_wh_per_km=c.CAR_CONSUMPTION_WH_PER_KM,
+            consumption_wh_per_km=ev_consumption_wh_per_km,
             min_soc_percent=car_min_soc_in_percent,
             max_soc_percent=c.CAR_MAX_SOC_IN_PERCENT,
         )
