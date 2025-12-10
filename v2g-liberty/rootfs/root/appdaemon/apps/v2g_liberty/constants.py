@@ -43,9 +43,8 @@ ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 ### Replaced by ev.max_soc_percent.
 # CAR_MAX_SOC_IN_PERCENT: int = 80
 
-# Derived from above setting and CAR_MAX_CAPACITY_IN_KWH
-# FSC: Used in v2g_liberty and fm_client module, keep here?
-CAR_MAX_SOC_IN_KWH: float = 0
+### Replaced by ev.max_soc_percent.
+# CAR_MAX_SOC_IN_KWH: float = 0
 
 ### Replaced by ev.max_soc_percent.
 # CAR_MAX_CAPACITY_IN_PERCENT: int = 97

@@ -391,6 +391,7 @@ class V2Gliberty:
                         targets=self.calendar_targets,
                         current_soc_kwh=ev.soc_kwh,
                         min_soc_kwh=ev.min_soc_kwh,
+                        max_soc_kwh=ev.max_soc_kwh,
                         max_capacity_kwh=ev.battery_capacity_kwh,
                         roundtrip_efficiency=ev.charging_efficiency,
                         back_to_max_soc=self.back_to_max_soc,

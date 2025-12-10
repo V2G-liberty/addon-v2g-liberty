@@ -857,9 +857,6 @@ class V2GLibertyGlobals:
         c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
-        c.CAR_MAX_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
-        )
 
         c.ALLOWED_DURATION_ABOVE_MAX_SOC = await self.__process_setting(
             setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
