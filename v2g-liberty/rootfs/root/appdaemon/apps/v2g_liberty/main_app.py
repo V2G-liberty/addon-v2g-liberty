@@ -503,14 +503,21 @@ class V2Gliberty:
             )
 
     async def handle_calendar_change(self, v2g_events: List = None, v2g_args=None):
-        """
-        Draws the calendar items (v2g_events) in the UI.
-        Pre_processes v2g_events to a calendar_targets list that is used for getting schedules.
-        Set a timer for the start of the first reservation
-        :param v2g_events: List of v2g_events (dicts)
-                           All should have a start < 7-days-from-now and end > now.
-        :param v2g_args: Only for logging/debugging
-        :return: Nothing
+        """Draw calendar items (v2g_events) in the UI and preprocess for scheduling.
+
+        Preprocesses `v2g_events` into a `calendar_targets` list for schedule computation,
+        and sets a timer for the start of the first reservation.
+
+        Args:
+            v2g_events (list[dict]):
+                List of v2g_events, where each event must satisfy:
+                - start < (now + 7 days)
+                - end > now
+            v2g_args (str, optional):
+                Additional context for logging/debugging.
+
+        Returns:
+            None
         """
         self.__log(f"called with {len(v2g_events)} items from '{v2g_args}'.")
         await self.__write_events_in_ui_entity(v2g_events=v2g_events)
@@ -519,12 +526,6 @@ class V2Gliberty:
         is_first_reservation = True
         self.calendar_targets = []
         if v2g_events is not None and len(v2g_events) > 0:
-            # TODO: Refactor, now one can only edit calendar items when car is connected. Not how it
-            # is supposed to work. The calendar should be a child to the electricvehicle instance.
-            ev = await self.quasar1_evse.get_connected_car()
-            if ev is None:
-                self.__log("No connected car found, abort.")
-                return
             for car_reservation in v2g_events:
                 if car_reservation == "un-initiated":
                     self.__log(
@@ -545,12 +546,7 @@ class V2Gliberty:
                 target = {
                     "start": time_round(target_start, c.EVENT_RESOLUTION),
                     "end": time_round(target_end, c.EVENT_RESOLUTION),
-                    "target_soc_kwh": round(
-                        float(car_reservation["target_soc_percent"])
-                        / 100
-                        * ev.battery_capacity_kwh,
-                        2,
-                    ),
+                    "target_soc_kwh": car_reservation["target_soc_kwh"],
                 }
                 self.calendar_targets.append(target)
 

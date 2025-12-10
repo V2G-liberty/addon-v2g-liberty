@@ -564,6 +564,9 @@ class ReservationsClient(AsyncIOEventEmitter):
             target_soc_percent = self._ev.min_soc_percent
 
         v2g_event["target_soc_percent"] = target_soc_percent
+        v2g_event["target_soc_kwh"] = round(
+            (self._ev.battery_capacity_kwh * target_soc_percent / 100.0), 2
+        )
         return v2g_event
 
     def __add_dismissed_status(self, v2g_event: dict) -> dict:
