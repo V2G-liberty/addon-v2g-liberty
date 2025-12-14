@@ -82,7 +82,7 @@ class V2Gliberty:
 
     # Threshold in chage of soc that need to be exceeded before triggering a new schedule
     _SOC_CHANGE_THRESHOLD: float = 1.5
-    soc_cached_for_threshold_comparison: float | None = None
+    _soc_used_for_last_schedule: float | None = None
 
     # To determine if a new notification for 'unreachable target' should be sent.
     last_soonest_target_date: datetime
@@ -381,7 +381,7 @@ class V2Gliberty:
 
             if soc <= (ev.min_soc_percent + 1):
                 # Fail-safe, this should not happen...
-                # Assume discharging to be safe
+                # Assume discharging not to be safe
                 if await self.bidirectional_evse.is_discharging():
                     self.__log(
                         f"Discharging while SoC has nearly reached minimum ({ev.min_soc_percent}%)."
@@ -407,6 +407,7 @@ class V2Gliberty:
                         roundtrip_efficiency=ev.charging_efficiency,
                         back_to_max_soc=self.back_to_max_soc,
                     )
+                    self._soc_used_for_last_schedule = soc
                 except Exception as e:
                     self.__log(f"Exception getting schedule: {e}.")
                 if schedule is None:
@@ -948,21 +949,20 @@ class V2Gliberty:
 
         self.__log(
             f"new_soc: {new_soc}%, old_soc: {old_soc}%, "
-            f"soc_cached: {self.soc_cached_for_threshold_comparison}%."
+            f"soc_cached: {self._soc_used_for_last_schedule}%."
         )
 
         need_new_schedule: bool = True
 
         if new_soc is None:
-            # None is expected whem car gets disconnected. The new charger_state will trigger
+            # None is expected when car gets disconnected. The new charger_state will trigger
             # set_next_action if needed.
             need_new_schedule = False
-            self.soc_cached_for_threshold_comparison = new_soc
-        elif self.soc_cached_for_threshold_comparison is None:
+            self._soc_used_for_last_schedule = None
+        elif self._soc_used_for_last_schedule is None:
             need_new_schedule = True
-            self.soc_cached_for_threshold_comparison = new_soc
         elif (
-            abs(new_soc - self.soc_cached_for_threshold_comparison)
+            abs(new_soc - self._soc_used_for_last_schedule)
             >= self._SOC_CHANGE_THRESHOLD
         ):
             # Only trigger new schedule if soc_change is big enough: larger then the threshold.
@@ -972,8 +972,8 @@ class V2Gliberty:
         else:
             need_new_schedule = False
 
+        # Setting self._soc_used_for_last_schedule = new_soc is done in method set_next_action.
         if need_new_schedule:
-            self.soc_cached_for_threshold_comparison = new_soc
             await self.set_next_action(v2g_args="__handle_soc_change")
 
         ev = await self.bidirectional_evse.get_connected_car()
