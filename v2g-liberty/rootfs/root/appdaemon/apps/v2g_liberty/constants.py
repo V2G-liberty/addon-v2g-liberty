@@ -34,35 +34,6 @@ ENERGY_PRICE_MARKUP_PER_KWH: int = 0
 
 
 # USER PREFERENCE
-### Replaced by ev.min_soc_percent.
-# CAR_MIN_SOC_IN_PERCENT: int = 20
-
-### Replaced by ev.min_soc_kwh
-# CAR_MIN_SOC_IN_KWH: float = 0
-
-### Replaced by ev.max_soc_percent.
-# CAR_MAX_SOC_IN_PERCENT: int = 80
-
-### Replaced by ev.max_soc_percent.
-# CAR_MAX_SOC_IN_KWH: float = 0
-
-### Replaced by ev.max_soc_percent.
-# CAR_MAX_CAPACITY_IN_PERCENT: int = 97
-
-### Replaced by ev.car_consumption_wh_per_km.
-# CAR_CONSUMPTION_WH_PER_KM: int = 175
-
-### Replaced by ev.battery_capacity_kwh.
-# CAR_MAX_CAPACITY_IN_KWH: int = 24
-
-### Removed, not used anymore.
-# CAR_MAX_RANGE_IN_KM: int = 1
-
-### Removed, not used anymore.
-# KM_PER_HOUR_OF_CALENDAR_ITEM: int = 20
-
-### Removed, not used anymore.
-# USAGE_PER_EVENT_TIME_INTERVAL: float = None
 
 # Duration in hours, defaults to 4 should be between 2 and 12 hours
 ALLOWED_DURATION_ABOVE_MAX_SOC: int = 4
@@ -180,17 +151,6 @@ OCTOPUS_IMPORT_CODE: str = ""
 OCTOPUS_EXPORT_CODE: str = ""
 GB_DNO_REGION: str = ""
 
-# CHARGER CONSTANTS
-# IP address and port for charger modbus communication
-# FSC: Used in evse module only, move there.
-CHARGER_HOST_URL: str = ""
-CHARGER_PORT: int = 502
-
-# Directly derived from CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY, used in flexmeasures client
-# FSC: Used in fm_client, v2g_liberty, keep here.
-ROUNDTRIP_EFFICIENCY_FACTOR: float = 0.85
-# Defaults to 85, used in settings UI
-CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: int = 85
 
 # Defaults to min current setting of 6A * 230V = 1380W
 # FSC: Used in fm_client, v2g_liberty, evse_client keep here.

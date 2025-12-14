@@ -751,15 +751,15 @@ class V2GLibertyGlobals:
         if not is_initialised:
             return
 
-        c.CHARGER_HOST_URL = await self.__process_setting(
+        charger_host_url = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL
         )
-        c.CHARGER_PORT = await self.__process_setting(
+        charger_port = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT
         )
 
         (connected, max_power_by_charger) = await self.quasar1.get_max_power_pre_init(
-            host=c.CHARGER_HOST_URL, port=c.CHARGER_PORT
+            host=charger_host_url, port=charger_port
         )
         if not connected or max_power_by_charger is None:
             self.__log("Unable to connect to charger", level="WARNING")
@@ -767,8 +767,8 @@ class V2GLibertyGlobals:
             return
 
         communication_config = {
-            "host": c.CHARGER_HOST_URL,
-            "port": c.CHARGER_PORT,
+            "host": charger_host_url,
+            "port": charger_port,
         }
         await self.quasar1.initialise_evse(
             communication_config=communication_config,
@@ -839,7 +839,6 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
-        # TODO: Move all c.CAR_xyz to ElectricVehicle class
         ev_consumption_wh_per_km = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
         )
@@ -851,7 +850,7 @@ class V2GLibertyGlobals:
         car_min_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
         )
-        c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
+        car_max_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
 
@@ -859,22 +858,18 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
         )
 
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
+        charger_plus_car_roundtrip_efficiency = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
-        await self.quasar1.set_charging_efficiency(
-            c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
-        )
-        c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
 
         ev = ElectricVehicle(self.hass, self.event_bus)
         ev.initialise_ev(
             name="NissanLeaf",
             battery_capacity_kwh=battery_capacity_kwh,
-            charging_efficiency_percent=c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+            charging_efficiency_percent=charger_plus_car_roundtrip_efficiency,
             consumption_wh_per_km=ev_consumption_wh_per_km,
             min_soc_percent=car_min_soc_in_percent,
-            max_soc_percent=c.CAR_MAX_SOC_IN_PERCENT,
+            max_soc_percent=car_max_soc_in_percent,
         )
         self.v2g_main_app.add_vehicle(ev)
         self.datamonitor.set_min_soc(car_min_soc_in_percent)

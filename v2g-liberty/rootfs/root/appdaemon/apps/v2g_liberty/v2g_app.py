@@ -14,13 +14,16 @@ from .get_fm_data import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .nissan_leaf_monitor import NissanLeafMonitor
-from.monitor_pause_at_reconnect import MonitorPauseAtReconnect
+from .monitor_pause_at_reconnect import MonitorPauseAtReconnect
 from datetime import datetime
+
 
 class V2GLibertyApp(Hass):
     async def initialize(self):
         start_app = datetime.now()
-        print(f"[{start_app.isoformat(sep=' ')}] Starting V2GLibertyApp initialization...")
+        print(
+            f"[{start_app.isoformat(sep=' ')}] Starting V2GLibertyApp initialization..."
+        )
 
         start_module = datetime.now()
         event_bus = EventBus(self)
@@ -46,7 +49,7 @@ class V2GLibertyApp(Hass):
         quasar1_evse_client = WallboxQuasar1Client(
             self,
             event_bus=event_bus,
-            get_vehicle_by_name_func=main_app.get_vehicle_by_name
+            get_vehicle_by_name_func=main_app.get_vehicle_by_name,
         )
         self._log_init_time("WallboxQuasar1Client", start_module)
 
@@ -63,11 +66,15 @@ class V2GLibertyApp(Hass):
         self._log_init_time("DataMonitor", start_module)
 
         start_module = datetime.now()
-        nissan_leaf_monitor = NissanLeafMonitor(self, event_bus=event_bus, notifier=notifier)
+        nissan_leaf_monitor = NissanLeafMonitor(
+            self, event_bus=event_bus, notifier=notifier
+        )
         self._log_init_time("NissanLeafMonitor", start_module)
 
         start_module = datetime.now()
-        pause_at_reconnect = MonitorPauseAtReconnect(self, event_bus=event_bus, notifier=notifier)
+        pause_at_reconnect = MonitorPauseAtReconnect(
+            self, event_bus=event_bus, notifier=notifier
+        )
         self._log_init_time("MonitorPauseAtReconnect", start_module)
 
         start_module = datetime.now()
@@ -91,7 +98,7 @@ class V2GLibertyApp(Hass):
         v2g_globals.quasar1 = quasar1_evse_client
         v2g_globals.datamonitor = data_monitor
 
-        main_app.quasar1_evse = quasar1_evse_client
+        main_app.bidirectional_evse = quasar1_evse_client
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
 
@@ -149,4 +156,3 @@ class V2GLibertyApp(Hass):
             else:
                 msg = "took longer than expected:"
             print(f"[{now.isoformat(sep=' ')}] {name} {msg} {time_diff}.")
-

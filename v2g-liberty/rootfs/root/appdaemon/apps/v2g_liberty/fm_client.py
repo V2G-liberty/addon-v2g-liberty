@@ -346,6 +346,7 @@ class FMClient(AsyncIOEventEmitter):
         min_soc_kwh: float,
         max_soc_kwh: float,
         max_capacity_kwh: float,
+        max_charge_power_w: float,
         roundtrip_efficiency: float,
         back_to_max_soc: datetime,
     ):
@@ -369,6 +370,8 @@ class FMClient(AsyncIOEventEmitter):
                 The maximum allowed state of charge (in kWh) for the schedule.
             max_capacity_kwh (float):
                 The maximum battery capacity (in kWh).
+            max_charge_power_w (float):
+                The maximum charge power (in W). Is also used for max_discharge power...
             roundtrip_efficiency (float):
                 The roundtrip efficiency of the battery (0.0 to 1.0).
             back_to_max_soc (datetime | None):
@@ -436,7 +439,7 @@ class FMClient(AsyncIOEventEmitter):
         # idle_ranges_production.
         max_consumption_power_ranges = [
             {
-                "value": c.CHARGER_MAX_CHARGE_POWER,
+                "value": max_charge_power_w,
                 "start": rounded_now,
                 "end": schedule_end,
             }
@@ -469,8 +472,8 @@ class FMClient(AsyncIOEventEmitter):
                     if delta_to_target > 0:
                         min_charge_time = math.ceil(
                             delta_to_target
-                            / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
-                            / (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                            / (roundtrip_efficiency**0.5)
+                            / (max_charge_power_w / 1000)
                             * 60
                         )
                         soonest_at_target = time_ceil(
@@ -496,8 +499,8 @@ class FMClient(AsyncIOEventEmitter):
                                 max_target = current_soc_kwh + (
                                     minutes_left_to_charge
                                     / 60
-                                    * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
-                                    * (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                                    * roundtrip_efficiency**0.5
+                                    * (max_charge_power_w / 1000)
                                 )
                                 # Communicate the target soc to user in %
                                 max_target = int(
@@ -566,7 +569,7 @@ class FMClient(AsyncIOEventEmitter):
                     window_duration = (
                         math.ceil(
                             (minimum_soc_kwh - max_soc_kwh)
-                            / (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                            / (max_charge_power_w / 1000)
                             * 60
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
@@ -739,7 +742,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
         flex_model = {
-            "power-capacity": f"{c.CHARGER_MAX_CHARGE_POWER} W",
+            "power-capacity": f"{max_charge_power_w} W",
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
             "soc-min": min_soc_kwh,

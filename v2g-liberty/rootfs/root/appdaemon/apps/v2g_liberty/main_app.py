@@ -95,7 +95,7 @@ class V2Gliberty:
     user_was_notified_of_no_schedule: bool
     no_schedule_notification_is_planned: bool
 
-    quasar1_evse: BidirectionalEVSE = None
+    bidirectional_evse: BidirectionalEVSE = None
     fm_client_app: object = None
     reservations_client: object = None
     notifier: Notifier = None
@@ -213,10 +213,10 @@ class V2Gliberty:
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
             self.__log("Charge_mode == 'Stop' -> Setting EVSE client to inactive!")
-            await self.quasar1_evse.set_inactive()
+            await self.bidirectional_evse.set_inactive()
         else:
             self.__log("Charge_mode != 'Stop' -> Setting EVSE client to active!")
-            await self.quasar1_evse.set_active()
+            await self.bidirectional_evse.set_active()
 
         await self.hass.set_state(
             entity_id="sensor.optimisation_mode", state=c.OPTIMISATION_MODE
@@ -261,11 +261,11 @@ class V2Gliberty:
             delay=self.call_next_action_at_least_every,
         )
 
-        if not await self.quasar1_evse.is_car_connected():
+        if not await self.bidirectional_evse.is_car_connected():
             self.__log("No car connected (or error), abort.")
             return
 
-        ev = await self.quasar1_evse.get_connected_car()
+        ev = await self.bidirectional_evse.get_connected_car()
         if ev is None:
             # Unlikely after previous check, just to be sure.
             self.__log("No connected car found, abort.")
@@ -320,7 +320,13 @@ class V2Gliberty:
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
                 minutes_to_reach_min_soc = int(
-                    math.ceil((ev.wh_to_min_soc() / c.CHARGER_MAX_CHARGE_POWER * 60))
+                    math.ceil(
+                        (
+                            ev.wh_to_min_soc()
+                            / self.bidirectional_evse.max_charge_power_w
+                            * 60
+                        )
+                    )
                 )
                 expected_min_soc_time = now + timedelta(
                     minutes=minutes_to_reach_min_soc
@@ -372,7 +378,7 @@ class V2Gliberty:
             if soc <= (ev.min_soc_percent + 1):
                 # Fail-safe, this should not happen...
                 # Assume discharging to be safe
-                if await self.quasar1_evse.is_discharging():
+                if await self.bidirectional_evse.is_discharging():
                     self.__log(
                         f"Discharging while SoC has nearly reached minimum ({ev.min_soc_percent}%)."
                     )
@@ -393,6 +399,7 @@ class V2Gliberty:
                         min_soc_kwh=ev.min_soc_kwh,
                         max_soc_kwh=ev.max_soc_kwh,
                         max_capacity_kwh=ev.battery_capacity_kwh,
+                        max_charge_power_w=self.bidirectional_evse.max_charge_power_w,
                         roundtrip_efficiency=ev.charging_efficiency,
                         back_to_max_soc=self.back_to_max_soc,
                     )
@@ -427,13 +434,19 @@ class V2Gliberty:
                     (ev.soc_system_limit_percent - soc) * ev.battery_capacity_kwh * 10
                 )
                 delta_to_max_soc_wh = delta_to_max_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                    ev.charging_efficiency**0.5
                 )
 
                 # How long will it take to charge this amount with max power, we use ceil to avoid
                 # 0 minutes as this would not show in graph.
                 minutes_to_reach_max_soc = int(
-                    math.ceil((delta_to_max_soc_wh / c.CHARGER_MAX_CHARGE_POWER * 60))
+                    math.ceil(
+                        (
+                            delta_to_max_soc_wh
+                            / self.bidirectional_evse.max_charge_power_w
+                            * 60
+                        )
+                    )
                 )
                 expected_max_soc_time = (
                     now + timedelta(minutes=minutes_to_reach_max_soc)
@@ -463,7 +476,7 @@ class V2Gliberty:
                     (soc - ev.min_soc_percent) * ev.battery_capacity_kwh * 10
                 )
                 delta_to_min_soc_wh = delta_to_min_soc_wh / (
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
+                    ev.charging_efficiency**0.5
                 )
                 minutes_to_reach_min_soc = int(
                     math.ceil(
@@ -912,7 +925,7 @@ class V2Gliberty:
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
             self.in_boost_to_reach_min_soc = False
-            await self.quasar1_evse.set_inactive()
+            await self.bidirectional_evse.set_inactive()
             # For monitoring
             await self.hass.set_state(
                 "sensor.current_scheduled_charging_power",
@@ -920,7 +933,7 @@ class V2Gliberty:
             )
 
         if old_state == "Stop" and new_state != "Stop":
-            await self.quasar1_evse.set_active()
+            await self.bidirectional_evse.set_active()
 
         await self.set_next_action(v2g_args="__handle_charge_mode_change")
         return
@@ -930,12 +943,15 @@ class V2Gliberty:
         self.__log(f"new_soc: {new_soc}%, old_soc: {old_soc}%.")
         await self.set_next_action(v2g_args="__handle_soc_change")
 
-        ev = await self.quasar1_evse.get_connected_car()
+        ev = await self.bidirectional_evse.get_connected_car()
         if ev is None:
             self.__log("No connected car found, abort.")
             return
 
-        if await self.quasar1_evse.is_charging() and new_soc == ev.max_soc_percent:
+        if (
+            await self.bidirectional_evse.is_charging()
+            and new_soc == ev.max_soc_percent
+        ):
             message = f"Car battery at {new_soc} %, range ≈ {ev.remaining_range_km} km."
             self.__log(f"{message=}")
             self.notifier.notify_user(
@@ -957,7 +973,7 @@ class V2Gliberty:
         # This also is set when car is actually disconnected
         self.in_boost_to_reach_min_soc = False
 
-        await self.quasar1_evse.stop_charging()
+        await self.bidirectional_evse.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
         self.notifier.notify_user(
             message="Charger is disconnected",
@@ -1143,11 +1159,11 @@ class V2Gliberty:
             self.__log("aborted: charge_mode is not automatic (any more).")
             return
 
-        if not await self.quasar1_evse.is_car_connected():
+        if not await self.bidirectional_evse.is_car_connected():
             self.__log("aborted: car is not connected")
             return
 
-        ev = await self.quasar1_evse.get_connected_car()
+        ev = await self.bidirectional_evse.get_connected_car()
         if ev is None:
             self.__log("aborted: no connected car found.")
             return
@@ -1242,7 +1258,7 @@ class V2Gliberty:
                     values,
                     resolution,
                     ev.battery_capacity_kwh,
-                    c.ROUNDTRIP_EFFICIENCY_FACTOR,
+                    ev.charging_efficiency,
                 )
             )
         )
@@ -1258,7 +1274,7 @@ class V2Gliberty:
         )
 
     async def __set_charge_power(self, kwargs: dict):
-        """Wrapper function for start_charge_with_power on the modbus_evse module.
+        """Wrapper function for start_charging on the evse module.
         Also writes to the current_scheduled_charging_power sensor.
 
         Args:
@@ -1275,7 +1291,7 @@ class V2Gliberty:
 
         source = kwargs.get("source", "unknown source")
 
-        await self.quasar1_evse.start_charging(
+        await self.bidirectional_evse.start_charging(
             power_in_watt=charge_power_in_watt,
             source=source,
         )
@@ -1288,10 +1304,10 @@ class V2Gliberty:
     async def __start_max_discharge_now(self):
         # TODO: Check if .set_active() is really a good idea here?
         #       If the client is not active there might be a good reason for that...
-        await self.quasar1_evse.set_active()
+        await self.bidirectional_evse.set_active()
         await self.__set_charge_power(
             {
-                "charge_power": -c.CHARGER_MAX_DISCHARGE_POWER,
+                "charge_power": -self.bidirectional_evse.max_discharge_power_w,
                 "source": "__start_max_discharge_now",
             }
         )
@@ -1299,10 +1315,10 @@ class V2Gliberty:
     async def __start_max_charge_now(self):
         # TODO: Check if .set_active() is really a good idea here?
         #       If the client is not active there might be a good reason for that...
-        await self.quasar1_evse.set_active()
+        await self.bidirectional_evse.set_active()
         await self.__set_charge_power(
             {
-                "charge_power": c.CHARGER_MAX_CHARGE_POWER,
+                "charge_power": self.bidirectional_evse.max_charge_power_w,
                 "source": "__start_max_charge_now",
             }
         )
@@ -1352,7 +1368,7 @@ class V2Gliberty:
         self.__log(
             f"__handle_first_reservation_end called with v2g_args = '{v2g_args}'."
         )
-        if not await self.quasar1_evse.is_car_connected():
+        if not await self.bidirectional_evse.is_car_connected():
             run_at = get_local_now() + self.MAX_EVENT_WAIT_TO_DISCONNECT
             self.__log(
                 f"setting __remind_user_to_connect_after_event at {run_at.isoformat()}"
@@ -1367,7 +1383,7 @@ class V2Gliberty:
         self.__log(f"called with v2g_event: {v2g_event}.")
 
         v2g_event = v2g_event["v2g_event"]
-        if await self.quasar1_evse.is_car_connected():
+        if await self.bidirectional_evse.is_car_connected():
             identification = " ".join(
                 filter(None, [v2g_event["summary"], v2g_event["description"]])
             )
@@ -1430,7 +1446,7 @@ class V2Gliberty:
         # If the car is not connected a little after a reservations ends we remind the users to
         # connect it as it is assumed they forgot to do so.
         self.__log(f"__remind_user_to_connect_after_event, called {v2g_args=}.")
-        if not await self.quasar1_evse.is_car_connected():
+        if not await self.bidirectional_evse.is_car_connected():
             self.__log(
                 "__remind_user_to_connect_after_event, car not connected, notifying users."
             )
