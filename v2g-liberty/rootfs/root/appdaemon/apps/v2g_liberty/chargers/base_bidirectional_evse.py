@@ -5,7 +5,7 @@ from apps.v2g_liberty.chargers.base_unidirectional_evse import UnidirectionalEVS
 
 
 class BidirectionalEVSE(UnidirectionalEVSE, ABC):
-    hass: Hass = None
+    _hass: Hass = None
 
     @abstractmethod
     async def start_charging(self, power_in_watt: int):

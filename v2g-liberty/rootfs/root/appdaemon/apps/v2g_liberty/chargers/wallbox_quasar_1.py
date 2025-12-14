@@ -62,9 +62,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     # Used when set_setpoint_type = power
     MAX_AVAILABLE_POWER_REGISTER: int = 514
 
-    # TODO: Move to the abstract UnidirectionalEVSE class,
-    # CHARGER_STATES, DISCONNECTED_STATES..ERROR_STATES.
-
     # 0: Goes to this status when the charge plug is disconnected from the car
     # 1: Connected and charging; goes to this status when action = start
     # 2: Connected and waiting for car demand; sometimes shortly goes to this status when
@@ -78,36 +75,18 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     # 10: Connected and in queue by Power Boost
     # 11: Connected and discharging. This status is reached when the power or current setting is set
     #     to a negative value and the action = start
-    CHARGER_STATES: dict[int, str] = {
-        0: "No car connected",
-        1: "Charging",
-        2: "Connected: waiting for car demand",
-        3: "Connected: controlled by Wallbox App",
-        4: "Connected: not charging (paused)",
-        5: "Connected: end of schedule",
-        6: "No car connected and charger locked",
-        7: "Error",
-        8: "Connected: In queue by Power Sharing",
-        9: "Error: Un-configured Power Sharing System",
-        10: "Connected: In queue by Power Boost (Home uses all available power)",
-        11: "Discharging",
-    }
 
-    # One could argue that Error states should also be considered "not connected",
-    # but these are handled in other ways.
-    DISCONNECTED_STATES = [0, 6]
-    CHARGING_STATE: int = 1
-    DISCHARGING_STATE: int = 11
-    AVAILABILITY_STATES = [1, 2, 4, 5, 11]
-    ERROR_STATES = [7, 9]
-
-    ################################################################################
-    #   EVSE Entities                                                              #
-    #   These hold the constants for entity (e.g. modbus address, min/max value,   #
-    #   and store (cache) the values of the charger.                               #
-    #   About the current / previous_value:                                        #
-    #    These are initiated with None to indicate they have not been touched yet. #
-    ################################################################################
+    ################################################################################################
+    # EVSE Entities                                                                                #
+    #                                                                                              #
+    # These dictionaries hold constants for each entity (e.g., Modbus address, min/max values) and #
+    # cache the charger's current values.                                                          #
+    #                                                                                              #
+    # - `current_value` is initialized as `None` to indicate it has not been set yet.              #
+    # - `pre_processor` (optional): A synchronous method with one parameter: `new_value`.          #
+    # - `change_handler` (optional): A asynchronous method with two parameters: `new_value`,       #
+    #    `old_value`.                                                                              #
+    ################################################################################################
 
     ENTITY_CHARGER_CURRENT_POWER = {
         "modbus_address": 526,
@@ -116,12 +95,14 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         "current_value": None,
         "change_handler": "_handle_charge_power_change",
     }
+
     ENTITY_CHARGER_STATE = {
         "modbus_address": 537,
         "minimum_value": 0,
         "maximum_value": 11,
         "current_value": None,
-        "change_handler": "__handle_charger_state_change",
+        "change_handler": "_handle_charger_state_change",
+        "pre_processor": "_get_base_state",
     }
     ENTITY_CAR_SOC = {
         "modbus_address": 538,
@@ -153,28 +134,28 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "change_handler": "_handle_charger_error_state_change",
+        "change_handler": "_handle_charger_error_registers_state_change",
     }
     ENTITY_ERROR_2 = {
         "modbus_address": 540,
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "change_handler": "_handle_charger_error_state_change",
+        "change_handler": "_handle_charger_error_registers_state_change",
     }
     ENTITY_ERROR_3 = {
         "modbus_address": 541,
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "change_handler": "_handle_charger_error_state_change",
+        "change_handler": "_handle_charger_error_registers_state_change",
     }
     ENTITY_ERROR_4 = {
         "modbus_address": 542,
         "minimum_value": 0,
         "maximum_value": 65535,
         "current_value": None,
-        "change_handler": "_handle_charger_error_state_change",
+        "change_handler": "_handle_charger_error_registers_state_change",
     }
 
     ENTITY_CHARGER_LOCKED = {
@@ -201,21 +182,33 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         ENTITY_ERROR_4,
     ]
 
-    # The Quasar 1 hardware does not accept a setting lower than 6A => 6A*230V = 1380W
-    CHARGE_POWER_LOWER_LIMIT: int = 1380
-    # The Quasar 1 hardware does not accept a setting higher than 32A => 32A*230V = 7400W
-    CHARGE_POWER_UPPER_LIMIT: int = 7400
+    # Define the mapping from subclass states to base class _EVSE_STATES states
+    _EVSE_STATE_MAPPING = {
+        0: 1,  # "No car connected" -> base state 1
+        1: 3,  # "Charging" -> base state 3
+        2: 2,  # "Connected: waiting for car demand" -> base state 2
+        3: 7,  # "Connected: controlled by Wallbox App" -> base state 7
+        4: 2,  # "Connected: not charging (paused)" -> base state 2
+        5: 2,  # "Connected: end of schedule" -> base state 2
+        6: 8,  # "No car connected and charger locked" -> base state 8
+        7: 9,  # "Error" -> base state 9
+        8: 2,  # "Connected: In queue by Power Sharing" -> base state 2
+        9: 9,  # "Error: Un-configured Power Sharing System" -> base state 9
+        10: 2,  # "Connected: In queue by Power Boost (Home uses all power)" -> base state 2
+        11: 4,  # "Discharging" -> base state 4
+    }
 
-    POLLING_INTERVAL_SECONDS: int = 5
+    _POLLING_INTERVAL_SECONDS: int = 5
 
+    # How long should an error state be present before it is communicated to the user.
     # After a restart of the charger, errors can be present for up to 5 minutes.
-    MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 300
+    _MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 300
 
     def __init__(
         self, hass: Hass, event_bus: EventBus, get_vehicle_by_name_func: callable
     ):
         super().__init__()
-        self.hass = hass
+        self._hass = hass
         self._eb = event_bus
         self.__log = get_class_method_logger(hass.log)
 
@@ -232,15 +225,15 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._max_discharge_power_w: int | None = None
 
         self._connected_car: ElectricVehicle | None = None
-        self.evse_actual_charge_power: int | None = None
+        self._actual_charge_power: int | None = None
 
         # Polling variables
-        self.poll_timer_handle: str | None = None
+        self._poll_timer_handle: str | None = None
 
         self._timer_id_check_error_state: str | None = None
 
         # Block events from firing during charge that is needed to read a SoC.
-        self.charging_to_read_soc: bool = False
+        self._charging_to_read_soc: bool = False
 
         self._am_i_active: bool = False
 
@@ -266,7 +259,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             - Element 2: the maximum available power (int in Watts) if successful, otherwise None.
         """
 
-        mb_client = V2GmodbusClient(self.hass)
+        mb_client = V2GmodbusClient(self._hass)
 
         connected, max_hardware_power = await mb_client.adhoc_read_register(
             modbus_address=self.MAX_AVAILABLE_POWER_REGISTER, host=host, port=port
@@ -300,7 +293,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             raise ValueError("Host required for WallboxQuasar1Client")
         self._mb_host = host
         self._mb_port = communication_config.get("port", 502)
-        self._mb_client = V2GmodbusClient(self.hass, self._cb_modbus_state)
+        self._mb_client = V2GmodbusClient(self._hass, self._cb_modbus_state)
         connected = await self._mb_client.initialise(
             host=self._mb_host,
             port=self._mb_port,
@@ -457,8 +450,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     # Rename to Occupied or has_car_connected? To distinguish from is_connected on ElectricVehicle.
     async def is_car_connected(self) -> bool:
         """Is the car connected to the charger (is chargeplug in the socket)."""
-        state = await self._get_charger_state()
-        return state not in self.DISCONNECTED_STATES
+        state = await self._get_evse_state()
+        return state not in self._DISCONNECTED_STATES
 
     async def start_charging(self, power_in_watt: int, source: str = None):
         """Start charging with specified power in Watt, can be negative.
@@ -483,7 +476,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         if power_in_watt == 0:
             await self._set_charger_action(
                 action="stop",
-                reason=f"called with power = 0",
+                reason="called with power = 0",
             )
         else:
             await self._set_charger_action(
@@ -507,25 +500,25 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     async def is_charging(self) -> bool:
         """Is the battery being charged (positive power value, soc is increasing)"""
-        state = await self._get_charger_state()
+        state = await self._get_evse_state()
         if state is None:
             # The connection to the charger probably is not setup yet.
             self.__log(
                 "charger state is None (not setup yet?). Assume not (dis-)charging."
             )
             return False
-        return state == self.CHARGING_STATE
+        return state in self._CHARGING_STATES
 
     async def is_discharging(self) -> bool:
         """Is the battery being discharged (negative power value, soc is decreasing)"""
-        state = await self._get_charger_state()
+        state = await self._get_evse_state()
         if state is None:
             # The connection to the charger probably is not setup yet.
             self.__log(
                 "charger state is None (not setup yet?). Assume not (dis-)charging."
             )
             return False
-        return state == self.DISCHARGING_STATE
+        return state in self._DISCHARGING_STATES
 
     ######################################################################
     #                           PRIVATE METHODS                          #
@@ -567,11 +560,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             reason (str, optional): For debugging only
         """
 
-        self._cancel_timer(self.poll_timer_handle)
-        self.poll_timer_handle = await self.hass.run_every(
+        self._cancel_timer(self._poll_timer_handle)
+        self._poll_timer_handle = await self._hass.run_every(
             self._get_and_process_evse_data,
             "now",
-            self.POLLING_INTERVAL_SECONDS,
+            self._POLLING_INTERVAL_SECONDS,
         )
         if reason:
             reason = f", reason: {reason}"
@@ -585,8 +578,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             reason (str, optional): For debugging only
         """
         self.__log(f"reason: {reason}")
-        self._cancel_timer(self.poll_timer_handle)
-        self.poll_timer_handle = None
+        self._cancel_timer(self._poll_timer_handle)
+        self._poll_timer_handle = None
         self._eb.emit_event("evse_polled", stop=True)
 
     async def _get_and_process_evse_data(self, *_args):
@@ -682,81 +675,107 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             await self._update_evse_entity(evse_entity=entity, new_value=new_state)
         return
 
-    async def _update_evse_entity(
-        self,
-        evse_entity: dict,
-        new_value,
-    ):
-        """
-        Update evse_entity.
-        :param evse_entity: evse_entity
-        :param new_value: new_value, can be None
-        :return: Nothing
+    def _get_base_state(self, quasar_state: int) -> int:
+        """'Translate' a 'quasar state' to 'base evse state'."""
+        self._EVSE_STATE_MAPPING.get(quasar_state, 0)  # Default to "Booting" if unknown
+
+    async def _update_evse_entity(self, evse_entity: dict, new_value):
+        """Update the EVSE entity with the new value.
+
+        Args:
+            evse_entity: The EVSE entity dictionary to update.
+            new_value: The new value (can be None).
         """
         current_value = evse_entity["current_value"]
 
-        if current_value != new_value:
-            evse_entity["current_value"] = new_value
-            # Call change_handler if defined
-            if "change_handler" in evse_entity.keys():
-                str_action = evse_entity["change_handler"]
-                # TODO: Find an more elegant way (without 'eval') to do this, e.g. callable?
-                if str_action == "__handle_charger_state_change":
-                    await self._handle_charger_state_change(
-                        new_charger_state=new_value,
-                        old_charger_state=current_value,
+        # Call pre_processor if defined.
+        # Pre_processor method must be sync and have one parameter: new_value
+        if "pre_processor" in evse_entity.keys():
+            method_name = evse_entity["pre_processor"]
+            if isinstance(method_name, str):
+                try:
+                    bound_method = getattr(self, method_name)
+                    new_value = bound_method(new_value)
+                except AttributeError:
+                    self.__log(
+                        f"Pre_processor method '{method_name}' does not exist!",
+                        level="WARNING",
                     )
-                elif str_action == "_handle_soc_change":
-                    # Conceptually strange to set the soc on the car where it is just read from, but
-                    # ElectricVehicle object cannot retrieve the soc by itself, the charger does
-                    # this for it. Further actions based on soc changes are initiated by the car
-                    # object.
-                    if self._connected_car is None:
-                        success = self.try_set_connected_vehicle()
-                        if not success:
-                            self.__log(
-                                "SoC change detected but no car connected, cannot set SoC on car.",
-                                level="WARNING",
-                            )
-                            return
-                    self._connected_car.set_soc(new_soc=new_value)
-                elif str_action == "_handle_charger_error_state_change":
-                    # This is the case for the ENTITY_ERROR_1..4. The charger_state
-                    # does not necessarily change only (one or more of) these error-states.
-                    # So the state is not added to the call.
-                    await self._handle_charger_error_state_change({"dummy": None})
-                elif str_action == "_handle_charge_power_change":
-                    self._eb.emit_event("charge_power_change", new_power=new_value)
+            else:
+                self.__log("Pre_processor is not a string!", level="WARNING")
+
+        evse_entity["current_value"] = new_value
+
+        if current_value != new_value:
+            # Call change_handler if defined
+            # change_handler method must be async and have two parameters: new_value, old_value
+            if "change_handler" in evse_entity.keys():
+                change_handler_method_name = evse_entity["change_handler"]
+                if isinstance(change_handler_method_name, str):
+                    try:
+                        change_handler_method = getattr(
+                            self, change_handler_method_name
+                        )
+                        await change_handler_method(new_value, current_value)
+                    except AttributeError:
+                        self.__log(
+                            f"Change_handler_method '{change_handler_method_name}' does not exist!",
+                            level="WARNING",
+                        )
                 else:
-                    self.__log(f"unknown action: '{str_action}'.", level="WARNING")
+                    self.__log(
+                        "change_handler_method_name is not a string!", level="WARNING"
+                    )
+
+    async def _handle_charge_power_change(self, new_power, old_power):
+        self._eb.emit_event("charge_power_change", new_power=new_power)
+
+    async def _handle_charger_error_registers_state_change(self, new_error, old_error):
+        # This is the case for the ENTITY_ERROR_1..4. The charger_state
+        # does not necessarily change only (one or more of) these error-states.
+        # So the state is not added to the call.
+        self.__log(f"new_error: {new_error}, old_error: {old_error}.", level="WARNING")
+        await self._handle_charger_error_state_change({"dummy": None})
+
+    async def _handle_soc_change(self, new_soc, old_soc):
+        # Conceptually strange to set the soc on the car where it is just read from, but
+        # ElectricVehicle object cannot retrieve the soc by itself, the charger does
+        # this for it. Further actions based on soc changes are initiated by the car
+        # object.
+        if self._connected_car is None:
+            success = self.try_set_connected_vehicle()
+            if not success:
+                self.__log(
+                    "SoC change detected but no car connected, cannot set SoC on car.",
+                    level="WARNING",
+                )
+                return
+        self._connected_car.set_soc(new_soc=new_soc)
 
     async def _handle_charger_state_change(
-        self, new_charger_state: int, old_charger_state: int
+        self, new_evse_state: int, old_evse_state: int
     ):
         """Called when _update_evse_entity detects a changed value."""
-        self.__log(f"called {new_charger_state=}, {old_charger_state=}.")
+        self.__log(f"called {new_evse_state=}, {old_evse_state=}.")
 
-        if (
-            new_charger_state in self.ERROR_STATES
-            or old_charger_state in self.ERROR_STATES
-        ):
+        if new_evse_state in self._ERROR_STATES or old_evse_state in self._ERROR_STATES:
             # Check if user needs to be notified or if notification process needs to be aborted
             await self._handle_charger_error_state_change(
-                {"new_charger_state": new_charger_state, "is_final_check": False}
+                {"new_charger_state": new_evse_state, "is_final_check": False}
             )
 
-        if self.charging_to_read_soc:
+        if self._charging_to_read_soc:
             return
 
-        charger_state_text = self.CHARGER_STATES.get(new_charger_state, None)
+        charger_state_text = self.get_evse_state_str(new_evse_state)
         self._eb.emit_event(
             "charger_state_change",
-            new_charger_state=new_charger_state,
-            old_charger_state=old_charger_state,
+            new_charger_state=new_evse_state,
+            old_charger_state=old_evse_state,
             new_charger_state_str=charger_state_text,
         )
 
-        if new_charger_state in self.DISCONNECTED_STATES:
+        if new_evse_state in self._DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
@@ -771,7 +790,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             # explicitly send a stop-charging command:
             await self._set_charger_action("stop", reason="car disconnected")
             self._eb.emit_event("is_car_connected", is_car_connected=False)
-        elif old_charger_state in self.DISCONNECTED_STATES:
+        elif old_evse_state in self._DISCONNECTED_STATES:
             # new_charger_state must be a connected state, so if the old state was disconnected
             # there was a change in connected state.
 
@@ -790,8 +809,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         return
 
     def try_set_connected_vehicle(self):
-        # For ISO15118 capable chargers we would get the car info (name) from the charger here.
-        # For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
+        """
+        For ISO15118 capable chargers we would get the car info (name) from the charger here.
+        For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
+        """
         ev_name = "NissanLeaf"
         ev = self.get_vehicle_by_name(ev_name)
         if ev is None:
@@ -812,7 +833,14 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             state = self.ENTITY_CHARGER_CURRENT_POWER["current_value"]
         return state
 
-    async def _get_charger_state(self) -> int | None:
+    def _get_base_state(self, quasar_state: int) -> int:
+        """'Translate' a 'quasar state' to 'base evse state'."""
+        return self._EVSE_STATE_MAPPING.get(
+            quasar_state, 0
+        )  # Default to "Booting" if unknown
+
+    async def _get_evse_state(self) -> int:
+        """Returns the state accoding to _EVSE_STATES from the base class."""
         charger_state = self.ENTITY_CHARGER_STATE["current_value"]
         if charger_state is None:
             # This can be the case before initialisation has finished.
@@ -821,16 +849,16 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         return charger_state
 
     async def _is_charging_or_discharging(self) -> bool:
-        state = await self._get_charger_state()
+        state = await self._get_evse_state()
         if state is None:
             # The connection to the charger probably is not setup yet.
             self.__log(
                 "charger state is None (not setup yet?). Assume not (dis-)charging."
             )
             return False
-        is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
+        is_charging = state in self._CHARGING_STATES + self._DISCHARGING_STATES
         self.__log(
-            f"state: {state} ({self.CHARGER_STATES[state]}), charging: {is_charging}."
+            f"state: {state} ({self.get_evse_state_str(state)}), charging: {is_charging}."
         )
         return is_charging
 
@@ -896,7 +924,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 # polling is paused.
                 # charging_to_read_soc is used to prevent polling to start again from
                 # elsewhere and to stop other processes.
-                self.charging_to_read_soc = True
+                self._charging_to_read_soc = True
                 await self._cancel_polling(reason="Charging to force reading soc")
                 await self._set_charger_control("take")
                 await self._set_charge_power(
@@ -925,7 +953,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 await self._update_evse_entity(
                     evse_entity=ecs, new_value=soc_in_charger
                 )
-                self.charging_to_read_soc = False
+                self._charging_to_read_soc = False
                 await self._kick_off_polling(reason="After force reading soc")
             soc_value = soc_in_charger
         self.__log(f"returning: '{soc_value}'.")
@@ -1120,7 +1148,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 source="_set_charger_control, give control",
             )
             # For the rare case that forced get soc is in action when the car gets disconnected.
-            self.charging_to_read_soc = False
+            self._charging_to_read_soc = False
 
         else:
             raise ValueError(
@@ -1159,10 +1187,15 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         )
 
         # The soc and power are not known any more so let's represent this in the app
-        await self.__update_evse_entity(
+        await self._update_evse_entity(
             evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value=None
         )
-        await self.__update_evse_entity(evse_entity=self.ENTITY_CAR_SOC, new_value=None)
+        await self._update_evse_entity(evse_entity=self.ENTITY_CAR_SOC, new_value=None)
+        # Set charger state to error, use quasar state number as the preprocessor will alter to
+        # base_evse_state.
+        await self._update_evse_entity(
+            evse_entity=self.ENTITY_CHARGER_STATE, new_value=7
+        )
 
     async def _modbus_communication_restored(self):
         self.__log("Modbus connection to Wallbox Quasar 1 EVSE restored.")
@@ -1212,20 +1245,21 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         #         f"Called without charger state, _get_charger_state: {new_charger_state}."
         #     )
 
-        if new_charger_state in self.ERROR_STATES:
+        if new_charger_state in self._ERROR_STATES:
             self.__log("Charger in error state", level="WARNING")
             has_error = True
 
+        i = 1
         for entity in self.CHARGER_ERROR_ENTITIES:
             # None = uninitialised, 0 = no error.
             if entity["current_value"] not in [None, 0]:
                 self.__log(
-                    f"Charger reports {entity['ha_entity_name']} "
-                    f"is {entity['current_value']}",
+                    f"Charger reports error_{i} is {entity['current_value']}",
                     level="WARNING",
                 )
                 has_error = True
                 break
+            i += 1
 
         if has_error:
             if is_final_check:
@@ -1239,9 +1273,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 )
 
             elif self._timer_id_check_error_state is None:
-                self._timer_id_check_error_state = await self.hass.run_in(
+                self._timer_id_check_error_state = await self._hass.run_in(
                     self._handle_charger_error_state_change,
-                    delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
+                    delay=self._MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
                     new_charger_state=None,
                     is_final_check=True,
                 )
@@ -1257,7 +1291,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 was_car_connected=None,
             )
 
-    ################################# UTILITIES ################################
+    ################################# UTILITIE METHODS ################################
 
     def _process_number(
         self,
@@ -1302,6 +1336,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """
         if timer_id in [None, ""]:
             return
-        if self.hass.timer_running(timer_id):
+        if self._hass.timer_running(timer_id):
             silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)
+            self._hass.cancel_timer(timer_id, silent)
