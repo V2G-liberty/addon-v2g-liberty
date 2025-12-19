@@ -5,7 +5,6 @@ from .event_bus import EventBus
 from .ha_ui_manager import HAUIManager
 from .notifier_util import Notifier
 from .v2g_globals import V2GLibertyGlobals
-from v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
 from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
@@ -46,14 +45,6 @@ class V2GLibertyApp(Hass):
         self._log_init_time("V2Gliberty", start_module)
 
         start_module = datetime.now()
-        quasar1_evse_client = WallboxQuasar1Client(
-            self,
-            event_bus=event_bus,
-            get_vehicle_by_name_func=main_app.get_vehicle_by_name,
-        )
-        self._log_init_time("WallboxQuasar1Client", start_module)
-
-        start_module = datetime.now()
         fm_client = FMClient(self, event_bus=event_bus)
         self._log_init_time("FMClient", start_module)
 
@@ -81,6 +72,7 @@ class V2GLibertyApp(Hass):
         get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
         self._log_init_time("FlexMeasuresDataImporter", start_module)
 
+        # TODO: Remove here and do just-in-time import, instantiation and kickoff in globals
         start_module = datetime.now()
         amber_price_data_manager = ManageAmberPriceData(self)
         self._log_init_time("ManageAmberPriceData", start_module)
@@ -95,10 +87,8 @@ class V2GLibertyApp(Hass):
         v2g_globals.amber_price_data_manager = amber_price_data_manager
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager
         v2g_globals.fm_data_retrieve_client = get_fm_data
-        v2g_globals.quasar1 = quasar1_evse_client
         v2g_globals.datamonitor = data_monitor
 
-        main_app.bidirectional_evse = quasar1_evse_client
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
 

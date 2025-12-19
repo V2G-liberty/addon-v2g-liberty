@@ -148,7 +148,7 @@ class EventBus(AsyncIOEventEmitter):
                     elapsed_ms = (time.perf_counter() - start) * 1000
                     if elapsed_ms > 200:
                         self.__log(
-                            f"Listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
+                            f"Calling listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
                         )
 
                 if inspect.iscoroutinefunction(listener):

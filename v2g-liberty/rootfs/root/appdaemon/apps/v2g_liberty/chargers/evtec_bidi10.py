@@ -1,12 +1,20 @@
 """Client to control a EVtec BiDi10 Electric Vehicle Supply Equipment (EVSE)"""
 
-from .v2g_modbus_client import V2GmodbusClient
-from .modbus_types import ModbusConfigEntity, RegisterRange
-from .base_bidirectional_evse import BidirectionalEVSE
+#######################################################################################
+#   This file contains the Modbus address information for the EVtec BiDiPro 10.       #
+#   This is provided by the EV2Grid as is.                                            #
+#   For reference see https://ev2grid.de/didipro                                      #
+#   EVtec nor EV2Grid provider of the software and does not provide any type of       #
+#   service for the software.                                                         #
+#######################################################################################
+
 from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from .v2g_modbus_client import V2GmodbusClient
+from .modbus_types import ModbusConfigEntity, RegisterRange
+from .base_bidirectional_evse import BidirectionalEVSE
 
 
 class EVtecBiDi10Client(BidirectionalEVSE):
@@ -50,7 +58,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
     _ACTIONS = {"start_charging": 1, "stop_charging": 2}
 
     # For setting the desired charge power, reading the actual charging power is done
-    # through ENTITY_CHARGER_CURRENT_POWER
+    # through ENTITY_CONNECTOR_CURRENT_POWER
     _CHARGER_SET_CHARGE_POWER_REGISTER: int = 600  # New, only on device_id 2 or higher
 
     # New, only on device_id = 2 or higher, OR IS IT 31? CHECK!!
@@ -202,7 +210,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         # Modbus specifics
         self._mb_client: V2GmodbusClient | None = None
         self._mb_host: str | None = None
-        self._mb_port: int = 502
+        self._mb_port: int = 5020
 
         # User limit the max (dis-)charger power.
         self._max_charge_power_w: int | None = None
@@ -216,12 +224,16 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         self._timer_id_check_error_state: str | None = None
 
+        # Variable for checking if the (base) state of the charger has changed. It should not be
+        # used anwhere else.
+        self._evse_state: int | None = None
+
         # Block events from firing during charge that is needed to read a SoC.
         self._charging_to_read_soc: bool = False
 
         self._am_i_active: bool = False
 
-        self._log("WallboxQuasar1Client initialized.")
+        self._log("EVtecBiDiPro10client initialized.")
 
     async def get_max_power_pre_init(
         self, host: str, port: int | None = None
@@ -251,7 +263,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             )
             return False, None
 
-        result = mb_client.read_register_ranges(
+        result = await mb_client.read_register_ranges(
             [self._MAX_CONNECTOR_POWER_W["modbus_range"]]
         )
         mb_client.terminate()
@@ -270,7 +282,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         To be called from globals.
         """
         self._log(
-            f"Initialising WallboxQuasar1Client with config: {communication_config}"
+            f"Initialising EVtecBiDiPro10client with config: {communication_config}"
         )
 
         host = communication_config.get("host", None)
@@ -279,9 +291,9 @@ class EVtecBiDi10Client(BidirectionalEVSE):
                 "EVtec BiDiPro10 EVSE initialisation failed, no host.",
                 level="WARNING",
             )
-            raise ValueError("Host required for WallboxQuasar1Client")
+            raise ValueError("Host required for EVtecBiDiPro10client")
         self._mb_host = host
-        self._mb_port = communication_config.get("port", 502)
+        self._mb_port = communication_config.get("port", 5020)
         self._mb_client = V2GmodbusClient(self._hass, self._cb_modbus_state)
         connected = await self._mb_client.initialise(
             host=self._mb_host,
@@ -313,7 +325,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         It performs the initial data retrieval and starts the polling loop."""
         if self._mb_host is None:
             self._log(
-                "The mb_client is not initialised (host missing?), cannot complete init. Aborting",
+                "The mb_client not initialised (host missing?), cannot complete kick_off. Aborting",
                 level="WARNING",
             )
             return
@@ -343,7 +355,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return
         self._log("made inactive")
         await self.stop_charging()
-        await self._set_charger_control("give")
+        # await self._set_charger_control("give")
         self._am_i_active = False
 
     async def set_active(self):
@@ -353,8 +365,6 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return
         self._log("activated")
         self._am_i_active = True
-        await self._set_charger_control("take")
-        await self._get_car_soc(force_renew=True)
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         # Eventhough it probably did not stop
         await self._kick_off_polling()
@@ -366,10 +376,8 @@ class EVtecBiDi10Client(BidirectionalEVSE):
                 level="WARNING",
             )
             return None
-        result = await self._mb_client.modbus_read(
-            self._MAX_AVAILABLE_POWER_REGISTER,
-            length=1,
-            source="get_hardware_power_limit",
+        result = await self._mb_client.read_register_ranges(
+            self._MAX_CONNECTOR_POWER_W["modbus_range"]
         )
 
         if not result:
@@ -772,23 +780,6 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         :return: Nothing
         """
         current_value = evse_entity["current_value"]
-
-        # Call pre_processor if defined.
-        # Pre_processor method must be sync and have one parameter: new_value
-        if "pre_processor" in evse_entity.keys():
-            method_name = evse_entity["pre_processor"]
-            if isinstance(method_name, str):
-                try:
-                    bound_method = getattr(self, method_name)
-                    new_value = bound_method(new_value)
-                except AttributeError:
-                    self.__log(
-                        f"Pre_processor method '{method_name}' does not exist!",
-                        level="WARNING",
-                    )
-            else:
-                self.__log("Pre_processor is not a string!", level="WARNING")
-
         evse_entity["current_value"] = new_value
 
         if current_value != new_value:
@@ -803,23 +794,26 @@ class EVtecBiDi10Client(BidirectionalEVSE):
                         )
                         await change_handler_method(new_value, current_value)
                     except AttributeError:
-                        self.__log(
+                        self._log(
                             f"Change_handler_method '{change_handler_method_name}' does not exist!",
                             level="WARNING",
                         )
                 else:
-                    self.__log(
+                    self._log(
                         "change_handler_method_name is not a string!", level="WARNING"
                     )
 
     async def _handle_charge_power_change(self, new_power, old_power):
         self._eb.emit_event("charge_power_change", new_power=new_power)
+        if (new_power > 0) != (old_power > 0) or (new_power == 0) != (old_power == 0):
+            # Power has changed sugnificantly from + to - or 0 to not 0 vv
+            self._recalculate_evse_state()
 
     async def _handle_charger_error_registers_state_change(self, new_error, old_error):
         # This is the case for the ENTITY_ERROR_1..4. The charger_state
         # does not necessarily change only (one or more of) these error-states.
         # So the state is not added to the call.
-        self.__log(f"new_error: {new_error}, old_error: {old_error}.", level="WARNING")
+        self._log(f"new_error: {new_error}, old_error: {old_error}.", level="WARNING")
         await self._handle_charger_error_state_change({"dummy": None})
 
     async def _handle_soc_change(self, new_soc, old_soc):
@@ -830,18 +824,26 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         if self._connected_car is None:
             success = self.try_set_connected_vehicle()
             if not success:
-                self.__log(
+                self._log(
                     "SoC change detected but no car connected, cannot set SoC on car.",
                     level="WARNING",
                 )
                 return
         self._connected_car.set_soc(new_soc=new_soc)
 
+    async def _recalculate_evse_state(self):
+        bcs = self._get_base_state()
+        if bcs != self._evse_state:
+            self._handle_charger_state_change(
+                new_evse_state=bcs, old_evse_state=self._evse_state
+            )
+            self._evse_state = bcs
+
     async def _handle_charger_state_change(
         self, new_evse_state: int, old_evse_state: int
     ):
         """Called when _update_evse_entity detects a changed value."""
-        self.__log(f"called {new_evse_state=}, {old_evse_state=}.")
+        self._log(f"called {new_evse_state=}, {old_evse_state=}.")
 
         if new_evse_state in self._ERROR_STATES or old_evse_state in self._ERROR_STATES:
             # Check if user needs to be notified or if notification process needs to be aborted
@@ -911,11 +913,11 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return True
 
     async def _get_charge_power(self) -> int | None:
-        state = self.ENTITY_CHARGER_CURRENT_POWER["current_value"]
+        state = self.ENTITY_CONNECTOR_CURRENT_POWER["current_value"]
         if state is None:
             # This can be the case before initialisation has finished.
-            await self._get_and_process_registers([self.ENTITY_CHARGER_CURRENT_POWER])
-            state = self.ENTITY_CHARGER_CURRENT_POWER["current_value"]
+            await self._get_and_process_registers([self.ENTITY_CONNECTOR_CURRENT_POWER])
+            state = self.ENTITY_CONNECTOR_CURRENT_POWER["current_value"]
         return state
 
     async def _get_evse_state(self) -> int:
@@ -986,7 +988,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             relaxed_max_value = ecs["relaxed_max_value"]
 
             if await self._is_charging_or_discharging():
-                # self.__log("called")
+                # self._log("called")
                 soc_in_charger = await self._mb_client.force_get_register(
                     register=soc_address,
                     min_value_at_forced_get=min_value_at_forced_get,
@@ -1288,13 +1290,13 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         # The soc and power are not known any more so let's represent this in the app
         await self._update_evse_entity(
-            evse_entity=self.ENTITY_CHARGER_CURRENT_POWER, new_value=None
+            evse_entity=self.ENTITY_CONNECTOR_CURRENT_POWER, new_value=None
         )
         await self._update_evse_entity(evse_entity=self.ENTITY_CAR_SOC, new_value=None)
         # Set charger state to error, use quasar state number as the preprocessor will alter to
         # base_evse_state.
         await self._update_evse_entity(
-            evse_entity=self.ENTITY_CHARGER_STATE, new_value=XXXXXXXXXXX
+            evse_entity=self.ENTITY_CHARGER_STATE, new_value=10
         )
 
     async def _modbus_communication_restored(self):
@@ -1341,7 +1343,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         # if new_charger_state is None:
         #     new_charger_state = await self._get_charger_state()
-        #     self.__log(
+        #     self._log(
         #         f"Called without charger state, _get_charger_state: {new_charger_state}."
         #     )
 

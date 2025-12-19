@@ -1,12 +1,15 @@
 """A generic V2G Liberty module for Modbus communication"""
 
 import asyncio
-from typing import Callable, Optional
+from typing import Callable, Optional, Union, List
+from collections import defaultdict
+import struct
 from appdaemon import Hass
 import pymodbus.client as modbusClient
 from pymodbus.exceptions import ModbusException
 from pyee.asyncio import AsyncIOEventEmitter
 from apps.v2g_liberty.util import parse_to_int
+from .modbus_types import RegisterRange
 
 
 class V2GmodbusClient(AsyncIOEventEmitter):
@@ -74,7 +77,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             await temporary_mb_client.connect()
             if temporary_mb_client.connected:
                 result = await temporary_mb_client.read_holding_registers(
-                    modbus_address, count=1, slave=1
+                    modbus_address, count=1, device_id=1
                 )
                 result = result.registers[0]
                 return True, result
@@ -86,18 +89,47 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         finally:
             temporary_mb_client.close()
 
-    async def initialise(self, host: str, port: int = 502):
+    async def initialise(self, host: str, port: int = 502) -> bool:
+        """
+        Initializes the Modbus TCP client. Tries to setup a connection.
+
+        Args:
+            host (str): The hostname or IP address of the Modbus device.
+            port (int, optional): The TCP port of the Modbus device. Defaults to 502.
+
+        Returns:
+            bool: True if the connection was successful, False otherwise.
+
+        Example:
+            >>> success = await client.initialise("192.168.1.100", 502)
+            >>> print(f"Connection successful: {success}")
+        """
         if self._mbc is not None:
             self._mbc.close()
 
-        self._mbc = modbusClient.AsyncModbusTcpClient(
-            host=host,
-            port=port,
-        )
+        self._mbc = modbusClient.AsyncModbusTcpClient(host=host, port=port)
         await self._mbc.connect()
         result = self._mbc.connected
-        print(f"initialise at {host}:{port}, success: {result}")
+        print(f"Initialised connection to {host}:{port}, success: {result}")
         return result
+
+    def terminate(self) -> None:
+        """
+        Terminates the Modbus TCP client connection and cleans up resources.
+
+        This method safely closes the connection and resets the client reference.
+        It is idempotent and can be called multiple times without side effects.
+
+        Example:
+            >>> client.terminate()
+        """
+        if self._mbc is not None:
+            try:
+                self._mbc.close()
+            except Exception as e:
+                print(f"Error while closing Modbus connection: {e}")
+            finally:
+                self._mbc = None
 
     async def modbus_write(self, address: int, value: int, source: str) -> bool:
         """Generic modbus write function.
@@ -124,12 +156,10 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         result = None
         try:
-            # I hate using the word 'slave', this should be 'server' but
-            # pyModbus has not changed this yet...
             result = await self._mbc.write_register(
                 address=address,
                 value=value,
-                slave=1,
+                device_id=1,
             )
         except ModbusException as me:
             print(f"[WARNING] ModbusException {me}")
@@ -170,12 +200,10 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         result = None
         try:
-            # I hate using the word 'slave', this should be 'server' but pyModbus
-            # has not changed this yet...
             result = await self._mbc.read_holding_registers(
                 address=address,
                 count=length,
-                slave=1,
+                device_id=1,
             )
         except ModbusException as me:
             print(f"[WARNING] ModbusException {me}")
@@ -192,6 +220,206 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             return None
         result = list(map(self._get_2comp, result.registers))
         return result
+
+    async def read_register_ranges(
+        self, register_ranges: List[RegisterRange]
+    ) -> List[Union[int, float, str, None]]:
+        """
+        Asynchronously reads multiple Modbus register ranges grouped by device_id.
+        Returns results in the same order as the input register_ranges.
+
+        Args:
+            register_ranges: List of register ranges to read.
+
+        Returns:
+            List of decoded values in the same order as input.
+            Returns None for failed reads or invalid ranges.
+        """
+        if not register_ranges:
+            return []
+
+        if self._mbc is None:
+            print("[WARNING] Modbus client not initialised")
+            return [None] * len(register_ranges)
+
+        if not self._mbc.connected:
+            print("Connecting Modbus client")
+            await self._mbc.connect()
+
+        # Group ranges by device_id
+        ranges_by_device = defaultdict(list)
+        for range_info in register_ranges:
+            ranges_by_device[range_info["device_id"]].append(range_info)
+
+        # Create a result list with placeholders
+        results = [None] * len(register_ranges)
+
+        # Process each device group separately
+        for device_id, device_ranges in ranges_by_device.items():
+            # Sort ranges by address for this device
+            sorted_ranges = sorted(device_ranges, key=lambda x: x["address"])
+
+            # Calculate total range to read for this device
+            start_address = sorted_ranges[0]["address"]
+            end_address = sorted_ranges[-1]["address"] + sorted_ranges[-1]["length"] - 1
+
+            # Read all registers for this device in one request
+            response = await self._mbc.read_holding_registers(
+                address=start_address,
+                count=end_address - start_address + 1,
+                device_id=device_id,
+            )
+
+            if response.isError():
+                print(f"[WARNING] Modbus error for device {device_id}: {response}")
+                # Mark all ranges for this device as failed
+                for range_info in device_ranges:
+                    idx = register_ranges.index(range_info)
+                    results[idx] = None
+                continue
+
+            registers = response.registers
+
+            # Extract values for each range in this device group
+            for range_info in device_ranges:
+                address = range_info["address"]
+                length = range_info["length"]
+                data_type = range_info.get("data_type", "uint16")
+
+                # Find the index of this range in the original list
+                idx = register_ranges.index(range_info)
+
+                slice_start = address - start_address
+                slice_end = slice_start + length
+                range_registers = registers[slice_start:slice_end]
+
+                try:
+                    if data_type == "string":
+                        bytes_data = b"".join(
+                            [
+                                reg.to_bytes(2, byteorder="big")
+                                for reg in range_registers
+                            ]
+                        )
+                        results[idx] = bytes_data.decode("utf-8").rstrip("\x00")
+                    elif data_type in ("uint32", "int32", "float32"):
+                        if length < 2:
+                            print(
+                                f"[WARNING] Need at least 2 registers for {data_type}, got {length}"
+                            )
+                            results[idx] = None
+                            continue
+                        bytes_data = b"".join(
+                            [
+                                reg.to_bytes(2, byteorder="big")
+                                for reg in range_registers[:2]
+                            ]
+                        )
+                        if data_type == "int32":
+                            results[idx] = struct.unpack(">i", bytes_data)[0]
+                        elif data_type == "uint32":
+                            results[idx] = struct.unpack(">I", bytes_data)[0]
+                        elif data_type == "float32":
+                            results[idx] = struct.unpack(">f", bytes_data)[0]
+                    elif data_type in ("uint16", "int16"):
+                        for i, reg in enumerate(range_registers):
+                            if data_type == "int16":
+                                value = int.from_bytes(
+                                    reg.to_bytes(2, byteorder="big"),
+                                    byteorder="big",
+                                    signed=True,
+                                )
+                            else:  # uint16
+                                value = reg
+                            # For single-register types, just use the first value
+                            if i == 0:
+                                results[idx] = value
+                    else:
+                        print(f"[WARNING] Unknown datatype {data_type}")
+                        results[idx] = None
+                except Exception as e:
+                    print(f"[WARNING] Error processing range {range_info}: {e}")
+                    results[idx] = None
+
+        return results
+
+    async def write_register_range(
+        self, register_range: RegisterRange, value: Union[int, float]
+    ) -> bool:
+        """
+        Writes a value to a Modbus register range.
+
+        Args:
+            register_range: RegisterRange object with device_id, address, length, and data_type.
+            value: Value to write (int or float).
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        if self._mbc is None:
+            print("[WARNING] Modbus client not initialized")
+            return False
+
+        if not self._mbc.connected:
+            print("Connecting Modbus client")
+            await self._mbc.connect()
+
+        device_id = register_range["device_id"]
+        address = register_range["address"]
+        length = register_range["length"]
+        data_type = register_range["data_type"]
+
+        try:
+            # Encode the value based on data_type
+            if data_type in ("uint32", "int32", "float32"):
+                if length < 2:
+                    print(
+                        f"[WARNING] Need at least 2 registers for {data_type}, got {length}"
+                    )
+                    return False
+
+                # Pack the value into 4 bytes (32 bits)
+                if data_type == "int32":
+                    bytes_data = struct.pack(">i", int(value))
+                elif data_type == "uint32":
+                    bytes_data = struct.pack(">I", int(value))
+                elif data_type == "float32":
+                    bytes_data = struct.pack(">f", float(value))
+
+                # Split into two 16-bit registers
+                registers = [
+                    int.from_bytes(bytes_data[0:2], byteorder="big"),
+                    int.from_bytes(bytes_data[2:4], byteorder="big"),
+                ]
+
+            elif data_type == "int16":
+                registers = [int(value) & 0xFFFF]  # Ensure 16-bit signed
+
+            elif data_type == "uint16":
+                registers = [int(value) & 0xFFFF]  # Ensure 16-bit unsigned
+
+            else:
+                print(f"[WARNING] Unsupported data type: {data_type}")
+                return False
+
+            # Write the registers to Modbus
+            response = await self._mbc.write_multiple_registers(
+                address=address,
+                values=registers,
+                device_id=device_id,
+            )
+
+            if response.isError():
+                print(
+                    f"[WARNING] Modbus write error for device {device_id}: {response}"
+                )
+                return False
+
+            return True
+
+        except Exception as e:
+            print(f"[WARNING] Error writing register range: {e}")
+            return False
 
     async def force_get_register(
         self,
@@ -234,9 +462,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         while True:
             result = None
             try:
-                # Only one register is read so count = 1, the charger expects slave to be 1.
+                # Only one register is read so count = 1, the quasar charger expects device_id to be 1.
                 result = await self._mbc.read_holding_registers(
-                    register, count=1, slave=1
+                    register, count=1, device_id=1
                 )
             except ModbusException as me:
                 print(f"[WARNING] ModbusException {me}")
