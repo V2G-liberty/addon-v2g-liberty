@@ -22,6 +22,7 @@ enum ChargerConnectionStatus {
 @customElement('v2g-liberty-charger-settings-card')
 export class ChargerSettingsCard extends LitElement {
   @state() private _chargerSettingsInitialised: HassEntity;
+  @state() private _chargerType: HassEntity;
   @state() private _chargerHost: HassEntity;
   @state() private _chargerPort: HassEntity;
   @state() private _chargerConnectionStatus: HassEntity;
@@ -39,6 +40,7 @@ export class ChargerSettingsCard extends LitElement {
     this._hass = hass;
     this._chargerSettingsInitialised =
       hass.states[entityIds.chargerSettingsInitialised];
+    this._chargerType = hass.states[entityIds.chargerType];
     this._chargerHost = hass.states[entityIds.chargerHostUrl];
     this._chargerPort = hass.states[entityIds.chargerPort];
     this._chargerConnectionStatus =
@@ -52,11 +54,16 @@ export class ChargerSettingsCard extends LitElement {
   }
 
   render() {
-    const header = tp('header');
     const isInitialised = this._chargerSettingsInitialised.state === 'on';
+
+    const header = isInitialised
+      ? tp(this._chargerType.state)
+      : tp('header');
+
     const content = isInitialised
       ? this._renderInitialisedContent()
       : this._renderUninitialisedContent();
+
     return html`<ha-card header="${header}">${content}</ha-card>`;
   }
 

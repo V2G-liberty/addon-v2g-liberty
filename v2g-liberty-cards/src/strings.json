@@ -129,8 +129,15 @@
     },
     "charger": {
       "header": "Charger",
+      "wallbox-quasar-1": "Wallbox Quasar 1",
+      "evtec-bidi-pro-10": "EVtec BiDiPro10",
       "alert": "Please configure the charger, V2G Liberty needs this to work.",
-      "invalid-host-error": "Please provide a valid IP-address.",
+      "1-select-charger-type": {
+        "header": "Select Charger Type",
+        "description": "Please select the type of charger you are using:",
+        "validation-error": "Please select a charger type to continue."
+      },
+      "invalid-host-error": "Please provide a valid URL (IP-address).",
       "invalid-port-error": "Please provide a valid port.",
       "connection-error": "No communication with charger, please check connection.",
       "connection-success": "Succesfully connected",
@@ -147,11 +154,17 @@
         }
       },
       "reduce-max-power-description": "Reduce max. (dis)charge power.",
-      "connection-details": {
-        "description": "To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.",
-        "port-description": "Default is 502, so if you haven’t changed it, keep this."
+      "2-connection-details": {
+        "header": "connection settings",
+        "description": {
+          "generic": "To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.",
+          "evtec-bidi-pro-10": "You can find this in your network router or in the EVtec manager via the webbrowser.",
+          "wallbox-quasar-1": "You can find these in the Wallbox app: in the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."
+        },
+        "port-description": "Default is %{value}, so if you haven’t changed it, keep this."
       },
-      "charger-details": {
+      "3-power-details": {
+        "header": "power settings",
         "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
         "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger."
       }

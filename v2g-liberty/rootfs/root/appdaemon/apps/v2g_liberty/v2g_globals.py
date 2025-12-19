@@ -6,13 +6,14 @@ import pytz
 
 from appdaemon.plugins.hass.hassapi import Hass
 
+from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
+from apps.v2g_liberty.chargers.evtec_bidi10 import EVtecBiDi10Client
 from .notifier_util import Notifier
 from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .settings_manager import SettingsManager
-from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
-from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
 
 
 class V2GLibertyGlobals:
@@ -23,7 +24,7 @@ class V2GLibertyGlobals:
 
     # V2Gliberty, cannot be typed here because of circular referencing...
     v2g_main_app: object
-    quasar1: WallboxQuasar1Client
+    evse: object  # Can be any of the charger_types
     fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
@@ -144,6 +145,12 @@ class V2GLibertyGlobals:
         "entity_type": "input_boolean",
         "value_type": "bool",
         "factory_default": False,
+    }
+    SETTING_CHARGER_TYPE = {
+        "entity_name": "charger_type",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
     }
     SETTING_CHARGER_HOST_URL = {
         "entity_name": "charger_host_url",
@@ -404,6 +411,7 @@ class V2GLibertyGlobals:
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_charger_settings(self, event, data, kwargs):
+        self.__store_setting("input_text.charger_type", data["charger_type"])
         self.__store_setting("input_text.charger_host_url", data["host"])
         self.__store_setting("input_number.charger_port", data["port"])
         self.__store_setting(
@@ -513,22 +521,47 @@ class V2GLibertyGlobals:
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
     async def __test_charger_connection(self, event, data, kwargs):
-        """Tests the connection with the charger and processes the maximum charge power read from the charger
-        Called from the settings page."""
+        """Tests the connection with the charger and processes the maximum charge power read from
+        the charger. Called from the settings page."""
         self.__log("Called")
+        charger_type = data["charger_type"]
         host = data["host"]
         port = data["port"]
+        evse = self._get_evse_client(charger_type)
+        if evse is None:
+            return False, None
+
         (
             success,
             max_available_power,
-        ) = await self.quasar1.get_max_power_pre_init(host=host, port=port)
+        ) = await evse.get_max_power_pre_init(host=host, port=port)
         msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f'result: "{msg}", {max_available_power}')
+        self.__log(f'TCC result: "{msg}", {max_available_power}')
         self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,
             max_available_power=max_available_power,
         )
+
+    def _get_evse_client(self, charger_type):
+        if charger_type == "wallbox-quasar-1":
+            evse = WallboxQuasar1Client(
+                hass=self.hass,
+                event_bus=self.event_bus,
+                get_vehicle_by_name_func=self.v2g_main_app.get_vehicle_by_name,
+            )
+        elif charger_type == "evtec-bidi-pro-10":
+            evse = EVtecBiDi10Client(
+                hass=self.hass,
+                event_bus=self.event_bus,
+                get_vehicle_by_name_func=self.v2g_main_app.get_vehicle_by_name,
+            )
+        else:
+            self.__log(
+                f"Unknown charger_type: {charger_type}, aborting.", level="WARNING"
+            )
+            return None
+        return evse
 
     async def __test_schedule_connection(self, event, data, kwargs):
         self.__log("called")
@@ -751,6 +784,16 @@ class V2GLibertyGlobals:
         if not is_initialised:
             return
 
+        charger_type = await self.__process_setting(
+            setting_object=self.SETTING_CHARGER_TYPE
+        )
+        evse = self._get_evse_client(charger_type)
+        self.__log(f"EVSE = {evse}")
+        if evse is None:
+            return False
+        self.evse = evse
+        self.v2g_main_app.bidirectional_evse = evse
+
         charger_host_url = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL
         )
@@ -758,7 +801,7 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CHARGER_PORT
         )
 
-        (connected, max_power_by_charger) = await self.quasar1.get_max_power_pre_init(
+        (connected, max_power_by_charger) = await self.evse.get_max_power_pre_init(
             host=charger_host_url, port=charger_port
         )
         if not connected or max_power_by_charger is None:
@@ -770,7 +813,7 @@ class V2GLibertyGlobals:
             "host": charger_host_url,
             "port": charger_port,
         }
-        await self.quasar1.initialise_evse(
+        await self.evse.initialise_evse(
             communication_config=communication_config,
         )
 
@@ -787,24 +830,22 @@ class V2GLibertyGlobals:
         )
         if use_reduced_max_charge_power:
             # Use max from settings page
-            c.CHARGER_MAX_CHARGE_POWER = await self.__process_setting(
+            charger_max_charge_power = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_CHARGE_POWER,
             )
-            c.CHARGER_MAX_DISCHARGE_POWER = await self.__process_setting(
+            charger_max_discharge_power = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_DISCHARGE_POWER,
             )
-            self.quasar1.set_max_charge_power(c.CHARGER_MAX_CHARGE_POWER)
+            self.evse.set_max_charge_power(c.CHARGER_MAX_CHARGE_POWER)
         else:
             # Use max from charger
-            c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
-            c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
+            charger_max_charge_power = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
+            charger_max_discharge_power = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
                 "max"
             ]
-            await self.quasar1.set_max_charge_power(max_power_by_charger)
+            await self.evse.set_max_charge_power(charger_max_charge_power)
 
-        await self.quasar1.kick_off_evse()
-
-        self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
+        await self.evse.kick_off_evse()
 
     async def __initialise_notification_settings(self):
         self.__log("called")
@@ -1005,7 +1046,7 @@ class V2GLibertyGlobals:
         c.ELECTRICITY_PROVIDER = await self.__process_setting(
             setting_object=self.SETTING_ELECTRICITY_PROVIDER,
         )
-
+        # TODO: Do  just-in-time import, instantiation an kickoff. See charger_type
         if c.ELECTRICITY_PROVIDER == "au_amber_electric":
             c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID = await self.__process_setting(
                 setting_object=self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID,

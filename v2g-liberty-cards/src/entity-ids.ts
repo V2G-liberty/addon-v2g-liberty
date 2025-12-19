@@ -31,16 +31,12 @@ export const chargerSettingsInitialised =
 export const chargerHostUrl = 'input_text.charger_host_url';
 export const chargerPort = 'input_number.charger_port';
 export const chargerConnectionStatus = 'sensor.charger_connection_status';
-export const chargerMaxAvailablePower =
-  'sensor.charger_max_available_power';
-export const useReducedMaxChargePower =
-  'input_boolean.use_reduced_max_charge_power';
-export const chargerMaxChargingPower =
-  'input_number.charger_max_charging_power';
-export const chargerMaxDischargingPower =
-  'input_number.charger_max_discharging_power';
-export const quasarLoadBalancerLimit =
-  'sensor.quasar_loadbalancer_limit';
+export const chargerMaxAvailablePower = 'sensor.charger_max_available_power';
+export const useReducedMaxChargePower = 'input_boolean.use_reduced_max_charge_power';
+export const chargerMaxChargingPower = 'input_number.charger_max_charging_power';
+export const chargerMaxDischargingPower = 'input_number.charger_max_discharging_power';
+export const quasarLoadBalancerLimit = 'sensor.quasar_loadbalancer_limit';
+export const chargerType = 'input_text.charger_type';
 
 // Electricity contract
 export const electricityContractSettingsInitialised =
@@ -50,10 +46,8 @@ export const electricityContract = 'input_select.electricity_provider';
 export const energyPriceVat = 'input_number.energy_price_vat';
 export const energyPriceMarkup = 'input_number.energy_price_markup_per_kwh';
 // au_amber_electric only:
-export const ownConsumptionPriceEntityId =
-  'input_text.own_consumption_price_entity_id';
-export const ownProductionPriceEntityId =
-  'input_text.own_production_price_entity_id';
+export const ownConsumptionPriceEntityId = 'input_text.own_consumption_price_entity_id';
+export const ownProductionPriceEntityId = 'input_text.own_production_price_entity_id';
 // gb_octopus_energy only:
 export const octopusImportCode = 'input_text.octopus_import_code';
 export const octopusExportCode = 'input_text.octopus_export_code';

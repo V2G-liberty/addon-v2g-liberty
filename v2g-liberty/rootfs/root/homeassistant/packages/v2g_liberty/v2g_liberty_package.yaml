@@ -466,6 +466,10 @@ input_text:
     name: Charger host URL
     icon: mdi:lan-pending
 
+  charger_type:
+    name: Charger type
+    icon: mdi:ev_station
+
   #############  flexmeasures related entities #############
   fm_account_username:
     icon: mdi:account
