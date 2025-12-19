@@ -27,35 +27,35 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     # Charger can be controlled by the app = user or by code = remote (Read/Write)
     # For all other settings mentioned here to work, this setting must be remote.
-    SET_CHARGER_CONTROL_REGISTER: int = 81
-    CONTROL_TYPES = {"user": 0, "remote": 1}
+    _SET_CHARGER_CONTROL_REGISTER: int = 81
+    _CONTROL_TYPES = {"user": 0, "remote": 1}
 
     # Start charging/discharging on EV-Gun connected (Read/Write)
     # Resets to default (=enabled) when control set to user
     # Must be set to "disabled" when controlled from this code.
-    CHARGER_AUTOSTART_ON_CONNECT_REGISTER: int = 82
-    AUTOSTART_ON_CONNECT_SETTING = {"enable": 1, "disable": 0}
+    _CHARGER_AUTOSTART_ON_CONNECT_REGISTER: int = 82
+    _AUTOSTART_ON_CONNECT_SETTING = {"enable": 1, "disable": 0}
 
     # Control if charger can be set through current setting or power setting (Read/Write)
     # This software uses power only.
-    SET_SETPOINT_TYPE_REGISTER: int = 83
-    SETPOINT_TYPES = {"current": 0, "power": 1}
+    _SET_SETPOINT_TYPE_REGISTER: int = 83
+    _SETPOINT_TYPES = {"current": 0, "power": 1}
 
     # Charger setting to go to idle state if not receive modbus message within this timeout.
     # Fail-safe in case this software crashes: if timeout passes charger will stop (dis-)charging.
-    CHARGER_MODBUS_IDLE_TIMEOUT_REGISTER: int = 88
+    _CHARGER_MODBUS_IDLE_TIMEOUT_REGISTER: int = 88
 
     # Timeout in seconds. 15 minutes is long, consided the polling frequncy of 5 seconds.
-    CMIT: int = 900
+    _CMIT: int = 900
 
     # Charger charging can be started/stopped remote (Read/Write)
     # Not implemented: restart and update software
-    SET_ACTION_REGISTER: int = 257
-    ACTIONS = {"start_charging": 1, "stop_charging": 2}
+    _SET_ACTION_REGISTER: int = 257
+    _ACTIONS = {"start_charging": 1, "stop_charging": 2}
 
     # For setting the desired charge power, reading the actual charging power is done
     # through ENTITY_CHARGER_CURRENT_POWER
-    CHARGER_SET_CHARGE_POWER_REGISTER: int = 260
+    _CHARGER_SET_CHARGE_POWER_REGISTER: int = 260
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400
@@ -349,9 +349,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """To be called when charge_mode in UI is (switched to) Stop
         Do not cancel polling, the information is still relevant.
         """
+
         if self._mb_client is None:
             self.__log("Modbus client not initialised, aborting", level="WARNING")
             return
+
         self.__log("made inactive")
         await self.stop_charging()
         await self._set_charger_control("give")
@@ -372,11 +374,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     async def get_hardware_power_limit(self) -> int | None:
         if self._mb_client is None:
-            self.__log(
-                "Modbus client not initialised, cannot get hardware power limit",
-                level="WARNING",
-            )
+            self.__log("Modbus client not initialised, aborting", level="WARNING")
             return None
+
         result = await self._mb_client.modbus_read(
             self.MAX_AVAILABLE_POWER_REGISTER,
             length=1,
@@ -525,6 +525,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     ######################################################################
 
     async def _get_charger_info(self) -> str:
+        if self._mb_client is None:
+            self.__log("Modbus client not initialised, aborting", level="WARNING")
+            return
+
         firmware_version_modbus_address = 1
         # serial_number_high_modbus_address = 2
         serial_number_low_modbus_address = 3
@@ -600,6 +604,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         modbus_address should be int + sorted + increasing and should return int from EVSE
         sensor name should be str and not contain the prefix 'sensor.'
         """
+
+        if self._mb_client is None:
+            self.__log("Mobus client not initialised yet, aborting", level="WARNING")
+            return
+
         start = entities[0]["modbus_address"]
         end = entities[-1]["modbus_address"]
 
@@ -872,6 +881,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         SoC value from 2 to 97 (%) or None.
         If the car is disconnected the charger returns 0 representing None.
         """
+
+        if self._mb_client is None:
+            self.__log("Modbus client not initialised, aborting", level="WARNING")
+            return
+
         if not await self.is_car_connected():
             self.__log("no car connected, returning SoC = None")
             return None
@@ -974,6 +988,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         Returns:
             nothing
         """
+
+        if self._mb_client is None:
+            self.__log("Modbus client not initialised, aborting", level="WARNING")
+            return
+
         self.__log(f"Called with action '{action}', reason: '{reason}'.")
 
         if not self._am_i_active:
@@ -988,12 +1007,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             if await self._is_charging_or_discharging():
                 self.__log("Not performing charger action 'start': Already charging.")
                 return
-            action_value = self.ACTIONS["start_charging"]
+            action_value = self._ACTIONS["start_charging"]
 
         elif action == "stop":
             # Stop needs to be very reliable, so we always perform this action, even if currently
             # not charging.
-            action_value = self.ACTIONS["stop_charging"]
+            action_value = self._ACTIONS["stop_charging"]
 
         else:
             # Restart not implemented
@@ -1003,7 +1022,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         txt = f"set_charger_action: {action}"
         await self._mb_client.modbus_write(
-            address=self.SET_ACTION_REGISTER, value=action_value, source=txt
+            address=self._SET_ACTION_REGISTER, value=action_value, source=txt
         )
         self.__log(f"{txt} {reason}")
         return
@@ -1025,11 +1044,16 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             source (str, optional):
               For logging purposes.
         """
-        self.__log(f"called from {source}, power {charge_power}.")
         if not self._am_i_active:
             self.__log(
                 "called while _am_i_active is false, not blocking.", level="WARNING"
             )
+
+        if self._mb_client is None:
+            self.__log("Modbus client not initialised, aborting", level="WARNING")
+            return
+
+        self.__log(f"called from {source}, power {charge_power}.")
 
         ev = await self.get_connected_car()
         if ev is None:
@@ -1072,7 +1096,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             return
 
         res = await self._mb_client.modbus_write(
-            address=self.CHARGER_SET_CHARGE_POWER_REGISTER,
+            address=self._CHARGER_SET_CHARGE_POWER_REGISTER,
             value=charge_power,
             source=f"set_charge_power, from {source}",
         )
@@ -1107,6 +1131,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             ValueError: if other than "take" or "give" is sent
 
         """
+
+        if self._mb_client is None:
+            self.__log("Modbus client not initialised, aborting", level="WARNING")
+            return
+
         if take_or_give_control == "take":
             if not self._am_i_active:
                 self.__log(
@@ -1114,23 +1143,23 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                     level="WARNING",
                 )
             await self._mb_client.modbus_write(
-                address=self.SET_CHARGER_CONTROL_REGISTER,
-                value=self.CONTROL_TYPES["remote"],
+                address=self._SET_CHARGER_CONTROL_REGISTER,
+                value=self._CONTROL_TYPES["remote"],
                 source="_set_charger_control, take control",
             )
             await self._mb_client.modbus_write(
-                address=self.CHARGER_AUTOSTART_ON_CONNECT_REGISTER,
-                value=self.AUTOSTART_ON_CONNECT_SETTING["disable"],
+                address=self._CHARGER_AUTOSTART_ON_CONNECT_REGISTER,
+                value=self._AUTOSTART_ON_CONNECT_SETTING["disable"],
                 source="_set_charger_control, set_auto_connect",
             )
             await self._mb_client.modbus_write(
-                address=self.SET_SETPOINT_TYPE_REGISTER,
-                value=self.SETPOINT_TYPES["power"],
+                address=self._SET_SETPOINT_TYPE_REGISTER,
+                value=self._SETPOINT_TYPES["power"],
                 source="_set_charger_control: power",
             )
             await self._mb_client.modbus_write(
-                address=self.CHARGER_MODBUS_IDLE_TIMEOUT_REGISTER,
-                value=self.CMIT,
+                address=self._CHARGER_MODBUS_IDLE_TIMEOUT_REGISTER,
+                value=self._CMIT,
                 source="_set_charger_control: Modbus idle timeout",
             )
 
@@ -1143,8 +1172,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 charge_power=0, source="_set_charger_control, give control"
             )
             await self._mb_client.modbus_write(
-                address=self.SET_CHARGER_CONTROL_REGISTER,
-                value=self.CONTROL_TYPES["user"],
+                address=self._SET_CHARGER_CONTROL_REGISTER,
+                value=self._CONTROL_TYPES["user"],
                 source="_set_charger_control, give control",
             )
             # For the rare case that forced get soc is in action when the car gets disconnected.
