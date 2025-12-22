@@ -20,7 +20,7 @@ services:
       retries: 100
 
   homeassistant:
-    image: homeassistant/home-assistant:2025.9.4
+    image: homeassistant/home-assistant:2025.12.3
     restart: unless-stopped
     ports:
       - 8123:8123
