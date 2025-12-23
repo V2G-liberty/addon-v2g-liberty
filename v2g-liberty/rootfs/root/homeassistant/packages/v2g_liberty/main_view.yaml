@@ -50,10 +50,12 @@
               margin: 8px 0;
             }
             th {
+              border: none !important;
               font-weight: normal;
               text-align: left;
             }
             td {
+              border: none !important;
               text-align: right;
               vertical-align: top;
             }
@@ -211,14 +213,16 @@
             table {
               width: 100%;
               max-width: 100%;
-              margin: 0px 0 12px 0 !important;
+              margin: 0;
             }
             th {
+              border: none !important;
               font-weight: normal;
               text-align: left;
               font-size: 250%;
             }
             td {
+              border: none !important;
               text-align: right;
               vertical-align: top;
             }
@@ -589,10 +593,12 @@
               margin-bottom: 8px;
             }
             th {
+              border: none !important;
               font-weight: normal;
               text-align: left;
             }
             td {
+              border: none !important;
               text-align: right;
               vertical-align: top;
             }
@@ -667,6 +673,7 @@
               text-align: right;
             }
             thead td, thead th {
+              border-width: 1px 0 0 0;
               border-top: 1px solid var(--divider-color);
             }
             tbody s {
@@ -678,6 +685,9 @@
               font-weight: 400 !important;
               font-size: 14px;
               padding: 0 0 12px 0;
+            }
+            tbody td, tbody th {
+              border: none !important;
             }
             tbody th {
               width: 90%;
