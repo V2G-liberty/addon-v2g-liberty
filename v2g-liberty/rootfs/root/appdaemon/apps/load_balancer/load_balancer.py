@@ -48,7 +48,9 @@ class LoadBalancer:
             )
             self.reset_low_timer()
             self.set_high_timer()
-            self.high_values.append(active_power - (total_power - self.total_power_upper_limit))
+            self.high_values.append(
+                active_power - (total_power - self.total_power_upper_limit)
+            )
 
         elif (
             total_power < self.total_power_lower_limit
@@ -59,7 +61,9 @@ class LoadBalancer:
             )
             self.reset_high_timer()
             self.set_low_timer()
-            self.low_values.append(active_power + (self.total_power_lower_limit - total_power))
+            self.low_values.append(
+                active_power + (self.total_power_lower_limit - total_power)
+            )
 
         else:
             if self.high_timer or self.low_timer:
@@ -93,7 +97,6 @@ class LoadBalancer:
 
     def reduce_power(self, kwargs):
         median_adjustment = int(statistics.median(self.high_values))
-        # current_limit = self.rate_limiter.limit
         new_limit = max(self.min_charge_power, median_adjustment)
         self.rate_limiter.set_limit(new_limit)
         self.log(f"Reducing power to {new_limit}W.")
@@ -104,7 +107,6 @@ class LoadBalancer:
 
     def increase_power(self, kwargs):
         median_adjustment = int(statistics.median(self.low_values))
-        # current_limit = self.rate_limiter.limit
         new_limit = min(self.max_charge_power, median_adjustment)
         self.rate_limiter.set_limit(new_limit)
         self.log(f"Increasing power {new_limit}W.")
