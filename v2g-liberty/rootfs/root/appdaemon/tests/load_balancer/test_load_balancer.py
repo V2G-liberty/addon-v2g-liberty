@@ -12,6 +12,7 @@ def hass() -> MagicMock:
 @pytest.fixture
 def rate_limiter() -> MagicMock:
     mock = MagicMock()
+    mock.active_power = 230
     mock.limit = 230
     mock.set_limit = MagicMock()
     return mock
