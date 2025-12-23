@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- 🪲 UI Bug: Table borders are appearing where they shouldn’t.(#366)
+
 ### Added
 
 ### Changed
