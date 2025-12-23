@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.7.2 2025-12-22
+## 0.7.2 2025-12-23
 
 ### Fixed
 
@@ -9,6 +9,7 @@
 ### Changed
 
 - 🛠️ Refactoring: Fix legacy template sensor definitions (#362)
+- 🛠️ Refactoring: Improve loadbalancer (#356)
 
 &nbsp;
 

@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.7.2 2025-12-22
+## 0.7.2 2025-12-23
 
 ### Fixed
 
@@ -12,6 +12,7 @@ That file also contains possible changes that the next release might include.
 ### Changed
 
 - 🛠️ Refactoring: Fix legacy template sensor definitions (#362)
+- 🛠️ Refactoring: Improve loadbalancer (#356)
 
 ## 0.7.1 2025-10-29
 
