@@ -1,17 +1,14 @@
 # What's changed?
 
-## 0.7.2 2025-12-23
+## 0.7.3 2026-01-??
 
 ### Fixed
 
-- 🪲 UI Bug: Table borders are appearing where they shouldn’t.(#366)
+- 🪲 BUG: Monitoring for error state failed to notify (#369)
 
 ### Added
 
 ### Changed
-
-- 🛠️ Refactoring: Fix legacy template sensor definitions (#362)
-- 🛠️ Refactoring: Improve loadbalancer (#356)
 
 &nbsp;
 
