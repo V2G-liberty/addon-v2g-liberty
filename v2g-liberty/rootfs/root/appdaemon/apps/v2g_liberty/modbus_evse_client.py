@@ -1373,7 +1373,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             )
 
         if new_charger_state in self.ERROR_STATES:
-            self.__log("Charger in error state", level="WARNING")
+            self.__log(
+                f"Charger in error state: '{new_charger_state}'.", level="WARNING"
+            )
             has_error = True
 
         for entity in self.CHARGER_ERROR_ENTITIES:
@@ -1388,16 +1390,29 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         if has_error:
             if is_final_check:
+                self.__log(
+                    f"Error in charger for more than {self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s.",
+                    level="WARNING",
+                )
                 await self.__handle_un_recoverable_error(reason="charger reports error")
             elif self.timer_id_check_error_state is None:
-                self.timer_id_check_error_state = await self.hass.run_in(
+                self.__log(
+                    f"Starting check_error_state timer {self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s."
+                )
+                self.timer_id_check_error_state = self.hass.run_in(
                     self.__handle_charger_error_state_change,
                     delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
                     new_charger_state=None,
                     is_final_check=True,
                 )
                 return
+            else:
+                self.__log(
+                    "Error still present, waiting for check_error_state timeout..."
+                )
+
         else:
+            self.__log("Reset check_error_state timer, no error anymore.")
             self.__cancel_timer(self.timer_id_check_error_state)
             self.timer_id_check_error_state = None
 
