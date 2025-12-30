@@ -164,6 +164,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     # For setting the desired charge power, reading the actual charging power is done
     # through ENTITY_CHARGER_CURRENT_POWER
     CHARGER_SET_CHARGE_POWER_REGISTER: int = 260
+    # Holds the last known requested charge power that was set in the
+    # charger register CHARGER_SET_CHARGE_POWER_REGISTER. Used for deviation comparison.
+    requested_charge_power: int = 0
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400
@@ -599,7 +602,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     ######################################################################
 
     async def __handle_soc_change(self, new_soc: int, old_soc: int):
-        """Handle changed soc"""
         self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
         self.event_bus.emit_event(
             "remaining_range_change",
@@ -608,13 +610,15 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
     async def __handle_charge_power_change(self, new_power: int):
         self.event_bus.emit_event("charge_power_change", new_power=new_power)
+        if abs(new_power - self.requested_charge_power) > 500:
+            self.__log(
+                f"Actual charge power ({new_power}W) deviates strongly from "
+                f"requested ({self.requested_charge_power}W)."
+            )
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
     ):
-        """
-        Called when __update_evse_entity detects a changed value.
-        """
         self.__log(f"called {new_charger_state=}, {old_charger_state=}.")
         if not self._am_i_active:
             self.__log("called while _am_i_active == False. Not blocking.")
@@ -1029,9 +1033,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             )
             charge_power = -c.CHARGER_MAX_DISCHARGE_POWER
 
-        current_charge_power = await self.__get_charge_power()
-
-        if current_charge_power == charge_power:
+        if self.requested_charge_power == charge_power:
             self.__log(
                 f"New-charge-power-setting from {source=} is same as "
                 f"current-charge-power-setting: {charge_power} W. Not writing to charger."
@@ -1043,6 +1045,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             value=charge_power,
             source=f"set_charge_power, from {source}",
         )
+        self.requested_charge_power = charge_power
 
         if not res:
             self.__log(f"Failed to set charge power to {charge_power} Watt.")

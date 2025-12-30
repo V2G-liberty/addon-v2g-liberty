@@ -45,8 +45,8 @@ class V2Gliberty:
     # CONSTANTS
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
-    RESERVATION_ACTION_DISMISS:str = "dismiss"
-    RESERVATION_ACTION_KEEP:str = "keep"
+    RESERVATION_ACTION_DISMISS: str = "dismiss"
+    RESERVATION_ACTION_KEEP: str = "keep"
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
     # timer_id's for reminders at start/end of the first/current event.
@@ -174,7 +174,7 @@ class V2Gliberty:
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
-        await self.hass.run_in(self.__log_version, delay=15)
+        self.hass.run_in(self.__log_version, delay=15)
         self.__log("Completed")
 
     ######################################################################
@@ -230,7 +230,7 @@ class V2Gliberty:
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
             self.__cancel_timer(self.timer_handle_set_next_action)
-        self.timer_handle_set_next_action = await self.hass.run_in(
+        self.timer_handle_set_next_action = self.hass.run_in(
             self.set_next_action,
             delay=self.call_next_action_at_least_every,
         )
@@ -574,10 +574,11 @@ class V2Gliberty:
             attempt = kwargs.get("attempt", 0) + 1
             if attempt == 5:
                 self.__log(
-                    "Failed to log_version to FM after 5 attempts, aborting.", level="WARNING"
+                    "Failed to log_version to FM after 5 attempts, aborting.",
+                    level="WARNING",
                 )
                 return
-            await self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
+            self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
 
     async def _update_car_connected(self, is_car_connected: bool):
         self.__log(f"Acting on conneted state of car: {is_car_connected}.")
@@ -1007,7 +1008,7 @@ class V2Gliberty:
             )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
-                self.notification_timer_handle = await self.hass.run_in(
+                self.notification_timer_handle = self.hass.run_in(
                     self.__no_new_schedule_notification, delay=60 * 60
                 )
                 self.no_schedule_notification_is_planned = True
@@ -1235,8 +1236,8 @@ class V2Gliberty:
         if charge_power_in_watt is None:
             self.__log("invalid charge_power: None")
             return
-
         source = kwargs.get("source", "unknown source")
+        self.__log(f"Charger power {charge_power_in_watt}W requested by {source}.")
 
         await self.evse_client_app.start_charge_with_power(
             charge_power=charge_power_in_watt,
@@ -1249,9 +1250,6 @@ class V2Gliberty:
         )
 
     async def __start_max_discharge_now(self):
-        # TODO: Check if .set_active() is really a good idea here?
-        #       If the client is not active there might be a good reason for that...
-        await self.evse_client_app.set_active()
         await self.__set_charge_power(
             {
                 "charge_power": -c.CHARGER_MAX_DISCHARGE_POWER,
@@ -1260,9 +1258,6 @@ class V2Gliberty:
         )
 
     async def __start_max_charge_now(self):
-        # TODO: Check if .set_active() is really a good idea here?
-        #       If the client is not active there might be a good reason for that...
-        await self.evse_client_app.set_active()
         await self.__set_charge_power(
             {
                 "charge_power": c.CHARGER_MAX_CHARGE_POWER,
@@ -1301,7 +1296,9 @@ class V2Gliberty:
             start=run_at,
             v2g_event=v2g_event,
         )
-        self.__log(f"__ask_user_dismiss_event_or_not is set to run at {run_at.isoformat}.")
+        self.__log(
+            f"__ask_user_dismiss_event_or_not is set to run at {run_at.isoformat}."
+        )
 
     async def __handle_first_reservation_end(self, v2g_args: str = ""):
         # To prevent the call to __remind_user_to_connect_after_event() being cancelled due to
@@ -1325,9 +1322,7 @@ class V2Gliberty:
             )
 
     async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
-        self.__log(
-            f"called with v2g_event: {v2g_event}."
-        )
+        self.__log(f"called with v2g_event: {v2g_event}.")
 
         v2g_event = v2g_event["v2g_event"]
         if await self.evse_client_app.is_car_connected():
@@ -1336,9 +1331,7 @@ class V2Gliberty:
             )
             if len(identification) > 25:
                 identification = identification[0:25] + "…"
-            self.__log(
-                f"event_title: {identification}."
-            )
+            self.__log(f"event_title: {identification}.")
             # Will be cancelled when car gets disconnected.
             hid = v2g_event["hash_id"]
             message = (
@@ -1350,7 +1343,10 @@ class V2Gliberty:
                     "action": f"{self.RESERVATION_ACTION_DISMISS}+{hid}",
                     "title": "Dismiss reservation",
                 },
-                {"action": f"{self.RESERVATION_ACTION_KEEP}+{hid}", "title": "Keep reservation"},
+                {
+                    "action": f"{self.RESERVATION_ACTION_KEEP}+{hid}",
+                    "title": "Keep reservation",
+                },
             ]
             self.notifier.notify_user(
                 message=message,
@@ -1383,7 +1379,9 @@ class V2Gliberty:
             self.__log(f"aborting: unknown action: '{reservation_action}'.")
             return
 
-        await self.reservations_client.set_event_dismissed_status(event_hash_id=hid, status=dismiss)
+        await self.reservations_client.set_event_dismissed_status(
+            event_hash_id=hid, status=dismiss
+        )
 
     async def __remind_user_to_connect_after_event(self, v2g_args: str = ""):
         # Only to be called from __handle_first_reservation_end().
@@ -1476,7 +1474,9 @@ class V2Gliberty:
             # Used when charger crashes to stop further processing
             await self.hass.turn_on("input_boolean.chargemodeoff")
         else:
-            self.__log(f"Invalid charge_mode in UI setting: '{setting}'.", level="WARNING")
+            self.__log(
+                f"Invalid charge_mode in UI setting: '{setting}'.", level="WARNING"
+            )
 
 
 ######################################################################
