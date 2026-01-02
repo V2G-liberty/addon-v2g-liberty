@@ -9,7 +9,7 @@ import pymodbus.client as modbusClient
 from pymodbus.exceptions import ModbusException
 from pyee.asyncio import AsyncIOEventEmitter
 from apps.v2g_liberty.util import parse_to_int
-from .modbus_types import RegisterRange
+from .modbus_types import MBR
 
 
 class V2GmodbusClient(AsyncIOEventEmitter):
@@ -222,7 +222,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         return result
 
     async def read_register_ranges(
-        self, register_ranges: List[RegisterRange]
+        self, modbus_registers: List[MBR]
     ) -> List[Union[int, float, str, None]]:
         """
         Asynchronously reads multiple Modbus register ranges grouped by device_id.
@@ -235,12 +235,12 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             List of decoded values in the same order as input.
             Returns None for failed reads or invalid ranges.
         """
-        if not register_ranges:
+        if not modbus_registers:
             return []
 
         if self._mbc is None:
             print("[WARNING] Modbus client not initialised")
-            return [None] * len(register_ranges)
+            return [None] * len(modbus_registers)
 
         if not self._mbc.connected:
             print("Connecting Modbus client")
@@ -248,11 +248,11 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         # Group ranges by device_id
         ranges_by_device = defaultdict(list)
-        for range_info in register_ranges:
+        for range_info in modbus_registers:
             ranges_by_device[range_info["device_id"]].append(range_info)
 
         # Create a result list with placeholders
-        results = [None] * len(register_ranges)
+        results = [None] * len(modbus_registers)
 
         # Process each device group separately
         for device_id, device_ranges in ranges_by_device.items():
@@ -274,7 +274,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 print(f"[WARNING] Modbus error for device {device_id}: {response}")
                 # Mark all ranges for this device as failed
                 for range_info in device_ranges:
-                    idx = register_ranges.index(range_info)
+                    idx = modbus_registers.index(range_info)
                     results[idx] = None
                 continue
 
@@ -287,7 +287,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 data_type = range_info.get("data_type", "uint16")
 
                 # Find the index of this range in the original list
-                idx = register_ranges.index(range_info)
+                idx = modbus_registers.index(range_info)
 
                 slice_start = address - start_address
                 slice_end = slice_start + length
@@ -344,7 +344,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         return results
 
     async def write_register_range(
-        self, register_range: RegisterRange, value: Union[int, float]
+        self, register_range: MBR, value: Union[int, float]
     ) -> bool:
         """
         Writes a value to a Modbus register range.

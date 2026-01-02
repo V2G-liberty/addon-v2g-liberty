@@ -13,31 +13,23 @@ from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
 from .v2g_modbus_client import V2GmodbusClient
-from .modbus_types import ModbusConfigEntity, RegisterRange
+from .modbus_types import ModbusConfigEntity, MBR
 from .base_bidirectional_evse import BidirectionalEVSE
 
 
-class EVtecBiDi10Client(BidirectionalEVSE):
-    """Client to control a EVtec BiDi10 EVSE"""
+class EVtecBiDiProClient(BidirectionalEVSE):
+    """Client to control a EVtec BiDi EVSE"""
 
-    ######################################################################
-    #                 Modbus addresses for setting values                #
-    ######################################################################
+    ################################################################################
+    #  ModBus Registers (MBR)                                                      #
+    #  For "read once at boot" registers and "write registers".                    #
+    ################################################################################
 
-    #### NEW FOR BiDiPro10 ###
-    # All connector related addresses are on a device_id 2 or higher.
-    # TODO: Add a check when a car gets connected. Only CSS and CHAdeMO are bidirectional.
-    # Maybe show connector type in UI?
-    _CONNECTOR_TYPE_REG: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=12, length=1, data_type="uint16"
-        ),
-        "minimum_value": 0,
-        "maximum_value": 3,
-        "current_value": None,
-        "change_handler": None,
-    }
-    _CONNECTOR_STATE_TYPES: dict[int, str] = {
+    _MBR_EVSE_REG: MBR = { "address": 0, "data_type": "string", "length": 16 }
+    _MBR_EVSE_SERIAL_NUMBER: MBR = { "address": 16, "data_type": "string", "length": 10 }
+    _MBR_EVSE_MODEL: MBR = { "address":26, "data_type": "string", "length": 10 }
+    _MBR_CONNECTOR_TYPE: MBR = { "address": 114}
+    _CONNECTOR_TYPES: dict[int, str] = {
         0: "Type 2",
         1: "CCS",
         2: "CHAdeMO",
@@ -45,125 +37,94 @@ class EVtecBiDi10Client(BidirectionalEVSE):
     }
 
     # Charger setting to go to idle state if not receive modbus message within this timeout.
-    # Fail-safe in case this software crashes: if timeout passes charger will stop (dis-)charging.
-    # New, 0= Disabled, 1 = Enabled. Only on device_id = 1
-    _CHARGER_MODBUS_IDLE_TIMEOUT_REG: int = 201
-    _CHARGER_MODBUS_IDLE_TIMEOUT_VALUE_REG: int = 202  # New, only on device_id = 1
-    # Timeout in seconds. 10 minutes is long, consided the polling frequncy of 5 seconds.
-    _CMIT: int = 600  # New. 600 is max.
+    _MBR_IDLE_TIMEOUT_SEC: MBR = { "address": 42, "data_type": "unit32", "length": 2 }
+    _CMIT: int = 600  # Coomunication Idle Timeout in seconds, 600 is max.
 
     # Charger charging can be started/stopped remote (Read/Write)
-    # Not implemented: restart and update software
-    _SET_ACTION_REGISTER: int = 602  # New, only on device_id = 2 or higher
-    _ACTIONS = {"start_charging": 1, "stop_charging": 2}
+    _MBR_SET_ACTION: MBR = { "address": 188, "data_type": "unit32", "length": 2 }
+    _ACTIONS = {"start_charging": 1, "stop_charging": 0}
 
     # For setting the desired charge power, reading the actual charging power is done
-    # through ENTITY_CONNECTOR_CURRENT_POWER
-    _CHARGER_SET_CHARGE_POWER_REGISTER: int = 600  # New, only on device_id 2 or higher
+    # through _MCE_ACTUAL_POWER
+    _MBR_SET_CHARGE_POWER: MBR = { "address": 186, "data_type": "unit32", "length": 2 }
 
-    # New, only on device_id = 2 or higher, OR IS IT 31? CHECK!!
-    _MAX_CONNECTOR_POWER_W: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=13, length=2, data_type="unit32"
-        ),
+
+    ################################################################################
+    #   Modbus Config Entities (MCE)                                               #
+    #   These hold the constants for entity (e.g. modbus address, min/max value,   #
+    #   and store (cache) the values of the charger.                               #
+    #   The current_value defaults to None to indicate it has not been touched yet.#
+    ################################################################################
+
+    _MCE_MAX_POWER_W: ModbusConfigEntity = {
+        "modbus_register": { "address":130, "data_type": "unit32", "length": 2 },
         "minimum_value": 1,
         "maximum_value": 10000,
         "current_value": None,
         "change_handler": None,
     }
 
-    _MIN_CONNECTOR_POWER_W: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=15, length=2, data_type="unit32"
-        ),
+    _MCE_MIN_POWER_W: ModbusConfigEntity = {
+        "modbus_register": { "address":138, "data_type": "unit32", "length": 2 },
         "minimum_value": 1,
         "maximum_value": 10000,
         "current_value": None,
         "change_handler": None,
     }
 
-    _CAR_BATTERY_CAPACITY_WH: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=59, length=2, data_type="unit32"
-        ),
+    _MCE_CAR_ID: ModbusConfigEntity = {
+        "modbus_register": { "address": 176, "data_type": "string", "length": 10 },
+        "minimum_value": 5000,
+        "maximum_value": None,
+        "current_value": None,
+        "change_handler": None,
+    }
+
+    _MCE_CAR_BATTERY_CAPACITY_WH: ModbusConfigEntity = {
+        "modbus_register": { "address": 158, "data_type": "unit32", "length": 2 },
         "minimum_value": 5000,
         "maximum_value": 250000,
         "current_value": None,
         "change_handler": None,
     }
 
-    ################################################################################
-    #   EVSE Entities                                                              #
-    #   These hold the constants for entity (e.g. modbus address, min/max value,   #
-    #   and store (cache) the values of the charger.                               #
-    #   About the current / previous_value:                                        #
-    #    These are initiated with None to indicate they have not been touched yet. #
-    ################################################################################
-
-    ENTITY_CHARGER_STATE: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=1, address=100, length=1, data_type="uint16"
-        ),
-        "minimum_value": 0,
-        "maximum_value": 11,
-        "current_value": None,
-        "change_handler": "__handle_charger_state_change",
-    }
-
-    ENTITY_CONNECTOR_CURRENT_POWER: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=9, length=2, data_type="float32"
-        ),
+    _MCE_ACTUAL_POWER: ModbusConfigEntity = {
+        "modbus_register": { "address": 110, "data_type": "float32", "length": 2 },
         "minimum_value": -10000,
         "maximum_value": 10000,
         "current_value": None,
         "change_handler": "_handle_charge_power_change",
     }
 
-    ENTITY_CONNECTOR_STATE: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=0, length=1, data_type="uint16"
-        ),
+    _MCE_CONNECTOR_STATE: ModbusConfigEntity = {
+        "modbus_register": { "address": 100, "data_type": "float32", "length": 2 },
         "minimum_value": 0,
-        "maximum_value": 9,
+        "maximum_value": 20,
         "current_value": None,
         "change_handler": "__handle_connector_state_change",
-    }
-    _CONNECTOR_STATE_TYPES: dict[int, str] = {
-        0: "Unavailable",
-        1: "Available",
-        2: "Occupied",
-        3: "Preparing",
-        4: "Charging",
-        5: "Finishing",
-        6: "Suspended EV",
-        7: "Suspended EVSE",
-        8: "Not ready",
-        9: "Faulted",
-    }
-    ENTITY_CONNECTOR_CHARGE_STATE: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=1, length=1, data_type="uint16"
-        ),
-        "minimum_value": 0,
-        "maximum_value": 7,
-        "current_value": None,
-        "change_handler": "__handle_connector_state_change",
-    }
-    CONNECTOR_CHARGE_STATES: dict[int, str] = {
-        1: "Connected, waiting for release (by RFID or Lokall)",
-        2: "Charging process starts",
-        3: "Shop",
-        4: "Suspended (loading paused)",
-        5: "Charging process successfully completed (vehicle still plugged in)",
-        6: "Charging process completed by user (vehicle still plugged in)",
-        7: "Charging ended with error (vehicle still connected)",
     }
 
-    ENTITY_CAR_SOC: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=2, address=11, length=1, data_type="uint16"
-        ),
+    # Mapping of _MCE_CONNECTOR_STATE to BASE_EVSE_STATE
+    _BASE_STATE_MAPPING: dict[int, int] = {
+        0: 0,  # Booting
+        1: 1,  # No car connected
+        2: 9,  # Error
+        3: 7,  # OCPP, external control
+        4: 1,  # contract authorization -> No car connected
+        5: 1,  # plugged in + power check -> No car connected
+        6: 1,  # initialize connection + safety checks -> No car connected
+        7: 3,  # Charge
+        8: 4,  # Discharge
+        9: 7,  # OCPP, external control
+        10: 2,  # Connected & idle
+        11: 1,  # No car connected
+        12: 9,  # Error
+    }
+
+
+
+    _MCE_CAR_SOC: ModbusConfigEntity = {
+        "modbus_register": { "address": 112, "data_type": "float32", "length": 2 },
         "minimum_value": 2,
         "maximum_value": 97,
         "relaxed_min_value": 1,
@@ -172,29 +133,26 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         "change_handler": "_handle_soc_change",
     }
 
-    ### New, only on device_id = 1. Error list too long to add here.
-    ENTITY_CHARGER_ERROR: ModbusConfigEntity = {
-        "modbus_range": RegisterRange(
-            device_id=1, address=103, length=1, data_type="uint16"
-        ),
+    _MCE_ERROR: ModbusConfigEntity = {
+        "modbus_register": { "address": 154, "data_type": "64int", "length": 4 },
         "minimum_value": 0,
-        "maximum_value": 65535,
+        "maximum_value": None,
         "current_value": None,
         "change_handler": "_handle_charger_error_state_change",
     }
 
-    CHARGER_POLLING_ENTITIES = [
-        ENTITY_CONNECTOR_STATE,
-        ENTITY_CONNECTOR_CHARGE_STATE,
-        ENTITY_CAR_SOC,
-        ENTITY_CHARGER_ERROR,
-    ]
-
-    _POLLING_INTERVAL_SECONDS: int = 5
-
     # How long should an error state be present before it is communicated to the user.
     # After a restart of the charger, errors can be present for up to 5 minutes.
     _MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 300
+
+    _POLLING_ENTITIES = [
+        _MCE_CONNECTOR_STATE,
+        _MCE_ACTUAL_POWER,
+        _MCE_CAR_SOC,
+        _MCE_ERROR,
+    ]
+
+    _POLLING_INTERVAL_SECONDS: int = 5
 
     def __init__(
         self, hass: Hass, event_bus: EventBus, get_vehicle_by_name_func: callable
@@ -233,7 +191,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         self._am_i_active: bool = False
 
-        self._log("EVtecBiDiPro10client initialized.")
+        self._log("EVtecBiDiProclient initialized.")
 
     async def get_max_power_pre_init(
         self, host: str, port: int | None = None
@@ -264,7 +222,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return False, None
 
         result = await mb_client.read_register_ranges(
-            [self._MAX_CONNECTOR_POWER_W["modbus_range"]]
+            [self._MCE_MAX_POWER_W["modbus_register"]]
         )
         mb_client.terminate()
         max_hardware_power = result[0]
@@ -278,20 +236,20 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         self,
         communication_config: dict,
     ):
-        """Initialise EVtec BiDiPro10 EVSE
+        """Initialise EVtec BiDiPro EVSE
         To be called from globals.
         """
         self._log(
-            f"Initialising EVtecBiDiPro10client with config: {communication_config}"
+            f"Initialising EVtecBiDiProclient with config: {communication_config}"
         )
 
         host = communication_config.get("host", None)
         if not host:
             self._log(
-                "EVtec BiDiPro10 EVSE initialisation failed, no host.",
+                "EVtec BiDiPro EVSE initialisation failed, no host.",
                 level="WARNING",
             )
-            raise ValueError("Host required for EVtecBiDiPro10client")
+            raise ValueError("Host required for EVtecBiDiProclient")
         self._mb_host = host
         self._mb_port = communication_config.get("port", 5020)
         self._mb_client = V2GmodbusClient(self._hass, self._cb_modbus_state)
@@ -301,7 +259,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         )
         if not connected:
             self._log(
-                f"EVtec BiDiPro10 EVSE initialisation failed, cannot connect to "
+                f"EVtec BiDiPro EVSE initialisation failed, cannot connect to "
                 f"Modbus host {self._mb_host}:{self._mb_port}.",
                 level="WARNING",
             )
@@ -311,7 +269,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         await self.set_max_charge_power(mcp)
 
         self._log(
-            f"EVtec BiDiPro10 EVSE initialised with host: {self._mb_host}, "
+            f"EVtec BiDiPro EVSE initialised with host: {self._mb_host}, "
             f"Max (dis-)charge power: {self._max_charge_power_w} W"
         )
 
@@ -329,7 +287,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
                 level="WARNING",
             )
             return
-        self._log("Kicking off EVtec BiDiPro10 EVSE client.")
+        self._log("Kicking off EVtec BiDiPro EVSE client.")
 
         self._eb.emit_event(
             "update_charger_info", charger_info=await self._get_charger_info()
@@ -337,7 +295,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         # We always at least need all the information to get started
         # This also creates the entities in HA that many modules depend upon.
-        await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        await self._get_and_process_registers(self._POLLING_ENTITIES)
 
         # SoC is essential for many decisions, so we need to get it as soon as possible.
         # As at init there most likely is no charging in progress this will be the first
@@ -365,7 +323,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return
         self._log("activated")
         self._am_i_active = True
-        await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        await self._get_and_process_registers(self._POLLING_ENTITIES)
         # Eventhough it probably did not stop
         await self._kick_off_polling()
 
@@ -377,7 +335,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             )
             return None
         result = await self._mb_client.read_register_ranges(
-            self._MAX_CONNECTOR_POWER_W["modbus_range"]
+            self._MCE_MAX_POWER_W["modbus_range"]
         )
 
         if not result:
@@ -537,7 +495,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             )
             if results:
                 charger_info = (
-                    f"EVtec BiDiPro10 EVSE - Version: {results[0]}, "
+                    f"EVtec BiDiPro EVSE - Version: {results[0]}, "
                     f"Serial number: {results[bdp_serial_number_ma - bdp_version_ma]}, "
                     f"Model: {results[bdp_model_ma - bdp_version_ma]}, "
                     f"Connectors: {results[bdp_number_of_connectors_ma - bdp_version_ma]}."
@@ -547,7 +505,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
                 return charger_info
         except Exception as e:
             self._log(
-                f"EVtec BiDiPro10 EVSE - Failed to get charger info: {e}",
+                f"EVtec BiDiPro EVSE - Failed to get charger info: {e}",
                 level="WARNING",
             )
 
@@ -587,7 +545,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         """Retrieve and process all data from EVSE, called from polling timer."""
         # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
-        await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        await self._get_and_process_registers(self._POLLING_ENTITIES)
         await self._get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
         self._eb.emit_event("evse_polled", stop=False)
 
@@ -611,7 +569,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         length = end - start + 1
         results = await self._mb_client.modbus_read(
-            address=start, length=length, source="_get_and_process_registers"
+            address=start, "length":length, source="_get_and_process_registers"
         )
         if not results:
             # Could not read
@@ -685,7 +643,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         """Based on charger info return a 'base evse state'."""
 
         ############################ CHECK FOR ERROR STATE #########################################
-        charger_error = self.ENTITY_CHARGER_ERROR["current_value"]
+        charger_error = self._MCE_ERROR["current_value"]
         if charger_error is not None:
             self._log(f"Charger in error, error_no: {charger_error}.", level="WARNING")
             return 9
@@ -695,12 +653,12 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             self._log(f"Charger faulted.", level="WARNING")
             return 9
 
-        connector_state = self.ENTITY_CONNECTOR_STATE["current_value"]
+        connector_state = self._MCE_CONNECTOR_STATE["current_value"]
         if connector_state == 9:
             self._log(f"Connector faulted.", level="WARNING")
             return 9
 
-        connector_charge_state = self.ENTITY_CONNECTOR_STATE["current_value"]
+        connector_charge_state = self._MCE_CONNECTOR_STATE["current_value"]
         if connector_charge_state == 7:
             # TODO: Check if this really should translate to base error state.
             self._log(
@@ -724,7 +682,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             self._log("Connector not ready")
             return 0
 
-        # TODO: check if this is a relevant situation for the BiDiPro10
+        # TODO: check if this is a relevant situation for the BiDiPro
         ############################ Check for Controlled by other app #############################
         # if charger_state in [0, 1] and connector_state == 0:  # Unclear from table, adjust as needed
         #     return 7  # Controlled by other app
@@ -742,7 +700,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         # Check for Charging
         if connector_state in [3, 4, 5] and connector_charge_state in [2, 3]:
-            charge_power = self.ENTITY_CONNECTOR_CURRENT_POWER["current_value"]
+            charge_power = self._MCE_ACTUAL_POWER["current_value"]
             if charge_power > 0:
                 # if charge_power =  positive and loadbalancer not active
                 # TODO: Check if loadbalancer is actively reducing charge power, if so return 5
@@ -869,9 +827,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             self._connected_car = None
 
             # When disconnected the SoC of the car goes from current soc to None.
-            await self._update_evse_entity(
-                evse_entity=self.ENTITY_CAR_SOC, new_value=None
-            )
+            await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
 
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
@@ -913,11 +869,11 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return True
 
     async def _get_charge_power(self) -> int | None:
-        state = self.ENTITY_CONNECTOR_CURRENT_POWER["current_value"]
+        state = self._MCE_ACTUAL_POWER["current_value"]
         if state is None:
             # This can be the case before initialisation has finished.
-            await self._get_and_process_registers([self.ENTITY_CONNECTOR_CURRENT_POWER])
-            state = self.ENTITY_CONNECTOR_CURRENT_POWER["current_value"]
+            await self._get_and_process_registers([self._MCE_ACTUAL_POWER])
+            state = self._MCE_ACTUAL_POWER["current_value"]
         return state
 
     async def _get_evse_state(self) -> int:
@@ -962,7 +918,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             self._log("no car connected, returning SoC = None")
             return None
 
-        ecs = self.ENTITY_CAR_SOC
+        ecs = self._MCE_CAR_SOC
         soc_value = ecs["current_value"]
         should_be_renewed = False
         if soc_value is None:
@@ -1094,7 +1050,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
         txt = f"set_charger_action: {action}"
         await self._mb_client.modbus_write(
-            address=self._SET_ACTION_REGISTER, value=action_value, source=txt
+            address=self._MBR_SET_ACTION, value=action_value, source=txt
         )
         self._log(f"{txt} {reason}")
         return
@@ -1169,7 +1125,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             return
 
         res = await self._mb_client.modbus_write(
-            address=self._CHARGER_SET_CHARGE_POWER_REGISTER,
+            address=self._MBR_SET_CHARGE_POWER,
             value=charge_power,
             source=f"set_charge_power, from {source}",
         )
@@ -1271,7 +1227,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
 
     async def _modbus_communication_lost(self):
         self._log(
-            "Persistent Modbus connection problem detected in EVtec BiDiPro10 EVSE.",
+            "Persistent Modbus connection problem detected in EVtec BiDiPro EVSE.",
             level="WARNING",
         )
 
@@ -1289,10 +1245,8 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         )
 
         # The soc and power are not known any more so let's represent this in the app
-        await self._update_evse_entity(
-            evse_entity=self.ENTITY_CONNECTOR_CURRENT_POWER, new_value=None
-        )
-        await self._update_evse_entity(evse_entity=self.ENTITY_CAR_SOC, new_value=None)
+        await self._update_evse_entity(evse_entity=self._MCE_ACTUAL_POWER, new_value=None)
+        await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
         # Set charger state to error, use quasar state number as the preprocessor will alter to
         # base_evse_state.
         await self._update_evse_entity(
@@ -1300,7 +1254,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
         )
 
     async def _modbus_communication_restored(self):
-        self._log("Modbus connection to EVtec BiDiPro10 EVSE restored.")
+        self._log("Modbus connection to EVtec BiDiPro EVSE restored.")
 
         # TODO: check if it is wise to use this same event for both
         # modbus communication lost and charger error
@@ -1352,7 +1306,7 @@ class EVtecBiDi10Client(BidirectionalEVSE):
             has_error = True
 
         # None = uninitialised, 0 = no error.
-        if self.ENTITY_CHARGER_ERROR["current_value"] is not None:
+        if self._MCE_ERROR["current_value"] is not None:
             has_error = True
 
         if has_error:

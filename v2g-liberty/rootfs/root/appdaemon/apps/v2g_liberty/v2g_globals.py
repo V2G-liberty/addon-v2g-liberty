@@ -8,7 +8,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
 from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
-from apps.v2g_liberty.chargers.evtec_bidi10 import EVtecBiDi10Client
+from apps.v2g_liberty.chargers.evtec_bidipro import EVtecBiDiProClient
 from .notifier_util import Notifier
 from .event_bus import EventBus
 from . import constants as c
@@ -551,7 +551,7 @@ class V2GLibertyGlobals:
                 get_vehicle_by_name_func=self.v2g_main_app.get_vehicle_by_name,
             )
         elif charger_type == "evtec-bidi-pro-10":
-            evse = EVtecBiDi10Client(
+            evse = EVtecBiDiProClient(
                 hass=self.hass,
                 event_bus=self.event_bus,
                 get_vehicle_by_name_func=self.v2g_main_app.get_vehicle_by_name,
