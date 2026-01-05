@@ -13,6 +13,8 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- Bumped pymodbus library to 3.11.4 (#373)
+
 ## 0.7.2 2025-12-23
 
 ### Fixed

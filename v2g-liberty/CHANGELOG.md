@@ -10,6 +10,8 @@
 
 ### Changed
 
+- Bumped pymodbus library to 3.11.4 (#373)
+
 &nbsp;
 
 ---
