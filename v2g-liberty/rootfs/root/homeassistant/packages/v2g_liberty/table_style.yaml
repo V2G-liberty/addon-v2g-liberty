@@ -20,16 +20,18 @@ ha-markdown$: |
     font-weight: bold;
   }
   th {
+    border: none !important;
     text-align: left;
     vertical-align: top;
     font-weight: normal;
   }
   td {
+    border: none !important;
     text-align: right;
   }
   thead th, thead td {
-    border-bottom: 1px solid #cccccc;
+    border-bottom: 1px solid #cccccc !important;
   }
   tfoot th, tfoot td {
-    border-top: 1px solid #cccccc;
+    border-top: 1px solid #cccccc !important;
   }

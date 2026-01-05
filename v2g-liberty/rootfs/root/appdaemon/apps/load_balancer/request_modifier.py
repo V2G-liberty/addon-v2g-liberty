@@ -1,7 +1,11 @@
 import enum
 from pyee.base import EventEmitter
 from pymodbus.pdu import ModbusPDU
-from pymodbus.pdu.register_message import WriteSingleRegisterRequest
+from pymodbus.pdu.register_message import (
+    ReadHoldingRegistersRequest,
+    ReadHoldingRegistersResponse,
+    WriteSingleRegisterRequest
+)
 
 from ._log_wrapper import get_class_method_logger
 from .server import Tcp2TcpProxyServer
@@ -10,6 +14,7 @@ from .server import Tcp2TcpProxyServer
 class RegisterAddress(int, enum.Enum):
     ACTION = 0x0101
     SET_POWER_SETPOINT = 0x0104
+    AC_ACTIVE_POWER_RMS = 0x020e
 
 
 class RequestModifier(EventEmitter):
@@ -28,6 +33,8 @@ class RequestModifier(EventEmitter):
         }
         self._should_be_charging = False
         self._requested_power_setpoint = 0
+        self._read_power_transaction_id = 0
+        self.active_power = 0
         self.limit = 0
         self.log = get_class_method_logger(print)
 
@@ -50,9 +57,25 @@ class RequestModifier(EventEmitter):
 
     def server_trace_pdu(self, sending: bool, pdu: ModbusPDU) -> ModbusPDU:
         # print(f"---> TRACE_PDU: {pdu}")
+        if isinstance(pdu, ReadHoldingRegistersRequest):
+            self._process_read_request(pdu)
+        if isinstance(pdu, ReadHoldingRegistersResponse):
+            self._process_read_response(pdu)
         if isinstance(pdu, WriteSingleRegisterRequest):
             self._update_write_single_register_request(pdu)
         return pdu
+
+    def _process_read_request(self, request: ReadHoldingRegistersRequest):
+        if request.address <= RegisterAddress.AC_ACTIVE_POWER_RMS < (request.address + request.count):
+            # print(f"---> read request: {request}")
+            self._read_power_transaction_id = request.transaction_id
+            self._read_power_index = RegisterAddress.AC_ACTIVE_POWER_RMS - request.address
+
+    def _process_read_response(self, request: ReadHoldingRegistersResponse):
+        if request.transaction_id == self._read_power_transaction_id:
+            # print(f"---> read response: {request}")
+            value = request.registers[self._read_power_index]
+            self.active_power = uint16_to_int16(value)
 
     def _update_write_single_register_request(
         self, request: WriteSingleRegisterRequest

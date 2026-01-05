@@ -247,188 +247,185 @@ template:
         availability: >
           {{ has_value('sensor.current_scheduled_charging_power') and has_value('sensor.charger_real_charging_power') }}
 
-sensor:
-  - platform: template
-    # The platform: number would have been more suitable but HA does not support that
-    # The platform: template is not a prefect match but the only thing that could be hacked
-    # Other properties like state_class: measurement, native_value: int are not allowed
-    # for a template sensor.
-    # These are all to be set from Python code.
-    sensors:
-
+  # The platform: number would have been more suitable but HA does not support that
+  # The platform: template is not a prefect match but the only thing that could be hacked
+  # Other properties like state_class: measurement, native_value: int are not allowed
+  # for a template sensor.
+  # These are all to be set from Python code.
+  - sensor:
       # Only applicable for the situation where the loadbalancer is active for the Quasar 1 charger.
-      quasar_loadbalancer_limit:
-        friendly_name: Quasar loadbalancer limit
+      - default_entity_id: sensor.quasar_loadbalancer_limit
+        name: Quasar loadbalancer limit
         device_class: power
         unit_of_measurement: W
-        value_template: "{{ None }}"  # Value 0 will be set at init to indicate the loadbalancer is active
-        icon_template: mdi:arrow-collapse-vertical
+        state: "{{ None }}" # Value 0 will be set at init to indicate the loadbalancer is active
+        icon: mdi:arrow-collapse-vertical
 
-      car_state_of_charge:
-        friendly_name: Car state of charge
+      - default_entity_id: sensor.car_state_of_charge
+        name: Car state of charge
         device_class: battery
         unit_of_measurement: "%"
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
-      charger_real_charging_power:
-        friendly_name: Charger real charging power
+      - default_entity_id: sensor.charger_real_charging_power
+        name: Charger real charging power
         device_class: power
         unit_of_measurement: W
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
       # Intended for checks to see if the actual power matches this setting
-      current_scheduled_charging_power:
-        friendly_name: Current scheduled charging power
+      - default_entity_id: sensor.current_scheduled_charging_power
+        name: Current scheduled charging power
         device_class: power
         unit_of_measurement: W
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
-      car_remaining_range:
-        friendly_name: Car Remaining Range
+      - default_entity_id: sensor.car_remaining_range
+        name: Car Remaining Range
         device_class: distance
         unit_of_measurement: km
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
       # Used for stats in UI.
-      total_charging_cost_last_7_days:
-        friendly_name: Total charging costs last 7 days
+      - default_entity_id: sensor.total_charging_cost_last_7_days
+        name: Total charging costs last 7 days
         device_class: monetary
         unit_of_measurement: €
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
-      total_charged_energy_last_7_days:
-        friendly_name: Total charged energy last 7 days
+      - default_entity_id: sensor.total_charged_energy_last_7_days
+        name: Total charged energy last 7 days
         device_class: energy_storage
         unit_of_measurement: kWh
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
-      total_discharged_energy_last_7_days:
-        friendly_name: Total discharged energy last 7 days
+      - default_entity_id: sensor.total_discharged_energy_last_7_days
+        name: Total discharged energy last 7 days
         device_class: energy_storage
         unit_of_measurement: kWh
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
-      net_energy_last_7_days:
-        friendly_name: Total net energy last 7 days
+      - default_entity_id: sensor.net_energy_last_7_days
+        name: Total net energy last 7 days
         device_class: energy_storage
         unit_of_measurement: kWh
-        value_template: "{{ None }}"  # Dummy
+        state: "{{ None }}" # Dummy
 
-      total_saved_emissions_last_7_days:
-        friendly_name: Total saved emissions last 7 days
+      - default_entity_id: sensor.total_saved_emissions_last_7_days
+        name: Total saved emissions last 7 days
         device_class: weight
-        unit_of_measurement: kg  # CO2 that is...
-        value_template: "{{ None }}"  # Dummy
+        unit_of_measurement: kg # CO2 that is...
+        state: "{{ None }}" # Dummy
 
-      total_emissions_last_7_days:
-        friendly_name: Total emissions last 7 days
+      - default_entity_id: sensor.total_emissions_last_7_days
+        name: Total emissions last 7 days
         device_class: weight
-        unit_of_measurement: kg  # CO2 that is...
-        value_template: "{{ None }}"  # Dummy
+        unit_of_measurement: kg # CO2 that is...
+        state: "{{ None }}" # Dummy
 
-      net_emissions_last_7_days:
-        friendly_name: Net emissions last 7 days
+      - default_entity_id: sensor.net_emissions_last_7_days
+        name: Net emissions last 7 days
         device_class: weight
-        unit_of_measurement: kg  # CO2 that is...
-        value_template: "{{ None }}"  # Dummy
+        unit_of_measurement: kg # CO2 that is...
+        state: "{{ None }}" # Dummy
 
-      total_discharge_time_last_7_days:
-        friendly_name: Total discharge time in last 7 days
-        value_template: ""
+      - default_entity_id: sensor.total_discharge_time_last_7_days
+        name: Total discharge time in last 7 days
+        state: ""
 
-      total_charge_time_last_7_days:
-        friendly_name: Total charge time in last 7 days
-        value_template: ""
+      - default_entity_id: sensor.total_charge_time_last_7_days
+        name: Total charge time in last 7 days
+        state: ""
 
-      calendar_account_connection_status:
-        friendly_name: Calendar account connection status
-        value_template: ""
+      - default_entity_id: sensor.calendar_account_connection_status
+        name: Calendar account connection status
+        state: ""
 
       # Used to show a user understandable version of the states in the UI.
       # E.g. "Charging", "No car connected", etc.
-      charger_state_text:
-        friendly_name: Charger state
-        value_template: ""
+      - default_entity_id: sensor.charger_state_text
+        name: Charger state
+        state: ""
 
-      charger_state_int:
-        friendly_name: Charger state int value
-        value_template: "{{ None }}"  # Dummy
+      - default_entity_id: sensor.charger_state_int
+        name: Charger state int value
+        state: "{{ None }}" # Dummy
 
-      charger_connection_status:
-        friendly_name: Charger connection status
-        value_template: ""
+      - default_entity_id: sensor.charger_connection_status
+        name: Charger connection status
+        state: ""
 
-      poll_refresh_indicator:
-        friendly_name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
-        value_template: " "
+      - default_entity_id: sensor.poll_refresh_indicator
+        name: This changes every time the EVSE gets polled (if active, 5 to 15 sec.)
+        state: " "
 
       # Util entity that holds the events to show in UI in an attribute 'events'
-      calendar_events:
-        value_template: ""
+      - default_entity_id: sensor.calendar_events
+        state: ""
 
       # This is not a setting but is read from the charger and is
       # an upper limit for max_(dis-)charging_power
-      charger_max_available_power:
-        value_template: "??"
+      - default_entity_id: sensor.charger_max_available_power
+        state: "??"
 
-      fm_connection_status:
-        friendly_name: FlexMeasures connection status
-        value_template: ""
+      - default_entity_id: sensor.fm_connection_status
+        name: FlexMeasures connection status
+        state: ""
 
       # Helper for setting text in dashboard.
-      utility_display_name:
-        friendly_name: Utility display name
-        value_template: ""
+      - default_entity_id: sensor.utility_display_name
+        name: Utility display name
+        state: ""
 
       # Helper, for setting text in dashboard.
-      last_reboot_at:
-        friendly_name: When was V2G Liberty add-on last restarted
-        value_template: ""
+      - default_entity_id: sensor.last_reboot_at
+        name: When was V2G Liberty add-on last restarted
+        state: ""
 
       # Used to store the (serialized) list of dynamic consumption prices that is fetched by
       # get_fm_data code from FM. This then is shown in the UI in the graph.
-      consumption_prices:
-        friendly_name: Buy price chart data
-        value_template: ""
+      - default_entity_id: sensor.consumption_prices
+        name: Buy price chart data
+        state: ""
 
       # Used to store the (serialized) list of dynamic consumption prices that is fetched by
       # get_fm_data code from FM. This then is shown in the UI in the graph.
-      production_prices:
-        friendly_name: Sell price chart data
-        value_template: ""
+      - default_entity_id: sensor.production_prices
+        name: Sell price chart data
+        state: ""
 
       # Used to store the (serialized) list of hourly CO2 emissions that is fetched by
       # get_fm_data code from FM daily. This then is shown in the UI in the graph.
-      co2_emissions:
-        friendly_name: Emissions chart data
-        value_template: ""
+      - default_entity_id: sensor.co2_emissions
+        name: Emissions chart data
+        state: ""
 
       # Based on the current SoC and the schedule a prognosis (list of values) is
       # calculated and this (serialised list) is stored in this variable. This is Used
       # in the graph, shown as yellow prognosis line.
-      soc_prognosis:
-        friendly_name: SoC schedule chart data
-        value_template: ""
+      - default_entity_id: sensor.soc_prognosis
+        name: SoC schedule chart data
+        state: ""
 
       # Based on the current SoC and max boost function (when SoC is below minimum).
       # This contains two values current SoC and min. SoC at expected time.
       # This is shown in the graph as a red prognosis line.
-      soc_prognosis_boost:
-        friendly_name: SoC Boost chart data
-        value_template: ""
+      - default_entity_id: sensor.soc_prognosis_boost
+        name: SoC Boost chart data
+        state: ""
 
       # Based on the current SoC and Max Charge Now function (from the Charge Mode buttons).
       # This contains two values current SoC and 100%. SoC at expected time.
       # This is shown in the graph as a dashed prognosis line.
-      soc_prognosis_max_charge_now:
-        friendly_name: SoC Max Charge Now chart data
-        value_template: ""
+      - default_entity_id: sensor.soc_prognosis_max_charge_now
+        name: SoC Max Charge Now chart data
+        state: ""
 
       # Forms bar representing the duration of the calendar item at
       # the desired %.
-      calender_item_in_chart:
-        friendly_name: Calendar item in chart
-        value_template: ""
+      - default_entity_id: sensor.calender_item_in_chart
+        name: Calendar item in chart
+        state: ""
 
 input_text:
   car_calendar_source:
@@ -519,7 +516,6 @@ input_text:
     min: 1
     max: 1
 
-
 script:
   restart_ha:
     alias: RestartHomeAssistant
@@ -541,7 +537,6 @@ script:
       - event: DISCONNECT_CHARGER
         event_data: {}
     mode: single
-
 
 automation:
   - id: "1633010017995"
@@ -581,7 +576,6 @@ automation:
             - input_boolean.chargemodemaxdischarge
     mode: single
 
-
   - id: "1633010167089"
     alias: Chargemode to Max boost now
     description: See automation Chargemode to Automatic
@@ -608,7 +602,6 @@ automation:
             - input_boolean.chargemodeoff
             - input_boolean.chargemodemaxdischarge
     mode: single
-
 
   - id: "1633010384766"
     alias: Chargemode to Off
