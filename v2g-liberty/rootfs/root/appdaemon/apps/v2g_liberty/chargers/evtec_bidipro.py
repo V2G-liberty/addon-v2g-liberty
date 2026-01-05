@@ -3,7 +3,7 @@
 #######################################################################################
 #   This file contains the Modbus address information for the EVtec BiDiPro 10.       #
 #   This is provided by the EV2Grid as is.                                            #
-#   For reference see https://ev2grid.de/didipro                                      #
+#   For reference see https://ev2grid.de/bidipro                                      #
 #   EVtec nor EV2Grid provider of the software and does not provide any type of       #
 #   service for the software.                                                         #
 #######################################################################################
@@ -25,10 +25,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     #  For "read once at boot" registers and "write registers".                    #
     ################################################################################
 
-    _MBR_EVSE_REG: MBR = { "address": 0, "data_type": "string", "length": 16 }
-    _MBR_EVSE_SERIAL_NUMBER: MBR = { "address": 16, "data_type": "string", "length": 10 }
-    _MBR_EVSE_MODEL: MBR = { "address":26, "data_type": "string", "length": 10 }
-    _MBR_CONNECTOR_TYPE: MBR = { "address": 114}
+    _MBR_EVSE_REG: MBR = {"address": 0, "data_type": "string", "length": 16}
+    _MBR_EVSE_SERIAL_NUMBER: MBR = {"address": 16, "data_type": "string", "length": 10}
+    _MBR_EVSE_MODEL: MBR = {"address": 26, "data_type": "string", "length": 10}
+    _MBR_CONNECTOR_TYPE: MBR = {"address": 114}
     _CONNECTOR_TYPES: dict[int, str] = {
         0: "Type 2",
         1: "CCS",
@@ -37,27 +37,26 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     # Charger setting to go to idle state if not receive modbus message within this timeout.
-    _MBR_IDLE_TIMEOUT_SEC: MBR = { "address": 42, "data_type": "unit32", "length": 2 }
+    _MBR_IDLE_TIMEOUT_SEC: MBR = {"address": 42, "data_type": "unit32", "length": 2}
     _CMIT: int = 600  # Coomunication Idle Timeout in seconds, 600 is max.
 
     # Charger charging can be started/stopped remote (Read/Write)
-    _MBR_SET_ACTION: MBR = { "address": 188, "data_type": "unit32", "length": 2 }
+    _MBR_SET_ACTION: MBR = {"address": 188, "data_type": "unit32", "length": 2}
     _ACTIONS = {"start_charging": 1, "stop_charging": 0}
 
     # For setting the desired charge power, reading the actual charging power is done
     # through _MCE_ACTUAL_POWER
-    _MBR_SET_CHARGE_POWER: MBR = { "address": 186, "data_type": "unit32", "length": 2 }
-
+    _MBR_SET_CHARGE_POWER: MBR = {"address": 186, "data_type": "unit32", "length": 2}
 
     ################################################################################
     #   Modbus Config Entities (MCE)                                               #
-    #   These hold the constants for entity (e.g. modbus address, min/max value,   #
+    #   These hold the constants for entity (e.g. MBR, min/max value,              #
     #   and store (cache) the values of the charger.                               #
     #   The current_value defaults to None to indicate it has not been touched yet.#
     ################################################################################
 
     _MCE_MAX_POWER_W: ModbusConfigEntity = {
-        "modbus_register": { "address":130, "data_type": "unit32", "length": 2 },
+        "modbus_register": {"address": 130, "data_type": "unit32", "length": 2},
         "minimum_value": 1,
         "maximum_value": 10000,
         "current_value": None,
@@ -65,7 +64,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_MIN_POWER_W: ModbusConfigEntity = {
-        "modbus_register": { "address":138, "data_type": "unit32", "length": 2 },
+        "modbus_register": {"address": 138, "data_type": "unit32", "length": 2},
         "minimum_value": 1,
         "maximum_value": 10000,
         "current_value": None,
@@ -73,7 +72,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_CAR_ID: ModbusConfigEntity = {
-        "modbus_register": { "address": 176, "data_type": "string", "length": 10 },
+        "modbus_register": {"address": 176, "data_type": "string", "length": 10},
         "minimum_value": 5000,
         "maximum_value": None,
         "current_value": None,
@@ -81,7 +80,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_CAR_BATTERY_CAPACITY_WH: ModbusConfigEntity = {
-        "modbus_register": { "address": 158, "data_type": "unit32", "length": 2 },
+        "modbus_register": {"address": 158, "data_type": "unit32", "length": 2},
         "minimum_value": 5000,
         "maximum_value": 250000,
         "current_value": None,
@@ -89,7 +88,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_ACTUAL_POWER: ModbusConfigEntity = {
-        "modbus_register": { "address": 110, "data_type": "float32", "length": 2 },
+        "modbus_register": {"address": 110, "data_type": "float32", "length": 2},
         "minimum_value": -10000,
         "maximum_value": 10000,
         "current_value": None,
@@ -97,7 +96,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_CONNECTOR_STATE: ModbusConfigEntity = {
-        "modbus_register": { "address": 100, "data_type": "float32", "length": 2 },
+        "modbus_register": {"address": 100, "data_type": "float32", "length": 2},
         "minimum_value": 0,
         "maximum_value": 20,
         "current_value": None,
@@ -121,10 +120,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         12: 9,  # Error
     }
 
-
-
     _MCE_CAR_SOC: ModbusConfigEntity = {
-        "modbus_register": { "address": 112, "data_type": "float32", "length": 2 },
+        "modbus_register": {"address": 112, "data_type": "float32", "length": 2},
         "minimum_value": 2,
         "maximum_value": 97,
         "relaxed_min_value": 1,
@@ -134,7 +131,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_ERROR: ModbusConfigEntity = {
-        "modbus_register": { "address": 154, "data_type": "64int", "length": 4 },
+        "modbus_register": {"address": 154, "data_type": "64int", "length": 4},
         "minimum_value": 0,
         "maximum_value": None,
         "current_value": None,
@@ -546,7 +543,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
         await self._get_and_process_registers(self._POLLING_ENTITIES)
-        await self._get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
+        # await self._get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
         self._eb.emit_event("evse_polled", stop=False)
 
     async def _get_and_process_registers(self, entities: list):
@@ -569,7 +566,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         length = end - start + 1
         results = await self._mb_client.modbus_read(
-            address=start, "length":length, source="_get_and_process_registers"
+            address=start, length=length, source="_get_and_process_registers"
         )
         if not results:
             # Could not read
@@ -827,7 +824,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._connected_car = None
 
             # When disconnected the SoC of the car goes from current soc to None.
-            await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
+            await self._update_evse_entity(
+                evse_entity=self._MCE_CAR_SOC, new_value=None
+            )
 
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
@@ -1245,7 +1244,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         )
 
         # The soc and power are not known any more so let's represent this in the app
-        await self._update_evse_entity(evse_entity=self._MCE_ACTUAL_POWER, new_value=None)
+        await self._update_evse_entity(
+            evse_entity=self._MCE_ACTUAL_POWER, new_value=None
+        )
         await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
         # Set charger state to error, use quasar state number as the preprocessor will alter to
         # base_evse_state.

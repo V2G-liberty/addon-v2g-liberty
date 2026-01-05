@@ -5,8 +5,8 @@ from typing import Callable, Optional, Union, List
 from collections import defaultdict
 import struct
 from appdaemon import Hass
-import pymodbus.client as modbusClient
-from pymodbus.exceptions import ModbusException
+from pymodbus.client import AsyncModbusTcpClient as amtc
+from pymodbus.exceptions import ModbusException, ConnectionException
 from pyee.asyncio import AsyncIOEventEmitter
 from apps.v2g_liberty.util import parse_to_int
 from .modbus_types import MBR
@@ -67,27 +67,51 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             - Element 1: boolean indicating connection success.
             - Element 2: int value that was read from the register. Is None if element 1 == False.
         """
+
         # This method does not activate the exception tracking, as it is only used for testing
         # user entered configuration.
-        temporary_mb_client = modbusClient.AsyncModbusTcpClient(
-            host=host,
-            port=port,
-        )
+        temporary_mb_client = await self.__create_client(host=host, port=port)
+
+        if temporary_mb_client is None:
+            return False, None
+
         try:
-            await temporary_mb_client.connect()
-            if temporary_mb_client.connected:
-                result = await temporary_mb_client.read_holding_registers(
-                    modbus_address, count=1, device_id=1
-                )
-                result = result.registers[0]
-                return True, result
-            else:
-                return False, None
-        except Exception as e:
-            print(f"[WARNING] Error Adhoc reading of register: {e}")
+            result = await temporary_mb_client.read_holding_registers(
+                modbus_address, count=1, device_id=1
+            )
+            result = result.registers[0]
+            return True, result
+        except ModbusException as me:
+            print(f"[WARNING] Error Adhoc reading of register: {me}")
             return False, None
         finally:
             temporary_mb_client.close()
+
+    async def __create_client(self, host: str, port: int) -> amtc:
+        if host is None or port is None:
+            print("[WARNING] Could not create Modbus client: host or port are None.")
+            return None
+
+        try:
+            client = amtc(
+                host=host,
+                port=port,
+            )
+            await client.connect()
+
+            # A dummy read that forces the TCP connection to establish, use defaults where possible.
+            await client.read_holding_registers(address=0)
+        except ConnectionException:
+            print(
+                f"[WARNING] Could not establish TCP connection to '{host}:{port}', aborting."
+            )
+            return None
+        except ModbusException as me:
+            # Other Modbus errors (e.g. illegal address due to use of default?) still mean the
+            # device is reachable
+            print(f"Could not read from modbus client, ModbusException: {me}.")
+
+        return client
 
     async def initialise(self, host: str, port: int = 502) -> bool:
         """
@@ -99,35 +123,26 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         Returns:
             bool: True if the connection was successful, False otherwise.
-
-        Example:
-            >>> success = await client.initialise("192.168.1.100", 502)
-            >>> print(f"Connection successful: {success}")
         """
         if self._mbc is not None:
-            self._mbc.close()
+            self.terminate()
 
-        self._mbc = modbusClient.AsyncModbusTcpClient(host=host, port=port)
-        await self._mbc.connect()
-        result = self._mbc.connected
-        print(f"Initialised connection to {host}:{port}, success: {result}")
-        return result
+        self._mbc = await self.__create_client(host=host, port=port)
+        if self._mbc is None:
+            print("[WARNING] Modbus client not created.")
+            return False
+        print(f"Succesful connection to {host}:{port}.")
+        return True
 
     def terminate(self) -> None:
         """
-        Terminates the Modbus TCP client connection and cleans up resources.
-
-        This method safely closes the connection and resets the client reference.
-        It is idempotent and can be called multiple times without side effects.
-
-        Example:
-            >>> client.terminate()
+        Terminates (closes) the Modbus TCP client connection and cleans up resources.
         """
         if self._mbc is not None:
             try:
                 self._mbc.close()
-            except Exception as e:
-                print(f"Error while closing Modbus connection: {e}")
+            except ModbusException as me:
+                print(f"Error while closing Modbus connection: {me}")
             finally:
                 self._mbc = None
 
@@ -146,9 +161,6 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         if self._mbc is None:
             return False
-
-        if not self._mbc.connected:
-            await self._mbc.connect()
 
         if value < 0:
             # Modbus cannot handle negative values directly.
