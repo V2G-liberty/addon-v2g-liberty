@@ -10,7 +10,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .notifier_util import Notifier
-from .v2g_globals import get_local_now, parse_to_int
+from .v2g_globals import parse_to_int
 from .event_bus import EventBus
 
 
@@ -282,25 +282,55 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         initialised yet."""
         self.__log(f"Testing Modbus EVSE client at {host}:{port}")
 
-        client = modbusClient.AsyncModbusTcpClient(
+        client = await self.__init_client(
             host=host,
             port=port,
         )
-        try:
-            await client.connect()
-            if client.connected:
-                max_available_power = await self.__get_max_available_power(client)
-                return True, max_available_power
-            else:
-                return False, None
-        finally:
+
+        if client is None:
+            return False, None
+        else:
+            max_available_power = await self.__get_max_available_power(client)
             client.close()
+            return True, max_available_power
 
     async def __get_max_available_power(self, client):
         result = await client.read_holding_registers(
-            self.MAX_AVAILABLE_POWER_REGISTER, count=1, slave=1
+            self.MAX_AVAILABLE_POWER_REGISTER, count=1, device_id=1
         )
         return result.registers[0]
+
+    async def __init_client(
+        self, host: str, port: int
+    ) -> modbusClient.AsyncModbusTcpClient:
+        if host is None or port is None:
+            self.__log(
+                "Could not connect Modbus EVSE client host or port are None.",
+                level="WARNING",
+            )
+            return None
+
+        self.__log(f"Trying to connect Modbus client to {host}:{port}.")
+
+        try:
+            client = modbusClient.AsyncModbusTcpClient(
+                host=host,
+                port=port,
+            )
+            await client.connect()
+        except ModbusException as me:
+            self.__log(
+                f"Could not initialise modbus client, ModbusException: {me}.",
+                level="WARNING",
+            )
+            return None
+
+        # The client.connect() never throws a ConnectionException but the connected property is
+        # a reliable way of checking if host and port can be reached.
+        if not client.connected:
+            return None
+
+        return client
 
     async def initialise_charger(self, v2g_args=None):
         """Initialise charger
@@ -308,37 +338,27 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         min/max charge power.
         Activating the polling is done in set_active.
         """
-        if c.CHARGER_HOST_URL is None or c.CHARGER_PORT is None:
-            self.__log(
-                f"Could not configure Modbus EVSE client host or port are None."
-                f"reason: {v2g_args}"
-            )
-            return False, None
-        self.__log(
-            f"Configuring Modbus EVSE client at {c.CHARGER_HOST_URL}:{c.CHARGER_PORT}, "
-            f"reason: {v2g_args}"
-        )
 
         # Remove old client if needed.
         if self.client is not None:
-            if self.client.connected:
-                self.client.close()
+            self.client.close()
 
-        self.client = modbusClient.AsyncModbusTcpClient(
-            host=c.CHARGER_HOST_URL,
-            port=c.CHARGER_PORT,
+        self.client = await self.__init_client(
+            host=c.CHARGER_HOST_URL, port=c.CHARGER_PORT
         )
-        await self.client.connect()
-        self.modbus_exception_counter = 0
-        if self.client.connected:
-            max_available_power_by_charger = await self.__force_get_register(
-                register=self.MAX_AVAILABLE_POWER_REGISTER,
-                min_value_at_forced_get=self.CHARGE_POWER_LOWER_LIMIT,
-                max_value_at_forced_get=self.CHARGE_POWER_UPPER_LIMIT,
-            )
-            return True, max_available_power_by_charger
-        else:
+
+        if self.client is None:
             return False, None
+
+        self.modbus_exception_counter = 0
+
+        max_available_power_by_charger = await self.__force_get_register(
+            address=self.MAX_AVAILABLE_POWER_REGISTER,
+            min_value_at_forced_get=self.CHARGE_POWER_LOWER_LIMIT,
+            max_value_at_forced_get=self.CHARGE_POWER_UPPER_LIMIT,
+        )
+        self.__log(f"Returning max. power: {max_available_power_by_charger}.")
+        return True, max_available_power_by_charger
 
     async def stop_charging(self):
         """Stop charging if it is in process and set charge power to 0."""
@@ -662,7 +682,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.event_bus.emit_event("is_car_connected", is_car_connected=True)
         else:
             # From one connected state to an other connected state: not a change that this method
-            # needs to react upon.
+            # needs to react upon. Ard
             pass
 
         return
@@ -780,7 +800,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             if await self.__is_charging_or_discharging():
                 self.__log("called")
                 soc_in_charger = await self.__force_get_register(
-                    register=soc_address,
+                    address=soc_address,
                     min_value_at_forced_get=min_value_at_forced_get,
                     max_value_at_forced_get=max_value_at_forced_get,
                     min_value_after_forced_get=relaxed_min_value,
@@ -809,7 +829,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                 await self.__set_charger_action("start", reason="try_get_new_soc")
                 # Reading the actual SoC
                 soc_in_charger = await self.__force_get_register(
-                    register=soc_address,
+                    address=soc_address,
                     min_value_at_forced_get=min_value_at_forced_get,
                     max_value_at_forced_get=max_value_at_forced_get,
                     min_value_after_forced_get=relaxed_min_value,
@@ -1145,7 +1165,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
     async def __force_get_register(
         self,
-        register: int,
+        address: int,
         min_value_at_forced_get: int,
         max_value_at_forced_get: int,
         min_value_after_forced_get: int = None,
@@ -1180,10 +1200,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         while True:
             result = None
             try:
-                # Only one register is read so count = 1, the charger expects slave to be 1.
-                result = await self.client.read_holding_registers(
-                    register, count=1, slave=1
-                )
+                # Only one register is read so count = 1, the charger expects device_id to be 1.
+                result = await self.client.read_holding_registers(address=address)
             except ModbusException as me:
                 self.__log(f"ModbusException {me}", level="WARNING")
                 is_unrecoverable = await self.__handle_modbus_exception(
@@ -1264,14 +1282,23 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             # Modbus cannot handle negative values directly.
             value = self.MAX_USI + value
 
+        if self.client is None:
+            self.__log("Client is None, aborting.", level="WARNING")
+            return
+
+        if not self.client.connected:
+            try:
+                self.__log("Trying to connect...")
+                await self.client.connect()
+            except ModbusException as me:
+                self.__log(f"Could not connect, exception: {me}.", level="WARNING")
+
         result = None
         try:
-            # I hate using the word 'slave', this should be 'server' but
-            # pyModbus has not changed this yet...
             result = await self.client.write_register(
                 address=address,
                 value=value,
-                slave=1,
+                device_id=1,
             )
         except ModbusException as me:
             self.__log(f"ModbusException {me}", level="WARNING")
@@ -1308,12 +1335,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         result = None
         try:
-            # I hate using the word 'slave', this should be 'server' but pyModbus
-            # has not changed this yet...
             result = await self.client.read_holding_registers(
                 address=address,
                 count=length,
-                slave=1,
+                device_id=1,
             )
         except ModbusException as me:
             self.__log(f"ModbusException {me}", level="WARNING")
@@ -1391,13 +1416,15 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         if has_error:
             if is_final_check:
                 self.__log(
-                    f"Error in charger for more than {self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s.",
+                    f"Error in charger for more than "
+                    f"{self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s.",
                     level="WARNING",
                 )
                 await self.__handle_un_recoverable_error(reason="charger reports error")
             elif self.timer_id_check_error_state is None:
                 self.__log(
-                    f"Starting check_error_state timer {self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s."
+                    f"Starting check_error_state timer "
+                    f"{self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s."
                 )
                 self.timer_id_check_error_state = self.hass.run_in(
                     self.__handle_charger_error_state_change,
