@@ -233,7 +233,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         result = list(map(self._get_2comp, result.registers))
         return result
 
-    async def read_register_ranges(
+    async def read_registers(
         self, modbus_registers: List[MBR]
     ) -> List[Union[int, float, str, None]]:
         """
@@ -355,8 +355,8 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         return results
 
-    async def write_register_range(
-        self, register_range: MBR, value: Union[int, float]
+    async def write_modbus_register(
+        self, modbus_register: MBR, value: Union[int, float]
     ) -> bool:
         """
         Writes a value to a Modbus register range.
@@ -376,10 +376,10 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             print("Connecting Modbus client")
             await self._mbc.connect()
 
-        device_id = register_range["device_id"]
-        address = register_range["address"]
-        length = register_range["length"]
-        data_type = register_range["data_type"]
+        device_id = modbus_register["device_id"]
+        address = modbus_register["address"]
+        length = modbus_register["length"]
+        data_type = modbus_register["data_type"]
 
         try:
             # Encode the value based on data_type

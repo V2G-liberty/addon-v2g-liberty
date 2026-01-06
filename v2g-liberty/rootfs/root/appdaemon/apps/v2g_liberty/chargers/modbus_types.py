@@ -16,7 +16,8 @@ class MBR(TypedDict):
                         - "int16": Signed 16-bit integer.
                         - "uint32": Unsigned 32-bit integer (requires length >= 2).
                         - "int32": Signed 32-bit integer (requires length >= 2).
-                        - "float32": 32-bit floating-point (requires length >= 2).
+                        - "int64": Signed 64-bit integer (requires length >= 4).
+                        - "float32": Signed 32-bit floating-point (requires length >= 2).
                         - "string": UTF-8 encoded string (any length).
         length (int): The number of consecutive registers to read.
         device_id (int): Modbus device ID, defaults to 1.
