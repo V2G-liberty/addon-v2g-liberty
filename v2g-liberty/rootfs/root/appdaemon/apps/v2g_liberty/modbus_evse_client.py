@@ -2,7 +2,7 @@
 
 import asyncio
 import pymodbus.client as modbusClient
-from pymodbus.exceptions import ModbusException, ConnectionException
+from pymodbus.exceptions import ModbusException
 from pyee.asyncio import AsyncIOEventEmitter
 
 from appdaemon.plugins.hass.hassapi import Hass
@@ -323,21 +323,12 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                 f"Could not initialise modbus client, ModbusException: {me}.",
                 level="WARNING",
             )
-
-        # The client.connect() does not actuually setup connection, check connectivity by dummy read
-        try:
-            # A dummy read that forces the TCP connection to establish, use defaults where possible.
-            res = await client.read_holding_registers(address=0)
-        except ConnectionException as ce:
-            self.__log(
-                f"Could not establish TCP connection to '{host}:{port}'. Exception: {ce}.",
-                level="WARNING",
-            )
             return None
-        except ModbusException as me:
-            # Other Modbus errors (e.g. illegal address due to use of default?) still mean the
-            # device is reachable
-            self.__log(f"Could not read from modbus client, ModbusException: {me}.")
+
+        # The client.connect() never throws a ConnectionException but the connected property is
+        # a reliable way of checking if host and port can be reached.
+        if not client.connected:
+            return None
 
         return client
 
@@ -691,7 +682,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.event_bus.emit_event("is_car_connected", is_car_connected=True)
         else:
             # From one connected state to an other connected state: not a change that this method
-            # needs to react upon.
+            # needs to react upon. Ard
             pass
 
         return
