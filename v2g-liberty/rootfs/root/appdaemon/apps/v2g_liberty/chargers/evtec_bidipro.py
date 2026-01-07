@@ -29,6 +29,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     _MBR_EVSE_SERIAL_NUMBER: MBR = {"address": 16, "data_type": "string", "length": 10}
     _MBR_EVSE_MODEL: MBR = {"address": 26, "data_type": "string", "length": 10}
     _MBR_CONNECTOR_TYPE: MBR = {"address": 114, "data_type": "int32", "length": 2}
+    _MBR_MAX_CHARGE_POWER: MBR = {"address": 130, "data_type": "float32", "length": 2}
+    # Not used yet..
+    # _MBR_MIN_CHARGE_POWER: MBR = {"address": 138, "data_type": "float32", "length": 2}
     _CONNECTOR_TYPES: dict[int, str] = {
         0: "Type 2",
         1: "CCS",
@@ -56,29 +59,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     #   The current_value defaults to None to indicate it has not been touched yet.#
     ################################################################################
 
-    _MCE_MAX_POWER_W: ModbusConfigEntity = {
-        "modbus_register": {"address": 130, "data_type": "float32", "length": 2},
-        "minimum_value": 1,
-        "maximum_value": 10000,
-        "current_value": None,
-        "change_handler": None,
-    }
-
-    # The EVTEC specification demands a minimum (dis)charge power of 500W.
-    _MCE_MIN_POWER_W: ModbusConfigEntity = {
-        "modbus_register": {"address": 138, "data_type": "float32", "length": 2},
-        "minimum_value": 500,
-        "maximum_value": 10000,
-        "current_value": None,
-        "change_handler": None,
-    }
-
     _MCE_CAR_ID: ModbusConfigEntity = {
         "modbus_register": {"address": 176, "data_type": "string", "length": 10},
-        "minimum_value": 5000,
-        "maximum_value": None,
         "current_value": None,
-        "change_handler": None,
+        "change_handler": "_handle_car_id_change",
     }
 
     _MCE_CAR_BATTERY_CAPACITY_WH: ModbusConfigEntity = {
@@ -86,13 +70,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         "minimum_value": 5000,
         "maximum_value": 250000,
         "current_value": None,
-        "change_handler": None,
+        "change_handler": "_handle_car_battery_capacity_change",
     }
 
     # When chargers with > 1 connector_type are used, add connector type to this list.
-    _READ_AT_CONNECT_MCE = [
-        _MCE_MAX_POWER_W,
-        _MCE_MIN_POWER_W,
+    _READ_AT_CONNECT_MCES = [
         _MCE_CAR_ID,
         _MCE_CAR_BATTERY_CAPACITY_WH,
     ]
@@ -109,20 +91,21 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
     _MCE_ACTUAL_POWER: ModbusConfigEntity = {
         "modbus_register": {"address": 110, "data_type": "float32", "length": 2},
-        "minimum_value": -10000,
-        "maximum_value": 10000,
+        "minimum_value": -20000,
+        "maximum_value": 20000,
         "current_value": None,
         "change_handler": "_handle_charge_power_change",
     }
 
     # The address is the BiDiPro connector state, this represents the EVSE state best.
+    # The stored value is the _base_state
     _MCE_EVSE_STATE: ModbusConfigEntity = {
         "modbus_register": {"address": 100, "data_type": "int32", "length": 2},
         "minimum_value": 0,
         "maximum_value": 12,
         "current_value": None,
         "pre_processor": "_get_base_state",
-        "change_handler": "__handle_connector_state_change",
+        "change_handler": "__handle_evse_state_change",
     }
 
     # Mapping of _MCE_CONNECTOR_STATE to BASE_EVSE_STATE
@@ -144,8 +127,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
     _MCE_ERROR: ModbusConfigEntity = {
         "modbus_register": {"address": 154, "data_type": "64int", "length": 4},
-        "minimum_value": 0,
-        "maximum_value": None,
         "current_value": None,
         "change_handler": "_handle_charger_error_state_change",
     }
@@ -227,9 +208,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
             return False, None
 
-        result = await mb_client.read_registers(
-            [self._MCE_MAX_POWER_W["modbus_register"]]
-        )
+        result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
         mb_client.terminate()
         max_hardware_power = result[0]
         self._log(
@@ -265,11 +244,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._mb_host = host
         self._mb_port = communication_config.get("port", 5020)
         self._mb_client = V2GmodbusClient(self._hass, self._cb_modbus_state)
-        connected = await self._mb_client.initialise(
+        can_connect = await self._mb_client.initialise(
             host=self._mb_host,
             port=self._mb_port,
         )
-        if not connected:
+        if not can_connect:
             self._log(
                 f"EVtec BiDiPro EVSE initialisation failed, cannot connect to "
                 f"Modbus host {self._mb_host}:{self._mb_port}.",
@@ -279,6 +258,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         mcp = await self.get_hardware_power_limit()
         await self.set_max_charge_power(mcp)
+
+        result = self._mb_client.read_registers([self._MBR_CONNECTOR_TYPE])
+        connector_type = self._CONNECTOR_TYPES.get(result[0], "Unknown")
+        if connector_type != "CSS":
+            # For now, just a warning, how to handle this correctly?
+            self._log(f"Unexpected connector type: {connector_type}.", level="WARNING")
 
         self._log(
             f"EVtec BiDiPro EVSE initialised with host: {self._mb_host}, "
@@ -350,12 +335,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 level="WARNING",
             )
             return None
-        result = await self._mb_client.read_registers(
-            self._MCE_MAX_POWER_W["modbus_range"]
-        )
+        result = await self._mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
 
         if not result:
-            self._log(f"No valid read hardware limit {result}", level="WARNING")
+            self._log("No valid read hardware limit", level="WARNING")
             await self._emit_modbus_communication_state(can_communicate=False)
             return None
         result = self._process_number(result[0])
@@ -501,7 +484,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                     self._MBR_EVSE_VERSION,
                     self._MBR_EVSE_SERIAL_NUMBER,
                     self._MBR_EVSE_MODEL,
-                    self._MBR_CONNECTOR_TYPE,
                 ]
             )
             if results:
@@ -509,7 +491,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                     f"EVtec BiDiPro EVSE - Version: {results[0]}, "
                     f"Serial number: {results[1]}, "
                     f"Model: {results[2]}, "
-                    f"Connectors-type: {results[3]}."
                 )
                 self._log(charger_info)
                 await self._emit_modbus_communication_state(can_communicate=True)
@@ -609,7 +590,14 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 )
                 continue
 
-            if not (entity["minimum_value"] <= new_state <= entity["maximum_value"]):
+            min_value = entity.get("minimum_value", None)
+            max_value = entity.get("maximum_value", None)
+
+            if (
+                min_value is not None
+                and max_value is not None
+                and not (min_value <= new_state <= max_value)
+            ):
                 # Ignore and keep current value unless that is None
                 if entity["current_value"] is None:
                     # This is very rare: current_value will only be None at startup.
@@ -643,8 +631,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                         )
                 else:
                     # If there is a current value ignore the new value and keep that current value.
-                    # This occurs when car is connected but charger is idle, it then
-                    # returns 0 for the SoC.
                     continue
 
             await self._update_evse_entity(evse_entity=entity, new_value=new_state)
@@ -704,9 +690,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
     async def _handle_charge_power_change(self, new_power, old_power):
         self._eb.emit_event("charge_power_change", new_power=new_power)
-        if (new_power > 0) != (old_power > 0) or (new_power == 0) != (old_power == 0):
-            # Power has changed sugnificantly from + to - or 0 to not 0 vv
-            self._recalculate_evse_state()
 
     async def _handle_charger_error_registers_state_change(self, new_error, old_error):
         # This is the case for the ENTITY_ERROR_1..4. The charger_state
@@ -721,26 +704,33 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # this for it. Further actions based on soc changes are initiated by the car
         # object.
         if self._connected_car is None:
-            success = self.try_set_connected_vehicle()
-            if not success:
-                self._log(
-                    "SoC change detected but no car connected, cannot set SoC on car.",
-                    level="WARNING",
-                )
-                return
-        self._connected_car.set_soc(new_soc=new_soc)
-
-    async def _recalculate_evse_state(self):
-        bcs = self._get_base_state()
-        if bcs != self._evse_state:
-            self._handle_charger_state_change(
-                new_evse_state=bcs, old_evse_state=self._evse_state
+            self._log(
+                "No car connected, cannot set changed SoC on car.", level="WARNING"
             )
-            self._evse_state = bcs
+        else:
+            self._connected_car.set_soc(new_soc=new_soc)
 
-    async def _handle_charger_state_change(
-        self, new_evse_state: int, old_evse_state: int
-    ):
+    async def _handle_car_battery_capacity_change(self, new_capacity, old_capacity):
+        self._log(f"called {new_capacity=}, {old_capacity=}.")
+        if self._connected_car is None:
+            self._log(
+                "No car connected, cannot set changed battery capacity on car.",
+                level="WARNING",
+            )
+        else:
+            # TODO: make this a public method on the EV
+            self._connected_car._set_battery_capacity_kwh(new_capacity)
+
+    async def _handle_car_id_change(self, new_id, old_id):
+        self._log(f"called {new_id=}, {old_id=}.")
+        # 0 = no car connected?
+        if new_id == 0 or new_id is None:
+            # Handeling disconnected state is done in _handle_evse_state_change()
+            self._connected_car = None
+        else:
+            self._connected_car = self.get_vehicle_by_name(new_id)
+
+    async def _handle_evse_state_change(self, new_evse_state: int, old_evse_state: int):
         """Called when _update_evse_entity detects a changed value."""
         self._log(f"called {new_evse_state=}, {old_evse_state=}.")
 
@@ -772,6 +762,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
             await self._set_charger_action("stop", reason="car disconnected")
+
             self._eb.emit_event("is_car_connected", is_car_connected=False)
         elif old_evse_state in self._DISCONNECTED_STATES:
             # new_charger_state must be a connected state, so if the old state was disconnected
@@ -780,7 +771,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._log(
                 "From disconnected to connected: get connected car and try to get the SoC"
             )
-            success = self.try_set_connected_vehicle()
+            success = self.try_set_connected_vehicle("NissanLeaf")
             if success:
                 await self._get_car_soc(force_renew=True)
             self._eb.emit_event("is_car_connected", is_car_connected=True)
@@ -791,16 +782,18 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         return
 
-    def try_set_connected_vehicle(self):
+    # async def _handle_reconnect(self):
+    #     self._get_and_process_registers([self._MCE_CAR_ID])
+
+    def try_set_connected_vehicle(self, ev_id: str):
         """
         For ISO15118 capable chargers we would get the car info (name) from the charger here.
         For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
         """
-        ev_name = "VolksWagen77kWh"
-        ev = self.get_vehicle_by_name(ev_name)
+        ev = self.get_vehicle_by_name(ev_id)
         if ev is None:
             self._log(
-                f"Cannot set connected vehicle, no vehicle with name '{ev_name}' found.",
+                f"Cannot set connected vehicle, no vehicle with name '{ev_id}' found.",
                 level="WARNING",
             )
             return False

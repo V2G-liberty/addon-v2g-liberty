@@ -10,12 +10,12 @@ class BaseEV(ABC):
     # --- Initialisation methods ---
 
     @abstractmethod
-    async def initialise_ev(
+    def initialise_ev(
         self,
         name: str,
         battery_capacity_kwh: int,
         charging_efficiency_percent: int,
-        car_consumption_wh_per_km: int,
+        consumption_wh_per_km: int,
         min_soc_percent: int,
         max_soc_percent: int,
     ):
@@ -30,7 +30,7 @@ class BaseEV(ABC):
         - charging_efficiency_percent (int):
           Charging efficiency in percent (50-100). For now: entered by user, preferably read from
           car (via charger).
-        - car_consumption_wh_per_km (int):
+        - consumption_wh_per_km (int):
           Consumption in Wh per km (100 - 400).
           For now: entered by user, preferably read from car (via charger).
         - min_soc_percent (int):

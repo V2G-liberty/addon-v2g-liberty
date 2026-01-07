@@ -39,22 +39,22 @@ class ModbusConfigEntity(TypedDict):
     Attributes:
         modbus_register (MBR): Configuration for Modbus register access including
             device ID, address, length, and data type.
-        minimum_value (int): The minimum valid value for this entity.
-        maximum_value (int): The maximum valid value for this entity.
+        minimum_value (int | float | None): The minimum valid value for entities with numeric value.
+        maximum_value (int | float | None): The maximum valid value for entities with numeric value.
         relaxed_min_value (int | None): Optional relaxed minimum value that might be used
             in certain operating modes. Defaults to None.
         relaxed_max_value (int | None): Optional relaxed maximum value that might be used
-            in certain operating modes. Defaults to None.
-        current_value (int | None): The current value of this entity. Defaults to None
+            in certain operating modes, for entities with numeric value. Defaults to None.
+        current_value (any | None): The current value of this entity. Defaults to None
             when not yet read or unavailable.
         change_handler (str | None): Optional name of a function to call when this value
             changes. Defaults to None.
     """
 
     modbus_register: MBR
-    minimum_value: int
-    maximum_value: int
-    relaxed_min_value: int | None = None
-    relaxed_max_value: int | None = None
-    current_value: int | None = None
+    minimum_value: int | float | None = None
+    maximum_value: int | float | None = None
+    relaxed_min_value: int | float | None = None
+    relaxed_max_value: int | float | None = None
+    current_value: any | None = None
     change_handler: str | None = None

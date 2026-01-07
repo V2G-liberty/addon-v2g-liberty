@@ -1,15 +1,19 @@
 """Generic electric vehicle (EV) class."""
 
 from apps.v2g_liberty.evs.base_ev import BaseEV
-from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.log_wrapper import get_class_method_logger
+from appdaemon.plugins.hass.hassapi import Hass
 
 
 class ElectricVehicle(BaseEV):
     """Generic electric vehicle (EV) class."""
 
-    # TODO: Make this a NissanLeaf specific claas because it has the skip-soc-check.
+    # A practical absolute max. capacity of the car battery in percent.
+    # Quasar + Nissan Leaf will never charge higher than 97%.
+    _SOC_SYSTEM_LIMIT_PERCENT: int = 97
+
+    # TODO: Make this a NissanLeaf specific class because it has the skip-soc-check.
     # TODO: Move many methods/properties to the BaseEV class.
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
@@ -27,10 +31,6 @@ class ElectricVehicle(BaseEV):
         self._max_soc_kwh: int | None = None
         self._max_range_km: int | None = None
 
-        # A practical absolute max. capacity of the car battery in percent.
-        # Quasar + Nissan Leaf will never charge higher than 97%.
-        self._SOC_SYSTEM_LIMIT_PERCENT: int = 97
-
     def initialise_ev(
         self,
         name: str,
@@ -46,14 +46,14 @@ class ElectricVehicle(BaseEV):
 
         Parameters:
         - name (str):
-          Name of the car e.g. model/type, chosen by user.
+          Name of the car e.g. model/type
         - battery_capacity_kwh (int):
           Usable battery capacity in kWh (10-200).
           For now: entered by user, preferably read from car via charger.
         - charging_efficiency_percent (int):
           Charging efficiency in percent (10-100).
           For now: entered by user, preferably read from car via charger.
-        - car_consumption_wh_per_km (int):
+        - consumption_wh_per_km (int):
           Consumption in Wh per km (100 - 400).
         - min_soc_percent (int):
           Minimum state of charge in percent (10-55). Entered by user.
@@ -301,17 +301,17 @@ class ElectricVehicle(BaseEV):
 
     def _check_soc_skip(self, new_soc: int, old_soc: int):
         """Check if the car has skipped the minimum SoC during a charge cycle.
-        The Nissan Leaf (or to be specific, it's BMS) has a strange behaviour. When (dis-) charging the
-        state of charge (soc) changes but skips 20%, so from 21% jumps to 19%, even when discharge power
-        is low or slowly build up.
-        This 20% typicaly is the lower limit for the schedules. So, the software at 19% changes form a
-        scheduled discharge to a boost charge. Then the 20% is skipped again, jumping from 19% to 21%.
-        This cycle repeats every 15 minutes to an hour or so untill the schedules optimum is no longer
-        discharging to the lower limit.
+        The Nissan Leaf (or to be specific, it's BMS) has a strange behaviour. When (dis-) charging
+        the state of charge (soc) changes but skips 20%, so from 21% jumps to 19%, even when
+        discharge power is low or slowly build up.
+        This 20% typicaly is the lower limit for the schedules. So, the software at 19% changes form
+        a scheduled discharge to a boost charge. Then the 20% is skipped again, jumping from
+        19% to 21%. This cycle repeats every 15 minutes to an hour or so untill the schedules
+        optimum is no longer discharging to the lower limit.
         This is undesired behaviour as it is in-efficient and possibly harmfull for the battery.
 
-        This module monitors if this behaviour is happening and then warns the users, suggesting to set
-        the lower-limit to e.g. 18 or 19%.
+        This module monitors if this behaviour is happening and then warns the users, suggesting to
+        set the lower-limit to e.g. 18 or 19%.
         """
 
         if not isinstance(new_soc, (int, float)) or not isinstance(
