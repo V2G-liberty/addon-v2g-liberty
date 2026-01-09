@@ -5,6 +5,7 @@
 ### Fixed
 
 - 🪲 BUG: Monitoring for error state failed to notify (#369)
+- 🪲 BUG: Calculation of the expected SoC incorrect (#374)
 
 ### Added
 
