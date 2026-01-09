@@ -21,6 +21,7 @@ class ElectricVehicle(BaseEV):
         self._eb = event_bus
         self.__log = get_class_method_logger(hass.log)
         self._name: str | None = None
+        self._ev_id: str | None = None
         self._battery_capacity_kwh: int | None = None
         self._charging_efficiency: int | None = None
         self._consumption_wh_per_km: int | None = None
@@ -34,6 +35,7 @@ class ElectricVehicle(BaseEV):
     def initialise_ev(
         self,
         name: str,
+        ev_id: str,
         battery_capacity_kwh: int,
         charging_efficiency_percent: int,
         consumption_wh_per_km: int,
@@ -47,6 +49,8 @@ class ElectricVehicle(BaseEV):
         Parameters:
         - name (str):
           Name of the car e.g. model/type
+        - ev_id (str):
+          Unique id (often exposed by the car through ISO15118.)
         - battery_capacity_kwh (int):
           Usable battery capacity in kWh (10-200).
           For now: entered by user, preferably read from car via charger.
@@ -61,6 +65,7 @@ class ElectricVehicle(BaseEV):
           Maximum state of charge in percent (60-95). Entered by user.
         """
         self._name = name
+        self._ev_id = ev_id
         self._set_battery_capacity_kwh(battery_capacity_kwh)
         self._set_charging_efficiency(charging_efficiency_percent)
         self._set_consumption_wh_per_km(consumption_wh_per_km)
@@ -220,6 +225,10 @@ class ElectricVehicle(BaseEV):
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def ev_id(self) -> str:
+        return self._ev_id
 
     @property
     def charging_efficiency(self) -> float:

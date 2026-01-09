@@ -25,11 +25,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     #  For "read once at boot" registers and "write registers".                    #
     ################################################################################
 
-    _MBR_EVSE_VERSION: MBR = {"address": 0, "data_type": "string", "length": 16}
-    _MBR_EVSE_SERIAL_NUMBER: MBR = {"address": 16, "data_type": "string", "length": 10}
-    _MBR_EVSE_MODEL: MBR = {"address": 26, "data_type": "string", "length": 10}
-    _MBR_CONNECTOR_TYPE: MBR = {"address": 114, "data_type": "int32", "length": 2}
-    _MBR_MAX_CHARGE_POWER: MBR = {"address": 130, "data_type": "float32", "length": 2}
+    _MBR_EVSE_VERSION = MBR(address=0, data_type="string", length=16)
+    _MBR_EVSE_SERIAL_NUMBER = MBR(address=16, data_type="string", length=10)
+    _MBR_EVSE_MODEL = MBR(address=26, data_type="string", length=10)
+    _MBR_CONNECTOR_TYPE = MBR(address=114, data_type="int32", length=2)
+    _MBR_MAX_CHARGE_POWER = MBR(address=130, data_type="float32", length=2)
     # Not used yet..
     # _MBR_MIN_CHARGE_POWER: MBR = {"address": 138, "data_type": "float32", "length": 2}
     _CONNECTOR_TYPES: dict[int, str] = {
@@ -39,18 +39,23 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         3: "GBT",
     }
 
-    # Charger setting to go to idle state if not receive modbus message within this timeout.
-    _MBR_IDLE_TIMEOUT_SEC: MBR = {"address": 42, "data_type": "int32", "length": 2}
+    _MBR_CAR_BATTERY_CAPACITY_WH = MBR(address=158, data_type="float32", length=2)
+    _MBR_CAR_MIN_BATTERY_CAPACITY_WH = MBR(address=162, data_type="float32", length=2)
+
+    # Charger setting to go to idle state if no Modbus message is received within this timeout.
+    _MBR_IDLE_TIMEOUT_SEC = MBR(address=42, data_type="int32", length=2)
+
     _CMIT: int = 600  # Communication Idle Timeout in seconds, 600 is max.
 
     # EVTEC calls this Suspend mode. It is expected that the EVSE in this mode
     # uses less energy?? CHECK!
-    _MBR_SET_ACTION: MBR = {"address": 188, "data_type": "int32", "length": 2}
+    _MBR_SET_ACTION = MBR(address=188, data_type="int32", length=2)
+
     _ACTIONS = {"start_charging": 1, "stop_charging": 0}
 
     # For setting the desired charge power, reading the actual charging power is done
     # through _MCE_ACTUAL_POWER
-    _MBR_SET_CHARGE_POWER: MBR = {"address": 186, "data_type": "int32", "length": 2}
+    _MBR_SET_CHARGE_POWER = MBR(address=186, data_type="int32", length=2)
 
     ################################################################################
     #   Modbus Config Entities (MCE)                                               #
@@ -59,54 +64,40 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     #   The current_value defaults to None to indicate it has not been touched yet.#
     ################################################################################
 
-    _MCE_CAR_ID: ModbusConfigEntity = {
-        "modbus_register": {"address": 176, "data_type": "string", "length": 10},
-        "current_value": None,
-        "change_handler": "_handle_car_id_change",
-    }
+    _MCE_CAR_ID = ModbusConfigEntity(
+        modbus_register=MBR(address=176, data_type="string", length=10),
+        current_value=None,
+        change_handler="_handle_car_id_change",
+    )
 
-    _MCE_CAR_BATTERY_CAPACITY_WH: ModbusConfigEntity = {
-        "modbus_register": {"address": 158, "data_type": "float32", "length": 2},
-        "minimum_value": 5000,
-        "maximum_value": 250000,
-        "current_value": None,
-        "change_handler": "_handle_car_battery_capacity_change",
-    }
+    _MCE_CAR_SOC = ModbusConfigEntity(
+        modbus_register=MBR(address=112, data_type="float32", length=2),
+        minimum_value=2,
+        maximum_value=97,
+        relaxed_min_value=1,
+        relaxed_max_value=100,
+        current_value=None,
+        change_handler="_handle_soc_change",
+    )
 
-    # When chargers with > 1 connector_type are used, add connector type to this list.
-    _READ_AT_CONNECT_MCES = [
-        _MCE_CAR_ID,
-        _MCE_CAR_BATTERY_CAPACITY_WH,
-    ]
-
-    _MCE_CAR_SOC: ModbusConfigEntity = {
-        "modbus_register": {"address": 112, "data_type": "float32", "length": 2},
-        "minimum_value": 2,
-        "maximum_value": 97,
-        "relaxed_min_value": 1,
-        "relaxed_max_value": 100,
-        "current_value": None,
-        "change_handler": "_handle_soc_change",
-    }
-
-    _MCE_ACTUAL_POWER: ModbusConfigEntity = {
-        "modbus_register": {"address": 110, "data_type": "float32", "length": 2},
-        "minimum_value": -20000,
-        "maximum_value": 20000,
-        "current_value": None,
-        "change_handler": "_handle_charge_power_change",
-    }
+    _MCE_ACTUAL_POWER = ModbusConfigEntity(
+        modbus_register=MBR(address=110, data_type="float32", length=2),
+        minimum_value=-20000,
+        maximum_value=20000,
+        current_value=None,
+        change_handler="_handle_charge_power_change",
+    )
 
     # The address is the BiDiPro connector state, this represents the EVSE state best.
     # The stored value is the _base_state
-    _MCE_EVSE_STATE: ModbusConfigEntity = {
-        "modbus_register": {"address": 100, "data_type": "int32", "length": 2},
-        "minimum_value": 0,
-        "maximum_value": 12,
-        "current_value": None,
-        "pre_processor": "_get_base_state",
-        "change_handler": "__handle_evse_state_change",
-    }
+    _MCE_EVSE_STATE = ModbusConfigEntity(
+        modbus_register=MBR(address=100, data_type="int32", length=2),
+        minimum_value=0,
+        maximum_value=12,
+        current_value=None,
+        pre_processor="_get_base_state",
+        change_handler="__handle_evse_state_change",
+    )
 
     # Mapping of _MCE_CONNECTOR_STATE to BASE_EVSE_STATE
     _BASE_STATE_MAPPING: dict[int, int] = {
@@ -125,11 +116,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         12: 9,  # Error
     }
 
-    _MCE_ERROR: ModbusConfigEntity = {
-        "modbus_register": {"address": 154, "data_type": "64int", "length": 4},
-        "current_value": None,
-        "change_handler": "_handle_charger_error_state_change",
-    }
+    _MCE_ERROR = ModbusConfigEntity(
+        modbus_register=MBR(address=154, data_type="64int", length=4),
+        current_value=None,
+        change_handler="_handle_charger_error_state_change",
+    )
 
     # How long should an error state be present before it is communicated to the user.
     # After a restart of the charger, errors can be present for up to 5 minutes.
@@ -145,7 +136,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     _POLLING_INTERVAL_SECONDS: int = 5
 
     def __init__(
-        self, hass: Hass, event_bus: EventBus, get_vehicle_by_name_func: callable
+        self, hass: Hass, event_bus: EventBus, get_vehicle_by_ev_id_func: callable
     ):
         super().__init__()
         self._hass = hass
@@ -153,7 +144,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._log = get_class_method_logger(hass.log)
 
         # function to get the connected vehicle by name from v2g-liberty
-        self.get_vehicle_by_name = get_vehicle_by_name_func
+        self.get_vehicle_by_ev_id = get_vehicle_by_ev_id_func
 
         # Modbus specifics
         self._mb_client: V2GmodbusClient | None = None
@@ -209,6 +200,13 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return False, None
 
         result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
+
+        ####### DEBUGGING CODE #######
+        self._log(f"get_max_power_pre_init extended result={result}.")
+
+        result2 = await mb_client.modbus_read(address=130, length=2)
+        self._log(f"get_max_power_pre_init Simple result={result2}.")
+
         mb_client.terminate()
         max_hardware_power = result[0]
         self._log(
@@ -217,11 +215,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await self._emit_modbus_communication_state(can_communicate=True)
         return True, max_hardware_power
 
-    def _get_base_state(self, bidipro_state: int) -> int:
-        """'Translate' a 'bidipro state' to 'base evse state'."""
-        self._BASE_STATE_MAPPING.get(
-            bidipro_state, 0
-        )  # Default to "Booting" if unknown
+    ######################################################################
+    #                  INITIALISATION RELATED METHODS                    #
+    ######################################################################
 
     async def initialise_evse(
         self,
@@ -270,10 +266,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             f"Max (dis-)charge power: {self._max_charge_power_w} W"
         )
 
-    ######################################################################
-    #                  INITIALISATION RELATED FUNCTIONS                  #
-    ######################################################################
-
     async def kick_off_evse(self):
         """
         This public function is to be called from v2g-liberty once after its own init is complete.
@@ -305,6 +297,66 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await self._get_car_soc(force_renew=True)
 
         await self._kick_off_polling()
+
+    ######################################################################
+    #                  PUBLIC METHODS / PROPERTIES                       #
+    ######################################################################
+
+    async def get_new_ev_details(self) -> dict[str, object] | None:
+        """
+        Retrieve details for a newly connected EV that has not yet been registered
+        as a V2G Liberty vehicle.
+
+        This method checks whether a car is currently connected, determines whether
+        it is already known to the system, and reads key battery parameters from
+        the Modbus interface.
+
+        Returns:
+            dict[str, object] | None:
+                A dictionary containing:
+                - ``ev_id`` (str): Identifier of the connected EV.
+                - ``battery_capacity_wh`` (int | None): Full battery capacity in Wh,
+                or ``None`` if unavailable.
+                - ``min_battery_capacity_wh`` (int | None): Minimum usable battery
+                capacity in Wh, or ``None`` if unavailable.
+                - ``is_new`` (bool): ``True`` if the EV is not yet registered.
+
+                Returns ``None`` if no car is currently connected.
+
+        Raises:
+            Any exception raised by ``_mb_client.read_registers`` or
+            ``_process_number`` will propagate unless handled internally.
+        """
+        if not self.is_car_connected:
+            return None
+
+        ev_id = self._MCE_CAR_ID.current_value
+        if ev_id in [0, None]:
+            return None
+
+        ev = self.get_vehicle_by_ev_id(ev_id=ev_id)
+        is_new = ev is None
+
+        result = await self._mb_client.read_registers(
+            [
+                self._MBR_CAR_BATTERY_CAPACITY_WH,
+                self._MBR_CAR_MIN_BATTERY_CAPACITY_WH,
+            ]
+        )
+
+        if result is None:
+            bc = None
+            mbc = None
+        else:
+            bc = self._process_number(result[0])
+            mbc = self._process_number(result[1])
+
+        return {
+            "ev_id": ev_id,
+            "battery_capacity_wh": bc,
+            "min_battery_capacity_wh": mbc,
+            "is_new": is_new,
+        }
 
     async def set_inactive(self):
         """To be called when charge_mode in UI is (switched to) Stop
@@ -477,6 +529,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     #                           PRIVATE METHODS                          #
     ######################################################################
 
+    def _get_base_state(self, bidipro_state: int) -> int:
+        """'Translate' a 'bidipro state' to 'base evse state'."""
+        self._BASE_STATE_MAPPING.get(
+            bidipro_state, 0
+        )  # Default to "Booting" if unknown
+
     async def _get_charger_info(self) -> str:
         try:
             results = await self._mb_client.read_registers(
@@ -541,152 +599,50 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # await self._get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
         self._eb.emit_event("evse_polled", stop=False)
 
-    async def _get_and_process_registers(self, entities: list):
-        """This function reads the values from the EVSE via modbus and
-        writes these values to corresponding sensors in HA.
-
-        The registers dictionary should have the structure:
-        modbus_address: 'sensor name'
-        Where:
-        modbus_address should be int + sorted + increasing and should return int from EVSE
-        sensor name should be str and not contain the prefix 'sensor.'
-        """
+    async def _get_and_process_registers(self, entities: list[ModbusConfigEntity]):
+        """Read values from the EVSE via Modbus and update entity states."""
 
         if self._mb_client is None:
-            self._log("Mobus client not initialised yet, aborting", level="WARNING")
+            self._log("Modbus client not initialised yet, aborting", level="WARNING")
             return
 
-        start = entities[0]["modbus_address"]
-        end = entities[-1]["modbus_address"]
+        if not entities:
+            self._log("Entities empty, aborting", level="WARNING")
+            return
 
-        length = end - start + 1
-        results = await self._mb_client.modbus_read(
-            address=start, length=length, source="_get_and_process_registers"
-        )
+        # Extract MBRs in the same order as entities
+        mbrs = [entity.modbus_register for entity in entities]
+
+        # Read all registers in one batch
+        results = await self._mb_client.read_registers(modbus_registers=mbrs)
+
         if not results:
-            # Could not read
-            self._log("results is None, abort processing.", level="WARNING")
+            self._log("Could not read registers, abort processing.", level="WARNING")
             await self._emit_modbus_communication_state(can_communicate=False)
             return
 
         await self._emit_modbus_communication_state(can_communicate=True)
 
-        for entity in entities:
-            # TODO: remove entity_name in this method.
-            entity_name = entity.get("ha_entity_name", "now_handled_via_events")
-            entity_name = f"sensor.{entity_name}"
-            register_index = entity["modbus_address"] - start
-            new_state = results[register_index]
-            if new_state is None:
-                self._log(f"New value 'None' for entity '{entity_name}' ignored.")
-                continue
+        # Process each entity with its corresponding result
+        for i, entity in enumerate(entities):
+            raw_value = results[i]  # Already decoded by MBR.decode()
+            self._update_mce(entity, raw_value)
 
+    async def _update_mce(self, mce: ModbusConfigEntity, new_value):
+        old_value = mce.current_value
+        mce.set_value(new_value=new_value, owner=self)
+        new_value = mce.current_value
+
+        # Trigger change handler if value changed
+        if old_value != new_value and mce.change_handler:
             try:
-                new_state = int(float(new_state))
-            except ValueError as ve:
+                handler = getattr(self, mce.change_handler)
+                await handler(new_value, old_value)
+            except Exception as e:
                 self._log(
-                    f"New value '{new_state}' for entity '{entity_name}' "
-                    f"ignored due to ValueError: {ve}."
+                    f"Change_handler '{mce.change_handler}' not called. Exception: {e}.",
+                    level="WARNING",
                 )
-                continue
-
-            min_value = entity.get("minimum_value", None)
-            max_value = entity.get("maximum_value", None)
-
-            if (
-                min_value is not None
-                and max_value is not None
-                and not (min_value <= new_state <= max_value)
-            ):
-                # Ignore and keep current value unless that is None
-                if entity["current_value"] is None:
-                    # This is very rare: current_value will only be None at startup.
-                    # Not setting a value will cause the application to hang, so lets use
-                    # the relaxed min/max in the entity supports that.
-                    # If that fails assume 'unavailable'.
-                    relaxed_min_value = entity.get("relaxed_min_value", None)
-                    relaxed_max_value = entity.get("relaxed_max_value", None)
-                    if relaxed_min_value is None or relaxed_max_value is None:
-                        new_state = None
-                        self._log(
-                            f"New value {new_state} for entity '{entity_name}' "
-                            f"out of range {entity['minimum_value']} "
-                            f"- {entity['maximum_value']} but current value is None, so this polled"
-                            f" value cannot be ignored, so new_value set to None."
-                        )
-                    elif relaxed_min_value <= new_state <= relaxed_max_value:
-                        self._log(
-                            f"New value {new_state} for entity '{entity_name}' "
-                            f"out of min/max range but in relaxed range {relaxed_min_value} "
-                            f"- {relaxed_max_value}. So, as the current value is None, this this "
-                            f"polled value is still used."
-                        )
-                    else:
-                        new_state = None
-                        self._log(
-                            f"New value {new_state} for entity '{entity_name}' "
-                            f"out of relaxed range {relaxed_min_value} "
-                            f"- {relaxed_max_value} but current value is None, so this polled value"
-                            f" cannot be ignored, so new_value set to None."
-                        )
-                else:
-                    # If there is a current value ignore the new value and keep that current value.
-                    continue
-
-            await self._update_evse_entity(evse_entity=entity, new_value=new_state)
-        return
-
-    async def _update_evse_entity(
-        self,
-        evse_entity: dict,
-        new_value,
-    ):
-        """
-        Update evse_entity.
-        :param evse_entity: evse_entity
-        :param new_value: new_value, can be None
-        :return: Nothing
-        """
-        current_value = evse_entity["current_value"]
-
-        # Call pre_processor if defined.
-        # Pre_processor method must be sync and have one parameter: new_value
-        if "pre_processor" in evse_entity.keys():
-            method_name = evse_entity["pre_processor"]
-            if isinstance(method_name, str):
-                try:
-                    bound_method = getattr(self, method_name)
-                    new_value = bound_method(new_value)
-                except AttributeError:
-                    self._log(
-                        f"Pre_processor method '{method_name}' does not exist!",
-                        level="WARNING",
-                    )
-            else:
-                self._log("Pre_processor is not a string!", level="WARNING")
-
-        evse_entity["current_value"] = new_value
-
-        if current_value != new_value:
-            # Call change_handler if defined
-            # change_handler method must be async and have two parameters: new_value, old_value
-            if "change_handler" in evse_entity.keys():
-                change_handler_method_name = evse_entity["change_handler"]
-                if isinstance(change_handler_method_name, str):
-                    try:
-                        change_handler_method = getattr(
-                            self, change_handler_method_name
-                        )
-                        await change_handler_method(new_value, current_value)
-                    except AttributeError:
-                        self._log(
-                            f"Change_handler_method '{change_handler_method_name}' does not exist!",
-                            level="WARNING",
-                        )
-                else:
-                    self._log(
-                        "change_handler_method_name is not a string!", level="WARNING"
-                    )
 
     async def _handle_charge_power_change(self, new_power, old_power):
         self._eb.emit_event("charge_power_change", new_power=new_power)
@@ -710,17 +666,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         else:
             self._connected_car.set_soc(new_soc=new_soc)
 
-    async def _handle_car_battery_capacity_change(self, new_capacity, old_capacity):
-        self._log(f"called {new_capacity=}, {old_capacity=}.")
-        if self._connected_car is None:
-            self._log(
-                "No car connected, cannot set changed battery capacity on car.",
-                level="WARNING",
-            )
-        else:
-            # TODO: make this a public method on the EV
-            self._connected_car._set_battery_capacity_kwh(new_capacity)
-
     async def _handle_car_id_change(self, new_id, old_id):
         self._log(f"called {new_id=}, {old_id=}.")
         # 0 = no car connected?
@@ -728,7 +673,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             # Handeling disconnected state is done in _handle_evse_state_change()
             self._connected_car = None
         else:
-            self._connected_car = self.get_vehicle_by_name(new_id)
+            self._connected_car = self.get_vehicle_by_ev_id(new_id)
 
     async def _handle_evse_state_change(self, new_evse_state: int, old_evse_state: int):
         """Called when _update_evse_entity detects a changed value."""
@@ -755,9 +700,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._connected_car = None
 
             # When disconnected the SoC of the car goes from current soc to None.
-            await self._update_evse_entity(
-                evse_entity=self._MCE_CAR_SOC, new_value=None
-            )
+            await self._update_mce(mce=self._MCE_CAR_SOC, new_value=None)
 
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
@@ -782,15 +725,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         return
 
-    # async def _handle_reconnect(self):
-    #     self._get_and_process_registers([self._MCE_CAR_ID])
-
     def try_set_connected_vehicle(self, ev_id: str):
         """
         For ISO15118 capable chargers we would get the car info (name) from the charger here.
         For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
         """
-        ev = self.get_vehicle_by_name(ev_id)
+        ev = self.get_vehicle_by_ev_id(ev_id)
         if ev is None:
             self._log(
                 f"Cannot set connected vehicle, no vehicle with name '{ev_id}' found.",
@@ -802,20 +742,20 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return True
 
     async def _get_charge_power(self) -> int | None:
-        state = self._MCE_ACTUAL_POWER["current_value"]
+        state = self._MCE_ACTUAL_POWER.current_value
         if state is None:
             # This can be the case before initialisation has finished.
             await self._get_and_process_registers([self._MCE_ACTUAL_POWER])
-            state = self._MCE_ACTUAL_POWER["current_value"]
+            state = self._MCE_ACTUAL_POWER.current_value
         return state
 
     async def _get_evse_state(self) -> int:
         """Returns the state accoding to _EVSE_STATES from the base class."""
-        charger_state = self._MCE_EVSE_STATE["current_value"]
+        charger_state = self._MCE_EVSE_STATE.current_value
         if charger_state is None:
             # This can be the case before initialisation has finished.
             await self._get_and_process_registers([self._MCE_EVSE_STATE])
-            charger_state = self._MCE_EVSE_STATE["current_value"]
+            charger_state = self._MCE_EVSE_STATE.current_value
         return charger_state
 
     async def _is_charging_or_discharging(self) -> bool:
@@ -852,7 +792,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return None
 
         ecs = self._MCE_CAR_SOC
-        soc_value = ecs["current_value"]
+        soc_value = ecs.current_value
         should_be_renewed = False
         if soc_value is None:
             # This can occur if it is queried for the first time and no polling has taken place
@@ -868,13 +808,13 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         if should_be_renewed:
             self._log("old or invalid SoC in HA Entity: renew")
-            soc_address = ecs["modbus_address"]
+            soc_address = ecs.modbus_address
 
             # TODO: move to ElectricVehicle class??
-            min_value_at_forced_get = ecs["minimum_value"]
-            max_value_at_forced_get = ecs["maximum_value"]
-            relaxed_min_value = ecs["relaxed_min_value"]
-            relaxed_max_value = ecs["relaxed_max_value"]
+            min_value_at_forced_get = ecs.minimum_value
+            max_value_at_forced_get = ecs.maximum_value
+            relaxed_min_value = ecs.relaxed_min_value
+            relaxed_max_value = ecs.relaxed_max_value
 
             soc_in_charger = await self._mb_client.force_get_register(
                 register=soc_address,
@@ -886,7 +826,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             # Rare but possible. None can also occur if charger is in error
             if soc_in_charger == 0:
                 soc_in_charger = None
-            await self._update_evse_entity(evse_entity=ecs, new_value=soc_in_charger)
+            await self._update_mce(mce=ecs, new_value=soc_in_charger)
         self._log(f"returning: '{soc_value}'.")
         return soc_value
 
@@ -1053,13 +993,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         )
 
         # The soc and power are not known any more so let's represent this in the app
-        await self._update_evse_entity(
-            evse_entity=self._MCE_ACTUAL_POWER, new_value=None
-        )
-        await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
+        await self._update_mce(mce=self._MCE_ACTUAL_POWER, new_value=None)
+        await self._update_mce(mce=self._MCE_CAR_SOC, new_value=None)
         # Set charger state to error, use quasar state number as the preprocessor will alter to
         # base_evse_state.
-        await self._update_evse_entity(evse_entity=self._MCE_EVSE_STATE, new_value=12)
+        await self._update_mce(mce=self._MCE_EVSE_STATE, new_value=12)
 
     async def _modbus_communication_restored(self):
         self._log("Modbus connection to EVtec BiDiPro EVSE restored.")
@@ -1114,7 +1052,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             has_error = True
 
         # None = uninitialised, 0 = no error.
-        if self._MCE_ERROR["current_value"] is not None:
+        if self._MCE_ERROR.current_value is not None:
             has_error = True
 
         if has_error:

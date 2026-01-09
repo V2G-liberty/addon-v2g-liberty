@@ -194,20 +194,24 @@ class V2Gliberty:
     def add_vehicle(self, vehicle):
         """Setter: Add or replace an ElectricVehicle instance in the list."""
         # Remove existing vehicle with the same name, if any
-        existing = self.get_vehicle_by_name(vehicle.name)
+        existing = self.get_vehicle_by_ev_id(vehicle.ev_id)
         if existing is not None:
             self._vehicles.remove(existing)
-            self.__log(f"Replaced existing vehicle with name '{vehicle.name}'.")
+            self.__log(
+                f"Replaced existing vehicle with id '{vehicle.ev_id}' and name '{vehicle.name}'."
+            )
         # Add the new vehicle
         else:
-            self.__log(f"Added new vehicle with name '{vehicle.name}'.")
+            self.__log(
+                f"Added new vehicle withid '{vehicle.ev_id}' and name '{vehicle.name}'."
+            )
 
         self._vehicles.append(vehicle)
 
-    def get_vehicle_by_name(self, name: str):
+    def get_vehicle_by_ev_id(self, ev_id: str):
         """Getter: Retrieve an ElectricVehicle by its name."""
         for vehicle in self._vehicles:
-            if vehicle.name == name:
+            if vehicle.ev_id == ev_id:
                 return vehicle
         return None
 

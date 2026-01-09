@@ -13,6 +13,7 @@ class BaseEV(ABC):
     def initialise_ev(
         self,
         name: str,
+        ev_id: str,
         battery_capacity_kwh: int,
         charging_efficiency_percent: int,
         consumption_wh_per_km: int,
@@ -25,6 +26,8 @@ class BaseEV(ABC):
         Parameters:
         - name (str):
           Name of the car e.g. model/type, chosen by user.
+        - ev_id (str):
+          Unique id (often exposed by the car through ISO15118.)
         - battery_capacity_kwh (int):
           Battery capacity in kWh. For now: entered by user, preferably read from car (via charger).
         - charging_efficiency_percent (int):
@@ -139,7 +142,7 @@ class BaseEV(ABC):
     #################### SETTER METHODS ####################
 
     @abstractmethod
-    def set_soc(self):
+    def set_soc(self, new_soc: float):
         """For 'internal use' only: the charger class reads this from the actual vehicle and sets
         the read value via this method.
         If needed the soc_changed event is emitted."""

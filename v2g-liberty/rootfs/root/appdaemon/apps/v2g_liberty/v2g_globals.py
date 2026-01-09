@@ -548,13 +548,13 @@ class V2GLibertyGlobals:
             evse = WallboxQuasar1Client(
                 hass=self.hass,
                 event_bus=self.event_bus,
-                get_vehicle_by_name_func=self.v2g_main_app.get_vehicle_by_name,
+                get_vehicle_by_ev_id_func=self.v2g_main_app.get_vehicle_by_ev_id,
             )
         elif charger_type == "evtec-bidi-pro-10":
             evse = EVtecBiDiProClient(
                 hass=self.hass,
                 event_bus=self.event_bus,
-                get_vehicle_by_name_func=self.v2g_main_app.get_vehicle_by_name,
+                get_vehicle_by_ev_id_func=self.v2g_main_app.get_vehicle_by_ev_id,
             )
         else:
             self.__log(
@@ -906,6 +906,7 @@ class V2GLibertyGlobals:
         ev = ElectricVehicle(self.hass, self.event_bus)
         ev.initialise_ev(
             name="NissanLeaf",
+            ev_id="NissanLeaf",
             battery_capacity_kwh=battery_capacity_kwh,
             charging_efficiency_percent=charger_plus_car_roundtrip_efficiency,
             consumption_wh_per_km=ev_consumption_wh_per_km,

@@ -10,12 +10,12 @@
 #   the Charger by the Software.                                                      #
 #######################################################################################
 
-from .v2g_modbus_client import V2GmodbusClient
-from .base_bidirectional_evse import BidirectionalEVSE
 from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from .base_bidirectional_evse import BidirectionalEVSE
+from .v2g_modbus_client import V2GmodbusClient
 
 
 class WallboxQuasar1Client(BidirectionalEVSE):
@@ -205,7 +205,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     _MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 300
 
     def __init__(
-        self, hass: Hass, event_bus: EventBus, get_vehicle_by_name_func: callable
+        self, hass: Hass, event_bus: EventBus, get_vehicle_by_ev_id_func: callable
     ):
         super().__init__()
         self._hass = hass
@@ -213,7 +213,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self.__log = get_class_method_logger(hass.log)
 
         # function to get the connected vehicle by name from v2g-liberty
-        self.get_vehicle_by_name = get_vehicle_by_name_func
+        self.get_vehicle_by_ev_id = get_vehicle_by_ev_id_func
 
         # Modbus specifics
         self._mb_client: V2GmodbusClient | None = None
@@ -822,11 +822,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         For ISO15118 capable chargers we would get the car info (name) from the charger here.
         For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
         """
-        ev_name = "NissanLeaf"
-        ev = self.get_vehicle_by_name(ev_name)
+        ev_id = "NissanLeaf"
+        ev = self.get_vehicle_by_ev_id(ev_id)
         if ev is None:
             self.__log(
-                f"Cannot set connected vehicle, no vehicle with name '{ev_name}' found.",
+                f"Cannot set connected vehicle, no vehicle with name '{ev_id}' found.",
                 level="WARNING",
             )
             return False
