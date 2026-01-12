@@ -7,9 +7,12 @@ _Liberty_ in the name refers to:
 
 - V2G&nbsp;Liberty strives for you to be independent of the make/type of charger & car.
 
-  <span class="sub-text">The truth now is that only the Wallbox Quasar charger offers (affordable) bidirectional charging.
-  As it is equipped with a CHAdeMo connector, so currently only cars with this connector are supported.
-  We expect to add new chargers to V2G&nbsp;Liberty soon.</span>
+  V2G Liberty now supports multiple bidirectional chargers:
+
+  - Wallbox Quasar 1 (CHAdeMo connector)
+  - EVtec BiDiPro 10 (CCS connector)
+
+  You can select your charger type during the configuration process. More chargers are expected to be added in the future.
 
 - V2G&nbsp;Liberty strives for you to be independent of power company.
 
@@ -26,7 +29,8 @@ decreases emissions significantly, you can also choose to take sustainability a 
 
 Before installing or activation of V2G Liberty, please make sure:
 
-- The charging and discharging with the EV and Quasar charger works properly. Test this with the app supplied with the charger.
+- You have a supported bidirectional charger (Wallbox Quasar 1 or EVtec BiDiPro 10)
+- The charging and discharging with your EV and charger works properly. Test this with the app supplied with the charger.
 - You have a FlexMeasures account
 - You have an electricity contract with dynamic prices (can be added later)
 - You have an online calendar<br/>
@@ -86,11 +90,36 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
 4. When the restart finished the _V2G&nbsp;Liberty_ menu item in the left menu should be visible, open this by clicking it.
 5. Now go to the settings tab (⚙ icon in the blue top-bar)
 6. Review all sections of the page and complete the requested information as necessary.<br/>
-   Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un-touched.
+   - **Charger settings**: Select your charger type (Wallbox Quasar 1 or EVtec BiDiPro 10), enter the IP address and Modbus port of your charger. You can test the connection before saving.
+   - Optionally configure reduced maximum charge/discharge power if needed for your installation.
 
 ## Load balancing
 
-V2G Liberty has build in load balancing service (it is not a device although additional hardware is needed). Load balancing prevents overloading the electrical connection (to be precise, the one phase that the Quasar is connected to) by monitoring how much power is flowing through and if it reaches the maximum reducing the charge power of the Quasar. An active load balancer allows you to set a higher maximum charge power and thus make more efficient use of the installation. This is recommended but optional to use. More information can be found [here](https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/v2g-liberty/rootfs/root/appdaemon/apps/load_balancer/readme.md).
+V2G Liberty has build in load balancing service (it is not a device although additional hardware is needed). Load balancing prevents overloading the electrical connection (to be precise, the one phase that the charger is connected to) by monitoring how much power is flowing through and if it reaches the maximum reducing the charge power of the charger. An active load balancer allows you to set a higher maximum charge power and thus make more efficient use of the installation. This is recommended but optional to use. More information can be found [here](https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/v2g-liberty/rootfs/root/appdaemon/apps/load_balancer/readme.md).
+
+## Supported Chargers
+
+V2G Liberty supports the following bidirectional chargers:
+
+### Wallbox Quasar 1
+
+- **Connector type**: CHAdeMo
+- **Max power**: Typically up to 7.4 kW charging and discharging
+- **Communication**: Modbus TCP (default port 502)
+- **Compatible vehicles**: CHAdeMo-equipped EVs (Nissan Leaf, older Mitsubishi Outlander PHEV, etc.)
+
+### EVtec BiDiPro 10
+
+- **Connector type**: CCS (Combined Charging System)
+- **Max power**: Up to 10 kW charging and discharging
+- **Communication**: Modbus TCP (default port 502)
+- **Compatible vehicles**: CCS-equipped EVs (most modern European and North American EVs)
+
+### Switching Between Chargers
+
+If you need to change your charger type (e.g., upgrading from Wallbox Quasar to EVtec BiDiPro), you can do so in the charger settings section. The system will automatically reinitialize with the new charger configuration after saving.
+
+**Note for existing users**: If you are upgrading from a previous version that only supported Wallbox Quasar, your settings will be automatically migrated. The charger type will default to "wallbox-quasar-1" to maintain compatibility.
 
 ## Tips & tricks
 
@@ -164,7 +193,6 @@ Use the AGPL-3.0 if you are an open source project or individual developer.
 If you intend to **use V2G Liberty for commercial purposes**, you must obtain a commercial license from the copyright holder.
 
 For commercial licensing inquiries, please contact us. Contact details can be found in the COMMERCIAL_LICENSE.md.
-
 
 ### Third-Party Open Source Components
 
