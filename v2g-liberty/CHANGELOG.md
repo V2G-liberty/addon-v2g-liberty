@@ -8,6 +8,8 @@
 
 ### Added
 
+- 🚀 Feature request: Add new modbus charger(#359)
+
 ### Changed
 
 - Bumped pymodbus library to 3.11.4 (#373)
