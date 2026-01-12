@@ -347,6 +347,7 @@ class FMClient(AsyncIOEventEmitter):
         max_soc_kwh: float,
         max_capacity_kwh: float,
         max_charge_power_w: float,
+        max_discharge_power_w: float,
         roundtrip_efficiency: float,
         back_to_max_soc: datetime,
     ):
@@ -371,7 +372,9 @@ class FMClient(AsyncIOEventEmitter):
             max_capacity_kwh (float):
                 The maximum battery capacity (in kWh).
             max_charge_power_w (float):
-                The maximum charge power (in W). Is also used for max_discharge power...
+                The maximum charge power (in W).
+            max_discharge_power_w (float):
+                The maximum discharge power (in W).
             roundtrip_efficiency (float):
                 The roundtrip efficiency of the battery (0.0 to 1.0).
             back_to_max_soc (datetime | None):
@@ -446,7 +449,7 @@ class FMClient(AsyncIOEventEmitter):
         ]
         max_production_power_ranges = [
             {
-                "value": c.CHARGER_MAX_DISCHARGE_POWER,
+                "value": max_discharge_power_w,
                 "start": rounded_now,
                 "end": schedule_end,
             }
@@ -674,7 +677,7 @@ class FMClient(AsyncIOEventEmitter):
             # Handle too high current_soc.
             minimum_discharge_window = math.ceil(
                 (current_soc_kwh - max_soc_kwh)
-                / (c.CHARGER_MAX_DISCHARGE_POWER / 1000)
+                / (max_discharge_power_w / 1000)
                 * 60
             )
             end_minimum_discharge_window = time_round(

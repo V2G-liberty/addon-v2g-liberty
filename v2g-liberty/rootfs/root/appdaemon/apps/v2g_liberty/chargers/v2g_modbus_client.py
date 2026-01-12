@@ -7,7 +7,8 @@ from appdaemon import Hass
 from pymodbus.client import AsyncModbusTcpClient as amtc
 from pymodbus.exceptions import ModbusException, ConnectionException
 from pyee.asyncio import AsyncIOEventEmitter
-from apps.v2g_liberty.util import parse_to_int
+from apps.v2g_liberty.conversion_util import parse_to_int
+from apps.v2g_liberty.utils.hass_util import cancel_timer_silently
 from .modbus_types import MBR
 
 
@@ -358,7 +359,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             print("Connecting Modbus client")
             await self._mbc.connect()
 
-        print("TCP / Modbus Connected: trying to read...")
+        # print("TCP / Modbus Connected: trying to read...")
 
         # Use id(mbr) because MBR is not hashable
         index_map = {id(mbr): i for i, mbr in enumerate(modbus_registers)}
@@ -433,20 +434,34 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 print(f"[WARNING] Encoding failed for {modbus_register}")
                 return False
 
-            response = await self._mbc.write_multiple_registers(
-                address=modbus_register.address,
-                values=registers,
-                device_id=modbus_register.device_id,
-            )
+            # Use write_register for single register, write_registers for multiple
+            if len(registers) == 1:
+                response = await self._mbc.write_register(
+                    address=modbus_register.address,
+                    value=registers[0],
+                    device_id=modbus_register.device_id,
+                )
+            else:
+                response = await self._mbc.write_registers(
+                    address=modbus_register.address,
+                    values=registers,
+                    device_id=modbus_register.device_id,
+                )
 
             if response.isError():
                 print(
                     f"[WARNING] Write error for address {modbus_register.address}: {response}."
                 )
+                await self._handle_modbus_exception(source="write_modbus_register")
                 return False
 
+            await self._reset_modbus_exception()
             return True
 
+        except ModbusException as me:
+            print(f"[WARNING] ModbusException writing register {modbus_register}: {me}")
+            await self._handle_modbus_exception(source="write_modbus_register")
+            return False
         except Exception as e:
             print(f"[WARNING] Error writing Modbus register {modbus_register}: {e}")
             return False
@@ -504,8 +519,8 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         print("[WARNING] There are persistent modbus exceptions.")
         # This method could be called from two timers. Make sure both are canceled so no double
         # notifications get sent.
-        self._cancel_timer(self._timer_id_check_modus_exception_state)
-        self._cancel_timer(self._timer_id_check_error_state)
+        cancel_timer_silently(self.hass, self._timer_id_check_modus_exception_state)
+        cancel_timer_silently(self.hass, self._timer_id_check_error_state)
         await self._cb_modbus_state(persistent_problem=True)
 
     async def _reset_modbus_exception(self):
@@ -518,7 +533,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             print("There was an modbus exception, now solved.")
             await self._cb_modbus_state(persistent_problem=False)
         self._modbus_exception_counter = 0
-        self._cancel_timer(self._timer_id_check_modus_exception_state)
+        cancel_timer_silently(self.hass, self._timer_id_check_modus_exception_state)
         self._timer_id_check_modus_exception_state = None
 
     ################################################################################################
@@ -543,18 +558,3 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             # This represents a negative value.
             return_value = return_value - self.MAX_USI
         return return_value
-
-    # TODO: Consolidate this function to a util, it is copied in multiple classes
-    def _cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if timer_id in [None, ""]:
-            return
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)

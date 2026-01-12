@@ -22,3 +22,12 @@ class BidirectionalEVSE(UnidirectionalEVSE, ABC):
         Return True if currently discharging.
         """
         raise NotImplementedError("Subclasses must implement is_discharging()")
+
+    @abstractmethod
+    async def set_max_discharge_power(self, power_in_watt: int):
+        """
+        Set the maximum discharge power in Watt.
+        Must be lower than EVSE hardware limit, see get_hardware_power_limit.
+        If not set the hardware limit will be used.
+        """
+        raise NotImplementedError("Subclasses must implement set_max_discharge_power()")

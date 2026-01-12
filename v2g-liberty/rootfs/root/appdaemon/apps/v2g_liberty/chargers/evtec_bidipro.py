@@ -12,6 +12,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from apps.v2g_liberty.utils.hass_util import cancel_timer_silently
 from .v2g_modbus_client import V2GmodbusClient
 from .modbus_types import ModbusConfigEntity, MBR
 from .base_bidirectional_evse import BidirectionalEVSE
@@ -436,6 +437,40 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
 
         self._max_charge_power_w = power_in_watt
+        # TODO: Implement separate min_charge_power and min_discharge_power
+        # You would add code to apply this limit to the evse if supported
+        return True
+
+    async def set_max_discharge_power(self, power_in_watt: int):
+        """Set the maximum discharge power in Watt.
+        Used for reducing the hardware limit."""
+        hardware_power_limit = await self.get_hardware_power_limit()
+
+        if not isinstance(hardware_power_limit, int):
+            self._log(
+                "Cannot set max discharge power, hardware limit unavailable",
+                level="WARNING",
+            )
+            return False
+
+        if power_in_watt > hardware_power_limit:
+            self._log(
+                f"Requested max discharge power {power_in_watt}W exceeds hardware limit "
+                f"{hardware_power_limit}W",
+                level="WARNING",
+            )
+            power_in_watt = hardware_power_limit
+        elif power_in_watt < hardware_power_limit:
+            self._log(
+                f"Max discharge power {hardware_power_limit}W is reduced by user "
+                f"setting to {power_in_watt}W."
+            )
+        else:
+            self._log(
+                f"User requested max power setting {hardware_power_limit}W is equal to hardware"
+                f"{hardware_power_limit}W maximum."
+            )
+
         self._max_discharge_power_w = power_in_watt
         # TODO: Implement separate min_charge_power and min_discharge_power
         # You would add code to apply this limit to the evse if supported
@@ -531,7 +566,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
     def _get_base_state(self, bidipro_state: int) -> int:
         """'Translate' a 'bidipro state' to 'base evse state'."""
-        self._BASE_STATE_MAPPING.get(
+        return self._BASE_STATE_MAPPING.get(
             bidipro_state, 0
         )  # Default to "Booting" if unknown
 
@@ -569,7 +604,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             reason (str, optional): For debugging only
         """
 
-        self._cancel_timer(self._poll_timer_handle)
+        cancel_timer_silently(self._hass,self._poll_timer_handle)
         self._poll_timer_handle = await self._hass.run_every(
             self._get_and_process_evse_data,
             "now",
@@ -587,7 +622,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             reason (str, optional): For debugging only
         """
         self._log(f"reason: {reason}")
-        self._cancel_timer(self._poll_timer_handle)
+        cancel_timer_silently(self._hass,self._poll_timer_handle)
         self._poll_timer_handle = None
         self._eb.emit_event("evse_polled", stop=True)
 
@@ -1075,7 +1110,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 )
                 return
         else:
-            self._cancel_timer(self._timer_id_check_error_state)
+            cancel_timer_silently(self._hass,self._timer_id_check_error_state)
             self._timer_id_check_error_state = None
             # TODO: check if it is wise to use this same event for both
             # modbus communication lost and charger error
@@ -1120,16 +1155,3 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         else:
             return processed_number
 
-    def _cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if timer_id in [None, ""]:
-            return
-        if self._hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            self._hass.cancel_timer(timer_id, silent)

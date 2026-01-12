@@ -836,7 +836,8 @@ class V2GLibertyGlobals:
             charger_max_discharge_power = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_DISCHARGE_POWER,
             )
-            self.evse.set_max_charge_power(c.CHARGER_MAX_CHARGE_POWER)
+            await self.evse.set_max_charge_power(charger_max_charge_power)
+            await self.evse.set_max_discharge_power(charger_max_discharge_power)
         else:
             # Use max from charger
             charger_max_charge_power = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
@@ -844,6 +845,7 @@ class V2GLibertyGlobals:
                 "max"
             ]
             await self.evse.set_max_charge_power(charger_max_charge_power)
+            await self.evse.set_max_discharge_power(charger_max_discharge_power)
 
         await self.evse.kick_off_evse()
 

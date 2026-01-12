@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import isodate
 from appdaemon.plugins.hass.hassapi import Hass
 
-from .util import parse_to_int
+from .conversion_util import parse_to_int
 from .notifier_util import Notifier
 from .event_bus import EventBus
 from .v2g_globals import time_round, he, get_local_now
@@ -408,6 +408,7 @@ class V2Gliberty:
                         max_soc_kwh=ev.max_soc_kwh,
                         max_capacity_kwh=ev.battery_capacity_kwh,
                         max_charge_power_w=self.bidirectional_evse.max_charge_power_w,
+                        max_discharge_power_w=self.bidirectional_evse.max_discharge_power_w,
                         roundtrip_efficiency=ev.charging_efficiency,
                         back_to_max_soc=self.back_to_max_soc,
                     )
@@ -489,7 +490,7 @@ class V2Gliberty:
                 )
                 minutes_to_reach_min_soc = int(
                     math.ceil(
-                        (delta_to_min_soc_wh / c.CHARGER_MAX_DISCHARGE_POWER * 60)
+                        (delta_to_min_soc_wh / self.bidirectional_evse.max_discharge_power_w * 60)
                     )
                 )
 
