@@ -90,6 +90,7 @@ def test_initialise_ev(
     # Act
     ev.initialise_ev(
         name,
+        "test-car-id",
         battery_capacity_kwh,
         charging_efficiency_percent,
         consumption_wh_per_km,
@@ -110,7 +111,7 @@ async def test_set_soc_emits_soc_changed_event(mock_hass, mock_event_bus):
     """Test that setting a new SoC emits the SOC_CHANGED_EVENT_NAME event."""
     # Arrange
     ev = ElectricVehicle(mock_hass, mock_event_bus)
-    ev.initialise_ev("Test EV", 50, 80, 150, 20, 80)
+    ev.initialise_ev("Test EV", "test-car-id", 50, 80, 150, 20, 80)
     ev.set_soc(50.0)  # Set initial SoC
     mock_event_bus.emit_event.reset_mock()
 
@@ -128,7 +129,7 @@ async def test_set_soc_emits_remaining_range_event(mock_hass, mock_event_bus):
     """Test that setting a new SoC emits the REMAINING_RANGE_EVENT_NAME event."""
     # Arrange
     ev = ElectricVehicle(mock_hass, mock_event_bus)
-    ev.initialise_ev("Test EV", 50, 80, 150, 20, 80)
+    ev.initialise_ev("Test EV", "test-car-id", 50, 80, 150, 20, 80)
     ev.set_soc(50.0)  # Set initial SoC
     mock_event_bus.emit_event.reset_mock()
 
@@ -146,7 +147,7 @@ async def test_set_soc_does_not_emit_event_if_same(mock_hass, mock_event_bus):
     """Test that setting the same SoC does not emit any events."""
     # Arrange
     ev = ElectricVehicle(mock_hass, mock_event_bus)
-    ev.initialise_ev("Test EV", 50, 80, 150, 20, 80)
+    ev.initialise_ev("Test EV", "test-car-id", 50, 80, 150, 20, 80)
     ev.set_soc(50.0)  # Set initial SoC
     mock_event_bus.emit_event.reset_mock()
 
@@ -162,7 +163,7 @@ async def test_set_soc_does_not_emit_event_if_invalid(mock_hass, mock_event_bus)
     """Test that setting an invalid SoC does not emit any events."""
     # Arrange
     ev = ElectricVehicle(mock_hass, mock_event_bus)
-    ev.initialise_ev("Test EV", 50, 80, 150, 20, 80)
+    ev.initialise_ev("Test EV", "test-car-id", 50, 80, 150, 20, 80)
     ev.set_soc(50.0)  # Set initial SoC
     mock_event_bus.emit_event.reset_mock()
 
@@ -178,7 +179,7 @@ async def test_remaining_range_calculation_and_event(mock_hass, mock_event_bus):
     """Test that remaining range is calculated and event is emitted with correct value."""
     # Arrange
     ev = ElectricVehicle(mock_hass, mock_event_bus)
-    ev.initialise_ev("Test EV", 50, 80, 150, 20, 80)
+    ev.initialise_ev("Test EV", "test-car-id", 50, 80, 150, 20, 80)
     ev.set_soc(50.0)  # Set SoC to 50%
     mock_event_bus.emit_event.reset_mock()
 
