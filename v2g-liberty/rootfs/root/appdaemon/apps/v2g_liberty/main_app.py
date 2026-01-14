@@ -1340,9 +1340,6 @@ class V2Gliberty:
         )
 
     async def __start_max_discharge_now(self):
-        # TODO: Check if .set_active() is really a good idea here?
-        #       If the client is not active there might be a good reason for that...
-        await self.bidirectional_evse.set_active()
         await self.__set_charge_power(
             {
                 "charge_power": -self.bidirectional_evse.max_discharge_power_w,
@@ -1351,9 +1348,6 @@ class V2Gliberty:
         )
 
     async def __start_max_charge_now(self):
-        # TODO: Check if .set_active() is really a good idea here?
-        #       If the client is not active there might be a good reason for that...
-        await self.bidirectional_evse.set_active()
         await self.__set_charge_power(
             {
                 "charge_power": self.bidirectional_evse.max_charge_power_w,
