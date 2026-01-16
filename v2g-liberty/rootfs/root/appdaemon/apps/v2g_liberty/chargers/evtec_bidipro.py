@@ -604,7 +604,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             reason (str, optional): For debugging only
         """
 
-        cancel_timer_silently(self._hass,self._poll_timer_handle)
+        cancel_timer_silently(self._hass, self._poll_timer_handle)
         self._poll_timer_handle = await self._hass.run_every(
             self._get_and_process_evse_data,
             "now",
@@ -622,7 +622,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             reason (str, optional): For debugging only
         """
         self._log(f"reason: {reason}")
-        cancel_timer_silently(self._hass,self._poll_timer_handle)
+        cancel_timer_silently(self._hass, self._poll_timer_handle)
         self._poll_timer_handle = None
         self._eb.emit_event("evse_polled", stop=True)
 
@@ -808,10 +808,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         return is_charging
 
     async def _get_car_soc(self, force_renew: bool = True) -> int | None:
-        """Checks if a SoC value is new enough to return directly or if it should be updated first.
+        """Checks if a SoC value is available from polling.
 
-        :param force_renew (bool):
-        This forces the method to get the soc from the car and bypass any cached value.
+        Note: force_renew parameter is kept for API compatibility but ignored.
+        EVtec reliably reports SoC via polling (every 5 seconds), no forced reads needed.
 
         :return (int):
         SoC value from 2 to 97 (%) or None.
@@ -820,48 +820,21 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         if self._mb_client is None:
             self._log("Modbus client not initialised, aborting", level="WARNING")
-            return
+            return None
 
         if not await self.is_car_connected():
             self._log("no car connected, returning SoC = None")
             return None
 
-        ecs = self._MCE_CAR_SOC
-        soc_value = ecs.current_value
-        should_be_renewed = False
+        mce = self._MCE_CAR_SOC
+        soc_value = mce.current_value
+
+        # Polling keeps this value updated every 5 seconds.
+        # ModbusConfigEntity validates the value (2-97% range).
+        # No need for force_get_register - it only adds 10-20 second delays.
         if soc_value is None:
-            # This can occur if it is queried for the first time and no polling has taken place
-            # yet. Then the entity does not exist yet and returns None.
-            self._log("current_value is None so should_be_renewed = True")
-            should_be_renewed = True
+            self._log("SoC not yet available from polling, returning None")
 
-        if force_renew:
-            # Needed usually only when car has been disconnected. The polling then does not read SoC
-            # and this probably changed and polling might not have picked this up yet.
-            self._log("force_renew == True so should_be_renewed = True")
-            should_be_renewed = True
-
-        if should_be_renewed:
-            self._log("old or invalid SoC in HA Entity: renew")
-            soc_address = ecs.modbus_address
-
-            # TODO: move to ElectricVehicle class??
-            min_value_at_forced_get = ecs.minimum_value
-            max_value_at_forced_get = ecs.maximum_value
-            relaxed_min_value = ecs.relaxed_min_value
-            relaxed_max_value = ecs.relaxed_max_value
-
-            soc_in_charger = await self._mb_client.force_get_register(
-                register=soc_address,
-                min_value_at_forced_get=min_value_at_forced_get,
-                max_value_at_forced_get=max_value_at_forced_get,
-                min_value_after_forced_get=relaxed_min_value,
-                max_value_after_forced_get=relaxed_max_value,
-            )
-            # Rare but possible. None can also occur if charger is in error
-            if soc_in_charger == 0:
-                soc_in_charger = None
-            await self._update_mce(mce=ecs, new_value=soc_in_charger)
         self._log(f"returning: '{soc_value}'.")
         return soc_value
 
@@ -1110,7 +1083,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 )
                 return
         else:
-            cancel_timer_silently(self._hass,self._timer_id_check_error_state)
+            cancel_timer_silently(self._hass, self._timer_id_check_error_state)
             self._timer_id_check_error_state = None
             # TODO: check if it is wise to use this same event for both
             # modbus communication lost and charger error
@@ -1154,4 +1127,3 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 return None
         else:
             return processed_number
-

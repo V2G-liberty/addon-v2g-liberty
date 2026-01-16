@@ -263,9 +263,6 @@ class ElectricVehicle(BaseEV):
             self._eb.emit_event(
                 self.SOC_CHANGED_EVENT_NAME, new_soc=new_soc, old_soc=current_soc
             )
-            self.__log(
-                f"Emitting remaining_range_change event with range {self.remaining_range_km} km."
-            )
             self._eb.emit_event(
                 self.REMAINING_RANGE_EVENT_NAME,
                 remaining_range=self.remaining_range_km,

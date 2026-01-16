@@ -730,7 +730,10 @@ class V2GLibertyGlobals:
                 # information stored in the entity (in the UI). Store this setting, but not if it is
                 # empty or "unknown" or "Please choose an option" (the latter for input_select
                 # entities).
-                return_value = setting_entity.get("state", None)
+                if setting_entity is None:
+                    return_value = None
+                else:
+                    return_value = setting_entity.get("state", None)
                 if return_value is not None and return_value not in [
                     "",
                     "unknown",
@@ -760,17 +763,20 @@ class V2GLibertyGlobals:
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
         message = f"set '{entity_name}' to"
-        mode = setting_entity["attributes"].get("mode", "none").lower()
-        if mode == "password":
-            message = f"{message} ********"
-        else:
-            message = f"{message} '{return_value}'"
+        if setting_entity is not None:
+            mode = setting_entity["attributes"].get("mode", "none").lower()
+            if mode == "password":
+                message = f"{message} ********"
+            else:
+                message = f"{message} '{return_value}'"
 
-        uom = setting_entity["attributes"].get("unit_of_measurement")
-        if uom:
-            message = f"{message} {uom}."
+            uom = setting_entity["attributes"].get("unit_of_measurement")
+            if uom:
+                message = f"{message} {uom}."
+            else:
+                message = f"{message}."
         else:
-            message = f"{message}."
+            message = f"{message} '{return_value}'."
         self.__log(message)
 
         return return_value

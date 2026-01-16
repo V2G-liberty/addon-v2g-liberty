@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 import struct
+import time
 
 
 @dataclass
@@ -180,9 +181,12 @@ class ModbusConfigEntity:
     maximum_value: int | float | None = None
     relaxed_min_value: int | float | None = None
     relaxed_max_value: int | float | None = None
+
+    # None means "unavailable", there is no real None value.
     current_value: Any | None = None
     pre_processor: str | None = None
     change_handler: str | None = None
+    last_updated: float | None = None  # Unix timestamp of last successful update
 
     def set_value(self, new_value: Any, owner: Any = None) -> bool:
         """
@@ -198,67 +202,84 @@ class ModbusConfigEntity:
             bool: True if the value changed, False otherwise.
         """
 
-        if new_value is None:
-            # When read_registers returns None there was an error, not an actual value
-            return False
+        # Guard for None value from modbus register is done _get_and_process_registers
 
-        try:
-            dt = self.modbus_register.data_type
-
-            if dt in ("uint16", "int16", "uint32", "int32", "int64"):
-                new_value = int(float(new_value))
-            elif dt == "float32":
-                new_value = float(new_value)
-            elif dt == "string":
-                new_value = str(new_value)
-            else:
-                print(
-                    f"[WARNING] Unknown data_type '{dt}' in MBR; value left unchanged"
-                )
-
-        except Exception as e:
-            print(
-                f"[WARNING] Failed to convert value '{new_value}' for type '{dt}': {e}"
-            )
-            return False
-
-        if self.pre_processor is not None:
+        if new_value is not None:
             try:
-                if owner is None:
-                    raise ValueError("owner must be provided when using pre_processor")
+                dt = self.modbus_register.data_type
 
-                bound_method = getattr(owner, self.pre_processor)
-                new_value = bound_method(new_value)
+                if dt in ("uint16", "int16", "uint32", "int32", "int64"):
+                    new_value = int(float(new_value))
+                elif dt == "float32":
+                    new_value = float(new_value)
+                elif dt == "string":
+                    new_value = str(new_value)
+                else:
+                    print(
+                        f"[WARNING] Unknown data_type '{dt}' in MBR; value left unchanged"
+                    )
 
             except Exception as e:
-                print(f"[WARNING] Pre_processor '{self.pre_processor}' failed: {e}")
+                print(
+                    f"[WARNING] Failed to convert value '{new_value}' for type '{dt}': {e}"
+                )
                 return False
 
-        if (
-            self.minimum_value is not None
-            and self.maximum_value is not None
-            and not (self.minimum_value <= new_value <= self.maximum_value)
-        ):
-            # Value is outside min/max
+            if self.pre_processor is not None:
+                try:
+                    if owner is None:
+                        raise ValueError(
+                            "owner must be provided when using pre_processor"
+                        )
 
-            if self.current_value is not None:
-                # Ignore and keep current value unless that is None
-                return False
+                    bound_method = getattr(owner, self.pre_processor)
+                    new_value = bound_method(new_value)
 
-            # Current value is None: This is rare, current_value will only be None at startup.
-            # Not setting a value will cause the application to hang.
-            # TODO: Check if this is still the case, seems strange as it still sets value to None...
-            # Lets use the relaxed  min/max if the entity supports that.
-            if self.relaxed_min_value is None and self.relaxed_max_value is None:
-                new_value = None
-            elif self.relaxed_min_value <= new_value <= self.relaxed_max_value:
-                # New value in relaxed range and current value is none, accept the new_value
-                pass
-            else:
-                # Current_value is None and new_value is outside releaxed range.
-                new_value = None
+                except Exception as e:
+                    print(f"[WARNING] Pre_processor '{self.pre_processor}' failed: {e}")
+                    return False
+
+            if (
+                self.minimum_value is not None
+                and self.maximum_value is not None
+                and not (self.minimum_value <= new_value <= self.maximum_value)
+            ):
+                # Value is outside min/max
+
+                if self.current_value is not None:
+                    # Ignore and keep current value unless that is None
+                    return False
+
+                # Current value is None: usually at startup or when "unavailable"; e.g. the SoC when
+                # the car is disconnected.
+                # Lets use the relaxed  min/max if the entity supports that.
+                if self.relaxed_min_value is None or self.relaxed_max_value is None:
+                    new_value = None
+                elif self.relaxed_min_value <= new_value <= self.relaxed_max_value:
+                    # new_value is in relaxed range and current value is none, accept the new_value
+                    pass
+                else:
+                    # Current_value is None and new_value is outside releaxed range.
+                    new_value = None
 
         has_changed = new_value != self.current_value
         self.current_value = new_value
+        self.last_updated = time.time()
 
         return has_changed
+
+    def is_value_fresh(self, max_age_seconds: float) -> bool:
+        """
+        Check if the current value is fresh enough (updated within max_age_seconds).
+
+        Args:
+            max_age_seconds: Maximum age in seconds for the value to be considered fresh
+
+        Returns:
+            bool: True if value exists and was updated within max_age_seconds, False otherwise
+        """
+        if self.last_updated is None:
+            return False
+
+        age = time.time() - self.last_updated
+        return age < max_age_seconds

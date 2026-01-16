@@ -4,6 +4,7 @@ import asyncio
 from typing import Callable, Optional, Union, List
 from collections import defaultdict
 from appdaemon import Hass
+from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from pymodbus.client import AsyncModbusTcpClient as amtc
 from pymodbus.exceptions import ModbusException, ConnectionException
 from pyee.asyncio import AsyncIOEventEmitter
@@ -37,6 +38,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         """
         super().__init__()
         self.hass = hass
+        self._log = get_class_method_logger(hass.log)
         self._cb_modbus_state = cb_modbus_state
         # ModBusClient
         self._mbc = None
@@ -48,7 +50,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         self._timer_id_check_modus_exception_state: str = None
         self._timer_id_check_error_state: str = None
 
-        print("V2GmodbusClient init completed")
+        self._log("V2GmodbusClient init completed")
 
     async def adhoc_read_register(
         self, modbus_address: int, host: str, port: int = 502
@@ -82,14 +84,17 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             result = result.registers[0]
             return True, result
         except ModbusException as me:
-            print(f"[WARNING] Error Adhoc reading of register: {me}")
+            self._log(f"Error Adhoc reading of register: {me}", level="WARNING")
             return False, None
         finally:
             temporary_mb_client.close()
 
     async def __create_client(self, host: str, port: int) -> amtc:
         if host is None or port is None:
-            print("[WARNING] Could not create Modbus client: host or port are None.")
+            self._log(
+                "Could not create Modbus client: host or port are None.",
+                level="WARNING",
+            )
             return None
 
         try:
@@ -102,14 +107,15 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             # A dummy read that forces the TCP connection to establish, use defaults where possible.
             await client.read_holding_registers(address=0)
         except ConnectionException:
-            print(
-                f"[WARNING] Could not establish TCP connection to '{host}:{port}', aborting."
+            self._log(
+                f"Could not establish TCP connection to '{host}:{port}', aborting.",
+                level="WARNING",
             )
             return None
         except ModbusException as me:
             # Other Modbus errors (e.g. illegal address due to use of default?) still mean the
             # device is reachable
-            print(f"Could not read from modbus client, ModbusException: {me}.")
+            self._log(f"Could not read from modbus client, ModbusException: {me}.")
 
         return client
 
@@ -129,9 +135,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         self._mbc = await self.__create_client(host=host, port=port)
         if self._mbc is None:
-            print("[WARNING] Modbus client not created.")
+            self._log("Modbus client not created.", level="WARNING")
             return False
-        print(f"Succesful connection to {host}:{port}.")
+        self._log(f"Succesful connection to {host}:{port}.")
         return True
 
     def terminate(self) -> None:
@@ -142,7 +148,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             try:
                 self._mbc.close()
             except ModbusException as me:
-                print(f"Error while closing Modbus connection: {me}")
+                self._log(
+                    f"Error while closing Modbus connection: {me}", level="WARNING"
+                )
             finally:
                 self._mbc = None
 
@@ -150,46 +158,47 @@ class V2GmodbusClient(AsyncIOEventEmitter):
     #                OLD METHODS FIRST GENERATION MODBUS CHARGERS (EG WALBOX QUASAR 1)             #
     ################################################################################################
 
-    async def modbus_write(self, address: int, value: int, source: str) -> bool:
-        """Generic modbus write function.
-           Writing to the modbus server should exclusively be done through this function
+    # async def modbus_write(self, address: int, value: int, source: str) -> bool:
+    #     """Generic modbus write function.
+    #        Writing to the modbus server should exclusively be done through this function
 
-        Args:
-            address (int): the register / address to write to
-            value (int): the value to write
-            source (str): only for debugging
+    #     Args:
+    #         address (int): the register / address to write to
+    #         value (int): the value to write
+    #         source (str): only for debugging
 
-        Returns:
-            bool: True if write was successful
-        """
+    #     Returns:
+    #         bool: True if write was successful
+    #     """
 
-        if self._mbc is None:
-            return False
+    #     if self._mbc is None:
+    #         return False
 
-        if value < 0:
-            # Modbus cannot handle negative values directly.
-            value = self.MAX_USI + value
+    #     if value < 0:
+    #         # Modbus cannot handle negative values directly.
+    #         value = self.MAX_USI + value
 
-        result = None
-        try:
-            result = await self._mbc.write_register(
-                address=address,
-                value=value,
-                device_id=1,
-            )
-        except ModbusException as me:
-            print(f"[WARNING] ModbusException {me}")
-            await self._handle_modbus_exception(source="modbus_write")
-            return False
-        else:
-            await self._reset_modbus_exception()
+    #     result = None
+    #     try:
+    #         result = await self._mbc.write_register(
+    #             address=address,
+    #             value=value,
+    #             device_id=1,
+    #         )
+    #     except ModbusException as me:
+    #         self._log(f"ModbusException {me}", level="WARNING")
+    #         await self._handle_modbus_exception(source="modbus_write")
+    #         return False
+    #     else:
+    #         await self._reset_modbus_exception()
 
-        if result is None:
-            print("[WARNING] Failed to write to modbus server.")
-            return False
+    #     if result is None:
+    #         self._log("Failed to write to modbus server.", level="WARNING")
+    #         return False
 
-        return True
+    #     return True
 
+    # Deprecated, but keep for now for debugging
     async def modbus_read(self, address: int, length: int = 1, source: str = "unknown"):
         """Generic modbus read function.
            Reading from the modbus server is preferably done through this function
@@ -207,11 +216,11 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         """
 
         if self._mbc is None:
-            print("[WARNING] Modbus client not initialised")
+            self._log("Modbus client not initialised", level="WARNING")
             return None
 
         if not self._mbc.connected:
-            print("Connecting Modbus client")
+            self._log("Connecting Modbus client")
             await self._mbc.connect()
 
         result = None
@@ -222,7 +231,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 device_id=1,
             )
         except ModbusException as me:
-            print(f"[WARNING] ModbusException {me}")
+            self._log(f"ModbusException {me}", level="WARNING")
             is_unrecoverable = await self._handle_modbus_exception(source="modbus_read")
             if is_unrecoverable:
                 return None
@@ -230,10 +239,11 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             await self._reset_modbus_exception()
 
         if result.isError():
-            print(f"[WARNING] Modbus error for address {address}: {result}")
+            self._log(f"Modbus error for address {address}: {result}", level="WARNING")
         elif result is None:
-            print(
-                f"[WARNING] Result is None for address '{address}' and length '{length}'."
+            self._log(
+                f"Result is None for address '{address}' and length '{length}'.",
+                level="WARNING",
             )
             return None
 
@@ -249,21 +259,29 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         max_value_after_forced_get: int = None,
     ) -> int | None:
         """
-        When a 'realtime' reading from the modbus server is needed, as opposed to
-        stored value from polling.
-        It is expected to be between min_value_at_forced_get/max_value_at_forced_get.
-        This is aimed at the SoC, this is expected to be between 2 and 97%, but at
-        timeout 1% to 100% is acceptable.
+        LEGACY METHOD for Wallbox Quasar 1 compatibility.
 
-        If the value is not in the wider acceptable range at timeout we assume
-        the modbus server has crashed, and we call __handle_un_recoverable_error.
+        Repeatedly reads a modbus register until a value within the acceptable range is retrieved.
+        This is needed for Wallbox Quasar 1 which:
+        - Returns 0 for SoC when not charging (hardware limitation)
+        - Has unreliable readings during state transitions
+
+        Modern chargers (EVtec BiDiPro) should NOT use this method.
+        Instead, trust the polled values from ModbusConfigEntity which are updated every 5 seconds.
+
+        WARNING: This method can take 10-20 seconds to complete.
+        Check if polling already has a valid value before calling this method
+        to avoid unnecessary delays.
+
+        The method loops every 0.25 seconds until a value is within the expected range,
+        or times out after 60 seconds.
 
         :param register: The address to read from
-        :param min_value_at_forced_get: min acceptable value
-        :param max_value_at_forced_get: max acceptable value
-        :param min_value_after_forced_get: min acceptable value after the timeout
-        :param max_value_after_forced_get: max acceptable value after the timeout
-        :return: the read value
+        :param min_value_at_forced_get: min acceptable value (e.g., 2% for SoC)
+        :param max_value_at_forced_get: max acceptable value (e.g., 97% for SoC)
+        :param min_value_after_forced_get: relaxed min value after timeout (e.g., 1% for SoC)
+        :param max_value_after_forced_get: relaxed max value after timeout (e.g., 100% for SoC)
+        :return: the read value, or None if timeout with invalid value
         """
 
         if self._mbc is None:
@@ -286,7 +304,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                     register, count=1, device_id=1
                 )
             except ModbusException as me:
-                print(f"[WARNING] ModbusException {me}")
+                self._log(f"ModbusException {me}", level="WARNING")
                 is_unrecoverable = await self._handle_modbus_exception(
                     source="force_get_register"
                 )
@@ -300,7 +318,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                     result = self._get_2comp(result.registers[0])
                     if min_value_at_forced_get <= result <= max_value_at_forced_get:
                         # Acceptable result retrieved
-                        print(f"After {total_time} sec. value {result} was retrieved.")
+                        self._log(
+                            f"After {total_time} sec. value {result} was retrieved."
+                        )
                         break
                 except TypeError:
                     pass
@@ -323,10 +343,12 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                         <= result
                         <= max_value_after_forced_get
                     ):
-                        print(f"after timed out relevant value was {result}.")
+                        self._log(f"after timed out relevant value was {result}.")
                         break
 
-                print("timed out, no relevant value was retrieved.")
+                self._log(
+                    "timed out, no relevant value was retrieved.", level="WARNING"
+                )
                 # This does not always trigger a connection exception, but we can assume the
                 # connection is down. This normally would result in ModbusExceptions earlier
                 # and these would normally trigger __handle_un_recoverable_error already.
@@ -352,14 +374,12 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             return []
 
         if self._mbc is None:
-            print("[WARNING] Modbus client not initialised")
+            self._log("Modbus client not initialised", level="WARNING")
             return [None] * len(modbus_registers)
 
         if not self._mbc.connected:
-            print("Connecting Modbus client")
+            self._log("Connecting Modbus client")
             await self._mbc.connect()
-
-        # print("TCP / Modbus Connected: trying to read...")
 
         # Use id(mbr) because MBR is not hashable
         index_map = {id(mbr): i for i, mbr in enumerate(modbus_registers)}
@@ -378,14 +398,35 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             start_address = sorted_ranges[0].address
             end_address = sorted_ranges[-1].address + sorted_ranges[-1].length - 1
 
-            response = await self._mbc.read_holding_registers(
-                address=start_address,
-                count=end_address - start_address + 1,
-                device_id=device_id,
-            )
+            try:
+                response = await self._mbc.read_holding_registers(
+                    address=start_address,
+                    count=end_address - start_address + 1,
+                    device_id=device_id,
+                )
+            except ModbusException as me:
+                self._log(
+                    f"ModbusException reading device {device_id}: {me}", level="WARNIG"
+                )
+                is_unrecoverable = await self._handle_modbus_exception(
+                    source="read_registers"
+                )
+                # Set None for all registers in this device
+                for mbr in device_ranges:
+                    results[index_map[id(mbr)]] = None
+                if is_unrecoverable:
+                    # Return immediately - no point continuing if connection is dead
+                    return results
+                # Otherwise continue to next device (recoverable error)
+                continue
+            else:
+                # Only reset exception counter on successful reads
+                await self._reset_modbus_exception()
 
             if response.isError():
-                print(f"[WARNING] Modbus error for device {device_id}: {response}")
+                self._log(
+                    f"Modbus error for device {device_id}: {response}", level="WARNING"
+                )
                 for mbr in device_ranges:
                     results[index_map[id(mbr)]] = None
                 continue
@@ -420,18 +461,18 @@ class V2GmodbusClient(AsyncIOEventEmitter):
 
         # Ensure client exists
         if self._mbc is None:
-            print("[WARNING] Modbus client not initialized")
+            self._log("Modbus client not initialized", level="WARNING")
             return False
 
         # Ensure connection
         if not self._mbc.connected:
-            print("Connecting Modbus client")
+            self._log("Connecting Modbus client")
             await self._mbc.connect()
 
         try:
             registers = modbus_register.encode(value)
             if not registers:
-                print(f"[WARNING] Encoding failed for {modbus_register}")
+                self._log(f"Encoding failed for {modbus_register}", level="WARNING")
                 return False
 
             # Use write_register for single register, write_registers for multiple
@@ -449,8 +490,9 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 )
 
             if response.isError():
-                print(
-                    f"[WARNING] Write error for address {modbus_register.address}: {response}."
+                self._log(
+                    f"Write error for address {modbus_register.address}: {response}.",
+                    level="WARNING",
                 )
                 await self._handle_modbus_exception(source="write_modbus_register")
                 return False
@@ -459,11 +501,16 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             return True
 
         except ModbusException as me:
-            print(f"[WARNING] ModbusException writing register {modbus_register}: {me}")
+            self._log(
+                f"ModbusException writing register {modbus_register}: {me}",
+                level="WARNING",
+            )
             await self._handle_modbus_exception(source="write_modbus_register")
             return False
         except Exception as e:
-            print(f"[WARNING] Error writing Modbus register {modbus_register}: {e}")
+            self._log(
+                f"Error writing Modbus register {modbus_register}: {e}", level="WARNING"
+            )
             return False
 
     ################################################################################################
@@ -489,7 +536,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         # Until then do not treat the exception as a problem and do not increment the counter.
         # Most likely the app is still initialising or user is still busy configuring.
         if self._modbus_exception_counter is None:
-            print(f"{source}: modbus exception. Configuration not (yet) valid?")
+            self._log(f"{source}: modbus exception. Configuration not (yet) valid?")
             is_unrecoverable = False
 
         # So, there is an exception after initialisation, this still could self recover.
@@ -516,7 +563,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         return is_unrecoverable
 
     async def _handle_un_recoverable_error(self, *_args):
-        print("[WARNING] There are persistent modbus exceptions.")
+        self._log("There are persistent modbus exceptions.", level="WARNING")
         # This method could be called from two timers. Make sure both are canceled so no double
         # notifications get sent.
         cancel_timer_silently(self.hass, self._timer_id_check_modus_exception_state)
@@ -530,7 +577,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
         To be called every time there has been a successful modbus read/write.
         """
         if self._modbus_exception_counter == 1:
-            print("There was an modbus exception, now solved.")
+            self._log("There was an modbus exception, now solved.")
             await self._cb_modbus_state(persistent_problem=False)
         self._modbus_exception_counter = 0
         cancel_timer_silently(self.hass, self._timer_id_check_modus_exception_state)

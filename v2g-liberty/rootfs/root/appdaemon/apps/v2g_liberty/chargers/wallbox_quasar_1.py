@@ -10,6 +10,7 @@
 #   the Charger by the Software.                                                      #
 #######################################################################################
 
+import time
 from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.log_wrapper import get_class_method_logger
@@ -86,12 +87,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     ################################################################################################
     # EVSE Entities                                                                                #
     #                                                                                              #
-    # These ModbusConfigEntity instances hold constants for each entity (e.g., Modbus address,    #
-    # min/max values) and cache the charger's current values.                                     #
+    # These ModbusConfigEntity instances hold constants for each entity (e.g., Modbus address,     #
+    # min/max values) and cache the charger's current values.                                      #
     #                                                                                              #
-    # - `current_value` is initialized as `None` to indicate it has not been set yet.             #
-    # - `pre_processor` (optional): A synchronous method with one parameter: `new_value`.         #
-    # - `change_handler` (optional): An asynchronous method with two parameters: `new_value`,     #
+    # - `current_value` is initialized as `None` to indicate it has not been set yet.              #
+    # - `pre_processor` (optional): A synchronous method with one parameter: `new_value`.          #
+    # - `change_handler` (optional): An asynchronous method with two parameters: `new_value`,      #
     #    `old_value`.                                                                              #
     ################################################################################################
 
@@ -514,6 +515,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             return
 
         await self._set_charger_control("take")
+
+        # Get SoC BEFORE starting charger to avoid race condition where _get_car_soc
+        # might stop the charger we're about to start
+        current_soc = await self._get_car_soc()
+
         if power_in_watt == 0:
             await self._set_charger_action(
                 action="stop",
@@ -524,9 +530,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 action="start",
                 reason=f"called with power = {power_in_watt}W",
             )
-
         await self._set_charge_power(
             charge_power=power_in_watt,
+            current_soc=current_soc,
             source="start_charging",
         )
 
@@ -537,7 +543,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 "called while _am_i_active == False. Not blocking call to make stop reliable."
             )
         await self._set_charger_action("stop", reason="stop_charging")
-        await self._set_charge_power(charge_power=0, source="stop_charging")
+        fake_soc = 50
+        await self._set_charge_power(
+            charge_power=0, current_soc=fake_soc, source="stop_charging"
+        )
 
     async def is_charging(self) -> bool:
         """Is the battery being charged (positive power value, soc is increasing)"""
@@ -722,25 +731,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """
         current_value = evse_entity.current_value
 
-        # Call pre_processor if defined.
-        # Pre_processor method must be sync and have one parameter: new_value
-        if evse_entity.pre_processor is not None:
-            method_name = evse_entity.pre_processor
-            if isinstance(method_name, str):
-                try:
-                    bound_method = getattr(self, method_name)
-                    new_value = bound_method(new_value)
-                except AttributeError:
-                    self._log(
-                        f"Pre_processor method '{method_name}' does not exist!",
-                        level="WARNING",
-                    )
-            else:
-                self._log("Pre_processor is not a string!", level="WARNING")
+        # Use set_value() which handles type conversion, pre_processor, and validation
+        has_changed = evse_entity.set_value(new_value, owner=self)
 
-        evse_entity.current_value = new_value
-
-        if current_value != new_value:
+        if has_changed:
             # Call change_handler if defined
             # change_handler method must be async and have two parameters: new_value, old_value
             if evse_entity.change_handler is not None:
@@ -750,7 +744,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                         change_handler_method = getattr(
                             self, change_handler_method_name
                         )
-                        await change_handler_method(new_value, current_value)
+                        await change_handler_method(
+                            evse_entity.current_value, current_value
+                        )
                     except AttributeError:
                         self._log(
                             f"Change_handler_method '{change_handler_method_name}' does not exist!",
@@ -768,7 +764,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # This is the case for the _MCE_ERROR_1..4. The charger_state
         # does not necessarily change only (one or more of) these error-states.
         # So the state is not added to the call.
-        self._log(f"new_error: {new_error}, old_error: {old_error}.", level="WARNING")
+        if old_error is not None:
+            self._log(
+                f"new_error: {new_error}, old_error: {old_error}.", level="WARNING"
+            )
         await self._handle_charger_error_state_change({"dummy": None})
 
     async def _handle_soc_change(self, new_soc, old_soc):
@@ -809,7 +808,10 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             new_charger_state_str=charger_state_text,
         )
 
-        if new_evse_state in self._DISCONNECTED_STATES:
+        if new_evse_state in self._ERROR_STATES:
+            # to exclude the other cases to run.
+            pass
+        elif new_evse_state in self._DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 
@@ -896,7 +898,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         )
         return is_charging
 
-    async def _get_car_soc(self, force_renew: bool = True) -> int | None:
+    async def _get_car_soc(self, force_renew: bool = False) -> int | None:
         """Checks if a SoC value is new enough to return directly or if it should be updated first.
 
         :param force_renew (bool):
@@ -915,30 +917,37 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._log("no car connected, returning SoC = None")
             return None
 
-        ecs = self._MCE_CAR_SOC
-        soc_value = ecs.current_value
+        mcs = self._MCE_CAR_SOC
+        soc_value = mcs.current_value
         should_be_renewed = False
-        if soc_value is None:
-            # This can occur if it is queried for the first time and no polling has taken place
-            # yet. Then the entity does not exist yet and returns None.
-            self._log("current_value is None so should_be_renewed = True")
-            should_be_renewed = True
 
         if force_renew:
             # Needed usually only when car has been disconnected. The polling then does not read SoC
             # and this probably changed and polling might not have picked this up yet.
             self._log("force_renew == True so should_be_renewed = True")
             should_be_renewed = True
+        elif not mcs.is_value_fresh(max_age_seconds=self._POLLING_INTERVAL_SECONDS):
+            # Polled value is either missing, invalid, or stale - need to force read
+            # Soc could be old in periods where no charging is preformed as the quasar then
+            # returns 0 for SoC which is ignored as a invalid value.
+            age_str = (
+                f"{time.time() - mcs.last_updated:.1f}s"
+                if mcs.last_updated
+                else "never"
+            )
+            self._log(f"SoC needs refresh (value: {soc_value}, age: {age_str}).")
+            should_be_renewed = True
 
         if should_be_renewed:
             self._log("old or invalid SoC in HA Entity: renew")
-            soc_address = ecs.modbus_register.address
+
+            soc_address = mcs.modbus_register.address
 
             # TODO: move to ElectricVehicle class??
-            min_value_at_forced_get = ecs.minimum_value
-            max_value_at_forced_get = ecs.maximum_value
-            relaxed_min_value = ecs.relaxed_min_value
-            relaxed_max_value = ecs.relaxed_max_value
+            min_value_at_forced_get = mcs.minimum_value
+            max_value_at_forced_get = mcs.maximum_value
+            relaxed_min_value = mcs.relaxed_min_value
+            relaxed_max_value = mcs.relaxed_max_value
 
             if await self._is_charging_or_discharging():
                 # self._log("called")
@@ -953,7 +962,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 if soc_in_charger == 0:
                     soc_in_charger = None
                 await self._update_evse_entity(
-                    evse_entity=ecs, new_value=soc_in_charger
+                    evse_entity=mcs, new_value=soc_in_charger
                 )
             else:
                 self._log("start a charge and read the soc until value is valid")
@@ -966,8 +975,12 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 self._charging_to_read_soc = True
                 await self._cancel_polling(reason="Charging to force reading soc")
                 await self._set_charger_control("take")
+                fake_soc = 50
                 await self._set_charge_power(
-                    charge_power=1, skip_min_soc_check=True, source="get_car_soc"
+                    charge_power=1,
+                    current_soc=fake_soc,
+                    skip_min_soc_check=True,
+                    source="get_car_soc",
                 )
                 await self._set_charger_action(
                     "start", reason="Charging to force reading soc"
@@ -982,15 +995,21 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 )
                 # Setting things back to inactive as it was before SoC reading started.
                 await self._set_charge_power(
-                    charge_power=0, skip_min_soc_check=True, source="get_car_soc"
-                )  # This also sets action to stop
+                    charge_power=0,
+                    current_soc=fake_soc,
+                    skip_min_soc_check=True,
+                    source="get_car_soc",
+                )
                 await self._set_charger_action("stop", reason="After force reading soc")
-                # This should can occure if charger is in error
-                if soc_in_charger in [None, 0]:
-                    soc_in_charger = "unavailable"
+
+                # Bit bdouble: should be done in MCE
+                # This can occur if charger is in error
+                # Convert 0 to None (0 means unavailable for this charger)
+                if soc_in_charger == 0:
+                    soc_in_charger = None
                 # Do before restart polling
                 await self._update_evse_entity(
-                    evse_entity=ecs, new_value=soc_in_charger
+                    evse_entity=mcs, new_value=soc_in_charger
                 )
                 self._charging_to_read_soc = False
                 await self._kick_off_polling(reason="After force reading soc")
@@ -1029,9 +1048,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             if not await self.is_car_connected():
                 self._log("Not performing charger action 'start': No car connected.")
                 return
-            if await self._is_charging_or_discharging():
-                self._log("Not performing charger action 'start': Already charging.")
-                return
+            # if await self._is_charging_or_discharging():
+            #     self._log("Not performing charger action 'start': Already charging.")
+            #     return
             action_value = self._ACTIONS["start_charging"]
 
         elif action == "stop":
@@ -1053,7 +1072,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         return
 
     async def _set_charge_power(
-        self, charge_power: int, skip_min_soc_check: bool = False, source: str = None
+        self,
+        charge_power: int,
+        current_soc: int,
+        skip_min_soc_check: bool = False,
+        source: str = None,
     ):
         """Private function to set desired (dis-)charge power in Watt in the charger.
            Check in place not to discharge below the set minimum.
@@ -1065,7 +1088,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 self._max_charge_power_w and -self._max_discharge_power_w
             skip_min_soc_check (bool, optional):
                 boolean is used when the check for the minimum soc needs to be skipped.
-                This is used when this method is called from the __get_car_soc Defaults to False.
+                This is used when this method is called from the _get_car_soc Defaults to False.
+            current_soc:
+                for comparison with min_soc
             source (str, optional):
               For logging purposes.
         """
@@ -1081,18 +1106,16 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._log(f"called from {source}, power {charge_power}.")
 
         ev = await self.get_connected_car()
-        if ev is None:
-            self._log("No car connected, cannot set charge power.", level="WARNING")
+        if ev is None or ev.min_soc_percent is None:
+            self._log(
+                "No car connected/not initialised yet, cannot set charge power.",
+                level="WARNING",
+            )
             return
+
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
-            current_soc = await self._get_car_soc()
-            if current_soc is None:
-                self._log(
-                    "current SoC is 'unavailable', only expected when car is not connected",
-                    level="WARNING",
-                )
-            elif current_soc <= ev.min_soc_percent:
+            if current_soc <= ev.min_soc_percent:
                 # Fail-safe, this should never happen...
                 self._log(
                     f"A discharge is attempted from {source=}, while the current SoC is below the "
@@ -1115,6 +1138,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             )
             charge_power = -self._max_discharge_power_w
 
+        # TODO:
+        # Does this check the actual chargepower (not good) of the requested chargepower (expected)?
         current_charge_power = await self._get_charge_power()
 
         if current_charge_power == charge_power:
@@ -1188,8 +1213,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             # + autostart to enable
             # + set_point to Ampere
             # + idle timeout to 0 (disabled)
+            fake_soc = 50
             await self._set_charge_power(
-                charge_power=0, source="_set_charger_control, give control"
+                charge_power=0,
+                current_soc=fake_soc,
+                source="_set_charger_control, give control",
             )
             await self._mb_client.write_modbus_register(
                 modbus_register=self._MBR_SET_CHARGER_CONTROL,
@@ -1214,6 +1242,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         else:
             # Only occurs after communication was first lost
             await self._modbus_communication_restored()
+
+    ################################ CHARGER ERROR HANDLING #################################
 
     async def _modbus_communication_lost(self):
         self._log(
@@ -1241,9 +1271,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
         # Set charger state to error, use quasar state number as the preprocessor will alter to
         # base_evse_state.
-        await self._update_evse_entity(
-            evse_entity=self._MCE_CHARGER_STATE, new_value=7
-        )
+        await self._update_evse_entity(evse_entity=self._MCE_CHARGER_STATE, new_value=7)
 
     async def _modbus_communication_restored(self):
         self._log("Modbus connection to Wallbox Quasar 1 EVSE restored.")
@@ -1263,8 +1291,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._eb.emit_event(
             "charger_communication_state_change", can_communicate=can_communicate
         )
-
-    ################################ CHARGER ERROR HANDLING #################################
 
     async def _handle_charger_error_state_change(self, kwargs):
         """Handle errors reported by the charger.

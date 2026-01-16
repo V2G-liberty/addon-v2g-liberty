@@ -218,6 +218,14 @@ class V2Gliberty:
     async def kick_off_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
 
+        # Check if EVSE is configured before proceeding
+        if self.bidirectional_evse is None:
+            self.__log(
+                "EVSE not configured yet. Please configure charger settings in the UI.",
+                level="WARNING",
+            )
+            return
+
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
             self.__log("Charge_mode == 'Stop' -> Setting EVSE client to inactive!")
@@ -260,6 +268,12 @@ class V2Gliberty:
         else:
             source = "unknown"
         self.__log(f"Set next action called from source: {source}.")
+
+        if self.bidirectional_evse is None:
+            self.__log(
+                "EVSE not configured yet, cannot set next action.", level="WARNING"
+            )
+            return
 
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
@@ -490,7 +504,11 @@ class V2Gliberty:
                 )
                 minutes_to_reach_min_soc = int(
                     math.ceil(
-                        (delta_to_min_soc_wh / self.bidirectional_evse.max_discharge_power_w * 60)
+                        (
+                            delta_to_min_soc_wh
+                            / self.bidirectional_evse.max_discharge_power_w
+                            * 60
+                        )
                     )
                 )
 
@@ -909,6 +927,12 @@ class V2Gliberty:
         old_state = old.get("state", None)
         self.__log(f"Charge mode has changed from '{old_state}' to '{new_state}'")
 
+        if self.bidirectional_evse is None:
+            self.__log(
+                "EVSE not configured yet, ignoring charge mode change.", level="WARNING"
+            )
+            return
+
         await self.__clear_all_soc_chart_lines()
 
         if old_state == "Automatic":
@@ -943,6 +967,7 @@ class V2Gliberty:
             )
 
         if old_state == "Stop" and new_state != "Stop":
+            self.__log("Switch from 'Pause' state to other: activate.")
             await self.bidirectional_evse.set_active()
 
         await self.set_next_action(v2g_args="__handle_charge_mode_change")
@@ -1070,11 +1095,7 @@ class V2Gliberty:
         """
 
         if reset:
-            if self.hass.timer_running(self.notification_timer_handle):
-                res = await self.hass.cancel_timer(self.notification_timer_handle)
-                self.__log(
-                    f"__notify_no_new_schedule, notification timer cancelled: {res}."
-                )
+            self.__cancel_timer(self.notification_timer_handle)
             self.no_schedule_notification_is_planned = False
             self.notifier.clear_notification(tag="no_new_schedule")
             await self.hass.set_state(
@@ -1157,6 +1178,10 @@ class V2Gliberty:
         Args:
             timer_id: timer_handle to cancel
         """
+        if timer_id is None:
+            self.__log("Cannot cancel timer, timer_id is None", level="WARNING")
+            return
+
         if self.hass.timer_running(timer_id):
             silent = True  # Does not really work
             self.hass.cancel_timer(timer_id, silent)
@@ -1164,10 +1189,10 @@ class V2Gliberty:
     def __cancel_charging_timers(self):
         for h in self.scheduling_timer_handles:
             self.__cancel_timer(h)
-        self.scheduling_timer_handles = []
         self.__log(
             f"Canceled all {len(self.scheduling_timer_handles)} charging timers."
         )
+        self.scheduling_timer_handles = []
 
     def __reset_charging_timers(self, handles):
         self.__log(
@@ -1328,6 +1353,8 @@ class V2Gliberty:
             return
 
         source = kwargs.get("source", "unknown source")
+
+        self.__log(f"Set power to {charge_power_in_watt}. Source: {source}.")
 
         await self.bidirectional_evse.start_charging(
             power_in_watt=charge_power_in_watt,
