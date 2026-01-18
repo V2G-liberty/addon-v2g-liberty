@@ -7,6 +7,12 @@ cd "$(dirname "$0")/../.."
 
 mkdir -p .devcontainer/config/{packages,www}
 
+# Copy packages (should always work)
 cp -avR v2g-liberty/rootfs/root/homeassistant/packages/* .devcontainer/config/packages/
-cp -avR v2g-liberty/rootfs/root/homeassistant/www/* .devcontainer/config/www/
+
+# Copy www files - ignore permission errors for volume-mounted files (v2g-liberty-cards)
+# Volume-mounted directories may cause permission errors, which are expected and safe to ignore
+cp -avR v2g-liberty/rootfs/root/homeassistant/www/* .devcontainer/config/www/ 2>/dev/null || echo "Note: Some www files skipped (expected for volume-mounted directories)"
+
+# Copy configuration file
 cp -av  v2g-liberty/rootfs/root/homeassistant/v2g_liberty_example_configuration.yaml .devcontainer/config/configuration.yaml
