@@ -17,10 +17,13 @@ pip install -r requirements.txt
 
 ### 2. Start the Mock Server
 
-```powershell
+```bash
 # From repository root
-.\setup-devcontainer.ps1 start-quasar
+# Windows: Use Git Bash (bundled with Git for Windows)
+./setup-devcontainer.sh dev
 ```
+
+**Note:** This starts the complete dev environment including the Quasar mock server. The mock server will be available on port 5020.
 
 ### 3. Start the CLI
 
@@ -112,13 +115,11 @@ charger-mocks/
 
 ### Docker Networking Overview
 
-The mock charger runs in a Docker container with a **static IP address** for reliable connectivity in the devcontainer environment.
+The mock charger runs in a Docker container using Docker's built-in DNS for service discovery.
 
 **Network Configuration:**
 - Network: `v2g_network` (custom bridge network)
-- Subnet: `172.20.0.0/16`
-- Gateway: `172.20.0.1`
-- Quasar Mock IP: **`172.20.0.10`** (static)
+- Service name: **`quasar-mock`** (Docker DNS resolves this automatically)
 
 This configuration is defined in [../.devcontainer/docker-compose.yaml](../.devcontainer/docker-compose.yaml).
 
@@ -128,8 +129,8 @@ The correct address depends on **where you're connecting from**:
 
 | Context | Use This Address | Why |
 |---------|------------------|-----|
-| **Home Assistant UI** (charger config) | `172.20.0.10:5020` | Home Assistant runs in Docker network, uses static IP |
-| **V2G Liberty app** (in container) | `172.20.0.10:5020` | AppDaemon runs in Docker network, uses static IP |
+| **Home Assistant UI** (charger config) | `quasar-mock:5020` | Home Assistant runs in Docker network, uses service name |
+| **V2G Liberty app** (in container) | `quasar-mock:5020` | AppDaemon runs in Docker network, uses service name |
 | **CLI from host machine** | `localhost:5020` | CLI runs on host, uses Docker port mapping |
 | **With Load Balancer enabled** | `127.0.0.1:5020` | Load balancer proxies between app and charger |
 
@@ -140,7 +141,7 @@ You may see `"listenerAddress": "0.0.0.0"` in the config files. This is the **se
 - ✅ **Server bind**: `0.0.0.0` (tells server where to listen)
 - ❌ **Client connect**: `0.0.0.0` (not a valid connection target)
 
-When configuring V2G Liberty in Home Assistant, you must use the **static IP** (`172.20.0.10`), not the bind address.
+When configuring V2G Liberty in Home Assistant, use the **Docker service name** (`quasar-mock`), not the bind address.
 
 ### Port Mapping
 
@@ -153,7 +154,7 @@ ports:
 
 This allows:
 - **External access** from host machine (e.g., CLI): `localhost:5020`
-- **Internal access** from other containers: `172.20.0.10:5020`
+- **Internal access** from other containers: `quasar-mock:5020` (Docker DNS)
 
 ---
 

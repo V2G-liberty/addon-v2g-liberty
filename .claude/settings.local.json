@@ -31,7 +31,12 @@
       "Bash(pwsh:*)",
       "Bash(git rm:*)",
       "Bash(gh pr:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(git fetch:*)",
+      "Bash(git log:*)",
+      "Bash(npm run build:*)",
+      "Bash(node -e:*)",
+      "Bash(gh api:*)"
     ],
     "deny": [],
     "ask": []

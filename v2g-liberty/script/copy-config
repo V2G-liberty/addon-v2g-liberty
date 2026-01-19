@@ -10,9 +10,28 @@ mkdir -p .devcontainer/config/{packages,www}
 # Copy packages (should always work)
 cp -avR v2g-liberty/rootfs/root/homeassistant/packages/* .devcontainer/config/packages/
 
-# Copy www files - ignore permission errors for volume-mounted files (v2g-liberty-cards)
-# Volume-mounted directories may cause permission errors, which are expected and safe to ignore
-cp -avR v2g-liberty/rootfs/root/homeassistant/www/* .devcontainer/config/www/ 2>/dev/null || echo "Note: Some www files skipped (expected for volume-mounted directories)"
+# Copy www files, explicitly skipping v2g-liberty-cards (it's volume-mounted from v2g-liberty-cards/dist)
+# We copy each item individually to avoid cross-device errors from bind mounts
+echo "Copying www files..."
+for item in v2g-liberty/rootfs/root/homeassistant/www/*; do
+    item_name=$(basename "$item")
+
+    if [ "$item_name" = "v2g_liberty" ]; then
+        # For v2g_liberty directory, copy everything except v2g-liberty-cards subdirectory
+        mkdir -p .devcontainer/config/www/v2g_liberty
+        for subitem in v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/*; do
+            subitem_name=$(basename "$subitem")
+            if [ "$subitem_name" != "v2g-liberty-cards" ]; then
+                cp -avR "$subitem" .devcontainer/config/www/v2g_liberty/
+            else
+                echo "  Skipping v2g-liberty-cards (volume-mounted from frontend build)"
+            fi
+        done
+    else
+        # Copy other www items normally
+        cp -avR "$item" .devcontainer/config/www/
+    fi
+done
 
 # Copy configuration file
-cp -av  v2g-liberty/rootfs/root/homeassistant/v2g_liberty_example_configuration.yaml .devcontainer/config/configuration.yaml
+cp -av v2g-liberty/rootfs/root/homeassistant/v2g_liberty_example_configuration.yaml .devcontainer/config/configuration.yaml

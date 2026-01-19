@@ -79,20 +79,20 @@ The built JS file is included in the Home Assistant package at `rootfs/root/home
 
 There are two ways to run the devcontainer. Both share the same Docker containers and network, so you can switch between them freely.
 
-#### Method 1: PowerShell Script (Recommended for Quick Start)
+#### Method 1: Setup Script (Recommended for Quick Start)
 
-**Prerequisites**: PowerShell Core 7+ is required
-- **Windows**: Usually pre-installed
-- **macOS**: `brew install powershell`
-- **Linux**: Install via package manager
+**Prerequisites**:
+- **Windows**: Git Bash (bundled with Git for Windows - if you have Git installed, you already have this)
+  - Launch: Right-click in folder → "Git Bash Here" OR open "Git Bash" from Start menu
+- **macOS/Linux**: Native bash support (pre-installed terminal)
 
 **Run the script**:
-```powershell
-# Windows
-.\setup-devcontainer.ps1
+```bash
+# Start complete dev session (default)
+./setup-devcontainer.sh
 
-# macOS/Linux
-pwsh ./setup-devcontainer.ps1
+# Or explicitly specify command
+./setup-devcontainer.sh dev
 ```
 
 This automatically:
@@ -102,20 +102,12 @@ This automatically:
 4. ✅ Runs the V2G Liberty AppDaemon app
 
 **Available commands**:
-```powershell
-# Windows
-.\setup-devcontainer.ps1          # Start dev session (default)
-.\setup-devcontainer.ps1 status   # Check what's running
-.\setup-devcontainer.ps1 stop     # Stop all services
-.\setup-devcontainer.ps1 reset    # Clean slate (deletes all data)
-.\setup-devcontainer.ps1 help     # Show all options
-
-# macOS/Linux
-pwsh ./setup-devcontainer.ps1          # Start dev session (default)
-pwsh ./setup-devcontainer.ps1 status   # Check what's running
-pwsh ./setup-devcontainer.ps1 stop     # Stop all services
-pwsh ./setup-devcontainer.ps1 reset    # Clean slate (deletes all data)
-pwsh ./setup-devcontainer.ps1 help     # Show all options
+```bash
+./setup-devcontainer.sh          # Start dev session (default)
+./setup-devcontainer.sh status   # Check what's running
+./setup-devcontainer.sh stop     # Stop all services
+./setup-devcontainer.sh reset    # Clean slate (deletes all data)
+./setup-devcontainer.sh help     # Show all options
 ```
 
 **Control the mock charger** (in a separate terminal):
@@ -138,7 +130,7 @@ python cli.py
 - **Debug**: `F5` (Start debugging with breakpoints)
 - **Reopen in Container**: `Ctrl+Shift+P` → "Dev Containers: Reopen in Container"
 
-**Note:** VS Code will automatically copy V2G Liberty config files when the container starts. If you already started containers with the PowerShell script, VS Code will reuse them.
+**Note:** VS Code will automatically copy V2G Liberty config files when the container starts. If you already started containers with the setup script, VS Code will reuse them.
 
 See [README.devcontainer.md](README.devcontainer.md) for complete setup instructions.
 
@@ -186,7 +178,7 @@ docker build -t v2g-liberty -f v2g-liberty/Dockerfile v2g-liberty/
    - Uses pyee (EventEmitter) for pub/sub pattern
 
 8. **load_balancer/** (optional module)
-   - Standalone HTTP proxy that sits between V2G Liberty and the Quasar
+   - Standalone TCP Modbus proxy that sits between V2G Liberty and the Quasar
    - Monitors phase power consumption and dynamically adjusts charge limits
    - Prevents overloading single-phase electrical connections
 

@@ -14,14 +14,9 @@ Before you begin, ensure you have the following installed:
    - Download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/)
    - Ensure Docker is running before proceeding
 
-3. **PowerShell Core 7+** (Optional - only for PowerShell script method)
-   - **Windows**: Usually pre-installed. If not: `winget install Microsoft.PowerShell`
-   - **macOS**: `brew install powershell`
-   - **Linux (Ubuntu/Debian)**:
-     ```bash
-     sudo apt-get update
-     sudo apt-get install -y powershell
-     ```
+3. **Bash Shell** (Optional - only for bash script method)
+   - **Windows**: Git Bash (comes with Git for Windows) or WSL
+   - **macOS/Linux**: Native bash support (pre-installed)
    - **Note**: Not required if you only use VS Code (Option B below)
 
 4. **Clone the Repository**
@@ -36,18 +31,16 @@ Before you begin, ensure you have the following installed:
 
 Choose **ONE** of these methods based on your preference:
 
-#### ⚡ Option A: PowerShell Script (Recommended - Full Featured)
+#### ⚡ Option A: Bash Script (Recommended - Full Featured)
 
 **Best for:** Complete automation with health checks, validation, and helpful guidance
 
-**Windows:**
-```powershell
-.\setup-devcontainer.ps1
-```
-
-**macOS/Linux:**
+**All platforms:**
 ```bash
-pwsh ./setup-devcontainer.ps1
+./setup-devcontainer.sh
+
+# Windows: use Git Bash or WSL
+# macOS/Linux: native bash
 ```
 
 This automatically:
@@ -55,10 +48,10 @@ This automatically:
 2. ✅ Starts Quasar mock charger (simulated EV charger on port 5020)
 3. ✅ Builds and starts Home Assistant + V2G-Liberty containers
 4. ✅ Waits for containers to be healthy
-5. ✅ Copies config files with line-ending conversion
+5. ✅ Copies config files
 6. ✅ Runs V2G-Liberty app with proper output
 
-**PowerShell not installed?** See prerequisites above or use Option B/C below.
+**Bash not available?** Windows users can install Git for Windows (includes Git Bash) or use Option B/C below.
 
 #### 🎯 Option B: VS Code (Zero Install - Just Press F5)
 
@@ -77,11 +70,11 @@ This automatically:
    - Press `F5` to start debugging with breakpoints
    - Or `Ctrl+F5` to run without debugging
 
-**No PowerShell required!** VS Code handles everything via devcontainer.json.
+**No bash required!** VS Code handles everything via devcontainer.json.
 
 #### 🔧 Option C: Manual Docker Compose (For the Minimalists)
 
-**Best for:** Developers who prefer direct Docker control or can't install PowerShell
+**Best for:** Developers who prefer direct Docker control
 
 ```bash
 # Navigate to devcontainer directory
@@ -99,7 +92,7 @@ docker-compose --project-name addon-v2g-liberty_devcontainer exec -it addon-v2g-
   bash -c "cd /workspaces/v2g-liberty && python3 -m appdaemon -c rootfs/root/appdaemon -C rootfs/root/appdaemon/appdaemon.devcontainer.yaml -D INFO"
 ```
 
-**Note:** The PowerShell script (Option A) provides additional validation, health checking, and error handling that this manual approach lacks.
+**Note:** The bash script (Option A) provides additional validation, health checking, and error handling that this manual approach lacks.
 
 ---
 
@@ -121,7 +114,7 @@ docker-compose --project-name addon-v2g-liberty_devcontainer exec -it addon-v2g-
    - Click **"Go to settings"** button
    - In the **Charger Settings** section, click **"Configure"**
    - Enter the following values:
-     - **Host**: `172.20.0.10` (static IP of the mock Quasar charger)
+     - **Host**: `quasar-mock` (Docker service name for the mock Quasar charger)
      - **Port**: `5020`
    - Click **"Save"** to save the configuration
    - ✅ **Success!** After pressing Save, you should see: *"Successfully connected"*
@@ -132,10 +125,10 @@ docker-compose --project-name addon-v2g-liberty_devcontainer exec -it addon-v2g-
    - **Calendar Settings**: Configure CalDAV calendar (optional)
    - **Electricity Contract Settings**: Set your electricity pricing
 
-**Why use `172.20.0.10`?**
-- The mock charger runs in a Docker container with this static IP address
-- This IP is configured in [.devcontainer/docker-compose.yaml](.devcontainer/docker-compose.yaml)
-- When using a real Wallbox Quasar charger, you'll enter its IP address on your local network instead
+**Why use `quasar-mock`?**
+- Docker's built-in DNS resolves service names to container IPs automatically
+- This is best practice (no hard-coded IP addresses)
+- When using a real Wallbox Quasar charger, you'll enter its hostname or IP address on your local network instead
 
 **Note**: If you're using the optional Load Balancer module (configured in `quasar_load_balancer.json`), use `127.0.0.1` as the host instead.
 
@@ -175,9 +168,10 @@ You can freely switch between all three methods - they use the same containers:
 
 **Any method → VS Code**: Just open VS Code and "Reopen in Container"
 
-**Any method → PowerShell**: Run the setup script (will detect and use existing containers)
-- Windows: `.\setup-devcontainer.ps1`
-- macOS/Linux: `pwsh ./setup-devcontainer.ps1`
+**Any method → Bash script**: Run the setup script (will detect and use existing containers)
+```bash
+./setup-devcontainer.sh
+```
 
 **Any method → Manual**: Use the docker-compose commands from Option C above
 
@@ -185,14 +179,8 @@ You can freely switch between all three methods - they use the same containers:
 
 If things aren't working or you want a clean slate:
 
-**Windows:**
-```powershell
-.\setup-devcontainer.ps1 reset
-```
-
-**macOS/Linux:**
 ```bash
-pwsh ./setup-devcontainer.ps1 reset
+./setup-devcontainer.sh reset
 ```
 
 This will:
@@ -203,18 +191,10 @@ This will:
 
 **Other commands:**
 
-**Windows:**
-```powershell
-.\setup-devcontainer.ps1 status   # Check what's running
-.\setup-devcontainer.ps1 stop     # Stop everything
-.\setup-devcontainer.ps1 help     # Show all commands
-```
-
-**macOS/Linux:**
 ```bash
-pwsh ./setup-devcontainer.ps1 status   # Check what's running
-pwsh ./setup-devcontainer.ps1 stop     # Stop everything
-pwsh ./setup-devcontainer.ps1 help     # Show all commands
+./setup-devcontainer.sh status   # Check what's running
+./setup-devcontainer.sh stop     # Stop everything
+./setup-devcontainer.sh help     # Show all commands
 ```
 
 ---
@@ -223,6 +203,21 @@ pwsh ./setup-devcontainer.ps1 help     # Show all commands
 
 - **Check logs**: `v2g-liberty/logs/appdaemon_error.log`
 - **View container status**: Run setup script with `status` argument
+
+### Windows Users: Line Ending Issues
+
+If you encounter errors about shell scripts not executing properly on Windows, configure Git to use Unix line endings:
+
+```bash
+# Configure Git to check out files with Unix line endings (LF)
+git config --global core.autocrlf input
+
+# Refresh your local checkout to apply the line endings
+git rm --cached -r .
+git reset --hard
+```
+
+This ensures bash scripts have the correct line endings for Docker containers (which run Linux).
 
 ## 📚 Next Steps
 

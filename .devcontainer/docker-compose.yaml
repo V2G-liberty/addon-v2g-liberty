@@ -10,7 +10,7 @@ services:
       - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/homeassistant/www/v2g_liberty/v2g-liberty-cards
       - ../v2g-liberty/data:/data
       - ../v2g-liberty/logs:/config/logs
-    command: ["/bin/bash", "-c", "if ! bash /workspaces/v2g-liberty/script/init-config; then echo 'WARNING: init-config failed, continuing anyway...'; fi && sleep infinity"]
+    command: ["/bin/bash", "-c", "/workspaces/v2g-liberty/script/init-config && sleep infinity"]
     healthcheck:
       test: ['CMD', '/workspaces/v2g-liberty/script/is-container-ready']
       interval: 3s
@@ -52,13 +52,8 @@ services:
     ports:
       - "5020:5020"
     networks:
-      v2g_network:
-        ipv4_address: 172.20.0.10
+      - v2g_network
 
 networks:
   v2g_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-          gateway: 172.20.0.1
