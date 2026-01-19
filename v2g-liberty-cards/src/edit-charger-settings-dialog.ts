@@ -39,7 +39,7 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _hasTriedToConnect: boolean;
   @state() private _quasarLoadBalancerLimit: string;
 
-  @query(`[test-id='${entityIds.chargerHostUrl}']`) private _chargerHostField;
+  @query(`[test-id='${entityIds.chargerHostname}']`) private _chargerHostField;
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
 
   private _maxAvailablePower: string;
@@ -47,7 +47,7 @@ class EditChargerSettingsDialog extends DialogBase {
   public async showDialog(): Promise<void> {
     super.showDialog();
     this._chargerHost = defaultState(
-      this.hass.states[entityIds.chargerHostUrl],
+      this.hass.states[entityIds.chargerHostname],
       ''
     );
     this._chargerPort = defaultState(
@@ -86,7 +86,7 @@ class EditChargerSettingsDialog extends DialogBase {
   }
 
   private _renderConnectionDetails() {
-    const chargerHostState = this.hass.states[entityIds.chargerHostUrl];
+    const chargerHostState = this.hass.states[entityIds.chargerHostname];
     const chargerPortState = this.hass.states[entityIds.chargerPort];
     const portDescription = tp('connection-details.port-description');
     const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
@@ -100,10 +100,11 @@ class EditChargerSettingsDialog extends DialogBase {
         `
       }
       ${renderInputText(
-        InputText.IpAddress,
+        InputText.Hostname,
         this._chargerHost,
         chargerHostState,
-        evt => (this._chargerHost = evt.target.value)
+        evt => (this._chargerHost = evt.target.value),
+        tp('invalid-host-error')
       )}
       ${this._renderInvalidHostError()}
       ${renderInputNumber(

@@ -28,7 +28,7 @@ export const integrationCalendarEntityName =
 // Charger
 export const chargerSettingsInitialised =
   'input_boolean.charger_settings_initialised';
-export const chargerHostUrl = 'input_text.charger_host_url';
+export const chargerHostname = 'input_text.charger_host_url';
 export const chargerPort = 'input_number.charger_port';
 export const chargerConnectionStatus = 'sensor.charger_connection_status';
 export const chargerMaxAvailablePower =

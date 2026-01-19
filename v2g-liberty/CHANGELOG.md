@@ -9,6 +9,8 @@
 
 ### Added
 
+- 🚀 Feature request: Be able to use hostname instead of only IP-address for charger host in UI (#380)
+
 ### Changed
 
 - Bumped pymodbus library to 3.11.4 (#373)
