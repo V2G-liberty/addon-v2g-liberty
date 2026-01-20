@@ -16,8 +16,6 @@ services:
       interval: 3s
       timeout: 1s
       retries: 100
-    networks:
-      - v2g_network
 
   homeassistant:
     image: homeassistant/home-assistant:2025.12.3
@@ -30,8 +28,6 @@ services:
     depends_on:
       addon-v2g-liberty:
         condition: service_healthy
-    networks:
-      - v2g_network
 
   v2g-liberty-cards:
     build:
@@ -41,8 +37,6 @@ services:
       - ..:/workspaces:cached
       - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/workspaces/v2g-liberty-cards/dist
     command: sleep infinity
-    networks:
-      - v2g_network
 
   quasar-mock:
     image: oitc/modbus-server:latest
@@ -51,9 +45,3 @@ services:
       - ../charger-mocks/configs/quasar_charging_33pct.json:/srvr_conf.json:ro
     ports:
       - "5020:5020"
-    networks:
-      - v2g_network
-
-networks:
-  v2g_network:
-    driver: bridge
