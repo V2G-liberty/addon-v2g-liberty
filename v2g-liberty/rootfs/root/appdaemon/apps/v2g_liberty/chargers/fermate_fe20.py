@@ -10,10 +10,10 @@ Key characteristics:
 """
 
 from .modbus_types import ModbusConfigEntity, MBR
-from .sunspec_evse import SunSpecEVSE
+from .base_sunspec_evse import BaseSunSpecEVSE
 
 
-class FermateFE20Client(SunSpecEVSE):
+class FermateFE20Client(BaseSunSpecEVSE):
     """Client to control a Fermate FE20 EVSE.
 
     This charger uses the SunSpec protocol with a custom SoC register.

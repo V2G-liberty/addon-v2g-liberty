@@ -40,7 +40,7 @@ classDiagram
     }
 
     %% SunSpec abstract base
-    class SunSpecEVSE {
+    class BaseSunSpecEVSE {
         <<abstract>>
         #_get_soc_mce()*
         #_get_default_port()*
@@ -116,19 +116,19 @@ classDiagram
     UnidirectionalEVSE <|-- BidirectionalEVSE
     BidirectionalEVSE <|-- WallboxQuasar1Client
     BidirectionalEVSE <|-- EVtecBiDiProClient
-    BidirectionalEVSE <|-- SunSpecEVSE
-    SunSpecEVSE <|-- FermateFE20Client
+    BidirectionalEVSE <|-- BaseSunSpecEVSE
+    BaseSunSpecEVSE <|-- FermateFE20Client
 
     %% Composition relationships
     WallboxQuasar1Client *-- V2GmodbusClient : uses
     EVtecBiDiProClient *-- V2GmodbusClient : uses
-    SunSpecEVSE *-- V2GmodbusClient : uses
+    BaseSunSpecEVSE *-- V2GmodbusClient : uses
     WallboxQuasar1Client *-- MBR : defines
     WallboxQuasar1Client *-- ModbusConfigEntity : defines
     EVtecBiDiProClient *-- MBR : defines
     EVtecBiDiProClient *-- ModbusConfigEntity : defines
-    SunSpecEVSE *-- MBR : defines
-    SunSpecEVSE *-- ModbusConfigEntity : defines
+    BaseSunSpecEVSE *-- MBR : defines
+    BaseSunSpecEVSE *-- ModbusConfigEntity : defines
     ModbusConfigEntity *-- MBR : contains
 ```
 
@@ -138,7 +138,7 @@ classDiagram
 |-------|------|-------|---------|
 | `UnidirectionalEVSE` | Abstract | 156 | Base for charge-only chargers |
 | `BidirectionalEVSE` | Abstract | 33 | Base for V2G chargers |
-| `SunSpecEVSE` | Abstract | 914 | Base for SunSpec-compliant chargers |
+| `BaseSunSpecEVSE` | Abstract | 914 | Base for SunSpec-compliant chargers |
 | `WallboxQuasar1Client` | Concrete | 1401 | Wallbox Quasar 1 DC charger |
 | `EVtecBiDiProClient` | Concrete | 1129 | EVtec BiDiPro 10 charger |
 | `FermateFE20Client` | Concrete | 74 | Fermate FE20 (SunSpec-based) |
@@ -148,7 +148,7 @@ classDiagram
 
 ## Adding a New Charger
 
-1. **SunSpec-compliant charger**: Inherit from `SunSpecEVSE` (simplest - see `FermateFE20Client`)
+1. **SunSpec-compliant charger**: Inherit from `BaseSunSpecEVSE` (simplest - see `FermateFE20Client`)
 2. **Custom protocol**: Inherit from `BidirectionalEVSE` or `UnidirectionalEVSE`
 
 ---

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.v2g_liberty.chargers.modbus_types import MBR, ModbusConfigEntity
-from apps.v2g_liberty.chargers.sunspec_evse import SunSpecEVSE
+from apps.v2g_liberty.chargers.base_sunspec_evse import BaseSunSpecEVSE
 from apps.v2g_liberty.chargers.fermate_fe20 import FermateFE20Client
 from apps.v2g_liberty.event_bus import EventBus
 
@@ -113,27 +113,27 @@ class TestSunSpecStateMapping:
 
     def test_state_mapping_off(self):
         """Test mapping Off state."""
-        mapping = SunSpecEVSE._SUNSPEC_STATE_MAPPING
+        mapping = BaseSunSpecEVSE._SUNSPEC_STATE_MAPPING
         assert mapping[1] == 1  # Off -> No car connected
 
     def test_state_mapping_charging(self):
         """Test mapping Charging state."""
-        mapping = SunSpecEVSE._SUNSPEC_STATE_MAPPING
+        mapping = BaseSunSpecEVSE._SUNSPEC_STATE_MAPPING
         assert mapping[9] == 3  # Charging -> Charging
 
     def test_state_mapping_discharging(self):
         """Test mapping Discharging state."""
-        mapping = SunSpecEVSE._SUNSPEC_STATE_MAPPING
+        mapping = BaseSunSpecEVSE._SUNSPEC_STATE_MAPPING
         assert mapping[10] == 4  # Discharging -> Discharging
 
     def test_state_mapping_fault(self):
         """Test mapping Fault state."""
-        mapping = SunSpecEVSE._SUNSPEC_STATE_MAPPING
+        mapping = BaseSunSpecEVSE._SUNSPEC_STATE_MAPPING
         assert mapping[7] == 9  # Fault -> Error
 
     def test_state_mapping_standby(self):
         """Test mapping Standby state."""
-        mapping = SunSpecEVSE._SUNSPEC_STATE_MAPPING
+        mapping = BaseSunSpecEVSE._SUNSPEC_STATE_MAPPING
         assert mapping[8] == 2  # Standby -> Idle
 
 
@@ -169,25 +169,25 @@ class TestSunSpecEVSERegisters:
 
     def test_scale_factor_registers(self):
         """Test scale factor register addresses."""
-        assert SunSpecEVSE._MBR_W_SF.address == 40163
-        assert SunSpecEVSE._MBR_VA_SF.address == 40164
-        assert SunSpecEVSE._MBR_VAR_SF.address == 40165
+        assert BaseSunSpecEVSE._MBR_W_SF.address == 40163
+        assert BaseSunSpecEVSE._MBR_VA_SF.address == 40164
+        assert BaseSunSpecEVSE._MBR_VAR_SF.address == 40165
 
     def test_der_measurement_registers(self):
         """Test DER AC Measurement register addresses."""
-        assert SunSpecEVSE._MBR_OPERATING_STATE.address == 40073
-        assert SunSpecEVSE._MBR_INVERTER_STATE.address == 40074
-        assert SunSpecEVSE._MBR_CONN_STATE.address == 40075
-        assert SunSpecEVSE._MBR_ACTUAL_POWER.address == 40080
+        assert BaseSunSpecEVSE._MBR_OPERATING_STATE.address == 40073
+        assert BaseSunSpecEVSE._MBR_INVERTER_STATE.address == 40074
+        assert BaseSunSpecEVSE._MBR_CONN_STATE.address == 40075
+        assert BaseSunSpecEVSE._MBR_ACTUAL_POWER.address == 40080
 
     def test_der_capacity_registers(self):
         """Test DER Capacity register addresses."""
-        assert SunSpecEVSE._MBR_MAX_CHARGE_RATE.address == 40235
-        assert SunSpecEVSE._MBR_MAX_DISCHARGE_RATE.address == 40236
+        assert BaseSunSpecEVSE._MBR_MAX_CHARGE_RATE.address == 40235
+        assert BaseSunSpecEVSE._MBR_MAX_DISCHARGE_RATE.address == 40236
 
     def test_power_setpoint_register(self):
         """Test power setpoint register."""
-        assert SunSpecEVSE._MBR_POWER_SETPOINT.address == 40301
+        assert BaseSunSpecEVSE._MBR_POWER_SETPOINT.address == 40301
 
 
 class TestModbusConfigEntityValidation:

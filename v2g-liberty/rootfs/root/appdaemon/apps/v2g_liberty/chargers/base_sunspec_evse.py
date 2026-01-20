@@ -27,7 +27,7 @@ from .modbus_types import ModbusConfigEntity, MBR
 from .base_bidirectional_evse import BidirectionalEVSE
 
 
-class SunSpecEVSE(BidirectionalEVSE):
+class BaseSunSpecEVSE(BidirectionalEVSE):
     """Abstract base class for SunSpec-compliant bidirectional EVSE chargers.
 
     This class handles SunSpec-specific patterns including:
