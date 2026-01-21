@@ -37,8 +37,8 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
 
     Subclasses must implement:
     - _get_soc_mce(): Return the charger-specific SoC ModbusConfigEntity
-    - _get_default_port(): Return the default Modbus TCP port
-    - _get_charger_name(): Return a human-readable charger name
+    - _DEFAULT_PORT: Class constant for the default Modbus TCP port
+    - _CHARGER_NAME: Class constant for the human-readable charger name
     """
 
     ################################################################################
@@ -94,15 +94,15 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
     ################################################################################
 
     _SUNSPEC_STATE_MAPPING: dict[int, int] = {
-        1: 1,   # Off -> No car connected
-        2: 0,   # Sleeping (auto-shutdown) -> Starting up
-        3: 0,   # Starting -> Starting up
-        4: 2,   # Tracking MPPT -> Idle
-        5: 5,   # Forced Power Reduction -> Charging (reduced)
-        6: 2,   # Shutting down -> Idle
-        7: 9,   # Fault -> Error
-        8: 2,   # Standby -> Idle
-        9: 3,   # Charging -> Charging
+        1: 1,  # Off -> No car connected
+        2: 0,  # Sleeping (auto-shutdown) -> Starting up
+        3: 0,  # Starting -> Starting up
+        4: 2,  # Tracking MPPT -> Idle
+        5: 5,  # Forced Power Reduction -> Charging (reduced)
+        6: 2,  # Shutting down -> Idle
+        7: 9,  # Fault -> Error
+        8: 2,  # Standby -> Idle
+        9: 3,  # Charging -> Charging
         10: 4,  # Discharging -> Discharging
     }
 
@@ -141,6 +141,16 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
 
     _POLLING_INTERVAL_SECONDS: int = 5
 
+    ################################################################################
+    #  Class constants - must be defined by subclasses                             #
+    ################################################################################
+
+    # Default Modbus TCP port - override in subclass
+    _DEFAULT_PORT: int = NotImplemented
+
+    # Human-readable charger name - override in subclass
+    _CHARGER_NAME: str = NotImplemented
+
     def __init__(
         self, hass: Hass, event_bus: EventBus, get_vehicle_by_ev_id_func: callable
     ):
@@ -155,7 +165,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         # Modbus specifics
         self._mb_client: V2GmodbusClient | None = None
         self._mb_host: str | None = None
-        self._mb_port: int = self._get_default_port()
+        self._mb_port: int = self._DEFAULT_PORT
 
         # Scale factors (read during initialization)
         self._w_sf: int = 0  # Active power scale factor
@@ -182,7 +192,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
 
         self._am_i_active: bool = False
 
-        self._log(f"{self._get_charger_name()} client initialized.")
+        self._log(f"{self._CHARGER_NAME} client initialized.")
 
     ################################################################################
     #  Abstract methods - must be implemented by subclasses                        #
@@ -200,24 +210,6 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         """
         raise NotImplementedError("Subclasses must implement _get_soc_mce()")
 
-    @abstractmethod
-    def _get_default_port(self) -> int:
-        """Return the default Modbus TCP port for this charger.
-
-        Returns:
-            int: Default Modbus TCP port number.
-        """
-        raise NotImplementedError("Subclasses must implement _get_default_port()")
-
-    @abstractmethod
-    def _get_charger_name(self) -> str:
-        """Return a human-readable name for this charger type.
-
-        Returns:
-            str: Charger name for logging and UI display.
-        """
-        raise NotImplementedError("Subclasses must implement _get_charger_name()")
-
     ################################################################################
     #  Scale factor methods                                                        #
     ################################################################################
@@ -233,27 +225,34 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
             bool: True if scale factors were read successfully.
         """
         if self._mb_client is None:
-            self._log("Cannot read scale factors: Modbus client not initialized",
-                      level="WARNING")
+            self._log(
+                "Cannot read scale factors: Modbus client not initialized",
+                level="WARNING",
+            )
             return False
 
-        results = await self._mb_client.read_registers([
-            self._MBR_W_SF,
-            self._MBR_VA_SF,
-            self._MBR_VAR_SF,
-        ])
+        results = await self._mb_client.read_registers(
+            [
+                self._MBR_W_SF,
+                self._MBR_VA_SF,
+                self._MBR_VAR_SF,
+            ]
+        )
 
         if not results or None in results:
-            self._log("Failed to read scale factors, using defaults (0)",
-                      level="WARNING")
+            self._log(
+                "Failed to read scale factors, using defaults (0)", level="WARNING"
+            )
             return False
 
         self._w_sf = results[0]
         self._va_sf = results[1]
         self._var_sf = results[2]
 
-        self._log(f"Scale factors read: W_SF={self._w_sf}, "
-                  f"VA_SF={self._va_sf}, VAR_SF={self._var_sf}")
+        self._log(
+            f"Scale factors read: W_SF={self._w_sf}, "
+            f"VA_SF={self._va_sf}, VAR_SF={self._var_sf}"
+        )
         return True
 
     def _apply_power_scale_factor(self, raw_value: int) -> int | None:
@@ -270,7 +269,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         if raw_value is None:
             return None
         # Scale factor is a power of 10, e.g., -2 means multiply by 0.01
-        scaled = raw_value * (10 ** self._w_sf)
+        scaled = raw_value * (10**self._w_sf)
         return int(scaled)
 
     def _remove_power_scale_factor(self, watts: int) -> int:
@@ -285,7 +284,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         if watts is None:
             return 0
         # Reverse the scale factor
-        return int(watts / (10 ** self._w_sf))
+        return int(watts / (10**self._w_sf))
 
     ################################################################################
     #  State mapping                                                               #
@@ -302,7 +301,9 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         Returns:
             int: Base EVSE state (0-10).
         """
-        return self._SUNSPEC_STATE_MAPPING.get(sunspec_state, 0)  # Default to "Starting up"
+        return self._SUNSPEC_STATE_MAPPING.get(
+            sunspec_state, 0
+        )  # Default to "Starting up"
 
     ################################################################################
     #  Polling entities                                                            #
@@ -343,7 +344,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
             tuple[bool, int | None]: (success, max_power_watts or None)
         """
         if port is None:
-            port = self._get_default_port()
+            port = self._DEFAULT_PORT
 
         mb_client = V2GmodbusClient(self._hass)
         connected = await mb_client.initialise(host=host, port=port)
@@ -364,7 +365,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
             return False, None
 
         # Apply scale factor
-        max_power = int(results[0] * (10 ** w_sf))
+        max_power = int(results[0] * (10**w_sf))
 
         self._log(f"Connection to {host}:{port} succeeded, max power: {max_power} W")
         await self._emit_modbus_communication_state(can_communicate=True)
@@ -383,17 +384,19 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         Raises:
             ValueError: If host is not provided.
         """
-        self._log(f"Initializing {self._get_charger_name()} with config: "
-                  f"{communication_config}")
+        self._log(
+            f"Initializing {self._CHARGER_NAME} with config: {communication_config}"
+        )
 
         host = communication_config.get("host", None)
         if not host:
-            self._log(f"{self._get_charger_name()} initialization failed, no host.",
-                      level="WARNING")
-            raise ValueError(f"Host required for {self._get_charger_name()}")
+            self._log(
+                f"{self._CHARGER_NAME} initialization failed, no host.", level="WARNING"
+            )
+            raise ValueError(f"Host required for {self._CHARGER_NAME}")
 
         self._mb_host = host
-        self._mb_port = communication_config.get("port", self._get_default_port())
+        self._mb_port = communication_config.get("port", self._DEFAULT_PORT)
 
         self._mb_client = V2GmodbusClient(self._hass, self._cb_modbus_state)
         can_connect = await self._mb_client.initialise(
@@ -402,9 +405,11 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         )
 
         if not can_connect:
-            self._log(f"{self._get_charger_name()} initialization failed, "
-                      f"cannot connect to {self._mb_host}:{self._mb_port}.",
-                      level="WARNING")
+            self._log(
+                f"{self._CHARGER_NAME} initialization failed, "
+                f"cannot connect to {self._mb_host}:{self._mb_port}.",
+                level="WARNING",
+            )
             return False
 
         # Read scale factors FIRST before any power readings
@@ -419,9 +424,11 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         if self._hardware_max_discharge_power_w:
             await self.set_max_discharge_power(self._hardware_max_discharge_power_w)
 
-        self._log(f"{self._get_charger_name()} initialized with host: {self._mb_host}, "
-                  f"Max charge: {self._max_charge_power_w} W, "
-                  f"Max discharge: {self._max_discharge_power_w} W")
+        self._log(
+            f"{self._CHARGER_NAME} initialized with host: {self._mb_host}, "
+            f"Max charge: {self._max_charge_power_w} W, "
+            f"Max discharge: {self._max_discharge_power_w} W"
+        )
         return True
 
     async def _read_hardware_power_limits(self):
@@ -429,19 +436,25 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         if self._mb_client is None:
             return
 
-        results = await self._mb_client.read_registers([
-            self._MBR_MAX_CHARGE_RATE,
-            self._MBR_MAX_DISCHARGE_RATE,
-        ])
+        results = await self._mb_client.read_registers(
+            [
+                self._MBR_MAX_CHARGE_RATE,
+                self._MBR_MAX_DISCHARGE_RATE,
+            ]
+        )
 
         if results:
             if results[0] is not None:
-                self._hardware_max_charge_power_w = int(results[0] * (10 ** self._w_sf))
+                self._hardware_max_charge_power_w = int(results[0] * (10**self._w_sf))
             if results[1] is not None:
-                self._hardware_max_discharge_power_w = int(results[1] * (10 ** self._w_sf))
+                self._hardware_max_discharge_power_w = int(
+                    results[1] * (10**self._w_sf)
+                )
 
-            self._log(f"Hardware limits: charge={self._hardware_max_charge_power_w} W, "
-                      f"discharge={self._hardware_max_discharge_power_w} W")
+            self._log(
+                f"Hardware limits: charge={self._hardware_max_charge_power_w} W, "
+                f"discharge={self._hardware_max_discharge_power_w} W"
+            )
 
     async def kick_off_evse(self):
         """Start the EVSE after initialization is complete.
@@ -449,11 +462,12 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         Called from v2g-liberty after its own init is complete.
         """
         if self._mb_host is None:
-            self._log("Modbus client not initialized, cannot kick off.",
-                      level="WARNING")
+            self._log(
+                "Modbus client not initialized, cannot kick off.", level="WARNING"
+            )
             return
 
-        self._log(f"Kicking off {self._get_charger_name()} client.")
+        self._log(f"Kicking off {self._CHARGER_NAME} client.")
 
         # Emit charger info
         self._eb.emit_event(
@@ -472,14 +486,16 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
     async def _get_charger_info(self) -> str:
         """Read and return charger identification info."""
         try:
-            results = await self._mb_client.read_registers([
-                self._MBR_MANUFACTURER,
-                self._MBR_MODEL,
-                self._MBR_SERIAL_NUMBER,
-            ])
+            results = await self._mb_client.read_registers(
+                [
+                    self._MBR_MANUFACTURER,
+                    self._MBR_MODEL,
+                    self._MBR_SERIAL_NUMBER,
+                ]
+            )
             if results:
                 charger_info = (
-                    f"{self._get_charger_name()} - "
+                    f"{self._CHARGER_NAME} - "
                     f"Manufacturer: {results[0]}, "
                     f"Model: {results[1]}, "
                     f"Serial: {results[2]}"
@@ -538,17 +554,24 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         hardware_limit = await self.get_hardware_power_limit()
 
         if not isinstance(hardware_limit, int):
-            self._log("Cannot set max charge power, hardware limit unavailable",
-                      level="WARNING")
+            self._log(
+                "Cannot set max charge power, hardware limit unavailable",
+                level="WARNING",
+            )
             return False
 
         if power_in_watt > hardware_limit:
-            self._log(f"Requested max charge power {power_in_watt}W exceeds "
-                      f"hardware limit {hardware_limit}W", level="WARNING")
+            self._log(
+                f"Requested max charge power {power_in_watt}W exceeds "
+                f"hardware limit {hardware_limit}W",
+                level="WARNING",
+            )
             power_in_watt = hardware_limit
         elif power_in_watt < hardware_limit:
-            self._log(f"Max charge power {hardware_limit}W reduced by user "
-                      f"setting to {power_in_watt}W")
+            self._log(
+                f"Max charge power {hardware_limit}W reduced by user "
+                f"setting to {power_in_watt}W"
+            )
 
         self._max_charge_power_w = power_in_watt
         return True
@@ -558,17 +581,24 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         hardware_limit = self._hardware_max_discharge_power_w
 
         if not isinstance(hardware_limit, int):
-            self._log("Cannot set max discharge power, hardware limit unavailable",
-                      level="WARNING")
+            self._log(
+                "Cannot set max discharge power, hardware limit unavailable",
+                level="WARNING",
+            )
             return False
 
         if power_in_watt > hardware_limit:
-            self._log(f"Requested max discharge power {power_in_watt}W exceeds "
-                      f"hardware limit {hardware_limit}W", level="WARNING")
+            self._log(
+                f"Requested max discharge power {power_in_watt}W exceeds "
+                f"hardware limit {hardware_limit}W",
+                level="WARNING",
+            )
             power_in_watt = hardware_limit
         elif power_in_watt < hardware_limit:
-            self._log(f"Max discharge power {hardware_limit}W reduced by user "
-                      f"setting to {power_in_watt}W")
+            self._log(
+                f"Max discharge power {hardware_limit}W reduced by user "
+                f"setting to {power_in_watt}W"
+            )
 
         self._max_discharge_power_w = power_in_watt
         return True
@@ -601,7 +631,9 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
             self._log("Not setting charge rate: No car connected.")
             return
 
-        await self._set_charge_power(charge_power=power_in_watt, source="start_charging")
+        await self._set_charge_power(
+            charge_power=power_in_watt, source="start_charging"
+        )
 
     async def stop_charging(self, source: str = None):
         """Stop charging."""
@@ -694,8 +726,10 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
                 handler = getattr(self, mce.change_handler)
                 await handler(new_value, old_value)
             except Exception as e:
-                self._log(f"Change handler '{mce.change_handler}' failed: {e}",
-                          level="WARNING")
+                self._log(
+                    f"Change handler '{mce.change_handler}' failed: {e}",
+                    level="WARNING",
+                )
 
     async def _get_evse_state(self) -> int | None:
         """Get the current EVSE state (base state, 0-10)."""
@@ -745,26 +779,32 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
             if current_soc is None:
                 self._log("Current SoC unavailable", level="WARNING")
             elif current_soc <= ev.min_soc_percent:
-                self._log(f"Discharge attempted below minimum SoC ({ev.min_soc_percent}%), "
-                          f"stopping discharge.", level="WARNING")
+                self._log(
+                    f"Discharge attempted below minimum SoC ({ev.min_soc_percent}%), "
+                    f"stopping discharge.",
+                    level="WARNING",
+                )
                 charge_power = 0
 
         # Clip to max power limits
         if charge_power > self._max_charge_power_w:
-            self._log(f"Requested charge power {charge_power}W too high, reducing.",
-                      level="WARNING")
+            self._log(
+                f"Requested charge power {charge_power}W too high, reducing.",
+                level="WARNING",
+            )
             charge_power = self._max_charge_power_w
         elif charge_power < -self._max_discharge_power_w:
-            self._log(f"Requested discharge power {charge_power}W too high, reducing.",
-                      level="WARNING")
+            self._log(
+                f"Requested discharge power {charge_power}W too high, reducing.",
+                level="WARNING",
+            )
             charge_power = -self._max_discharge_power_w
 
         # Convert to register value (remove scale factor)
         register_value = self._remove_power_scale_factor(charge_power)
 
         res = await self._mb_client.write_modbus_register(
-            modbus_register=self._MBR_POWER_SETPOINT,
-            value=register_value
+            modbus_register=self._MBR_POWER_SETPOINT, value=register_value
         )
 
         if not res:
@@ -831,8 +871,10 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
 
     async def _modbus_communication_lost(self):
         """Handle persistent Modbus communication loss."""
-        self._log(f"Persistent Modbus connection problem in {self._get_charger_name()}.",
-                  level="WARNING")
+        self._log(
+            f"Persistent Modbus connection problem in {self._CHARGER_NAME}.",
+            level="WARNING",
+        )
 
         self._am_i_active = False
         await self._cancel_polling(reason="modbus communication lost")
@@ -849,7 +891,7 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
 
     async def _modbus_communication_restored(self):
         """Handle Modbus communication restoration."""
-        self._log(f"Modbus connection to {self._get_charger_name()} restored.")
+        self._log(f"Modbus connection to {self._CHARGER_NAME} restored.")
 
         self._eb.emit_event(
             "charger_error_state_change",
@@ -877,7 +919,9 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         is_final_check = kwargs.get("is_final_check", False)
         self._log(f"Error state check: {new_charger_state=}, {is_final_check=}")
 
-        has_error = new_charger_state in self._ERROR_STATES if new_charger_state else False
+        has_error = (
+            new_charger_state in self._ERROR_STATES if new_charger_state else False
+        )
 
         if has_error:
             if is_final_check:
@@ -907,8 +951,10 @@ class BaseSunSpecEVSE(BidirectionalEVSE):
         """Try to set the connected vehicle by ID."""
         ev = self.get_vehicle_by_ev_id(ev_id)
         if ev is None:
-            self._log(f"Cannot set connected vehicle, no vehicle with ID '{ev_id}'.",
-                      level="WARNING")
+            self._log(
+                f"Cannot set connected vehicle, no vehicle with ID '{ev_id}'.",
+                level="WARNING",
+            )
             return False
         self._connected_car = ev
         return True

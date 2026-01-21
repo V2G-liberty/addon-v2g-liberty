@@ -20,6 +20,16 @@ class FermateFE20Client(BaseSunSpecEVSE):
     """
 
     ################################################################################
+    #  Charger-specific constants                                                  #
+    ################################################################################
+
+    # Default Modbus TCP port for Fermate FE20
+    _DEFAULT_PORT: int = 8502
+
+    # Human-readable charger name
+    _CHARGER_NAME: str = "Fermate FE20"
+
+    ################################################################################
     #  Fermate FE20 Custom Registers                                               #
     ################################################################################
 
@@ -32,16 +42,13 @@ class FermateFE20Client(BaseSunSpecEVSE):
 
     _MCE_CAR_SOC = ModbusConfigEntity(
         modbus_register=_MBR_CAR_SOC,
-        minimum_value=0,
+        minimum_value=1,
         maximum_value=100,
-        relaxed_min_value=0,
+        relaxed_min_value=1,
         relaxed_max_value=100,
         current_value=None,
         change_handler="_handle_soc_change",
     )
-
-    # Default Modbus TCP port for Fermate FE20
-    _DEFAULT_PORT: int = 8502
 
     ################################################################################
     #  Abstract method implementations                                             #
@@ -56,19 +63,3 @@ class FermateFE20Client(BaseSunSpecEVSE):
             ModbusConfigEntity: The MCE for reading car SoC.
         """
         return self._MCE_CAR_SOC
-
-    def _get_default_port(self) -> int:
-        """Return the default Modbus TCP port for Fermate FE20.
-
-        Returns:
-            int: Default port 8502.
-        """
-        return self._DEFAULT_PORT
-
-    def _get_charger_name(self) -> str:
-        """Return the charger name for logging and display.
-
-        Returns:
-            str: 'Fermate FE20'.
-        """
-        return "Fermate FE20"

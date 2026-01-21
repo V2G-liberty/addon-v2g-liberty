@@ -83,28 +83,28 @@ class TestSunSpecScaleFactorApplication:
         # Raw value 12340, scale factor -2 -> 123.4 -> 123
         raw_value = 12340
         w_sf = -2
-        scaled = int(raw_value * (10 ** w_sf))
+        scaled = int(raw_value * (10**w_sf))
         assert scaled == 123
 
     def test_apply_power_scale_factor_zero(self):
         """Test applying zero scale factor."""
         raw_value = 1000
         w_sf = 0
-        scaled = int(raw_value * (10 ** w_sf))
+        scaled = int(raw_value * (10**w_sf))
         assert scaled == 1000
 
     def test_apply_power_scale_factor_positive(self):
         """Test applying positive scale factor (e.g., 1)."""
         raw_value = 100
         w_sf = 1
-        scaled = int(raw_value * (10 ** w_sf))
+        scaled = int(raw_value * (10**w_sf))
         assert scaled == 1000
 
     def test_remove_power_scale_factor(self):
         """Test removing scale factor for writing."""
         watts = 1234
         w_sf = -2
-        register_value = int(watts / (10 ** w_sf))
+        register_value = int(watts / (10**w_sf))
         assert register_value == 123400
 
 
@@ -143,12 +143,12 @@ class TestFermateFE20Client:
     def test_default_port(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
         """Test that Fermate FE20 uses port 8502 by default."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
-        assert client._get_default_port() == 8502
+        assert client._DEFAULT_PORT == 8502
 
     def test_charger_name(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
         """Test charger name."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
-        assert client._get_charger_name() == "Fermate FE20"
+        assert client._CHARGER_NAME == "Fermate FE20"
 
     def test_soc_mce_address(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
         """Test that SoC MCE uses custom address 41104."""
@@ -266,7 +266,9 @@ class TestSunSpecEVSEInitialization:
         assert client._connected_car is None
         assert client._am_i_active is False
 
-    def test_polling_entities_include_soc(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
+    def test_polling_entities_include_soc(
+        self, mock_hass, mock_event_bus, mock_get_vehicle_func
+    ):
         """Test that polling entities include SoC MCE."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
         entities = client._get_polling_entities()
@@ -281,7 +283,9 @@ class TestSunSpecEVSEInitialization:
 class TestSunSpecEVSEScaleFactorMethods:
     """Test scale factor methods."""
 
-    async def test_apply_power_scale_factor_method(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
+    async def test_apply_power_scale_factor_method(
+        self, mock_hass, mock_event_bus, mock_get_vehicle_func
+    ):
         """Test _apply_power_scale_factor method."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
         client._w_sf = -2  # Scale factor of -2
@@ -289,7 +293,9 @@ class TestSunSpecEVSEScaleFactorMethods:
         result = client._apply_power_scale_factor(12340)
         assert result == 123  # 12340 * 10^-2 = 123.4 -> 123
 
-    async def test_apply_power_scale_factor_none(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
+    async def test_apply_power_scale_factor_none(
+        self, mock_hass, mock_event_bus, mock_get_vehicle_func
+    ):
         """Test _apply_power_scale_factor with None input."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
         client._w_sf = -2
@@ -297,7 +303,9 @@ class TestSunSpecEVSEScaleFactorMethods:
         result = client._apply_power_scale_factor(None)
         assert result is None
 
-    async def test_remove_power_scale_factor_method(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
+    async def test_remove_power_scale_factor_method(
+        self, mock_hass, mock_event_bus, mock_get_vehicle_func
+    ):
         """Test _remove_power_scale_factor method."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
         client._w_sf = -2
@@ -305,14 +313,18 @@ class TestSunSpecEVSEScaleFactorMethods:
         result = client._remove_power_scale_factor(1234)
         assert result == 123400  # 1234 / 10^-2 = 123400
 
-    async def test_get_base_state_charging(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
+    async def test_get_base_state_charging(
+        self, mock_hass, mock_event_bus, mock_get_vehicle_func
+    ):
         """Test _get_base_state for charging state."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
 
         result = client._get_base_state(9)  # SunSpec Charging
         assert result == 3  # Base Charging
 
-    async def test_get_base_state_unknown(self, mock_hass, mock_event_bus, mock_get_vehicle_func):
+    async def test_get_base_state_unknown(
+        self, mock_hass, mock_event_bus, mock_get_vehicle_func
+    ):
         """Test _get_base_state for unknown state."""
         client = FermateFE20Client(mock_hass, mock_event_bus, mock_get_vehicle_func)
 

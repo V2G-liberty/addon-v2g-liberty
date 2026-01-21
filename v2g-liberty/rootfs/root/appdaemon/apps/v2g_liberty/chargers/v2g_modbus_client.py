@@ -4,10 +4,10 @@ import asyncio
 from typing import Callable, Optional, Union, List
 from collections import defaultdict
 from appdaemon import Hass
-from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from pymodbus.client import AsyncModbusTcpClient as amtc
 from pymodbus.exceptions import ModbusException, ConnectionException
 from pyee.asyncio import AsyncIOEventEmitter
+from apps.v2g_liberty.log_wrapper import get_class_method_logger
 from apps.v2g_liberty.conversion_util import parse_to_int
 from apps.v2g_liberty.utils.hass_util import cancel_timer_silently
 from .modbus_types import MBR
@@ -153,50 +153,6 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 )
             finally:
                 self._mbc = None
-
-    ################################################################################################
-    #                OLD METHODS FIRST GENERATION MODBUS CHARGERS (EG WALBOX QUASAR 1)             #
-    ################################################################################################
-
-    # async def modbus_write(self, address: int, value: int, source: str) -> bool:
-    #     """Generic modbus write function.
-    #        Writing to the modbus server should exclusively be done through this function
-
-    #     Args:
-    #         address (int): the register / address to write to
-    #         value (int): the value to write
-    #         source (str): only for debugging
-
-    #     Returns:
-    #         bool: True if write was successful
-    #     """
-
-    #     if self._mbc is None:
-    #         return False
-
-    #     if value < 0:
-    #         # Modbus cannot handle negative values directly.
-    #         value = self.MAX_USI + value
-
-    #     result = None
-    #     try:
-    #         result = await self._mbc.write_register(
-    #             address=address,
-    #             value=value,
-    #             device_id=1,
-    #         )
-    #     except ModbusException as me:
-    #         self._log(f"ModbusException {me}", level="WARNING")
-    #         await self._handle_modbus_exception(source="modbus_write")
-    #         return False
-    #     else:
-    #         await self._reset_modbus_exception()
-
-    #     if result is None:
-    #         self._log("Failed to write to modbus server.", level="WARNING")
-    #         return False
-
-    #     return True
 
     # Deprecated, but keep for now for debugging
     async def modbus_read(self, address: int, length: int = 1, source: str = "unknown"):
