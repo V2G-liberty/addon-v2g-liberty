@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   addon-v2g-liberty:
@@ -12,7 +10,7 @@ services:
       - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/homeassistant/www/v2g_liberty/v2g-liberty-cards
       - ../v2g-liberty/data:/data
       - ../v2g-liberty/logs:/config/logs
-    command: sh -c "/workspaces/v2g-liberty/script/init-config && sleep infinity"
+    command: ["/bin/bash", "-c", "/workspaces/v2g-liberty/script/init-config && sleep infinity"]
     healthcheck:
       test: ['CMD', '/workspaces/v2g-liberty/script/is-container-ready']
       interval: 3s
@@ -39,3 +37,11 @@ services:
       - ..:/workspaces:cached
       - ../v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards:/workspaces/v2g-liberty-cards/dist
     command: sleep infinity
+
+  quasar-mock:
+    image: oitc/modbus-server:latest
+    command: ["-f", "/srvr_conf.json"]
+    volumes:
+      - ../charger-mocks/configs/quasar_charging_33pct.json:/srvr_conf.json:ro
+    ports:
+      - "5020:5020"
