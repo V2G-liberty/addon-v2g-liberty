@@ -428,6 +428,11 @@ template:
         state: ""
 
 input_text:
+  car_name:
+    name: Car name
+    initial: ""
+    icon: mdi:car-settings
+
   car_calendar_source:
     name: Type of source for car calendar
     icon: mdi:sprout

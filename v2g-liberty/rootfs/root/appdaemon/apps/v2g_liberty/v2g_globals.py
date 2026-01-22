@@ -206,6 +206,18 @@ class V2GLibertyGlobals:
         "value_type": "int",
         "factory_default": 175,
     }
+    SETTING_CAR_NAME = {
+        "entity_name": "car_name",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": "",
+    }
+    SETTING_CAR_EV_ID = {
+        "entity_name": "car_ev_id",
+        "entity_type": "internal",  # Not exposed as HA entity
+        "value_type": "str",
+        "factory_default": "",
+    }
 
     # Settings related to optimisation
     SETTING_OPTIMISATION_MODE = {
@@ -329,6 +341,7 @@ class V2GLibertyGlobals:
             self.__save_administrator_settings, "save_administrator_settings"
         )
         self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
+        self.hass.listen_event(self.__save_car_settings, "save_car_settings")
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
         self.hass.listen_event(
             self.__save_electricity_contract_settings,
@@ -337,6 +350,7 @@ class V2GLibertyGlobals:
         self.hass.listen_event(self.__save_schedule_settings, "save_schedule_settings")
         self.hass.listen_event(self.__save_setting, "save_setting")
         # Listen to [TEST] buttons
+        self.hass.listen_event(self.__get_car_details, "get_car_details")
         self.hass.listen_event(
             self.__test_charger_connection, "test_charger_connection"
         )
@@ -581,6 +595,100 @@ class V2GLibertyGlobals:
             msg = "Failed to connect"
 
         self.hass.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
+
+    async def __get_car_details(self, event, data, kwargs):
+        """Retrieve car details from EVtec charger via get_new_ev_details."""
+        self.__log("get_car_details called")
+
+        if self.evse is None:
+            self.__log("EVSE not initialised", level="WARNING")
+            self.hass.fire_event(
+                "get_car_details.result", success=False, error="Charger not initialised"
+            )
+            return
+
+        # Check if charger supports auto-retrieval
+        if not hasattr(self.evse, "get_new_ev_details"):
+            self.__log("Charger does not support auto-retrieval", level="WARNING")
+            self.hass.fire_event(
+                "get_car_details.result",
+                success=False,
+                error="Charger type does not support auto-retrieval",
+            )
+            return
+
+        # Call existing get_new_ev_details method
+        result = await self.evse.get_new_ev_details()
+
+        if result is None:
+            self.__log(
+                "Failed to retrieve car details (car not connected?)", level="WARNING"
+            )
+            self.hass.fire_event(
+                "get_car_details.result",
+                success=False,
+                error="No car connected or failed to read data",
+            )
+            return
+
+        # Convert Wh to kWh for frontend
+        battery_capacity_kwh = (
+            result["battery_capacity_wh"] / 1000
+            if result["battery_capacity_wh"]
+            else None
+        )
+        min_battery_capacity_kwh = (
+            result["min_battery_capacity_wh"] / 1000
+            if result["min_battery_capacity_wh"]
+            else None
+        )
+
+        self.__log(
+            f"Retrieved car details: ev_id={result['ev_id']}, capacity={battery_capacity_kwh}kWh"
+        )
+        self.hass.fire_event(
+            "get_car_details.result",
+            success=True,
+            ev_id=result["ev_id"],
+            battery_capacity_kwh=battery_capacity_kwh,
+            min_battery_capacity_kwh=min_battery_capacity_kwh,
+            is_new=result["is_new"],
+        )
+
+    async def __save_car_settings(self, event, data, kwargs):
+        """Save car settings including ev_id to settings.json and HA entities."""
+        self.__log(f"save_car_settings called with data: {data}")
+
+        car_name = data.get("name", "")
+        capacity_kwh = data.get("capacity_kwh")
+        efficiency = data.get("efficiency")
+        consumption_wh_km = data.get("consumption_wh_km")
+        ev_id = data.get("ev_id", "")
+
+        # Validate required fields
+        if not car_name:
+            self.hass.fire_event(
+                "save_car_settings.result", success=False, error="Car name is required"
+            )
+            return
+
+        # Save to settings.json (note: car_ev_id is internal, not exposed as HA entity)
+        self.v2g_settings.store_setting("car_ev_id", ev_id)
+
+        # Save to HA entities
+        await self.__write_setting_to_ha(self.SETTING_CAR_NAME, car_name, "user_input")
+        await self.__write_setting_to_ha(
+            self.SETTING_CAR_MAX_CAPACITY_IN_KWH, capacity_kwh, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY, efficiency, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_CAR_CONSUMPTION_WH_PER_KM, consumption_wh_km, "user_input"
+        )
+
+        self.__log(f"Saved car settings: name={car_name}, ev_id={ev_id}")
+        self.hass.fire_event("save_car_settings.result", success=True)
 
     ######################################################################
     #                            HA METHODS                              #

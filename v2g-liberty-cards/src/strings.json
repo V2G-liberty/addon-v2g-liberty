@@ -93,7 +93,42 @@
     },
     "car": {
       "header": "Car",
-      "alert": "Please configure all data elements, V2G Liberty needs this to work."
+      "alert": "Please configure car details, V2G Liberty needs this to work."
+    },
+    "car-dialog": {
+      "1-connect-car": {
+        "header": "Connect Your Car",
+        "description": "Please connect your electric vehicle to the charger. Once connected, click 'Retrieve Data' to automatically fetch battery specifications from the car.",
+        "retrieve-button": "Retrieve Data from Car",
+        "manual-entry-button": "Enter Manually Instead"
+      },
+      "2-manual-entry": {
+        "header": "Car Configuration",
+        "description": "Configure your car's battery specifications and energy consumption."
+      },
+      "add": {
+        "header": "Add Car"
+      },
+      "edit": {
+        "header": "Edit %{name}"
+      },
+      "loading": {
+        "message": "Retrieving data from car..."
+      },
+      "fields": {
+        "name": "Car Name",
+        "name-placeholder": "e.g., Nissan Leaf",
+        "usable-capacity-help-short": "Maximum usable battery capacity for charging/discharging. Often lower than advertised capacity.",
+        "roundtrip-efficiency-help-short": "Efficiency of charge and discharge cycle (charger + car). Typical value is 85%.",
+        "car-energy-consumption-help-short": "Average electricity usage in Wh per kilometre. Typically 140-300 Wh/km.",
+        "learn-more": "Learn more...",
+        "show-less": "Show less"
+      },
+      "errors": {
+        "charger-not-connected": "Charger must be connected to edit EVtec car settings. Please check charger connection status.",
+        "retrieval-failed": "Failed to retrieve car data. Please ensure the car is connected to the charger.",
+        "timeout": "Timeout while retrieving car data. Please try again."
+      }
     },
     "car-reservation-calendar": {
       "header": "Car reservation calendar",
