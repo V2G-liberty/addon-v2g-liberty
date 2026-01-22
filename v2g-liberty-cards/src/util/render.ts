@@ -5,7 +5,7 @@ import { html, nothing, TemplateResult } from 'lit';
 
 import { t, to, partial } from '../util/translate';
 
-export function renderLoadbalancerInfo(loadbalancerEnabled: boolean) {
+export function renderLoadbalancerInfo(loadbalancerEnabled: boolean, collapsible: boolean = false) {
   const tp = partial('settings.charger');
   const title = loadbalancerEnabled
     ? tp('load-balancer.enabled.title')
@@ -14,6 +14,23 @@ export function renderLoadbalancerInfo(loadbalancerEnabled: boolean) {
     ? tp('load-balancer.enabled.info')
     : tp('load-balancer.not_enabled.info');
   const type = loadbalancerEnabled ? "info" : "warning";
+
+  if (collapsible) {
+    // Collapsed version with "Learn more..." expandable section
+    return html`
+      <ha-alert alert-type="${type}">
+        <div>
+          <strong>${title}</strong>
+          <details style="margin-top: 8px;">
+            <summary style="cursor: pointer; color: var(--primary-color);">Learn more...</summary>
+            <div style="margin-top: 8px;">
+              <ha-markdown breaks .content=${info}></ha-markdown>
+            </div>
+          </details>
+        </div>
+      </ha-alert>
+    `;
+  }
 
   return html`
     <ha-alert title="${title}" alert-type="${type}">

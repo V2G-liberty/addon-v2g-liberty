@@ -94,7 +94,7 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityBlock(this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+        ${renderLoadbalancerInfo(_isLoadBalancerEnabled, true)}
       </div>
       <div class="card-actions">
         ${renderButton(

@@ -10540,11 +10540,25 @@ var $04557c061247a0a6$export$a14c803a1714faa3 = "M18.5,19.13C20,17.77 20,15.18 2
 
 
 
-function $4dbea3927e6cdc74$export$ce5035b7317f6169(loadbalancerEnabled) {
+function $4dbea3927e6cdc74$export$ce5035b7317f6169(loadbalancerEnabled, collapsible = false) {
     const tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.charger');
     const title = loadbalancerEnabled ? tp('load-balancer.enabled.title') : tp('load-balancer.not_enabled.title');
     const info = loadbalancerEnabled ? tp('load-balancer.enabled.info') : tp('load-balancer.not_enabled.info');
     const type = loadbalancerEnabled ? "info" : "warning";
+    if (collapsible) // Collapsed version with "Learn more..." expandable section
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="${type}">
+        <div>
+          <strong>${title}</strong>
+          <details style="margin-top: 8px;">
+            <summary style="cursor: pointer; color: var(--primary-color);">Learn more...</summary>
+            <div style="margin-top: 8px;">
+              <ha-markdown breaks .content=${info}></ha-markdown>
+            </div>
+          </details>
+        </div>
+      </ha-alert>
+    `;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-alert title="${title}" alert-type="${type}">
       <ha-markdown breaks .content=${info}></ha-markdown>
@@ -12347,6 +12361,7 @@ const $4163850e13316b31$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)(
 class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
+        this._currentPage = '1-select-charger-type';
         this._selectedChargerType = this.hass.states[$755a87c9ee93218f$export$c85d806694fc5565]?.state || null;
         this._chargerHost = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$2ca8418123f63d6c], '');
         this._chargerPort = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11], '502');
@@ -12436,7 +12451,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
         `}
-      ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
+      ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled, true)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goBackToChargerSelection, false, this.hass.localize('ui.common.back'), false, 'back', true)}
 
       ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goToPowerDetails, true, this.hass.localize('ui.common.continue'))}
@@ -12498,7 +12513,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingReducedMaxPower, useReducedMaxPowerState, (evt)=>this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-      ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
+      ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled, false)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goBackToConnectionDetails, false, this.hass.localize('ui.common.back'), false, 'back', true)}
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
@@ -13323,27 +13338,6 @@ const $de105ef1fecb85b1$export$37fb422a613a50b6 = (element)=>{
         dialogParams: {}
     });
 };
-const $de105ef1fecb85b1$export$55fd632de47ce4c1 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('car-battery-usable-capacity.header'),
-        description: $de105ef1fecb85b1$var$tp('car-battery-usable-capacity.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$ba081ffd3b039ad0 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('roundtrip-efficiency.header'),
-        description: $de105ef1fecb85b1$var$tp('roundtrip-efficiency.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$ebe2794f5ddc465 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('car-energy-consumption.header'),
-        description: $de105ef1fecb85b1$var$tp('car-energy-consumption.description'),
-        ...dialogParams
-    });
-};
 const $de105ef1fecb85b1$export$f65787da8a28ec8b = (element)=>{
     (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
         dialogTag: (0, $1c99e93d5e0f446e$export$45e0b80f1e500bd4),
@@ -13797,7 +13791,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
-        ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
+        ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled, true)}
       </div>
       <div class="card-actions">
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
