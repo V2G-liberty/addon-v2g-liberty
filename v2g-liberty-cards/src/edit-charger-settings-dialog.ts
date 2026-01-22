@@ -75,6 +75,7 @@ class EditChargerSettingsDialog extends DialogBase {
 
   public async showDialog(): Promise<void> {
     super.showDialog();
+    this._currentPage = '1-select-charger-type';
     this._selectedChargerType = this.hass.states[entityIds.chargerType]?.state as ChargerType || null;
 
     this._chargerHost = defaultState(
@@ -221,7 +222,7 @@ class EditChargerSettingsDialog extends DialogBase {
           <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
         `
       }
-      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+      ${renderLoadbalancerInfo(_isLoadBalancerEnabled, true)}
       ${renderButton(
         this.hass,
         this._goBackToChargerSelection,
@@ -367,7 +368,7 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
-      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+      ${renderLoadbalancerInfo(_isLoadBalancerEnabled, false)}
       ${renderButton(
         this.hass,
         this._goBackToConnectionDetails,
