@@ -113,6 +113,10 @@ class V2GLibertyApp(Hass):
         self._log_init_time("main_app.initialize()", start_module)
 
         start_module = datetime.now()
+        await notifier.initialize()
+        self._log_init_time("notifier.initialize()", start_module)
+
+        start_module = datetime.now()
         await amber_price_data_manager.initialize()
         self._log_init_time("amber_price_data_manager.initialize()", start_module)
 

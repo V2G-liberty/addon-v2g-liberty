@@ -8,6 +8,7 @@ from . import constants as c
 from .log_wrapper import get_class_method_logger
 import uuid
 
+
 class Notifier:
     """
     Utility class to handle sending notifications to users:
@@ -45,9 +46,16 @@ class Notifier:
             self.__handle_notification_action, event="mobile_app_notification_action"
         )
 
-        self._get_recipients()
-        self.__log("Completed initilisation of Notifier")
+        # MOVED: Don't call _get_recipients() here - will be called in initialize()
+        self.__log(
+            "Completed initialization of Notifier (recipients will be loaded in initialize())"
+        )
 
+    async def initialize(self):
+        """Async initialization - must be called after __init__"""
+        self.__log("Initializing Notifier (async)")
+        self._get_recipients()
+        self.__log("Completed async initialization of Notifier")
 
     ########################################################################
     #                            PUBLIC METHODS                            #
@@ -127,10 +135,7 @@ class Notifier:
         if actions:
             # Prepend the tag to each action for later matching with callback
             tagged_actions = [
-                {
-                    "action": f"{tag}~{action['action']}",
-                    "title": action["title"]
-                }
+                {"action": f"{tag}~{action['action']}", "title": action["title"]}
                 for action in actions
             ]
             notification_data["actions"] = tagged_actions
@@ -220,7 +225,6 @@ class Notifier:
         except Exception as e:
             self.__log(f"Failed. Exception: '{e}'.", level="WARNING")
 
-
     ########################################################################
     #                       PRIVATE (UTILITY) FUNCTIONS                    #
     ########################################################################
@@ -246,7 +250,7 @@ class Notifier:
 
         action_parts = str(action_data).split("~")
         tag = action_parts[0]
-        action= action_parts[1]
+        action = action_parts[1]
         self.__log(f"Retrieved tag: '{tag}' and action: '{action}' from action_data.")
 
         if tag in self._notification_callbacks:
@@ -255,7 +259,10 @@ class Notifier:
                 await callback(action)  # Call the callback with the action name
                 del self._notification_callbacks[tag]  # Clean up the callback
             except Exception as e:
-                self.__log(f"Could not call callback '{callback}', exception: '{e}'.", level="WARNING")
+                self.__log(
+                    f"Could not call callback '{callback}', exception: '{e}'.",
+                    level="WARNING",
+                )
 
     async def _cb_test_notification(self, *args):
         self.hass.fire_event("send_test_notification.result")
@@ -280,17 +287,25 @@ class Notifier:
         )
 
     def _get_recipients(self):
-        # List of all the recipients to notify
-        # Warn user about bad config with sticky memo in UI.
-
+        """Get list of mobile devices for notifications.
+        Called during async initialization when Home Assistant domains are available.
+        """
         self.__log("getting recipients")
         # TODO: Add a listener for changes in registered devices (smartphones with HA installed)?
 
-        # Service "mobile_app_" seems more reliable than using get_trackers,
-        # as these names do not always match with the service.
-        for service in self.hass.list_services():
-            if service["service"].startswith("mobile_app_"):
-                self.recipients.append(service["service"].replace("mobile_app_", ""))
+        try:
+            # Service "mobile_app_" seems more reliable than using get_trackers,
+            # as these names do not always match with the service.
+            for service in self.hass.list_services():
+                if service["service"].startswith("mobile_app_"):
+                    self.recipients.append(
+                        service["service"].replace("mobile_app_", "")
+                    )
+        except Exception as e:
+            self.__log(
+                f"Failed to list services: {e}. Will retry later.", level="WARNING"
+            )
+            return
 
         if len(self.recipients) == 0:
             message = (
@@ -299,17 +314,19 @@ class Notifier:
                 "Please install the HA companion app on your mobile device and connect it to "
                 "Home Assistant. Then restart Home Assistant and the V2G Liberty add-on."
             )
-            self.__log(f"Configuration error: {message}.")
+            self.__log(f"Configuration warning: {message}.")
             # TODO: Research if showing this only to admin users is possible.
-            self.post_sticky_memo(
-                title="Configuration error",
-                message=message,
-                memo_id="notification_config_error",
-            )
+            try:
+                self.post_sticky_memo(
+                    title="Configuration warning",
+                    message=message,
+                    memo_id="notification_config_error",
+                )
+            except Exception as e:
+                self.__log(f"Failed to post sticky memo: {e}", level="WARNING")
         else:
             self.recipients = list(set(self.recipients))  # Remove duplicates
             self.recipients.sort()
             self.__log(f"recipients for notifications: {self.recipients}.")
 
         self.__log("Completed get recipients")
-
