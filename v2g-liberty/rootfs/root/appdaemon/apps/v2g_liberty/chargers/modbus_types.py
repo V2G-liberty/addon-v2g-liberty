@@ -150,6 +150,44 @@ class MBR:
             print(f"[WARNING] Error encoding value for MBR {self}: {e}")
             return []
 
+    def coerce_value(self, value: Any) -> Any:
+        """
+        Apply type coercion based on data_type.
+        Handles edge cases like string→int, float→int conversions.
+
+        Args:
+            value (Any): The value to coerce.
+
+        Returns:
+            Any: Coerced value matching data_type, or None if conversion fails.
+
+        Notes:
+            - For integer types: converts via int(float(value)) to handle string/float inputs
+            - For float32: converts to float
+            - For string: converts to str
+            - Returns None if value is None or conversion fails
+        """
+        if value is None:
+            return None
+
+        try:
+            if self.data_type in ("uint16", "int16", "uint32", "int32", "int64"):
+                return int(float(value))
+            elif self.data_type == "float32":
+                return float(value)
+            elif self.data_type == "string":
+                return str(value)
+            else:
+                print(
+                    f"[WARNING] Unknown data_type '{self.data_type}'; value left unchanged"
+                )
+                return value
+        except (ValueError, TypeError) as e:
+            print(
+                f"[WARNING] Failed to coerce value '{value}' for type '{self.data_type}': {e}"
+            )
+            return None
+
 
 @dataclass
 class ModbusConfigEntity:
@@ -205,24 +243,9 @@ class ModbusConfigEntity:
         # Guard for None value from modbus register is done _get_and_process_registers
 
         if new_value is not None:
-            try:
-                dt = self.modbus_register.data_type
-
-                if dt in ("uint16", "int16", "uint32", "int32", "int64"):
-                    new_value = int(float(new_value))
-                elif dt == "float32":
-                    new_value = float(new_value)
-                elif dt == "string":
-                    new_value = str(new_value)
-                else:
-                    print(
-                        f"[WARNING] Unknown data_type '{dt}' in MBR; value left unchanged"
-                    )
-
-            except Exception as e:
-                print(
-                    f"[WARNING] Failed to convert value '{new_value}' for type '{dt}': {e}"
-                )
+            # Apply type coercion using MBR's centralized method
+            new_value = self.modbus_register.coerce_value(new_value)
+            if new_value is None:
                 return False
 
             if self.pre_processor is not None:

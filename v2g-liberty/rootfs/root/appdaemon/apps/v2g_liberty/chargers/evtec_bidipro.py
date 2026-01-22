@@ -42,6 +42,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
     _MBR_CAR_BATTERY_CAPACITY_WH = MBR(address=158, data_type="float32", length=2)
     _MBR_CAR_MIN_BATTERY_CAPACITY_WH = MBR(address=162, data_type="float32", length=2)
+    _MBR_CAR_ID = MBR(address=176, data_type="string", length=10)
 
     # Charger setting to go to idle state if no Modbus message is received within this timeout.
     _MBR_IDLE_TIMEOUT_SEC = MBR(address=42, data_type="int32", length=2)
@@ -64,12 +65,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     #   and store (cache) the values of the charger.                               #
     #   The current_value defaults to None to indicate it has not been touched yet.#
     ################################################################################
-
-    _MCE_CAR_ID = ModbusConfigEntity(
-        modbus_register=MBR(address=176, data_type="string", length=10),
-        current_value=None,
-        change_handler="_handle_car_id_change",
-    )
 
     _MCE_CAR_SOC = ModbusConfigEntity(
         modbus_register=MBR(address=112, data_type="float32", length=2),
@@ -331,26 +326,27 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         if not self.is_car_connected:
             return None
 
-        ev_id = self._MCE_CAR_ID.current_value
-        if ev_id in [0, None]:
-            return None
-
-        ev = self.get_vehicle_by_ev_id(ev_id=ev_id)
-        is_new = ev is None
-
         result = await self._mb_client.read_registers(
             [
                 self._MBR_CAR_BATTERY_CAPACITY_WH,
                 self._MBR_CAR_MIN_BATTERY_CAPACITY_WH,
+                self._MBR_CAR_ID,
             ]
         )
 
         if result is None:
             bc = None
             mbc = None
+            ev_id = None
         else:
-            bc = self._process_number(result[0])
-            mbc = self._process_number(result[1])
+            bc = self._MBR_CAR_BATTERY_CAPACITY_WH.coerce_value(result[0])
+            mbc = self._MBR_CAR_MIN_BATTERY_CAPACITY_WH.coerce_value(result[1])
+            ev_id = result[2]  # Already a string from MBR.decode(), no coercion needed
+
+        ev = None
+        if ev_id not in [0, None]:
+            ev = self.get_vehicle_by_ev_id(ev_id=ev_id)
+        is_new = ev is None
 
         return {
             "ev_id": ev_id,
@@ -394,7 +390,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._log("No valid read hardware limit", level="WARNING")
             await self._emit_modbus_communication_state(can_communicate=False)
             return None
-        result = self._process_number(result[0])
+        result = self._MBR_MAX_CHARGE_POWER.coerce_value(result[0])
         await self._emit_modbus_communication_state(can_communicate=True)
         return result
 
@@ -701,15 +697,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         else:
             self._connected_car.set_soc(new_soc=new_soc)
 
-    async def _handle_car_id_change(self, new_id, old_id):
-        self._log(f"called {new_id=}, {old_id=}.")
-        # 0 = no car connected?
-        if new_id == 0 or new_id is None:
-            # Handeling disconnected state is done in _handle_evse_state_change()
-            self._connected_car = None
-        else:
-            self._connected_car = self.get_vehicle_by_ev_id(new_id)
-
     async def _handle_evse_state_change(self, new_evse_state: int, old_evse_state: int):
         """Called when _update_evse_entity detects a changed value."""
         self._log(f"called {new_evse_state=}, {old_evse_state=}.")
@@ -749,10 +736,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._log(
                 "From disconnected to connected: get connected car and try to get the SoC"
             )
-            success = self.try_set_connected_vehicle("NissanLeaf")
+            success = await self.try_set_connected_vehicle()
+            self._eb.emit_event("is_car_connected", is_car_connected=True)
             if success:
                 await self._get_car_soc(force_renew=True)
-            self._eb.emit_event("is_car_connected", is_car_connected=True)
         else:
             # From one connected state to an other connected state: not a change that this method
             # needs to react upon.
@@ -760,11 +747,28 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         return
 
-    def try_set_connected_vehicle(self, ev_id: str):
+    async def try_set_connected_vehicle(self):
         """
-        For ISO15118 capable chargers we would get the car info (name) from the charger here.
-        For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
+        Retrieve ev_id from the car then, -based ion this id, try to find the right car from the
+        list of cars using the callback on the main_app.
+        To be called when charger state goes from disconnected to connected.
         """
+        result = await self._mb_client.read_registers([self._MBR_CAR_ID])
+        if result is None:
+            self._log(
+                "Cannot set connected vehicle, could not retrieve ev_id.",
+                level="WARNING",
+            )
+            return False
+
+        ev_id = result[0]
+        if ev_id in [0, None]:
+            self._log(
+                f"Cannot set connected vehicle, ev_id invalid: '{ev_id}'.",
+                level="WARNING",
+            )
+            return False
+
         ev = self.get_vehicle_by_ev_id(ev_id)
         if ev is None:
             self._log(
@@ -777,21 +781,19 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return True
 
     async def _get_charge_power(self) -> int | None:
-        state = self._MCE_ACTUAL_POWER.current_value
-        if state is None:
-            # This can be the case before initialisation has finished.
+        max_age = self._POLLING_INTERVAL_SECONDS * 3
+        if not self._MCE_ACTUAL_POWER.is_value_fresh(max_age):
+            # Value is None or too old (before init or stale data)
             await self._get_and_process_registers([self._MCE_ACTUAL_POWER])
-            state = self._MCE_ACTUAL_POWER.current_value
-        return state
+        return self._MCE_ACTUAL_POWER.current_value
 
     async def _get_evse_state(self) -> int:
         """Returns the state accoding to _EVSE_STATES from the base class."""
-        charger_state = self._MCE_EVSE_STATE.current_value
-        if charger_state is None:
-            # This can be the case before initialisation has finished.
+        max_age = self._POLLING_INTERVAL_SECONDS * 3
+        if not self._MCE_EVSE_STATE.is_value_fresh(max_age):
+            # Value is None or too old (before init or stale data)
             await self._get_and_process_registers([self._MCE_EVSE_STATE])
-            charger_state = self._MCE_EVSE_STATE.current_value
-        return charger_state
+        return self._MCE_EVSE_STATE.current_value
 
     async def _is_charging_or_discharging(self) -> bool:
         state = await self._get_evse_state()
@@ -1094,36 +1096,3 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
 
     ################################# UTILITIE METHODS ################################
-
-    def _process_number(
-        self,
-        number_to_process: int | float | str,
-        min_value: int | float = None,
-        max_value: int | float = None,
-        number_name: str = None,
-    ) -> int | None:
-        if number_to_process is None:
-            return None
-
-        try:
-            processed_number = int(float(number_to_process))
-        except ValueError as ve:
-            self._log(
-                f"Number named '{number_name}' with value '{number_to_process}' cannot be processed"
-                f"due to ValueError: {ve}.",
-                level="WARNING",
-            )
-            return None
-
-        if isinstance(min_value, (int, float)) and isinstance(max_value, (int, float)):
-            if min_value <= processed_number <= max_value:
-                return processed_number
-            else:
-                self._log(
-                    f"Number named '{number_name}' with value '{number_to_process}' is out of range"
-                    f"min '{min_value}' - max '{max_value}'.",
-                    level="WARNING",
-                )
-                return None
-        else:
-            return processed_number

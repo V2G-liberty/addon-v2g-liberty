@@ -395,7 +395,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             await self._emit_modbus_communication_state(can_communicate=False)
             return None
 
-        result = self._process_number(results[0])
+        result = self._MBR_MAX_AVAILABLE_POWER.coerce_value(results[0])
         await self._emit_modbus_communication_state(can_communicate=True)
         return result
 
@@ -641,16 +641,28 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._get_and_process_registers([self._MCE_CHARGER_LOCKED])
         self._eb.emit_event("evse_polled", stop=False)
 
-    async def _get_and_process_registers(self, entities: list):
-        """This function reads the values from the EVSE via modbus and
-        writes these values to corresponding sensors in HA.
+    async def _update_mce(self, mce: ModbusConfigEntity, new_value):
+        """Update a Modbus Config Entity with a new value and trigger change handler if needed."""
+        old_value = mce.current_value
+        mce.set_value(new_value=new_value, owner=self)
+        new_value = mce.current_value
 
-        Args:
-            entities: List of ModbusConfigEntity objects to read
-        """
+        # Trigger change handler if value changed
+        if old_value != new_value and mce.change_handler:
+            try:
+                handler = getattr(self, mce.change_handler)
+                await handler(new_value, old_value)
+            except Exception as e:
+                self._log(
+                    f"Change_handler '{mce.change_handler}' not called. Exception: {e}.",
+                    level="WARNING",
+                )
+
+    async def _get_and_process_registers(self, entities: list):
+        """Read values from the EVSE via Modbus and update entity states."""
 
         if self._mb_client is None:
-            self._log("Mobus client not initialised yet, aborting", level="WARNING")
+            self._log("Modbus client not initialised yet, aborting", level="WARNING")
             return
 
         # Extract MBR objects from entities
@@ -658,69 +670,16 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         results = await self._mb_client.read_registers(mbr_list)
         if not results:
-            # Could not read
-            self._log("results is None, abort processing.", level="WARNING")
+            self._log("Could not read registers, abort processing.", level="WARNING")
             await self._emit_modbus_communication_state(can_communicate=False)
             return
 
         await self._emit_modbus_communication_state(can_communicate=True)
 
+        # Process each entity with its corresponding result
         for i, entity in enumerate(entities):
-            entity_name = "now_handled_via_events"
-            new_state = results[i]
-            if new_state is None:
-                self._log(f"New value 'None' for entity '{entity_name}' ignored.")
-                continue
-
-            try:
-                new_state = int(float(new_state))
-            except ValueError as ve:
-                self._log(
-                    f"New value '{new_state}' for entity '{entity_name}' "
-                    f"ignored due to ValueError: {ve}."
-                )
-                continue
-
-            if not (entity.minimum_value <= new_state <= entity.maximum_value):
-                # Ignore and keep current value unless that is None
-                if entity.current_value is None:
-                    # This is very rare: current_value will only be None at startup.
-                    # Not setting a value will cause the application to hang, so lets use
-                    # the relaxed min/max in the entity supports that.
-                    # If that fails assume 'unavailable'.
-                    relaxed_min_value = entity.relaxed_min_value
-                    relaxed_max_value = entity.relaxed_max_value
-                    if relaxed_min_value is None or relaxed_max_value is None:
-                        new_state = None
-                        self._log(
-                            f"New value {new_state} for entity '{entity_name}' "
-                            f"out of range {entity.minimum_value} "
-                            f"- {entity.maximum_value} but current value is None, so this polled"
-                            f" value cannot be ignored, so new_value set to None."
-                        )
-                    elif relaxed_min_value <= new_state <= relaxed_max_value:
-                        self._log(
-                            f"New value {new_state} for entity '{entity_name}' "
-                            f"out of min/max range but in relaxed range {relaxed_min_value} "
-                            f"- {relaxed_max_value}. So, as the current value is None, this this "
-                            f"polled value is still used."
-                        )
-                    else:
-                        new_state = None
-                        self._log(
-                            f"New value {new_state} for entity '{entity_name}' "
-                            f"out of relaxed range {relaxed_min_value} "
-                            f"- {relaxed_max_value} but current value is None, so this polled value"
-                            f" cannot be ignored, so new_value set to None."
-                        )
-                else:
-                    # If there is a current value ignore the new value and keep that current value.
-                    # This occurs when car is connected but charger is idle, it then
-                    # returns 0 for the SoC.
-                    continue
-
-            await self._update_evse_entity(evse_entity=entity, new_value=new_state)
-        return
+            raw_value = results[i]  # Already decoded by MBR.decode()
+            await self._update_mce(entity, raw_value)
 
     async def _update_evse_entity(self, evse_entity: ModbusConfigEntity, new_value):
         """Update the EVSE entity with the new value.
@@ -1366,36 +1325,3 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             )
 
     ################################# UTILITIE METHODS ################################
-
-    def _process_number(
-        self,
-        number_to_process: int | float | str,
-        min_value: int | float = None,
-        max_value: int | float = None,
-        number_name: str = None,
-    ) -> int | None:
-        if number_to_process is None:
-            return None
-
-        try:
-            processed_number = int(float(number_to_process))
-        except ValueError as ve:
-            self._log(
-                f"Number named '{number_name}' with value '{number_to_process}' cannot be processed"
-                f"due to ValueError: {ve}.",
-                level="WARNING",
-            )
-            return None
-
-        if isinstance(min_value, (int, float)) and isinstance(max_value, (int, float)):
-            if min_value <= processed_number <= max_value:
-                return processed_number
-            else:
-                self._log(
-                    f"Number named '{number_name}' with value '{number_to_process}' is out of range"
-                    f"min '{min_value}' - max '{max_value}'.",
-                    level="WARNING",
-                )
-                return None
-        else:
-            return processed_number
