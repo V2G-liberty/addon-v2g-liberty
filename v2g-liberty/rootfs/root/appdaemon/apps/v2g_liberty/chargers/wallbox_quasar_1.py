@@ -644,14 +644,13 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     async def _update_mce(self, mce: ModbusConfigEntity, new_value):
         """Update a Modbus Config Entity with a new value and trigger change handler if needed."""
         old_value = mce.current_value
-        mce.set_value(new_value=new_value, owner=self)
-        new_value = mce.current_value
+        has_changed = mce.set_value(new_value=new_value, owner=self)
 
         # Trigger change handler if value changed
-        if old_value != new_value and mce.change_handler:
+        if has_changed and mce.change_handler:
             try:
                 handler = getattr(self, mce.change_handler)
-                await handler(new_value, old_value)
+                await handler(mce.current_value, old_value)
             except Exception as e:
                 self._log(
                     f"Change_handler '{mce.change_handler}' not called. Exception: {e}.",
@@ -680,41 +679,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         for i, entity in enumerate(entities):
             raw_value = results[i]  # Already decoded by MBR.decode()
             await self._update_mce(entity, raw_value)
-
-    async def _update_evse_entity(self, evse_entity: ModbusConfigEntity, new_value):
-        """Update the EVSE entity with the new value.
-
-        Args:
-            evse_entity: The ModbusConfigEntity to update.
-            new_value: The new value (can be None).
-        """
-        current_value = evse_entity.current_value
-
-        # Use set_value() which handles type conversion, pre_processor, and validation
-        has_changed = evse_entity.set_value(new_value, owner=self)
-
-        if has_changed:
-            # Call change_handler if defined
-            # change_handler method must be async and have two parameters: new_value, old_value
-            if evse_entity.change_handler is not None:
-                change_handler_method_name = evse_entity.change_handler
-                if isinstance(change_handler_method_name, str):
-                    try:
-                        change_handler_method = getattr(
-                            self, change_handler_method_name
-                        )
-                        await change_handler_method(
-                            evse_entity.current_value, current_value
-                        )
-                    except AttributeError:
-                        self._log(
-                            f"Change_handler_method '{change_handler_method_name}' does not exist!",
-                            level="WARNING",
-                        )
-                else:
-                    self._log(
-                        "change_handler_method_name is not a string!", level="WARNING"
-                    )
 
     async def _handle_charge_power_change(self, new_power, old_power):
         self._eb.emit_event("charge_power_change", new_power=new_power)
@@ -747,7 +711,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     async def _handle_charger_state_change(
         self, new_evse_state: int, old_evse_state: int
     ):
-        """Called when _update_evse_entity detects a changed value."""
+        """Called when _update_mce detects a changed value."""
         self._log(f"called {new_evse_state=}, {old_evse_state=}.")
 
         if new_evse_state in self._ERROR_STATES or old_evse_state in self._ERROR_STATES:
@@ -777,9 +741,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._connected_car = None
 
             # When disconnected the SoC of the car goes from current soc to None.
-            await self._update_evse_entity(
-                evse_entity=self._MCE_CAR_SOC, new_value=None
-            )
+            await self._update_mce(mce=self._MCE_CAR_SOC, new_value=None)
 
             # To prevent the charger from auto-start charging after the car gets connected again,
             # explicitly send a stop-charging command:
@@ -920,9 +882,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 # Rare but possible. None can also occur if charger is in error
                 if soc_in_charger == 0:
                     soc_in_charger = None
-                await self._update_evse_entity(
-                    evse_entity=mcs, new_value=soc_in_charger
-                )
+                await self._update_mce(mce=mcs, new_value=soc_in_charger)
             else:
                 self._log("start a charge and read the soc until value is valid")
                 # When not charging reading a SoC will return a false 0-value. To resolve this start
@@ -967,9 +927,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
                 if soc_in_charger == 0:
                     soc_in_charger = None
                 # Do before restart polling
-                await self._update_evse_entity(
-                    evse_entity=mcs, new_value=soc_in_charger
-                )
+                await self._update_mce(mce=mcs, new_value=soc_in_charger)
                 self._charging_to_read_soc = False
                 await self._kick_off_polling(reason="After force reading soc")
             soc_value = soc_in_charger
@@ -1224,13 +1182,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         )
 
         # The soc and power are not known any more so let's represent this in the app
-        await self._update_evse_entity(
-            evse_entity=self._MCE_ACTUAL_POWER, new_value=None
-        )
-        await self._update_evse_entity(evse_entity=self._MCE_CAR_SOC, new_value=None)
+        await self._update_mce(mce=self._MCE_ACTUAL_POWER, new_value=None)
+        await self._update_mce(mce=self._MCE_CAR_SOC, new_value=None)
         # Set charger state to error, use quasar state number as the preprocessor will alter to
         # base_evse_state.
-        await self._update_evse_entity(evse_entity=self._MCE_CHARGER_STATE, new_value=7)
+        await self._update_mce(mce=self._MCE_CHARGER_STATE, new_value=7)
 
     async def _modbus_communication_restored(self):
         self._log("Modbus connection to Wallbox Quasar 1 EVSE restored.")
