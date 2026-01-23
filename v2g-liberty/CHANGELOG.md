@@ -15,6 +15,7 @@
 ### Changed
 
 - Bumped pymodbus library to 3.11.4 (#373)
+- 🚀 FEAT: loadbalancer instructions for entities inline HA 2026 requierments (#387)
 
 &nbsp;
 
