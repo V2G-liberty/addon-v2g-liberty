@@ -11,6 +11,9 @@ arch:
 init: false
 homeassistant_api: true
 uart: true
+ports:
+  5050/tcp: 5050
+watchdog: http://[HOST]:[PORT:5050]/aui/index.html#/
 map:
   - addon_config:rw
   - homeassistant_config:rw
