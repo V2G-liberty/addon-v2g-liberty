@@ -4,8 +4,7 @@ v2g-liberty/logs/
 .DS_Store
 
 # Local devcontainer overrides (private)
-.devcontainer/docker-compose.override.yaml
-.devcontainer/*.override.yaml
+.devcontainer/**/*.override.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
