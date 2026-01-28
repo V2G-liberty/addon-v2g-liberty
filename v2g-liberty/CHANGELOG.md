@@ -1,9 +1,10 @@
 # What's changed?
 
-## 0.7.3 2026-01-??
+## 0.7.3 2026-01-30
 
 ### Fixed
 
+- 🪲 BUG: Chart shows SoC prediction line even if there is no schedule (#389)
 - 🪲 BUG: Domain exception during Notifier initialisation causing startup failures (#385)
 - 🪲 BUG: Monitoring for error state failed to notify (#369)
 - 🪲 BUG: Calculation of the expected SoC incorrect (#374)

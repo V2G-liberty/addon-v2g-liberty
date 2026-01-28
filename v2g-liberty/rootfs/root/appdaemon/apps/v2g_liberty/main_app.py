@@ -799,12 +799,9 @@ class V2Gliberty:
         """
         now = get_local_now()
 
-        # There seems to be no way to hide the SoC series from the graph,
-        # so it is filled with "empty" data, one record of None.
-        # Set it at a week from now, so it's not visible in the default view.
-        clear_line_records = dict(
-            records=[dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
-        )
+        # Hide the SoC series from the graph by setting an empty records array.
+        # This ensures no data points are rendered and no visual artifacts appear.
+        clear_line_records = dict(records=[])
 
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = "Chart line data at " + now.isoformat()

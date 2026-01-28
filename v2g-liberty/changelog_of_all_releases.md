@@ -3,10 +3,11 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.7.3 2026-01-??
+## 0.7.3 2026-01-30
 
 ### Fixed
 
+- 🪲 BUG: Chart shows SoC prediction line even if there is no schedule (#389)
 - 🪲 BUG: Domain exception during Notifier initialisation causing startup failures (#385)
 - 🪲 BUG: Monitoring for error state failed to notify (#369)
 - 🪲 BUG: Calculation of the expected SoC incorrect (#374)
@@ -377,7 +378,6 @@ That file also contains possible changes that the next release might include.
   - Removed mechanism to prevent 'parallel calls' to charger
   - Removed closing the connection after every call
 - Upgraded (the L&F of) the chart:
-
   - The chart is now larger (taller).
   - The zoom/pan function has been replaced by a unit of measure, '¢ent/kWh.'
   - Prices now align with the grid lines, which are less "dotty."
