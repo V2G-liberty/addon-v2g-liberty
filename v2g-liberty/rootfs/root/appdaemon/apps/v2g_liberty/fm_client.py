@@ -258,6 +258,7 @@ class FMClient(AsyncIOEventEmitter):
         duration: str | timedelta,
         uom: str,
         resolution: str | timedelta,
+        source: int = None,
     ) -> dict:
         """
         :param sensor_id: fm sensor id
@@ -274,14 +275,18 @@ class FMClient(AsyncIOEventEmitter):
                 }
         """
         self.__log(f"called for sensor_id: {sensor_id}.")
+        kwargs = {
+            "sensor_id": sensor_id,
+            "start": start,
+            "duration": duration,
+            "unit": uom,
+            "resolution": resolution,
+        }
+        if source is not None:
+            kwargs["source"] = source
+
         try:
-            res = await self.client.get_sensor_data(
-                sensor_id=sensor_id,
-                start=start,
-                duration=duration,
-                unit=uom,
-                resolution=resolution,
-            )
+            res = await self.client.get_sensor_data(**kwargs)
         except Exception as e:
             # ContentTypeError, ValueError, timeout, no data??:
             self.__log(

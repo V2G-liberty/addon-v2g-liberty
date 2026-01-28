@@ -602,6 +602,20 @@ class FlexMeasuresDataImporter:
                 if price_type == "consumption"
                 else c.FM_PRICE_PRODUCTION_SENSOR_ID
             )
+
+            ##########################################################################
+            # TESTDATA
+            ##########################################################################
+
+            entsoe_prices = await self.fm_client_app.get_sensor_data(
+                sensor_id=14,
+                start=start.isoformat(),
+                duration="P3D",
+                resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
+                uom=f"c{c.CURRENCY}/kWh",
+                source=37,
+            )
+
             ##########################################################################
             # TESTDATA: Currency = EUR, should be GBP! Is set in class definition.
             ##########################################################################
@@ -615,15 +629,29 @@ class FlexMeasuresDataImporter:
                 resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
                 uom=f"c{c.CURRENCY}/kWh",
             )
-            self.__log(f"({price_type}) | sensor_id: {sensor_id}, prices: {prices}.")
+            self.__log(
+                f"({price_type}) | sensor_id: {sensor_id}, entsoe_prices: {entsoe_prices}, prices: {prices}."
+            )
+
             date_latest_price = None
+            entsoe_date_latest_price = None
             net_price = None
             if prices is None:
                 failure_message = f"get_prices failed for {price_type}"
+
+            if entsoe_prices is None or prices is None:
+                failure_message = f"get_prices failed for entsoe / {price_type}"
             else:
                 price_points = []
                 first_future_negative_price_point = "No negative prices"
                 prices = prices["values"]
+                entsoe_prices = entsoe_prices["values"]
+                for i, entsoe_price in enumerate(entsoe_prices):
+                    if entsoe_price is None:
+                        continue
+                    dt = start + timedelta(minutes=(i * c.PRICE_RESOLUTION_MINUTES))
+                    entsoe_date_latest_price = dt
+
                 none_prices = 0
                 for i, price in enumerate(prices):
                     if price is None:
@@ -678,7 +706,7 @@ class FlexMeasuresDataImporter:
                     records=price_points,
                 )
 
-                if date_latest_price is None:
+                if entsoe_date_latest_price is None:
                     failure_message = f"no valid {price_type} prices received"
                 elif is_price_epex_based():
                     # We expect prices till the end of the day tomorrow
@@ -695,7 +723,7 @@ class FlexMeasuresDataImporter:
                     # As the last price is valid for the hour 23:00:00 - 23:59:59 so we need to
                     # subtract one hour and a little extra to give it some slack.
                     expected_price_dt -= timedelta(minutes=65)
-                    is_up_to_date = date_latest_price > expected_price_dt
+                    is_up_to_date = entsoe_date_latest_price > expected_price_dt
                     if not is_up_to_date:
                         # Set it in th UI right away, no matter which price type it is.
                         # Notification is done later via __check_if_prices_are_up_to_date()
@@ -705,7 +733,7 @@ class FlexMeasuresDataImporter:
 
                     self.__log(
                         f"({price_type}): is up to date: '{is_up_to_date}' based on "
-                        f"latest_price ({date_latest_price}) > "
+                        f"latest_price ({entsoe_date_latest_price}) > "
                         f"expected_price_dt ({expected_price_dt})."
                     )
                     price_is_up_to_date = (
