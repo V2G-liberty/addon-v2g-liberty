@@ -54,10 +54,10 @@ function test_docker_running() {
 }
 
 function test_quasar_mock_running() {
-    cd "$DEVCONTAINER_DIR"
+    # Use docker ps directly to check if container is running
+    # This is more reliable than docker compose ps when VS Code manages containers
     local state
-    state=$(docker-compose --project-name addon-v2g-liberty_devcontainer ps quasar-mock --format json 2>/dev/null | grep -o '"State":"[^"]*"' | cut -d'"' -f4 || echo "")
-    cd - >/dev/null
+    state=$(docker ps --filter "name=quasar-mock" --format "{{.State}}" 2>/dev/null || echo "")
     [ "$state" = "running" ]
 }
 
@@ -78,7 +78,7 @@ function start_quasar_mock() {
     echo -e "${GRAY}Config: $CHARGER_MOCKS_DIR/configs/quasar_charging_33pct.json${NC}"
 
     cd "$DEVCONTAINER_DIR"
-    docker-compose --project-name addon-v2g-liberty_devcontainer up -d quasar-mock
+    docker compose --project-name v2g-liberty_devcontainer up -d quasar-mock
     sleep 2
 
     if test_quasar_mock_running; then
@@ -97,10 +97,10 @@ function stop_devcontainers() {
 
     echo -e "${YELLOW}Stopping Quasar mock...${NC}"
     cd "$DEVCONTAINER_DIR"
-    docker-compose --project-name addon-v2g-liberty_devcontainer stop quasar-mock 2>/dev/null || true
+    docker compose --project-name v2g-liberty_devcontainer stop quasar-mock 2>/dev/null || true
 
     echo -e "${YELLOW}Stopping DevContainers...${NC}"
-    docker-compose --project-name addon-v2g-liberty_devcontainer down
+    docker compose --project-name v2g-liberty_devcontainer down
     echo -e "\n${GREEN}All services stopped successfully.${NC}"
 
     cd - >/dev/null
@@ -126,7 +126,7 @@ function reset_dev_environment() {
     # Step 1: Stop and remove all containers
     echo -e "\n${CYAN}[1/5] Stopping and removing Docker containers...${NC}"
     cd "$DEVCONTAINER_DIR"
-    if docker-compose --project-name addon-v2g-liberty_devcontainer down -v 2>/dev/null; then
+    if docker compose --project-name v2g-liberty_devcontainer down -v 2>/dev/null; then
         echo -e "${GREEN}  ✓ Containers and volumes removed${NC}"
     else
         echo -e "${GRAY}  ! No containers to remove${NC}"
@@ -188,11 +188,9 @@ function reset_dev_environment() {
 function get_container_status() {
     print_header "Service Status"
 
-    cd "$DEVCONTAINER_DIR"
-
     echo -e "${CYAN}Quasar Mock Server:${NC}"
     local quasar_state
-    quasar_state=$(docker-compose --project-name addon-v2g-liberty_devcontainer ps quasar-mock --format json 2>/dev/null | grep -o '"State":"[^"]*"' | cut -d'"' -f4 || echo "")
+    quasar_state=$(docker ps --filter "name=quasar-mock" --format "{{.State}}" 2>/dev/null || echo "")
     if [ "$quasar_state" = "running" ]; then
         echo -e "${GREEN}  ✓ RUNNING on port $QUASAR_MOCK_PORT${NC}"
         echo -e "${GREEN}  Hostname: quasar-mock${NC}"
@@ -201,10 +199,8 @@ function get_container_status() {
         echo -e "${YELLOW}  ✗ NOT RUNNING${NC}"
     fi
 
-    echo -e "\n${CYAN}DevContainers:${NC}"
-    docker-compose --project-name addon-v2g-liberty_devcontainer ps
-
-    cd - >/dev/null
+    echo -e "\n${CYAN}All DevContainer Services:${NC}"
+    docker ps --filter "label=com.docker.compose.project=v2g-liberty_devcontainer" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 }
 
 function start_dev_with_config() {
@@ -225,18 +221,18 @@ function start_dev_with_config() {
 
     # Check if addon-v2g-liberty container is running (key dependency)
     local addon_state
-    addon_state=$(docker-compose --project-name addon-v2g-liberty_devcontainer ps addon-v2g-liberty --format json 2>/dev/null | grep -o '"State":"[^"]*"' | cut -d'"' -f4 || echo "")
+    addon_state=$(docker ps --filter "name=addon-v2g-liberty" --format "{{.State}}" 2>/dev/null || echo "")
 
     if [ "$addon_state" != "running" ]; then
         echo -e "${CYAN}Step 2/4: Starting devcontainers...${NC}"
-        docker-compose --project-name addon-v2g-liberty_devcontainer up -d --build
+        docker compose --project-name v2g-liberty_devcontainer up -d --build
 
         echo -e "${YELLOW}Waiting for containers to be healthy...${NC}"
         local timeout=120
         local elapsed=0
         while [ $elapsed -lt $timeout ]; do
             local health
-            health=$(docker-compose --project-name addon-v2g-liberty_devcontainer ps addon-v2g-liberty --format json 2>/dev/null | grep -o '"Health":"[^"]*"' | cut -d'"' -f4 || echo "")
+            health=$(docker inspect --format='{{.State.Health.Status}}' $(docker ps --filter "name=addon-v2g-liberty" --format "{{.ID}}" 2>/dev/null) 2>/dev/null || echo "")
             if [ "$health" = "healthy" ]; then
                 echo -e "\n${GREEN}All containers are running!${NC}"
                 break
@@ -253,7 +249,9 @@ function start_dev_with_config() {
 
     # Step 3: Copy config files
     echo -e "${CYAN}Step 3/4: Copying V2G-Liberty config files to Home Assistant...${NC}"
-    docker-compose --project-name addon-v2g-liberty_devcontainer exec -T addon-v2g-liberty bash -c "cd /workspaces && bash v2g-liberty/script/copy-config"
+    local config_container_id
+    config_container_id=$(docker ps --filter "name=addon-v2g-liberty" --format "{{.ID}}" 2>/dev/null)
+    docker exec "$config_container_id" bash -c "cd /workspaces && bash v2g-liberty/script/copy-config"
 
     echo -e "\n${GREEN}Config files copied successfully!${NC}"
     echo ""
@@ -282,7 +280,7 @@ function start_dev_with_config() {
 
     # Use docker exec directly for better terminal compatibility
     local container_id
-    container_id=$(docker-compose --project-name addon-v2g-liberty_devcontainer ps -q addon-v2g-liberty)
+    container_id=$(docker ps --filter "name=addon-v2g-liberty" --format "{{.ID}}" 2>/dev/null)
     docker exec -it "$container_id" bash -c "cd /workspaces/v2g-liberty && python3 -m appdaemon -c rootfs/root/appdaemon -C rootfs/root/appdaemon/appdaemon.devcontainer.yaml -D INFO"
 
     cd - >/dev/null
