@@ -930,7 +930,13 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_FM_ASSET
         )
 
-        await self.fm_client_app.initialise_and_test_fm_client()
+        init_result = await self.fm_client_app.initialise_and_test_fm_client()
+        if init_result != "Successfully connected":
+            self.__log(
+                f"FlexMeasures client initialisation failed: {init_result}",
+                level="WARNING",
+            )
+            return
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
@@ -1059,7 +1065,7 @@ class V2GLibertyGlobals:
                 setting_object=self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH,
             )
         else:
-            # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based
+            # Not reset VAT/MARKUP to factory defaults, the calculations in data_import are based
             # on USE_VAT_AND_MARKUP.
             pass
 

@@ -4,18 +4,19 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 import pytz
-from apps.v2g_liberty.get_fm_data.utils.datetime_utils import DatetimeUtils
+from apps.v2g_liberty.data_import.utils.datetime_utils import DatetimeUtils
+from apps.v2g_liberty.data_import import fetch_timing as fm_c
 
 
 class TestCalculateExpectedPriceDatetime:
     """Test calculate_expected_price_datetime method."""
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
         return_value=True,
     )
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -25,10 +26,12 @@ class TestCalculateExpectedPriceDatetime:
         self, mock_time_ceil, mock_is_between
     ):
         """Test calculation when current time is after fetch start time."""
-        # Current time is 15:00:00 (after 13:35:51 fetch start)
+        # Current time is 15:00:00 (after GET_PRICES_TIME fetch start)
         now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
 
-        result = DatetimeUtils.calculate_expected_price_datetime(now, "13:35:51")
+        result = DatetimeUtils.calculate_expected_price_datetime(
+            now, fm_c.GET_PRICES_TIME
+        )
 
         # Should expect tomorrow's prices
         # now + 1 day = 2026-01-29 15:00:00
@@ -38,16 +41,16 @@ class TestCalculateExpectedPriceDatetime:
 
         assert result == expected
         mock_is_between.assert_called_once_with(
-            start_time="13:35:51", end_time="23:59:59"
+            start_time=fm_c.GET_PRICES_TIME, end_time=fm_c.END_OF_DAY_TIME
         )
         mock_time_ceil.assert_called_once()
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
         return_value=False,
     )
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -57,10 +60,12 @@ class TestCalculateExpectedPriceDatetime:
         self, mock_time_ceil, mock_is_between
     ):
         """Test calculation when current time is before fetch start time."""
-        # Current time is 10:00:00 (before 13:35:51 fetch start)
+        # Current time is 10:00:00 (before GET_PRICES_TIME fetch start)
         now = datetime(2026, 1, 28, 10, 0, 0, tzinfo=pytz.UTC)
 
-        result = DatetimeUtils.calculate_expected_price_datetime(now, "13:35:51")
+        result = DatetimeUtils.calculate_expected_price_datetime(
+            now, fm_c.GET_PRICES_TIME
+        )
 
         # Should expect today's prices
         # now (no +1 day) = 2026-01-28 10:00:00
@@ -70,16 +75,16 @@ class TestCalculateExpectedPriceDatetime:
 
         assert result == expected
         mock_is_between.assert_called_once_with(
-            start_time="13:35:51", end_time="23:59:59"
+            start_time=fm_c.GET_PRICES_TIME, end_time=fm_c.END_OF_DAY_TIME
         )
         mock_time_ceil.assert_called_once()
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
         return_value=True,
     )
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -96,15 +101,15 @@ class TestCalculateExpectedPriceDatetime:
         expected = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
         assert result == expected
         mock_is_between.assert_called_once_with(
-            start_time="14:00:00", end_time="23:59:59"
+            start_time="14:00:00", end_time=fm_c.END_OF_DAY_TIME
         )
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
         return_value=True,
     )
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -117,7 +122,9 @@ class TestCalculateExpectedPriceDatetime:
         # Current time is 23:30:00
         now = datetime(2026, 1, 28, 23, 30, 0, tzinfo=pytz.UTC)
 
-        result = DatetimeUtils.calculate_expected_price_datetime(now, "13:35:51")
+        result = DatetimeUtils.calculate_expected_price_datetime(
+            now, fm_c.GET_PRICES_TIME
+        )
 
         # Should expect tomorrow's prices
         expected = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
@@ -128,7 +135,7 @@ class TestCalculateExpectedEmissionDatetime:
     """Test calculate_expected_emission_datetime method."""
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -149,7 +156,7 @@ class TestCalculateExpectedEmissionDatetime:
         mock_time_ceil.assert_called_once()
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -172,7 +179,7 @@ class TestCalculateExpectedEmissionDatetime:
         mock_time_ceil.assert_called_once()
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -194,7 +201,7 @@ class TestCalculateExpectedEmissionDatetime:
         assert result == expected
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+        "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
         side_effect=lambda dt, delta: dt.replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -226,11 +233,11 @@ class TestDatetimeUtilsIntegration:
         # Mock the dependencies
         with (
             patch(
-                "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+                "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
                 return_value=True,
             ),
             patch(
-                "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+                "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
                 side_effect=lambda dt, delta: dt.replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )
@@ -254,11 +261,11 @@ class TestDatetimeUtilsIntegration:
         # Should be able to call without creating instance
         with (
             patch(
-                "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+                "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
                 return_value=True,
             ),
             patch(
-                "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+                "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
                 side_effect=lambda dt, delta: dt.replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )

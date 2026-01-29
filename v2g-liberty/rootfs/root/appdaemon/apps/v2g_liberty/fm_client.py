@@ -244,6 +244,12 @@ class FMClient(AsyncIOEventEmitter):
         return None
 
     async def get_fm_sensors_by_asset_name(self, asset_name: str):
+        if self.client is None:
+            self.__log(
+                "Abort getting sensors, client not initialised (yet).",
+                level="WARNING",
+            )
+            return []
         assets = await self.client.get_assets()
         for asset in assets:
             if asset["name"] == asset_name:
@@ -275,6 +281,14 @@ class FMClient(AsyncIOEventEmitter):
                 }
         """
         self.__log(f"called for sensor_id: {sensor_id}.")
+
+        if self.client is None:
+            self.__log(
+                "Abort getting sensor data, client not initialised (yet).",
+                level="WARNING",
+            )
+            return None
+
         kwargs = {
             "sensor_id": sensor_id,
             "start": start,
@@ -318,6 +332,14 @@ class FMClient(AsyncIOEventEmitter):
             bool: weather or not sending was successful
         """
         self.__log("post_measurements called.")
+
+        if self.client is None:
+            self.__log(
+                "Abort posting measurements, client not initialised (yet).",
+                level="WARNING",
+            )
+            return False
+
         if len(values) == 0:
             self.__log(
                 f"value list 0 length, not sending data to sensor_id '{sensor_id}'."

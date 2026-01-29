@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 from ...v2g_globals import time_ceil, is_local_now_between
+from .. import fetch_timing as fm_c
 
 
 class DatetimeUtils:
@@ -9,7 +10,7 @@ class DatetimeUtils:
 
     @staticmethod
     def calculate_expected_price_datetime(
-        now: datetime, fetch_start_time: str = "13:35:51"
+        now: datetime, fetch_start_time: str = None
     ) -> datetime:
         """
         Calculate the expected datetime when price data should be available.
@@ -20,13 +21,18 @@ class DatetimeUtils:
 
         Args:
             now: Current datetime
-            fetch_start_time: Time when price fetching begins (e.g., "13:35:51")
+            fetch_start_time: Time when price fetching begins (default: GET_PRICES_TIME)
 
         Returns:
             datetime: The expected datetime of the latest price that should be available
         """
+        if fetch_start_time is None:
+            fetch_start_time = fm_c.GET_PRICES_TIME
+
         # If fetching after the start time but before midnight, expect tomorrow's prices
-        if is_local_now_between(start_time=fetch_start_time, end_time="23:59:59"):
+        if is_local_now_between(
+            start_time=fetch_start_time, end_time=fm_c.END_OF_DAY_TIME
+        ):
             expected_dt = now + timedelta(days=1)
         else:
             # Otherwise, expect today's prices

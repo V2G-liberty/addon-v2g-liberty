@@ -1,4 +1,4 @@
-"""Tests for timezone handling in get_fm_data utilities.
+"""Tests for timezone handling in data_import utilities.
 
 This test module verifies that all utility functions correctly handle
 timezone-aware datetimes and preserve timezone information across operations.
@@ -8,8 +8,8 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 import pytz
-from apps.v2g_liberty.get_fm_data.utils.datetime_utils import DatetimeUtils
-from apps.v2g_liberty.get_fm_data.validators.data_validator import DataValidator
+from apps.v2g_liberty.data_import.utils.datetime_utils import DatetimeUtils
+from apps.v2g_liberty.data_import.validators.data_validator import DataValidator
 
 
 # Define various timezones to test
@@ -27,8 +27,8 @@ class TestDatetimeUtilsTimezonePreservation:
     """Test that DatetimeUtils preserves timezone information."""
 
     @pytest.mark.parametrize("tz_name,tz_obj", TIMEZONES)
-    @patch("apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between")
-    @patch("apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil")
+    @patch("apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between")
+    @patch("apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil")
     def test_price_datetime_preserves_timezone(
         self, mock_time_ceil, mock_is_between, tz_name, tz_obj
     ):
@@ -57,7 +57,7 @@ class TestDatetimeUtilsTimezonePreservation:
         )
 
     @pytest.mark.parametrize("tz_name,tz_obj", TIMEZONES)
-    @patch("apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil")
+    @patch("apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil")
     def test_emission_datetime_preserves_timezone(
         self, mock_time_ceil, tz_name, tz_obj
     ):
@@ -224,11 +224,11 @@ class TestTimezoneEdgeCases:
 
         with (
             patch(
-                "apps.v2g_liberty.get_fm_data.utils.datetime_utils.time_ceil",
+                "apps.v2g_liberty.data_import.utils.datetime_utils.time_ceil",
                 side_effect=mock_ceil,
             ),
             patch(
-                "apps.v2g_liberty.get_fm_data.utils.datetime_utils.is_local_now_between",
+                "apps.v2g_liberty.data_import.utils.datetime_utils.is_local_now_between",
                 return_value=True,
             ),
         ):

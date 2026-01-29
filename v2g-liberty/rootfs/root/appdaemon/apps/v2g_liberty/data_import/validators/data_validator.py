@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from ..utils.datetime_utils import DatetimeUtils
+from .. import fetch_timing as fm_c
 
 
 class DataValidator:
@@ -20,7 +21,7 @@ class DataValidator:
         self,
         latest_price_dt: datetime,
         now: datetime,
-        fetch_start_time: str = "13:35:51",
+        fetch_start_time: str = None,
     ) -> tuple[bool, str]:
         """
         Validate if price data is fresh enough.
@@ -31,13 +32,16 @@ class DataValidator:
         Args:
             latest_price_dt: Datetime of the latest price data point
             now: Current datetime
-            fetch_start_time: Time when price fetching begins (default: "13:35:51")
+            fetch_start_time: Time when price fetching begins (default: GET_PRICES_TIME)
 
         Returns:
             tuple[bool, str]: (is_valid, error_message)
                 is_valid: True if data is fresh, False otherwise
                 error_message: Empty string if valid, error description if invalid
         """
+        if fetch_start_time is None:
+            fetch_start_time = fm_c.GET_PRICES_TIME
+
         if latest_price_dt is None:
             return False, "no valid prices received"
 

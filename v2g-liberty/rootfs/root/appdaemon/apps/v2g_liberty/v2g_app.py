@@ -10,7 +10,7 @@ from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
-from .get_fm_data import FlexMeasuresDataImporter
+from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .nissan_leaf_monitor import NissanLeafMonitor

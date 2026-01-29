@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timedelta
 import pytz
-from apps.v2g_liberty.get_fm_data.processors.price_processor import PriceProcessor
+from apps.v2g_liberty.data_import.processors.price_processor import PriceProcessor
 
 
 @pytest.fixture

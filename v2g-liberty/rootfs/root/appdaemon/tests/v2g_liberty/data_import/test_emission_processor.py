@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timedelta
 import pytz
-from apps.v2g_liberty.get_fm_data.processors.emission_processor import (
+from apps.v2g_liberty.data_import.processors.emission_processor import (
     EmissionProcessor,
 )
 

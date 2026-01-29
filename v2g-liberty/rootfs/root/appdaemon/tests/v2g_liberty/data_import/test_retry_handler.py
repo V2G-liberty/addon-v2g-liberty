@@ -3,10 +3,11 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from appdaemon.plugins.hass.hassapi import Hass
-from apps.v2g_liberty.get_fm_data.utils.retry_handler import (
+from apps.v2g_liberty.data_import.utils.retry_handler import (
     RetryHandler,
     RetryConfig,
 )
+from apps.v2g_liberty.data_import import fetch_timing as fm_c
 
 
 @pytest.fixture
@@ -37,11 +38,13 @@ class TestRetryConfig:
     def test_retry_config_creation(self):
         """Test creating a RetryConfig with all fields."""
         config = RetryConfig(
-            start_time="13:35:51", end_time="11:22:33", interval_seconds=1800
+            start_time=fm_c.GET_PRICES_TIME,
+            end_time=fm_c.TRY_UNTIL,
+            interval_seconds=fm_c.CHECK_RESOLUTION_SECONDS,
         )
-        assert config.start_time == "13:35:51"
-        assert config.end_time == "11:22:33"
-        assert config.interval_seconds == 1800
+        assert config.start_time == fm_c.GET_PRICES_TIME
+        assert config.end_time == fm_c.TRY_UNTIL
+        assert config.interval_seconds == fm_c.CHECK_RESOLUTION_SECONDS
 
 
 class TestRetryHandler:
@@ -54,7 +57,7 @@ class TestRetryHandler:
         assert handler.config == retry_config
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.retry_handler.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.retry_handler.is_local_now_between",
         return_value=True,
     )
     def test_should_retry_within_window(self, mock_is_between, retry_handler):
@@ -67,7 +70,7 @@ class TestRetryHandler:
         )
 
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.retry_handler.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.retry_handler.is_local_now_between",
         return_value=False,
     )
     def test_should_retry_outside_window(self, mock_is_between, retry_handler):
@@ -143,7 +146,7 @@ class TestRetryHandlerIntegration:
 
     @pytest.mark.asyncio
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.retry_handler.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.retry_handler.is_local_now_between",
         return_value=True,
     )
     async def test_full_retry_flow_within_window(self, mock_is_between):
@@ -152,7 +155,9 @@ class TestRetryHandlerIntegration:
         hass.run_in = AsyncMock()
 
         config = RetryConfig(
-            start_time="13:35:51", end_time="11:22:33", interval_seconds=1800
+            start_time=fm_c.GET_PRICES_TIME,
+            end_time=fm_c.TRY_UNTIL,
+            interval_seconds=fm_c.CHECK_RESOLUTION_SECONDS,
         )
         handler = RetryHandler(hass, config)
 
@@ -168,13 +173,13 @@ class TestRetryHandlerIntegration:
 
         # Verify scheduling was called correctly
         hass.run_in.assert_called_once_with(
-            mock_callback, delay=1800, test_param="value"
+            mock_callback, delay=fm_c.CHECK_RESOLUTION_SECONDS, test_param="value"
         )
         mock_is_between.assert_called()
 
     @pytest.mark.asyncio
     @patch(
-        "apps.v2g_liberty.get_fm_data.utils.retry_handler.is_local_now_between",
+        "apps.v2g_liberty.data_import.utils.retry_handler.is_local_now_between",
         return_value=False,
     )
     async def test_full_retry_flow_outside_window(self, mock_is_between):
@@ -183,7 +188,9 @@ class TestRetryHandlerIntegration:
         hass.run_in = AsyncMock()
 
         config = RetryConfig(
-            start_time="13:35:51", end_time="11:22:33", interval_seconds=1800
+            start_time=fm_c.GET_PRICES_TIME,
+            end_time=fm_c.TRY_UNTIL,
+            interval_seconds=fm_c.CHECK_RESOLUTION_SECONDS,
         )
         handler = RetryHandler(hass, config)
 

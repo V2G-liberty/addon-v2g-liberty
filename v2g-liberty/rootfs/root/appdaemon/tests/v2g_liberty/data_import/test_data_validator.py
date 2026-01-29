@@ -4,8 +4,9 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 import pytz
-from apps.v2g_liberty.get_fm_data.validators.data_validator import DataValidator
-from apps.v2g_liberty.get_fm_data.utils.datetime_utils import DatetimeUtils
+from apps.v2g_liberty.data_import.validators.data_validator import DataValidator
+from apps.v2g_liberty.data_import.utils.datetime_utils import DatetimeUtils
+from apps.v2g_liberty.data_import import fetch_timing as fm_c
 
 
 @pytest.fixture
@@ -47,13 +48,13 @@ class TestValidatePriceFreshness:
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
 
         is_valid, error_msg = data_validator.validate_price_freshness(
-            latest_price_dt, now, "13:35:51"
+            latest_price_dt, now, fm_c.GET_PRICES_TIME
         )
 
         assert is_valid is True
         assert error_msg == ""
         mock_datetime_utils.calculate_expected_price_datetime.assert_called_once_with(
-            now, "13:35:51"
+            now, fm_c.GET_PRICES_TIME
         )
 
     def test_price_freshness_outdated(self, data_validator, mock_datetime_utils):
@@ -65,13 +66,13 @@ class TestValidatePriceFreshness:
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
 
         is_valid, error_msg = data_validator.validate_price_freshness(
-            latest_price_dt, now, "13:35:51"
+            latest_price_dt, now, fm_c.GET_PRICES_TIME
         )
 
         assert is_valid is False
         assert error_msg == "prices not up to date"
         mock_datetime_utils.calculate_expected_price_datetime.assert_called_once_with(
-            now, "13:35:51"
+            now, fm_c.GET_PRICES_TIME
         )
 
     def test_price_freshness_none_latest_price(
@@ -81,7 +82,7 @@ class TestValidatePriceFreshness:
         now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
 
         is_valid, error_msg = data_validator.validate_price_freshness(
-            None, now, "13:35:51"
+            None, now, fm_c.GET_PRICES_TIME
         )
 
         assert is_valid is False
@@ -100,7 +101,7 @@ class TestValidatePriceFreshness:
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
 
         is_valid, error_msg = data_validator.validate_price_freshness(
-            latest_price_dt, now, "13:35:51"
+            latest_price_dt, now, fm_c.GET_PRICES_TIME
         )
 
         # Should be False because latest_price_dt must be > expected_dt (not >=)
