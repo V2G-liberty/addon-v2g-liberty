@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.7.3 2026-01-??
+## 0.7.3 2026-01-30
 
 ### Fixed
 
@@ -14,7 +14,8 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
-- 🚀 Feature request: Be able to use hostname instead of only IP-address for charger host in UI (#380)
+- 🚀 FEAT: Be able to use hostname instead of only IP-address for charger host in UI (#380)
+- 🚀 PR: Show price forecasts in chart as dotted line (#392)
 
 ### Changed
 
@@ -378,7 +379,6 @@ That file also contains possible changes that the next release might include.
   - Removed mechanism to prevent 'parallel calls' to charger
   - Removed closing the connection after every call
 - Upgraded (the L&F of) the chart:
-
   - The chart is now larger (taller).
   - The zoom/pan function has been replaced by a unit of measure, '¢ent/kWh.'
   - Prices now align with the grid lines, which are less "dotty."
