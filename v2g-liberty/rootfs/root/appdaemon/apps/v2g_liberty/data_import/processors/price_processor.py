@@ -31,7 +31,8 @@ class PriceProcessor:
         now: datetime,
         vat_factor: float,
         markup_per_kwh: float,
-    ) -> Tuple[List[Dict[str, any]], Optional[Dict[str, any]], int]:
+        end_of_fixed_prices_dt: Optional[datetime] = None,
+    ) -> Tuple[List[Dict[str, any]], Optional[Dict[str, any]], int, Optional[str]]:
         """
         Process raw price data into UI-ready format.
 
@@ -41,6 +42,8 @@ class PriceProcessor:
             now: Current datetime
             vat_factor: VAT multiplication factor (e.g., 1.21 for 21% VAT)
             markup_per_kwh: Fixed markup to add per kWh
+            end_of_fixed_prices_dt: Datetime marking the boundary between fixed (EPEX day-ahead)
+                                    prices and forecast prices. None for non-EPEX providers.
 
         Returns:
             Tuple containing:
@@ -48,6 +51,7 @@ class PriceProcessor:
             - first_negative_price: Dict with 'time' and 'price' of first future negative price,
                                    or None if no negative prices
             - none_count: Number of None values encountered
+            - end_of_fixed_prices_iso: ISO format string of end_of_fixed_prices_dt, or None
         """
         price_points = []
         first_negative_price = None
@@ -83,4 +87,9 @@ class PriceProcessor:
             }
             price_points.append(trailing_point)
 
-        return price_points, first_negative_price, none_count
+        # Convert EFP datetime to ISO string for JSON serialisation
+        end_of_fixed_prices_iso = (
+            end_of_fixed_prices_dt.isoformat() if end_of_fixed_prices_dt else None
+        )
+
+        return price_points, first_negative_price, none_count, end_of_fixed_prices_iso

@@ -542,14 +542,26 @@ class FlexMeasuresDataImporter:
                 f"get_prices failed for entsoe / {price_type}", price_type
             )
 
+        # Extract entsoe_latest_price_dt for EFP (end of fixed prices) boundary
+        # entsoe_latest_price_dt is the START of the last price block (e.g., 23:45)
+        # We need the END of that block for the visual split, so add one resolution period
+        entsoe_latest_price_dt = result["entsoe_latest_price_dt"]
+        end_of_fixed_prices_dt = None
+        if entsoe_latest_price_dt and is_price_epex_based():
+            end_of_fixed_prices_dt = entsoe_latest_price_dt + timedelta(
+                minutes=c.PRICE_RESOLUTION_MINUTES
+            )
+
         # Use PriceProcessor to process the data
-        price_points, first_negative_price, none_count = (
+        # For EPEX-based providers, pass the EFP so chart can distinguish fixed vs forecast
+        price_points, first_negative_price, none_count, end_of_fixed_prices_iso = (
             self.price_processor.process_prices(
                 raw_prices=result["prices"],
                 start=result["start"],
                 now=now,
                 vat_factor=self.vat_factor,
                 markup_per_kwh=self.markup_per_kwh,
+                end_of_fixed_prices_dt=end_of_fixed_prices_dt,
             )
         )
 
@@ -572,16 +584,18 @@ class FlexMeasuresDataImporter:
                 "No negative prices", price_type=price_type
             )
 
-        # Update the chart
+        # Update the chart with price points and EFP boundary for fixed/forecast distinction
         await self.v2g_main_app.set_records_in_chart(
             chart_line_name=ChartLine.CONSUMPTION_PRICE
             if price_type == "consumption"
             else ChartLine.PRODUCTION_PRICE,
-            records=price_points,
+            records={
+                "records": price_points,
+                "end_of_fixed_prices_dt": end_of_fixed_prices_iso,
+            },
         )
 
         # Validate freshness for EPEX-based contracts
-        entsoe_latest_price_dt = result["entsoe_latest_price_dt"]
         if entsoe_latest_price_dt is None:
             return await self._handle_price_fetch_failure(
                 f"no valid {price_type} prices received", price_type

@@ -387,6 +387,17 @@
             enabled: true
           animations:
             enabled: false
+          events:
+            legendClick: |
+              EVAL: function(chartContext, seriesIndex, opts) {
+                const seriesName = opts.config.series[seriesIndex].name;
+                if (seriesName === 'Buy price') {
+                  chartContext.toggleSeries('Buy price (forecast)');
+                }
+                if (seriesName === 'Sell price') {
+                  chartContext.toggleSeries('Sell price (forecast)');
+                }
+              }
       graph_span: 24h
       span:
         start: hour
@@ -453,7 +464,9 @@
               return [new Date(record.time).getTime(), record.emission];
             });
           type: line
+        # Production prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.production_prices
+          name: "Sell price"
           show:
             hidden_by_default: true
             legend_value: false
@@ -471,11 +484,57 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
-              return [new Date(record.time).getTime(), record.price];
-            });
+            const efp = entity.attributes.end_of_fixed_prices_dt;
+            if (!efp) {
+              // No EFP = show all as fixed (non-EPEX providers)
+              return entity.attributes.records.map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
+            }
+            const efpTime = new Date(efp).getTime();
+            return entity.attributes.records
+              .filter((record) => new Date(record.time).getTime() <= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
           type: line
+        # Production prices - FORECAST (dotted line)
+        - entity: sensor.production_prices
+          name: "Sell price (forecast)"
+          show:
+            hidden_by_default: true
+            legend_value: false
+            in_header: false
+          color_threshold:
+            - value: 0
+              color: red
+              opacity: 0.9
+            - value: 1
+              color: "#FBCCD6"
+              opacity: 1
+          color: "#FBCCD6"
+          opacity: 1
+          extend_to: false
+          stroke_width: 1
+          stroke_dash: 2
+          curve: stepline
+          yaxis_id: ElectricityPriceAxis
+          data_generator: |
+            const efp = entity.attributes.end_of_fixed_prices_dt;
+            if (!efp) {
+              // No EFP = no forecast data (non-EPEX providers)
+              return [];
+            }
+            const efpTime = new Date(efp).getTime();
+            return entity.attributes.records
+              .filter((record) => new Date(record.time).getTime() >= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
+          type: line
+        # Consumption prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.consumption_prices
+          name: "Buy price"
           show:
             legend_value: false
           color_threshold:
@@ -492,9 +551,52 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
-              return [new Date(record.time).getTime(), record.price];
-            });
+            const efp = entity.attributes.end_of_fixed_prices_dt;
+            if (!efp) {
+              // No EFP = show all as fixed (non-EPEX providers)
+              return entity.attributes.records.map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
+            }
+            const efpTime = new Date(efp).getTime();
+            return entity.attributes.records
+              .filter((record) => new Date(record.time).getTime() <= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
+          type: line
+        # Consumption prices - FORECAST (dotted line)
+        - entity: sensor.consumption_prices
+          name: "Buy price (forecast)"
+          show:
+            legend_value: false
+            in_header: false
+          color_threshold:
+            - value: -100
+              color: green
+              opacity: 0.9
+            - value: 0
+              color: "#C393C5"
+              opacity: 1
+          color: "#C393C5"
+          opacity: 1
+          extend_to: false
+          stroke_width: 1
+          stroke_dash: 1
+          curve: stepline
+          yaxis_id: ElectricityPriceAxis
+          data_generator: |
+            const efp = entity.attributes.end_of_fixed_prices_dt;
+            if (!efp) {
+              // No EFP = no forecast data (non-EPEX providers)
+              return [];
+            }
+            const efpTime = new Date(efp).getTime();
+            return entity.attributes.records
+              .filter((record) => new Date(record.time).getTime() >= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
           type: line
         - entity: sensor.soc_prognosis
           show:
@@ -546,7 +648,9 @@
           }
           div[seriesname="Calendarxitemxinxchart"],
           div[seriesname="SoCxBoostxchartxdata"],
-          div[seriesname="SoCxMaxxChargexNowxchartxdata"] {
+          div[seriesname="SoCxMaxxChargexNowxchartxdata"],
+          div[seriesname="Buyxpricexxforecastx"],
+          div[seriesname="Sellxpricexxforecastx"] {
             display: none;
           }
     - type: markdown

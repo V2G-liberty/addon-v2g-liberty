@@ -37,8 +37,10 @@ class TestProcessPrices:
         vat_factor = 1.21  # 21% VAT
         markup_per_kwh = 0.05
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         # Should have 3 data points + 1 trailing point = 4 total
@@ -71,8 +73,10 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         # Should have 3 data points (skipping 3 Nones) + 1 trailing point = 4 total
@@ -97,8 +101,10 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         # Should detect the first negative price (at index 2)
@@ -117,8 +123,10 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         # Should NOT detect negative prices in the past
@@ -137,8 +145,10 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         # Should have 2 data points + 1 trailing point
@@ -160,13 +170,16 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         assert len(price_points) == 0
         assert first_negative is None
         assert none_count == 0
+        assert efp_iso is None
 
     def test_process_prices_all_none(self, price_processor):
         """Test processing a list with only None values."""
@@ -176,13 +189,16 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = price_processor.process_prices(
-            raw_prices, start, now, vat_factor, markup_per_kwh
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor, markup_per_kwh
+            )
         )
 
         assert len(price_points) == 0
         assert first_negative is None
         assert none_count == 3
+        assert efp_iso is None
 
     def test_process_prices_with_30_minute_resolution(self):
         """Test price processing with 30-minute resolution."""
@@ -193,7 +209,7 @@ class TestProcessPrices:
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
-        price_points, first_negative, none_count = processor.process_prices(
+        price_points, first_negative, none_count, efp_iso = processor.process_prices(
             raw_prices, start, now, vat_factor, markup_per_kwh
         )
 
@@ -203,3 +219,64 @@ class TestProcessPrices:
         assert (
             price_points[2]["time"] == (start + timedelta(minutes=60)).isoformat()
         )  # Trailing point
+
+
+class TestEndOfFixedPrices:
+    """Test end_of_fixed_prices_dt parameter handling."""
+
+    def test_efp_none_by_default(self, price_processor):
+        """Test that EFP is None when not provided."""
+        raw_prices = [0.10, 0.20]
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices, start, now, vat_factor=1.0, markup_per_kwh=0.0
+            )
+        )
+
+        assert efp_iso is None
+
+    def test_efp_passed_through_as_iso(self, price_processor):
+        """Test that EFP datetime is converted to ISO format string."""
+        raw_prices = [0.10, 0.20]
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        efp_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
+
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices,
+                start,
+                now,
+                vat_factor=1.0,
+                markup_per_kwh=0.0,
+                end_of_fixed_prices_dt=efp_dt,
+            )
+        )
+
+        assert efp_iso == efp_dt.isoformat()
+        assert efp_iso == "2026-01-29T23:00:00+00:00"
+
+    def test_efp_with_different_timezone(self, price_processor):
+        """Test that EFP works with different timezones."""
+        raw_prices = [0.10, 0.20]
+        amsterdam_tz = pytz.timezone("Europe/Amsterdam")
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=amsterdam_tz)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=amsterdam_tz)
+        efp_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=amsterdam_tz)
+
+        price_points, first_negative, none_count, efp_iso = (
+            price_processor.process_prices(
+                raw_prices,
+                start,
+                now,
+                vat_factor=1.0,
+                markup_per_kwh=0.0,
+                end_of_fixed_prices_dt=efp_dt,
+            )
+        )
+
+        assert efp_iso == efp_dt.isoformat()
+        assert "2026-01-29T23:00:00" in efp_iso
