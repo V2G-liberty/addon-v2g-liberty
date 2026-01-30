@@ -418,7 +418,11 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
+            return records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.soc_prognosis_max_charge_now
@@ -432,7 +436,11 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
+            return records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.soc_prognosis_boost
@@ -445,7 +453,11 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
+            return records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.co2_emissions
@@ -460,7 +472,11 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
+            return records.map((record, index) => {
               return [new Date(record.time).getTime(), record.emission];
             });
           type: line
@@ -484,15 +500,19 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
             const efp = entity.attributes.end_of_fixed_prices_dt;
             if (!efp) {
               // No EFP = show all as fixed (non-EPEX providers)
-              return entity.attributes.records.map((record) => {
+              return records.map((record) => {
                 return [new Date(record.time).getTime(), record.price];
               });
             }
             const efpTime = new Date(efp).getTime();
-            return entity.attributes.records
+            return records
               .filter((record) => new Date(record.time).getTime() <= efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.price];
@@ -520,13 +540,17 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
             const efp = entity.attributes.end_of_fixed_prices_dt;
             if (!efp) {
               // No EFP = no forecast data (non-EPEX providers)
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            return entity.attributes.records
+            return records
               .filter((record) => new Date(record.time).getTime() >= efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.price];
@@ -551,15 +575,19 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
             const efp = entity.attributes.end_of_fixed_prices_dt;
             if (!efp) {
               // No EFP = show all as fixed (non-EPEX providers)
-              return entity.attributes.records.map((record) => {
+              return records.map((record) => {
                 return [new Date(record.time).getTime(), record.price];
               });
             }
             const efpTime = new Date(efp).getTime();
-            return entity.attributes.records
+            return records
               .filter((record) => new Date(record.time).getTime() <= efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.price];
@@ -586,13 +614,17 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
             const efp = entity.attributes.end_of_fixed_prices_dt;
             if (!efp) {
               // No EFP = no forecast data (non-EPEX providers)
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            return entity.attributes.records
+            return records
               .filter((record) => new Date(record.time).getTime() >= efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.price];
@@ -607,7 +639,11 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            return entity.attributes.records.map((record, index) => {
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
+            return records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.car_state_of_charge
