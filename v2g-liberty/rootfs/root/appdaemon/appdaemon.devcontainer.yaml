@@ -13,7 +13,11 @@ appdaemon:
   # Exclude utility module directories from app discovery.
   # These contain helper modules with relative imports, not apps.
   exclude_dirs:
-    - get_fm_data
+    - chargers
+    - data_import
+    - evs
+    - util
+    - utils
 
   production_mode: False
   plugins:
