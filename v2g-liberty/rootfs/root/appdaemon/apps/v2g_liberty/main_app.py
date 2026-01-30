@@ -781,7 +781,7 @@ class V2Gliberty:
         }
         self.notifier.clear_notification(identification)
 
-    async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
+    async def set_records_in_chart(self, chart_line_name: ChartLine, records):
         """Write or remove records in lines in the chart.
 
         If records = None the line_name line will be cleared (made invisible),
@@ -789,7 +789,8 @@ class V2Gliberty:
 
         Parameters:
             chart_line_name (ChartLine): indicating which line to write to
-            records(dict): a dictionary of time (isoformat) + value (e.g. cent/kWh or %) records
+            records: Either a list of time+value dicts, or a dict containing 'records' key
+                     (and optionally other attributes like 'end_of_fixed_prices_dt')
 
         For the SoC related lines (prognoses, boost, max_charge_now): if there is data in records,
         it is assumed that the other lines need to be erased.
@@ -813,7 +814,13 @@ class V2Gliberty:
             )
             self.__log(f"chart_line_name '{chart_line_name}' cleared.")
         else:
-            result = {"records": records}
+            # Handle both list format (legacy) and dict format (with optional metadata)
+            if isinstance(records, dict) and "records" in records:
+                # New format: dict with 'records' and optional attributes
+                result = records
+            else:
+                # Legacy format: list of records
+                result = {"records": records}
             await self.hass.set_state(entity, state=new_state, attributes=result)
             self.__log(
                 f"entity: '{entity}', "

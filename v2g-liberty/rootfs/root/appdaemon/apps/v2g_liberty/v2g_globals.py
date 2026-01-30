@@ -295,6 +295,11 @@ class V2GLibertyGlobals:
         self.__log = get_class_method_logger(hass.log)
         self.v2g_settings = SettingsManager(log=self.__log)
 
+        # VAT/markup settings for data import (only used for nl_generic provider)
+        self.use_vat_and_markup: bool = False
+        self.energy_price_vat: int = 0
+        self.energy_price_markup_per_kwh: float = 0
+
     async def initialize(self):
         self.__log("Initializing V2GLibertyGlobals")
         config = await self.hass.get_plugin_config()
@@ -417,9 +422,7 @@ class V2GLibertyGlobals:
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         self.__log("Saving electricity contract settings")
-        c.USE_VAT_AND_MARKUP = False
         if data["contract"] == "nl_generic":
-            c.USE_VAT_AND_MARKUP = True
             self.__store_setting("input_number.energy_price_vat", data["vat"])
             self.__store_setting(
                 "input_number.energy_price_markup_per_kwh", data["markup"]
@@ -446,7 +449,10 @@ class V2GLibertyGlobals:
         await self.__initialise_electricity_contract_settings()
         await self.v2g_main_app.kick_off_v2g_liberty()
         await self.fm_data_retrieve_client.initialize(
-            v2g_args="changed energy contract settings"
+            v2g_args="changed energy contract settings",
+            use_vat_and_markup=self.use_vat_and_markup,
+            energy_price_vat=self.energy_price_vat,
+            markup_per_kwh=self.energy_price_markup_per_kwh,
         )
         self.__log("Completed saving electricity contract settings")
 
@@ -930,7 +936,13 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_FM_ASSET
         )
 
-        await self.fm_client_app.initialise_and_test_fm_client()
+        init_result = await self.fm_client_app.initialise_and_test_fm_client()
+        if init_result != "Successfully connected":
+            self.__log(
+                f"FlexMeasures client initialisation failed: {init_result}",
+                level="WARNING",
+            )
+            return
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
@@ -1046,22 +1058,22 @@ class V2GLibertyGlobals:
                 f"    UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}."
             )
 
-        c.USE_VAT_AND_MARKUP = c.ELECTRICITY_PROVIDER == "nl_generic"
         # VAT & Markup are only relevant for electricity_providers "generic", for others we expect
         # netto prices including VAT and Markup. This also applies to self_provided data (e.g.
         # au_amber_electric and gb_octopus_energy).
+        self.use_vat_and_markup = c.ELECTRICITY_PROVIDER == "nl_generic"
 
-        if c.USE_VAT_AND_MARKUP:
-            c.ENERGY_PRICE_VAT = await self.__process_setting(
+        if self.use_vat_and_markup:
+            self.energy_price_vat = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,
             )
-            c.ENERGY_PRICE_MARKUP_PER_KWH = await self.__process_setting(
+            self.energy_price_markup_per_kwh = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH,
             )
         else:
-            # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based
-            # on USE_VAT_AND_MARKUP.
-            pass
+            # Reset to defaults when not using VAT/markup
+            self.energy_price_vat = 0
+            self.energy_price_markup_per_kwh = 0
 
         await self.__set_fm_optimisation_context()
 

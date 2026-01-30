@@ -13,6 +13,15 @@ appdaemon:
   # Suppress warnings in the log for missing app configuration (in the apps.yaml).
   missing_app_warnings: 0
 
+  # Exclude utility module directories from app discovery.
+  # These contain helper modules with relative imports, not apps.
+  exclude_dirs:
+    - chargers
+    - data_import
+    - evs
+    - util
+    - utils
+
   production_mode: True
   plugins:
     HASS:

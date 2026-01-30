@@ -14,7 +14,8 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
-- 🚀 Feature request: Be able to use hostname instead of only IP-address for charger host in UI (#380)
+- 🚀 FEAT: Be able to use hostname instead of only IP-address for charger host in UI (#380)
+- 🚀 PR: Show price forecasts in chart as dotted line (#392)
 
 ### Changed
 

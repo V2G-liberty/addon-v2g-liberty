@@ -1,5 +1,6 @@
 """Main module for setting up the app."""
 
+from datetime import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
 from .ha_ui_manager import HAUIManager
@@ -10,17 +11,19 @@ from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
-from .get_fm_data import FlexMeasuresDataImporter
+from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .nissan_leaf_monitor import NissanLeafMonitor
-from.monitor_pause_at_reconnect import MonitorPauseAtReconnect
-from datetime import datetime
+from .monitor_pause_at_reconnect import MonitorPauseAtReconnect
+
 
 class V2GLibertyApp(Hass):
     async def initialize(self):
         start_app = datetime.now()
-        print(f"[{start_app.isoformat(sep=' ')}] Starting V2GLibertyApp initialization...")
+        print(
+            f"[{start_app.isoformat(sep=' ')}] Starting V2GLibertyApp initialization..."
+        )
 
         start_module = datetime.now()
         event_bus = EventBus(self)
@@ -39,7 +42,9 @@ class V2GLibertyApp(Hass):
         self._log_init_time("V2GLibertyGlobals", start_module)
 
         start_module = datetime.now()
-        modbus_evse_client = ModbusEVSEclient(self, event_bus=event_bus, notifier=notifier)
+        modbus_evse_client = ModbusEVSEclient(
+            self, event_bus=event_bus, notifier=notifier
+        )
         self._log_init_time("ModbusEVSEclient", start_module)
 
         start_module = datetime.now()
@@ -59,11 +64,15 @@ class V2GLibertyApp(Hass):
         self._log_init_time("DataMonitor", start_module)
 
         start_module = datetime.now()
-        nissan_leaf_monitor = NissanLeafMonitor(self, event_bus=event_bus, notifier=notifier)
+        nissan_leaf_monitor = NissanLeafMonitor(
+            self, event_bus=event_bus, notifier=notifier
+        )
         self._log_init_time("NissanLeafMonitor", start_module)
 
         start_module = datetime.now()
-        pause_at_reconnect = MonitorPauseAtReconnect(self, event_bus=event_bus, notifier=notifier)
+        pause_at_reconnect = MonitorPauseAtReconnect(
+            self, event_bus=event_bus, notifier=notifier
+        )
         self._log_init_time("MonitorPauseAtReconnect", start_module)
 
         start_module = datetime.now()
@@ -125,7 +134,11 @@ class V2GLibertyApp(Hass):
         self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
 
         start_module = datetime.now()
-        await get_fm_data.initialize()
+        await get_fm_data.initialize(
+            use_vat_and_markup=v2g_globals.use_vat_and_markup,
+            energy_price_vat=v2g_globals.energy_price_vat,
+            markup_per_kwh=v2g_globals.energy_price_markup_per_kwh,
+        )
         self._log_init_time("get_fm_data.initialize()", start_module)
 
         start_module = datetime.now()
@@ -146,4 +159,3 @@ class V2GLibertyApp(Hass):
             else:
                 msg = "took longer than expected:"
             print(f"[{now.isoformat(sep=' ')}] {name} {msg} {time_diff}.")
-
