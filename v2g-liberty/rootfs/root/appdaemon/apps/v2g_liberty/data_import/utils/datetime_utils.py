@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from ...v2g_globals import time_ceil, is_local_now_between
-from .. import fetch_timing as fm_c
+from .. import data_import_constants as fm_c
 
 
 class DatetimeUtils:

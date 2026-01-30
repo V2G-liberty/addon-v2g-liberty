@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 import pytz
 from apps.v2g_liberty.data_import.utils.datetime_utils import DatetimeUtils
-from apps.v2g_liberty.data_import import fetch_timing as fm_c
+from apps.v2g_liberty.data_import import data_import_constants as fm_c
 
 
 class TestCalculateExpectedPriceDatetime:

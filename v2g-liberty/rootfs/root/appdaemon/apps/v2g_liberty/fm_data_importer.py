@@ -24,7 +24,7 @@ from .data_import.fetchers.price_fetcher import PriceFetcher
 from .data_import.fetchers.emission_fetcher import EmissionFetcher
 from .data_import.fetchers.energy_fetcher import EnergyFetcher
 from .data_import.fetchers.cost_fetcher import CostFetcher
-from .data_import import fetch_timing as fm_constants
+from .data_import import data_import_constants as fm_constants
 
 
 class FlexMeasuresDataImporter:
@@ -168,7 +168,13 @@ class FlexMeasuresDataImporter:
         )
         self.__log("Fetcher components initialised.")
 
-    async def initialize(self, v2g_args: str = None):
+    async def initialize(
+        self,
+        v2g_args: str = None,
+        use_vat_and_markup: bool = False,
+        energy_price_vat: int = 0,
+        markup_per_kwh: float = 0,
+    ):
         """
         Second and final stage of initialisation. This is run from globals when
         settings have initialised/changed. This is separated :
@@ -176,15 +182,20 @@ class FlexMeasuresDataImporter:
         - the data-changed might not fire at startup (external HA integration provided data)
         This is delayed as it's not high priority and gives globals the time to get all settings
         loaded correctly.
+
+        Args:
+            v2g_args: Source identifier for logging.
+            use_vat_and_markup: Whether to apply VAT and markup to prices.
+            energy_price_vat: VAT percentage to apply (e.g. 21 for 21%).
+            markup_per_kwh: Markup per kWh for transport and sustainability.
         """
 
         self.__log(f"Called from source: {v2g_args}.")
 
-        # This way the markup/vat can be retained "underwater" in the settings and do not have
-        # to be reset
-        if c.USE_VAT_AND_MARKUP:
-            self.vat_factor = (100 + c.ENERGY_PRICE_VAT) / 100
-            self.markup_per_kwh = c.ENERGY_PRICE_MARKUP_PER_KWH
+        # Apply VAT and markup if enabled, otherwise use neutral values
+        if use_vat_and_markup:
+            self.vat_factor = (100 + energy_price_vat) / 100
+            self.markup_per_kwh = markup_per_kwh
         else:
             self.vat_factor = 1
             self.markup_per_kwh = 0

@@ -582,7 +582,7 @@
           opacity: 1
           extend_to: false
           stroke_width: 1
-          stroke_dash: 1
+          stroke_dash: 2
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |

@@ -8,7 +8,7 @@ from apps.v2g_liberty.data_import.utils.retry_handler import (
     RetryHandler,
     RetryConfig,
 )
-from apps.v2g_liberty.data_import import fetch_timing as fm_c
+from apps.v2g_liberty.data_import import data_import_constants as fm_c
 
 
 @pytest.fixture

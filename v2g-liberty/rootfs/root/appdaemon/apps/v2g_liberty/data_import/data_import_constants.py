@@ -1,6 +1,6 @@
-"""Constants for FlexMeasures data fetching operations.
+"""Constants for the data_import module.
 
-These timing constants are used across the data_import module for scheduling
+These constants are used across the data_import module for scheduling
 price, emission, and cost data retrieval from FlexMeasures.
 """
 

@@ -5,7 +5,7 @@ from typing import Dict, Optional
 from appdaemon.plugins.hass.hassapi import Hass
 from .base_fetcher import BaseFetcher
 from ..utils.retry_handler import RetryHandler
-from .. import fetch_timing as fm_c
+from .. import data_import_constants as fm_c
 from ...v2g_globals import is_local_now_between, time_floor
 from ...log_wrapper import get_class_method_logger
 from ... import constants as c

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from ..utils.datetime_utils import DatetimeUtils
-from .. import fetch_timing as fm_c
+from .. import data_import_constants as fm_c
 
 
 class DataValidator:
