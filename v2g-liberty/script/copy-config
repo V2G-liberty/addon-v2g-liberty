@@ -1,5 +1,3 @@
-#!/usr/bin/bash
-
 # Stop on errors
 set -e
 

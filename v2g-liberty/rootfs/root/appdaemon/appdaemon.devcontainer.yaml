@@ -10,6 +10,15 @@ appdaemon:
   # If you would like your log timestamps to be in local time set it to the right timezone here.
   time_zone: Europe/Amsterdam
 
+  # Exclude utility module directories from app discovery.
+  # These contain helper modules with relative imports, not apps.
+  exclude_dirs:
+    - chargers
+    - data_import
+    - evs
+    - util
+    - utils
+
   production_mode: False
   plugins:
     HASS:

@@ -6,6 +6,9 @@
   "containerEnv": {
     "PYTHONASYNCIODEBUG": "1"
   },
+  // Runs once when container is created to copy V2G Liberty configs to Home Assistant
+  // This is safe because copy-config is idempotent and HA loads config on startup
+  "postCreateCommand": "bash /workspaces/v2g-liberty/script/copy-config",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },

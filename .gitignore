@@ -3,6 +3,9 @@ v2g-liberty/data/
 v2g-liberty/logs/
 .DS_Store
 
+# Local devcontainer overrides (private)
+.devcontainer/**/*.override.*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

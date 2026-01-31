@@ -24,14 +24,6 @@ ADMIN_MOBILE_PLATFORM: str = ""
 # pass previous to that module
 PRIORITY_NOTIFICATION_CONFIG: str = ""
 
-# FSC: Next 3 only used in get_fm_data, move there
-# FM in some cases returns gross prices that need conversion for the UI.
-# VAT and Markup are initialised with "no effect value".
-USE_VAT_AND_MARKUP: bool = False
-ENERGY_PRICE_VAT: int = 0
-# Usually a markup per kWh for transport and sustainability
-ENERGY_PRICE_MARKUP_PER_KWH: int = 0
-
 
 # USER PREFERENCE
 # See remark for charger constants
@@ -85,7 +77,7 @@ OPTIMISATION_MODE: str = "price"
 
 # FSC: Used in amber and Octopus module, keep here?
 ELECTRICITY_PROVIDER: str = "nl_generic"
-# FSC: Used in get_fm_data, Octopus (why not Amber?) module, keep here?
+# FSC: Used in data_import, Octopus (why not Amber?) module, keep here?
 EMISSIONS_UOM: str = "kg/MWh"  # For some ELECTRICITY_PROVIDER-s this can be %
 # For some ELECTRICITY_PROVIDER-s this can be different, e.g. GBP or AUD.
 CURRENCY: str = "EUR"
@@ -160,19 +152,19 @@ FM_ACCOUNT_PASSWORD: str = ""
 FM_ASSET_NAME: str = ""
 
 # Sensor entity for sending and id for retrieving data to/from FM
-# FSC: Used in fm_client, get_fm_data, data_monitor, keep here.
+# FSC: Used in fm_client, data_import, data_monitor, keep here.
 FM_ACCOUNT_POWER_SENSOR_ID: int = 0
 
 # FSC: Used in data_monitor only, move there.
 FM_ACCOUNT_AVAILABILITY_SENSOR_ID: int = 0
 FM_ACCOUNT_SOC_SENSOR_ID: int = 0
 
-# FSC: Used in get_fm_data only, move there.
+# FSC: Used in data_import only, move there.
 FM_ACCOUNT_COST_SENSOR_ID: int = 0
 
 # Sensors for optimisation context, also in case prices are self_provided (e.g. au_amber_electric)
 # Sensor entity for sending and id for retrieving data to/from FM
-# FSC: Used in fm_client, get_fm_data, octopus/amber, keep here.
+# FSC: Used in fm_client, data_import, octopus/amber, keep here.
 FM_PRICE_PRODUCTION_SENSOR_ID: int = 0
 FM_PRICE_CONSUMPTION_SENSOR_ID: int = 0
 FM_EMISSIONS_SENSOR_ID: int = 0

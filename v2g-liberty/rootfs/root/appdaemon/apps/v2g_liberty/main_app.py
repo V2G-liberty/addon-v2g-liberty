@@ -7,6 +7,7 @@ from typing import AsyncGenerator, List, Optional
 from datetime import datetime, timedelta
 import isodate
 from appdaemon.plugins.hass.hassapi import Hass
+from .util.conversion_util import convert_mw_to_percentage_points
 from .notifier_util import Notifier
 from .event_bus import EventBus
 from .v2g_globals import time_round, he, get_local_now, parse_to_int
@@ -45,8 +46,8 @@ class V2Gliberty:
     # CONSTANTS
     # Wait time before notifying the user(s) if the car is still connected during a calendar event
     MAX_EVENT_WAIT_TO_DISCONNECT: timedelta
-    RESERVATION_ACTION_DISMISS:str = "dismiss"
-    RESERVATION_ACTION_KEEP:str = "keep"
+    RESERVATION_ACTION_DISMISS: str = "dismiss"
+    RESERVATION_ACTION_KEEP: str = "keep"
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
     # timer_id's for reminders at start/end of the first/current event.
@@ -574,7 +575,8 @@ class V2Gliberty:
             attempt = kwargs.get("attempt", 0) + 1
             if attempt == 5:
                 self.__log(
-                    "Failed to log_version to FM after 5 attempts, aborting.", level="WARNING"
+                    "Failed to log_version to FM after 5 attempts, aborting.",
+                    level="WARNING",
                 )
                 return
             await self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
@@ -779,7 +781,7 @@ class V2Gliberty:
         }
         self.notifier.clear_notification(identification)
 
-    async def set_records_in_chart(self, chart_line_name: ChartLine, records: dict):
+    async def set_records_in_chart(self, chart_line_name: ChartLine, records):
         """Write or remove records in lines in the chart.
 
         If records = None the line_name line will be cleared (made invisible),
@@ -787,7 +789,8 @@ class V2Gliberty:
 
         Parameters:
             chart_line_name (ChartLine): indicating which line to write to
-            records(dict): a dictionary of time (isoformat) + value (e.g. cent/kWh or %) records
+            records: Either a list of time+value dicts, or a dict containing 'records' key
+                     (and optionally other attributes like 'end_of_fixed_prices_dt')
 
         For the SoC related lines (prognoses, boost, max_charge_now): if there is data in records,
         it is assumed that the other lines need to be erased.
@@ -797,12 +800,9 @@ class V2Gliberty:
         """
         now = get_local_now()
 
-        # There seems to be no way to hide the SoC series from the graph,
-        # so it is filled with "empty" data, one record of None.
-        # Set it at a week from now, so it's not visible in the default view.
-        clear_line_records = dict(
-            records=[dict(time=(now + timedelta(days=7)).isoformat(), soc=None)]
-        )
+        # Hide the SoC series from the graph by setting an empty records array.
+        # This ensures no data points are rendered and no visual artifacts appear.
+        clear_line_records = dict(records=[])
 
         # To make sure the new attributes are treated as new we set a new state as well
         new_state = "Chart line data at " + now.isoformat()
@@ -814,7 +814,13 @@ class V2Gliberty:
             )
             self.__log(f"chart_line_name '{chart_line_name}' cleared.")
         else:
-            result = {"records": records}
+            # Handle both list format (legacy) and dict format (with optional metadata)
+            if isinstance(records, dict) and "records" in records:
+                # New format: dict with 'records' and optional attributes
+                result = records
+            else:
+                # Legacy format: list of records
+                result = {"records": records}
             await self.hass.set_state(entity, state=new_state, attributes=result)
             self.__log(
                 f"entity: '{entity}', "
@@ -1201,7 +1207,7 @@ class V2Gliberty:
         exp_soc_values = list(
             accumulate(
                 [await self.evse_client_app.get_car_soc()]
-                + convert_MW_to_percentage_points(
+                + convert_mw_to_percentage_points(
                     values,
                     resolution,
                     c.CAR_MAX_CAPACITY_IN_KWH,
@@ -1301,7 +1307,9 @@ class V2Gliberty:
             start=run_at,
             v2g_event=v2g_event,
         )
-        self.__log(f"__ask_user_dismiss_event_or_not is set to run at {run_at.isoformat}.")
+        self.__log(
+            f"__ask_user_dismiss_event_or_not is set to run at {run_at.isoformat}."
+        )
 
     async def __handle_first_reservation_end(self, v2g_args: str = ""):
         # To prevent the call to __remind_user_to_connect_after_event() being cancelled due to
@@ -1325,9 +1333,7 @@ class V2Gliberty:
             )
 
     async def __ask_user_dismiss_event_or_not(self, v2g_event: dict):
-        self.__log(
-            f"called with v2g_event: {v2g_event}."
-        )
+        self.__log(f"called with v2g_event: {v2g_event}.")
 
         v2g_event = v2g_event["v2g_event"]
         if await self.evse_client_app.is_car_connected():
@@ -1336,9 +1342,7 @@ class V2Gliberty:
             )
             if len(identification) > 25:
                 identification = identification[0:25] + "…"
-            self.__log(
-                f"event_title: {identification}."
-            )
+            self.__log(f"event_title: {identification}.")
             # Will be cancelled when car gets disconnected.
             hid = v2g_event["hash_id"]
             message = (
@@ -1350,7 +1354,10 @@ class V2Gliberty:
                     "action": f"{self.RESERVATION_ACTION_DISMISS}+{hid}",
                     "title": "Dismiss reservation",
                 },
-                {"action": f"{self.RESERVATION_ACTION_KEEP}+{hid}", "title": "Keep reservation"},
+                {
+                    "action": f"{self.RESERVATION_ACTION_KEEP}+{hid}",
+                    "title": "Keep reservation",
+                },
             ]
             self.notifier.notify_user(
                 message=message,
@@ -1383,7 +1390,9 @@ class V2Gliberty:
             self.__log(f"aborting: unknown action: '{reservation_action}'.")
             return
 
-        await self.reservations_client.set_event_dismissed_status(event_hash_id=hid, status=dismiss)
+        await self.reservations_client.set_event_dismissed_status(
+            event_hash_id=hid, status=dismiss
+        )
 
     async def __remind_user_to_connect_after_event(self, v2g_args: str = ""):
         # Only to be called from __handle_first_reservation_end().
@@ -1476,30 +1485,6 @@ class V2Gliberty:
             # Used when charger crashes to stop further processing
             await self.hass.turn_on("input_boolean.chargemodeoff")
         else:
-            self.__log(f"Invalid charge_mode in UI setting: '{setting}'.", level="WARNING")
-
-
-######################################################################
-#                    PRIVATE UTILITY FUNCTIONS                       #
-######################################################################
-
-
-def convert_MW_to_percentage_points(
-    values_in_MW,
-    resolution: timedelta,
-    max_soc_in_kWh: float,
-    round_trip_efficiency: float,
-):
-    """
-    For example, if a 62 kWh battery produces at 0.00575 MW for a period of 15 minutes,
-    its SoC increases by just over 2.3%.
-    """
-    e = round_trip_efficiency**0.5
-    scalar = resolution / timedelta(hours=1) * 1000 * 100 / max_soc_in_kWh
-    lst = []
-    for v in values_in_MW:
-        if v >= 0:
-            lst.append(v * scalar * e)
-        else:
-            lst.append(v * scalar / e)
-    return lst
+            self.__log(
+                f"Invalid charge_mode in UI setting: '{setting}'.", level="WARNING"
+            )
