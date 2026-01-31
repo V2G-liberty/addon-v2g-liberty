@@ -1,6 +1,6 @@
 """Module for importing price and usage data from FlexMeasures."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from appdaemon.plugins.hass.hassapi import Hass
 from .v2g_globals import (
@@ -14,12 +14,12 @@ from .log_wrapper import get_class_method_logger
 from .main_app import ChartLine
 
 # Import refactored components
-from .data_import.utils.retry_handler import RetryHandler, RetryConfig
 from .data_import.utils.datetime_utils import DatetimeUtils
 from .data_import.validators.data_validator import DataValidator
 from .data_import.processors.price_processor import PriceProcessor
 from .data_import.processors.emission_processor import EmissionProcessor
 from .data_import.processors.energy_processor import EnergyProcessor
+from .data_import.fetchers.entsoe_fetcher import EntsoeFetcher
 from .data_import.fetchers.price_fetcher import PriceFetcher
 from .data_import.fetchers.emission_fetcher import EmissionFetcher
 from .data_import.fetchers.energy_fetcher import EnergyFetcher
@@ -57,14 +57,12 @@ class FlexMeasuresDataImporter:
 
     # Timing constants imported from data_import.fetch_timing for centralised management
     GET_PRICES_TIME: str = fm_constants.GET_PRICES_TIME
-    GET_EMISSIONS_TIME: str = fm_constants.GET_EMISSIONS_TIME
     TRY_UNTIL: str = fm_constants.TRY_UNTIL
     CHECK_DATA_STATUS_TIME: str = fm_constants.CHECK_DATA_STATUS_TIME
     CHECK_RESOLUTION_SECONDS: int = fm_constants.CHECK_RESOLUTION_SECONDS
 
-    consumption_price_is_up_to_date: bool = False
-    production_price_is_up_to_date: bool = False
-    emission_data_is_up_to_date: bool = False
+    # Single flag for ENTSOE-based freshness (prices and emissions share the same source)
+    entsoe_data_is_up_to_date: bool = False
 
     timer_id_daily_kickoff_price_data: str = ""
     timer_id_daily_kickoff_emissions_data: str = ""
@@ -122,14 +120,6 @@ class FlexMeasuresDataImporter:
 
     def _initialise_components(self):
         """Initialise the refactored utility, processor, and fetcher components."""
-        # Retry configuration for EPEX-based contracts
-        retry_config = RetryConfig(
-            start_time=self.GET_PRICES_TIME,
-            end_time=self.TRY_UNTIL,
-            interval_seconds=self.CHECK_RESOLUTION_SECONDS,
-        )
-        self.retry_handler = RetryHandler(self.hass, retry_config)
-
         # Utility components
         self.datetime_utils = DatetimeUtils()
         self.data_validator = DataValidator(self.datetime_utils)
@@ -147,6 +137,7 @@ class FlexMeasuresDataImporter:
 
         # Fetchers (fm_client_app will be set later via property setter)
         # These are initialised with None and updated when fm_client_app is set
+        self.entsoe_fetcher = None
         self.price_fetcher = None
         self.emission_fetcher = None
         self.energy_fetcher = None
@@ -154,18 +145,11 @@ class FlexMeasuresDataImporter:
 
     def _initialise_fetchers(self):
         """Initialise fetcher components when fm_client_app becomes available."""
-        self.price_fetcher = PriceFetcher(
-            self.hass, self._fm_client_app, self.retry_handler
-        )
-        self.emission_fetcher = EmissionFetcher(
-            self.hass, self._fm_client_app, self.retry_handler
-        )
-        self.energy_fetcher = EnergyFetcher(
-            self.hass, self._fm_client_app, self.retry_handler
-        )
-        self.cost_fetcher = CostFetcher(
-            self.hass, self._fm_client_app, self.retry_handler
-        )
+        self.entsoe_fetcher = EntsoeFetcher(self.hass, self._fm_client_app)
+        self.price_fetcher = PriceFetcher(self.hass, self._fm_client_app)
+        self.emission_fetcher = EmissionFetcher(self.hass, self._fm_client_app)
+        self.energy_fetcher = EnergyFetcher(self.hass, self._fm_client_app)
+        self.cost_fetcher = CostFetcher(self.hass, self._fm_client_app)
         self.__log("Fetcher components initialised.")
 
     async def initialize(
@@ -226,20 +210,15 @@ class FlexMeasuresDataImporter:
                 self.daily_kickoff_price_data, start=self.GET_PRICES_TIME
             )
 
-            self.timer_id_daily_kickoff_emissions_data = await self.hass.run_daily(
-                self.daily_kickoff_emissions_data, start=self.GET_EMISSIONS_TIME
-            )
-
             self.timer_id_daily_check_is_data_up_to_date = await self.hass.run_daily(
                 self.__check_if_prices_are_up_to_date, start=self.CHECK_DATA_STATUS_TIME
             )
 
             initial_delay_sec = 45
             await self.hass.run_in(
-                self.daily_kickoff_price_data, delay=initial_delay_sec
-            )
-            await self.hass.run_in(
-                self.daily_kickoff_emissions_data, delay=initial_delay_sec
+                self.daily_kickoff_price_data,
+                delay=initial_delay_sec,
+                is_initial_call=True,
             )
             await self.hass.run_in(
                 self.daily_kickoff_charging_data, delay=initial_delay_sec
@@ -258,27 +237,70 @@ class FlexMeasuresDataImporter:
             silent = True  # Does not really work
             await self.hass.cancel_timer(timer_id, silent)
 
-    async def daily_kickoff_price_data(self, *args):
+    async def daily_kickoff_price_data(self, *args, is_initial_call: bool = False):
         """
         This sets off the daily routine to check for new prices.
         Only called when is_price_epex_based() is true.
+
+        Uses ENTSOE data as a gate: if tomorrow's day-ahead data isn't available yet,
+        we skip fetching prices and schedule a retry. This avoids redundant API calls
+        when the day-ahead market data hasn't been published yet.
+
+        Args:
+            args: AppDaemon callback args (unused)
+            is_initial_call: If True, fetch prices even if ENTSOE data isn't fresh
+                           (to populate UI on startup)
         """
-        self.__log(f"Called, args: {args}.")
+        self.__log(f"Called, args: {args}, is_initial_call: {is_initial_call}.")
 
-        self.consumption_price_is_up_to_date = None
-        await self.get_prices(price_type="consumption")
+        # Check ENTSOE fetcher availability
+        if self.entsoe_fetcher is None:
+            self.__log("EntsoeFetcher not initialised (fm_client_app not set yet).")
+            return
 
-        self.production_price_is_up_to_date = None
-        await self.get_prices(price_type="production")
+        now = get_local_now()
+        entsoe_latest_dt = await self.entsoe_fetcher.fetch_latest_dt(now)
+
+        # Check if tomorrow's data is available
+        is_fresh = self.entsoe_fetcher.is_tomorrow_data_available(entsoe_latest_dt, now)
+        self.entsoe_data_is_up_to_date = is_fresh
+
+        self.__log(
+            f"ENTSOE latest_dt: {entsoe_latest_dt}, is_fresh: {is_fresh}, "
+            f"is_initial_call: {is_initial_call}."
+        )
+
+        if not is_fresh and not is_initial_call:
+            # Data not ready yet, schedule retry
+            await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=False)
+            if is_local_now_between(
+                start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
+            ):
+                await self.hass.run_in(
+                    self.daily_kickoff_price_data, delay=self.CHECK_RESOLUTION_SECONDS
+                )
+                self.__log(
+                    f"ENTSOE data not fresh, retry in {self.CHECK_RESOLUTION_SECONDS} sec."
+                )
+            else:
+                self.__log(
+                    "ENTSOE data not fresh and outside retry window, not retrying."
+                )
+            return
+
+        # ENTSOE confirms fresh data exists (or it's initial call) - fetch prices
+        await self.get_prices(
+            price_type="consumption", entsoe_latest_dt=entsoe_latest_dt
+        )
+        await self.get_prices(
+            price_type="production", entsoe_latest_dt=entsoe_latest_dt
+        )
+        await self.get_emission_intensities(entsoe_latest_dt=entsoe_latest_dt)
+
+        if is_fresh:
+            await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
 
         self.__log("completed")
-
-    async def daily_kickoff_emissions_data(self, *args):
-        """
-        This sets off the daily routine to check for new emission data.
-        Only called when is_price_epex_based() is true.
-        """
-        await self.get_emission_intensities()
 
     async def daily_kickoff_charging_data(self, *args):
         """This sets off the daily routine to check for charging cost."""
@@ -424,31 +446,43 @@ class FlexMeasuresDataImporter:
             f"    total charge time: '{stats.total_charge_time}'"
         )
 
-    async def get_emission_intensities(self, *args, **kwargs):
+    async def get_emission_intensities(
+        self, *args, entsoe_latest_dt: datetime = None, **kwargs
+    ) -> bool:
         """Communicate with FM server and check the results.
 
         Request hourly CO2 emissions due to electricity production from the server.
         Make values available in HA by setting them in sensor.co2_emissions.
+
+        Freshness validation and retry logic is now handled at the
+        daily_kickoff_emissions_data level using the ENTSOE fetcher.
+
+        Args:
+            args: AppDaemon callback args (unused)
+            entsoe_latest_dt: The latest ENTSOE datetime (from EntsoeFetcher) used for
+                            determining the fixed vs forecast boundary in charts.
+            kwargs: Additional keyword args (unused)
+
+        Returns:
+            True if emissions were successfully retrieved, False otherwise.
         """
         self.__log("Called")
 
         # Use EmissionFetcher to retrieve data
         if self.emission_fetcher is None:
             self.__log("EmissionFetcher not initialised (fm_client_app not set yet).")
-            return await self._handle_emission_fetch_failure(
-                "fm_client not available yet"
-            )
+            return False
 
         now = get_local_now()
         result = await self.emission_fetcher.fetch_emissions(now)
 
         if result is None:
-            return await self._handle_emission_fetch_failure("failed")
+            self.__log("EmissionFetcher returned None.")
+            return False
 
-        # Extract entsoe_latest_dt for EFP (end of fixed prices) boundary
-        # entsoe_latest_dt is the START of the last emission block
+        # Use entsoe_latest_dt from parameter (from EntsoeFetcher) for EFP boundary
+        # entsoe_latest_dt is the START of the last data block
         # We need the END of that block for the visual split, so add one resolution period
-        entsoe_latest_dt = result.get("entsoe_latest_dt")
         end_of_fixed_prices_dt = None
         if entsoe_latest_dt and is_price_epex_based():
             end_of_fixed_prices_dt = entsoe_latest_dt + timedelta(
@@ -483,69 +517,28 @@ class FlexMeasuresDataImporter:
             },
         )
 
-        # Validate freshness for EPEX-based contracts
-        if latest_emission_dt is None:
-            return await self._handle_emission_fetch_failure("no valid data received")
-
-        if is_price_epex_based():
-            is_valid, error_message = self.data_validator.validate_emission_freshness(
-                latest_emission_dt=latest_emission_dt,
-                now=now,
-                resolution_minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES,
-            )
-            if not is_valid:
-                return await self._handle_emission_fetch_failure(error_message)
-
         self.__log("emissions successfully retrieved.")
-        return "emissions successfully retrieved."
+        return True
 
-    async def _handle_emission_fetch_failure(self, failure_message: str):
-        """Handle emission fetch failure with retry logic for EPEX-based contracts."""
-        if not is_price_epex_based():
-            # Non-EPEX contracts don't retry
-            return False
-
-        if is_local_now_between(
-            start_time=self.GET_EMISSIONS_TIME, end_time=self.TRY_UNTIL
-        ):
-            await self.hass.run_in(
-                self.get_emission_intensities, delay=self.CHECK_RESOLUTION_SECONDS
-            )
-            self.__log(
-                f"{failure_message}, try again in '{self.CHECK_RESOLUTION_SECONDS}' sec."
-            )
-        else:
-            self.__log(
-                f"{failure_message}, 'now' is out of time bounds "
-                f"start: '{self.GET_EMISSIONS_TIME}' - end: '{self.TRY_UNTIL}', not retrying."
-            )
-        return False
-
-    async def get_prices_wrapper(self, kwargs):
-        """Wrapper to fix strange run_in behaviour"""
-        price_type = kwargs.get("price_type")
-        self.__log(f"WRAPPER, price_type: {price_type}")
-        await self.get_prices(price_type=price_type)
-
-    async def get_prices(self, price_type: str):
+    async def get_prices(
+        self, price_type: str, entsoe_latest_dt: datetime = None
+    ) -> bool:
         """
         Gets consumption / production prices from the server via the fm_client.
 
-        Check if prices are up to date, if not:
-         - show a message in UI by calling set_price_is_up_to_date() on main app.
-         - repeat this method every x minutes
-         - set class variable consumption_price_is_up_to_date / production_price_is_up_to_date to
-           False (for notification to user, see __check_if_prices_are_up_to_date() ).
+        Freshness validation and retry logic is now handled at the daily_kickoff_price_data
+        level using the ENTSOE fetcher. This method just fetches and processes prices.
 
-        If changed from not-up-to-date to up-to-date, try to remove a possible notification by
-        calling __check_if_prices_are_up_to_date_again()
+        Checks for negative prices and notifies the user if found.
+        Makes prices available in HA.
 
-        Check if any negative prices are present in the future, if so, notify the user.
+        Args:
+            price_type: 'consumption' or 'production'
+            entsoe_latest_dt: The latest ENTSOE datetime (from EntsoeFetcher) used for
+                            determining the fixed vs forecast boundary in charts.
 
-        Make prices available in HA.
-
-        :param price_type: 'consumption' or 'production'
-        :return: string or boolean (not used).
+        Returns:
+            True if prices were successfully retrieved, False otherwise.
         """
         if price_type not in ["consumption", "production"]:
             self.__log(
@@ -560,25 +553,21 @@ class FlexMeasuresDataImporter:
             self.__log(
                 f"({price_type}). PriceFetcher not initialised (fm_client_app not set yet)."
             )
-            return await self._handle_price_fetch_failure(
-                "fm_client not available yet", price_type
-            )
+            return False
 
         now = get_local_now()
         result = await self.price_fetcher.fetch_prices(price_type, now)
 
         if result is None:
-            return await self._handle_price_fetch_failure(
-                f"get_prices failed for entsoe / {price_type}", price_type
-            )
+            self.__log(f"({price_type}): fetch_prices returned None.")
+            return False
 
-        # Extract entsoe_latest_price_dt for EFP (end of fixed prices) boundary
-        # entsoe_latest_price_dt is the START of the last price block (e.g., 23:45)
+        # Use entsoe_latest_dt from parameter (from EntsoeFetcher) for EFP boundary
+        # entsoe_latest_dt is the START of the last data block
         # We need the END of that block for the visual split, so add one resolution period
-        entsoe_latest_price_dt = result["entsoe_latest_price_dt"]
         end_of_fixed_prices_dt = None
-        if entsoe_latest_price_dt and is_price_epex_based():
-            end_of_fixed_prices_dt = entsoe_latest_price_dt + timedelta(
+        if entsoe_latest_dt and is_price_epex_based():
+            end_of_fixed_prices_dt = entsoe_latest_dt + timedelta(
                 minutes=c.PRICE_RESOLUTION_MINUTES
             )
 
@@ -600,7 +589,7 @@ class FlexMeasuresDataImporter:
             f"number of none values '{none_count}'."
         )
 
-        # Handle negative price notification
+        # Handle negative price notification (still needs actual prices)
         if first_negative_price is not None:
             self.__log(
                 f"({price_type}), negative price: {first_negative_price['price']} "
@@ -625,104 +614,25 @@ class FlexMeasuresDataImporter:
             },
         )
 
-        # Validate freshness for EPEX-based contracts
-        if entsoe_latest_price_dt is None:
-            return await self._handle_price_fetch_failure(
-                f"no valid {price_type} prices received", price_type
-            )
-
-        if is_price_epex_based():
-            is_valid, error_message = self.data_validator.validate_price_freshness(
-                latest_price_dt=entsoe_latest_price_dt,
-                now=now,
-                fetch_start_time=self.GET_PRICES_TIME,
-            )
-
-            # Track whether prices were previously up to date for notification handling
-            price_was_up_to_date = (
-                self.consumption_price_is_up_to_date
-                if price_type == "consumption"
-                else self.production_price_is_up_to_date
-            )
-
-            # Update the status
-            if price_type == "consumption":
-                self.consumption_price_is_up_to_date = is_valid
-            else:
-                self.production_price_is_up_to_date = is_valid
-
-            self.__log(
-                f"({price_type}): is up to date: '{is_valid}' based on "
-                f"latest_price ({entsoe_latest_price_dt})."
-            )
-
-            if not is_valid:
-                # Set it in the UI right away
-                await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=False)
-                return await self._handle_price_fetch_failure(error_message, price_type)
-
-            # Check if prices became up to date again (was False, now True)
-            if not price_was_up_to_date and is_valid:
-                self.__log(f"{price_type} prices are up to date again.")
-                await self.__check_if_prices_are_up_to_date_again(run_once=True)
-
         self.__log(f"{price_type} prices successfully retrieved.")
-        return "prices successfully retrieved."
-
-    async def _handle_price_fetch_failure(
-        self, failure_message: str, price_type: str
-    ) -> bool:
-        """Handle price fetch failure with retry logic for EPEX-based contracts."""
-        if not is_price_epex_based():
-            self.__log(
-                f"({price_type}): {failure_message}, not EPEX based: not retrying."
-            )
-            return False
-
-        if is_local_now_between(
-            start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
-        ):
-            await self.hass.run_in(
-                self.get_prices_wrapper,
-                delay=self.CHECK_RESOLUTION_SECONDS,
-                price_type=price_type,
-            )
-            self.__log(
-                f"Failed to get {price_type}: {failure_message}, "
-                f"try again in '{self.CHECK_RESOLUTION_SECONDS}' sec."
-            )
-        else:
-            self.__log(
-                f"({price_type}): {failure_message}, 'now' is out of time bounds "
-                f"start: '{self.GET_PRICES_TIME}' - end: '{self.TRY_UNTIL}', not retrying."
-            )
-        return False
+        return True
 
     async def __check_if_prices_are_up_to_date(self, *args):
         """
-        Only used for EPEX based contracts, only aimed at price data, not emissions data.
-        Checks if price data is uptodate and, if not, notifies user and kicks off proces to keep
-        checking if notification can be removed.
-        To be run once a day a few hours after the normal publication time of the prices and soon
-        enough to give user a chance to take measures.
+        Only used for EPEX based contracts.
+        Checks if ENTSOE data is up to date and, if not, notifies user and kicks off
+        process to keep checking if notification can be removed.
+        To be run once a day a few hours after the normal publication time of the prices
+        and soon enough to give user a chance to take measures.
+
         :return: Nothing
         """
         self.__log("Called")
-        unavailable = ""
-        if not self.consumption_price_is_up_to_date:
-            unavailable = "Consumption"
-        if not self.production_price_is_up_to_date:
-            unavailable = "Production"
-        if (
-            not self.consumption_price_is_up_to_date
-            and not self.production_price_is_up_to_date
-        ):
-            unavailable = "Consumption and production"
-        if unavailable != "":
-            self.__log(f"Unavailable price(s): '{unavailable=}'.")
+        if not self.entsoe_data_is_up_to_date:
+            self.__log("ENTSOE data not up to date, notifying user.")
             self.notifier.notify_user(
-                message=f"{unavailable} price not available, cloud not check for negative prices. "
-                f"Scheduling should continue as normal.",
+                message="Price data not available, could not check for negative prices. "
+                "Scheduling should continue as normal.",
                 title=None,
                 tag="no_price_data",
                 critical=False,
@@ -731,55 +641,37 @@ class FlexMeasuresDataImporter:
             # Kickoff process to clear the notification if possible.
             await self.hass.run_in(
                 self.__check_if_prices_are_up_to_date_again,
-                run_once=False,
                 delay=self.CHECK_RESOLUTION_SECONDS,
             )
 
-    async def __check_if_prices_are_up_to_date_again(
-        self,
-        *args,
-        run_once: bool = False,
-    ):
+    async def __check_if_prices_are_up_to_date_again(self, *args):
         """
         Try to remove the notification about price data missing.
         Only used for EPEX based contracts, kicked off by __check_if_prices_are_up_to_date.
-        To be run once every hour until:
-           - Prices are up to date again
-           - The TRY_UNTIL time
+        Runs periodically until:
+           - ENTSOE data is up to date again
+           - The TRY_UNTIL time is reached
 
-        :param run_once: To prevent extra threads where this method calls itself,
-                         used when get_prices detects a change
-                         in self.consumption_price_is_up_to_date or
-                         self.consumption_price_is_up_to_date.
         :param args: Not used, only for compatibility with 'run_in' method.
         :return: None
         """
-        self.__log(" called")
-        if (
-            self.consumption_price_is_up_to_date
-            and self.consumption_price_is_up_to_date
-        ):
+        self.__log("Called")
+        if self.entsoe_data_is_up_to_date:
             await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
             self.notifier.clear_notification(tag="no_price_data")
-            self.__log("prices up to date again: notification cleared.")
+            self.__log("ENTSOE data up to date again: notification cleared.")
+        elif is_local_now_between(
+            start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
+        ):
+            self.__log("ENTSOE data not up to date yet: scheduling recheck.")
+            await self.hass.run_in(
+                self.__check_if_prices_are_up_to_date_again,
+                delay=self.CHECK_RESOLUTION_SECONDS,
+            )
         else:
-            if run_once:
-                self.__log(
-                    "prices not up to date but, called with 'run_once': no re-run."
-                )
-            elif is_local_now_between(
-                start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
-            ):
-                self.__log("prices not up to date yet: rerun.")
-                await self.hass.run_in(
-                    self.__check_if_prices_are_up_to_date_again,
-                    run_once=False,
-                    delay=self.CHECK_RESOLUTION_SECONDS,
-                )
-            else:
-                self.__log(
-                    "prices not up to date but, 'now' is out of time bounds, no re-run."
-                )
+            self.__log(
+                "ENTSOE data not up to date but outside retry window, no recheck."
+            )
 
     def __check_negative_price_notification(self, price_point: dict, price_type: str):
         """Method to check if the user needs to be notified about negative consumption

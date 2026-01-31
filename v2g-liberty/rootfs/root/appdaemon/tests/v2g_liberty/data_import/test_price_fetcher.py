@@ -1,15 +1,10 @@
 """Tests for PriceFetcher class."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.data_import.fetchers.price_fetcher import PriceFetcher
-from apps.v2g_liberty.data_import.utils.retry_handler import (
-    RetryHandler,
-    RetryConfig,
-)
-from apps.v2g_liberty.data_import import data_import_constants as fm_c
 
 
 @pytest.fixture
@@ -29,25 +24,9 @@ def fm_client():
 
 
 @pytest.fixture
-def retry_config():
-    """Create a retry configuration."""
-    return RetryConfig(
-        start_time=fm_c.GET_PRICES_TIME,
-        end_time=fm_c.TRY_UNTIL,
-        interval_seconds=fm_c.CHECK_RESOLUTION_SECONDS,
-    )
-
-
-@pytest.fixture
-def retry_handler(hass, retry_config):
-    """Create a RetryHandler instance."""
-    return RetryHandler(hass, retry_config)
-
-
-@pytest.fixture
-def price_fetcher(hass, fm_client, retry_handler):
+def price_fetcher(hass, fm_client):
     """Create a PriceFetcher instance."""
-    return PriceFetcher(hass, fm_client, retry_handler)
+    return PriceFetcher(hass, fm_client)
 
 
 @pytest.fixture
@@ -59,25 +38,21 @@ def mock_now():
 class TestPriceFetcher:
     """Test PriceFetcher class."""
 
-    def test_initialisation(self, hass, fm_client, retry_handler):
+    def test_initialisation(self, hass, fm_client):
         """Test PriceFetcher initialisation."""
-        fetcher = PriceFetcher(hass, fm_client, retry_handler)
+        fetcher = PriceFetcher(hass, fm_client)
         assert fetcher.hass == hass
         assert fetcher.fm_client_app == fm_client
-        assert fetcher.retry_handler == retry_handler
 
     @pytest.mark.asyncio
     async def test_fetch_prices_consumption_success(
         self, price_fetcher, fm_client, mock_now
     ):
         """Test successful fetch of consumption prices."""
-        # Mock the FM client responses
-        fm_client.get_sensor_data.side_effect = [
-            # ENTSOE prices
-            {"values": [0.15, 0.16, 0.17, None, 0.18]},
-            # Consumption prices
-            {"values": [0.20, 0.21, 0.22, None, 0.23]},
-        ]
+        # Mock the FM client response (only prices, no ENTSOE)
+        fm_client.get_sensor_data.return_value = {
+            "values": [0.20, 0.21, 0.22, None, 0.23]
+        }
 
         with patch(
             "apps.v2g_liberty.data_import.fetchers.price_fetcher.is_local_now_between",
@@ -87,25 +62,19 @@ class TestPriceFetcher:
 
         assert result is not None
         assert "prices" in result
-        assert "entsoe_prices" in result
         assert "start" in result
-        assert "latest_price_dt" in result
-        assert "entsoe_latest_price_dt" in result
+        # ENTSOE data is no longer fetched by PriceFetcher
+        assert "entsoe_prices" not in result
+        assert "entsoe_latest_price_dt" not in result
         assert result["prices"] == [0.20, 0.21, 0.22, None, 0.23]
-        assert result["entsoe_prices"] == [0.15, 0.16, 0.17, None, 0.18]
 
     @pytest.mark.asyncio
     async def test_fetch_prices_production_success(
         self, price_fetcher, fm_client, mock_now
     ):
         """Test successful fetch of production prices."""
-        # Mock the FM client responses
-        fm_client.get_sensor_data.side_effect = [
-            # ENTSOE prices
-            {"values": [0.15, 0.16, 0.17]},
-            # Production prices
-            {"values": [0.10, 0.11, 0.12]},
-        ]
+        # Mock the FM client response
+        fm_client.get_sensor_data.return_value = {"values": [0.10, 0.11, 0.12]}
 
         with patch(
             "apps.v2g_liberty.data_import.fetchers.price_fetcher.is_local_now_between",
@@ -123,9 +92,9 @@ class TestPriceFetcher:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_fetch_prices_fm_client_none(self, hass, retry_handler, mock_now):
+    async def test_fetch_prices_fm_client_none(self, hass, mock_now):
         """Test fetch_prices when FM client is None."""
-        fetcher = PriceFetcher(hass, None, retry_handler)
+        fetcher = PriceFetcher(hass, None)
         result = await fetcher.fetch_prices("consumption", mock_now)
         assert result is None
 
@@ -157,47 +126,13 @@ class TestPriceFetcher:
 
         assert result is None
 
-    def test_find_latest_value_datetime_with_values(self, price_fetcher):
-        """Test finding latest datetime with non-None values."""
-        values = [0.1, 0.2, None, 0.3, 0.4]
-        start = datetime(2026, 1, 28, 0, 0, 0)
-        resolution = 60
-
-        result = price_fetcher._find_latest_value_datetime(values, start, resolution)
-
-        expected = start + timedelta(minutes=4 * 60)
-        assert result == expected
-
-    def test_find_latest_value_datetime_all_none(self, price_fetcher):
-        """Test finding latest datetime when all values are None."""
-        values = [None, None, None]
-        start = datetime(2026, 1, 28, 0, 0, 0)
-        resolution = 60
-
-        result = price_fetcher._find_latest_value_datetime(values, start, resolution)
-
-        assert result is None
-
-    def test_find_latest_value_datetime_empty_list(self, price_fetcher):
-        """Test finding latest datetime with empty list."""
-        values = []
-        start = datetime(2026, 1, 28, 0, 0, 0)
-        resolution = 60
-
-        result = price_fetcher._find_latest_value_datetime(values, start, resolution)
-
-        assert result is None
-
     @pytest.mark.asyncio
     async def test_fetch_prices_before_publish_time(
         self, price_fetcher, fm_client, mock_now
     ):
         """Test fetch_prices before GET_PRICES_TIME uses 2 days back."""
         early_morning = datetime(2026, 1, 28, 8, 0, 0)
-        fm_client.get_sensor_data.side_effect = [
-            {"values": [0.15]},
-            {"values": [0.20]},
-        ]
+        fm_client.get_sensor_data.return_value = {"values": [0.20]}
 
         with patch(
             "apps.v2g_liberty.data_import.fetchers.price_fetcher.is_local_now_between",
@@ -216,10 +151,7 @@ class TestPriceFetcher:
         self, price_fetcher, fm_client, mock_now
     ):
         """Test fetch_prices after GET_PRICES_TIME uses 1 day back."""
-        fm_client.get_sensor_data.side_effect = [
-            {"values": [0.15]},
-            {"values": [0.20]},
-        ]
+        fm_client.get_sensor_data.return_value = {"values": [0.20]}
 
         with patch(
             "apps.v2g_liberty.data_import.fetchers.price_fetcher.is_local_now_between",

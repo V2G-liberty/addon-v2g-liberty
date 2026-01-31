@@ -5,10 +5,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.data_import.fetchers.cost_fetcher import CostFetcher
-from apps.v2g_liberty.data_import.utils.retry_handler import (
-    RetryHandler,
-    RetryConfig,
-)
 
 
 @pytest.fixture
@@ -28,23 +24,9 @@ def fm_client():
 
 
 @pytest.fixture
-def retry_config():
-    """Create a retry configuration."""
-    return RetryConfig(
-        start_time="01:15:00", end_time="03:00:00", interval_seconds=1800
-    )
-
-
-@pytest.fixture
-def retry_handler(hass, retry_config):
-    """Create a RetryHandler instance."""
-    return RetryHandler(hass, retry_config)
-
-
-@pytest.fixture
-def cost_fetcher(hass, fm_client, retry_handler):
+def cost_fetcher(hass, fm_client):
     """Create a CostFetcher instance."""
-    return CostFetcher(hass, fm_client, retry_handler)
+    return CostFetcher(hass, fm_client)
 
 
 @pytest.fixture
@@ -56,12 +38,11 @@ def mock_now():
 class TestCostFetcher:
     """Test CostFetcher class."""
 
-    def test_initialisation(self, hass, fm_client, retry_handler):
+    def test_initialisation(self, hass, fm_client):
         """Test CostFetcher initialisation."""
-        fetcher = CostFetcher(hass, fm_client, retry_handler)
+        fetcher = CostFetcher(hass, fm_client)
         assert fetcher.hass == hass
         assert fetcher.fm_client_app == fm_client
-        assert fetcher.retry_handler == retry_handler
         assert fetcher.DAYS_HISTORY == 7
 
     @pytest.mark.asyncio
@@ -80,9 +61,9 @@ class TestCostFetcher:
         assert result["costs"] == [1.50, 2.30, 1.80, None, 2.10, 1.95, 2.40]
 
     @pytest.mark.asyncio
-    async def test_fetch_costs_fm_client_none(self, hass, retry_handler, mock_now):
+    async def test_fetch_costs_fm_client_none(self, hass, mock_now):
         """Test fetch_costs when FM client is None."""
-        fetcher = CostFetcher(hass, None, retry_handler)
+        fetcher = CostFetcher(hass, None)
         result = await fetcher.fetch_costs(mock_now)
         assert result is None
 

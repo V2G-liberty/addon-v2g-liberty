@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 from appdaemon.plugins.hass.hassapi import Hass
 from .base_fetcher import BaseFetcher
-from ..utils.retry_handler import RetryHandler
 from ...v2g_globals import time_floor
 from ...log_wrapper import get_class_method_logger
 from ... import constants as c
@@ -21,16 +20,15 @@ class EnergyFetcher(BaseFetcher):
 
     DAYS_HISTORY: int = 7
 
-    def __init__(self, hass: Hass, fm_client_app: object, retry_handler: RetryHandler):
+    def __init__(self, hass: Hass, fm_client_app: object):
         """
         Initialise the energy fetcher.
 
         Args:
             hass: AppDaemon Hass instance
             fm_client_app: FlexMeasures client for API calls
-            retry_handler: Handler for retry logic
         """
-        super().__init__(hass, fm_client_app, retry_handler)
+        super().__init__(hass, fm_client_app)
         self.__log = get_class_method_logger(hass.log)
 
     async def fetch_power_data(self, now: datetime) -> Optional[Dict[str, any]]:
