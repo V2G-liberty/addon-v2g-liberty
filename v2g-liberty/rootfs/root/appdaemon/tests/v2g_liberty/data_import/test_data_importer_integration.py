@@ -179,12 +179,11 @@ class TestGetEmissionIntensitiesIntegration:
         self, data_importer, fm_client, v2g_main_app, fixed_now
     ):
         """Test successful emission intensities retrieval."""
-        # Setup mock response
-        fm_client.get_sensor_data.return_value = {
+        # Setup mock response (only emissions, no ENTSOE - handled by EntsoeFetcher)
+        emission_response = {
             "values": [400.0, 410.0, 420.0, None, 430.0],
-            "start": "2026-01-21T00:00:00+01:00",
-            "duration": "P9D",
         }
+        fm_client.get_sensor_data.return_value = emission_response
 
         with patch(
             "apps.v2g_liberty.fm_data_importer.get_local_now", return_value=fixed_now
@@ -195,7 +194,7 @@ class TestGetEmissionIntensitiesIntegration:
             ):
                 result = await data_importer.get_emission_intensities()
 
-        assert result == "emissions successfully retrieved."
+        assert result is True
         v2g_main_app.set_records_in_chart.assert_called_once()
 
         # Verify emission_intensities cache was populated
@@ -209,11 +208,7 @@ class TestGetEmissionIntensitiesIntegration:
         data_importer._fm_client_app = None
         data_importer.emission_fetcher = None
 
-        # Need to mock is_price_epex_based to avoid calling get_local_now
-        with patch(
-            "apps.v2g_liberty.fm_data_importer.is_price_epex_based", return_value=False
-        ):
-            result = await data_importer.get_emission_intensities()
+        result = await data_importer.get_emission_intensities()
 
         assert result is False
         v2g_main_app.set_records_in_chart.assert_not_called()
@@ -227,11 +222,9 @@ class TestGetPricesIntegration:
         self, data_importer, fm_client, v2g_main_app, fixed_now
     ):
         """Test successful consumption price retrieval."""
-        # Setup mock response
+        # Setup mock response (only prices, no ENTSOE - handled by EntsoeFetcher)
         fm_client.get_sensor_data.return_value = {
             "values": [10.0, 12.0, 15.0, None, 11.0],
-            "start": "2026-01-27T00:00:00+01:00",
-            "duration": "P3D",
         }
 
         with patch(
@@ -247,7 +240,7 @@ class TestGetPricesIntegration:
                 ):
                     result = await data_importer.get_prices(price_type="consumption")
 
-        assert result == "prices successfully retrieved."
+        assert result is True
         v2g_main_app.set_records_in_chart.assert_called_once()
 
     @pytest.mark.asyncio
@@ -257,8 +250,6 @@ class TestGetPricesIntegration:
         """Test successful production price retrieval."""
         fm_client.get_sensor_data.return_value = {
             "values": [8.0, 10.0, 12.0, None, 9.0],
-            "start": "2026-01-27T00:00:00+01:00",
-            "duration": "P3D",
         }
 
         with patch(
@@ -274,7 +265,7 @@ class TestGetPricesIntegration:
                 ):
                     result = await data_importer.get_prices(price_type="production")
 
-        assert result == "prices successfully retrieved."
+        assert result is True
         v2g_main_app.set_records_in_chart.assert_called_once()
 
     @pytest.mark.asyncio
@@ -290,10 +281,7 @@ class TestGetPricesIntegration:
         data_importer._fm_client_app = None
         data_importer.price_fetcher = None
 
-        with patch(
-            "apps.v2g_liberty.fm_data_importer.is_price_epex_based", return_value=False
-        ):
-            result = await data_importer.get_prices(price_type="consumption")
+        result = await data_importer.get_prices(price_type="consumption")
 
         assert result is False
         v2g_main_app.set_records_in_chart.assert_not_called()
@@ -306,8 +294,6 @@ class TestGetPricesIntegration:
         # Setup mock response with negative price in the future
         fm_client.get_sensor_data.return_value = {
             "values": [10.0, 12.0, -5.0, None, 11.0],  # -5.0 is negative
-            "start": "2026-01-27T00:00:00+01:00",
-            "duration": "P3D",
         }
 
         with patch(
@@ -345,9 +331,9 @@ class TestComponentInitialisation:
         # Verify validators and utilities are initialised
         assert data_importer.datetime_utils is not None
         assert data_importer.data_validator is not None
-        assert data_importer.retry_handler is not None
 
         # Verify fetchers are initialised (after fm_client_app is set)
+        assert data_importer.entsoe_fetcher is not None
         assert data_importer.price_fetcher is not None
         assert data_importer.emission_fetcher is not None
         assert data_importer.energy_fetcher is not None
@@ -358,6 +344,7 @@ class TestComponentInitialisation:
         importer = FlexMeasuresDataImporter(hass, notifier)
 
         # Before setting fm_client_app, fetchers should be None
+        assert importer.entsoe_fetcher is None
         assert importer.price_fetcher is None
         assert importer.emission_fetcher is None
         assert importer.energy_fetcher is None
@@ -374,6 +361,7 @@ class TestComponentInitialisation:
         importer.fm_client_app = fm_client
 
         # After setting fm_client_app, fetchers should be initialised
+        assert importer.entsoe_fetcher is not None
         assert importer.price_fetcher is not None
         assert importer.emission_fetcher is not None
         assert importer.energy_fetcher is not None
@@ -383,19 +371,18 @@ class TestComponentInitialisation:
 class TestCheckIfPricesAreUpToDate:
     """Tests for __check_if_prices_are_up_to_date method (late prices notification).
 
-    This method runs daily at CHECK_DATA_STATUS_TIME (18:34:52) to check if price
-    data has been retrieved successfully. If prices are late/unavailable, it
-    notifies the user.
+    This method runs daily at CHECK_DATA_STATUS_TIME (18:34:52) to check if ENTSOE
+    data has been retrieved successfully. If data is late/unavailable, it notifies
+    the user.
     """
 
     @pytest.mark.asyncio
-    async def test_late_consumption_prices_triggers_notification(
+    async def test_entsoe_data_not_up_to_date_triggers_notification(
         self, data_importer, notifier, hass
     ):
-        """Test that late consumption prices trigger a notification."""
-        # Setup: consumption prices are NOT up to date
-        data_importer.consumption_price_is_up_to_date = False
-        data_importer.production_price_is_up_to_date = True
+        """Test that stale ENTSOE data triggers a notification."""
+        # Setup: ENTSOE data is NOT up to date
+        data_importer.entsoe_data_is_up_to_date = False
 
         # Call the private method directly (using name mangling)
         await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date()
@@ -403,56 +390,19 @@ class TestCheckIfPricesAreUpToDate:
         # Verify notification was sent with correct message
         notifier.notify_user.assert_called_once()
         call_kwargs = notifier.notify_user.call_args[1]
-        assert "Consumption" in call_kwargs["message"]
-        assert "price not available" in call_kwargs["message"]
+        assert "Price data not available" in call_kwargs["message"]
         assert call_kwargs["tag"] == "no_price_data"
 
         # Verify retry process was kicked off
         hass.run_in.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_late_production_prices_triggers_notification(
+    async def test_entsoe_data_up_to_date_no_notification(
         self, data_importer, notifier, hass
     ):
-        """Test that late production prices trigger a notification."""
-        # Setup: production prices are NOT up to date
-        data_importer.consumption_price_is_up_to_date = True
-        data_importer.production_price_is_up_to_date = False
-
-        await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date()
-
-        # Verify notification was sent with correct message
-        notifier.notify_user.assert_called_once()
-        call_kwargs = notifier.notify_user.call_args[1]
-        assert "Production" in call_kwargs["message"]
-        assert "price not available" in call_kwargs["message"]
-        assert call_kwargs["tag"] == "no_price_data"
-
-    @pytest.mark.asyncio
-    async def test_both_prices_late_triggers_combined_notification(
-        self, data_importer, notifier, hass
-    ):
-        """Test that both prices late triggers a combined notification."""
-        # Setup: both prices are NOT up to date
-        data_importer.consumption_price_is_up_to_date = False
-        data_importer.production_price_is_up_to_date = False
-
-        await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date()
-
-        # Verify notification mentions both price types
-        notifier.notify_user.assert_called_once()
-        call_kwargs = notifier.notify_user.call_args[1]
-        assert "Consumption and production" in call_kwargs["message"]
-        assert call_kwargs["tag"] == "no_price_data"
-
-    @pytest.mark.asyncio
-    async def test_prices_up_to_date_no_notification(
-        self, data_importer, notifier, hass
-    ):
-        """Test that no notification is sent when prices are up to date."""
-        # Setup: both prices are up to date
-        data_importer.consumption_price_is_up_to_date = True
-        data_importer.production_price_is_up_to_date = True
+        """Test that no notification is sent when ENTSOE data is up to date."""
+        # Setup: ENTSOE data is up to date
+        data_importer.entsoe_data_is_up_to_date = True
 
         await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date()
 
@@ -461,38 +411,21 @@ class TestCheckIfPricesAreUpToDate:
         # Verify no retry process was kicked off
         hass.run_in.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_prices_none_treated_as_not_up_to_date(
-        self, data_importer, notifier, hass
-    ):
-        """Test that None status (initial state) is treated as not up to date."""
-        # Setup: prices have not been checked yet (None = initial state)
-        data_importer.consumption_price_is_up_to_date = None
-        data_importer.production_price_is_up_to_date = None
-
-        await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date()
-
-        # Verify notification was sent (None is falsy)
-        notifier.notify_user.assert_called_once()
-        call_kwargs = notifier.notify_user.call_args[1]
-        assert "Consumption and production" in call_kwargs["message"]
-
 
 class TestCheckIfPricesAreUpToDateAgain:
     """Tests for __check_if_prices_are_up_to_date_again method.
 
-    This method is used to clear the notification when prices become available
-    after the CHECK_DATA_STATUS_TIME check found them missing.
+    This method is used to clear the notification when ENTSOE data becomes available
+    after the CHECK_DATA_STATUS_TIME check found it missing.
     """
 
     @pytest.mark.asyncio
-    async def test_prices_become_available_clears_notification(
+    async def test_entsoe_becomes_available_clears_notification(
         self, data_importer, notifier, v2g_main_app, hass
     ):
-        """Test that notification is cleared when prices become available."""
-        # Setup: prices are now up to date
-        data_importer.consumption_price_is_up_to_date = True
-        data_importer.production_price_is_up_to_date = True
+        """Test that notification is cleared when ENTSOE data becomes available."""
+        # Setup: ENTSOE data is now up to date
+        data_importer.entsoe_data_is_up_to_date = True
 
         await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again()
 
@@ -502,39 +435,18 @@ class TestCheckIfPricesAreUpToDateAgain:
         v2g_main_app.set_price_is_up_to_date.assert_called_once_with(is_up_to_date=True)
 
     @pytest.mark.asyncio
-    async def test_prices_still_missing_with_run_once_no_retry(
+    async def test_entsoe_still_missing_within_time_bounds_schedules_retry(
         self, data_importer, notifier, hass
     ):
-        """Test that run_once=True prevents retry when prices still missing."""
-        # Setup: prices still not up to date
-        data_importer.consumption_price_is_up_to_date = False
-        data_importer.production_price_is_up_to_date = True
-
-        await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again(
-            run_once=True
-        )
-
-        # Verify no retry was scheduled (run_once prevents it)
-        hass.run_in.assert_not_called()
-        # Verify notification was NOT cleared
-        notifier.clear_notification.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_prices_still_missing_within_time_bounds_schedules_retry(
-        self, data_importer, notifier, hass
-    ):
-        """Test that retry is scheduled when prices still missing within time bounds."""
-        # Setup: prices still not up to date
-        data_importer.consumption_price_is_up_to_date = False
-        data_importer.production_price_is_up_to_date = True
+        """Test that retry is scheduled when ENTSOE data still missing within time bounds."""
+        # Setup: ENTSOE data still not up to date
+        data_importer.entsoe_data_is_up_to_date = False
 
         with patch(
             "apps.v2g_liberty.fm_data_importer.is_local_now_between",
             return_value=True,
         ):
-            await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again(
-                run_once=False
-            )
+            await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again()
 
         # Verify retry was scheduled
         hass.run_in.assert_called_once()
@@ -542,21 +454,18 @@ class TestCheckIfPricesAreUpToDateAgain:
         notifier.clear_notification.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_prices_still_missing_outside_time_bounds_no_retry(
+    async def test_entsoe_still_missing_outside_time_bounds_no_retry(
         self, data_importer, notifier, hass
     ):
         """Test that no retry is scheduled when outside time bounds."""
-        # Setup: prices still not up to date
-        data_importer.consumption_price_is_up_to_date = False
-        data_importer.production_price_is_up_to_date = True
+        # Setup: ENTSOE data still not up to date
+        data_importer.entsoe_data_is_up_to_date = False
 
         with patch(
             "apps.v2g_liberty.fm_data_importer.is_local_now_between",
             return_value=False,
         ):
-            await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again(
-                run_once=False
-            )
+            await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again()
 
         # Verify no retry was scheduled (outside time bounds)
         hass.run_in.assert_not_called()

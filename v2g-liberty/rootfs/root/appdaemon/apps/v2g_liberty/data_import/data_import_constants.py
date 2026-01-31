@@ -9,9 +9,6 @@ price, emission, and cost data retrieval from FlexMeasures.
 # there is a delay of several hours.
 GET_PRICES_TIME: str = "13:35:51"
 
-# When to start checking for emissions.
-GET_EMISSIONS_TIME: str = "13:45:26"
-
 # If not successful, retry every CHECK_RESOLUTION_SECONDS until this time (the next day).
 TRY_UNTIL: str = "11:22:33"
 

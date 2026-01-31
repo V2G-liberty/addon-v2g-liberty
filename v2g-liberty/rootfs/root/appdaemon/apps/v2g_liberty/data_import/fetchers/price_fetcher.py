@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 from appdaemon.plugins.hass.hassapi import Hass
 from .base_fetcher import BaseFetcher
-from ..utils.retry_handler import RetryHandler
 from .. import data_import_constants as fm_c
 from ...v2g_globals import is_local_now_between, time_floor
 from ...log_wrapper import get_class_method_logger
@@ -18,20 +17,20 @@ class PriceFetcher(BaseFetcher):
     Responsibilities:
     - Retrieve price data from FlexMeasures API
     - Fetch both consumption and production prices
-    - Fetch ENTSOE prices for comparison (experimental)
-    - Find latest price datetime for validation
+
+    Note: ENTSOE data for freshness checking is now fetched separately by
+    EntsoeFetcher to avoid redundant API calls.
     """
 
-    def __init__(self, hass: Hass, fm_client_app: object, retry_handler: RetryHandler):
+    def __init__(self, hass: Hass, fm_client_app: object):
         """
         Initialise the price fetcher.
 
         Args:
             hass: AppDaemon Hass instance
             fm_client_app: FlexMeasures client for API calls
-            retry_handler: Handler for retry logic
         """
-        super().__init__(hass, fm_client_app, retry_handler)
+        super().__init__(hass, fm_client_app)
         self.__log = get_class_method_logger(hass.log)
 
     async def fetch_prices(
@@ -47,10 +46,7 @@ class PriceFetcher(BaseFetcher):
         Returns:
             Dict containing:
             - prices: List of price values (may contain None)
-            - entsoe_prices: List of ENTSOE price values for comparison (may contain None)
             - start: Start datetime of the price data
-            - latest_price_dt: Datetime of the latest non-None price
-            - entsoe_latest_price_dt: Datetime of the latest non-None ENTSOE price
 
             Returns None if fetch fails or fm_client is not available.
         """
@@ -71,7 +67,7 @@ class PriceFetcher(BaseFetcher):
             days_back = 1
         else:
             days_back = 2
-
+        str_duration = f"P{days_back + 2}D"
         start = time_floor(now - timedelta(days=days_back), timedelta(days=1))
 
         sensor_id = (
@@ -79,57 +75,31 @@ class PriceFetcher(BaseFetcher):
             if price_type == "consumption"
             else c.FM_PRICE_PRODUCTION_SENSOR_ID
         )
-
+        self.__log(
+            f"Fetching {price_type} (sensor_id {sensor_id}) prices starting from "
+            f"{start} with duration: {str_duration}."
+        )
         try:
-            # Fetch ENTSOE prices (experimental/testing)
-            entsoe_prices = await self.fm_client_app.get_sensor_data(
-                sensor_id=14,
-                start=start.isoformat(),
-                duration="P3D",
-                resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
-                uom=f"c{c.CURRENCY}/kWh",
-                source=37,
-            )
-
             # Fetch actual prices
             prices = await self.fm_client_app.get_sensor_data(
                 sensor_id=sensor_id,
                 start=start.isoformat(),
-                duration="P3D",
+                duration=str_duration,
                 resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
                 uom=f"c{c.CURRENCY}/kWh",
             )
-
-            if entsoe_prices is None:
-                self.__log(f"Failed to fetch {price_type} prices or ENTSOE prices.")
-                return None
 
             if prices is None:
                 self.__log(f"Failed to fetch {price_type} prices.")
                 return None
 
-            # Extract values and find latest datetimes
             price_values = prices["values"]
-            entsoe_values = entsoe_prices["values"]
-
-            latest_price_dt = self._find_latest_value_datetime(
-                price_values, start, c.PRICE_RESOLUTION_MINUTES
-            )
-            entsoe_latest_price_dt = self._find_latest_value_datetime(
-                entsoe_values, start, c.PRICE_RESOLUTION_MINUTES
-            )
-
-            self.__log(
-                f"Success: fetched {len(entsoe_values)}/{len(price_values)} {price_type} "
-                f"entsoe/prices, latest at {entsoe_latest_price_dt}/{latest_price_dt}."
-            )
+            price_count = sum(1 for v in price_values if v is not None)
+            self.__log(f"Success: fetched {price_count} {price_type} prices.")
 
             return {
                 "prices": price_values,
-                "entsoe_prices": entsoe_values,
                 "start": start,
-                "latest_price_dt": latest_price_dt,
-                "entsoe_latest_price_dt": entsoe_latest_price_dt,
             }
 
         except Exception as e:
@@ -137,23 +107,3 @@ class PriceFetcher(BaseFetcher):
                 f"Exception fetching {price_type} prices: {str(e)}", level="WARNING"
             )
             return None
-
-    def _find_latest_value_datetime(
-        self, values: list, start: datetime, resolution_minutes: int
-    ) -> Optional[datetime]:
-        """
-        Find the datetime of the latest non-None value in the list.
-
-        Args:
-            values: List of values (may contain None)
-            start: Start datetime
-            resolution_minutes: Resolution in minutes
-
-        Returns:
-            Datetime of the latest non-None value, or None if all values are None
-        """
-        latest_dt = None
-        for i, value in enumerate(values):
-            if value is not None:
-                latest_dt = start + timedelta(minutes=(i * resolution_minutes))
-        return latest_dt

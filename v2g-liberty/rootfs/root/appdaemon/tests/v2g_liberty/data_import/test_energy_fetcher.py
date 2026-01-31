@@ -5,10 +5,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 from appdaemon.plugins.hass.hassapi import Hass
 from apps.v2g_liberty.data_import.fetchers.energy_fetcher import EnergyFetcher
-from apps.v2g_liberty.data_import.utils.retry_handler import (
-    RetryHandler,
-    RetryConfig,
-)
 
 
 @pytest.fixture
@@ -28,23 +24,9 @@ def fm_client():
 
 
 @pytest.fixture
-def retry_config():
-    """Create a retry configuration."""
-    return RetryConfig(
-        start_time="01:15:00", end_time="03:00:00", interval_seconds=1800
-    )
-
-
-@pytest.fixture
-def retry_handler(hass, retry_config):
-    """Create a RetryHandler instance."""
-    return RetryHandler(hass, retry_config)
-
-
-@pytest.fixture
-def energy_fetcher(hass, fm_client, retry_handler):
+def energy_fetcher(hass, fm_client):
     """Create an EnergyFetcher instance."""
-    return EnergyFetcher(hass, fm_client, retry_handler)
+    return EnergyFetcher(hass, fm_client)
 
 
 @pytest.fixture
@@ -56,12 +38,11 @@ def mock_now():
 class TestEnergyFetcher:
     """Test EnergyFetcher class."""
 
-    def test_initialisation(self, hass, fm_client, retry_handler):
+    def test_initialisation(self, hass, fm_client):
         """Test EnergyFetcher initialisation."""
-        fetcher = EnergyFetcher(hass, fm_client, retry_handler)
+        fetcher = EnergyFetcher(hass, fm_client)
         assert fetcher.hass == hass
         assert fetcher.fm_client_app == fm_client
-        assert fetcher.retry_handler == retry_handler
         assert fetcher.DAYS_HISTORY == 7
 
     @pytest.mark.asyncio
@@ -88,9 +69,9 @@ class TestEnergyFetcher:
         ]
 
     @pytest.mark.asyncio
-    async def test_fetch_power_data_fm_client_none(self, hass, retry_handler, mock_now):
+    async def test_fetch_power_data_fm_client_none(self, hass, mock_now):
         """Test fetch_power_data when FM client is None."""
-        fetcher = EnergyFetcher(hass, None, retry_handler)
+        fetcher = EnergyFetcher(hass, None)
         result = await fetcher.fetch_power_data(mock_now)
         assert result is None
 
