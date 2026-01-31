@@ -100,7 +100,12 @@ class PriceFetcher(BaseFetcher):
                 uom=f"c{c.CURRENCY}/kWh",
             )
 
-            if prices is None or entsoe_prices is None:
+            if entsoe_prices is None:
+                self.__log(f"Failed to fetch {price_type} prices or ENTSOE prices.")
+                return None
+
+            if prices is None:
+                self.__log(f"Failed to fetch {price_type} prices.")
                 return None
 
             # Extract values and find latest datetimes
@@ -112,6 +117,11 @@ class PriceFetcher(BaseFetcher):
             )
             entsoe_latest_price_dt = self._find_latest_value_datetime(
                 entsoe_values, start, c.PRICE_RESOLUTION_MINUTES
+            )
+
+            self.__log(
+                f"Success: fetched {len(entsoe_values)}/{len(price_values)} {price_type} "
+                f"entsoe/prices, latest at {entsoe_latest_price_dt}/{latest_price_dt}."
             )
 
             return {

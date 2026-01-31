@@ -397,6 +397,9 @@
                 if (seriesName === 'Sell price') {
                   chartContext.toggleSeries('Sell price (forecast)');
                 }
+                if (seriesName === 'CO2 emissions') {
+                  chartContext.toggleSeries('CO2 emissions (forecast)');
+                }
               }
       graph_span: 24h
       span:
@@ -460,7 +463,9 @@
             return records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
+        # CO2 emissions - FIXED (solid line)
         - entity: sensor.co2_emissions
+          name: "CO2 emissions"
           show:
             hidden_by_default: true
             legend_value: false
@@ -476,7 +481,52 @@
             if (!records || !Array.isArray(records) || records.length === 0) {
               return [];
             }
-            return records.map((record, index) => {
+            const efp = entity.attributes.end_of_fixed_prices_dt;
+            if (!efp) {
+              // No EFP = show all as fixed
+              return records.map((record) => {
+                return [new Date(record.time).getTime(), record.emission];
+              });
+            }
+            const efpTime = new Date(efp).getTime();
+            return records
+              .filter((record) => new Date(record.time).getTime() <= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.emission];
+              });
+          type: line
+        # CO2 emissions - FORECAST (dotted line)
+        - entity: sensor.co2_emissions
+          name: "CO2 emissions (forecast)"
+          show:
+            hidden_by_default: true
+            legend_value: false
+            in_header: false
+          transform: return x / 6;
+          color: "#ADD6B2"
+          opacity: 1
+          extend_to: false
+          stroke_width: 1
+          stroke_dash: 2
+          curve: stepline
+          yaxis_id: ElectricityPriceAxis
+          data_generator: |
+            const records = entity.attributes.records;
+            if (!records || !Array.isArray(records) || records.length === 0) {
+              return [];
+            }
+            const efp = entity.attributes.end_of_fixed_prices_dt;
+            if (!efp) {
+              // No EFP = no forecast data
+              return [];
+            }
+            const efpTime = new Date(efp).getTime();
+            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
+            if (filtered.length <= 1) {
+              // Single point doesn't make sense for stepline chart
+              return [];
+            }
+            return filtered.map((record) => {
               return [new Date(record.time).getTime(), record.emission];
             });
           type: line
@@ -550,11 +600,14 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() >= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
+            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
+            if (filtered.length <= 1) {
+              // Single point doesn't make sense for stepline chart
+              return [];
+            }
+            return filtered.map((record) => {
+              return [new Date(record.time).getTime(), record.price];
+            });
           type: line
         # Consumption prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.consumption_prices
@@ -624,11 +677,14 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() >= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
+            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
+            if (filtered.length <= 1) {
+              // Single point doesn't make sense for stepline chart
+              return [];
+            }
+            return filtered.map((record) => {
+              return [new Date(record.time).getTime(), record.price];
+            });
           type: line
         - entity: sensor.soc_prognosis
           show:
@@ -686,7 +742,8 @@
           div[seriesname="SoCxBoostxchartxdata"],
           div[seriesname="SoCxMaxxChargexNowxchartxdata"],
           div[seriesname="Buyxpricexxforecastx"],
-          div[seriesname="Sellxpricexxforecastx"] {
+          div[seriesname="Sellxpricexxforecastx"],
+          div[seriesname="CO2xemissionsxxforecastx"] {
             display: none;
           }
     - type: markdown
