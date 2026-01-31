@@ -550,11 +550,14 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() >= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
+            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
+            if (filtered.length <= 1) {
+              // Single point doesn't make sense for stepline chart
+              return [];
+            }
+            return filtered.map((record) => {
+              return [new Date(record.time).getTime(), record.price];
+            });
           type: line
         # Consumption prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.consumption_prices
@@ -624,11 +627,14 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() >= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
+            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
+            if (filtered.length <= 1) {
+              // Single point doesn't make sense for stepline chart
+              return [];
+            }
+            return filtered.map((record) => {
+              return [new Date(record.time).getTime(), record.price];
+            });
           type: line
         - entity: sensor.soc_prognosis
           show:
