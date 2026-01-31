@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.7.3 2026-01-30
+## 0.7.3 2026-01-31
 
 ### Fixed
 
