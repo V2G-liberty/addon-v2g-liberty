@@ -71,7 +71,7 @@ class PriceFetcher(BaseFetcher):
             days_back = 1
         else:
             days_back = 2
-        str_duration = f"P{days_back + 3}D"
+        str_duration = f"P{days_back + 2}D"
         start = time_floor(now - timedelta(days=days_back), timedelta(days=1))
 
         sensor_id = (
@@ -122,8 +122,10 @@ class PriceFetcher(BaseFetcher):
                 entsoe_values, start, c.PRICE_RESOLUTION_MINUTES
             )
 
+            entsoe_count = sum(1 for v in entsoe_values if v is not None)
+            price_count = sum(1 for v in price_values if v is not None)
             self.__log(
-                f"Success: fetched {len(entsoe_values)}/{len(price_values)} {price_type} "
+                f"Success: fetched {entsoe_count}/{price_count} {price_type} "
                 f"entsoe/prices, latest at {entsoe_latest_price_dt}/{latest_price_dt}."
             )
 

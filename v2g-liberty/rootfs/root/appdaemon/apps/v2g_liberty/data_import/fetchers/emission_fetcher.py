@@ -5,7 +5,8 @@ from typing import Dict, List, Optional
 from appdaemon.plugins.hass.hassapi import Hass
 from .base_fetcher import BaseFetcher
 from ..utils.retry_handler import RetryHandler
-from ...v2g_globals import time_floor
+from .. import data_import_constants as fm_c
+from ...v2g_globals import is_local_now_between, time_floor
 from ...log_wrapper import get_class_method_logger
 from ... import constants as c
 
@@ -16,10 +17,16 @@ class EmissionFetcher(BaseFetcher):
 
     Responsibilities:
     - Retrieve emission data from FlexMeasures API
+    - Fetch ENTSOE timing data to determine fixed vs forecast boundary
     - Find latest emission datetime for validation
     """
 
     DAYS_HISTORY: int = 7
+
+    # ENTSOE sensor and source for determining the fixed/forecast boundary
+    # Same as used by price_fetcher - emissions follow the same day-ahead schedule
+    ENTSOE_SENSOR_ID: int = 14
+    ENTSOE_SOURCE_ID: int = 37
 
     def __init__(self, hass: Hass, fm_client_app: object, retry_handler: RetryHandler):
         """
@@ -45,6 +52,7 @@ class EmissionFetcher(BaseFetcher):
             - emissions: List of emission values (may contain None)
             - start: Start datetime of the emission data
             - latest_emission_dt: Datetime of the latest non-None emission
+            - entsoe_latest_dt: Datetime of the latest ENTSOE data (for fixed/forecast boundary)
 
             Returns None if fetch fails or fm_client is not available.
         """
@@ -54,18 +62,32 @@ class EmissionFetcher(BaseFetcher):
         # Getting emissions since a week ago
         start = time_floor(now - timedelta(days=self.DAYS_HISTORY), timedelta(days=1))
         resolution = f"PT{c.FM_EVENT_RESOLUTION_IN_MINUTES}M"
-        duration = f"P{self.DAYS_HISTORY + 2}D"
+        str_duration = f"P{self.DAYS_HISTORY + 2}D"
 
         try:
+            # Fetch ENTSOE timing data to determine the fixed/forecast boundary
+            # This uses the same ENTSOE source as price_fetcher since emissions
+            # follow the same day-ahead schedule as prices
+            entsoe_data = await self.fm_client_app.get_sensor_data(
+                sensor_id=self.ENTSOE_SENSOR_ID,
+                start=start.isoformat(),
+                duration=str_duration,
+                resolution=resolution,
+                uom=f"c{c.CURRENCY}/kWh",
+                source=self.ENTSOE_SOURCE_ID,
+            )
+
+            # Fetch actual emission data
             emissions = await self.fm_client_app.get_sensor_data(
                 sensor_id=c.FM_EMISSIONS_SENSOR_ID,
                 start=start.isoformat(),
-                duration=duration,
+                duration=str_duration,
                 resolution=resolution,
                 uom=c.EMISSIONS_UOM,
             )
 
             if emissions is None:
+                self.__log("Failed to fetch emissions data.")
                 return None
 
             emission_values = emissions["values"]
@@ -75,10 +97,30 @@ class EmissionFetcher(BaseFetcher):
                 emission_values, start, c.FM_EVENT_RESOLUTION_IN_MINUTES
             )
 
+            # Find ENTSOE latest datetime for fixed/forecast boundary
+            entsoe_latest_dt = None
+            if entsoe_data is not None and "values" in entsoe_data:
+                entsoe_values = entsoe_data["values"]
+                entsoe_latest_dt = self._find_latest_value_datetime(
+                    entsoe_values, start, c.FM_EVENT_RESOLUTION_IN_MINUTES
+                )
+
+            entsoe_count = (
+                sum(1 for v in entsoe_data["values"] if v is not None)
+                if entsoe_data and "values" in entsoe_data
+                else 0
+            )
+            emission_count = sum(1 for v in emission_values if v is not None)
+            self.__log(
+                f"Success: fetched {entsoe_count}/{emission_count} entsoe/emissions, "
+                f"latest at {entsoe_latest_dt}/{latest_emission_dt}."
+            )
+
             return {
                 "emissions": emission_values,
                 "start": start,
                 "latest_emission_dt": latest_emission_dt,
+                "entsoe_latest_dt": entsoe_latest_dt,
             }
 
         except Exception as e:

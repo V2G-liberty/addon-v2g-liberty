@@ -179,12 +179,14 @@ class TestGetEmissionIntensitiesIntegration:
         self, data_importer, fm_client, v2g_main_app, fixed_now
     ):
         """Test successful emission intensities retrieval."""
-        # Setup mock response
-        fm_client.get_sensor_data.return_value = {
-            "values": [400.0, 410.0, 420.0, None, 430.0],
-            "start": "2026-01-21T00:00:00+01:00",
-            "duration": "P9D",
+        # Setup mock response - now needs two responses (ENTSOE + emissions)
+        entsoe_response = {
+            "values": [350.0, 360.0, 370.0, None, None],
         }
+        emission_response = {
+            "values": [400.0, 410.0, 420.0, None, 430.0],
+        }
+        fm_client.get_sensor_data.side_effect = [entsoe_response, emission_response]
 
         with patch(
             "apps.v2g_liberty.fm_data_importer.get_local_now", return_value=fixed_now
@@ -193,7 +195,11 @@ class TestGetEmissionIntensitiesIntegration:
                 "apps.v2g_liberty.fm_data_importer.is_price_epex_based",
                 return_value=False,
             ):
-                result = await data_importer.get_emission_intensities()
+                with patch(
+                    "apps.v2g_liberty.data_import.fetchers.emission_fetcher.is_local_now_between",
+                    return_value=True,
+                ):
+                    result = await data_importer.get_emission_intensities()
 
         assert result == "emissions successfully retrieved."
         v2g_main_app.set_records_in_chart.assert_called_once()

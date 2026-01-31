@@ -445,6 +445,16 @@ class FlexMeasuresDataImporter:
         if result is None:
             return await self._handle_emission_fetch_failure("failed")
 
+        # Extract entsoe_latest_dt for EFP (end of fixed prices) boundary
+        # entsoe_latest_dt is the START of the last emission block
+        # We need the END of that block for the visual split, so add one resolution period
+        entsoe_latest_dt = result.get("entsoe_latest_dt")
+        end_of_fixed_prices_dt = None
+        if entsoe_latest_dt and is_price_epex_based():
+            end_of_fixed_prices_dt = entsoe_latest_dt + timedelta(
+                minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
+            )
+
         # Use EmissionProcessor to process the data
         emission_cache, chart_points, latest_emission_dt = (
             self.emission_processor.process_emissions(
@@ -459,9 +469,18 @@ class FlexMeasuresDataImporter:
         self.emission_intensities.clear()
         self.emission_intensities.update(emission_cache)
 
-        # Update the chart
+        # Convert EFP datetime to ISO string for JSON serialisation
+        end_of_fixed_prices_iso = (
+            end_of_fixed_prices_dt.isoformat() if end_of_fixed_prices_dt else None
+        )
+
+        # Update the chart with emission points and EFP boundary for fixed/forecast distinction
         await self.v2g_main_app.set_records_in_chart(
-            chart_line_name=ChartLine.EMISSION, records=chart_points
+            chart_line_name=ChartLine.EMISSION,
+            records={
+                "records": chart_points,
+                "end_of_fixed_prices_dt": end_of_fixed_prices_iso,
+            },
         )
 
         # Validate freshness for EPEX-based contracts
