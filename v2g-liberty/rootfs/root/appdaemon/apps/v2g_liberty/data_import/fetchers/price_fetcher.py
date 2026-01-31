@@ -71,7 +71,7 @@ class PriceFetcher(BaseFetcher):
             days_back = 1
         else:
             days_back = 2
-
+        str_duration = f"P{days_back + 3}D"
         start = time_floor(now - timedelta(days=days_back), timedelta(days=1))
 
         sensor_id = (
@@ -79,13 +79,16 @@ class PriceFetcher(BaseFetcher):
             if price_type == "consumption"
             else c.FM_PRICE_PRODUCTION_SENSOR_ID
         )
-
+        self.__log(
+            f"Fetching {price_type} (sensor_id {sensor_id}) prices starting from {start} with "
+            f"duration: {str_duration}."
+        )
         try:
             # Fetch ENTSOE prices (experimental/testing)
             entsoe_prices = await self.fm_client_app.get_sensor_data(
                 sensor_id=14,
                 start=start.isoformat(),
-                duration="P3D",
+                duration=str_duration,
                 resolution=f"PT{c.PRICE_RESOLUTION_MINUTES}M",
                 uom=f"c{c.CURRENCY}/kWh",
                 source=37,
@@ -152,8 +155,9 @@ class PriceFetcher(BaseFetcher):
         Returns:
             Datetime of the latest non-None value, or None if all values are None
         """
-        latest_dt = None
-        for i, value in enumerate(values):
-            if value is not None:
-                latest_dt = start + timedelta(minutes=(i * resolution_minutes))
-        return latest_dt
+        # Iterate backwards: values have data at the start and trailing Nones for
+        # future periods without data yet, so this finds the last value quickly.
+        for i in range(len(values) - 1, -1, -1):
+            if values[i] is not None:
+                return start + timedelta(minutes=(i * resolution_minutes))
+        return None
