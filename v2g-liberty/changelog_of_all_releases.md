@@ -3,6 +3,16 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.7.4 2026-02-04
+
+### Fixed
+
+- PR: Fix fm data importer initialise (#397)
+
+### Added
+
+### Changed
+
 ## 0.7.3 2026-01-31
 
 ### Fixed
