@@ -237,7 +237,7 @@ class FlexMeasuresDataImporter:
             silent = True  # Does not really work
             await self.hass.cancel_timer(timer_id, silent)
 
-    async def daily_kickoff_price_data(self, *args, is_initial_call: bool = False):
+    async def daily_kickoff_price_data(self, *args):
         """
         This sets off the daily routine to check for new prices.
         Only called when is_price_epex_based() is true.
@@ -247,11 +247,16 @@ class FlexMeasuresDataImporter:
         when the day-ahead market data hasn't been published yet.
 
         Args:
-            args: AppDaemon callback args (unused)
-            is_initial_call: If True, fetch prices even if ENTSOE data isn't fresh
-                           (to populate UI on startup)
+            args: AppDaemon callback args (kwargs passed as dict in args[0]).
+                  Supports 'is_initial_call' (bool): If True, fetch prices even if
+                  ENTSOE data isn't fresh (to populate UI on startup).
         """
-        self.__log(f"Called, args: {args}, is_initial_call: {is_initial_call}.")
+        # AppDaemon's run_in passes kwargs as a dict inside args[0]
+        is_initial_call = False
+        if args and isinstance(args[0], dict):
+            is_initial_call = args[0].get("is_initial_call", False)
+
+        self.__log(f"Called, is_initial_call: {is_initial_call}.")
 
         # Check ENTSOE fetcher availability
         if self.entsoe_fetcher is None:
@@ -616,6 +621,29 @@ class FlexMeasuresDataImporter:
 
         self.__log(f"{price_type} prices successfully retrieved.")
         return True
+
+    async def get_prices_wrapper(self, *args):
+        """Wrapper for get_prices to be used as a callback with hass.run_in().
+
+        AppDaemon's run_in passes kwargs as a dict in args[0].
+        This method extracts the price_type and delegates to get_prices().
+
+        Args:
+            args: AppDaemon callback args (kwargs passed as dict in args[0]).
+                  Expects 'price_type' (str): 'consumption' or 'production'.
+        """
+        price_type = None
+        if args and isinstance(args[0], dict):
+            price_type = args[0].get("price_type")
+
+        if price_type is None:
+            self.__log(
+                "get_prices_wrapper called without price_type, aborting.",
+                level="WARNING",
+            )
+            return
+
+        await self.get_prices(price_type=price_type)
 
     async def __check_if_prices_are_up_to_date(self, *args):
         """
