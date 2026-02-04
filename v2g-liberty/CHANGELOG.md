@@ -8,6 +8,9 @@
 
 ### Added
 
+- 🚀 FEAT: Be able to use hostname instead of only IP-address for charger host in UI (#380)
+- 🚀 PR: Show price forecasts in chart as dotted line (#392)
+
 ### Changed
 
 &nbsp;
