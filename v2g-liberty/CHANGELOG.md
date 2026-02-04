@@ -1,23 +1,14 @@
 # What's changed?
 
-## 0.7.3 2026-01-31
+## 0.7.4 2026-02-04
 
 ### Fixed
 
-- 🪲 BUG: Chart shows SoC prediction line even if there is no schedule (#389)
-- 🪲 BUG: Domain exception during Notifier initialisation causing startup failures (#385)
-- 🪲 BUG: Monitoring for error state failed to notify (#369)
-- 🪲 BUG: Calculation of the expected SoC incorrect (#374)
+- PR: Fix fm data importer initialise (#397)
 
 ### Added
 
-- 🚀 FEAT: Be able to use hostname instead of only IP-address for charger host in UI (#380)
-- 🚀 PR: Show price forecasts in chart as dotted line (#392)
-
 ### Changed
-
-- Bumped pymodbus library to 3.11.4 (#373)
-- 🚀 FEAT: loadbalancer instructions for entities inline HA 2026 requierments (#387)
 
 &nbsp;
 
