@@ -471,3 +471,134 @@ class TestCheckIfPricesAreUpToDateAgain:
         hass.run_in.assert_not_called()
         # Verify notification was NOT cleared
         notifier.clear_notification.assert_not_called()
+
+
+class TestAppDaemonCallbackArgs:
+    """Tests for AppDaemon callback argument extraction.
+
+    AppDaemon's run_in/run_daily passes kwargs as a dict inside args[0],
+    not as actual Python keyword arguments. These tests verify that our
+    callback methods correctly extract parameters from this dict.
+
+    This pattern is critical because a direct Python call like:
+        await method(is_initial_call=True)
+    works fine, but AppDaemon actually calls it like:
+        await method({"is_initial_call": True, "__thread_id": "MainThread"})
+    """
+
+    @pytest.mark.asyncio
+    async def test_daily_kickoff_price_data_extracts_is_initial_call_true(
+        self, data_importer, fm_client, v2g_main_app, fixed_now
+    ):
+        """Test that is_initial_call=True is correctly extracted from AppDaemon args."""
+        # Setup: ENTSOE data is NOT fresh
+        entsoe_fetcher_mock = MagicMock()
+        entsoe_fetcher_mock.fetch_latest_dt = AsyncMock(return_value=None)
+        entsoe_fetcher_mock.is_tomorrow_data_available = MagicMock(return_value=False)
+        data_importer.entsoe_fetcher = entsoe_fetcher_mock
+
+        # Mock get_prices and get_emission_intensities to track if they're called
+        data_importer.get_prices = AsyncMock()
+        data_importer.get_emission_intensities = AsyncMock()
+
+        with patch(
+            "apps.v2g_liberty.fm_data_importer.get_local_now", return_value=fixed_now
+        ):
+            # Call with AppDaemon-style args (kwargs as dict in args[0])
+            appdaemon_args = ({"is_initial_call": True, "__thread_id": "MainThread"},)
+            await data_importer.daily_kickoff_price_data(*appdaemon_args)
+
+        # With is_initial_call=True, prices should be fetched even though ENTSOE is stale
+        data_importer.get_prices.assert_called()
+        data_importer.get_emission_intensities.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_daily_kickoff_price_data_extracts_is_initial_call_false(
+        self, data_importer, fm_client, v2g_main_app, hass, fixed_now
+    ):
+        """Test that is_initial_call=False (or missing) skips fetch when ENTSOE stale."""
+        # Setup: ENTSOE data is NOT fresh
+        entsoe_fetcher_mock = MagicMock()
+        entsoe_fetcher_mock.fetch_latest_dt = AsyncMock(return_value=None)
+        entsoe_fetcher_mock.is_tomorrow_data_available = MagicMock(return_value=False)
+        data_importer.entsoe_fetcher = entsoe_fetcher_mock
+
+        # Mock get_prices to track if it's called
+        data_importer.get_prices = AsyncMock()
+
+        with (
+            patch(
+                "apps.v2g_liberty.fm_data_importer.get_local_now",
+                return_value=fixed_now,
+            ),
+            patch(
+                "apps.v2g_liberty.fm_data_importer.is_local_now_between",
+                return_value=False,
+            ),
+        ):
+            # Call with AppDaemon-style args WITHOUT is_initial_call
+            appdaemon_args = ({"__thread_id": "MainThread"},)
+            await data_importer.daily_kickoff_price_data(*appdaemon_args)
+
+        # Without is_initial_call=True and stale ENTSOE, prices should NOT be fetched
+        data_importer.get_prices.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_daily_kickoff_price_data_no_args_defaults_to_false(
+        self, data_importer, fm_client, v2g_main_app, hass, fixed_now
+    ):
+        """Test that calling without any args defaults is_initial_call to False."""
+        # Setup: ENTSOE data is NOT fresh
+        entsoe_fetcher_mock = MagicMock()
+        entsoe_fetcher_mock.fetch_latest_dt = AsyncMock(return_value=None)
+        entsoe_fetcher_mock.is_tomorrow_data_available = MagicMock(return_value=False)
+        data_importer.entsoe_fetcher = entsoe_fetcher_mock
+
+        # Mock get_prices to track if it's called
+        data_importer.get_prices = AsyncMock()
+
+        with (
+            patch(
+                "apps.v2g_liberty.fm_data_importer.get_local_now",
+                return_value=fixed_now,
+            ),
+            patch(
+                "apps.v2g_liberty.fm_data_importer.is_local_now_between",
+                return_value=False,
+            ),
+        ):
+            # Call with NO args (as run_daily might do)
+            await data_importer.daily_kickoff_price_data()
+
+        # Without args and stale ENTSOE, prices should NOT be fetched
+        data_importer.get_prices.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_prices_wrapper_extracts_price_type(
+        self, data_importer, fm_client, v2g_main_app, fixed_now
+    ):
+        """Test that price_type is correctly extracted from AppDaemon args."""
+        # Mock get_prices to track calls
+        data_importer.get_prices = AsyncMock(return_value=True)
+
+        # Call with AppDaemon-style args
+        appdaemon_args = ({"price_type": "consumption", "__thread_id": "MainThread"},)
+        await data_importer.get_prices_wrapper(*appdaemon_args)
+
+        # Verify get_prices was called with correct price_type
+        data_importer.get_prices.assert_called_once_with(price_type="consumption")
+
+    @pytest.mark.asyncio
+    async def test_get_prices_wrapper_missing_price_type_aborts(
+        self, data_importer, hass
+    ):
+        """Test that missing price_type in args causes early return."""
+        # Mock get_prices to track if it's called
+        data_importer.get_prices = AsyncMock()
+
+        # Call with AppDaemon-style args WITHOUT price_type
+        appdaemon_args = ({"__thread_id": "MainThread"},)
+        await data_importer.get_prices_wrapper(*appdaemon_args)
+
+        # Verify get_prices was NOT called
+        data_importer.get_prices.assert_not_called()
