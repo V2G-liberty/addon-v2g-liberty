@@ -1410,8 +1410,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             # None = uninitialised, 0 = no error.
             if entity["current_value"] not in [None, 0]:
                 self.__log(
-                    f"Charger reports {entity['ha_entity_name']} "
-                    f"is {entity['current_value']}",
+                    f"Charger reports error at register {entity['modbus_address']}: "
+                    f"{entity['current_value']}",
                     level="WARNING",
                 )
                 has_error = True
