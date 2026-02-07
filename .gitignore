@@ -1,6 +1,16 @@
+# Project-specific paths
 .devcontainer/config/
 v2g-liberty/data/
 v2g-liberty/logs/
+
+# Deployment configuration and logs (all private)
+.deployment/
+
+# Manual testing documentation (not for production)
+.manual_charger_tests/
+.manual_charger_tests.txt
+
+# macOS
 .DS_Store
 
 # Local devcontainer overrides (private)
@@ -129,6 +139,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
 .venv
 env/
 venv/
@@ -159,3 +170,8 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Temporary files
+*.tmp
+*.swp
+*~
