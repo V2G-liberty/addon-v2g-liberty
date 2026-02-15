@@ -1,0 +1,10 @@
+# Ensure shell scripts always use LF line endings
+*.sh text eol=lf
+v2g-liberty/script/* text eol=lf
+charger-mocks/**/*.sh text eol=lf
+
+# PowerShell scripts use platform-native line endings
+*.ps1 text
+
+# Python files use LF
+*.py text eol=lf

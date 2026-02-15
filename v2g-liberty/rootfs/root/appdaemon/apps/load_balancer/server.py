@@ -1,6 +1,6 @@
 from pymodbus.client import ModbusTcpClient
 from pymodbus.datastore import ModbusServerContext
-from pymodbus.datastore.remote import RemoteSlaveContext
+from pymodbus.datastore.remote import RemoteDeviceContext
 from pymodbus.server import ModbusTcpServer
 
 from ._log_wrapper import get_class_method_logger
@@ -19,8 +19,8 @@ class Tcp2TcpProxyServer:
         self.client = ModbusTcpClient(host=self.client_host, port=self.client_port)
         self.host = host
         self.port = port
-        remote_context = RemoteSlaveContext(self.client, slave=1)
-        context = ModbusServerContext(slaves=remote_context, single=True)
+        remote_context = RemoteDeviceContext(self.client, device_id=1)
+        context = ModbusServerContext(devices=remote_context, single=True)
         self.server = ModbusTcpServer(
             context,
             address=(self.host, self.port),

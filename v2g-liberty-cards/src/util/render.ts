@@ -270,6 +270,8 @@ export enum InputText {
   // Among others tested for 'name.surname@gmail.com', '1-2@seita.energy'
   EntityId = '^[\\w_]+\\.[\\d\\w_]+$',
   IpAddress = '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
+  Hostname = "^[\\w.\\-]+$",
+  // Allows word characters (letters, digits, underscore), dots, and hyphens. Rejects spaces and special chars. Actual validity checked by connection test.
   OctopusCode = '^[\\w\\d-]+$',
   URL = '^https?:\\/\\/[\\w@:%.\\+\\-~#=]{1,256}\\b([a-zA-Z0-9\\(\\)@:%_\\+\\-.~#?&\\/=]*)$',
   // Among others tested for: 'http://localhost:1234', 'https://www.icloud.com/dav', 'https://ems.seita.energy/'

@@ -39,7 +39,7 @@ export class ChargerSettingsCard extends LitElement {
     this._hass = hass;
     this._chargerSettingsInitialised =
       hass.states[entityIds.chargerSettingsInitialised];
-    this._chargerHost = hass.states[entityIds.chargerHostUrl];
+    this._chargerHost = hass.states[entityIds.chargerHostname];
     this._chargerPort = hass.states[entityIds.chargerPort];
     this._chargerConnectionStatus =
       hass.states[entityIds.chargerConnectionStatus];

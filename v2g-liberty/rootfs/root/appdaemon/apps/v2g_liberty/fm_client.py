@@ -244,6 +244,12 @@ class FMClient(AsyncIOEventEmitter):
         return None
 
     async def get_fm_sensors_by_asset_name(self, asset_name: str):
+        if self.client is None:
+            self.__log(
+                "Abort getting sensors, client not initialised (yet).",
+                level="WARNING",
+            )
+            return []
         assets = await self.client.get_assets()
         for asset in assets:
             if asset["name"] == asset_name:
@@ -258,6 +264,7 @@ class FMClient(AsyncIOEventEmitter):
         duration: str | timedelta,
         uom: str,
         resolution: str | timedelta,
+        source: int = None,
     ) -> dict:
         """
         :param sensor_id: fm sensor id
@@ -274,14 +281,26 @@ class FMClient(AsyncIOEventEmitter):
                 }
         """
         self.__log(f"called for sensor_id: {sensor_id}.")
-        try:
-            res = await self.client.get_sensor_data(
-                sensor_id=sensor_id,
-                start=start,
-                duration=duration,
-                unit=uom,
-                resolution=resolution,
+
+        if self.client is None:
+            self.__log(
+                "Abort getting sensor data, client not initialised (yet).",
+                level="WARNING",
             )
+            return None
+
+        kwargs = {
+            "sensor_id": sensor_id,
+            "start": start,
+            "duration": duration,
+            "unit": uom,
+            "resolution": resolution,
+        }
+        if source is not None:
+            kwargs["source"] = source
+
+        try:
+            res = await self.client.get_sensor_data(**kwargs)
         except Exception as e:
             # ContentTypeError, ValueError, timeout, no data??:
             self.__log(
@@ -313,6 +332,14 @@ class FMClient(AsyncIOEventEmitter):
             bool: weather or not sending was successful
         """
         self.__log("post_measurements called.")
+
+        if self.client is None:
+            self.__log(
+                "Abort posting measurements, client not initialised (yet).",
+                level="WARNING",
+            )
+            return False
+
         if len(values) == 0:
             self.__log(
                 f"value list 0 length, not sending data to sensor_id '{sensor_id}'."

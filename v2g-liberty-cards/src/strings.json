@@ -28,7 +28,7 @@
     "calendar_account_init_url": "Calendar host URL",
     "calendar_account_username": "Username",
     "calendar_account_password": "Password",
-    "charger_host_url": "Charger host URL",
+    "charger_host_url": "Charger hostname",
     "fm_account_username": "Username",
     "fm_account_password": "Password",
     "fm_asset": "Asset name",
@@ -130,7 +130,7 @@
     "charger": {
       "header": "Charger",
       "alert": "Please configure the charger, V2G Liberty needs this to work.",
-      "invalid-host-error": "Please provide a valid IP-address.",
+      "invalid-host-error": "Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).",
       "invalid-port-error": "Please provide a valid port.",
       "connection-error": "No communication with charger, please check connection.",
       "connection-success": "Succesfully connected",
@@ -139,7 +139,7 @@
       "load-balancer": {
         "enabled": {
           "title": "V2G Liberty load balancer module enabled",
-          "info": "The V2G Liberty load balancer module is currently enabled.\n\n**Important**\nThis module is provided without any guarantees. Use it at your own risk.\n\nPlease consult a certified electrician what maximum power can be set on the charger.\n\n**Configuration**\n\n- The Charger host URL must be set to `127.0.0.1`\n\n- The port number must be set to `5020`\n\nFor further details please consult `readme.md` in the folder `load_balancer`."
+          "info": "The V2G Liberty load balancer module is currently enabled.\n\n**Important**\nThis module is provided without any guarantees. Use it at your own risk.\n\nPlease consult a certified electrician what maximum power can be set on the charger.\n\n**Configuration**\n\n- The Charger hostname must be set to `127.0.0.1`\n\n- The port number must be set to `5020`\n\nFor further details please consult `readme.md` in the folder `load_balancer`."
         },
         "not_enabled": {
           "title": "V2G Liberty load balancer module not enabled",

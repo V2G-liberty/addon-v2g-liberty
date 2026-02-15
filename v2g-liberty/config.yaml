@@ -1,6 +1,6 @@
 ---
 name: V2G Liberty
-version: 0.7.1
+version: 0.7.3
 slug: v2g-liberty
 description: The V2G Liberty add-on delivers full automatic and optimised control over Vehicle to Grid (V2G) / bidirectional charging of your electric vehicle.
 url: https://github.com/V2G-liberty/addon-v2g-liberty
@@ -11,6 +11,9 @@ arch:
 init: false
 homeassistant_api: true
 uart: true
+ports:
+  5050/tcp: 5050
+watchdog: http://[HOST]:[PORT:5050]/aui/index.html#/
 map:
   - addon_config:rw
   - homeassistant_config:rw

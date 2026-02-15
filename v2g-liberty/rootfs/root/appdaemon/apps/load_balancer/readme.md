@@ -24,31 +24,32 @@ For the load balancing to work it needs information about the current load (how 
 
 This should result in a (sensor) entity in Home Assistant that is updated frequently (at least every 5 to 10 seconds) with the actual load in Watt.
 
-The DSMR integration does not provide this directly, it has separate entities for consumption and production power. These should be combined to one. Here's an example of how to do that in your config.yaml:
+The DSMR integration does not provide this directly, it has separate entities for consumption and production power. These should be combined to one. Here's an example of how to do that in your configuration.yaml using the modern Home Assistant template syntax:
 
 ```yaml
-sensor:
-  - platform: template
-    sensors:
-      net_power_l1:
-        friendly_name: "Net Power L1"
+template:
+  - sensor:
+      - name: "Net Power L1"
+        unique_id: net_power_l1
         unit_of_measurement: W
         device_class: power
-        icon_template: mdi:counter
-        value_template: "{{ ((float(states('sensor.electricity_meter_power_consumption_phase_l1')) - float(states('sensor.electricity_meter_power_production_phase_l1'))) * 1000)|int }}"
-      net_power_l2:
-        friendly_name: "Net Power L2"
+        icon: mdi:counter
+        state: "{{ ((float(states('sensor.electricity_meter_power_consumption_phase_l1')) - float(states('sensor.electricity_meter_power_production_phase_l1'))) * 1000)|int }}"
+      - name: "Net Power L2"
+        unique_id: net_power_l2
         unit_of_measurement: W
         device_class: power
-        icon_template: mdi:counter
-        value_template: "{{ ((float(states('sensor.electricity_meter_power_consumption_phase_l2')) - float(states('sensor.electricity_meter_power_production_phase_l2'))) * 1000)|int }}"
-      net_power_l3:
-        friendly_name: "Net Power L3"
+        icon: mdi:counter
+        state: "{{ ((float(states('sensor.electricity_meter_power_consumption_phase_l2')) - float(states('sensor.electricity_meter_power_production_phase_l2'))) * 1000)|int }}"
+      - name: "Net Power L3"
+        unique_id: net_power_l3
         unit_of_measurement: W
         device_class: power
-        icon_template: mdi:counter
-        value_template: "{{ ((float(states('sensor.electricity_meter_power_consumption_phase_l3')) - float(states('sensor.electricity_meter_power_production_phase_l3'))) * 1000)|int }}"
+        icon: mdi:counter
+        state: "{{ ((float(states('sensor.electricity_meter_power_consumption_phase_l3')) - float(states('sensor.electricity_meter_power_production_phase_l3'))) * 1000)|int }}"
 ```
+
+**Note:** If you have multiple template sections in your configuration.yaml, consolidate them into one `template:` section. After making changes, restart Home Assistant or reload template entities from Developer Tools > YAML.
 
 ## Configuration
 
