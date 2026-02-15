@@ -1,10 +1,9 @@
 # What's changed?
 
-## 0.7.3 2026-01-??
+## 0.7.5 2026-02-15
 
 ### Fixed
 
-- 🪲 BUG: Monitoring for error state failed to notify (#369)
 - 🪲 BUG: Charge and Discharge function sometimes slow or failing (#371)
 
 ### Added
