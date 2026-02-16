@@ -1,14 +1,18 @@
 # What's changed?
 
-## 0.7.5 2026-02-15
+## 0.7.3 2026-01-??
 
 ### Fixed
 
-- 🪲 BUG: Charge and Discharge function sometimes slow or failing (#371)
+- 🪲 BUG: Monitoring for error state failed to notify (#369)
 
 ### Added
 
+- 🚀 Feature request: Add new modbus charger(#359)
+
 ### Changed
+
+- Bumped pymodbus library to 3.11.4 (#373)
 
 &nbsp;
 

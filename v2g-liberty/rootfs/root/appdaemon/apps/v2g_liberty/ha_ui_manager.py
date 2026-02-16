@@ -17,6 +17,9 @@ class HAUIManager:
     # For indication to the user if/how fast polling is in progress
     poll_update_text: str = ""
 
+    # String that represents sensor or entity data is unavailable
+    UNAVAILABLE = "unavailable"
+
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.event_bus = event_bus
@@ -79,7 +82,7 @@ class HAUIManager:
 
     async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
-        if new_soc == "unavailable" or old_soc == "unavailable":
+        if new_soc is None or old_soc is None:
 
             # We want a realistic gap in the SoC chart-line for "unavailable" time-slots (Ⓑ to Ⓒ):
             #
@@ -184,7 +187,7 @@ class HAUIManager:
             new_attributes.update({"set_at": datetime.datetime.now()})
 
         if entity_id.startswith("binary_sensor."):
-            if new_value in [None, "unavailable", "unknown", ""]:
+            if new_value in [None, ""]:
                 availability = "off"
             else:
                 availability = "on"
@@ -212,7 +215,7 @@ class HAUIManager:
         else:
             if new_value is None:
                 # A sensor cannot be set to None, results in HA error.
-                new_value = "unavailable"
+                new_value = self.UNAVAILABLE
             await self.hass.set_state(
                 entity_id,
                 state=new_value,

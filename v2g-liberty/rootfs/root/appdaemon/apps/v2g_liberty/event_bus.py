@@ -19,24 +19,35 @@ class EventBus(AsyncIOEventEmitter):
 
     #### Charger / car related
 
+    TODO: check if `charger_communication_state_change`, `evse_polled` and
+          `charger_error_state_change` are overlapping and can be combined.
+
+    - `charger_error_state_change`:
+        - **Description**: Update charger error state (is functional communication
+          possible).
+        - **Emitted by** wallbox_quasar_1
+        - **Arguments**:
+            - `persistent_error` (bool): communication possible or not.
+            - `was_car_connected` (bool): was the car connected at just before comm was lost
+
     - `charger_communication_state_change`:
         - **Description**: Update charger communication status (is functional communication
           possible). Kept up to date with polling frequency.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `can_communicate` (bool): communication possible or not.
 
     - `update_charger_info`:
         - **Description**: Update general info about the charger such as name, firmware,
         serial number, etc. Mainly for debugging, usually set at startup.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `charger_info` (str): General charger info.
 
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
           When the SoC value changes, this event is emitted with the new and old values.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** ElectricVehicle class
         - **Arguments**:
             - `new_soc` (int): The new state of charge value (1–100).
             - `old_soc` (int): The previous state of charge value (1–100).
@@ -48,30 +59,52 @@ class EventBus(AsyncIOEventEmitter):
           event_bus.add_event_listener("soc_change", _handle_soc_change)
           ```
 
+    - `nissan_leaf_min_soc_skipped`:
+        - **Description**: Specific to Nissan Leaf vehicles, this event is emitted when
+          the car's state of charge (SoC) skips below a predefined minimum threshold during
+          a charging cycle. This is to handle the Leaf's unique behavior of occasionally
+          skipping SoC values.
+        - **Emitted by** ElectricVehicle class
+        - **Arguments**:
+            - `min_soc` (int): The minimum SoC in % that was skipped.
+            - `ev_name` (int): The name of the EV that skipped the SoC.
+
+    - `remaining_range_change`:
+        - **Description**: Monitors changes in the car's estimated remaining range.
+        - **Emitted by** ElectricVehicle class
+        - **Arguments**:
+            - `remaining_range` (float): The new estimated remaining range in kilometers.
+        - **Example**:
+          ```python
+          def _handle_remaining_range_change(remaining_range):
+              print(f"Remaining range updated to {remaining_range} km")
+          event_bus.add_event_listener("remaining_range_change", _handle_remaining_range_change)
+          ```
+
     - `charge_power_change`:
         - **Description**: Monitors changes in the chargers actual (real) charge power.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
-            - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be 'unavailable'.
+            - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be None.
 
     - `charger_state_change`:
         - **Description**: Monitors changes in the chargers state (charging, idle, error etc.).
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
-            - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
-            - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
-            - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
+            - `new_charger_state` (int): The new state of the charger, can None.
+            - `old_charger_state` (int): The old (previous) state of the charger, can None.
+            - `new_charger_state_str` (str): text version to show in directly, can be None.
 
     - `evse_polled`:
         - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
           change in frequency. Mainly aimed at showing in the UI.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `stop` (bool): If True stop the poll indicator, set text to "".
 
     - `is_car_connected`:
         - **Description**: Monitors if a car is connected to the charger.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** wallbox_quasar_1
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
 
@@ -115,7 +148,7 @@ class EventBus(AsyncIOEventEmitter):
                     elapsed_ms = (time.perf_counter() - start) * 1000
                     if elapsed_ms > 200:
                         self.__log(
-                            f"Listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
+                            f"Calling listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
                         )
 
                 if inspect.iscoroutinefunction(listener):
