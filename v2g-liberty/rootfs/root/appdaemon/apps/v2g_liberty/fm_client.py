@@ -244,12 +244,6 @@ class FMClient(AsyncIOEventEmitter):
         return None
 
     async def get_fm_sensors_by_asset_name(self, asset_name: str):
-        if self.client is None:
-            self.__log(
-                "Abort getting sensors, client not initialised (yet).",
-                level="WARNING",
-            )
-            return []
         assets = await self.client.get_assets()
         for asset in assets:
             if asset["name"] == asset_name:
@@ -264,7 +258,6 @@ class FMClient(AsyncIOEventEmitter):
         duration: str | timedelta,
         uom: str,
         resolution: str | timedelta,
-        source: int = None,
     ) -> dict:
         """
         :param sensor_id: fm sensor id
@@ -281,26 +274,14 @@ class FMClient(AsyncIOEventEmitter):
                 }
         """
         self.__log(f"called for sensor_id: {sensor_id}.")
-
-        if self.client is None:
-            self.__log(
-                "Abort getting sensor data, client not initialised (yet).",
-                level="WARNING",
-            )
-            return None
-
-        kwargs = {
-            "sensor_id": sensor_id,
-            "start": start,
-            "duration": duration,
-            "unit": uom,
-            "resolution": resolution,
-        }
-        if source is not None:
-            kwargs["source"] = source
-
         try:
-            res = await self.client.get_sensor_data(**kwargs)
+            res = await self.client.get_sensor_data(
+                sensor_id=sensor_id,
+                start=start,
+                duration=duration,
+                unit=uom,
+                resolution=resolution,
+            )
         except Exception as e:
             # ContentTypeError, ValueError, timeout, no data??:
             self.__log(
@@ -332,14 +313,6 @@ class FMClient(AsyncIOEventEmitter):
             bool: weather or not sending was successful
         """
         self.__log("post_measurements called.")
-
-        if self.client is None:
-            self.__log(
-                "Abort posting measurements, client not initialised (yet).",
-                level="WARNING",
-            )
-            return False
-
         if len(values) == 0:
             self.__log(
                 f"value list 0 length, not sending data to sensor_id '{sensor_id}'."
@@ -367,16 +340,46 @@ class FMClient(AsyncIOEventEmitter):
         return True
 
     async def get_new_schedule(
-        self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime
+        self,
+        targets: list,
+        current_soc_kwh: float,
+        min_soc_kwh: float,
+        max_soc_kwh: float,
+        max_capacity_kwh: float,
+        max_charge_power_w: float,
+        max_discharge_power_w: float,
+        roundtrip_efficiency: float,
+        back_to_max_soc: datetime,
     ):
         """Get a new schedule from FlexMeasures.
-        But not if still busy with getting previous schedule.
-        Trigger a new schedule to be computed and set a timer to retrieve it, by its schedule id.
 
-        param: targets (list) a list of targets (=dict with start, end, soc)
-        param: current_soc_kwh (float), the state of charge at the moment the schedule is requested
-        param: back_to_max_soc (datetime) if current SoC > Max_SoC this setting informs the schedule
-               when to be back at max soc. Can be None.
+        This method requests a new schedule from FlexMeasures, but only if not already
+        busy retrieving a previous schedule. It triggers the computation of a new schedule
+        and sets a timer to retrieve it by its schedule ID.
+
+        Args:
+            targets (list[dict]):
+                A list of target dictionaries, each containing:
+                - start (datetime): Start time of the target.
+                - end (datetime): End time of the target.
+                - soc (float): Target state of charge (in kWh) for the period.
+            current_soc_kwh (float):
+                The current state of charge (in kWh) at the moment the schedule is requested.
+            min_soc_kwh (float):
+                The minimum allowed state of charge (in kWh) for the schedule.
+            max_soc_kwh (float):
+                The maximum allowed state of charge (in kWh) for the schedule.
+            max_capacity_kwh (float):
+                The maximum battery capacity (in kWh).
+            max_charge_power_w (float):
+                The maximum charge power (in W).
+            max_discharge_power_w (float):
+                The maximum discharge power (in W).
+            roundtrip_efficiency (float):
+                The roundtrip efficiency of the battery (0.0 to 1.0).
+            back_to_max_soc (datetime | None):
+                If the current SoC is above the maximum SoC, this setting informs the schedule
+                when the battery should be back at maximum SoC. Can be None if not applicable.
         """
         self.__log("called.")
         now = get_local_now()
@@ -420,13 +423,13 @@ class FMClient(AsyncIOEventEmitter):
             rounded_now + self.FM_SCHEDULE_DURATION, c.EVENT_RESOLUTION
         )
 
-        # Always add a placeholder target with soc CAR_MAX_SOC_IN_KWH one week from now.
+        # Always add a placeholder target with soc max_soc_kwh one week from now.
         # FM needs this to be able to produce a schedule whereby the influence of this placeholder
         # is none.
         end_of_schedule_input_period = rounded_now + timedelta(days=7)
         soc_minima = [
             {
-                "value": c.CAR_MAX_SOC_IN_KWH,
+                "value": max_soc_kwh,
                 "start": end_of_schedule_input_period - c.EVENT_RESOLUTION,
                 "end": end_of_schedule_input_period,
             }
@@ -439,14 +442,14 @@ class FMClient(AsyncIOEventEmitter):
         # idle_ranges_production.
         max_consumption_power_ranges = [
             {
-                "value": c.CHARGER_MAX_CHARGE_POWER,
+                "value": max_charge_power_w,
                 "start": rounded_now,
                 "end": schedule_end,
             }
         ]
         max_production_power_ranges = [
             {
-                "value": c.CHARGER_MAX_DISCHARGE_POWER,
+                "value": max_discharge_power_w,
                 "start": rounded_now,
                 "end": schedule_end,
             }
@@ -472,8 +475,8 @@ class FMClient(AsyncIOEventEmitter):
                     if delta_to_target > 0:
                         min_charge_time = math.ceil(
                             delta_to_target
-                            / (c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5)
-                            / (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                            / (roundtrip_efficiency**0.5)
+                            / (max_charge_power_w / 1000)
                             * 60
                         )
                         soonest_at_target = time_ceil(
@@ -499,13 +502,13 @@ class FMClient(AsyncIOEventEmitter):
                                 max_target = current_soc_kwh + (
                                     minutes_left_to_charge
                                     / 60
-                                    * c.ROUNDTRIP_EFFICIENCY_FACTOR**0.5
-                                    * (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                                    * roundtrip_efficiency**0.5
+                                    * (max_charge_power_w / 1000)
                                 )
                                 # Communicate the target soc to user in %
                                 max_target = int(
                                     round(
-                                        (max_target / c.CAR_MAX_CAPACITY_IN_KWH) * 100,
+                                        (max_target / max_capacity_kwh) * 100,
                                         0,
                                     )
                                 )
@@ -550,7 +553,7 @@ class FMClient(AsyncIOEventEmitter):
             # The basis maxima that can be lifted by adding other maxima
             soc_maxima = [
                 {
-                    "value": c.CAR_MAX_SOC_IN_KWH,
+                    "value": max_soc_kwh,
                     "start": rounded_now,
                     "end": end_of_schedule_input_period,
                 }
@@ -560,16 +563,16 @@ class FMClient(AsyncIOEventEmitter):
             for soc_minimum in soc_minima:
                 # Does this target need a relaxation window? This is the period before a calendar
                 # item where soc_maxima should be set to the value target_soc_kwh to allow the
-                # schedule to reach a target higher than the CAR_MAX_SOC_IN_KWH.
+                # schedule to reach a target higher than the max_soc_kwh.
                 soc_minimum_start = soc_minimum["start"]
                 soc_minimum_end = soc_minimum["end"]
                 minimum_soc_kwh = soc_minimum["value"]
 
-                if minimum_soc_kwh > c.CAR_MAX_SOC_IN_KWH:
+                if minimum_soc_kwh > max_soc_kwh:
                     window_duration = (
                         math.ceil(
-                            (minimum_soc_kwh - c.CAR_MAX_SOC_IN_KWH)
-                            / (c.CHARGER_MAX_CHARGE_POWER / 1000)
+                            (minimum_soc_kwh - max_soc_kwh)
+                            / (max_charge_power_w / 1000)
                             * 60
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
@@ -617,15 +620,15 @@ class FMClient(AsyncIOEventEmitter):
         # dismissed. It is only added at the start (now) and not after future targets as we expect
         # these to lead to a SoC below the max as the car is used for driving and thus losing SoC.
 
-        # If the current_soc is above the CAR_MAX_SOC_IN_KWH it need to be brought back below this
+        # If the current_soc is above the max_soc_kwh it need to be brought back below this
         # max. The back_to_max_soc parameter indicates when this task should be finished.
         #
         # Assume:
         # SRW  = Start of the relaxation window for the CTM, including the slack of 1 hour.
-        #        Only relevant for calendar items with a target SoC above the CAR_MAX_SOC_IN_KWH.
+        #        Only relevant for calendar items with a target SoC above the max_soc_kwh.
         #        Relaxation refers to the fact that in this window the schedule does not get
-        #        soc-maxima so that it can charge above the CAR_MAX_SOC_IN_KWH to reach the higher
-        #        target SoC. To keep things simple, the SRW is always based on CAR_MAX_SOC_IN_KWH,
+        #        soc-maxima so that it can charge above the max_soc_kwh to reach the higher
+        #        target SoC. To keep things simple, the SRW is always based on max_soc_kwh,
         #        even if the current soc is higher.
         # CTM  = Charge Target Moment which is the start of the first upcoming calendar item.
         #        By default, if there is no calendar item, the CTM is one week from now. This gives
@@ -634,17 +637,17 @@ class FMClient(AsyncIOEventEmitter):
         #        past. It serves as a target with a maximum SoC (where regular targets have a
         #        minimum). The CTM has a higher priority than the B2MS.
         # EMDW = End of Minimum Discharge Window. Minimum Discharge Window (MDW) = time needed to
-        #        discharge from current SoC to CAR_MAX_SOC_IN_KWH with available discharge power.
+        #        discharge from current SoC to max_soc_kwh with available discharge power.
         #        EMDW = Now + MDW.
         #        Scenario A: In case of EMDW > B2MS then the latter is extended to EMDW.
         #
         # These scenarios need to be handled, they might in time flow from one into the other:
         # 0. No B2MS
-        #    The soc-maxima are based on the CAR_MAX_SOC_IN_KWH and run from "now" up to SRW.
+        #    The soc-maxima are based on the max_soc_kwh and run from "now" up to SRW.
         # 1. NOW < B2MS < SRW < CTM
         #    The B2MS is not influenced by the first calendar item (or there is none)
         #    The SoC maxima are based upon the CURRENT_SOC and run from "now" up to B2MS, from where
-        #    they are set to CAR_MAX_SOC_IN_KWH. Furthermore, the schedule should not charge during
+        #    they are set to max_soc_kwh. Furthermore, the schedule should not charge during
         #    this period. So this period should be added to the max_consumption_power_ranges.
         # 2. NOW < SRW < B2MS < CTM and NOW < SRW < CTM < B2MS
         #    In this case, the B2MS and CTM do not play a role. The soc-maxima are based on the
@@ -673,8 +676,8 @@ class FMClient(AsyncIOEventEmitter):
 
             # Handle too high current_soc.
             minimum_discharge_window = math.ceil(
-                (current_soc_kwh - c.CAR_MAX_SOC_IN_KWH)
-                / (c.CHARGER_MAX_DISCHARGE_POWER / 1000)
+                (current_soc_kwh - max_soc_kwh)
+                / (max_discharge_power_w / 1000)
                 * 60
             )
             end_minimum_discharge_window = time_round(
@@ -742,14 +745,14 @@ class FMClient(AsyncIOEventEmitter):
         )
 
         flex_model = {
-            "power-capacity": f"{c.CHARGER_MAX_CHARGE_POWER} W",
+            "power-capacity": f"{max_charge_power_w} W",
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
-            "soc-min": c.CAR_MIN_SOC_IN_KWH,
-            "soc-max": c.CAR_MAX_CAPACITY_IN_KWH,
+            "soc-min": min_soc_kwh,
+            "soc-max": max_capacity_kwh,
             "soc-minima": soc_minima,
             "soc-maxima": soc_maxima,
-            "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
+            "roundtrip-efficiency": roundtrip_efficiency,
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
         }

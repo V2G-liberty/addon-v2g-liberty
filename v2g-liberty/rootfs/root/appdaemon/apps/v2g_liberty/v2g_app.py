@@ -1,21 +1,20 @@
 """Main module for setting up the app."""
 
-from datetime import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
 from .ha_ui_manager import HAUIManager
 from .notifier_util import Notifier
 from .v2g_globals import V2GLibertyGlobals
-from .modbus_evse_client import ModbusEVSEclient
 from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
-from .fm_data_importer import FlexMeasuresDataImporter
+from .get_fm_data import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .nissan_leaf_monitor import NissanLeafMonitor
 from .monitor_pause_at_reconnect import MonitorPauseAtReconnect
+from datetime import datetime
 
 
 class V2GLibertyApp(Hass):
@@ -38,14 +37,12 @@ class V2GLibertyApp(Hass):
         self._log_init_time("Notifier", start_module)
 
         start_module = datetime.now()
-        v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
+        v2g_globals = V2GLibertyGlobals(self, event_bus=event_bus, notifier=notifier)
         self._log_init_time("V2GLibertyGlobals", start_module)
 
         start_module = datetime.now()
-        modbus_evse_client = ModbusEVSEclient(
-            self, event_bus=event_bus, notifier=notifier
-        )
-        self._log_init_time("ModbusEVSEclient", start_module)
+        main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
+        self._log_init_time("V2Gliberty", start_module)
 
         start_module = datetime.now()
         fm_client = FMClient(self, event_bus=event_bus)
@@ -54,10 +51,6 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         reservations_client = ReservationsClient(self, event_bus=event_bus)
         self._log_init_time("ReservationsClient", start_module)
-
-        start_module = datetime.now()
-        main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
-        self._log_init_time("V2Gliberty", start_module)
 
         start_module = datetime.now()
         data_monitor = DataMonitor(self, event_bus=event_bus)
@@ -79,6 +72,7 @@ class V2GLibertyApp(Hass):
         get_fm_data = FlexMeasuresDataImporter(self, notifier=notifier)
         self._log_init_time("FlexMeasuresDataImporter", start_module)
 
+        # TODO: Remove here and do just-in-time import, instantiation and kickoff in globals
         start_module = datetime.now()
         amber_price_data_manager = ManageAmberPriceData(self)
         self._log_init_time("ManageAmberPriceData", start_module)
@@ -88,24 +82,25 @@ class V2GLibertyApp(Hass):
         self._log_init_time("ManageOctopusPriceData", start_module)
 
         v2g_globals.v2g_main_app = main_app
-        v2g_globals.evse_client_app = modbus_evse_client
         v2g_globals.fm_client_app = fm_client
         v2g_globals.calendar_client = reservations_client
         v2g_globals.amber_price_data_manager = amber_price_data_manager
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager
         v2g_globals.fm_data_retrieve_client = get_fm_data
-        modbus_evse_client.v2g_main_app = main_app
-        modbus_evse_client.v2g_globals = v2g_globals
-        main_app.evse_client_app = modbus_evse_client
+        v2g_globals.datamonitor = data_monitor
+
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
-        data_monitor.evse_client_app = modbus_evse_client
+
         data_monitor.fm_client_app = fm_client
+
         get_fm_data.v2g_main_app = main_app
         get_fm_data.fm_client_app = fm_client
+
         amber_price_data_manager.fm_client_app = fm_client
         amber_price_data_manager.v2g_main_app = main_app
         amber_price_data_manager.get_fm_data_module = get_fm_data
+
         octopus_price_data_manager.fm_client_app = fm_client
         octopus_price_data_manager.get_fm_data_module = get_fm_data
 
@@ -116,10 +111,6 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await main_app.initialize()
         self._log_init_time("main_app.initialize()", start_module)
-
-        start_module = datetime.now()
-        await notifier.initialize()
-        self._log_init_time("notifier.initialize()", start_module)
 
         start_module = datetime.now()
         await amber_price_data_manager.initialize()
@@ -134,11 +125,7 @@ class V2GLibertyApp(Hass):
         self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
 
         start_module = datetime.now()
-        await get_fm_data.initialize(
-            use_vat_and_markup=v2g_globals.use_vat_and_markup,
-            energy_price_vat=v2g_globals.energy_price_vat,
-            markup_per_kwh=v2g_globals.energy_price_markup_per_kwh,
-        )
+        await get_fm_data.initialize()
         self._log_init_time("get_fm_data.initialize()", start_module)
 
         start_module = datetime.now()
