@@ -3,6 +3,16 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.7.5 2026-02-15
+
+### Fixed
+
+- 🪲 BUG: Charge and Discharge function sometimes slow or failing (#371)
+
+### Added
+
+### Changed
+
 ## 0.7.4 2026-02-04
 
 ### Fixed
