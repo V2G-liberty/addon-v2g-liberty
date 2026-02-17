@@ -49,5 +49,16 @@
       "command": "clear && pytest -v",
       "problemMatcher": []
     },
+    {
+      "label": "Start Quasar Mock CLI",
+      "type": "shell",
+      "command": "python",
+      "args": ["cli.py", "--host", "quasar-mock"],
+      "options": {
+        "cwd": "/workspaces/charger-mocks/quasar"
+      },
+      "problemMatcher": [],
+      "isBackground": true
+    },
   ]
 }
