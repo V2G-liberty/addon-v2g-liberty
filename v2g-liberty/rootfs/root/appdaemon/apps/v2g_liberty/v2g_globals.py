@@ -6,7 +6,11 @@ import pytz
 
 from appdaemon.plugins.hass.hassapi import Hass
 
+from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
+from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
+from apps.v2g_liberty.chargers.evtec_bidipro import EVtecBiDiProClient
 from .notifier_util import Notifier
+from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .settings_manager import SettingsManager
@@ -17,13 +21,16 @@ class V2GLibertyGlobals:
 
     v2g_settings: SettingsManager
     settings_file_path = "/data/v2g_liberty_settings.json"
+
+    # V2Gliberty, cannot be typed here because of circular referencing...
     v2g_main_app: object
-    evse_client_app: object
+    evse: object  # Can be any of the charger_types
     fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
     amber_price_data_manager: object
     octopus_price_data_manager: object
+    datamonitor: object
 
     # Settings related to FlexMeasures
     SCHEDULE_SETTINGS_INITIALISED = {
@@ -139,6 +146,12 @@ class V2GLibertyGlobals:
         "value_type": "bool",
         "factory_default": False,
     }
+    SETTING_CHARGER_TYPE = {
+        "entity_name": "charger_type",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
+    }
     SETTING_CHARGER_HOST_URL = {
         "entity_name": "charger_host_url",
         "entity_type": "input_text",
@@ -192,6 +205,18 @@ class V2GLibertyGlobals:
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 175,
+    }
+    SETTING_CAR_NAME = {
+        "entity_name": "car_name",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": "",
+    }
+    SETTING_CAR_EV_ID = {
+        "entity_name": "car_ev_id",
+        "entity_type": "internal",  # Not exposed as HA entity
+        "value_type": "str",
+        "factory_default": "",
     }
 
     # Settings related to optimisation
@@ -289,16 +314,12 @@ class V2GLibertyGlobals:
     hass: Hass = None
     notifier: Notifier = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
+        self.event_bus = event_bus
         self.notifier = notifier
         self.__log = get_class_method_logger(hass.log)
         self.v2g_settings = SettingsManager(log=self.__log)
-
-        # VAT/markup settings for data import (only used for nl_generic provider)
-        self.use_vat_and_markup: bool = False
-        self.energy_price_vat: int = 0
-        self.energy_price_markup_per_kwh: float = 0
 
     async def initialize(self):
         self.__log("Initializing V2GLibertyGlobals")
@@ -320,6 +341,7 @@ class V2GLibertyGlobals:
             self.__save_administrator_settings, "save_administrator_settings"
         )
         self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
+        self.hass.listen_event(self.__save_car_settings, "save_car_settings")
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
         self.hass.listen_event(
             self.__save_electricity_contract_settings,
@@ -328,6 +350,7 @@ class V2GLibertyGlobals:
         self.hass.listen_event(self.__save_schedule_settings, "save_schedule_settings")
         self.hass.listen_event(self.__save_setting, "save_setting")
         # Listen to [TEST] buttons
+        self.hass.listen_event(self.__get_car_details, "get_car_details")
         self.hass.listen_event(
             self.__test_charger_connection, "test_charger_connection"
         )
@@ -349,17 +372,20 @@ class V2GLibertyGlobals:
 
     async def kick_off_settings(self):
         # To be called from initialise or restart event
-        self.__log("called")
+        self.__log("KOS called")
 
         self.v2g_settings.retrieve_settings()
         await self.__initialise_notification_settings()
 
+        await self.__initialise_general_settings()
+        # Charger needs car settings done which are in general settings.
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
-        await self.__initialise_general_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
+
+        self.__log("KOS completed")
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -399,6 +425,7 @@ class V2GLibertyGlobals:
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_charger_settings(self, event, data, kwargs):
+        self.__store_setting("input_text.charger_type", data["charger_type"])
         self.__store_setting("input_text.charger_host_url", data["host"])
         self.__store_setting("input_number.charger_port", data["port"])
         self.__store_setting(
@@ -422,7 +449,9 @@ class V2GLibertyGlobals:
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         self.__log("Saving electricity contract settings")
+        c.USE_VAT_AND_MARKUP = False
         if data["contract"] == "nl_generic":
+            c.USE_VAT_AND_MARKUP = True
             self.__store_setting("input_number.energy_price_vat", data["vat"])
             self.__store_setting(
                 "input_number.energy_price_markup_per_kwh", data["markup"]
@@ -449,10 +478,7 @@ class V2GLibertyGlobals:
         await self.__initialise_electricity_contract_settings()
         await self.v2g_main_app.kick_off_v2g_liberty()
         await self.fm_data_retrieve_client.initialize(
-            v2g_args="changed energy contract settings",
-            use_vat_and_markup=self.use_vat_and_markup,
-            energy_price_vat=self.energy_price_vat,
-            markup_per_kwh=self.energy_price_markup_per_kwh,
+            v2g_args="changed energy contract settings"
         )
         self.__log("Completed saving electricity contract settings")
 
@@ -509,22 +535,47 @@ class V2GLibertyGlobals:
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
     async def __test_charger_connection(self, event, data, kwargs):
-        """Tests the connection with the charger and processes the maximum charge power read from the charger
-        Called from the settings page."""
+        """Tests the connection with the charger and processes the maximum charge power read from
+        the charger. Called from the settings page."""
         self.__log("Called")
+        charger_type = data["charger_type"]
         host = data["host"]
         port = data["port"]
+        evse = self._get_evse_client(charger_type)
+        if evse is None:
+            return False, None
+
         (
             success,
             max_available_power,
-        ) = await self.evse_client_app.test_charger_connection(host, port)
+        ) = await evse.get_max_power_pre_init(host=host, port=port)
         msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f'result: "{msg}", {max_available_power}')
+        self.__log(f'TCC result: "{msg}", {max_available_power}')
         self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,
             max_available_power=max_available_power,
         )
+
+    def _get_evse_client(self, charger_type):
+        if charger_type == "wallbox-quasar-1":
+            evse = WallboxQuasar1Client(
+                hass=self.hass,
+                event_bus=self.event_bus,
+                get_vehicle_by_ev_id_func=self.v2g_main_app.get_vehicle_by_ev_id,
+            )
+        elif charger_type == "evtec-bidi-pro-10":
+            evse = EVtecBiDiProClient(
+                hass=self.hass,
+                event_bus=self.event_bus,
+                get_vehicle_by_ev_id_func=self.v2g_main_app.get_vehicle_by_ev_id,
+            )
+        else:
+            self.__log(
+                f"Unknown charger_type: {charger_type}, aborting.", level="WARNING"
+            )
+            return None
+        return evse
 
     async def __test_schedule_connection(self, event, data, kwargs):
         self.__log("called")
@@ -544,6 +595,106 @@ class V2GLibertyGlobals:
             msg = "Failed to connect"
 
         self.hass.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
+
+    async def __get_car_details(self, event, data, kwargs):
+        """Retrieve car details from EVtec charger via get_new_ev_details."""
+        self.__log("get_car_details called")
+
+        if self.evse is None:
+            self.__log("EVSE not initialised", level="WARNING")
+            self.hass.fire_event(
+                "get_car_details.result", success=False, error="Charger not initialised"
+            )
+            return
+
+        # Check if charger supports auto-retrieval
+        if not hasattr(self.evse, "get_new_ev_details"):
+            self.__log("Charger does not support auto-retrieval", level="WARNING")
+            self.hass.fire_event(
+                "get_car_details.result",
+                success=False,
+                error="Charger type does not support auto-retrieval",
+            )
+            return
+
+        # Call existing get_new_ev_details method
+        result = await self.evse.get_new_ev_details()
+
+        if result is None:
+            self.__log(
+                "Failed to retrieve car details (car not connected?)", level="WARNING"
+            )
+            self.hass.fire_event(
+                "get_car_details.result",
+                success=False,
+                error="No car connected or failed to read data",
+            )
+            return
+
+        # Convert Wh to kWh for frontend
+        battery_capacity_kwh = (
+            result["battery_capacity_wh"] / 1000
+            if result["battery_capacity_wh"]
+            else None
+        )
+        min_battery_capacity_kwh = (
+            result["min_battery_capacity_wh"] / 1000
+            if result["min_battery_capacity_wh"]
+            else None
+        )
+
+        self.__log(
+            f"Retrieved car details: ev_id={result['ev_id']}, capacity={battery_capacity_kwh}kWh"
+        )
+        self.hass.fire_event(
+            "get_car_details.result",
+            success=True,
+            ev_id=result["ev_id"],
+            battery_capacity_kwh=battery_capacity_kwh,
+            min_battery_capacity_kwh=min_battery_capacity_kwh,
+            is_new=result["is_new"],
+        )
+
+    async def __save_car_settings(self, event, data, kwargs):
+        """Save car settings including ev_id to settings.json and HA entities."""
+        self.__log(f"save_car_settings called with data: {data}")
+
+        car_name = data.get("name", "")
+        capacity_kwh = data.get("capacity_kwh")
+        efficiency = data.get("efficiency")
+        consumption_wh_km = data.get("consumption_wh_km")
+        ev_id = data.get("ev_id", "")
+
+        # Validate required fields
+        if not car_name:
+            self.hass.fire_event(
+                "save_car_settings.result", success=False, error="Car name is required"
+            )
+            return
+
+        # Save to settings.json (note: car_ev_id is internal, not exposed as HA entity)
+        self.v2g_settings.store_setting("car_ev_id", ev_id)
+        self.__store_setting("input_text.car_name", car_name)
+        self.__store_setting("input_number.car_max_capacity_in_kwh", capacity_kwh)
+        self.__store_setting(
+            "input_number.charger_plus_car_roundtrip_efficiency", efficiency
+        )
+        self.__store_setting("input_number.car_consumption_wh_per_km", consumption_wh_km)
+
+        # Save to HA entities
+        await self.__write_setting_to_ha(self.SETTING_CAR_NAME, car_name, "user_input")
+        await self.__write_setting_to_ha(
+            self.SETTING_CAR_MAX_CAPACITY_IN_KWH, capacity_kwh, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY, efficiency, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_CAR_CONSUMPTION_WH_PER_KM, consumption_wh_km, "user_input"
+        )
+
+        self.__log(f"Saved car settings: name={car_name}, ev_id={ev_id}")
+        self.hass.fire_event("save_car_settings.result", success=True)
 
     ######################################################################
     #                            HA METHODS                              #
@@ -693,7 +844,10 @@ class V2GLibertyGlobals:
                 # information stored in the entity (in the UI). Store this setting, but not if it is
                 # empty or "unknown" or "Please choose an option" (the latter for input_select
                 # entities).
-                return_value = setting_entity.get("state", None)
+                if setting_entity is None:
+                    return_value = None
+                else:
+                    return_value = setting_entity.get("state", None)
                 if return_value is not None and return_value not in [
                     "",
                     "unknown",
@@ -722,24 +876,27 @@ class V2GLibertyGlobals:
         # TODO: notify user of changed setting
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
-        message = f"set c.{entity_name.upper()} to"
-        mode = setting_entity["attributes"].get("mode", "none").lower()
-        if mode == "password":
-            message = f"{message} ********"
-        else:
-            message = f"{message} '{return_value}'"
+        message = f"set '{entity_name}' to"
+        if setting_entity is not None:
+            mode = setting_entity["attributes"].get("mode", "none").lower()
+            if mode == "password":
+                message = f"{message} ********"
+            else:
+                message = f"{message} '{return_value}'"
 
-        uom = setting_entity["attributes"].get("unit_of_measurement")
-        if uom:
-            message = f"{message} {uom}."
+            uom = setting_entity["attributes"].get("unit_of_measurement")
+            if uom:
+                message = f"{message} {uom}."
+            else:
+                message = f"{message}."
         else:
-            message = f"{message}."
+            message = f"{message} '{return_value}'."
         self.__log(message)
 
         return return_value
 
     async def __initialise_charger_settings(self):
-        self.__log("called")
+        self.__log("ICS called")
 
         is_initialised = await self.__process_setting(
             setting_object=self.CHARGER_SETTINGS_INITIALISED
@@ -747,25 +904,38 @@ class V2GLibertyGlobals:
         if not is_initialised:
             return
 
-        c.CHARGER_HOST_URL = await self.__process_setting(
+        charger_type = await self.__process_setting(
+            setting_object=self.SETTING_CHARGER_TYPE
+        )
+        evse = self._get_evse_client(charger_type)
+        self.__log(f"EVSE = {evse}")
+        if evse is None:
+            return False
+        self.evse = evse
+        self.v2g_main_app.bidirectional_evse = evse
+
+        charger_host_url = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL
         )
-        c.CHARGER_PORT = await self.__process_setting(
+        charger_port = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PORT
         )
-        (
-            connection,
-            max_power_by_charger,
-        ) = await self.evse_client_app.initialise_charger()
 
-        if not connection:
+        (connected, max_power_by_charger) = await self.evse.get_max_power_pre_init(
+            host=charger_host_url, port=charger_port
+        )
+        if not connected or max_power_by_charger is None:
             self.__log("Unable to connect to charger", level="WARNING")
             # TODO: Set is_initialised to false? Set error state?
             return
 
-        if max_power_by_charger is None:
-            self.__log("Could not initialise charger.", level="WARNING")
-            return
+        communication_config = {
+            "host": charger_host_url,
+            "port": charger_port,
+        }
+        await self.evse.initialise_evse(
+            communication_config=communication_config,
+        )
 
         self.SETTING_CHARGER_MAX_CHARGE_POWER["max"] = max_power_by_charger
         self.SETTING_CHARGER_MAX_DISCHARGE_POWER["max"] = max_power_by_charger
@@ -780,22 +950,24 @@ class V2GLibertyGlobals:
         )
         if use_reduced_max_charge_power:
             # Use max from settings page
-            c.CHARGER_MAX_CHARGE_POWER = await self.__process_setting(
+            charger_max_charge_power = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_CHARGE_POWER,
             )
-            c.CHARGER_MAX_DISCHARGE_POWER = await self.__process_setting(
+            charger_max_discharge_power = await self.__process_setting(
                 setting_object=self.SETTING_CHARGER_MAX_DISCHARGE_POWER,
             )
+            await self.evse.set_max_charge_power(charger_max_charge_power)
+            await self.evse.set_max_discharge_power(charger_max_discharge_power)
         else:
             # Use max from charger
-            c.CHARGER_MAX_CHARGE_POWER = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
-            c.CHARGER_MAX_DISCHARGE_POWER = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
+            charger_max_charge_power = self.SETTING_CHARGER_MAX_CHARGE_POWER["max"]
+            charger_max_discharge_power = self.SETTING_CHARGER_MAX_DISCHARGE_POWER[
                 "max"
             ]
+            await self.evse.set_max_charge_power(charger_max_charge_power)
+            await self.evse.set_max_discharge_power(charger_max_discharge_power)
 
-        await self.evse_client_app.complete_init()
-
-        self.__log(f"{c.CHARGER_MAX_CHARGE_POWER=}, {c.CHARGER_MAX_DISCHARGE_POWER=}.")
+        await self.evse.kick_off_evse()
 
     async def __initialise_notification_settings(self):
         self.__log("called")
@@ -824,50 +996,52 @@ class V2GLibertyGlobals:
         self.__log("completed")
 
     async def __initialise_general_settings(self):
-        self.__log("called")
+        self.__log("IGS called")
 
         c.OPTIMISATION_MODE = await self.__process_setting(
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
-        c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
+        await self.__process_setting(
+            setting_object=self.SETTING_CAR_NAME,
+        )
+
+        ev_consumption_wh_per_km = await self.__process_setting(
             setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
         )
-        c.USAGE_PER_EVENT_TIME_INTERVAL = (
-            c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000
-        ) / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
 
-        c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
+        battery_capacity_kwh = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
         )
 
-        c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
+        car_min_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
         )
-        c.CAR_MIN_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
-        c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
+        car_max_soc_in_percent = await self.__process_setting(
             setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
-        )
-        c.CAR_MAX_SOC_IN_KWH = (
-            c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
-        )
-        c.CAR_MAX_RANGE_IN_KM = round(
-            c.CAR_MAX_CAPACITY_IN_KWH
-            * (c.CAR_MAX_CAPACITY_IN_PERCENT / 100)
-            / c.CAR_CONSUMPTION_WH_PER_KM
-            * 1000
         )
 
         c.ALLOWED_DURATION_ABOVE_MAX_SOC = await self.__process_setting(
             setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
         )
 
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
+        charger_plus_car_roundtrip_efficiency = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
-        c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
+
+        ev = ElectricVehicle(self.hass, self.event_bus)
+        ev.initialise_ev(
+            name="NissanLeaf",
+            ev_id="NissanLeaf",
+            battery_capacity_kwh=battery_capacity_kwh,
+            charging_efficiency_percent=charger_plus_car_roundtrip_efficiency,
+            consumption_wh_per_km=ev_consumption_wh_per_km,
+            min_soc_percent=car_min_soc_in_percent,
+            max_soc_percent=car_max_soc_in_percent,
+        )
+        self.v2g_main_app.add_vehicle(ev)
+        self.datamonitor.set_min_soc(car_min_soc_in_percent)
+        self.calendar_client.set_vehicle(ev)
 
         self.__log("completed")
 
@@ -936,13 +1110,7 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_FM_ASSET
         )
 
-        init_result = await self.fm_client_app.initialise_and_test_fm_client()
-        if init_result != "Successfully connected":
-            self.__log(
-                f"FlexMeasures client initialisation failed: {init_result}",
-                level="WARNING",
-            )
-            return
+        await self.fm_client_app.initialise_and_test_fm_client()
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
@@ -1005,7 +1173,7 @@ class V2GLibertyGlobals:
         c.ELECTRICITY_PROVIDER = await self.__process_setting(
             setting_object=self.SETTING_ELECTRICITY_PROVIDER,
         )
-
+        # TODO: Do  just-in-time import, instantiation an kickoff. See charger_type
         if c.ELECTRICITY_PROVIDER == "au_amber_electric":
             c.HA_OWN_CONSUMPTION_PRICE_ENTITY_ID = await self.__process_setting(
                 setting_object=self.SETTING_OWN_CONSUMPTION_PRICE_ENTITY_ID,
@@ -1058,22 +1226,22 @@ class V2GLibertyGlobals:
                 f"    UTILITY_CONTEXT_DISPLAY_NAME: {c.UTILITY_CONTEXT_DISPLAY_NAME}."
             )
 
+        c.USE_VAT_AND_MARKUP = c.ELECTRICITY_PROVIDER == "nl_generic"
         # VAT & Markup are only relevant for electricity_providers "generic", for others we expect
         # netto prices including VAT and Markup. This also applies to self_provided data (e.g.
         # au_amber_electric and gb_octopus_energy).
-        self.use_vat_and_markup = c.ELECTRICITY_PROVIDER == "nl_generic"
 
-        if self.use_vat_and_markup:
-            self.energy_price_vat = await self.__process_setting(
+        if c.USE_VAT_AND_MARKUP:
+            c.ENERGY_PRICE_VAT = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_VAT,
             )
-            self.energy_price_markup_per_kwh = await self.__process_setting(
+            c.ENERGY_PRICE_MARKUP_PER_KWH = await self.__process_setting(
                 setting_object=self.SETTING_ENERGY_PRICE_MARKUP_PER_KWH,
             )
         else:
-            # Reset to defaults when not using VAT/markup
-            self.energy_price_vat = 0
-            self.energy_price_markup_per_kwh = 0
+            # Not reset VAT/MARKUP to factory defaults, the calculations in get_fm_data are based
+            # on USE_VAT_AND_MARKUP.
+            pass
 
         await self.__set_fm_optimisation_context()
 
@@ -1305,15 +1473,3 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
 
     result = start_dt <= now <= end_dt
     return result
-
-
-def parse_to_int(number_string, default_value: int):
-    """Reliably parse a string, float or int to an int. If un-parsable return the default value.
-    :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if parsing failed.
-    :return: parsed int
-    """
-    try:
-        return int(float(number_string))
-    except:
-        return default_value

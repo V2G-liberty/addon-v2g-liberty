@@ -11,10 +11,8 @@ from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now, time_round, time_ceil
 from .event_bus import EventBus
 
-
 # TODO:
 # Start times of Posting data sometimes seem incorrect, it is recommended to research them.
-
 
 class DataMonitor:
     """
@@ -48,6 +46,9 @@ class DataMonitor:
     # CONSTANTS
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
+    # TODO: These should be set in UnidirectionalEVSE??
+    AVAILABILITY_STATES = [1, 2, 4, 5, 11]
+
     # Data for separate is sent in separate calls.
     # As a call might fail we keep track of when the data (times-) series has started
     hourly_power_readings_since: datetime
@@ -80,13 +81,14 @@ class DataMonitor:
     connected_car_soc: Union[int, None] = None
 
     fm_client_app: object = None
-    evse_client_app: object = None
     hass: Hass = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.__log = get_class_method_logger(hass.log)
         self.event_bus = event_bus
+        self.charger_state = None
+        self.charge_mode = None
 
     async def initialize(self):
         self.__log("Initializing DataMonitor.")
@@ -140,6 +142,13 @@ class DataMonitor:
         await self.hass.run_hourly(self.__try_send_data, runtime)
         self.__log("Completed initializing DataMonitor")
 
+    def set_min_soc(self, min_soc_percent: float):
+        """
+        :params
+         - min_soc_percent (float): Minimum state of charge (Expected 10.0 - 55.0).
+        """
+        self.min_soc_percent = min_soc_percent
+
     async def _process_soc_change(self, new_soc: int, old_soc: int):
         if new_soc in self.EMPTY_STATES:
             # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
@@ -155,6 +164,7 @@ class DataMonitor:
 
     async def __handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """Handle changes in charger (car) state (eg automatic or not)"""
+        self.charge_mode = new["state"]
         await self.__record_availability()
 
     async def _handle_charger_state_change(
@@ -164,6 +174,7 @@ class DataMonitor:
         Ignore states with string "unavailable", this is not a value related to the availability
         that is recorded here.
         """
+        self.charger_state = new_charger_state
         if (
             old_charger_state in self.EMPTY_STATES
             or new_charger_state in self.EMPTY_STATES
@@ -354,12 +365,9 @@ class DataMonitor:
         """Check if car and charger are available for automatic charging."""
         # TODO:
         # How to take an upcoming calendar item in to account?
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        # Forced charging in progress if SoC is below the minimum SoC setting
-        is_evse_and_car_available = (
-            self.evse_client_app.is_available_for_automated_charging()
-        )
-        if is_evse_and_car_available and charge_mode == "Automatic":
+
+        is_evse_and_car_available = self.charger_state in self.AVAILABILITY_STATES
+        if is_evse_and_car_available and self.charge_mode == "Automatic":
             if self.connected_car_soc in self.EMPTY_STATES:
                 # SoC is unknown. Rare after previous check. Unknown would normally mean,
                 # disconnected or error.
@@ -367,9 +375,9 @@ class DataMonitor:
                 # no-availability.
                 return False
             else:
-                return self.connected_car_soc >= c.CAR_MIN_SOC_IN_PERCENT
+                # Forced charging in progress if SoC is below the minimum SoC setting
+                return self.connected_car_soc >= self.min_soc_percent
         return False
-
 
 def len_to_iso_duration(nr_of_intervals: int) -> str:
     duration = nr_of_intervals * c.FM_EVENT_RESOLUTION_IN_MINUTES

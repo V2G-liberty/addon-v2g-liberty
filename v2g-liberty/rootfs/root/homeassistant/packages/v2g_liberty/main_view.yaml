@@ -9,55 +9,88 @@
       entities:
         - entity: sensor.charger_state_text
         - entity: sensor.charger_real_charging_power
+        - entity: input_text.charger_type
+        - entity: input_text.car_name
       content: >-
-        <ha-icon icon="mdi:ev-station"></ha-icon> <div title="Polling
-        charger">&nbsp;{{
-        states('sensor.poll_refresh_indicator')}}</div>
-        <table><tbody><tr><th> {{ states('sensor.charger_state_text') }}
-        </th><td>{%
-        if states('sensor.charger_real_charging_power') in ['unavailable', 'unknown']
-        %}?{%
-        else
-        %}{{ states('sensor.charger_real_charging_power')}}{%
-        endif
-        %} Watt</td></tr></tbody></table>
+        {% set charger_type_raw = states('input_text.charger_type') %}
+        {% set car_name_raw = states('input_text.car_name') %}
+        {% set charger_state = states('sensor.charger_state_text') %}
+        {% set charging_power = states('sensor.charger_real_charging_power') %}
+
+        {% set charger_type_map = {
+          'wallbox-quasar-1': 'Wallbox Quasar 1',
+          'evtec-bidi-pro-10': 'EVtec BiDiPro10',
+          '': 'Charger (generic)',
+          'unavailable': 'Charger (generic)',
+          'unknown': 'Charger (generic)'
+        } %}
+        {% set charger_display = charger_type_map.get(charger_type_raw, 'Charger (generic)') %}
+
+        {% set car_connected = charger_state not in ['No car connected', 'Error', 'No car connected and charger locked', 'unavailable', 'unknown', ''] %}
+        {% set show_car_name = car_connected and car_name_raw not in ['unavailable', 'unknown', ''] %}
+
+        <table><thead><tr>
+          <th>{{ charger_display }}{% if show_car_name %} <span>&#x26AF;</span> {{ car_name_raw }}{% endif %}</th>
+          <td title="Polling charger">&nbsp;{{ states('sensor.poll_refresh_indicator') }}</td>
+        </tr></thead></table>
+
+        <table><tbody><tr>
+          <th>{{ charger_state }}</th>
+          <td>{% if charging_power in ['unavailable', 'unknown'] %}?{% else %}{{ charging_power }}{% endif %}<span>W</span></td>
+        </tr></tbody></table>
       layout_options:
         grid_columns: full
         grid_rows: 2
       card_mod:
         style:
-          .: |
-            ha-card {
-              font-size: 123%;
-            }
           ha-markdown$: |
-            div {
-              color: #999999;
-              font-size: 70%
-              font-weight: bold;
-              position: absolute;
-              top: 10px;
-              right: 15px;
-            }
-            div:hover:before {
-              content: "Receiving data";
-              color: var(--success-color);
-              font-size: 70%;
-            }
             table {
               width: 100%;
-              max-width: 100%;
-              margin: 8px 0;
+              table-layout: fixed;
+              margin: 0;
+            }
+            thead * {
+              color: #999999;
+              padding: 0 2px;
+            }
+            thead td {
+              min-width: 24px;
+            }
+            thead th {
+              width: 90%;
+            }
+            tr * {
+              padding: 0;
+              border: none !important;
+            }
+            th span {
+              font-weight: bold;
+              color: var(--primary-color);
+              padding-bottom: 2px;
+            }
+            tbody td span {
+              color: #999999;
+              padding-left: 4px;
+              font-size: 90%;
+            }
+            # thead td:hover:before {
+            #   content: "Receiving data";
+            #   color: var(--success-color);
+            # }
+            table + table {
+              margin-top: 16px;
+            }
+            tbody * {
+              font-size: 123%;
             }
             th {
-              border: none !important;
               font-weight: normal;
-              text-align: left;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
             td {
-              border: none !important;
               text-align: right;
-              vertical-align: top;
             }
     - type: conditional
       conditions:
@@ -387,20 +420,6 @@
             enabled: true
           animations:
             enabled: false
-          events:
-            legendClick: |
-              EVAL: function(chartContext, seriesIndex, opts) {
-                const seriesName = opts.config.series[seriesIndex].name;
-                if (seriesName === 'Buy price') {
-                  chartContext.toggleSeries('Buy price (forecast)');
-                }
-                if (seriesName === 'Sell price') {
-                  chartContext.toggleSeries('Sell price (forecast)');
-                }
-                if (seriesName === 'CO2 emissions') {
-                  chartContext.toggleSeries('CO2 emissions (forecast)');
-                }
-              }
       graph_span: 24h
       span:
         start: hour
@@ -421,11 +440,7 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            return records.map((record, index) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.soc_prognosis_max_charge_now
@@ -439,11 +454,7 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            return records.map((record, index) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.soc_prognosis_boost
@@ -456,16 +467,10 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            return records.map((record, index) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
-        # CO2 emissions - FIXED (solid line)
         - entity: sensor.co2_emissions
-          name: "CO2 emissions"
           show:
             hidden_by_default: true
             legend_value: false
@@ -477,62 +482,11 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            const efp = entity.attributes.end_of_fixed_prices_dt;
-            if (!efp) {
-              // No EFP = show all as fixed
-              return records.map((record) => {
-                return [new Date(record.time).getTime(), record.emission];
-              });
-            }
-            const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() <= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.emission];
-              });
-          type: line
-        # CO2 emissions - FORECAST (dotted line)
-        - entity: sensor.co2_emissions
-          name: "CO2 emissions (forecast)"
-          show:
-            hidden_by_default: true
-            legend_value: false
-            in_header: false
-          transform: return x / 6;
-          color: "#ADD6B2"
-          opacity: 1
-          extend_to: false
-          stroke_width: 1
-          stroke_dash: 2
-          curve: stepline
-          yaxis_id: ElectricityPriceAxis
-          data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            const efp = entity.attributes.end_of_fixed_prices_dt;
-            if (!efp) {
-              // No EFP = no forecast data
-              return [];
-            }
-            const efpTime = new Date(efp).getTime();
-            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
-            if (filtered.length <= 1) {
-              // Single point doesn't make sense for stepline chart
-              return [];
-            }
-            return filtered.map((record) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.emission];
             });
           type: line
-        # Production prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.production_prices
-          name: "Sell price"
           show:
             hidden_by_default: true
             legend_value: false
@@ -550,68 +504,11 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            const efp = entity.attributes.end_of_fixed_prices_dt;
-            if (!efp) {
-              // No EFP = show all as fixed (non-EPEX providers)
-              return records.map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
-            }
-            const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() <= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
-          type: line
-        # Production prices - FORECAST (dotted line)
-        - entity: sensor.production_prices
-          name: "Sell price (forecast)"
-          show:
-            hidden_by_default: true
-            legend_value: false
-            in_header: false
-          color_threshold:
-            - value: 0
-              color: red
-              opacity: 0.9
-            - value: 1
-              color: "#FBCCD6"
-              opacity: 1
-          color: "#FBCCD6"
-          opacity: 1
-          extend_to: false
-          stroke_width: 1
-          stroke_dash: 2
-          curve: stepline
-          yaxis_id: ElectricityPriceAxis
-          data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            const efp = entity.attributes.end_of_fixed_prices_dt;
-            if (!efp) {
-              // No EFP = no forecast data (non-EPEX providers)
-              return [];
-            }
-            const efpTime = new Date(efp).getTime();
-            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
-            if (filtered.length <= 1) {
-              // Single point doesn't make sense for stepline chart
-              return [];
-            }
-            return filtered.map((record) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.price];
             });
           type: line
-        # Consumption prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.consumption_prices
-          name: "Buy price"
           show:
             legend_value: false
           color_threshold:
@@ -628,61 +525,7 @@
           curve: stepline
           yaxis_id: ElectricityPriceAxis
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            const efp = entity.attributes.end_of_fixed_prices_dt;
-            if (!efp) {
-              // No EFP = show all as fixed (non-EPEX providers)
-              return records.map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
-            }
-            const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() <= efpTime)
-              .map((record) => {
-                return [new Date(record.time).getTime(), record.price];
-              });
-          type: line
-        # Consumption prices - FORECAST (dotted line)
-        - entity: sensor.consumption_prices
-          name: "Buy price (forecast)"
-          show:
-            legend_value: false
-            in_header: false
-          color_threshold:
-            - value: -100
-              color: green
-              opacity: 0.9
-            - value: 0
-              color: "#C393C5"
-              opacity: 1
-          color: "#C393C5"
-          opacity: 1
-          extend_to: false
-          stroke_width: 1
-          stroke_dash: 2
-          curve: stepline
-          yaxis_id: ElectricityPriceAxis
-          data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            const efp = entity.attributes.end_of_fixed_prices_dt;
-            if (!efp) {
-              // No EFP = no forecast data (non-EPEX providers)
-              return [];
-            }
-            const efpTime = new Date(efp).getTime();
-            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
-            if (filtered.length <= 1) {
-              // Single point doesn't make sense for stepline chart
-              return [];
-            }
-            return filtered.map((record) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.price];
             });
           type: line
@@ -695,11 +538,7 @@
           extend_to: false
           yaxis_id: SoC
           data_generator: |
-            const records = entity.attributes.records;
-            if (!records || !Array.isArray(records) || records.length === 0) {
-              return [];
-            }
-            return records.map((record, index) => {
+            return entity.attributes.records.map((record, index) => {
               return [new Date(record.time).getTime(), record.soc];
             });
         - entity: sensor.car_state_of_charge
@@ -740,10 +579,7 @@
           }
           div[seriesname="Calendarxitemxinxchart"],
           div[seriesname="SoCxBoostxchartxdata"],
-          div[seriesname="SoCxMaxxChargexNowxchartxdata"],
-          div[seriesname="Buyxpricexxforecastx"],
-          div[seriesname="Sellxpricexxforecastx"],
-          div[seriesname="CO2xemissionsxxforecastx"] {
+          div[seriesname="SoCxMaxxChargexNowxchartxdata"] {
             display: none;
           }
     - type: markdown
