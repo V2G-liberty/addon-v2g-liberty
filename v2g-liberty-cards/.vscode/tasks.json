@@ -1,0 +1,26 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "NPM Build",
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": [],
+      "detail": "Build the V2G Liberty cards using Parcel"
+    },
+    {
+      "label": "NPM Watch",
+      "type": "npm",
+      "script": "watch",
+      "problemMatcher": [],
+      "detail": "Watch and rebuild V2G Liberty cards on file changes",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}
