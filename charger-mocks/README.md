@@ -30,6 +30,9 @@ pip install -r requirements.txt
 ```bash
 cd charger-mocks/quasar
 python cli.py
+
+# If running from inside the devcontainer (e.g., VS Code):
+python cli.py --host quasar-mock
 ```
 
 **Expected output:**
@@ -132,6 +135,7 @@ The correct address depends on **where you're connecting from**:
 | **Home Assistant UI** (charger config) | `quasar-mock:5020` | Home Assistant runs in Docker network, uses service name |
 | **V2G Liberty app** (in container) | `quasar-mock:5020` | AppDaemon runs in Docker network, uses service name |
 | **CLI from host machine** | `localhost:5020` | CLI runs on host, uses Docker port mapping |
+| **CLI from inside devcontainer** | `quasar-mock:5020` | CLI runs in Docker network, uses service name |
 | **With Load Balancer enabled** | `127.0.0.1:5020` | Load balancer proxies between app and charger |
 
 ### Why NOT to Use `0.0.0.0`

@@ -674,6 +674,12 @@ class V2GLibertyGlobals:
 
         # Save to settings.json (note: car_ev_id is internal, not exposed as HA entity)
         self.v2g_settings.store_setting("car_ev_id", ev_id)
+        self.__store_setting("input_text.car_name", car_name)
+        self.__store_setting("input_number.car_max_capacity_in_kwh", capacity_kwh)
+        self.__store_setting(
+            "input_number.charger_plus_car_roundtrip_efficiency", efficiency
+        )
+        self.__store_setting("input_number.car_consumption_wh_per_km", consumption_wh_km)
 
         # Save to HA entities
         await self.__write_setting_to_ha(self.SETTING_CAR_NAME, car_name, "user_input")
@@ -994,6 +1000,10 @@ class V2GLibertyGlobals:
 
         c.OPTIMISATION_MODE = await self.__process_setting(
             setting_object=self.SETTING_OPTIMISATION_MODE,
+        )
+
+        await self.__process_setting(
+            setting_object=self.SETTING_CAR_NAME,
         )
 
         ev_consumption_wh_per_km = await self.__process_setting(

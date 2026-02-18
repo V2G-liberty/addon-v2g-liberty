@@ -9,55 +9,88 @@
       entities:
         - entity: sensor.charger_state_text
         - entity: sensor.charger_real_charging_power
+        - entity: input_text.charger_type
+        - entity: input_text.car_name
       content: >-
-        <ha-icon icon="mdi:ev-station"></ha-icon> <div title="Polling
-        charger">&nbsp;{{
-        states('sensor.poll_refresh_indicator')}}</div>
-        <table><tbody><tr><th> {{ states('sensor.charger_state_text') }}
-        </th><td>{%
-        if states('sensor.charger_real_charging_power') in ['unavailable', 'unknown']
-        %}?{%
-        else
-        %}{{ states('sensor.charger_real_charging_power')}}{%
-        endif
-        %} Watt</td></tr></tbody></table>
+        {% set charger_type_raw = states('input_text.charger_type') %}
+        {% set car_name_raw = states('input_text.car_name') %}
+        {% set charger_state = states('sensor.charger_state_text') %}
+        {% set charging_power = states('sensor.charger_real_charging_power') %}
+
+        {% set charger_type_map = {
+          'wallbox-quasar-1': 'Wallbox Quasar 1',
+          'evtec-bidi-pro-10': 'EVtec BiDiPro10',
+          '': 'Charger (generic)',
+          'unavailable': 'Charger (generic)',
+          'unknown': 'Charger (generic)'
+        } %}
+        {% set charger_display = charger_type_map.get(charger_type_raw, 'Charger (generic)') %}
+
+        {% set car_connected = charger_state not in ['No car connected', 'Error', 'No car connected and charger locked', 'unavailable', 'unknown', ''] %}
+        {% set show_car_name = car_connected and car_name_raw not in ['unavailable', 'unknown', ''] %}
+
+        <table><thead><tr>
+          <th>{{ charger_display }}{% if show_car_name %} <span>&#x26AF;</span> {{ car_name_raw }}{% endif %}</th>
+          <td title="Polling charger">&nbsp;{{ states('sensor.poll_refresh_indicator') }}</td>
+        </tr></thead></table>
+
+        <table><tbody><tr>
+          <th>{{ charger_state }}</th>
+          <td>{% if charging_power in ['unavailable', 'unknown'] %}?{% else %}{{ charging_power }}{% endif %}<span>W</span></td>
+        </tr></tbody></table>
       layout_options:
         grid_columns: full
         grid_rows: 2
       card_mod:
         style:
-          .: |
-            ha-card {
-              font-size: 123%;
-            }
           ha-markdown$: |
-            div {
-              color: #999999;
-              font-size: 70%
-              font-weight: bold;
-              position: absolute;
-              top: 10px;
-              right: 15px;
-            }
-            div:hover:before {
-              content: "Receiving data";
-              color: var(--success-color);
-              font-size: 70%;
-            }
             table {
               width: 100%;
-              max-width: 100%;
-              margin: 8px 0;
+              table-layout: fixed;
+              margin: 0;
+            }
+            thead * {
+              color: #999999;
+              padding: 0 2px;
+            }
+            thead td {
+              min-width: 24px;
+            }
+            thead th {
+              width: 90%;
+            }
+            tr * {
+              padding: 0;
+              border: none !important;
+            }
+            th span {
+              font-weight: bold;
+              color: var(--primary-color);
+              padding-bottom: 2px;
+            }
+            tbody td span {
+              color: #999999;
+              padding-left: 4px;
+              font-size: 90%;
+            }
+            # thead td:hover:before {
+            #   content: "Receiving data";
+            #   color: var(--success-color);
+            # }
+            table + table {
+              margin-top: 16px;
+            }
+            tbody * {
+              font-size: 123%;
             }
             th {
-              border: none !important;
               font-weight: normal;
-              text-align: left;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
             }
             td {
-              border: none !important;
               text-align: right;
-              vertical-align: top;
             }
     - type: conditional
       conditions:

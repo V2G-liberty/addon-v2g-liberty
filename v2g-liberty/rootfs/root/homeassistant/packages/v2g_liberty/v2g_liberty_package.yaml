@@ -430,7 +430,6 @@ template:
 input_text:
   car_name:
     name: Car name
-    initial: ""
     icon: mdi:car-settings
 
   car_calendar_source:
