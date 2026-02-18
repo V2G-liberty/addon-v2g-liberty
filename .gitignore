@@ -3,6 +3,10 @@ v2g-liberty/data/
 v2g-liberty/logs/
 .DS_Store
 
+# Claude Code configuration (local only)
+CLAUDE.md
+.claude/
+
 # Local devcontainer overrides (private)
 .devcontainer/**/*.override.*
 

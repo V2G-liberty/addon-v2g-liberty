@@ -1,15 +1,12 @@
 # What's changed?
 
-## 0.7.4 2026-02-04
+## 0.7.5 2026-02-15
 
 ### Fixed
 
-- PR: Fix fm data importer initialise (#397)
+- 🪲 BUG: Charge and Discharge function sometimes slow or failing (#371)
 
 ### Added
-
-- 🚀 FEAT: Be able to use hostname instead of only IP-address for charger host in UI (#380)
-- 🚀 PR: Show price forecasts in chart as dotted line (#392)
 
 ### Changed
 
