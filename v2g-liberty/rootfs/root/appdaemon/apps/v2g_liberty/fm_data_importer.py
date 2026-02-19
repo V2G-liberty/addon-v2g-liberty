@@ -61,8 +61,14 @@ class FlexMeasuresDataImporter:
     CHECK_DATA_STATUS_TIME: str = fm_constants.CHECK_DATA_STATUS_TIME
     CHECK_RESOLUTION_SECONDS: int = fm_constants.CHECK_RESOLUTION_SECONDS
 
-    # Single flag for ENTSOE-based freshness (prices and emissions share the same source)
+    # Single flag for ENTSOE-based freshness (prices and emissions share the same source).
+    # Reset to False at the start of every daily_kickoff_price_data call so a stale True
+    # from a previous day cannot persist and suppress notifications.
     entsoe_data_is_up_to_date: bool = False
+
+    # Tracks whether a push notification for missing prices has been sent.
+    # Used to distinguish recovery scenario no-push-to-clear from push-to-replace.
+    _critical_price_notification_sent: bool = False
 
     timer_id_daily_kickoff_price_data: str = ""
     timer_id_daily_kickoff_emissions_data: str = ""
@@ -112,6 +118,7 @@ class FlexMeasuresDataImporter:
         # - A price_point dict: When a negative price is detected.
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
+        self._critical_price_notification_sent = False
 
         # Initialise refactored components
         self._initialise_components()
@@ -251,6 +258,10 @@ class FlexMeasuresDataImporter:
                   Supports 'is_initial_call' (bool): If True, fetch prices even if
                   ENTSOE data isn't fresh (to populate UI on startup).
         """
+        # Reset flag at the start of every run so a stale True from the previous day
+        # cannot persist and silently suppress the missing-prices notification.
+        self.entsoe_data_is_up_to_date = False
+
         # AppDaemon's run_in passes kwargs as a dict inside args[0]
         is_initial_call = False
         if args and isinstance(args[0], dict):
@@ -268,7 +279,6 @@ class FlexMeasuresDataImporter:
 
         # Check if tomorrow's data is available
         is_fresh = self.entsoe_fetcher.is_tomorrow_data_available(entsoe_latest_dt, now)
-        self.entsoe_data_is_up_to_date = is_fresh
 
         self.__log(
             f"ENTSOE latest_dt: {entsoe_latest_dt}, is_fresh: {is_fresh}, "
@@ -293,17 +303,34 @@ class FlexMeasuresDataImporter:
                 )
             return
 
-        # ENTSOE confirms fresh data exists (or it's initial call) - fetch prices
-        await self.get_prices(
+        # ENTSOE confirms fresh data exists (or it's an initial call) — fetch prices.
+        # Check return values: even when ENTSOE is fresh, FM price retrieval can fail.
+        consumption_ok = await self.get_prices(
             price_type="consumption", entsoe_latest_dt=entsoe_latest_dt
         )
-        await self.get_prices(
+        production_ok = await self.get_prices(
             price_type="production", entsoe_latest_dt=entsoe_latest_dt
         )
         await self.get_emission_intensities(entsoe_latest_dt=entsoe_latest_dt)
 
-        if is_fresh:
+        prices_ok = consumption_ok and production_ok
+        if is_fresh and prices_ok:
+            # Prices successfully retrieved and ENTSOE confirms they are for tomorrow.
+            self.entsoe_data_is_up_to_date = True
+            self._critical_price_notification_sent = False
             await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
+        elif not prices_ok:
+            # ENTSOE fresh but FM price retrieval failed — flag stays False, schedule retry.
+            self.__log(
+                "ENTSOE data is fresh but price retrieval failed. Will retry.",
+                level="WARNING",
+            )
+            if is_local_now_between(
+                start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
+            ):
+                await self.hass.run_in(
+                    self.daily_kickoff_price_data, delay=self.CHECK_RESOLUTION_SECONDS
+                )
 
         self.__log("completed")
 
@@ -653,20 +680,29 @@ class FlexMeasuresDataImporter:
         To be run once a day a few hours after the normal publication time of the prices
         and soon enough to give user a chance to take measures.
 
+        Scenario C: prices not available at CHECK_DATA_STATUS_TIME — send push notification.
+        Note: no title is set deliberately; a title makes notification content harder to
+        read on the lock screen as the message already provides sufficient context.
+        Future improvement: send as critical to admin only, non-critical to other users,
+        so the admin can add prices to FM manually. Requires two separate notify_user calls.
+
         :return: Nothing
         """
         self.__log("Called")
         if not self.entsoe_data_is_up_to_date:
             self.__log("ENTSOE data not up to date, notifying user.")
             self.notifier.notify_user(
-                message="Price data not available, could not check for negative prices. "
-                "Scheduling should continue as normal.",
+                message=(
+                    "Electricity prices for tomorrow are not yet available. "
+                    "Scheduling will continue based on existing data."
+                ),
                 title=None,
                 tag="no_price_data",
-                critical=False,
+                critical=False,  # To be reconsidered after user consultation
                 send_to_all=False,
             )
-            # Kickoff process to clear the notification if possible.
+            self._critical_price_notification_sent = True
+            # Kick off process to clear the notification if prices arrive later.
             await self.hass.run_in(
                 self.__check_if_prices_are_up_to_date_again,
                 delay=self.CHECK_RESOLUTION_SECONDS,
@@ -677,8 +713,15 @@ class FlexMeasuresDataImporter:
         Try to remove the notification about price data missing.
         Only used for EPEX based contracts, kicked off by __check_if_prices_are_up_to_date.
         Runs periodically until:
-           - ENTSOE data is up to date again
+           - ENTSOE data is up to date again (prices arrived)
            - The TRY_UNTIL time is reached
+
+        Scenario D: prices arrive before __check_if_prices_are_up_to_date fires (no push
+                    was sent) — only the UI boolean needs clearing.
+        Scenario E: prices arrive after the push notification was sent — clear the old
+                    notification and send a "prices received" confirmation.
+        Scenario F: TRY_UNTIL reached without prices — replace notification with a final
+                    informational message.
 
         :param args: Not used, only for compatibility with 'run_in' method.
         :return: None
@@ -686,8 +729,28 @@ class FlexMeasuresDataImporter:
         self.__log("Called")
         if self.entsoe_data_is_up_to_date:
             await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
-            self.notifier.clear_notification(tag="no_price_data")
-            self.__log("ENTSOE data up to date again: notification cleared.")
+            if self._critical_price_notification_sent:
+                # Scenario E: push notification was sent — replace with confirmation.
+                self.notifier.clear_notification(tag="no_price_data")
+                self.notifier.notify_user(
+                    message=(
+                        "Electricity prices for tomorrow have now been received. "
+                        "Scheduling will resume as normal."
+                    ),
+                    title=None,
+                    tag="no_price_data",
+                    critical=False,
+                    send_to_all=False,
+                )
+                self._critical_price_notification_sent = False
+                self.__log(
+                    "Prices received: push notification replaced with confirmation."
+                )
+            else:
+                # Scenario D: prices arrived before any push was sent — UI boolean cleared.
+                self.__log(
+                    "Prices received: UI indicator cleared (no push notification was sent)."
+                )
         elif is_local_now_between(
             start_time=self.GET_PRICES_TIME, end_time=self.TRY_UNTIL
         ):
@@ -697,8 +760,21 @@ class FlexMeasuresDataImporter:
                 delay=self.CHECK_RESOLUTION_SECONDS,
             )
         else:
+            # Scenario F: TRY_UNTIL reached without prices — replace notification with
+            # a final informational message; the system will retry tomorrow.
             self.__log(
-                "ENTSOE data not up to date but outside retry window, no recheck."
+                "ENTSOE data not up to date and outside retry window: "
+                "sending final notification."
+            )
+            self.notifier.notify_user(
+                message=(
+                    "Electricity prices for tomorrow have not been received. "
+                    "V2G Liberty will automatically try again later today."
+                ),
+                title=None,
+                tag="no_price_data",
+                critical=False,
+                send_to_all=False,
             )
 
     def __check_negative_price_notification(self, price_point: dict, price_type: str):
