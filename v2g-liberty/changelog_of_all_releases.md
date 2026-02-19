@@ -7,7 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- 🪲 BUG: Fixed failing "no prices" notification (PR xxx)
+- 🪲 BUG: Fixed failing "no prices" notification (#402)
 
 ### Added
 

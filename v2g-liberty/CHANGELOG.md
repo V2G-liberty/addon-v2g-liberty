@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- 🪲 BUG: Fixed failing "no prices" notification (PR xxx)
+- 🪲 BUG: Fixed failing "no prices" notification (#402)
 
 ### Added
 
