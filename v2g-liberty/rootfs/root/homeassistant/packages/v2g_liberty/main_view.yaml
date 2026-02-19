@@ -489,11 +489,15 @@
               });
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() <= efpTime)
+            const fixed = records
+              .filter((record) => new Date(record.time).getTime() < efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.emission];
               });
+            if (fixed.length === 0) return [];
+            // Add trailing point at EFP boundary to end with horizontal line
+            fixed.push([efpTime, fixed[fixed.length - 1][1]]);
+            return fixed;
           type: line
         # CO2 emissions - FORECAST (dotted line)
         - entity: sensor.co2_emissions
@@ -521,14 +525,23 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
-            if (filtered.length <= 1) {
-              // Single point doesn't make sense for stepline chart
-              return [];
+            const forecast = records
+              .filter((record) => new Date(record.time).getTime() >= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.emission];
+              });
+            if (forecast.length === 0) return [];
+            // Find last fixed record to create shared transition point
+            const fixedRecs = records.filter((record) => new Date(record.time).getTime() < efpTime);
+            const result = [];
+            if (fixedRecs.length > 0) {
+              // Start forecast at fixed level to show vertical transition
+              const lastFixed = fixedRecs[fixedRecs.length - 1];
+              result.push([efpTime, lastFixed.emission]);
             }
-            return filtered.map((record) => {
-              return [new Date(record.time).getTime(), record.emission];
-            });
+            forecast.forEach((point) => result.push(point));
+            if (result.length <= 1) return [];
+            return result;
           type: line
         # Production prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.production_prices
@@ -562,11 +575,15 @@
               });
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() <= efpTime)
+            const fixed = records
+              .filter((record) => new Date(record.time).getTime() < efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.price];
               });
+            if (fixed.length === 0) return [];
+            // Add trailing point at EFP boundary to end with horizontal line
+            fixed.push([efpTime, fixed[fixed.length - 1][1]]);
+            return fixed;
           type: line
         # Production prices - FORECAST (dotted line)
         - entity: sensor.production_prices
@@ -600,14 +617,23 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
-            if (filtered.length <= 1) {
-              // Single point doesn't make sense for stepline chart
-              return [];
+            const forecast = records
+              .filter((record) => new Date(record.time).getTime() >= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
+            if (forecast.length === 0) return [];
+            // Find last fixed record to create shared transition point
+            const fixedRecs = records.filter((record) => new Date(record.time).getTime() < efpTime);
+            const result = [];
+            if (fixedRecs.length > 0) {
+              // Start forecast at fixed level to show vertical transition
+              const lastFixed = fixedRecs[fixedRecs.length - 1];
+              result.push([efpTime, lastFixed.price]);
             }
-            return filtered.map((record) => {
-              return [new Date(record.time).getTime(), record.price];
-            });
+            forecast.forEach((point) => result.push(point));
+            if (result.length <= 1) return [];
+            return result;
           type: line
         # Consumption prices - FIXED (solid line, day-ahead EPEX prices)
         - entity: sensor.consumption_prices
@@ -640,11 +666,15 @@
               });
             }
             const efpTime = new Date(efp).getTime();
-            return records
-              .filter((record) => new Date(record.time).getTime() <= efpTime)
+            const fixed = records
+              .filter((record) => new Date(record.time).getTime() < efpTime)
               .map((record) => {
                 return [new Date(record.time).getTime(), record.price];
               });
+            if (fixed.length === 0) return [];
+            // Add trailing point at EFP boundary to end with horizontal line
+            fixed.push([efpTime, fixed[fixed.length - 1][1]]);
+            return fixed;
           type: line
         # Consumption prices - FORECAST (dotted line)
         - entity: sensor.consumption_prices
@@ -677,14 +707,23 @@
               return [];
             }
             const efpTime = new Date(efp).getTime();
-            const filtered = records.filter((record) => new Date(record.time).getTime() >= efpTime);
-            if (filtered.length <= 1) {
-              // Single point doesn't make sense for stepline chart
-              return [];
+            const forecast = records
+              .filter((record) => new Date(record.time).getTime() >= efpTime)
+              .map((record) => {
+                return [new Date(record.time).getTime(), record.price];
+              });
+            if (forecast.length === 0) return [];
+            // Find last fixed record to create shared transition point
+            const fixedRecs = records.filter((record) => new Date(record.time).getTime() < efpTime);
+            const result = [];
+            if (fixedRecs.length > 0) {
+              // Start forecast at fixed level to show vertical transition
+              const lastFixed = fixedRecs[fixedRecs.length - 1];
+              result.push([efpTime, lastFixed.price]);
             }
-            return filtered.map((record) => {
-              return [new Date(record.time).getTime(), record.price];
-            });
+            forecast.forEach((point) => result.push(point));
+            if (result.length <= 1) return [];
+            return result;
           type: line
         - entity: sensor.soc_prognosis
           show:
