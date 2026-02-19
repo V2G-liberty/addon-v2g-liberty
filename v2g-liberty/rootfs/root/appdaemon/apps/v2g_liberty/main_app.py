@@ -140,7 +140,13 @@ class V2Gliberty:
         }
 
         # Reset at init
-        await self.hass.turn_off("input_boolean.charger_modbus_communication_fault")
+        try:
+            await self.hass.turn_off("input_boolean.charger_modbus_communication_fault")
+        except Exception:
+            self.__log(
+                "Could not reset charger_modbus_communication_fault (HA not ready yet).",
+                level="WARNING",
+            )
         await self.set_price_is_up_to_date(is_up_to_date=True)
 
         self.notification_timer_handle = None
