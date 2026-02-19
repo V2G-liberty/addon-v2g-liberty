@@ -12,6 +12,8 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
+- 🚀 FEAT: Auto-configure configuration.yaml (#404)
+
 ### Changed
 
 ## 0.7.5 2026-02-15

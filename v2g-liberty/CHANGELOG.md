@@ -9,6 +9,8 @@
 
 ### Added
 
+- 🚀 FEAT: Auto-configure configuration.yaml (#404)
+
 ### Changed
 
 &nbsp;
