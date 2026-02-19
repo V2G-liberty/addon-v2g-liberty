@@ -1,10 +1,10 @@
 # What's changed?
 
-## 0.7.5 2026-02-15
+## 0.7.6 2026-02-??
 
 ### Fixed
 
-- 🪲 BUG: Charge and Discharge function sometimes slow or failing (#371)
+- 🪲 BUG: Fixed failing "no prices" notification (PR xxx)
 
 ### Added
 
