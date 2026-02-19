@@ -24,6 +24,11 @@ fi
 cp -aRv /root/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
     || bashio::exit.nok 'Failed to copy V2G-Liberty package'
 
+# Ensure the V2G Liberty package include is in HA's configuration.yaml
+bashio::log.info "Ensuring V2G Liberty package include in configuration.yaml..."
+python3 /root/scripts/ensure_ha_package_include.py \
+    || bashio::log.warning "Could not auto-configure configuration.yaml. See add-on logs."
+
 # Create folders for plugins if needed
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/apexcharts-card'; then
     mkdir -p /homeassistant/www/v2g_liberty/apexcharts-card

@@ -46,6 +46,12 @@
           "!include_dir_merge_list scalar",
           "!include_dir_merge_named scalar"
         ],
+        "python.analysis.extraPaths": [
+          "rootfs/root/appdaemon",
+          "rootfs/root/appdaemon/apps/load_balancer",
+          "rootfs/root/appdaemon/apps/v2g_liberty",
+          "rootfs/root/scripts"
+        ],
         "[python]": {
           "editor.defaultFormatter": "charliermarsh.ruff"
         }
