@@ -100,6 +100,7 @@ class V2GLibertyApp(Hass):
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
         data_monitor.evse_client_app = modbus_evse_client
+        data_monitor.reservations_client = reservations_client
         get_fm_data.v2g_main_app = main_app
         get_fm_data.fm_client_app = fm_client
         amber_price_data_manager.fm_client_app = fm_client

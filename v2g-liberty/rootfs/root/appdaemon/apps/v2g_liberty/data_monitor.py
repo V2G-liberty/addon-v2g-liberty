@@ -92,6 +92,8 @@ class DataMonitor:
     evse_client_app: object = None
     # For persisting interval data to local SQLite database
     data_store = None
+    # For subscribing to calendar_change events
+    reservations_client = None
     hass: Hass = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
@@ -143,6 +145,12 @@ class DataMonitor:
         self._app_state_durations = {}
         self._current_app_state = self._derive_app_state()
         self._current_app_state_since = local_now
+
+        # Reservation logging
+        if self.reservations_client is not None:
+            self.reservations_client.add_listener(
+                "calendar_change", self._handle_calendar_change
+            )
 
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         await self.hass.run_every(
@@ -196,6 +204,42 @@ class DataMonitor:
             # availability of charger/car.
             return
         await self.__record_availability()
+
+    async def _handle_calendar_change(self, v2g_events=None, v2g_args=None):
+        """Write reservation snapshots to the local database.
+
+        Called when the calendar changes. Each active (non-dismissed) reservation
+        is logged as a snapshot in reservation_log.
+        """
+        if self.data_store is None or v2g_events is None:
+            return
+
+        timestamp = get_local_now().isoformat()
+
+        for event in v2g_events:
+            if event == "un-initiated":
+                continue
+            if event.get("dismissed"):
+                continue
+
+            start = time_round(event["start"], c.EVENT_RESOLUTION)
+            end = time_round(event["end"], c.EVENT_RESOLUTION)
+            target_soc_pct = event.get("target_soc_percent")
+
+            try:
+                self.data_store.insert_reservation(
+                    timestamp=timestamp,
+                    start_timestamp=start.isoformat(),
+                    end_timestamp=end.isoformat(),
+                    target_soc_pct=(
+                        float(target_soc_pct) if target_soc_pct is not None else None
+                    ),
+                )
+            except Exception as e:
+                self.__log(
+                    f"Failed to write reservation to DB: {e}",
+                    level="WARNING",
+                )
 
     async def __record_availability(self, conclude_interval=False):
         """Record (non_)availability durations of time in current interval.
