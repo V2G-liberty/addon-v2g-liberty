@@ -504,3 +504,177 @@ class TestWriteIntervalToDb:
         call_kwargs = data_store.insert_interval.call_args[1]
         assert call_kwargs["power_kw"] == -2.5
         assert call_kwargs["energy_kwh"] == -0.208333
+
+
+# =====================================================================
+# _handle_calendar_change tests (T14)
+# =====================================================================
+
+
+class TestHandleCalendarChange:
+    """Tests for reservation logging via calendar_change events."""
+
+    def _make_event(
+        self,
+        start=None,
+        end=None,
+        target_soc_percent=80,
+        dismissed=False,
+    ):
+        """Create a v2g_event dict matching the reservations_client format."""
+        if start is None:
+            start = datetime(2026, 2, 23, 8, 0, 0, tzinfo=TEST_TZ)
+        if end is None:
+            end = datetime(2026, 2, 23, 17, 0, 0, tzinfo=TEST_TZ)
+        return {
+            "start": start,
+            "end": end,
+            "summary": "Work",
+            "description": "SoC: 80",
+            "target_soc_percent": target_soc_percent,
+            "hash_id": "abc123",
+            "dismissed": dismissed,
+        }
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_writes_reservation_to_db(self, mock_now, monitor, data_store):
+        event = self._make_event()
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+        data_store.insert_reservation.assert_called_once()
+        call_kwargs = data_store.insert_reservation.call_args[1]
+        assert call_kwargs["timestamp"] == TEST_NOW.isoformat()
+        assert call_kwargs["start_timestamp"] == "2026-02-23T08:00:00+01:00"
+        assert call_kwargs["end_timestamp"] == "2026-02-23T17:00:00+01:00"
+        assert call_kwargs["target_soc_pct"] == 80.0
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_skips_uninitiated_events(self, mock_now, monitor, data_store):
+        await monitor._handle_calendar_change(v2g_events=["un-initiated"])
+
+        data_store.insert_reservation.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_skips_dismissed_events(self, mock_now, monitor, data_store):
+        event = self._make_event(dismissed=True)
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+        data_store.insert_reservation.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_no_write_when_data_store_is_none(self, mock_now, monitor):
+        monitor.data_store = None
+        event = self._make_event()
+
+        # Should not raise
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_no_write_when_v2g_events_is_none(
+        self, mock_now, monitor, data_store
+    ):
+        await monitor._handle_calendar_change(v2g_events=None)
+
+        data_store.insert_reservation.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_rounds_timestamps_to_5_minutes(self, mock_now, monitor, data_store):
+        """Timestamps are rounded to nearest 5-min boundary."""
+        event = self._make_event(
+            start=datetime(2026, 2, 23, 8, 3, 0, tzinfo=TEST_TZ),
+            end=datetime(2026, 2, 23, 17, 7, 0, tzinfo=TEST_TZ),
+        )
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+        call_kwargs = data_store.insert_reservation.call_args[1]
+        assert call_kwargs["start_timestamp"] == "2026-02-23T08:05:00+01:00"
+        assert call_kwargs["end_timestamp"] == "2026-02-23T17:05:00+01:00"
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_rounds_down_when_below_half(self, mock_now, monitor, data_store):
+        """Timestamps round down when less than 2.5 min past a boundary."""
+        event = self._make_event(
+            start=datetime(2026, 2, 23, 8, 2, 0, tzinfo=TEST_TZ),
+            end=datetime(2026, 2, 23, 17, 1, 0, tzinfo=TEST_TZ),
+        )
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+        call_kwargs = data_store.insert_reservation.call_args[1]
+        assert call_kwargs["start_timestamp"] == "2026-02-23T08:00:00+01:00"
+        assert call_kwargs["end_timestamp"] == "2026-02-23T17:00:00+01:00"
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_handles_none_target_soc(self, mock_now, monitor, data_store):
+        event = self._make_event(target_soc_percent=None)
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+        call_kwargs = data_store.insert_reservation.call_args[1]
+        assert call_kwargs["target_soc_pct"] is None
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_processes_multiple_events(self, mock_now, monitor, data_store):
+        events = [
+            self._make_event(
+                start=datetime(2026, 2, 23, 8, 0, 0, tzinfo=TEST_TZ),
+                end=datetime(2026, 2, 23, 12, 0, 0, tzinfo=TEST_TZ),
+                target_soc_percent=80,
+            ),
+            self._make_event(
+                start=datetime(2026, 2, 24, 9, 0, 0, tzinfo=TEST_TZ),
+                end=datetime(2026, 2, 24, 18, 0, 0, tzinfo=TEST_TZ),
+                target_soc_percent=90,
+            ),
+        ]
+        await monitor._handle_calendar_change(v2g_events=events)
+
+        assert data_store.insert_reservation.call_count == 2
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_skips_dismissed_keeps_active(self, mock_now, monitor, data_store):
+        """In a mixed list, dismissed events are skipped, active ones are written."""
+        events = [
+            self._make_event(dismissed=True),
+            self._make_event(
+                start=datetime(2026, 2, 24, 9, 0, 0, tzinfo=TEST_TZ),
+                end=datetime(2026, 2, 24, 18, 0, 0, tzinfo=TEST_TZ),
+                dismissed=False,
+            ),
+        ]
+        await monitor._handle_calendar_change(v2g_events=events)
+
+        assert data_store.insert_reservation.call_count == 1
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
+    async def test_handles_db_exception_gracefully(
+        self, mock_now, monitor, data_store, hass
+    ):
+        """DB exception should be caught and logged as WARNING."""
+        data_store.insert_reservation.side_effect = Exception("DB locked")
+        event = self._make_event()
+
+        # Should not raise
+        await monitor._handle_calendar_change(v2g_events=[event])
+
+        # Check that a warning was logged (log_wrapper passes msg= and level= as kwargs)
+        warning_logged = False
+        for call in hass.log.call_args_list:
+            kwargs = call.kwargs or {}
+            msg = kwargs.get("msg", "")
+            if (
+                "Failed to write reservation" in msg
+                and kwargs.get("level") == "WARNING"
+            ):
+                warning_logged = True
+                break
+        assert warning_logged
