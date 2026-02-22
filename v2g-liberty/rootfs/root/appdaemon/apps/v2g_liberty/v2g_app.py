@@ -11,6 +11,7 @@ from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
+from .data_store import DataStore
 from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
@@ -60,6 +61,10 @@ class V2GLibertyApp(Hass):
         self._log_init_time("V2Gliberty", start_module)
 
         start_module = datetime.now()
+        data_store = DataStore(self)
+        self._log_init_time("DataStore", start_module)
+
+        start_module = datetime.now()
         data_monitor = DataMonitor(self, event_bus=event_bus)
         self._log_init_time("DataMonitor", start_module)
 
@@ -101,6 +106,10 @@ class V2GLibertyApp(Hass):
         main_app.reservations_client = reservations_client
         data_monitor.evse_client_app = modbus_evse_client
         data_monitor.reservations_client = reservations_client
+        data_monitor.data_store = data_store
+        get_fm_data.data_store = data_store
+        amber_price_data_manager.data_store = data_store
+        octopus_price_data_manager.data_store = data_store
         get_fm_data.v2g_main_app = main_app
         get_fm_data.fm_client_app = fm_client
         amber_price_data_manager.fm_client_app = fm_client
@@ -120,6 +129,10 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await notifier.initialize()
         self._log_init_time("notifier.initialize()", start_module)
+
+        start_module = datetime.now()
+        await data_store.initialise()
+        self._log_init_time("data_store.initialise()", start_module)
 
         start_module = datetime.now()
         await amber_price_data_manager.initialize()
