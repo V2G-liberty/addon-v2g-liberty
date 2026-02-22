@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
 from .v2g_globals import (
     get_local_now,
@@ -85,6 +86,8 @@ class FlexMeasuresDataImporter:
     # For getting data from FM server
     _fm_client_app: object = None
     notifier: Notifier = None
+    # For persisting prices to local SQLite database
+    data_store = None
 
     @property
     def fm_client_app(self):
@@ -119,6 +122,10 @@ class FlexMeasuresDataImporter:
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
         self._critical_price_notification_sent = False
+
+        # Temporary storage for raw price results, used by _persist_epex_prices_to_db()
+        self._latest_raw_consumption_result = None
+        self._latest_raw_production_result = None
 
         # Initialise refactored components
         self._initialise_components()
@@ -311,6 +318,17 @@ class FlexMeasuresDataImporter:
         production_ok = await self.get_prices(
             price_type="production", entsoe_latest_dt=entsoe_latest_dt
         )
+
+        # Persist combined prices to local DB (upsampled to 5-min resolution)
+        if consumption_ok and production_ok:
+            try:
+                self._persist_epex_prices_to_db()
+            except Exception as e:
+                self.__log(
+                    f"Failed to persist EPEX prices to DB: {e}",
+                    level="WARNING",
+                )
+
         await self.get_emission_intensities(entsoe_latest_dt=entsoe_latest_dt)
 
         prices_ok = consumption_ok and production_ok
@@ -594,6 +612,12 @@ class FlexMeasuresDataImporter:
             self.__log(f"({price_type}): fetch_prices returned None.")
             return False
 
+        # Store raw result for later DB persistence by _persist_epex_prices_to_db()
+        if price_type == "consumption":
+            self._latest_raw_consumption_result = result
+        else:
+            self._latest_raw_production_result = result
+
         # Use entsoe_latest_dt from parameter (from EntsoeFetcher) for EFP boundary
         # entsoe_latest_dt is the START of the last data block
         # We need the END of that block for the visual split, so add one resolution period
@@ -648,6 +672,98 @@ class FlexMeasuresDataImporter:
 
         self.__log(f"{price_type} prices successfully retrieved.")
         return True
+
+    def _persist_epex_prices_to_db(self):
+        """Persist fetched EPEX prices to local SQLite database.
+
+        Combines consumption and production raw prices, upsamples from
+        PRICE_RESOLUTION_MINUTES to 5-min intervals using pandas reindex,
+        and writes to price_log via DataStore.upsert_prices().
+
+        VAT and markup are only applied when configured (nl_generic provider);
+        other providers already include these in their FM prices.
+        """
+        if self.data_store is None:
+            self.__log(
+                "DataStore not available, skipping price persistence.",
+                level="WARNING",
+            )
+            return
+
+        cons_result = self._latest_raw_consumption_result
+        prod_result = self._latest_raw_production_result
+
+        if cons_result is None or prod_result is None:
+            self.__log("Missing consumption or production data for DB persistence.")
+            return
+
+        resolution = c.PRICE_RESOLUTION_MINUTES
+
+        # Build Series from raw FM results (prices in cents/kWh)
+        cons_data = {}
+        for i, price in enumerate(cons_result["prices"]):
+            if price is not None:
+                dt = cons_result["start"] + timedelta(minutes=i * resolution)
+                cons_data[dt] = price
+
+        prod_data = {}
+        for i, price in enumerate(prod_result["prices"]):
+            if price is not None:
+                dt = prod_result["start"] + timedelta(minutes=i * resolution)
+                prod_data[dt] = price
+
+        if not cons_data or not prod_data:
+            self.__log("No valid price data to persist.")
+            return
+
+        # Combine into DataFrame, keep only timestamps with both prices
+        cons_series = pd.Series(cons_data, name="consumption_price_kwh")
+        prod_series = pd.Series(prod_data, name="production_price_kwh")
+        prices_df = pd.concat([cons_series, prod_series], axis=1, sort=True).dropna()
+
+        if prices_df.empty:
+            return
+
+        # Upsample to 5-min resolution using reindex + forward-fill
+        n_subintervals = resolution // 5
+        full_index = pd.date_range(
+            start=prices_df.index.min(),
+            end=prices_df.index.max() + timedelta(minutes=resolution - 5),
+            freq="5min",
+        )
+        prices_5min = prices_df.reindex(
+            full_index, method="ffill", limit=n_subintervals - 1
+        ).dropna()
+
+        if prices_5min.empty:
+            return
+
+        # Convert cents/kWh to EUR/kWh
+        if self.markup_per_kwh != 0 or self.vat_factor != 1:
+            # nl_generic provider: apply markup and VAT
+            prices_5min = (prices_5min + self.markup_per_kwh) * self.vat_factor / 100
+        else:
+            prices_5min = prices_5min / 100
+
+        prices_5min = prices_5min.round(6)
+
+        # Build row tuples for upsert_prices()
+        rows = list(
+            zip(
+                (ts.isoformat() for ts in prices_5min.index),
+                prices_5min["consumption_price_kwh"],
+                prices_5min["production_price_kwh"],
+                [None] * len(prices_5min),
+            )
+        )
+
+        if rows:
+            self.data_store.upsert_prices(rows)
+            self.__log(f"Persisted {len(rows)} EPEX price rows to local DB.")
+
+        # Clean up temporary storage
+        self._latest_raw_consumption_result = None
+        self._latest_raw_production_result = None
 
     async def get_prices_wrapper(self, *args):
         """Wrapper for get_prices to be used as a callback with hass.run_in().
