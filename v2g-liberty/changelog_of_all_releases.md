@@ -14,6 +14,8 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- 🛠️ Refactoring: Made storing settings more robust (#406) 
+
 ## 0.7.5 2026-02-15
 
 ### Fixed
