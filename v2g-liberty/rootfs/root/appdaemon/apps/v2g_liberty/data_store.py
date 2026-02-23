@@ -121,6 +121,12 @@ class DataStore:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS fm_send_status (
+                last_sent_up_to TEXT NOT NULL
+            )
+        """)
+
         self.__connection.commit()
         cursor.close()
 
@@ -337,6 +343,56 @@ class DataStore:
         return pd.DataFrame(
             [dict(row) for row in rows],
         )
+
+    def get_fm_last_sent(self) -> str | None:
+        """Get the timestamp up to which data has been sent to FlexMeasures.
+
+        Returns the ISO 8601 timestamp, or None if no data has been sent yet.
+        """
+        cursor = self.__connection.cursor()
+        cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
+        row = cursor.fetchone()
+        cursor.close()
+        if row is None:
+            return None
+        return row["last_sent_up_to"]
+
+    def set_fm_last_sent(self, timestamp: str) -> None:
+        """Update the timestamp up to which data has been sent to FlexMeasures.
+
+        Inserts a new row if none exists, otherwise updates the existing row.
+        """
+        cursor = self.__connection.cursor()
+        cursor.execute("SELECT COUNT(*) as cnt FROM fm_send_status")
+        count = cursor.fetchone()["cnt"]
+        if count == 0:
+            cursor.execute(
+                "INSERT INTO fm_send_status (last_sent_up_to) VALUES (?)",
+                (timestamp,),
+            )
+        else:
+            cursor.execute(
+                "UPDATE fm_send_status SET last_sent_up_to = ?",
+                (timestamp,),
+            )
+        self.__connection.commit()
+        cursor.close()
+
+    def get_intervals_since(self, since: str) -> list[dict]:
+        """Retrieve interval_log rows after the given timestamp.
+
+        Returns a list of dicts with keys: timestamp, power_kw,
+        soc_pct, availability_pct. Ordered by timestamp ascending.
+        """
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT timestamp, power_kw, soc_pct, availability_pct "
+            "FROM interval_log WHERE timestamp > ? ORDER BY timestamp",
+            (since,),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
 
     def close(self):
         """Close the database connection."""
