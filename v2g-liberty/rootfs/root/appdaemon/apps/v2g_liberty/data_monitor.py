@@ -106,37 +106,8 @@ class DataMonitor:
 
         local_now = get_local_now()
 
-        # Availability related
-        self.availability_duration_in_current_interval = 0
-        self.un_availability_duration_in_current_interval = 0
-        self.current_availability = await self.__is_available()
-        self.current_availability_since = local_now
-        await self.__record_availability(True)
-
-        self.event_bus.add_event_listener(
-            "charger_state_change", self._handle_charger_state_change
-        )
-
-        await self.hass.listen_state(
-            self.__handle_charge_mode_change,
-            "input_select.charge_mode",
-            attribute="all",
-        )
-
-        # Power related initialisation
-        self.current_power_since = local_now
-        self.power_period_duration = 0
-        self.period_power_x_duration = 0
-        self.current_power = 0
-        self.event_bus.add_event_listener(
-            "charge_power_change", self._process_power_change
-        )
-
-        # SoC related
+        # State initialisation — must come before availability check
         self.connected_car_soc = None
-        self.event_bus.add_event_listener("soc_change", self._process_soc_change)
-
-        # App state related initialisation
         self._current_charger_state = None
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         self._current_charge_mode = (
@@ -145,6 +116,33 @@ class DataMonitor:
         self._app_state_durations = {}
         self._current_app_state = self._derive_app_state()
         self._current_app_state_since = local_now
+
+        # Power related initialisation
+        self.current_power_since = local_now
+        self.power_period_duration = 0
+        self.period_power_x_duration = 0
+        self.current_power = 0
+
+        # Availability — after state is initialised
+        self.availability_duration_in_current_interval = 0
+        self.un_availability_duration_in_current_interval = 0
+        self.current_availability = await self.__is_available()
+        self.current_availability_since = local_now
+        await self.__record_availability(True)
+
+        # Event listeners
+        self.event_bus.add_event_listener(
+            "charger_state_change", self._handle_charger_state_change
+        )
+        await self.hass.listen_state(
+            self.__handle_charge_mode_change,
+            "input_select.charge_mode",
+            attribute="all",
+        )
+        self.event_bus.add_event_listener(
+            "charge_power_change", self._process_power_change
+        )
+        self.event_bus.add_event_listener("soc_change", self._process_soc_change)
 
         # Reservation logging
         if self.reservations_client is not None:
@@ -481,12 +479,10 @@ class DataMonitor:
         """Check if car and charger are available for automatic charging."""
         # TODO:
         # How to take an upcoming calendar item in to account?
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        # Forced charging in progress if SoC is below the minimum SoC setting
         is_evse_and_car_available = (
             self.evse_client_app.is_available_for_automated_charging()
         )
-        if is_evse_and_car_available and charge_mode == "Automatic":
+        if is_evse_and_car_available and self._current_charge_mode == "Automatic":
             if self.connected_car_soc in self.EMPTY_STATES:
                 # SoC is unknown. Rare after previous check. Unknown would normally mean,
                 # disconnected or error.

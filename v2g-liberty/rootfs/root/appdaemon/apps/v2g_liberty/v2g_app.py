@@ -150,10 +150,6 @@ class V2GLibertyApp(Hass):
         self._log_init_time("v2g_globals.kick_off_settings()", start_module)
 
         start_module = datetime.now()
-        await main_app.kick_off_v2g_liberty(v2g_args="initialise")
-        self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
-
-        start_module = datetime.now()
         await get_fm_data.initialize(
             use_vat_and_markup=v2g_globals.use_vat_and_markup,
             energy_price_vat=v2g_globals.energy_price_vat,
@@ -161,6 +157,9 @@ class V2GLibertyApp(Hass):
         )
         self._log_init_time("get_fm_data.initialize()", start_module)
 
+        # DataMonitor and FMDataSender must be initialised before
+        # kick_off_v2g_liberty, because set_active() emits the initial
+        # soc_change event that DataMonitor needs to catch.
         start_module = datetime.now()
         await data_monitor.initialize()
         self._log_init_time("data_monitor()", start_module)
@@ -168,6 +167,10 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await fm_data_sender.initialize()
         self._log_init_time("fm_data_sender()", start_module)
+
+        start_module = datetime.now()
+        await main_app.kick_off_v2g_liberty(v2g_args="initialise")
+        self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
 
         self._log_init_time("V2GLibertyApp (total)", start_app, True)
 

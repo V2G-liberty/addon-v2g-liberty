@@ -129,6 +129,7 @@ class DataStore:
 
         self.__connection.commit()
         cursor.close()
+        self.__log("All tables created/verified.")
 
     def __check_schema_version(self):
         """Check schema version and run migrations if needed."""
