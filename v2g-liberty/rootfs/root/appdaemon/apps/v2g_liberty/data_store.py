@@ -1,6 +1,7 @@
 """Module for local SQLite data storage."""
 
 import sqlite3
+from collections import Counter
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -13,6 +14,20 @@ CURRENT_SCHEMA_VERSION = 1
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
+
+VALID_GRANULARITIES = ("quarter", "hour", "day", "week", "month", "year")
+
+# Priority for app_state tiebreaking (lower number = higher priority).
+_APP_STATE_PRIORITY = {
+    "error": 1,
+    "not_connected": 2,
+    "max_boost": 3,
+    "charge": 4,
+    "discharge": 5,
+    "pause": 6,
+    "automatic": 7,
+    "unknown": 8,
+}
 
 
 def calculate_price_ratings(prices_df: pd.DataFrame) -> pd.Series:
@@ -41,6 +56,101 @@ def calculate_price_ratings(prices_df: pd.DataFrame) -> pd.Series:
         include_lowest=True,
     )
     return ratings.astype(str)
+
+
+def _period_key(timestamp_str: str, granularity: str) -> str:
+    """Compute the period bucket key for a given timestamp and granularity.
+
+    Args:
+        timestamp_str: ISO 8601 timestamp string (e.g. "2026-02-21T12:05:00+01:00").
+        granularity: One of "quarter", "hour", "day", "week", "month", "year".
+
+    Returns:
+        Period key string. Format depends on granularity:
+        - quarter/hour: ISO 8601 timestamp (e.g. "2026-02-21T12:00:00+01:00")
+        - day: date string (e.g. "2026-02-21")
+        - week: ISO week string (e.g. "2026-W08")
+        - month: year-month string (e.g. "2026-02")
+        - year: year string (e.g. "2026")
+    """
+    dt = datetime.fromisoformat(timestamp_str)
+    if granularity == "quarter":
+        quarter_minute = (dt.minute // 15) * 15
+        return dt.replace(minute=quarter_minute, second=0, microsecond=0).isoformat()
+    if granularity == "hour":
+        return dt.replace(minute=0, second=0, microsecond=0).isoformat()
+    if granularity == "day":
+        return dt.strftime("%Y-%m-%d")
+    if granularity == "week":
+        iso_year, iso_week, _ = dt.isocalendar()
+        return f"{iso_year}-W{iso_week:02d}"
+    if granularity == "month":
+        return dt.strftime("%Y-%m")
+    if granularity == "year":
+        return dt.strftime("%Y")
+    raise ValueError(f"Unknown granularity: {granularity}")
+
+
+def _dominant_app_state(app_states: list[str]) -> str:
+    """Find the dominant app_state using longest contiguous run logic.
+
+    Identifies the longest contiguous run of the same state within the list.
+    When runs tie in length, the state with higher priority wins
+    (lower number in _APP_STATE_PRIORITY).
+
+    Appends '+' suffix when multiple distinct states are present.
+
+    Args:
+        app_states: Ordered list of app_state values from consecutive intervals.
+
+    Returns:
+        Dominant state string, optionally with '+' suffix.
+    """
+    if not app_states:
+        return "unknown"
+
+    distinct_states = set(app_states)
+
+    # Find all contiguous runs
+    runs: list[tuple[str, int]] = []
+    current_state = app_states[0]
+    current_length = 1
+
+    for state in app_states[1:]:
+        if state == current_state:
+            current_length += 1
+        else:
+            runs.append((current_state, current_length))
+            current_state = state
+            current_length = 1
+    runs.append((current_state, current_length))
+
+    # Find the longest run; tiebreaker: higher priority (lower number)
+    best = max(
+        runs,
+        key=lambda r: (r[1], -_APP_STATE_PRIORITY.get(r[0], 99)),
+    )
+    dominant = best[0]
+
+    if len(distinct_states) > 1:
+        return dominant + "+"
+    return dominant
+
+
+def _dominant_price_rating(ratings: list) -> str | None:
+    """Find the most frequent price_rating from a list.
+
+    Args:
+        ratings: List of price_rating values (may contain None).
+
+    Returns:
+        Most frequent non-None rating, or None if all are None.
+    """
+    valid = [r for r in ratings if r is not None]
+    if not valid:
+        return None
+    counter = Counter(valid)
+    return counter.most_common(1)[0][0]
 
 
 class DataStore:
@@ -407,6 +517,236 @@ class DataStore:
         rows = cursor.fetchall()
         cursor.close()
         return [dict(row) for row in rows]
+
+    def get_aggregated_data(self, start: str, end: str, granularity: str) -> list[dict]:
+        """Get aggregated data for a time range at the specified granularity.
+
+        Fetches raw interval data with joined prices and emissions, then
+        aggregates per period bucket. The return format depends on granularity:
+
+        - quarter (15-min): period_start, app_state, consumption_price,
+          production_price, price_rating, soc_pct, energy_wh,
+          charge_cost, discharge_revenue
+        - hour: period_start, app_state, avg_price, price_rating,
+          charge_wh, charge_cost, discharge_wh, discharge_revenue, soc_pct
+        - day/week/month/year: period_start, availability_pct, charge_kwh,
+          charge_cost, discharge_kwh, discharge_revenue, net_kwh, net_cost,
+          co2_kg
+
+        Args:
+            start: ISO 8601 timestamp, inclusive lower bound.
+            end: ISO 8601 timestamp, exclusive upper bound.
+            granularity: One of "quarter", "hour", "day", "week",
+                "month", "year".
+
+        Returns:
+            List of dicts, one per period, ordered by period_start.
+        """
+        if granularity not in VALID_GRANULARITIES:
+            raise ValueError(
+                f"Invalid granularity '{granularity}'. "
+                f"Must be one of {VALID_GRANULARITIES}."
+            )
+
+        raw = self.__fetch_intervals_with_joins(start, end)
+        if not raw:
+            return []
+
+        # Group intervals by period bucket
+        buckets: dict[str, list[dict]] = {}
+        for row in raw:
+            key = _period_key(row["timestamp"], granularity)
+            buckets.setdefault(key, []).append(row)
+
+        # Aggregate each bucket
+        results = []
+        for period_start in sorted(buckets):
+            intervals = buckets[period_start]
+            if granularity == "quarter":
+                results.append(self.__aggregate_quarter(period_start, intervals))
+            elif granularity == "hour":
+                results.append(self.__aggregate_hour(period_start, intervals))
+            else:
+                results.append(self.__aggregate_period(period_start, intervals))
+
+        return results
+
+    def __fetch_intervals_with_joins(self, start: str, end: str) -> list[dict]:
+        """Fetch intervals with joined price and emission data."""
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT i.timestamp, i.power_kw, i.energy_kwh, i.app_state, "
+            "i.soc_pct, i.availability_pct, "
+            "p.consumption_price_kwh, p.production_price_kwh, p.price_rating, "
+            "e.emission_intensity_kg_mwh "
+            "FROM interval_log i "
+            "LEFT JOIN price_log p ON i.timestamp = p.timestamp "
+            "LEFT JOIN emission_log e ON i.timestamp = e.timestamp "
+            "WHERE i.timestamp >= ? AND i.timestamp < ? "
+            "ORDER BY i.timestamp",
+            (start, end),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def __aggregate_quarter(period_start: str, intervals: list[dict]) -> dict:
+        """Aggregate intervals for a 15-min quarter period."""
+        app_states = [i["app_state"] for i in intervals]
+
+        # Net energy
+        energy_kwh = sum(i["energy_kwh"] for i in intervals)
+        energy_wh = round(energy_kwh * 1000)
+
+        # Average prices (non-null only)
+        cons_prices = [
+            i["consumption_price_kwh"]
+            for i in intervals
+            if i["consumption_price_kwh"] is not None
+        ]
+        prod_prices = [
+            i["production_price_kwh"]
+            for i in intervals
+            if i["production_price_kwh"] is not None
+        ]
+        consumption_price = sum(cons_prices) / len(cons_prices) if cons_prices else None
+        production_price = sum(prod_prices) / len(prod_prices) if prod_prices else None
+
+        # Price rating — most frequent
+        ratings = [i["price_rating"] for i in intervals]
+
+        # SoC — last non-null value in the period
+        soc_values = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
+        soc_pct = soc_values[-1] if soc_values else None
+
+        # Financial: charge cost and discharge revenue
+        charge_cost = sum(
+            i["energy_kwh"] * i["consumption_price_kwh"]
+            for i in intervals
+            if i["energy_kwh"] > 0 and i["consumption_price_kwh"] is not None
+        )
+        discharge_revenue = sum(
+            abs(i["energy_kwh"]) * i["production_price_kwh"]
+            for i in intervals
+            if i["energy_kwh"] < 0 and i["production_price_kwh"] is not None
+        )
+
+        return {
+            "period_start": period_start,
+            "app_state": _dominant_app_state(app_states),
+            "consumption_price": (
+                round(consumption_price, 5) if consumption_price is not None else None
+            ),
+            "production_price": (
+                round(production_price, 5) if production_price is not None else None
+            ),
+            "price_rating": _dominant_price_rating(ratings),
+            "soc_pct": soc_pct,
+            "energy_wh": energy_wh,
+            "charge_cost": round(charge_cost, 4),
+            "discharge_revenue": round(discharge_revenue, 4),
+        }
+
+    @staticmethod
+    def __aggregate_hour(period_start: str, intervals: list[dict]) -> dict:
+        """Aggregate intervals for a 1-hour period."""
+        app_states = [i["app_state"] for i in intervals]
+
+        # Charge/discharge split
+        charge_kwh = sum(i["energy_kwh"] for i in intervals if i["energy_kwh"] > 0)
+        discharge_kwh = sum(
+            abs(i["energy_kwh"]) for i in intervals if i["energy_kwh"] < 0
+        )
+
+        charge_cost = sum(
+            i["energy_kwh"] * i["consumption_price_kwh"]
+            for i in intervals
+            if i["energy_kwh"] > 0 and i["consumption_price_kwh"] is not None
+        )
+        discharge_revenue = sum(
+            abs(i["energy_kwh"]) * i["production_price_kwh"]
+            for i in intervals
+            if i["energy_kwh"] < 0 and i["production_price_kwh"] is not None
+        )
+
+        # Weighted average price
+        total_kwh = charge_kwh + discharge_kwh
+        if total_kwh > 0:
+            avg_price = (charge_cost + discharge_revenue) / total_kwh
+        else:
+            # No energy flow — simple average of available consumption prices
+            cons = [
+                i["consumption_price_kwh"]
+                for i in intervals
+                if i["consumption_price_kwh"] is not None
+            ]
+            avg_price = sum(cons) / len(cons) if cons else None
+
+        # Price rating — most frequent
+        ratings = [i["price_rating"] for i in intervals]
+
+        # SoC — last non-null value
+        soc_values = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
+        soc_pct = soc_values[-1] if soc_values else None
+
+        return {
+            "period_start": period_start,
+            "app_state": _dominant_app_state(app_states),
+            "avg_price": (round(avg_price, 5) if avg_price is not None else None),
+            "price_rating": _dominant_price_rating(ratings),
+            "charge_wh": round(charge_kwh * 1000),
+            "charge_cost": round(charge_cost, 4),
+            "discharge_wh": round(discharge_kwh * 1000),
+            "discharge_revenue": round(discharge_revenue, 4),
+            "soc_pct": soc_pct,
+        }
+
+    @staticmethod
+    def __aggregate_period(period_start: str, intervals: list[dict]) -> dict:
+        """Aggregate intervals for day/week/month/year periods."""
+        # Availability — average across all intervals
+        availability_values = [i["availability_pct"] for i in intervals]
+        avg_availability = sum(availability_values) / len(availability_values)
+
+        # Charge/discharge split
+        charge_kwh = sum(i["energy_kwh"] for i in intervals if i["energy_kwh"] > 0)
+        discharge_kwh = sum(
+            abs(i["energy_kwh"]) for i in intervals if i["energy_kwh"] < 0
+        )
+
+        charge_cost = sum(
+            i["energy_kwh"] * i["consumption_price_kwh"]
+            for i in intervals
+            if i["energy_kwh"] > 0 and i["consumption_price_kwh"] is not None
+        )
+        discharge_revenue = sum(
+            abs(i["energy_kwh"]) * i["production_price_kwh"]
+            for i in intervals
+            if i["energy_kwh"] < 0 and i["production_price_kwh"] is not None
+        )
+
+        net_kwh = charge_kwh - discharge_kwh
+        net_cost = charge_cost - discharge_revenue
+
+        # CO2: energy_kwh × emission_intensity_kg_mwh / 1000 → kg
+        co2_kg = sum(
+            i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["emission_intensity_kg_mwh"] is not None
+        )
+
+        return {
+            "period_start": period_start,
+            "availability_pct": round(avg_availability, 1),
+            "charge_kwh": round(charge_kwh, 2),
+            "charge_cost": round(charge_cost, 4),
+            "discharge_kwh": round(discharge_kwh, 2),
+            "discharge_revenue": round(discharge_revenue, 4),
+            "net_kwh": round(net_kwh, 2),
+            "net_cost": round(net_cost, 4),
+            "co2_kg": round(co2_kg, 1),
+        }
 
     def close(self):
         """Close the database connection."""
