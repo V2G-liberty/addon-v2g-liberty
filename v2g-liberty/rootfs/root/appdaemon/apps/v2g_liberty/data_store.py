@@ -15,7 +15,7 @@ CURRENT_SCHEMA_VERSION = 1
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
 
-VALID_GRANULARITIES = ("quarter", "hour", "day", "week", "month", "year")
+VALID_GRANULARITIES = ("quarter_hours", "hours", "days", "weeks", "months", "years")
 
 # Priority for app_state tiebreaking (lower number = higher priority).
 _APP_STATE_PRIORITY = {
@@ -63,30 +63,31 @@ def _period_key(timestamp_str: str, granularity: str) -> str:
 
     Args:
         timestamp_str: ISO 8601 timestamp string (e.g. "2026-02-21T12:05:00+01:00").
-        granularity: One of "quarter", "hour", "day", "week", "month", "year".
+        granularity: One of "quarter_hours", "hours", "days", "weeks",
+            "months", "years".
 
     Returns:
         Period key string. Format depends on granularity:
-        - quarter/hour: ISO 8601 timestamp (e.g. "2026-02-21T12:00:00+01:00")
+        - quarter_hours/hours: ISO 8601 timestamp (e.g. "2026-02-21T12:00:00+01:00")
         - day: date string (e.g. "2026-02-21")
         - week: ISO week string (e.g. "2026-W08")
         - month: year-month string (e.g. "2026-02")
         - year: year string (e.g. "2026")
     """
     dt = datetime.fromisoformat(timestamp_str)
-    if granularity == "quarter":
+    if granularity == "quarter_hours":
         quarter_minute = (dt.minute // 15) * 15
         return dt.replace(minute=quarter_minute, second=0, microsecond=0).isoformat()
-    if granularity == "hour":
+    if granularity == "hours":
         return dt.replace(minute=0, second=0, microsecond=0).isoformat()
-    if granularity == "day":
+    if granularity == "days":
         return dt.strftime("%Y-%m-%d")
-    if granularity == "week":
+    if granularity == "weeks":
         iso_year, iso_week, _ = dt.isocalendar()
         return f"{iso_year}-W{iso_week:02d}"
-    if granularity == "month":
+    if granularity == "months":
         return dt.strftime("%Y-%m")
-    if granularity == "year":
+    if granularity == "years":
         return dt.strftime("%Y")
     raise ValueError(f"Unknown granularity: {granularity}")
 
@@ -524,20 +525,20 @@ class DataStore:
         Fetches raw interval data with joined prices and emissions, then
         aggregates per period bucket. The return format depends on granularity:
 
-        - quarter (15-min): period_start, app_state, consumption_price,
+        - quarter_hours (15-min): period_start, app_state, consumption_price,
           production_price, price_rating, soc_pct, energy_wh,
           charge_cost, discharge_revenue
-        - hour: period_start, app_state, avg_price, price_rating,
+        - hours: period_start, app_state, avg_price, price_rating,
           charge_wh, charge_cost, discharge_wh, discharge_revenue, soc_pct
-        - day/week/month/year: period_start, availability_pct, charge_kwh,
+        - days/weeks/months/years: period_start, availability_pct, charge_kwh,
           charge_cost, discharge_kwh, discharge_revenue, net_kwh, net_cost,
           co2_kg
 
         Args:
             start: ISO 8601 timestamp, inclusive lower bound.
             end: ISO 8601 timestamp, exclusive upper bound.
-            granularity: One of "quarter", "hour", "day", "week",
-                "month", "year".
+            granularity: One of "quarter_hours", "hours", "days", "weeks",
+                "months", "years".
 
         Returns:
             List of dicts, one per period, ordered by period_start.
@@ -562,9 +563,9 @@ class DataStore:
         results = []
         for period_start in sorted(buckets):
             intervals = buckets[period_start]
-            if granularity == "quarter":
+            if granularity == "quarter_hours":
                 results.append(self.__aggregate_quarter(period_start, intervals))
-            elif granularity == "hour":
+            elif granularity == "hours":
                 results.append(self.__aggregate_hour(period_start, intervals))
             else:
                 results.append(self.__aggregate_period(period_start, intervals))

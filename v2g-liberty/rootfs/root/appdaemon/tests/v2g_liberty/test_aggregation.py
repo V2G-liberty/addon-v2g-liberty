@@ -74,44 +74,44 @@ def _insert_emission(store, timestamp, intensity):
 
 class TestPeriodKey:
     def test_quarter_rounds_down_to_00(self):
-        assert _period_key(ts(8, 0), "quarter") == ts(8, 0)
+        assert _period_key(ts(8, 0), "quarter_hours") == ts(8, 0)
 
     def test_quarter_rounds_down_to_00_from_05(self):
-        assert _period_key(ts(8, 5), "quarter") == ts(8, 0)
+        assert _period_key(ts(8, 5), "quarter_hours") == ts(8, 0)
 
     def test_quarter_rounds_down_to_00_from_10(self):
-        assert _period_key(ts(8, 10), "quarter") == ts(8, 0)
+        assert _period_key(ts(8, 10), "quarter_hours") == ts(8, 0)
 
     def test_quarter_rounds_down_to_15(self):
-        assert _period_key(ts(8, 15), "quarter") == ts(8, 15)
+        assert _period_key(ts(8, 15), "quarter_hours") == ts(8, 15)
 
     def test_quarter_rounds_down_to_15_from_25(self):
-        assert _period_key(ts(8, 25), "quarter") == ts(8, 15)
+        assert _period_key(ts(8, 25), "quarter_hours") == ts(8, 15)
 
     def test_quarter_rounds_down_to_30(self):
-        assert _period_key(ts(8, 30), "quarter") == ts(8, 30)
+        assert _period_key(ts(8, 30), "quarter_hours") == ts(8, 30)
 
     def test_quarter_rounds_down_to_45(self):
-        assert _period_key(ts(8, 50), "quarter") == ts(8, 45)
+        assert _period_key(ts(8, 50), "quarter_hours") == ts(8, 45)
 
     def test_hour_rounds_down(self):
-        assert _period_key(ts(8, 35), "hour") == ts(8, 0)
+        assert _period_key(ts(8, 35), "hours") == ts(8, 0)
 
     def test_hour_already_on_boundary(self):
-        assert _period_key(ts(8, 0), "hour") == ts(8, 0)
+        assert _period_key(ts(8, 0), "hours") == ts(8, 0)
 
     def test_day(self):
-        assert _period_key(ts(8, 35), "day") == "2026-02-23"
+        assert _period_key(ts(8, 35), "days") == "2026-02-23"
 
     def test_week(self):
         # 2026-02-23 is a Monday → ISO week 9
-        assert _period_key(ts(8, 0), "week") == "2026-W09"
+        assert _period_key(ts(8, 0), "weeks") == "2026-W09"
 
     def test_month(self):
-        assert _period_key(ts(8, 0), "month") == "2026-02"
+        assert _period_key(ts(8, 0), "months") == "2026-02"
 
     def test_year(self):
-        assert _period_key(ts(8, 0), "year") == "2026"
+        assert _period_key(ts(8, 0), "years") == "2026"
 
     def test_invalid_granularity_raises(self):
         with pytest.raises(ValueError, match="Unknown granularity"):
@@ -222,7 +222,7 @@ class TestAggregatedDataQuarter:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_empty_range_returns_empty(self, mock_now, data_store):
         await data_store.initialise()
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
         assert result == []
 
     @pytest.mark.asyncio
@@ -232,7 +232,7 @@ class TestAggregatedDataQuarter:
         _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "automatic", soc_pct=55.0)
         _insert_price(data_store, ts(8, 0), 0.25, 0.10, "low")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
         assert len(result) == 1
         row = result[0]
         assert row["period_start"] == ts(8, 0)
@@ -257,7 +257,7 @@ class TestAggregatedDataQuarter:
         _insert_price(data_store, ts(8, 5), 0.25, 0.20, "average")
         _insert_price(data_store, ts(8, 10), 0.25, 0.20, "average")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "quarter_hours")
         assert len(result) == 1
         row = result[0]
         assert row["period_start"] == ts(8, 0)
@@ -274,7 +274,7 @@ class TestAggregatedDataQuarter:
         _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic", soc_pct=50.0)
         _insert_interval(data_store, ts(8, 15), 3.0, 0.25, "charge", soc_pct=52.0)
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 30), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 30), "quarter_hours")
         assert len(result) == 2
         assert result[0]["period_start"] == ts(8, 0)
         assert result[1]["period_start"] == ts(8, 15)
@@ -285,7 +285,7 @@ class TestAggregatedDataQuarter:
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
         row = result[0]
         assert row["consumption_price"] is None
         assert row["production_price"] is None
@@ -305,7 +305,7 @@ class TestAggregatedDataQuarter:
             soc_pct=None,
             availability_pct=0.0,
         )
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
         assert result[0]["soc_pct"] is None
 
     @pytest.mark.asyncio
@@ -316,7 +316,7 @@ class TestAggregatedDataQuarter:
         _insert_interval(data_store, ts(8, 5), 2.0, 0.167, "automatic")
         _insert_interval(data_store, ts(8, 10), 3.0, 0.25, "charge")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "quarter")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "quarter_hours")
         assert result[0]["app_state"] == "automatic+"
 
 
@@ -337,7 +337,7 @@ class TestAggregatedDataHour:
             )
             _insert_price(data_store, ts(8, m), 0.20, 0.15, "low")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "hour")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "hours")
         assert len(result) == 1
         row = result[0]
         assert row["charge_wh"] == round(0.25 * 6 * 1000)
@@ -357,7 +357,7 @@ class TestAggregatedDataHour:
         _insert_interval(data_store, ts(8, 10), -2.0, -0.167, "automatic")
         _insert_price(data_store, ts(8, 10), 0.30, 0.10, "high")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hour")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hours")
         row = result[0]
 
         # Weighted avg = (0.25*2*0.30 + 0.167*0.10) / (0.25*2 + 0.167)
@@ -376,7 +376,7 @@ class TestAggregatedDataHour:
         _insert_interval(data_store, ts(8, 5), 0.0, 0.0, "pause")
         _insert_price(data_store, ts(8, 5), 0.30, 0.15, "average")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hour")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hours")
         row = result[0]
         assert row["avg_price"] == round((0.20 + 0.30) / 2, 5)
 
@@ -388,7 +388,7 @@ class TestAggregatedDataHour:
         _insert_interval(data_store, ts(8, 5), 2.0, 0.167, "automatic", soc_pct=52.0)
         _insert_interval(data_store, ts(8, 10), 0.0, 0.0, "not_connected", soc_pct=None)
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hour")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hours")
         # Last non-null SoC should be 52.0
         assert result[0]["soc_pct"] == 52.0
 
@@ -412,7 +412,7 @@ class TestAggregatedDataPeriod:
         )
         _insert_price(data_store, ts(8, 10), 0.25, 0.10)
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "day")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
         assert len(result) == 1
         row = result[0]
         assert row["period_start"] == "2026-02-23"
@@ -436,7 +436,7 @@ class TestAggregatedDataPeriod:
         _insert_interval(data_store, ts(8, 5), -2.0, -0.167, "automatic")
         _insert_emission(data_store, ts(8, 5), 350.0)
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "day")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
         row = result[0]
         expected_co2 = (0.25 * 400 / 1000) + (-0.167 * 350 / 1000)
         assert row["co2_kg"] == round(expected_co2, 1)
@@ -447,7 +447,7 @@ class TestAggregatedDataPeriod:
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "automatic")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "day")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
         assert result[0]["co2_kg"] == 0
 
     @pytest.mark.asyncio
@@ -457,7 +457,7 @@ class TestAggregatedDataPeriod:
         _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
         _insert_interval(data_store, ts(8, 5), 2.0, 0.167, "automatic")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "week")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "weeks")
         assert len(result) == 1
         assert result[0]["period_start"] == "2026-W09"
 
@@ -467,7 +467,7 @@ class TestAggregatedDataPeriod:
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "month")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "months")
         assert len(result) == 1
         assert result[0]["period_start"] == "2026-02"
 
@@ -477,7 +477,7 @@ class TestAggregatedDataPeriod:
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "year")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "years")
         assert len(result) == 1
         assert result[0]["period_start"] == "2026"
 
@@ -498,7 +498,7 @@ class TestAggregatedDataEdgeCases:
         # This interval is AT the end boundary — should be excluded
         _insert_interval(data_store, ts(9, 0), 3.0, 0.25, "charge")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "hour")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "hours")
         assert len(result) == 1
         assert result[0]["period_start"] == ts(8, 0)
 
@@ -509,7 +509,7 @@ class TestAggregatedDataEdgeCases:
         _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "charge")
         _insert_price(data_store, ts(8, 0), 0.30, 0.10)
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "day")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
         row = result[0]
         assert row["charge_kwh"] == 0.25
         assert row["discharge_kwh"] == 0
@@ -523,7 +523,7 @@ class TestAggregatedDataEdgeCases:
         _insert_interval(data_store, ts(8, 0), -2.0, -0.167, "discharge")
         _insert_price(data_store, ts(8, 0), 0.30, 0.15)
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "day")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
         row = result[0]
         assert row["charge_kwh"] == 0
         assert row["charge_cost"] == 0
@@ -539,7 +539,7 @@ class TestAggregatedDataEdgeCases:
         _insert_interval(data_store, ts(10, 0), 1.0, 0.083, "automatic")
         _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
 
-        result = data_store.get_aggregated_data(ts(8, 0), ts(11, 0), "hour")
+        result = data_store.get_aggregated_data(ts(8, 0), ts(11, 0), "hours")
         assert len(result) == 2
         assert result[0]["period_start"] == ts(8, 0)
         assert result[1]["period_start"] == ts(10, 0)
