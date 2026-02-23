@@ -96,10 +96,7 @@ class DataStore:
                 energy_kwh REAL NOT NULL,
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
-                availability_pct REAL NOT NULL,
-                consumption_price_kwh REAL,
-                production_price_kwh REAL,
-                price_rating TEXT
+                availability_pct REAL NOT NULL
             )
         """)
 
@@ -202,17 +199,13 @@ class DataStore:
         app_state: str,
         soc_pct: float | None,
         availability_pct: float,
-        consumption_price_kwh: float | None = None,
-        production_price_kwh: float | None = None,
-        price_rating: str | None = None,
     ) -> None:
         """Insert a single interval row into interval_log."""
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT INTO interval_log "
             "(timestamp, power_kw, energy_kwh, app_state, soc_pct, "
-            "availability_pct, consumption_price_kwh, production_price_kwh, "
-            "price_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "availability_pct) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 timestamp,
                 power_kw,
@@ -220,9 +213,6 @@ class DataStore:
                 app_state,
                 soc_pct,
                 availability_pct,
-                consumption_price_kwh,
-                production_price_kwh,
-                price_rating,
             ),
         )
         self.__connection.commit()

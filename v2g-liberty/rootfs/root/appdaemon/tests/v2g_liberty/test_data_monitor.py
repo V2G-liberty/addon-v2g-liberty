@@ -6,8 +6,6 @@ Tests cover:
 - _conclude_app_state: winner selection and reset
 - _pick_winning_state: priority + duration logic
 - _write_interval_to_db: correct row written to DB
-- Price coupling: price_log data correctly carried over
-- NULL handling: no price → NULL in interval_log
 """
 
 from datetime import datetime, timedelta, timezone
@@ -64,7 +62,6 @@ def evse_client():
 @pytest.fixture
 def data_store():
     mock_store = MagicMock()
-    mock_store.get_price_at = MagicMock(return_value=None)
     mock_store.insert_interval = MagicMock()
     return mock_store
 
@@ -345,11 +342,10 @@ class TestConcludeAppState:
 class TestWriteIntervalToDb:
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
-    async def test_writes_correct_row_with_price(self, mock_now, monitor, data_store):
-        """When price_log has data, it should be written into interval_log."""
+    async def test_writes_correct_row(self, mock_now, monitor, data_store):
+        """Interval data should be written to interval_log."""
         # Interval ends at 12:05, so start = 12:00
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = (0.25, 0.08, "average")
 
         await monitor._write_interval_to_db(
             power_kw=3.5,
@@ -367,31 +363,6 @@ class TestWriteIntervalToDb:
         assert call_kwargs["app_state"] == "automatic"
         assert call_kwargs["soc_pct"] == 75.0
         assert call_kwargs["availability_pct"] == 95.0
-        assert call_kwargs["consumption_price_kwh"] == 0.25
-        assert call_kwargs["production_price_kwh"] == 0.08
-        assert call_kwargs["price_rating"] == "average"
-
-    @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_monitor.get_local_now")
-    async def test_writes_null_prices_when_no_price_data(
-        self, mock_now, monitor, data_store
-    ):
-        """When price_log has no data, prices should be NULL."""
-        mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = None
-
-        await monitor._write_interval_to_db(
-            power_kw=0.0,
-            energy_kwh=0.0,
-            availability_pct=100.0,
-            soc=50,
-            app_state="pause",
-        )
-
-        call_kwargs = data_store.insert_interval.call_args[1]
-        assert call_kwargs["consumption_price_kwh"] is None
-        assert call_kwargs["production_price_kwh"] is None
-        assert call_kwargs["price_rating"] is None
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
@@ -400,7 +371,6 @@ class TestWriteIntervalToDb:
     ):
         """When car is disconnected, soc_pct should be NULL."""
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = None
 
         await monitor._write_interval_to_db(
             power_kw=0.0,
@@ -434,7 +404,6 @@ class TestWriteIntervalToDb:
     async def test_handles_db_exception_gracefully(self, mock_now, monitor, data_store):
         """When DB write fails, it should log a warning, not crash."""
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = None
         data_store.insert_interval.side_effect = Exception("DB locked")
 
         # Should not raise
@@ -452,7 +421,6 @@ class TestWriteIntervalToDb:
         """Timestamp should be the start of the 5-min interval, not the end."""
         # If now is 12:10:00, interval start should be 12:05:00
         mock_now.return_value = datetime(2026, 2, 22, 12, 10, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = None
 
         await monitor._write_interval_to_db(
             power_kw=0.0,
@@ -467,31 +435,11 @@ class TestWriteIntervalToDb:
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
-    async def test_looks_up_price_with_interval_start_timestamp(
-        self, mock_now, monitor, data_store
-    ):
-        """get_price_at should be called with the interval start, not end."""
-        mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = None
-
-        await monitor._write_interval_to_db(
-            power_kw=0.0,
-            energy_kwh=0.0,
-            availability_pct=100.0,
-            soc=50,
-            app_state="automatic",
-        )
-
-        data_store.get_price_at.assert_called_once_with("2026-02-22T12:00:00+01:00")
-
-    @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_monitor.get_local_now")
     async def test_writes_negative_power_for_discharge(
         self, mock_now, monitor, data_store
     ):
         """Negative power (discharge) should be written as-is."""
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
-        data_store.get_price_at.return_value = (0.30, 0.10, "high")
 
         await monitor._write_interval_to_db(
             power_kw=-2.5,

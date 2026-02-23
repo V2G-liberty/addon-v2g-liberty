@@ -127,9 +127,9 @@ class TestTableCreation:
         assert columns["app_state"] == "TEXT"
         assert columns["soc_pct"] == "REAL"
         assert columns["availability_pct"] == "REAL"
-        assert columns["consumption_price_kwh"] == "REAL"
-        assert columns["production_price_kwh"] == "REAL"
-        assert columns["price_rating"] == "TEXT"
+        assert "consumption_price_kwh" not in columns
+        assert "production_price_kwh" not in columns
+        assert "price_rating" not in columns
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
@@ -320,9 +320,6 @@ class TestInsertInterval:
             app_state="automatic",
             soc_pct=55.0,
             availability_pct=100.0,
-            consumption_price_kwh=0.25,
-            production_price_kwh=0.10,
-            price_rating="low",
         )
         cursor = data_store.connection.cursor()
         cursor.execute("SELECT * FROM interval_log")
@@ -334,9 +331,6 @@ class TestInsertInterval:
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 55.0
         assert row["availability_pct"] == 100.0
-        assert row["consumption_price_kwh"] == 0.25
-        assert row["production_price_kwh"] == 0.10
-        assert row["price_rating"] == "low"
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
@@ -355,9 +349,6 @@ class TestInsertInterval:
         row = cursor.fetchone()
         cursor.close()
         assert row["soc_pct"] is None
-        assert row["consumption_price_kwh"] is None
-        assert row["production_price_kwh"] is None
-        assert row["price_rating"] is None
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)

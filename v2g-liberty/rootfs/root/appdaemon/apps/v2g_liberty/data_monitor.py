@@ -448,15 +448,6 @@ class DataMonitor:
         )
         timestamp = interval_start.isoformat()
 
-        # Look up price data for this interval from price_log
-        price_data = self.data_store.get_price_at(timestamp)
-        if price_data:
-            consumption_price_kwh, production_price_kwh, price_rating = price_data
-        else:
-            consumption_price_kwh = None
-            production_price_kwh = None
-            price_rating = None
-
         try:
             self.data_store.insert_interval(
                 timestamp=timestamp,
@@ -465,9 +456,6 @@ class DataMonitor:
                 app_state=app_state,
                 soc_pct=float(soc) if soc is not None else None,
                 availability_pct=availability_pct,
-                consumption_price_kwh=consumption_price_kwh,
-                production_price_kwh=production_price_kwh,
-                price_rating=price_rating,
             )
         except Exception as e:
             self.__log(

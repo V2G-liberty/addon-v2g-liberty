@@ -2,7 +2,7 @@
 
 Tests the complete chain:
   1. Prices received → written to price_log (with price_rating)
-  2. DataMonitor concludes interval → interval_log row with linked price data
+  2. DataMonitor concludes interval → interval_log row
   3. Calendar change → reservation_log row
 
 Uses a REAL DataStore with SQLite (temp directory) — no mocking of the DB layer.
@@ -124,45 +124,15 @@ def _query_all(data_store, table):
 # ---------------------------------------------------------------------------
 
 
-class TestPriceToIntervalFlow:
-    """End-to-end: prices arrive → DataMonitor concludes interval → interval_log has price."""
+class TestIntervalWriteFlow:
+    """End-to-end: DataMonitor concludes interval → interval_log row."""
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
-    async def test_interval_picks_up_price_from_price_log(
-        self, mock_now, monitor, data_store
-    ):
-        """Full chain: upsert prices → conclude interval → interval_log row
-        contains the matching consumption/production price and price_rating."""
-
-        # The interval that will be concluded is 11:55 → 12:00.
-        # So DataMonitor will look up the price at 11:55.
-        interval_ts = "2026-02-22T11:55:00+01:00"
+    async def test_interval_written_to_db(self, mock_now, monitor, data_store):
+        """Conclude interval → interval_log row with correct fields."""
         mock_now.return_value = TEST_NOW  # 12:00
 
-        # --- Step 1: Write prices to price_log (simulating a price module) ---
-        # Build a spread of prices so price_rating is meaningful.
-        base = datetime(2026, 2, 22, 6, 0, 0, tzinfo=TEST_TZ)
-        rows = []
-        for i in range(72):  # 6 hours of 5-min prices
-            ts = (base + timedelta(minutes=i * 5)).isoformat()
-            # Linear ramp: cheapest at 06:00, most expensive at 12:00
-            cons_price = 0.10 + i * 0.001
-            prod_price = cons_price * 0.8
-            rows.append((ts, cons_price, prod_price, None))
-
-        data_store.upsert_prices(rows)
-
-        # Verify price_log was populated
-        price_data = data_store.get_price_at(interval_ts)
-        assert price_data is not None, "Price for 11:55 should exist in price_log"
-        cons, prod, rating = price_data
-        assert cons > 0
-        assert prod > 0
-        assert rating is not None  # Should have been calculated
-
-        # --- Step 2: Simulate DataMonitor concluding the interval ---
-        # Give it a non-zero power so the interval is meaningful
         await monitor._write_interval_to_db(
             power_kw=3.5,
             energy_kwh=round(3.5 * 5 / 60, 6),
@@ -171,27 +141,20 @@ class TestPriceToIntervalFlow:
             app_state="automatic",
         )
 
-        # --- Step 3: Verify interval_log has the linked price data ---
         intervals = _query_all(data_store, "interval_log")
         assert len(intervals) == 1
 
         row = intervals[0]
-        assert row["timestamp"] == interval_ts
+        assert row["timestamp"] == "2026-02-22T11:55:00+01:00"
         assert row["power_kw"] == 3.5
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 60.0
         assert row["availability_pct"] == 100.0
-        # Price fields must match what was in price_log
-        assert row["consumption_price_kwh"] == cons
-        assert row["production_price_kwh"] == prod
-        assert row["price_rating"] == rating
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
-    async def test_interval_without_price_has_null_fields(
-        self, mock_now, monitor, data_store
-    ):
-        """When no price exists in price_log, interval_log fields are NULL."""
+    async def test_interval_with_null_soc(self, mock_now, monitor, data_store):
+        """When car is disconnected, soc_pct should be NULL."""
         mock_now.return_value = TEST_NOW
 
         await monitor._write_interval_to_db(
@@ -204,51 +167,7 @@ class TestPriceToIntervalFlow:
 
         intervals = _query_all(data_store, "interval_log")
         assert len(intervals) == 1
-        row = intervals[0]
-        assert row["consumption_price_kwh"] is None
-        assert row["production_price_kwh"] is None
-        assert row["price_rating"] is None
-        assert row["soc_pct"] is None
-
-    @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_monitor.get_local_now")
-    async def test_price_update_reflected_in_next_interval(
-        self, mock_now, monitor, data_store
-    ):
-        """Forecast price → definitive price via UPSERT. Next interval picks up
-        the updated price."""
-        interval_ts = "2026-02-22T11:55:00+01:00"
-
-        # Insert forecast price
-        data_store.upsert_prices(
-            [(interval_ts, 0.20, 0.15, None)],
-            recalculate_ratings=False,
-        )
-        forecast_price = data_store.get_price_at(interval_ts)
-        assert forecast_price[0] == 0.20
-
-        # Overwrite with definitive price (UPSERT)
-        data_store.upsert_prices(
-            [(interval_ts, 0.25, 0.18, None)],
-            recalculate_ratings=False,
-        )
-        definitive_price = data_store.get_price_at(interval_ts)
-        assert definitive_price[0] == 0.25
-
-        # DataMonitor concludes interval at 12:00 → picks up definitive price
-        mock_now.return_value = TEST_NOW
-        await monitor._write_interval_to_db(
-            power_kw=2.0,
-            energy_kwh=round(2.0 * 5 / 60, 6),
-            availability_pct=100.0,
-            soc=75,
-            app_state="automatic",
-        )
-
-        intervals = _query_all(data_store, "interval_log")
-        assert len(intervals) == 1
-        assert intervals[0]["consumption_price_kwh"] == 0.25
-        assert intervals[0]["production_price_kwh"] == 0.18
+        assert intervals[0]["soc_pct"] is None
 
 
 class TestPriceRatingIntegration:
@@ -399,13 +318,6 @@ class TestFullConcludeInterval:
         monitor.power_period_duration = 0
         monitor.period_power_x_duration = 0
 
-        # First, insert prices for the interval we're about to conclude
-        interval_ts = "2026-02-22T11:55:00+01:00"
-        data_store.upsert_prices(
-            [(interval_ts, 0.22, 0.16, None)],
-            recalculate_ratings=False,
-        )
-
         # Conclude at 12:00
         mock_now.return_value = TEST_NOW
 
@@ -420,13 +332,11 @@ class TestFullConcludeInterval:
         intervals = _query_all(data_store, "interval_log")
         assert len(intervals) == 1
         row = intervals[0]
-        assert row["timestamp"] == interval_ts
+        assert row["timestamp"] == "2026-02-22T11:55:00+01:00"
         # Power: 3000W for 3 minutes out of 3 min tracked duration → 3.0 kW avg
         assert row["power_kw"] == 3.0
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 60.0
-        assert row["consumption_price_kwh"] == 0.22
-        assert row["production_price_kwh"] == 0.16
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
