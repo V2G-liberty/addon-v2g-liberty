@@ -11,6 +11,8 @@
 
 ### Changed
 
+- 🛠️ Refactoring: Made storing settings more robust (#406) 
+
 &nbsp;
 
 ---
