@@ -122,6 +122,13 @@ class DataStore:
         """)
 
         cursor.execute("""
+            CREATE TABLE IF NOT EXISTS emission_log (
+                timestamp TEXT PRIMARY KEY,
+                emission_intensity_kg_mwh REAL NOT NULL
+            )
+        """)
+
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS fm_send_status (
                 last_sent_up_to TEXT NOT NULL
             )
@@ -272,6 +279,22 @@ class DataStore:
         )
         self.__connection.commit()
         cursor.close()
+
+    def upsert_emissions(self, rows: list[tuple]) -> None:
+        """Insert or replace emission rows in emission_log.
+
+        Each row is a tuple: (timestamp, emission_intensity_kg_mwh).
+        Uses INSERT OR REPLACE for UPSERT behaviour.
+        """
+        cursor = self.__connection.cursor()
+        cursor.executemany(
+            "INSERT OR REPLACE INTO emission_log "
+            "(timestamp, emission_intensity_kg_mwh) VALUES (?, ?)",
+            rows,
+        )
+        self.__connection.commit()
+        cursor.close()
+        self.__log(f"Upserted {len(rows)} emission row(s).")
 
     def insert_reservation(
         self,

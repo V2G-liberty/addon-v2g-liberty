@@ -553,6 +553,13 @@ class FlexMeasuresDataImporter:
         self.emission_intensities.clear()
         self.emission_intensities.update(emission_cache)
 
+        # Persist emission data to local database
+        if self.data_store is not None and emission_cache:
+            rows = [
+                (ts.isoformat(), intensity) for ts, intensity in emission_cache.items()
+            ]
+            self.data_store.upsert_emissions(rows)
+
         # Convert EFP datetime to ISO string for JSON serialisation
         end_of_fixed_prices_iso = (
             end_of_fixed_prices_dt.isoformat() if end_of_fixed_prices_dt else None

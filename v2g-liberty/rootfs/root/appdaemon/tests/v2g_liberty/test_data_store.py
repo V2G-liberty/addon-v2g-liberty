@@ -99,7 +99,7 @@ class TestInitialisation:
 class TestTableCreation:
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_all_four_tables_created(self, mock_now, data_store):
+    async def test_all_five_tables_created(self, mock_now, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute(
@@ -110,6 +110,7 @@ class TestTableCreation:
         assert "schema_version" in tables
         assert "interval_log" in tables
         assert "price_log" in tables
+        assert "emission_log" in tables
         assert "reservation_log" in tables
 
     @pytest.mark.asyncio
@@ -142,6 +143,29 @@ class TestTableCreation:
         assert columns["consumption_price_kwh"] == "REAL"
         assert columns["production_price_kwh"] == "REAL"
         assert columns["price_rating"] == "TEXT"
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
+    async def test_emission_log_columns(self, mock_now, data_store):
+        await data_store.initialise()
+        cursor = data_store.connection.cursor()
+        cursor.execute("PRAGMA table_info(emission_log)")
+        columns = {row[1]: row[2] for row in cursor.fetchall()}
+        cursor.close()
+        assert columns["timestamp"] == "TEXT"
+        assert columns["emission_intensity_kg_mwh"] == "REAL"
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
+    async def test_emission_log_has_primary_key_on_timestamp(
+        self, mock_now, data_store
+    ):
+        await data_store.initialise()
+        cursor = data_store.connection.cursor()
+        cursor.execute("PRAGMA table_info(emission_log)")
+        pk_columns = [row[1] for row in cursor.fetchall() if row[5] == 1]
+        cursor.close()
+        assert pk_columns == ["timestamp"]
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
@@ -714,3 +738,62 @@ class TestUpsertPricesRecalculation:
         assert after[1] == "low"  # 0.05: rank 0.333 → (0.15, 0.35]
         assert after[2] == "high"  # 0.25: rank 0.833 → (0.65, 0.85]
         # Key: the overwritten price now has a different rating than before
+
+
+class TestUpsertEmissions:
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
+    async def test_upsert_emissions_inserts_rows(self, mock_now, data_store):
+        await data_store.initialise()
+        rows = [
+            ("2026-02-21T12:00:00+01:00", 350.5),
+            ("2026-02-21T12:05:00+01:00", 348.2),
+            ("2026-02-21T12:10:00+01:00", 345.0),
+        ]
+        data_store.upsert_emissions(rows)
+        cursor = data_store.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM emission_log")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        assert count == 3
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
+    async def test_upsert_emissions_stores_correct_values(self, mock_now, data_store):
+        await data_store.initialise()
+        data_store.upsert_emissions([("2026-02-21T12:00:00+01:00", 350.5)])
+        cursor = data_store.connection.cursor()
+        cursor.execute("SELECT * FROM emission_log")
+        row = cursor.fetchone()
+        cursor.close()
+        assert row["timestamp"] == "2026-02-21T12:00:00+01:00"
+        assert row["emission_intensity_kg_mwh"] == 350.5
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
+    async def test_upsert_emissions_overwrites_existing(self, mock_now, data_store):
+        await data_store.initialise()
+        data_store.upsert_emissions([("2026-02-21T12:00:00+01:00", 350.5)])
+        data_store.upsert_emissions([("2026-02-21T12:00:00+01:00", 360.0)])
+        cursor = data_store.connection.cursor()
+        cursor.execute("SELECT * FROM emission_log")
+        row = cursor.fetchone()
+        cursor.close()
+        assert row["emission_intensity_kg_mwh"] == 360.0
+        cursor = data_store.connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM emission_log")
+        count = cursor.fetchone()[0]
+        cursor.close()
+        assert count == 1
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
+    async def test_upsert_emissions_logs_count(self, mock_now, data_store, hass):
+        await data_store.initialise()
+        data_store.upsert_emissions(
+            [
+                ("2026-02-21T12:00:00+01:00", 350.5),
+                ("2026-02-21T12:05:00+01:00", 348.2),
+            ]
+        )
+        assert find_log_containing(hass, "2 emission row(s)") is not None
