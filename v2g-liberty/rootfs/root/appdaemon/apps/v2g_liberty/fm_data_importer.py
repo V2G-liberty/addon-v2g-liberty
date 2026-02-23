@@ -19,19 +19,16 @@ from .data_import.utils.datetime_utils import DatetimeUtils
 from .data_import.validators.data_validator import DataValidator
 from .data_import.processors.price_processor import PriceProcessor
 from .data_import.processors.emission_processor import EmissionProcessor
-from .data_import.processors.energy_processor import EnergyProcessor
 from .data_import.fetchers.entsoe_fetcher import EntsoeFetcher
 from .data_import.fetchers.price_fetcher import PriceFetcher
 from .data_import.fetchers.emission_fetcher import EmissionFetcher
-from .data_import.fetchers.energy_fetcher import EnergyFetcher
-from .data_import.fetchers.cost_fetcher import CostFetcher
 from .data_import import data_import_constants as fm_constants
 
 
 class FlexMeasuresDataImporter:
     """
-    Get prices, emissions and cost data for display in the UI. Only the consumption prices
-    and not the production (aka feed_in) prices are retrieved (and displayed).
+    Get prices and emissions data for display in the UI. Both consumption and production
+    prices are retrieved.
 
     Price/emissions data fetched daily when:
     For providers with contracts based on a (EPEX) day-ahead market this should be fetched daily
@@ -47,9 +44,6 @@ class FlexMeasuresDataImporter:
     change in the data is detected (after it has been sent to FM successfully).
 
     The retrieved data is written to the HA entities for HA to render the data in the UI chart.
-
-    The cost data is, independent of price_type of provider contract, fetched daily in the early
-    morning.
     """
 
     # CONSTANTS and variables
@@ -74,12 +68,6 @@ class FlexMeasuresDataImporter:
     timer_id_daily_kickoff_price_data: str = ""
     timer_id_daily_kickoff_emissions_data: str = ""
     timer_id_daily_check_is_data_up_to_date: str = ""
-
-    # Emissions /kwh in the last 7 days to now. Populated by a call to FM.
-    # Used for:
-    # + Intermediate storage to fill an entity for displaying the data in the graph
-    # + Calculation of the emission (savings) in the last 7 days.
-    emission_intensities: dict
 
     # For sending notifications to the user.
     v2g_main_app: object = None
@@ -110,9 +98,6 @@ class FlexMeasuresDataImporter:
         self.hass = hass
         self.notifier = notifier
         self.__log = get_class_method_logger(hass.log)
-        self.hass.run_daily(self.daily_kickoff_charging_data, start="01:15:00")
-
-        self.emission_intensities = {}
 
         # These are variables are used to decide what message to send to the user and can have the
         # following values:
@@ -145,25 +130,18 @@ class FlexMeasuresDataImporter:
         self.emission_processor = EmissionProcessor(
             event_resolution_minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
         )
-        self.energy_processor = EnergyProcessor(
-            event_resolution_minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
-        )
 
         # Fetchers (fm_client_app will be set later via property setter)
         # These are initialised with None and updated when fm_client_app is set
         self.entsoe_fetcher = None
         self.price_fetcher = None
         self.emission_fetcher = None
-        self.energy_fetcher = None
-        self.cost_fetcher = None
 
     def _initialise_fetchers(self):
         """Initialise fetcher components when fm_client_app becomes available."""
         self.entsoe_fetcher = EntsoeFetcher(self.hass, self._fm_client_app)
         self.price_fetcher = PriceFetcher(self.hass, self._fm_client_app)
         self.emission_fetcher = EmissionFetcher(self.hass, self._fm_client_app)
-        self.energy_fetcher = EnergyFetcher(self.hass, self._fm_client_app)
-        self.cost_fetcher = CostFetcher(self.hass, self._fm_client_app)
         self.__log("Fetcher components initialised.")
 
     async def initialize(
@@ -233,9 +211,6 @@ class FlexMeasuresDataImporter:
                 self.daily_kickoff_price_data,
                 delay=initial_delay_sec,
                 is_initial_call=True,
-            )
-            await self.hass.run_in(
-                self.daily_kickoff_charging_data, delay=initial_delay_sec
             )
         self.__log("completed.")
 
@@ -352,150 +327,6 @@ class FlexMeasuresDataImporter:
 
         self.__log("completed")
 
-    async def daily_kickoff_charging_data(self, *args):
-        """This sets off the daily routine to check for charging cost."""
-        self.__log("Called")
-        await self.get_charging_cost()
-        await self.get_charged_energy()
-
-    async def get_charging_cost(self, *args, **kwargs):
-        """Communicate with FM server and check the results.
-
-        Request charging costs of last 7 days from the server.
-        Make costs total costs of this period available in HA by setting them in sensor.
-        ToDo: Split cost in charging and dis-charging per day
-        """
-        self.__log("Called")
-
-        # Use CostFetcher to retrieve data
-        if self.cost_fetcher is None:
-            self.__log("CostFetcher not initialised (fm_client_app not set yet).")
-            return False
-
-        now = get_local_now()
-        result = await self.cost_fetcher.fetch_costs(now)
-
-        if result is None:
-            self.__log(
-                "CostFetcher returned None, aborting.",
-                level="WARNING",
-            )
-            return False
-
-        # Process the cost data
-        costs = result["costs"]
-        start = result["start"]
-        resolution = timedelta(days=1)
-
-        total_charging_cost_last_7_days = 0.0
-        charging_cost_points = []
-
-        for i, charging_cost in enumerate(costs):
-            if charging_cost is None:
-                continue
-            self.__log(f"cost: '{charging_cost}'.")
-            data_point = {
-                "time": (start + i * resolution).isoformat(),
-                "cost": round(float(charging_cost), 2),
-            }
-            total_charging_cost_last_7_days += data_point["cost"]
-            charging_cost_points.append(data_point)
-
-        if len(charging_cost_points) == 0:
-            self.__log("No charging cost data available")
-
-        total_charging_cost_last_7_days = round(total_charging_cost_last_7_days, 2)
-        self.__log(
-            f"Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}"
-        )
-
-        await self.hass.set_state(
-            entity_id="sensor.total_charging_cost_last_7_days",
-            state=total_charging_cost_last_7_days,
-        )
-
-    async def get_charged_energy(self, *args, **kwargs):
-        """Communicate with FM server and check the results.
-
-        Request charging volumes of last 7 days from the server.
-        ToDo: make this period a setting for the user.
-        Make totals of charging and dis-charging per day and over the period.
-        """
-        self.__log("Called.")
-
-        # Use EnergyFetcher to retrieve data
-        if self.energy_fetcher is None:
-            self.__log("EnergyFetcher not initialised (fm_client_app not set yet).")
-            return False
-
-        now = get_local_now()
-        result = await self.energy_fetcher.fetch_power_data(now)
-
-        if result is None:
-            self.__log(
-                "EnergyFetcher returned None, aborting.",
-                level="WARNING",
-            )
-            return False
-
-        # Use EnergyProcessor to calculate statistics
-        power_values = result["power_values"]
-        start = result["start"]
-
-        self.__log(
-            f"Power data received: {len(power_values)} values starting from {start}."
-        )
-
-        stats = self.energy_processor.calculate_energy_stats(
-            power_values=power_values,
-            start=start,
-            emission_cache=self.emission_intensities,
-        )
-
-        # Update all sensors with calculated statistics
-        await self.hass.set_state(
-            entity_id="sensor.total_discharged_energy_last_7_days",
-            state=stats.total_discharged_energy_kwh,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_charged_energy_last_7_days",
-            state=stats.total_charged_energy_kwh,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.net_energy_last_7_days",
-            state=stats.net_energy_kwh,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_saved_emissions_last_7_days",
-            state=stats.total_saved_emissions_kg,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_emissions_last_7_days",
-            state=stats.total_emissions_kg,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.net_emissions_last_7_days",
-            state=stats.net_emissions_kg,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_discharge_time_last_7_days",
-            state=stats.total_discharge_time,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_charge_time_last_7_days",
-            state=stats.total_charge_time,
-        )
-
-        self.__log(
-            f"stats: \n"
-            f"    total_discharged_energy: '{stats.total_discharged_energy_kwh}' kWh\n"
-            f"    total_charged_energy: '{stats.total_charged_energy_kwh}' kWh\n"
-            f"    total_saved_emissions: '{stats.total_saved_emissions_kg}' kg\n"
-            f"    total_emissions: '{stats.total_emissions_kg}' kg\n"
-            f"    total discharge time: '{stats.total_discharge_time}'\n"
-            f"    total charge time: '{stats.total_charge_time}'"
-        )
-
     async def get_emission_intensities(
         self, *args, entsoe_latest_dt: datetime = None, **kwargs
     ) -> bool:
@@ -548,10 +379,6 @@ class FlexMeasuresDataImporter:
                 history_hours=5,
             )
         )
-
-        # Update the emission_intensities cache for use by get_charged_energy()
-        self.emission_intensities.clear()
-        self.emission_intensities.update(emission_cache)
 
         # Persist emission data to local database
         if self.data_store is not None and emission_cache:
