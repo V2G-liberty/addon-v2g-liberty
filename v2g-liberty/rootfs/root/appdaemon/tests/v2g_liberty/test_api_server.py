@@ -1,4 +1,4 @@
-"""Unit tests for ApiServer REST endpoint (T23/T24)."""
+"""Unit tests for ApiServer REST endpoint and HA event handler (T23/T24/T40/T41)."""
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
@@ -35,7 +35,9 @@ def _make_kwargs(start=None, end=None, granularity=None):
 
 @pytest.fixture
 def hass():
-    return AsyncMock(spec=Hass)
+    mock = AsyncMock(spec=Hass)
+    mock.listen_event = AsyncMock()
+    return mock
 
 
 @pytest.fixture
@@ -50,11 +52,14 @@ def api_server(hass):
 
 class TestInitialisation:
     @pytest.mark.asyncio
-    async def test_initialise_registers_endpoint(self, api_server, hass):
+    async def test_initialise_registers_endpoint_and_event_listener(
+        self, api_server, hass
+    ):
         await api_server.initialise()
         hass.register_endpoint.assert_called_once()
-        call_args = hass.register_endpoint.call_args
-        assert call_args[0][1] == "v2g_data"
+        assert hass.register_endpoint.call_args[0][1] == "v2g_data"
+        hass.listen_event.assert_called_once()
+        assert hass.listen_event.call_args[0][1] == "v2g_data_query"
 
     @pytest.mark.asyncio
     async def test_valid_granularities_constant(self):
@@ -212,3 +217,96 @@ class TestErrorHandling:
         )
         assert status == 500
         assert "Internal server error" in response["error"]
+
+
+# ── Event handler tests ──────────────────────────────────────────
+
+
+def _fire_event_data(hass):
+    """Extract the kwargs from the most recent fire_event call."""
+    return hass.fire_event.call_args
+
+
+class TestEventHandlerValidation:
+    @pytest.mark.asyncio
+    async def test_missing_all_params(self, api_server, hass):
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", {}, {})
+        hass.fire_event.assert_called_once()
+        call_kwargs = hass.fire_event.call_args
+        assert "error" in call_kwargs.kwargs
+        assert "start" in call_kwargs.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_start(self, api_server, hass):
+        data = {"end": ts(9, 0), "granularity": "hours"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert "start" in hass.fire_event.call_args.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_end(self, api_server, hass):
+        data = {"start": ts(8, 0), "granularity": "hours"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert "end" in hass.fire_event.call_args.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_granularity(self, api_server, hass):
+        data = {"start": ts(8, 0), "end": ts(9, 0)}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert "granularity" in hass.fire_event.call_args.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_granularity(self, api_server, hass):
+        data = {"start": ts(8, 0), "end": ts(9, 0), "granularity": "seconds"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert "Invalid granularity" in hass.fire_event.call_args.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_timestamp(self, api_server, hass):
+        data = {"start": "not-a-date", "end": ts(9, 0), "granularity": "hours"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert "Invalid timestamp" in hass.fire_event.call_args.kwargs["error"]
+
+
+class TestEventHandlerSuccess:
+    @pytest.mark.asyncio
+    async def test_returns_data_via_fire_event(self, api_server, hass):
+        mock_result = [{"period_start": ts(8, 0), "charge_wh": 1500}]
+        api_server.data_store.get_aggregated_data.return_value = mock_result
+
+        data = {"start": ts(8, 0), "end": ts(9, 0), "granularity": "hours"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+
+        call = hass.fire_event.call_args
+        assert call.args[0] == "v2g_data_query.result"
+        assert call.kwargs["data"] == mock_result
+        assert call.kwargs["granularity"] == "hours"
+        assert call.kwargs["start"] == ts(8, 0)
+        assert call.kwargs["end"] == ts(9, 0)
+
+    @pytest.mark.asyncio
+    async def test_passes_params_to_data_store(self, api_server, hass):
+        api_server.data_store.get_aggregated_data.return_value = []
+
+        data = {"start": ts(8, 0), "end": ts(9, 0), "granularity": "days"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        api_server.data_store.get_aggregated_data.assert_called_once_with(
+            ts(8, 0), ts(9, 0), "days"
+        )
+
+    @pytest.mark.asyncio
+    async def test_empty_result(self, api_server, hass):
+        api_server.data_store.get_aggregated_data.return_value = []
+
+        data = {"start": ts(8, 0), "end": ts(9, 0), "granularity": "quarter_hours"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert hass.fire_event.call_args.kwargs["data"] == []
+
+
+class TestEventHandlerErrors:
+    @pytest.mark.asyncio
+    async def test_data_store_exception_fires_error(self, api_server, hass):
+        api_server.data_store.get_aggregated_data.side_effect = RuntimeError("DB error")
+
+        data = {"start": ts(8, 0), "end": ts(9, 0), "granularity": "hours"}
+        await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
+        assert "Internal server error" in hass.fire_event.call_args.kwargs["error"]
