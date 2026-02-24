@@ -56,6 +56,58 @@
     "header": "Today",
     "details": "details"
   },
+  "data-table": {
+    "granularity": {
+      "quarter_hours": "15 min",
+      "hours": "Hours",
+      "days": "Days",
+      "weeks": "Weeks",
+      "months": "Months",
+      "years": "Years"
+    },
+    "now": "Now",
+    "no-data": "No data for this period",
+    "all-time": "All time",
+    "card-title": "Charging",
+    "app-state": {
+      "automatic": "Automatic",
+      "charge": "Charge",
+      "discharge": "Discharge",
+      "pause": "Pause",
+      "max_boost": "Max boost",
+      "not_connected": "Not connected",
+      "error": "Error",
+      "unknown": "Unknown"
+    },
+    "price-rating": {
+      "very-low": "Very low",
+      "low": "Low",
+      "average": "Average",
+      "high": "High",
+      "very-high": "Very high"
+    },
+    "col": {
+      "period": "Period",
+      "status": "Status",
+      "soc": "SoC",
+      "consumption": "Consumption",
+      "production": "Production",
+      "avg-price": "Avg. price",
+      "rate": "Rate",
+      "energy": "Energy",
+      "cost-revenue": "Cost / Revenue",
+      "charge": "Charge",
+      "charge-kwh": "Charge",
+      "charge-cost": "Charge cost",
+      "discharge": "Discharge",
+      "discharge-kwh": "Discharge",
+      "discharge-revenue": "Discharge revenue",
+      "availability": "Availability",
+      "net": "Net",
+      "net-cost": "Net cost",
+      "emissions": "Emissions"
+    }
+  },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",
     "restarting": "Connection with V2G Liberty lost. Restarting...",

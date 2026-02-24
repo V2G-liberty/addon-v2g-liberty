@@ -1,5 +1,6 @@
 import './ping-card';
 import './homepage-stats-card';
+import './data-table-card';
 
 import './administrator-settings-card';
 import './car-settings-card';

@@ -1,2 +1,54 @@
 {
+  "data-table": {
+    "granularity": {
+      "quarter_hours": "15 min",
+      "hours": "Uren",
+      "days": "Dagen",
+      "weeks": "Weken",
+      "months": "Maanden",
+      "years": "Jaren"
+    },
+    "now": "Nu",
+    "no-data": "Geen data voor deze periode",
+    "all-time": "Alles",
+    "card-title": "Laden",
+    "app-state": {
+      "automatic": "Automatisch",
+      "charge": "Laden",
+      "discharge": "Ontladen",
+      "pause": "Pauze",
+      "max_boost": "Max boost",
+      "not_connected": "Niet verbonden",
+      "error": "Fout",
+      "unknown": "Onbekend"
+    },
+    "price-rating": {
+      "very-low": "Zeer laag",
+      "low": "Laag",
+      "average": "Gemiddeld",
+      "high": "Hoog",
+      "very-high": "Zeer hoog"
+    },
+    "col": {
+      "period": "Periode",
+      "status": "Status",
+      "soc": "SoC",
+      "consumption": "Consumptie",
+      "production": "Productie",
+      "avg-price": "Gem. prijs",
+      "rate": "Tarief",
+      "energy": "Energie",
+      "cost-revenue": "Kosten / Opbrengst",
+      "charge": "Laden",
+      "charge-kwh": "Laden",
+      "charge-cost": "Laadkosten",
+      "discharge": "Ontladen",
+      "discharge-kwh": "Ontladen",
+      "discharge-revenue": "Ontlaadopbrengst",
+      "availability": "Beschikbaar",
+      "net": "Netto",
+      "net-cost": "Netto kosten",
+      "emissions": "Uitstoot"
+    }
+  }
 }
