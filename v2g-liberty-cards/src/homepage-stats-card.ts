@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
-import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
+import { HomeAssistant, LovelaceCardConfig, navigate } from 'custom-card-helpers';
 
 import { partial } from './util/translate';
 import * as entityIds from './entity-ids';
@@ -15,13 +15,20 @@ export class HomepageStatsCard extends LitElement {
   @state() private _dischargedKwh: HassEntity;
   @state() private _dischargeRevenue: HassEntity;
 
+  private _hass: HomeAssistant;
+
   setConfig(config: LovelaceCardConfig) {}
 
   set hass(hass: HomeAssistant) {
+    this._hass = hass;
     this._chargedKwh = hass.states[entityIds.chargedTodayKwh];
     this._chargeCost = hass.states[entityIds.chargeCostToday];
     this._dischargedKwh = hass.states[entityIds.dischargedTodayKwh];
     this._dischargeRevenue = hass.states[entityIds.dischargeRevenueToday];
+  }
+
+  private _navigateToData() {
+    navigate(this._hass, '/lovelace-yaml/data', true);
   }
 
   render() {
@@ -32,7 +39,7 @@ export class HomepageStatsCard extends LitElement {
     const netCost = chargeCost - dischargeRevenue;
 
     return html`
-      <ha-card>
+      <ha-card @click=${this._navigateToData}>
         <div class="header">
           <span class="title">${tp('header')}</span>
           <span class="details-link">${tp('details')} <ha-icon icon="mdi:chevron-right"></ha-icon></span>
