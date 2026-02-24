@@ -52,6 +52,10 @@
     "nl_tibber": "Tibber",
     "no_generic": "xxx"
   },
+  "homepage-stats": {
+    "header": "Today",
+    "details": "details"
+  },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",
     "restarting": "Connection with V2G Liberty lost. Restarting...",

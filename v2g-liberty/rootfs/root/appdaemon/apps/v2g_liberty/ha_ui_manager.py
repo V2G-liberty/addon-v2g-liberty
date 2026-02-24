@@ -51,6 +51,9 @@ class HAUIManager:
         self.event_bus.add_event_listener(
             "fm_connection_status", self._update_fm_connection_status
         )
+        self.event_bus.add_event_listener(
+            "today_energy_update", self._update_today_energy_sensors
+        )
 
         self.__log("Completed initialize")
 
@@ -80,7 +83,6 @@ class HAUIManager:
     async def _handle_soc_change(self, new_soc: int, old_soc: int):
         """Handle changes in the car's state of charge (SoC)."""
         if new_soc == "unavailable" or old_soc == "unavailable":
-
             # We want a realistic gap in the SoC chart-line for "unavailable" time-slots (Ⓑ to Ⓒ):
             #
             # -----ⒶⒷ
@@ -135,6 +137,31 @@ class HAUIManager:
         )
         await self.__update_ha_entity(
             entity_id="sensor.charger_state_text", new_value=new_charger_state_str
+        )
+
+    async def _update_today_energy_sensors(
+        self,
+        charge_kwh: float,
+        charge_cost: float,
+        discharge_kwh: float,
+        discharge_revenue: float,
+    ):
+        """Update homepage sensors with today's energy totals."""
+        await self.__update_ha_entity(
+            entity_id="sensor.v2g_liberty_charged_today_kwh",
+            new_value=charge_kwh,
+        )
+        await self.__update_ha_entity(
+            entity_id="sensor.v2g_liberty_charge_cost_today",
+            new_value=charge_cost,
+        )
+        await self.__update_ha_entity(
+            entity_id="sensor.v2g_liberty_discharged_today_kwh",
+            new_value=discharge_kwh,
+        )
+        await self.__update_ha_entity(
+            entity_id="sensor.v2g_liberty_discharge_revenue_today",
+            new_value=discharge_revenue,
         )
 
     ##########################################################################

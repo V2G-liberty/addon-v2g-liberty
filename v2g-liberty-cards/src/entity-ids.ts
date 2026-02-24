@@ -66,6 +66,13 @@ export const upperChargeLimit = 'input_number.car_max_soc_in_percent';
 export const allowedDurationAboveMax =
   'input_number.allowed_duration_above_max_soc_in_hrs';
 
+// Homepage stats
+export const chargedTodayKwh = 'sensor.v2g_liberty_charged_today_kwh';
+export const chargeCostToday = 'sensor.v2g_liberty_charge_cost_today';
+export const dischargedTodayKwh = 'sensor.v2g_liberty_discharged_today_kwh';
+export const dischargeRevenueToday =
+  'sensor.v2g_liberty_discharge_revenue_today';
+
 // Schedule
 export const scheduleSettingsInitialised =
   'input_boolean.schedule_settings_initialised';

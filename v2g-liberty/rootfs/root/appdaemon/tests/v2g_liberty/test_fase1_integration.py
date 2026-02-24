@@ -134,7 +134,6 @@ class TestIntervalWriteFlow:
         mock_now.return_value = TEST_NOW  # 12:00
 
         await monitor._write_interval_to_db(
-            power_kw=3.5,
             energy_kwh=round(3.5 * 5 / 60, 6),
             availability_pct=100.0,
             soc=60,
@@ -146,7 +145,6 @@ class TestIntervalWriteFlow:
 
         row = intervals[0]
         assert row["timestamp"] == "2026-02-22T11:55:00+01:00"
-        assert row["power_kw"] == 3.5
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 60.0
         assert row["availability_pct"] == 100.0
@@ -158,7 +156,6 @@ class TestIntervalWriteFlow:
         mock_now.return_value = TEST_NOW
 
         await monitor._write_interval_to_db(
-            power_kw=0.0,
             energy_kwh=0.0,
             availability_pct=50.0,
             soc=None,
@@ -333,8 +330,8 @@ class TestFullConcludeInterval:
         assert len(intervals) == 1
         row = intervals[0]
         assert row["timestamp"] == "2026-02-22T11:55:00+01:00"
-        # Power: 3000W for 3 minutes out of 3 min tracked duration → 3.0 kW avg
-        assert row["power_kw"] == 3.0
+        # Energy: 3000W avg for 5 min → 3.0 × 5/60 = 0.25 kWh
+        assert row["energy_kwh"] == 0.25
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 60.0
 
@@ -373,7 +370,6 @@ class TestAppStateThroughInterval:
         monitor._current_app_state_since = TEST_NOW
 
         await monitor._write_interval_to_db(
-            power_kw=1.0,
             energy_kwh=round(1.0 * 5 / 60, 6),
             availability_pct=80.0,
             soc=50,
@@ -399,7 +395,6 @@ class TestAppStateThroughInterval:
         monitor._current_app_state_since = TEST_NOW
 
         await monitor._write_interval_to_db(
-            power_kw=0.5,
             energy_kwh=round(0.5 * 5 / 60, 6),
             availability_pct=100.0,
             soc=70,

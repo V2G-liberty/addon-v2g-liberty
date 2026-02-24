@@ -122,7 +122,7 @@ class TestTableCreation:
         columns = {row[1]: row[2] for row in cursor.fetchall()}
         cursor.close()
         assert columns["timestamp"] == "TEXT"
-        assert columns["power_kw"] == "REAL"
+        assert "power_kw" not in columns
         assert columns["energy_kwh"] == "REAL"
         assert columns["app_state"] == "TEXT"
         assert columns["soc_pct"] == "REAL"
@@ -315,7 +315,6 @@ class TestInsertInterval:
         await data_store.initialise()
         data_store.insert_interval(
             timestamp="2026-02-21T12:00:00+01:00",
-            power_kw=3.5,
             energy_kwh=0.292,
             app_state="automatic",
             soc_pct=55.0,
@@ -326,7 +325,6 @@ class TestInsertInterval:
         row = cursor.fetchone()
         cursor.close()
         assert row["timestamp"] == "2026-02-21T12:00:00+01:00"
-        assert row["power_kw"] == 3.5
         assert row["energy_kwh"] == 0.292
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 55.0
@@ -338,7 +336,6 @@ class TestInsertInterval:
         await data_store.initialise()
         data_store.insert_interval(
             timestamp="2026-02-21T12:00:00+01:00",
-            power_kw=0.0,
             energy_kwh=0.0,
             app_state="not_connected",
             soc_pct=None,
@@ -358,7 +355,6 @@ class TestInsertInterval:
         await data_store.initialise()
         data_store.insert_interval(
             timestamp="2026-02-21T12:00:00+01:00",
-            power_kw=1.0,
             energy_kwh=0.083,
             app_state="automatic",
             soc_pct=50.0,
@@ -367,7 +363,6 @@ class TestInsertInterval:
         with pytest.raises(Exception):
             data_store.insert_interval(
                 timestamp="2026-02-21T12:00:00+01:00",
-                power_kw=2.0,
                 energy_kwh=0.167,
                 app_state="automatic",
                 soc_pct=51.0,

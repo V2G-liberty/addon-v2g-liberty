@@ -39,7 +39,6 @@ def data_store(hass, tmp_path):
 def _insert_interval(
     store,
     timestamp,
-    power_kw,
     energy_kwh,
     app_state,
     soc_pct=50.0,
@@ -48,7 +47,6 @@ def _insert_interval(
     """Helper to insert a single interval."""
     store.insert_interval(
         timestamp=timestamp,
-        power_kw=power_kw,
         energy_kwh=energy_kwh,
         app_state=app_state,
         soc_pct=soc_pct,
@@ -229,7 +227,7 @@ class TestAggregatedDataQuarter:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_single_interval_quarter(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "automatic", soc_pct=55.0)
+        _insert_interval(data_store, ts(8, 0), 0.25, "automatic", soc_pct=55.0)
         _insert_price(data_store, ts(8, 0), 0.25, 0.10, "low")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
@@ -249,9 +247,9 @@ class TestAggregatedDataQuarter:
     async def test_three_intervals_in_one_quarter(self, mock_now, data_store):
         await data_store.initialise()
         # Three 5-min intervals in the 08:00-08:15 quarter
-        _insert_interval(data_store, ts(8, 0), -2.0, -0.167, "automatic", soc_pct=50.0)
-        _insert_interval(data_store, ts(8, 5), -2.0, -0.167, "automatic", soc_pct=49.0)
-        _insert_interval(data_store, ts(8, 10), -2.0, -0.167, "automatic", soc_pct=48.0)
+        _insert_interval(data_store, ts(8, 0), -0.167, "automatic", soc_pct=50.0)
+        _insert_interval(data_store, ts(8, 5), -0.167, "automatic", soc_pct=49.0)
+        _insert_interval(data_store, ts(8, 10), -0.167, "automatic", soc_pct=48.0)
 
         _insert_price(data_store, ts(8, 0), 0.25, 0.20, "average")
         _insert_price(data_store, ts(8, 5), 0.25, 0.20, "average")
@@ -271,8 +269,8 @@ class TestAggregatedDataQuarter:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_two_quarters_in_range(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic", soc_pct=50.0)
-        _insert_interval(data_store, ts(8, 15), 3.0, 0.25, "charge", soc_pct=52.0)
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic", soc_pct=50.0)
+        _insert_interval(data_store, ts(8, 15), 0.25, "charge", soc_pct=52.0)
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(8, 30), "quarter_hours")
         assert len(result) == 2
@@ -283,7 +281,7 @@ class TestAggregatedDataQuarter:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_quarter_no_prices(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
         row = result[0]
@@ -300,7 +298,6 @@ class TestAggregatedDataQuarter:
             data_store,
             ts(8, 0),
             0.0,
-            0.0,
             "not_connected",
             soc_pct=None,
             availability_pct=0.0,
@@ -312,9 +309,9 @@ class TestAggregatedDataQuarter:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_quarter_app_state_plus_suffix(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
-        _insert_interval(data_store, ts(8, 5), 2.0, 0.167, "automatic")
-        _insert_interval(data_store, ts(8, 10), 3.0, 0.25, "charge")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 5), 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 10), 0.25, "charge")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "quarter_hours")
         assert result[0]["app_state"] == "automatic+"
@@ -327,14 +324,10 @@ class TestAggregatedDataHour:
         await data_store.initialise()
         # 6 intervals of charging, 6 of discharging within one hour
         for m in range(0, 30, 5):
-            _insert_interval(
-                data_store, ts(8, m), 3.0, 0.25, "automatic", soc_pct=50 + m
-            )
+            _insert_interval(data_store, ts(8, m), 0.25, "automatic", soc_pct=50 + m)
             _insert_price(data_store, ts(8, m), 0.20, 0.15, "low")
         for m in range(30, 60, 5):
-            _insert_interval(
-                data_store, ts(8, m), -2.0, -0.167, "automatic", soc_pct=80 - m
-            )
+            _insert_interval(data_store, ts(8, m), -0.167, "automatic", soc_pct=80 - m)
             _insert_price(data_store, ts(8, m), 0.20, 0.15, "low")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "hours")
@@ -350,11 +343,11 @@ class TestAggregatedDataHour:
     async def test_hourly_weighted_avg_price(self, mock_now, data_store):
         await data_store.initialise()
         # 2 intervals charging at 0.30 cons, 1 interval discharging at 0.10 prod
-        _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.25, "automatic")
         _insert_price(data_store, ts(8, 0), 0.30, 0.10, "high")
-        _insert_interval(data_store, ts(8, 5), 3.0, 0.25, "automatic")
+        _insert_interval(data_store, ts(8, 5), 0.25, "automatic")
         _insert_price(data_store, ts(8, 5), 0.30, 0.10, "high")
-        _insert_interval(data_store, ts(8, 10), -2.0, -0.167, "automatic")
+        _insert_interval(data_store, ts(8, 10), -0.167, "automatic")
         _insert_price(data_store, ts(8, 10), 0.30, 0.10, "high")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hours")
@@ -371,9 +364,9 @@ class TestAggregatedDataHour:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_hourly_no_energy_uses_simple_avg_price(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 0.0, 0.0, "pause")
+        _insert_interval(data_store, ts(8, 0), 0.0, "pause")
         _insert_price(data_store, ts(8, 0), 0.20, 0.10, "low")
-        _insert_interval(data_store, ts(8, 5), 0.0, 0.0, "pause")
+        _insert_interval(data_store, ts(8, 5), 0.0, "pause")
         _insert_price(data_store, ts(8, 5), 0.30, 0.15, "average")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hours")
@@ -384,9 +377,9 @@ class TestAggregatedDataHour:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_hourly_soc_last_value(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic", soc_pct=50.0)
-        _insert_interval(data_store, ts(8, 5), 2.0, 0.167, "automatic", soc_pct=52.0)
-        _insert_interval(data_store, ts(8, 10), 0.0, 0.0, "not_connected", soc_pct=None)
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic", soc_pct=50.0)
+        _insert_interval(data_store, ts(8, 5), 0.167, "automatic", soc_pct=52.0)
+        _insert_interval(data_store, ts(8, 10), 0.0, "not_connected", soc_pct=None)
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(8, 15), "hours")
         # Last non-null SoC should be 52.0
@@ -400,15 +393,15 @@ class TestAggregatedDataPeriod:
         await data_store.initialise()
         # 3 intervals: 2 charging, 1 discharging
         _insert_interval(
-            data_store, ts(8, 0), 3.0, 0.25, "automatic", availability_pct=100.0
+            data_store, ts(8, 0), 0.25, "automatic", availability_pct=100.0
         )
         _insert_price(data_store, ts(8, 0), 0.25, 0.10)
         _insert_interval(
-            data_store, ts(8, 5), 3.0, 0.25, "automatic", availability_pct=100.0
+            data_store, ts(8, 5), 0.25, "automatic", availability_pct=100.0
         )
         _insert_price(data_store, ts(8, 5), 0.25, 0.10)
         _insert_interval(
-            data_store, ts(8, 10), -2.0, -0.167, "automatic", availability_pct=50.0
+            data_store, ts(8, 10), -0.167, "automatic", availability_pct=50.0
         )
         _insert_price(data_store, ts(8, 10), 0.25, 0.10)
 
@@ -430,10 +423,10 @@ class TestAggregatedDataPeriod:
     async def test_daily_co2_calculation(self, mock_now, data_store):
         await data_store.initialise()
         # Charging: 0.25 kWh at 400 kg/MWh -> 0.25 * 400 / 1000 = 0.1 kg
-        _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.25, "automatic")
         _insert_emission(data_store, ts(8, 0), 400.0)
         # Discharging: -0.167 kWh at 350 kg/MWh -> -0.167 * 350 / 1000 = -0.058 kg
-        _insert_interval(data_store, ts(8, 5), -2.0, -0.167, "automatic")
+        _insert_interval(data_store, ts(8, 5), -0.167, "automatic")
         _insert_emission(data_store, ts(8, 5), 350.0)
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
@@ -445,7 +438,7 @@ class TestAggregatedDataPeriod:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_daily_no_emissions(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.25, "automatic")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
         assert result[0]["co2_kg"] == 0
@@ -454,8 +447,8 @@ class TestAggregatedDataPeriod:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_weekly_grouping(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
-        _insert_interval(data_store, ts(8, 5), 2.0, 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 5), 0.167, "automatic")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "weeks")
         assert len(result) == 1
@@ -465,7 +458,7 @@ class TestAggregatedDataPeriod:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_monthly_grouping(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "months")
         assert len(result) == 1
@@ -475,7 +468,7 @@ class TestAggregatedDataPeriod:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_yearly_grouping(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "years")
         assert len(result) == 1
@@ -494,9 +487,9 @@ class TestAggregatedDataEdgeCases:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_range_excludes_end_timestamp(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
         # This interval is AT the end boundary — should be excluded
-        _insert_interval(data_store, ts(9, 0), 3.0, 0.25, "charge")
+        _insert_interval(data_store, ts(9, 0), 0.25, "charge")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "hours")
         assert len(result) == 1
@@ -506,7 +499,7 @@ class TestAggregatedDataEdgeCases:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_only_charging_intervals(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), 3.0, 0.25, "charge")
+        _insert_interval(data_store, ts(8, 0), 0.25, "charge")
         _insert_price(data_store, ts(8, 0), 0.30, 0.10)
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
@@ -520,7 +513,7 @@ class TestAggregatedDataEdgeCases:
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_only_discharging_intervals(self, mock_now, data_store):
         await data_store.initialise()
-        _insert_interval(data_store, ts(8, 0), -2.0, -0.167, "discharge")
+        _insert_interval(data_store, ts(8, 0), -0.167, "discharge")
         _insert_price(data_store, ts(8, 0), 0.30, 0.15)
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "days")
@@ -536,8 +529,8 @@ class TestAggregatedDataEdgeCases:
     async def test_results_ordered_by_period(self, mock_now, data_store):
         await data_store.initialise()
         # Insert in reverse order
-        _insert_interval(data_store, ts(10, 0), 1.0, 0.083, "automatic")
-        _insert_interval(data_store, ts(8, 0), 2.0, 0.167, "automatic")
+        _insert_interval(data_store, ts(10, 0), 0.083, "automatic")
+        _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
         result = data_store.get_aggregated_data(ts(8, 0), ts(11, 0), "hours")
         assert len(result) == 2

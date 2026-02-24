@@ -122,8 +122,13 @@ class FMDataSender:
         nr_intervals = len(block)
         duration = _len_to_iso_duration(nr_intervals)
 
+        # Derive power in MW from energy in kWh.
+        # power_kw = energy_kwh × (60 / interval_minutes), then / 1000 for MW.
+        interval_minutes = c.FM_EVENT_RESOLUTION_IN_MINUTES
         power_values = [
-            round(row["power_kw"] / 1000, 5) if row["power_kw"] is not None else None
+            round(row["energy_kwh"] * 60 / (interval_minutes * 1000), 5)
+            if row["energy_kwh"] is not None
+            else None
             for row in block
         ]
         soc_values = [row["soc_pct"] for row in block]

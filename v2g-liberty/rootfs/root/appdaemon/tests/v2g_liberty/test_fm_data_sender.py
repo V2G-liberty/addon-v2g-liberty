@@ -70,11 +70,11 @@ def sender(hass, fm_client, data_store):
     return s
 
 
-def _make_interval(ts_str, power_kw=1.5, soc_pct=50.0, availability_pct=100.0):
+def _make_interval(ts_str, energy_kwh=0.125, soc_pct=50.0, availability_pct=100.0):
     """Helper to create an interval dict."""
     return {
         "timestamp": ts_str,
-        "power_kw": power_kw,
+        "energy_kwh": energy_kwh,
         "soc_pct": soc_pct,
         "availability_pct": availability_pct,
     }
@@ -166,10 +166,10 @@ class TestSendBlock:
     async def test_sends_three_measurements(self, sender, fm_client):
         block = [
             _make_interval(
-                _ts(10, 0), power_kw=2.0, soc_pct=60.0, availability_pct=80.0
+                _ts(10, 0), energy_kwh=0.167, soc_pct=60.0, availability_pct=80.0
             ),
             _make_interval(
-                _ts(10, 5), power_kw=3.0, soc_pct=61.0, availability_pct=90.0
+                _ts(10, 5), energy_kwh=0.25, soc_pct=61.0, availability_pct=90.0
             ),
         ]
         result = await sender._send_block(block)
@@ -178,17 +178,19 @@ class TestSendBlock:
 
     @pytest.mark.asyncio
     async def test_power_converted_to_mw(self, sender, fm_client):
-        block = [_make_interval(_ts(10, 0), power_kw=5.0)]
+        # energy_kwh=0.417 → power_kw = 0.417 × 12 = 5.004 → MW = 0.005004
+        block = [_make_interval(_ts(10, 0), energy_kwh=0.417)]
         await sender._send_block(block)
 
         # First call is power
         power_call = fm_client.post_measurements.call_args_list[0]
         power_values = power_call.kwargs["values"]
-        assert power_values == [0.005]  # 5.0 kW / 1000
+        # 0.417 × 60 / (5 × 1000) = 0.005004
+        assert power_values == [round(0.417 * 60 / (5 * 1000), 5)]
 
     @pytest.mark.asyncio
     async def test_none_power_passed_through(self, sender, fm_client):
-        block = [_make_interval(_ts(10, 0), power_kw=None)]
+        block = [_make_interval(_ts(10, 0), energy_kwh=None)]
         await sender._send_block(block)
 
         power_call = fm_client.post_measurements.call_args_list[0]
@@ -429,7 +431,6 @@ class TestDataStoreFmSendStatus:
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),
-            power_kw=1.5,
             energy_kwh=0.125,
             app_state="automatic",
             soc_pct=50.0,
@@ -437,7 +438,6 @@ class TestDataStoreFmSendStatus:
         )
         real_data_store.insert_interval(
             timestamp=_ts(10, 5),
-            power_kw=2.0,
             energy_kwh=0.167,
             app_state="automatic",
             soc_pct=51.0,
@@ -448,7 +448,7 @@ class TestDataStoreFmSendStatus:
         rows = real_data_store.get_intervals_since(_ts(9, 55))
         assert len(rows) == 2
         assert rows[0]["timestamp"] == _ts(10, 0)
-        assert rows[0]["power_kw"] == 1.5
+        assert rows[0]["energy_kwh"] == 0.125
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
@@ -458,7 +458,6 @@ class TestDataStoreFmSendStatus:
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),
-            power_kw=1.5,
             energy_kwh=0.125,
             app_state="automatic",
             soc_pct=50.0,
@@ -466,7 +465,6 @@ class TestDataStoreFmSendStatus:
         )
         real_data_store.insert_interval(
             timestamp=_ts(10, 5),
-            power_kw=2.0,
             energy_kwh=0.167,
             app_state="automatic",
             soc_pct=51.0,
@@ -486,7 +484,6 @@ class TestDataStoreFmSendStatus:
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),
-            power_kw=1.5,
             energy_kwh=0.125,
             app_state="automatic",
             soc_pct=50.0,
@@ -498,7 +495,7 @@ class TestDataStoreFmSendStatus:
         row = rows[0]
         assert set(row.keys()) == {
             "timestamp",
-            "power_kw",
+            "energy_kwh",
             "soc_pct",
             "availability_pct",
         }
@@ -509,7 +506,6 @@ class TestDataStoreFmSendStatus:
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),
-            power_kw=0.0,
             energy_kwh=0.0,
             app_state="not_connected",
             soc_pct=None,

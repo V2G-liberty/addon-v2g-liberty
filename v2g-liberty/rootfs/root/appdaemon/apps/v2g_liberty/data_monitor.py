@@ -412,8 +412,11 @@ class DataMonitor:
 
             # Persist interval data to local database
             await self._write_interval_to_db(
-                average_power_kw, energy_kwh, availability_pct, soc, app_state
+                energy_kwh, availability_pct, soc, app_state
             )
+
+            # Update homepage sensors with today's totals
+            await self._emit_today_totals()
 
         else:
             self.__log(
@@ -431,7 +434,6 @@ class DataMonitor:
 
     async def _write_interval_to_db(
         self,
-        power_kw: float,
         energy_kwh: float,
         availability_pct: float,
         soc: Union[int, None],
@@ -451,7 +453,6 @@ class DataMonitor:
         try:
             self.data_store.insert_interval(
                 timestamp=timestamp,
-                power_kw=power_kw,
                 energy_kwh=energy_kwh,
                 app_state=app_state,
                 soc_pct=float(soc) if soc is not None else None,
@@ -462,6 +463,48 @@ class DataMonitor:
                 f"Failed to write interval to DB: {e}",
                 level="WARNING",
             )
+
+    async def _emit_today_totals(self):
+        """Query today's aggregated data and emit an event for homepage sensors."""
+        if self.data_store is None:
+            return
+
+        now = get_local_now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+
+        try:
+            result = self.data_store.get_aggregated_data(
+                start=today_start.isoformat(),
+                end=today_end.isoformat(),
+                granularity="days",
+            )
+        except Exception as e:
+            self.__log(
+                f"Failed to query today's totals: {e}",
+                level="WARNING",
+            )
+            return
+
+        if result:
+            day = result[0]
+            charge_kwh = day["charge_kwh"]
+            charge_cost = day["charge_cost"]
+            discharge_kwh = day["discharge_kwh"]
+            discharge_revenue = day["discharge_revenue"]
+        else:
+            charge_kwh = 0.0
+            charge_cost = 0.0
+            discharge_kwh = 0.0
+            discharge_revenue = 0.0
+
+        self.event_bus.emit_event(
+            "today_energy_update",
+            charge_kwh=charge_kwh,
+            charge_cost=charge_cost,
+            discharge_kwh=discharge_kwh,
+            discharge_revenue=discharge_revenue,
+        )
 
     async def __is_available(self):
         """Check if car and charger are available for automatic charging."""

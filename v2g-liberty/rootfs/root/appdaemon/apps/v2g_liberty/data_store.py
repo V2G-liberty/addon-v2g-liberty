@@ -10,7 +10,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -203,7 +203,6 @@ class DataStore:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS interval_log (
                 timestamp TEXT PRIMARY KEY,
-                power_kw REAL NOT NULL,
                 energy_kwh REAL NOT NULL,
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
@@ -287,8 +286,15 @@ class DataStore:
             f"to {CURRENT_SCHEMA_VERSION}."
         )
 
-        now = get_local_now().isoformat()
         cursor = self.__connection.cursor()
+
+        if from_version < 2:
+            # V2: Remove power_kw column from interval_log.
+            # power_kw is always derivable from energy_kwh (power = energy × 12).
+            cursor.execute("ALTER TABLE interval_log DROP COLUMN power_kw")
+            self.__log("Migration v2: dropped power_kw column from interval_log.")
+
+        now = get_local_now().isoformat()
         cursor.execute(
             "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
             (CURRENT_SCHEMA_VERSION, now),
@@ -305,7 +311,6 @@ class DataStore:
     def insert_interval(
         self,
         timestamp: str,
-        power_kw: float,
         energy_kwh: float,
         app_state: str,
         soc_pct: float | None,
@@ -315,11 +320,10 @@ class DataStore:
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT INTO interval_log "
-            "(timestamp, power_kw, energy_kwh, app_state, soc_pct, "
-            "availability_pct) VALUES (?, ?, ?, ?, ?, ?)",
+            "(timestamp, energy_kwh, app_state, soc_pct, "
+            "availability_pct) VALUES (?, ?, ?, ?, ?)",
             (
                 timestamp,
-                power_kw,
                 energy_kwh,
                 app_state,
                 soc_pct,
@@ -506,12 +510,12 @@ class DataStore:
     def get_intervals_since(self, since: str) -> list[dict]:
         """Retrieve interval_log rows after the given timestamp.
 
-        Returns a list of dicts with keys: timestamp, power_kw,
+        Returns a list of dicts with keys: timestamp, energy_kwh,
         soc_pct, availability_pct. Ordered by timestamp ascending.
         """
         cursor = self.__connection.cursor()
         cursor.execute(
-            "SELECT timestamp, power_kw, soc_pct, availability_pct "
+            "SELECT timestamp, energy_kwh, soc_pct, availability_pct "
             "FROM interval_log WHERE timestamp > ? ORDER BY timestamp",
             (since,),
         )
@@ -576,7 +580,7 @@ class DataStore:
         """Fetch intervals with joined price and emission data."""
         cursor = self.__connection.cursor()
         cursor.execute(
-            "SELECT i.timestamp, i.power_kw, i.energy_kwh, i.app_state, "
+            "SELECT i.timestamp, i.energy_kwh, i.app_state, "
             "i.soc_pct, i.availability_pct, "
             "p.consumption_price_kwh, p.production_price_kwh, p.price_rating, "
             "e.emission_intensity_kg_mwh "

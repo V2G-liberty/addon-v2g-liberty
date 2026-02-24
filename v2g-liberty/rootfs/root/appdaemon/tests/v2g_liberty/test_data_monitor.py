@@ -348,7 +348,6 @@ class TestWriteIntervalToDb:
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
 
         await monitor._write_interval_to_db(
-            power_kw=3.5,
             energy_kwh=0.291667,
             availability_pct=95.0,
             soc=75,
@@ -358,7 +357,6 @@ class TestWriteIntervalToDb:
         data_store.insert_interval.assert_called_once()
         call_kwargs = data_store.insert_interval.call_args[1]
         assert call_kwargs["timestamp"] == "2026-02-22T12:00:00+01:00"
-        assert call_kwargs["power_kw"] == 3.5
         assert call_kwargs["energy_kwh"] == 0.291667
         assert call_kwargs["app_state"] == "automatic"
         assert call_kwargs["soc_pct"] == 75.0
@@ -373,7 +371,6 @@ class TestWriteIntervalToDb:
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
 
         await monitor._write_interval_to_db(
-            power_kw=0.0,
             energy_kwh=0.0,
             availability_pct=0.0,
             soc=None,
@@ -392,7 +389,6 @@ class TestWriteIntervalToDb:
 
         # Should not raise
         await monitor._write_interval_to_db(
-            power_kw=1.0,
             energy_kwh=0.083,
             availability_pct=100.0,
             soc=60,
@@ -408,7 +404,6 @@ class TestWriteIntervalToDb:
 
         # Should not raise
         await monitor._write_interval_to_db(
-            power_kw=1.0,
             energy_kwh=0.083,
             availability_pct=100.0,
             soc=60,
@@ -423,7 +418,6 @@ class TestWriteIntervalToDb:
         mock_now.return_value = datetime(2026, 2, 22, 12, 10, 0, tzinfo=TEST_TZ)
 
         await monitor._write_interval_to_db(
-            power_kw=0.0,
             energy_kwh=0.0,
             availability_pct=100.0,
             soc=50,
@@ -442,7 +436,6 @@ class TestWriteIntervalToDb:
         mock_now.return_value = datetime(2026, 2, 22, 12, 5, 0, tzinfo=TEST_TZ)
 
         await monitor._write_interval_to_db(
-            power_kw=-2.5,
             energy_kwh=-0.208333,
             availability_pct=100.0,
             soc=80,
@@ -450,7 +443,6 @@ class TestWriteIntervalToDb:
         )
 
         call_kwargs = data_store.insert_interval.call_args[1]
-        assert call_kwargs["power_kw"] == -2.5
         assert call_kwargs["energy_kwh"] == -0.208333
 
 
@@ -626,3 +618,109 @@ class TestHandleCalendarChange:
                 warning_logged = True
                 break
         assert warning_logged
+
+
+# =====================================================================
+# _emit_today_totals tests (T33)
+# =====================================================================
+
+
+class TestEmitTodayTotals:
+    """Tests for today's energy totals event emission."""
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now")
+    async def test_emits_today_totals_with_data(
+        self, mock_now, monitor, data_store, event_bus
+    ):
+        """When data exists for today, emit the aggregated values."""
+        mock_now.return_value = datetime(2026, 2, 22, 14, 0, 0, tzinfo=TEST_TZ)
+        data_store.get_aggregated_data = MagicMock(
+            return_value=[
+                {
+                    "period_start": "2026-02-22",
+                    "availability_pct": 95.0,
+                    "charge_kwh": 5.5,
+                    "charge_cost": 1.23,
+                    "discharge_kwh": 3.2,
+                    "discharge_revenue": 0.89,
+                    "net_kwh": 2.3,
+                    "net_cost": 0.34,
+                    "co2_kg": -5.0,
+                }
+            ]
+        )
+
+        await monitor._emit_today_totals()
+
+        event_bus.emit_event.assert_called_with(
+            "today_energy_update",
+            charge_kwh=5.5,
+            charge_cost=1.23,
+            discharge_kwh=3.2,
+            discharge_revenue=0.89,
+        )
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now")
+    async def test_emits_zeros_when_no_data(
+        self, mock_now, monitor, data_store, event_bus
+    ):
+        """When no data exists for today (e.g. just after midnight), emit zeros."""
+        mock_now.return_value = datetime(2026, 2, 22, 0, 5, 0, tzinfo=TEST_TZ)
+        data_store.get_aggregated_data = MagicMock(return_value=[])
+
+        await monitor._emit_today_totals()
+
+        event_bus.emit_event.assert_called_with(
+            "today_energy_update",
+            charge_kwh=0.0,
+            charge_cost=0.0,
+            discharge_kwh=0.0,
+            discharge_revenue=0.0,
+        )
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now")
+    async def test_queries_correct_date_range(
+        self, mock_now, monitor, data_store, event_bus
+    ):
+        """Should query from today 00:00 to tomorrow 00:00."""
+        mock_now.return_value = datetime(2026, 2, 22, 14, 30, 0, tzinfo=TEST_TZ)
+        data_store.get_aggregated_data = MagicMock(return_value=[])
+
+        await monitor._emit_today_totals()
+
+        call_kwargs = data_store.get_aggregated_data.call_args
+        start = call_kwargs[1]["start"]
+        end = call_kwargs[1]["end"]
+        granularity = call_kwargs[1]["granularity"]
+
+        assert start == "2026-02-22T00:00:00+01:00"
+        assert end == "2026-02-23T00:00:00+01:00"
+        assert granularity == "days"
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now")
+    async def test_no_emit_when_data_store_is_none(self, mock_now, monitor, event_bus):
+        """When data_store is not set, no event should be emitted."""
+        mock_now.return_value = datetime(2026, 2, 22, 14, 0, 0, tzinfo=TEST_TZ)
+        monitor.data_store = None
+
+        await monitor._emit_today_totals()
+
+        event_bus.emit_event.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("apps.v2g_liberty.data_monitor.get_local_now")
+    async def test_handles_db_exception_gracefully(
+        self, mock_now, monitor, data_store, event_bus
+    ):
+        """DB exception should be caught gracefully, no event emitted."""
+        mock_now.return_value = datetime(2026, 2, 22, 14, 0, 0, tzinfo=TEST_TZ)
+        data_store.get_aggregated_data = MagicMock(side_effect=Exception("DB locked"))
+
+        # Should not raise
+        await monitor._emit_today_totals()
+
+        event_bus.emit_event.assert_not_called()

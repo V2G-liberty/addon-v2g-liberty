@@ -349,6 +349,7 @@
           charger.</ha-alert>
         layout_options:
           grid_columns: full
+
 - type: grid
   cards:
     - type: custom:apexcharts-card
@@ -936,6 +937,10 @@
               padding: 4px 0 0 0;
             }
 
+
+    - type: custom:v2g-liberty-homepage-stats-card
+      layout_options:
+        grid_columns: full
 
     - type: markdown
       layout_options:
