@@ -319,7 +319,7 @@ class DataStore:
         """Insert a single interval row into interval_log."""
         cursor = self.__connection.cursor()
         cursor.execute(
-            "INSERT INTO interval_log "
+            "INSERT OR REPLACE INTO interval_log "
             "(timestamp, energy_kwh, app_state, soc_pct, "
             "availability_pct) VALUES (?, ?, ?, ?, ?)",
             (
@@ -332,6 +332,48 @@ class DataStore:
         )
         self.__connection.commit()
         cursor.close()
+
+    def has_any_intervals(self) -> bool:
+        """Return True if interval_log contains at least one row."""
+        cursor = self.__connection.cursor()
+        cursor.execute("SELECT 1 FROM interval_log LIMIT 1")
+        result = cursor.fetchone()
+        cursor.close()
+        return result is not None
+
+    def bulk_insert_or_ignore_intervals(self, rows: list[dict]) -> int:
+        """Insert multiple interval rows, skipping timestamps that already exist.
+
+        Returns the number of newly inserted rows.
+        """
+        cursor = self.__connection.cursor()
+        cursor.executemany(
+            "INSERT OR IGNORE INTO interval_log "
+            "(timestamp, energy_kwh, app_state, soc_pct, availability_pct) "
+            "VALUES (:timestamp, :energy_kwh, :app_state, :soc_pct, :availability_pct)",
+            rows,
+        )
+        inserted = cursor.rowcount
+        self.__connection.commit()
+        cursor.close()
+        return inserted
+
+    def delete_historical_intervals(self) -> int:
+        """Delete interval_log rows written by the historical importer.
+
+        The historical importer marks its rows with app_state='unknown'.
+        Call this before a re-import to remove stale entries so that
+        re-imported rows (with the correct local-timezone timestamps) are
+        inserted cleanly rather than shadowed by old UTC-format duplicates.
+
+        Returns the number of rows deleted.
+        """
+        cursor = self.__connection.cursor()
+        cursor.execute("DELETE FROM interval_log WHERE app_state = 'unknown'")
+        deleted = cursor.rowcount
+        self.__connection.commit()
+        cursor.close()
+        return deleted
 
     def upsert_prices(
         self, rows: list[tuple], recalculate_ratings: bool = True

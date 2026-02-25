@@ -105,6 +105,7 @@ class V2GLibertyApp(Hass):
         v2g_globals.v2g_main_app = main_app
         v2g_globals.evse_client_app = modbus_evse_client
         v2g_globals.fm_client_app = fm_client
+        v2g_globals.data_store = data_store
         v2g_globals.calendar_client = reservations_client
         v2g_globals.amber_price_data_manager = amber_price_data_manager
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager

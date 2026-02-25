@@ -1,11 +1,13 @@
 """Module to initialise settings and CONSTANTS"""
 
+import asyncio
 import math
 from datetime import datetime, timedelta
 import pytz
 
 from appdaemon.plugins.hass.hassapi import Hass
 
+from .fm_historical_importer import run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -914,6 +916,9 @@ class V2GLibertyGlobals:
             setting_object=self.SCHEDULE_SETTINGS_INITIALISED
         )
         if not is_initialised:
+            self.hass.log(
+                "Historical import: skipping, FM client settings not yet configured."
+            )
             return
 
         c.FM_ACCOUNT_USERNAME = await self.__process_setting(
@@ -942,10 +947,24 @@ class V2GLibertyGlobals:
                 f"FlexMeasures client initialisation failed: {init_result}",
                 level="WARNING",
             )
+            self.hass.log(
+                f"Historical import: skipping, FM client not connected ({init_result}).",
+                level="WARNING",
+            )
             return
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
+
+        # Temporary: one-off historical import for new installations (empty DB).
+        # Use a plain closure rather than self.__log to avoid log_wrapper's frame
+        # inspection (which requires a 'self' in the caller's locals).
+        def _hist_log(msg, level="INFO"):
+            self.hass.log(msg, level=level)
+
+        asyncio.ensure_future(
+            run_historical_import(self.data_store, _hist_log, self.fm_client_app.client)
+        )
 
         self.__log("completed")
 

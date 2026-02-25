@@ -349,9 +349,10 @@ class TestInsertInterval:
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_insert_interval_duplicate_timestamp_raises(
+    async def test_insert_interval_duplicate_timestamp_replaces(
         self, mock_now, data_store
     ):
+        """A second insert on the same timestamp replaces the earlier row (INSERT OR REPLACE)."""
         await data_store.initialise()
         data_store.insert_interval(
             timestamp="2026-02-21T12:00:00+01:00",
@@ -360,14 +361,21 @@ class TestInsertInterval:
             soc_pct=50.0,
             availability_pct=100.0,
         )
-        with pytest.raises(Exception):
-            data_store.insert_interval(
-                timestamp="2026-02-21T12:00:00+01:00",
-                energy_kwh=0.167,
-                app_state="automatic",
-                soc_pct=51.0,
-                availability_pct=100.0,
-            )
+        # Second insert with different values — must succeed and overwrite.
+        data_store.insert_interval(
+            timestamp="2026-02-21T12:00:00+01:00",
+            energy_kwh=0.167,
+            app_state="charge",
+            soc_pct=51.0,
+            availability_pct=100.0,
+        )
+        cursor = data_store.connection.cursor()
+        cursor.execute("SELECT energy_kwh, app_state FROM interval_log")
+        rows = cursor.fetchall()
+        cursor.close()
+        assert len(rows) == 1  # only one row; original was replaced
+        assert rows[0]["energy_kwh"] == pytest.approx(0.167)
+        assert rows[0]["app_state"] == "charge"
 
 
 class TestUpsertPrices:
