@@ -88,7 +88,7 @@ async def run_historical_import(data_store, log_fn, fm_client=None) -> None:
             consecutive_empty = 0
             inserted = data_store.bulk_insert_or_ignore_intervals(rows)
             log_fn(
-                f"Historical import: {month.strftime('%Y-%m')} — "
+                f"Historical import: {month.strftime('%Y-%m')} - "
                 f"{inserted}/{len(rows)} interval rows inserted."
             )
 
@@ -244,7 +244,7 @@ async def _import_prices_for_month(
 
     data_store.upsert_prices(rows, recalculate_ratings=False)
     log_fn(
-        f"Historical import: {month_start.strftime('%Y-%m')} — {len(rows)} price rows."
+        f"Historical import: {month_start.strftime('%Y-%m')} - {len(rows)} price rows."
     )
 
 
@@ -274,7 +274,7 @@ async def _import_emissions_for_month(
     rows = [(ts, val) for ts, val in events.items()]
     data_store.upsert_emissions(rows)
     log_fn(
-        f"Historical import: {month_start.strftime('%Y-%m')} — {len(rows)} emission rows."
+        f"Historical import: {month_start.strftime('%Y-%m')} - {len(rows)} emission rows."
     )
 
 

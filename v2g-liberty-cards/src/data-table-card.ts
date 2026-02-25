@@ -64,6 +64,7 @@ export class DataTableCard extends LitElement {
         { start, end, granularity: this._granularity },
         30000
       );
+      await new Promise(resolve => setTimeout(resolve, 3000)); // TODO: remove after testing spinner
 
       if (result.error) {
         this._error = result.error;
@@ -258,7 +259,10 @@ export class DataTableCard extends LitElement {
 
   private _fmtCents(value: number | null | undefined): string {
     if (value === null || value === undefined) return '−';
-    return (value * 100).toFixed(3);
+    return (value * 100).toLocaleString(undefined, {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    });
   }
 
   private _fmtPct(value: number | null | undefined, decimals = 1): string {
@@ -292,7 +296,8 @@ export class DataTableCard extends LitElement {
   private _fmtHour(isoStr: string): string {
     if (!isoStr) return '−';
     const d = new Date(isoStr);
-    return String(d.getHours()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    return `${hh}:00`;
   }
 
   private _fmtDayDate(isoStr: string): string {
@@ -302,6 +307,21 @@ export class DataTableCard extends LitElement {
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     return `${dayName} ${dd}-${mm}`;
+  }
+
+  private _fmtWeek(weekStr: string): string {
+    // weekStr is like "2026-W08" (ISO week key from the backend)
+    const m = /^(\d{4})-W(\d{2})$/.exec(weekStr);
+    if (!m) return weekStr;
+    const year = parseInt(m[1]);
+    const week = parseInt(m[2]);
+    // ISO week 1 always contains Jan 4; Mon=1…Sun=7
+    const jan4 = new Date(year, 0, 4);
+    const weekday = jan4.getDay() || 7;
+    const monday = new Date(year, 0, 4 - (weekday - 1) + (week - 1) * 7);
+    const dd = String(monday.getDate()).padStart(2, '0');
+    const mm = String(monday.getMonth() + 1).padStart(2, '0');
+    return `W${m[2]} ${dd}-${mm}`;
   }
 
   private _fmtMonthYear(isoStr: string): string {
@@ -323,8 +343,9 @@ export class DataTableCard extends LitElement {
       case 'hours':
         return this._fmtHour(isoStr);
       case 'days':
-      case 'weeks':
         return this._fmtDayDate(isoStr);
+      case 'weeks':
+        return this._fmtWeek(isoStr);
       case 'months':
         return this._fmtMonthYear(isoStr);
       case 'years':
@@ -378,11 +399,29 @@ export class DataTableCard extends LitElement {
     rating: string | null | undefined
   ): TemplateResult {
     if (!rating) return html`<span>−</span>`;
+
+    const levelCount: Record<string, number> = {
+      'very-low': 1,
+      low: 2,
+      average: 3,
+      high: 4,
+      'very-high': 5,
+    };
+
     const level = rating.replace(/_/g, '-');
+    const filled = levelCount[level] ?? 0;
     const title = tp(`price-rating.${level}`);
+
+    const euros = Array.from(
+      { length: 5 },
+      (_, i) =>
+        html`<span class="euro ${i < filled ? 'active' : ''}">€</span>`
+    );
+
     return html`
       <div class="price-indicator" data-level="${level}" title="${title}">
         <div class="fill"></div>
+        ${euros}
       </div>
     `;
   }
@@ -422,20 +461,24 @@ export class DataTableCard extends LitElement {
           </tr>
         </thead>
         <tbody>
-          ${this._data.map(
-            (row) => html`
-              <tr>
-                <td>${this._fmtTime(row.period_start)}</td>
-                <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                <td>${this._fmtPct(row.soc_pct)}</td>
-                <td class="num">${this._fmtCents(row.consumption_price)}</td>
-                <td class="num">${this._fmtCents(row.production_price)}</td>
-                <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                <td class="num">${this._fmtWh(row.energy_wh)}</td>
-                <td class="num">${this._fmtCostRevenue(row)}</td>
-              </tr>
-            `
-          )}
+          ${this._isLoading
+            ? html`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
+            : this._data.length === 0
+              ? html`<tr><td colspan="8"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              : this._data.map(
+                  (row) => html`
+                    <tr>
+                      <td>${this._fmtTime(row.period_start)}</td>
+                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                      <td>${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtCents(row.consumption_price)}</td>
+                      <td class="num">${this._fmtCents(row.production_price)}</td>
+                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                      <td class="num">${this._fmtWh(row.energy_wh)}</td>
+                      <td class="num">${this._fmtCostRevenue(row)}</td>
+                    </tr>
+                  `
+                )}
         </tbody>
       </table>
     `;
@@ -458,21 +501,25 @@ export class DataTableCard extends LitElement {
           </tr>
         </thead>
         <tbody>
-          ${this._data.map(
-            (row) => html`
-              <tr>
-                <td>${this._fmtHour(row.period_start)}</td>
-                <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                <td>${this._fmtPct(row.soc_pct)}</td>
-                <td class="num">${this._fmtCents(row.avg_price)}</td>
-                <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                <td class="num">${this._fmtWh(row.charge_wh)}</td>
-                <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                <td class="num">${this._fmtWh(row.discharge_wh)}</td>
-                <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
-              </tr>
-            `
-          )}
+          ${this._isLoading
+            ? html`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
+            : this._data.length === 0
+              ? html`<tr><td colspan="9"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              : this._data.map(
+                  (row) => html`
+                    <tr>
+                      <td>${this._fmtHour(row.period_start)}</td>
+                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                      <td>${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtCents(row.avg_price)}</td>
+                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                      <td class="num">${this._fmtWh(row.charge_wh)}</td>
+                      <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
+                      <td class="num">${this._fmtWh(row.discharge_wh)}</td>
+                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
+                    </tr>
+                  `
+                )}
         </tbody>
       </table>
     `;
@@ -495,21 +542,25 @@ export class DataTableCard extends LitElement {
           </tr>
         </thead>
         <tbody>
-          ${this._data.map(
-            (row) => html`
-              <tr>
-                <td>${this._fmtPeriod(row.period_start)}</td>
-                <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
-                <td class="num">${this._fmtKwh(row.charge_kwh)}</td>
-                <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                <td class="num">${this._fmtKwh(row.discharge_kwh)}</td>
-                <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
-                <td class="num">${this._fmtKwh(row.net_kwh)}</td>
-                <td class="num">${this._fmtCurrency(row.net_cost)}</td>
-                <td class="num">${this._fmtKg(row.co2_kg)}</td>
-              </tr>
-            `
-          )}
+          ${this._isLoading
+            ? html`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
+            : this._data.length === 0
+              ? html`<tr><td colspan="9"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              : this._data.map(
+                  (row) => html`
+                    <tr>
+                      <td>${this._fmtPeriod(row.period_start)}</td>
+                      <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
+                      <td class="num">${this._fmtKwh(row.charge_kwh)}</td>
+                      <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
+                      <td class="num">${this._fmtKwh(row.discharge_kwh)}</td>
+                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
+                      <td class="num">${this._fmtKwh(row.net_kwh)}</td>
+                      <td class="num">${this._fmtCurrency(row.net_cost)}</td>
+                      <td class="num">${this._fmtKg(row.co2_kg)}</td>
+                    </tr>
+                  `
+                )}
         </tbody>
       </table>
     `;
@@ -535,15 +586,9 @@ export class DataTableCard extends LitElement {
           .header=${`${tp('card-title')} — ${tp('granularity.' + this._granularity)}`}
         >
           <div class="table-container">
-            ${this._isLoading
-              ? html`<div class="center">
-                  <ha-circular-progress indeterminate></ha-circular-progress>
-                </div>`
-              : this._error
-                ? html`<div class="center error">${this._error}</div>`
-                : this._data.length === 0
-                  ? html`<div class="center muted">${tp('no-data')}</div>`
-                  : this._renderTable()}
+            ${this._error
+              ? html`<div class="center error">${this._error}</div>`
+              : this._renderTable()}
           </div>
         </ha-card>
 
@@ -787,7 +832,23 @@ export class DataTableCard extends LitElement {
       display: flex;
       justify-content: center;
       align-items: center;
+      gap: 8px;
       padding: 24px 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--secondary-text-color);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
     }
 
     .muted {
@@ -808,66 +869,103 @@ export class DataTableCard extends LitElement {
     }
 
     .price-indicator {
-      width: 12px;
-      height: 24px;
-      border-radius: 3px;
       position: relative;
-      background: #e0e0e0;
-      display: inline-block;
-      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-evenly;
+      width: 90px;
+      height: 22px;
+      background: #e8e8e8;
+      border-radius: 5px;
+      overflow: hidden;
+      font-size: 10px;
+      font-weight: 700;
     }
 
     .price-indicator .fill {
       position: absolute;
-      bottom: 0;
-      width: 100%;
-      border-radius: 0 0 3px 3px;
-      transition:
-        height 0.2s ease,
-        background-color 0.2s ease;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background-color: var(--price-color);
+      border-radius: 5px;
+      transition: width 0.3s ease;
     }
 
+    .price-indicator .euro {
+      position: relative;
+      z-index: 1;
+      color: #bbb;
+      user-select: none;
+      width: 20%;
+      text-align: center;
+    }
+
+    .price-indicator .euro.active {
+      color: #fff;
+    }
+
+    /* Fill widths */
     .price-indicator[data-level='very-low'] .fill {
-      height: 20%;
-      background-color: #90caf9;
+      width: 20%;
     }
     .price-indicator[data-level='low'] .fill {
-      height: 40%;
-      background-color: #5c8dc9;
+      width: 40%;
     }
     .price-indicator[data-level='average'] .fill {
-      height: 60%;
-      background-color: #7e57c2;
+      width: 60%;
     }
     .price-indicator[data-level='high'] .fill {
-      height: 80%;
-      background-color: #6a1b9a;
+      width: 80%;
     }
     .price-indicator[data-level='very-high'] .fill {
-      height: 100%;
-      background-color: #4a0072;
+      width: 100%;
+    }
+
+    /* Light mode colours */
+    .price-indicator[data-level='very-low'] {
+      --price-color: #90caf9;
+    }
+    .price-indicator[data-level='low'] {
+      --price-color: #5c8dc9;
+    }
+    .price-indicator[data-level='average'] {
+      --price-color: #7e57c2;
+    }
+    .price-indicator[data-level='high'] {
+      --price-color: #6a1b9a;
+    }
+    .price-indicator[data-level='very-high'] {
+      --price-color: #4a0072;
     }
 
     @media (prefers-color-scheme: dark) {
       .price-indicator {
         background: #2a2a2a;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
       }
 
-      .price-indicator[data-level='very-low'] .fill {
-        background-color: #37474f;
+      .price-indicator .euro {
+        color: #555;
       }
-      .price-indicator[data-level='low'] .fill {
-        background-color: #5c6bc0;
+
+      .price-indicator .euro.active {
+        color: #fff;
       }
-      .price-indicator[data-level='average'] .fill {
-        background-color: #9575cd;
+
+      .price-indicator[data-level='very-low'] {
+        --price-color: #37474f;
       }
-      .price-indicator[data-level='high'] .fill {
-        background-color: #ba68c8;
+      .price-indicator[data-level='low'] {
+        --price-color: #5c6bc0;
       }
-      .price-indicator[data-level='very-high'] .fill {
-        background-color: #e040fb;
+      .price-indicator[data-level='average'] {
+        --price-color: #9575cd;
+      }
+      .price-indicator[data-level='high'] {
+        --price-color: #ba68c8;
+      }
+      .price-indicator[data-level='very-high'] {
+        --price-color: #e040fb;
       }
     }
   `;

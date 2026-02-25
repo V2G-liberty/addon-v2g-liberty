@@ -66,6 +66,7 @@
       "years": "Years"
     },
     "now": "Now",
+    "loading": "Loading data...",
     "no-data": "No data for this period",
     "all-time": "All time",
     "card-title": "Charging",
