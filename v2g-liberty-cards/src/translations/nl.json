@@ -50,6 +50,8 @@
       "availability": "Beschikbaar",
       "net": "Netto",
       "net-cost": "Netto kosten",
+      "cost": "Kosten",
+      "revenue": "Opbrengst",
       "emissions": "Uitstoot"
     }
   }

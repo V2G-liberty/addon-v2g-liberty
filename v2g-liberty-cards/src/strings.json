@@ -107,6 +107,8 @@
       "availability": "Availability",
       "net": "Net",
       "net-cost": "Net cost",
+      "cost": "Cost",
+      "revenue": "Revenue",
       "emissions": "Emissions"
     }
   },

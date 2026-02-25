@@ -484,24 +484,36 @@ export class DataTableCard extends LitElement {
   private _renderHourTable(): TemplateResult {
     return html`
       <table>
-        <thead>
+        <thead class="grouped">
           <tr>
-            <th>${this._col('period')}</th>
-            <th class="indicator-col">${this._col('status')}</th>
-            <th class="num">${this._col('soc', '%')}</th>
-            <th class="num">${this._col('avg-price', '¢/kWh')}</th>
-            <th class="indicator-col">${this._col('rate')}</th>
-            <th class="num">${this._col('charge', 'Wh')}</th>
-            <th class="num">${this._col('charge-cost')}</th>
-            <th class="num">${this._col('discharge', 'Wh')}</th>
-            <th class="num">${this._col('discharge-revenue')}</th>
+            <th>${tp('col.period')}</th>
+            <th class="indicator-col">${tp('col.status')}</th>
+            <th class="num">${tp('col.soc')}</th>
+            <th class="num">${tp('col.avg-price')}</th>
+            <th class="indicator-col">${tp('col.rate')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
+          </tr>
+          <tr class="sub-header">
+            <th></th>
+            <th class="indicator-col"></th>
+            <th class="num">%</th>
+            <th class="num">¢/kWh</th>
+            <th class="indicator-col"></th>
+            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
+            <th class="num">${tp('col.cost')}</th>
+            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
+            <th class="num">${tp('col.revenue')}</th>
+            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
+            <th class="num">${tp('col.cost')}</th>
           </tr>
         </thead>
         <tbody>
           ${this._isLoading
-            ? html`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
+            ? html`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="9"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}</div></td></tr>`
               : this._data.map(
                   (row) => html`
                     <tr>
@@ -510,10 +522,12 @@ export class DataTableCard extends LitElement {
                       <td class="num">${this._fmtPct(row.soc_pct)}</td>
                       <td class="num">${this._fmtCents(row.avg_price)}</td>
                       <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                      <td class="num">${this._fmtWh(row.charge_wh)}</td>
+                      <td class="num group-sep">${this._fmtWh(row.charge_wh)}</td>
                       <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                      <td class="num">${this._fmtWh(row.discharge_wh)}</td>
+                      <td class="num group-sep">${this._fmtWh(row.discharge_wh)}</td>
                       <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
+                      <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
+                      <td class="num">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
                     </tr>
                   `
                 )}
@@ -525,17 +539,25 @@ export class DataTableCard extends LitElement {
   private _renderDayTable(): TemplateResult {
     return html`
       <table>
-        <thead>
+        <thead class="grouped">
           <tr>
-            <th>${this._col('period')}</th>
-            <th class="num">${this._col('availability', '%')}</th>
-            <th class="num">${this._col('charge-kwh', 'kWh')}</th>
-            <th class="num">${this._col('charge-cost')}</th>
-            <th class="num">${this._col('discharge-kwh', 'kWh')}</th>
-            <th class="num">${this._col('discharge-revenue')}</th>
-            <th class="num">${this._col('net', 'kWh')}</th>
-            <th class="num">${this._col('net-cost')}</th>
-            <th class="num">${this._col('emissions', 'kg CO₂')}</th>
+            <th>${tp('col.period')}</th>
+            <th class="num">${tp('col.availability')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
+            <th class="num">${tp('col.emissions')}</th>
+          </tr>
+          <tr class="sub-header">
+            <th></th>
+            <th class="num">%</th>
+            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
+            <th class="num">${tp('col.cost')}</th>
+            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
+            <th class="num">${tp('col.revenue')}</th>
+            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
+            <th class="num">${tp('col.cost')}</th>
+            <th class="num">kg CO₂</th>
           </tr>
         </thead>
         <tbody>
@@ -548,11 +570,11 @@ export class DataTableCard extends LitElement {
                     <tr>
                       <td>${this._fmtPeriod(row.period_start)}</td>
                       <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
-                      <td class="num">${this._fmtKwh(row.charge_kwh)}</td>
+                      <td class="num group-sep">${this._fmtKwh(row.charge_kwh)}</td>
                       <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                      <td class="num">${this._fmtKwh(row.discharge_kwh)}</td>
+                      <td class="num group-sep">${this._fmtKwh(row.discharge_kwh)}</td>
                       <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
-                      <td class="num">${this._fmtKwh(row.net_kwh)}</td>
+                      <td class="num group-sep">${this._fmtKwh(row.net_kwh)}</td>
                       <td class="num">${this._fmtCurrency(row.net_cost)}</td>
                       <td class="num">${this._fmtKg(row.co2_kg)}</td>
                     </tr>
@@ -795,9 +817,7 @@ export class DataTableCard extends LitElement {
       top: 0;
       z-index: 3;
       background: var(--card-background-color, white);
-      box-shadow:
-        0 1px 0 var(--divider-color, #e0e0e0),
-        0 2px 4px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
     }
 
     thead th .unit {
@@ -809,6 +829,59 @@ export class DataTableCard extends LitElement {
 
     thead th.num {
       text-align: right;
+    }
+
+    /* ── Grouped two-row header (hours view) ─────────── */
+
+    thead.grouped tr {
+      background: var(--card-background-color, white);
+    }
+
+    .group-header {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    thead.grouped tr:first-child th {
+      box-shadow: none;
+    }
+
+    thead.grouped tr.sub-header th {
+      top: 30px;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--secondary-text-color, #797979);
+      padding-top: 4px;
+      padding-bottom: 4px;
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+    }
+
+    thead th.group-sep::before,
+    tbody td.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    thead.grouped tr:first-child th.group-sep::before {
+      top: 0;
+      bottom: 0;
+    }
+
+    thead.grouped tr.sub-header th.group-sep::before {
+      top: 20%;
+      bottom: 20%;
+    }
+
+    tbody td.group-sep {
+      position: relative;
+    }
+
+    tbody td.group-sep::before {
+      top: 20%;
+      bottom: 20%;
     }
 
     tbody td {
