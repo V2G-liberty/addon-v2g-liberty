@@ -4434,11 +4434,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           <tr>
             <th>${this._col('period')}</th>
             <th class="indicator-col">${this._col('status')}</th>
-            <th>${this._col('soc', '%')}</th>
+            <th class="num">${this._col('soc', '%')}</th>
+            <th class="num">${this._col('energy', 'Wh')}</th>
             <th class="num">${this._col('consumption', "\xa2/kWh")}</th>
             <th class="num">${this._col('production', "\xa2/kWh")}</th>
             <th class="indicator-col">${this._col('rate')}</th>
-            <th class="num">${this._col('energy', 'Wh')}</th>
             <th class="num">${this._col('cost-revenue')}</th>
           </tr>
         </thead>
@@ -4447,11 +4447,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                     <tr>
                       <td>${this._fmtTime(row.period_start)}</td>
                       <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                      <td>${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtWh(row.energy_wh)}</td>
                       <td class="num">${this._fmtCents(row.consumption_price)}</td>
                       <td class="num">${this._fmtCents(row.production_price)}</td>
                       <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                      <td class="num">${this._fmtWh(row.energy_wh)}</td>
                       <td class="num">${this._fmtCostRevenue(row)}</td>
                     </tr>
                   `)}
@@ -4466,7 +4466,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           <tr>
             <th>${this._col('period')}</th>
             <th class="indicator-col">${this._col('status')}</th>
-            <th>${this._col('soc', '%')}</th>
+            <th class="num">${this._col('soc', '%')}</th>
             <th class="num">${this._col('avg-price', "\xa2/kWh")}</th>
             <th class="indicator-col">${this._col('rate')}</th>
             <th class="num">${this._col('charge', 'Wh')}</th>
@@ -4480,7 +4480,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                     <tr>
                       <td>${this._fmtHour(row.period_start)}</td>
                       <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                      <td>${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
                       <td class="num">${this._fmtCents(row.avg_price)}</td>
                       <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
                       <td class="num">${this._fmtWh(row.charge_wh)}</td>
@@ -4766,6 +4766,16 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
       padding: 10px 12px;
       border-bottom: 1px solid var(--divider-color, #e0e0e0);
       white-space: nowrap;
+    }
+
+    thead th:first-child,
+    tbody td:first-child {
+      padding-left: 24px;
+    }
+
+    thead th:last-child,
+    tbody td:last-child {
+      padding-right: 24px;
     }
 
     tbody td.num {
