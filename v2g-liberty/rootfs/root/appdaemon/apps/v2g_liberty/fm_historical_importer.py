@@ -242,7 +242,7 @@ async def _import_prices_for_month(
             offset_ts = (ts_dt + timedelta(minutes=_INTERVAL_MINUTES * i)).isoformat()
             rows.append((offset_ts, c_price_eur, p_price_eur, None))  # rating = None
 
-    data_store.upsert_prices(rows, recalculate_ratings=False)
+    data_store.upsert_prices(rows, recalculate_ratings=True)
     log_fn(
         f"Historical import: {month_start.strftime('%Y-%m')} - {len(rows)} price rows."
     )

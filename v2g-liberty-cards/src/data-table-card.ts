@@ -382,46 +382,43 @@ export class DataTableCard extends LitElement {
       },
     };
 
-    const cfg = STATE_ICONS[state];
+    const mixed = state.endsWith('+');
+    const baseState = mixed ? state.slice(0, -1) : state;
+    const cfg = STATE_ICONS[baseState];
     if (!cfg) return html`<span>${state}</span>`;
 
-    const title = tp(`app-state.${state}`);
+    const title = mixed
+      ? `${tp(`app-state.${baseState}`)} + ${tp('app-state.mixed')}`
+      : tp(`app-state.${baseState}`);
     return html`
-      <ha-icon
-        icon="${cfg.icon}"
-        style="color: ${cfg.color}; --mdc-icon-size: 20px;"
-        title="${title}"
-      ></ha-icon>
+      <span class="state-cell" title="${title}">
+        <ha-icon
+          icon="${cfg.icon}"
+          style="color: ${cfg.color}; --mdc-icon-size: 20px;"
+        ></ha-icon>${mixed ? html`<sup class="state-plus">+</sup>` : nothing}
+      </span>
     `;
+  }
+
+  private _currencySymbol(): string {
+    const code = this._hass?.config?.currency ?? 'EUR';
+    const symbols: Record<string, string> = {
+      EUR: '€', GBP: '£', USD: '$', AUD: '$', CAD: '$',
+      NOK: 'kr', SEK: 'kr', DKK: 'kr', CHF: 'Fr',
+      JPY: '¥', CNY: '¥', INR: '₹', BRL: 'R$',
+    };
+    return symbols[code] ?? code;
   }
 
   private _renderPriceIndicator(
     rating: string | null | undefined
   ): TemplateResult {
     if (!rating) return html`<span>−</span>`;
-
-    const levelCount: Record<string, number> = {
-      'very-low': 1,
-      low: 2,
-      average: 3,
-      high: 4,
-      'very-high': 5,
-    };
-
     const level = rating.replace(/_/g, '-');
-    const filled = levelCount[level] ?? 0;
     const title = tp(`price-rating.${level}`);
-
-    const euros = Array.from(
-      { length: 5 },
-      (_, i) =>
-        html`<span class="euro ${i < filled ? 'active' : ''}">€</span>`
-    );
-
     return html`
-      <div class="price-indicator" data-level="${level}" title="${title}">
-        <div class="fill"></div>
-        ${euros}
+      <div class="price-track" data-level="${level}" title="${title}">
+        <span class="price-marker">${this._currencySymbol()}</span>
       </div>
     `;
   }
@@ -796,7 +793,7 @@ export class DataTableCard extends LitElement {
       color: var(--primary-text-color);
       position: sticky;
       top: 0;
-      z-index: 1;
+      z-index: 3;
       background: var(--card-background-color, white);
       box-shadow:
         0 1px 0 var(--divider-color, #e0e0e0),
@@ -868,105 +865,76 @@ export class DataTableCard extends LitElement {
       text-align: center;
     }
 
-    .price-indicator {
+    .state-cell {
+      position: relative;
+      display: inline-block;
+    }
+
+    .state-plus {
+      position: absolute;
+      top: -2px;
+      right: -6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--primary-color);
+      line-height: 1;
+    }
+
+    /* ── Price sparkline track ─────────────────────── */
+
+    .price-track {
       position: relative;
       display: inline-flex;
       align-items: center;
-      justify-content: space-evenly;
-      width: 90px;
-      height: 22px;
-      background: #e8e8e8;
-      border-radius: 5px;
-      overflow: hidden;
-      font-size: 10px;
-      font-weight: 700;
+      width: 48px;
+      height: 20px;
     }
 
-    .price-indicator .fill {
+    .price-track::before {
+      content: '';
       position: absolute;
-      top: 0;
       left: 0;
-      height: 100%;
-      background-color: var(--price-color);
-      border-radius: 5px;
-      transition: width 0.3s ease;
+      width: calc(var(--marker-left) - 7px);
+      top: 50%;
+      height: 1px;
+      background: var(--secondary-text-color);
     }
 
-    .price-indicator .euro {
-      position: relative;
+    .price-track::after {
+      content: '';
+      position: absolute;
+      left: calc(var(--marker-left) + 7px);
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--secondary-text-color);
+    }
+
+    .price-marker {
+      position: absolute;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      transform: translateX(-50%);
+      color: var(--marker-color);
+      left: var(--marker-left);
       z-index: 1;
-      color: #bbb;
       user-select: none;
-      width: 20%;
-      text-align: center;
     }
 
-    .price-indicator .euro.active {
-      color: #fff;
-    }
-
-    /* Fill widths */
-    .price-indicator[data-level='very-low'] .fill {
-      width: 20%;
-    }
-    .price-indicator[data-level='low'] .fill {
-      width: 40%;
-    }
-    .price-indicator[data-level='average'] .fill {
-      width: 60%;
-    }
-    .price-indicator[data-level='high'] .fill {
-      width: 80%;
-    }
-    .price-indicator[data-level='very-high'] .fill {
-      width: 100%;
-    }
-
-    /* Light mode colours */
-    .price-indicator[data-level='very-low'] {
-      --price-color: #90caf9;
-    }
-    .price-indicator[data-level='low'] {
-      --price-color: #5c8dc9;
-    }
-    .price-indicator[data-level='average'] {
-      --price-color: #7e57c2;
-    }
-    .price-indicator[data-level='high'] {
-      --price-color: #6a1b9a;
-    }
-    .price-indicator[data-level='very-high'] {
-      --price-color: #4a0072;
-    }
+    /* Light mode */
+    .price-track[data-level='very-low']  { --marker-left: 8%;  --marker-color: #90caf9; }
+    .price-track[data-level='low']       { --marker-left: 28%; --marker-color: #5c8dc9; }
+    .price-track[data-level='average']   { --marker-left: 50%; --marker-color: #7e57c2; }
+    .price-track[data-level='high']      { --marker-left: 72%; --marker-color: #6a1b9a; }
+    .price-track[data-level='very-high'] { --marker-left: 92%; --marker-color: #4a0072; }
 
     @media (prefers-color-scheme: dark) {
-      .price-indicator {
-        background: #2a2a2a;
-      }
-
-      .price-indicator .euro {
-        color: #555;
-      }
-
-      .price-indicator .euro.active {
-        color: #fff;
-      }
-
-      .price-indicator[data-level='very-low'] {
-        --price-color: #37474f;
-      }
-      .price-indicator[data-level='low'] {
-        --price-color: #5c6bc0;
-      }
-      .price-indicator[data-level='average'] {
-        --price-color: #9575cd;
-      }
-      .price-indicator[data-level='high'] {
-        --price-color: #ba68c8;
-      }
-      .price-indicator[data-level='very-high'] {
-        --price-color: #e040fb;
-      }
+      .price-track[data-level='very-low']  { --marker-color: #37474f; }
+      .price-track[data-level='low']       { --marker-color: #5c6bc0; }
+      .price-track[data-level='average']   { --marker-color: #9575cd; }
+      .price-track[data-level='high']      { --marker-color: #ba68c8; }
+      .price-track[data-level='very-high'] { --marker-color: #e040fb; }
     }
   `;
 }

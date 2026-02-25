@@ -21,7 +21,8 @@
       "max_boost": "Max boost",
       "not_connected": "Niet verbonden",
       "error": "Fout",
-      "unknown": "Onbekend"
+      "unknown": "Onbekend",
+      "mixed": "andere staten"
     },
     "price-rating": {
       "very-low": "Zeer laag",
@@ -34,12 +35,12 @@
       "period": "Periode",
       "status": "Status",
       "soc": "SoC",
-      "consumption": "Consumptie",
-      "production": "Productie",
+      "consumption": "Inkoop",
+      "production": "Verkoop",
       "avg-price": "Gem. prijs",
-      "rate": "Tarief",
+      "rate": "Prijspeil",
       "energy": "Energie",
-      "cost-revenue": "Kosten / Opbrengst",
+      "cost-revenue": "Netto kosten",
       "charge": "Laden",
       "charge-kwh": "Laden",
       "charge-cost": "Laadkosten",
