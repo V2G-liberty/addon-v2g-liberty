@@ -4,6 +4,8 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { callFunction } from './util/appdaemon';
 import { partial } from './util/translate';
+import { showSettingsErrorAlertDialog } from './show-dialogs';
+import { hasUninitializedEntities } from './util/settings-error-alert';
 
 const tp = partial('data-table');
 
@@ -39,6 +41,13 @@ export class DataTableCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    this._checkUninitialisedEntities();
+  }
+
+  private _checkUninitialisedEntities() {
+    if (hasUninitializedEntities(this._hass)) {
+      showSettingsErrorAlertDialog(this);
+    }
   }
 
   connectedCallback() {
@@ -950,7 +959,7 @@ export class DataTableCard extends LitElement {
          based on the container's actual viewport position. */
       max-height: 400px;
       overflow-y: auto;
-      padding-bottom: 8px;
+      padding-bottom: 16px;
     }
 
     table {
