@@ -4073,6 +4073,20 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         if (container) container.addEventListener('scroll', ()=>{
             container.classList.toggle('scrolled', container.scrollTop > 0);
         });
+        // Set table-container max-height from its actual viewport position rather than
+        // guessing HA's chrome height via CSS calc(). Measured values are always correct
+        // regardless of HA version, theme, view type or number of navigation bars.
+        const syncHeight = ()=>{
+            if (!container) return;
+            const top = container.getBoundingClientRect().top;
+            if (top <= 0) return; // Not yet positioned in DOM
+            // 60px = floating bar (bottom:12 + min-height:48); 8px visual margin
+            const h = Math.max(200, Math.floor(window.innerHeight - top - 68));
+            container.style.maxHeight = `${h}px`;
+        };
+        const ro = new ResizeObserver(()=>requestAnimationFrame(syncHeight));
+        ro.observe(this);
+        window.addEventListener('resize', syncHeight);
         this._fetchData();
     }
     // ── Data fetching ─────────────────────────────────────────────
@@ -4669,6 +4683,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         order: -1;
         position: static;
       }
+
     }
 
     .card-content {
@@ -4751,10 +4766,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     /* ── Table ─────────────────────────────────────── */
 
     .table-container {
-      /* 184px = approx tab-nav(48) + host-padding(24) + ha-card-header(56) + card-top-padding(16) + safety(40) */
-      max-height: calc(100vh - var(--header-height, 56px) - 184px);
+      /* Pre-JS fallback only — firstUpdated() sets maxHeight via ResizeObserver
+         based on the container's actual viewport position. */
+      max-height: 400px;
       overflow-y: auto;
-      padding-bottom: 80px;
+      padding-bottom: 8px;
     }
 
     table {
