@@ -44,6 +44,12 @@ export class DataTableCard extends LitElement {
   }
 
   protected firstUpdated() {
+    const container = this.shadowRoot?.querySelector('.table-container') as HTMLElement;
+    if (container) {
+      container.addEventListener('scroll', () => {
+        container.classList.toggle('scrolled', container.scrollTop > 0);
+      });
+    }
     this._fetchData();
   }
 
@@ -801,9 +807,22 @@ export class DataTableCard extends LitElement {
 
     table {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       font-size: 13px;
       font-variant-numeric: tabular-nums;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .table-container.scrolled thead {
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0), 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     thead th {
@@ -813,11 +832,11 @@ export class DataTableCard extends LitElement {
       font-weight: 500;
       font-size: 12px;
       color: var(--primary-text-color);
-      position: sticky;
-      top: 0;
-      z-index: 3;
       background: var(--card-background-color, white);
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+    }
+
+    thead th.group-sep {
+      border-left: 1px solid var(--divider-color, #e0e0e0);
     }
 
     thead th .unit {
@@ -831,48 +850,29 @@ export class DataTableCard extends LitElement {
       text-align: right;
     }
 
-    /* ── Grouped two-row header (hours view) ─────────── */
-
-    thead.grouped tr {
-      background: var(--card-background-color, white);
-    }
+    /* ── Grouped two-row header (hours/days view) ─────── */
 
     .group-header {
       text-align: left;
       font-weight: 600;
     }
 
-    thead.grouped tr:first-child th {
-      box-shadow: none;
-    }
-
     thead.grouped tr.sub-header th {
-      top: 30px;
       font-size: 11px;
       font-weight: 400;
       color: var(--secondary-text-color, #797979);
       padding-top: 4px;
       padding-bottom: 4px;
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
     }
 
-    thead th.group-sep::before,
     tbody td.group-sep::before {
       content: '';
       position: absolute;
       left: 0;
       width: 1px;
-      background: var(--divider-color, #e0e0e0);
-    }
-
-    thead.grouped tr:first-child th.group-sep::before {
-      top: 0;
-      bottom: 0;
-    }
-
-    thead.grouped tr.sub-header th.group-sep::before {
       top: 20%;
       bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
     }
 
     tbody td.group-sep {
