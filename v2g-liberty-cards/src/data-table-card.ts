@@ -70,7 +70,6 @@ export class DataTableCard extends LitElement {
         { start, end, granularity: this._granularity },
         30000
       );
-      await new Promise(resolve => setTimeout(resolve, 3000)); // TODO: remove after testing spinner
 
       if (result.error) {
         this._error = result.error;
@@ -683,19 +682,20 @@ export class DataTableCard extends LitElement {
 
   static styles = css`
     :host {
-      display: flex;
-      flex-direction: column;
-      min-height: calc(100vh - 56px);
-      padding: 8px;
+      display: block;
+      max-height: calc(100vh - var(--header-height, 56px));
+      overflow: hidden;
+      padding: 12px;
+      box-sizing: border-box;
       container-type: inline-size;
     }
 
-    /* ── Page layout ──────────────────────────────── */
+    /* ─- Page layout ──────────────────────────────── */
 
     .page-layout {
       display: grid;
       grid-template-columns: 1fr 300px;
-      gap: 8px;
+      gap: 12px;
     }
 
     .page-layout ha-card {
@@ -729,10 +729,12 @@ export class DataTableCard extends LitElement {
     /* ── Floating bar ─────────────────────────────── */
 
     .floating-bar {
-      margin-top: auto;
-      position: sticky;
-      bottom: 16px;
-      align-self: center;
+      position: fixed;
+      bottom: 12px;
+      left: var(--mdc-drawer-width, 0px);
+      right: 0;
+      display: flex;
+      justify-content: center;
       z-index: 5;
     }
 
@@ -800,7 +802,8 @@ export class DataTableCard extends LitElement {
     /* ── Table ─────────────────────────────────────── */
 
     .table-container {
-      max-height: calc(100vh - 140px);
+      /* 184px = approx tab-nav(48) + host-padding(24) + ha-card-header(56) + card-top-padding(16) + safety(40) */
+      max-height: calc(100vh - var(--header-height, 56px) - 184px);
       overflow-y: auto;
       padding-bottom: 80px;
     }

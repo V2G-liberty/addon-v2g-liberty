@@ -4087,7 +4087,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                 end: end,
                 granularity: this._granularity
             }, 30000);
-            await new Promise((resolve)=>setTimeout(resolve, 3000)); // TODO: remove after testing spinner
             if (result.error) {
                 this._error = result.error;
                 this._data = [];
@@ -4632,19 +4631,20 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         // ── Styles ────────────────────────────────────────────────────
         this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
     :host {
-      display: flex;
-      flex-direction: column;
-      min-height: calc(100vh - 56px);
-      padding: 8px;
+      display: block;
+      max-height: calc(100vh - var(--header-height, 56px));
+      overflow: hidden;
+      padding: 12px;
+      box-sizing: border-box;
       container-type: inline-size;
     }
 
-    /* ── Page layout ──────────────────────────────── */
+    /* ─- Page layout ──────────────────────────────── */
 
     .page-layout {
       display: grid;
       grid-template-columns: 1fr 300px;
-      gap: 8px;
+      gap: 12px;
     }
 
     .page-layout ha-card {
@@ -4678,10 +4678,12 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     /* ── Floating bar ─────────────────────────────── */
 
     .floating-bar {
-      margin-top: auto;
-      position: sticky;
-      bottom: 16px;
-      align-self: center;
+      position: fixed;
+      bottom: 12px;
+      left: var(--mdc-drawer-width, 0px);
+      right: 0;
+      display: flex;
+      justify-content: center;
       z-index: 5;
     }
 
@@ -4749,7 +4751,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     /* ── Table ─────────────────────────────────────── */
 
     .table-container {
-      max-height: calc(100vh - 140px);
+      /* 184px = approx tab-nav(48) + host-padding(24) + ha-card-header(56) + card-top-padding(16) + safety(40) */
+      max-height: calc(100vh - var(--header-height, 56px) - 184px);
       overflow-y: auto;
       padding-bottom: 80px;
     }

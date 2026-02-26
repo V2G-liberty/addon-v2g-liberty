@@ -28,6 +28,7 @@ export class HomepageStatsCard extends LitElement {
   }
 
   private _navigateToData() {
+    
     navigate(this._hass, '/lovelace-yaml/data', true);
   }
 
