@@ -69,8 +69,9 @@ export class DataTableCard extends LitElement {
       if (!container) return;
       const top = container.getBoundingClientRect().top;
       if (top <= 0) return; // Not yet positioned in DOM
-      // 60px = floating bar (bottom:12 + min-height:48); 8px visual margin
-      const h = Math.max(200, Math.floor(window.innerHeight - top - 68));
+      // 40px = bar midpoint (bottom:12 + half of ~56px bar height) so the card
+      // visually extends halfway behind the floating island.
+      const h = Math.max(200, Math.floor(window.innerHeight - top - 40));
       container.style.maxHeight = `${h}px`;
     };
 
@@ -959,7 +960,6 @@ export class DataTableCard extends LitElement {
          based on the container's actual viewport position. */
       max-height: 400px;
       overflow-y: auto;
-      padding-bottom: 16px;
     }
 
     table {
@@ -968,6 +968,8 @@ export class DataTableCard extends LitElement {
       border-spacing: 0;
       font-size: 13px;
       font-variant-numeric: tabular-nums;
+      /* Whitespace below last row; works because border-collapse is separate */
+      padding-bottom: 48px;
     }
 
     thead {
