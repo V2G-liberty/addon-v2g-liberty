@@ -169,7 +169,7 @@ class DataStore:
     def __init__(self, hass: Hass):
         self.__log = get_class_method_logger(hass.log)
         self.__connection: sqlite3.Connection | None = None
-        self.__log("DataStore created.")
+        self.__log("DataStore initialised (no DB connection yet).")
 
     async def initialise(self):
         """Open database, set PRAGMAs, create tables, and check schema version."""
