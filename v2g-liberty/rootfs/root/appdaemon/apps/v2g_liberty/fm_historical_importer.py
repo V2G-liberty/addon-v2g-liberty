@@ -26,7 +26,7 @@ _EMPTY_MONTH_THRESHOLD = 50
 _INTERVAL_MINUTES = 5
 _ENERGY_FROM_POWER_FACTOR = 1000 * _INTERVAL_MINUTES / 60
 # Written after a successful import; delete to force a re-import.
-_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_done")
+_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_done.txt")
 # EU day-ahead electricity market switched from 60-min to 15-min on this date.
 _PRICE_MARKET_CUTOVER = date(2025, 10, 1)
 
@@ -35,8 +35,9 @@ async def run_historical_import(data_store, log_fn, fm_client=None) -> None:
     """Import historical FM data into the local database.
 
     Skipped if the flag file exists. After a successful import the flag file
-    is written. To force a re-import (e.g. after a hotfix), delete the file:
-      /data/fm_historical_import_done
+    is written containing the completion timestamp. To force a re-import
+    (e.g. after a hotfix), delete the file:
+      /data/fm_historical_import_done.txt
     """
     if _IMPORT_DONE_FLAG.exists():
         log_fn("Historical import: already done (flag file exists), skipping.")
@@ -103,7 +104,9 @@ async def run_historical_import(data_store, log_fn, fm_client=None) -> None:
         # Step back one month.
         month = (month - timedelta(days=1)).replace(day=1)
 
-    _IMPORT_DONE_FLAG.touch()
+    _IMPORT_DONE_FLAG.write_text(
+        f"Historical import completed at {datetime.now(timezone.utc).isoformat()}\n"
+    )
     log_fn("Historical import: complete.")
 
 
