@@ -32,6 +32,8 @@ export class DataTableCard extends LitElement {
   @state() private _data: any[] = [];
   @state() private _isLoading: boolean = false;
   @state() private _error: string | null = null;
+  @state() private _narrowBar = false;
+  @state() private _granMenuOpen = false;
 
   setConfig(_config: LovelaceCardConfig) {}
 
@@ -63,9 +65,26 @@ export class DataTableCard extends LitElement {
       container.style.maxHeight = `${h}px`;
     };
 
-    const ro = new ResizeObserver(() => requestAnimationFrame(syncHeight));
+    const syncNarrow = () => {
+      this._narrowBar = this.offsetWidth <= 800;
+    };
+
+    const ro = new ResizeObserver(() => requestAnimationFrame(() => {
+      syncHeight();
+      syncNarrow();
+    }));
     ro.observe(this);
     window.addEventListener('resize', syncHeight);
+    requestAnimationFrame(syncNarrow); // initial check after layout
+
+    // Close granularity dropdown when clicking outside the shadow DOM
+    document.addEventListener('click', (e) => {
+      if (!this._granMenuOpen) return;
+      const menu = this.shadowRoot?.querySelector('.gran-menu');
+      if (menu && !(e.composedPath() as Node[]).includes(menu)) {
+        this._granMenuOpen = false;
+      }
+    });
 
     this._fetchData();
   }
@@ -192,6 +211,15 @@ export class DataTableCard extends LitElement {
   private _setGranularity(g: Granularity) {
     this._granularity = g;
     this._fetchData();
+  }
+
+  private _toggleGranMenu() {
+    this._granMenuOpen = !this._granMenuOpen;
+  }
+
+  private _selectGranFromMenu(g: Granularity) {
+    this._setGranularity(g);
+    this._granMenuOpen = false;
   }
 
   private _onDateChange(e: Event) {
@@ -680,16 +708,45 @@ export class DataTableCard extends LitElement {
 
           <div class="bar-separator"></div>
 
-          ${GRANULARITIES.map(
-            (g) => html`
-              <button
-                class="pill ${this._granularity === g ? 'active' : ''}"
-                @click=${() => this._setGranularity(g)}
-              >
-                ${tp(`granularity.${g}`)}
-              </button>
-            `
-          )}
+          ${this._narrowBar
+            ? html`
+                <div class="gran-menu">
+                  <button class="gran-trigger" @click=${this._toggleGranMenu}>
+                    ${tp(`granularity.${this._granularity}`)}
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  ${this._granMenuOpen
+                    ? html`
+                        <ul class="gran-dropdown">
+                          ${GRANULARITIES.map(
+                            (g) => html`
+                              <li>
+                                <button
+                                  class="gran-item ${g === this._granularity ? 'active' : ''}"
+                                  @click=${() => this._selectGranFromMenu(g)}
+                                >
+                                  ${tp(`granularity.${g}`)}
+                                </button>
+                              </li>
+                            `
+                          )}
+                        </ul>
+                      `
+                    : nothing}
+                </div>
+              `
+            : GRANULARITIES.map(
+                (g) => html`
+                  <button
+                    class="pill ${this._granularity === g ? 'active' : ''}"
+                    @click=${() => this._setGranularity(g)}
+                  >
+                    ${tp(`granularity.${g}`)}
+                  </button>
+                `
+              )}
         </div>
       </div>
     `;
@@ -792,6 +849,75 @@ export class DataTableCard extends LitElement {
     .pill.active {
       background: var(--primary-color);
       color: var(--text-primary-color, #fff);
+    }
+
+    /* ── Granularity dropdown (narrow bar) ──────── */
+
+    .gran-menu {
+      position: relative;
+    }
+
+    .gran-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--primary-color);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 8px 6px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary-color, #fff);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .gran-trigger:hover {
+      opacity: 0.85;
+    }
+
+    .gran-dropdown {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      background: var(--card-background-color, #fff);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      min-width: 140px;
+      z-index: 100;
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+    }
+
+    .gran-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--primary-text-color);
+      cursor: pointer;
+    }
+
+    .gran-item:hover {
+      background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+    }
+
+    .gran-item.active {
+      color: var(--primary-color, #1976d2);
+      font-weight: 500;
+    }
+
+    .gran-dropdown li:first-child .gran-item {
+      border-radius: 12px 12px 0 0;
+    }
+
+    .gran-dropdown li:last-child .gran-item {
+      border-radius: 0 0 12px 12px;
     }
 
     .date-wrapper {

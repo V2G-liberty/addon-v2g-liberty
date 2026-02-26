@@ -4084,9 +4084,22 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             const h = Math.max(200, Math.floor(window.innerHeight - top - 68));
             container.style.maxHeight = `${h}px`;
         };
-        const ro = new ResizeObserver(()=>requestAnimationFrame(syncHeight));
+        const syncNarrow = ()=>{
+            this._narrowBar = this.offsetWidth <= 800;
+        };
+        const ro = new ResizeObserver(()=>requestAnimationFrame(()=>{
+                syncHeight();
+                syncNarrow();
+            }));
         ro.observe(this);
         window.addEventListener('resize', syncHeight);
+        requestAnimationFrame(syncNarrow); // initial check after layout
+        // Close granularity dropdown when clicking outside the shadow DOM
+        document.addEventListener('click', (e)=>{
+            if (!this._granMenuOpen) return;
+            const menu = this.shadowRoot?.querySelector('.gran-menu');
+            if (menu && !e.composedPath().includes(menu)) this._granMenuOpen = false;
+        });
         this._fetchData();
     }
     // ── Data fetching ─────────────────────────────────────────────
@@ -4194,6 +4207,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     _setGranularity(g) {
         this._granularity = g;
         this._fetchData();
+    }
+    _toggleGranMenu() {
+        this._granMenuOpen = !this._granMenuOpen;
+    }
+    _selectGranFromMenu(g) {
+        this._setGranularity(g);
+        this._granMenuOpen = false;
     }
     _onDateChange(e) {
         const input = e.target;
@@ -4629,14 +4649,37 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
           <div class="bar-separator"></div>
 
-          ${$cb691508f8eb446e$var$GRANULARITIES.map((g)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-              <button
-                class="pill ${this._granularity === g ? 'active' : ''}"
-                @click=${()=>this._setGranularity(g)}
-              >
-                ${$cb691508f8eb446e$var$tp(`granularity.${g}`)}
-              </button>
-            `)}
+          ${this._narrowBar ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <div class="gran-menu">
+                  <button class="gran-trigger" @click=${this._toggleGranMenu}>
+                    ${$cb691508f8eb446e$var$tp(`granularity.${this._granularity}`)}
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  ${this._granMenuOpen ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                        <ul class="gran-dropdown">
+                          ${$cb691508f8eb446e$var$GRANULARITIES.map((g)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                              <li>
+                                <button
+                                  class="gran-item ${g === this._granularity ? 'active' : ''}"
+                                  @click=${()=>this._selectGranFromMenu(g)}
+                                >
+                                  ${$cb691508f8eb446e$var$tp(`granularity.${g}`)}
+                                </button>
+                              </li>
+                            `)}
+                        </ul>
+                      ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+                </div>
+              ` : $cb691508f8eb446e$var$GRANULARITIES.map((g)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <button
+                    class="pill ${this._granularity === g ? 'active' : ''}"
+                    @click=${()=>this._setGranularity(g)}
+                  >
+                    ${$cb691508f8eb446e$var$tp(`granularity.${g}`)}
+                  </button>
+                `)}
         </div>
       </div>
     `;
@@ -4738,6 +4781,75 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     .pill.active {
       background: var(--primary-color);
       color: var(--text-primary-color, #fff);
+    }
+
+    /* ── Granularity dropdown (narrow bar) ──────── */
+
+    .gran-menu {
+      position: relative;
+    }
+
+    .gran-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--primary-color);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 8px 6px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary-color, #fff);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .gran-trigger:hover {
+      opacity: 0.85;
+    }
+
+    .gran-dropdown {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      background: var(--card-background-color, #fff);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      min-width: 140px;
+      z-index: 100;
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+    }
+
+    .gran-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--primary-text-color);
+      cursor: pointer;
+    }
+
+    .gran-item:hover {
+      background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+    }
+
+    .gran-item.active {
+      color: var(--primary-color, #1976d2);
+      font-weight: 500;
+    }
+
+    .gran-dropdown li:first-child .gran-item {
+      border-radius: 12px 12px 0 0;
+    }
+
+    .gran-dropdown li:last-child .gran-item {
+      border-radius: 0 0 12px 12px;
     }
 
     .date-wrapper {
@@ -4990,7 +5102,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
   `;
     }
     constructor(...args){
-        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null;
+        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._granMenuOpen = false;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -5011,6 +5123,12 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_error", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowBar", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_granMenuOpen", void 0);
 $cb691508f8eb446e$export$9eb0c07a02bac54 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-data-table-card')
 ], $cb691508f8eb446e$export$9eb0c07a02bac54);
