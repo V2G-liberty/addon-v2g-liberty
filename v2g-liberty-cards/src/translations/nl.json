@@ -53,6 +53,15 @@
       "cost": "Kosten",
       "revenue": "Opbrengst",
       "emissions": "Uitstoot"
+    },
+    "totals": {
+      "card-title": "Totalen",
+      "period": "Periode",
+      "soc-range": "SoC bereik",
+      "avg-cons-price": "Gem. cons. prijs",
+      "avg-prod-price": "Gem. prod. prijs",
+      "avg-price": "Gem. prijs",
+      "availability": "Beschikbaarheid"
     }
   }
 }

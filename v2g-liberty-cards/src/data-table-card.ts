@@ -35,6 +35,7 @@ export class DataTableCard extends LitElement {
   @state() private _isLoading: boolean = false;
   @state() private _error: string | null = null;
   @state() private _narrowBar = false;
+  @state() private _narrowLayout = false;
   @state() private _granMenuOpen = false;
 
   setConfig(_config: LovelaceCardConfig) {}
@@ -77,6 +78,7 @@ export class DataTableCard extends LitElement {
 
     const syncNarrow = () => {
       this._narrowBar = this.offsetWidth <= 800;
+      this._narrowLayout = this.offsetWidth <= 1024;
     };
 
     const ro = new ResizeObserver(() => requestAnimationFrame(() => {
@@ -302,18 +304,19 @@ export class DataTableCard extends LitElement {
     return this._hass?.config?.currency || 'EUR';
   }
 
-  private _fmtCurrency(value: number | null | undefined): string {
+  private _fmtCurrency(value: number | null | undefined, decimals = 2): string {
     if (value === null || value === undefined) return '−';
     const currency = this._getCurrency();
+    const rounded = this._round(value, decimals);
     try {
       return new Intl.NumberFormat(undefined, {
         style: 'currency',
         currency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      }).format(rounded);
     } catch {
-      return `${value.toFixed(2)}`;
+      return `${rounded.toFixed(decimals)}`;
     }
   }
 
@@ -327,7 +330,10 @@ export class DataTableCard extends LitElement {
 
   private _fmtPct(value: number | null | undefined, decimals = 1): string {
     if (value === null || value === undefined) return '−';
-    return value.toFixed(decimals);
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
   }
 
   private _fmtWh(value: number | null | undefined): string {
@@ -335,14 +341,25 @@ export class DataTableCard extends LitElement {
     return Math.round(value).toString();
   }
 
-  private _fmtKwh(value: number | null | undefined): string {
-    if (value === null || value === undefined) return '−';
-    return value.toFixed(2);
+  private _round(value: number, decimals: number): number {
+    const factor = Math.pow(10, decimals);
+    return Math.round((value + Number.EPSILON) * factor) / factor;
   }
 
-  private _fmtKg(value: number | null | undefined): string {
+  private _fmtKwh(value: number | null | undefined, decimals = 2): string {
     if (value === null || value === undefined) return '−';
-    return value.toFixed(1);
+    return this._round(value, decimals).toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  }
+
+  private _fmtKg(value: number | null | undefined, decimals = 1): string {
+    if (value === null || value === undefined) return '−';
+    return this._round(value, decimals).toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
   }
 
   private _fmtTime(isoStr: string): string {
@@ -493,6 +510,257 @@ export class DataTableCard extends LitElement {
     return '−';
   }
 
+  // ── Totals card ───────────────────────────────────────────────
+
+  private _computeTotals() {
+    if (!this._data?.length) return null;
+    const first = this._data[this._data.length - 1];
+    const last = this._data[0];
+    const sum = (key: string) =>
+      this._data.reduce((s: number, r: any) => s + (r[key] ?? 0), 0);
+    const mean = (key: string) => {
+      const vals = this._data
+        .map((r: any) => r[key])
+        .filter((v: any) => v != null) as number[];
+      return vals.length
+        ? vals.reduce((a, b) => a + b, 0) / vals.length
+        : null;
+    };
+
+    if (this._granularity === 'quarter_hours') {
+      const chargeWh = this._data.reduce(
+        (s: number, r: any) => s + Math.max(0, r.energy_wh ?? 0),
+        0
+      );
+      const dischargeWh = this._data.reduce(
+        (s: number, r: any) => s + Math.max(0, -(r.energy_wh ?? 0)),
+        0
+      );
+      return {
+        kind: 'quarter_hours' as const,
+        first,
+        last,
+        avgCons: mean('consumption_price'),
+        avgProd: mean('production_price'),
+        chargeWh,
+        dischargeWh,
+        chargeCost: sum('charge_cost'),
+        dischargeRev: sum('discharge_revenue'),
+      };
+    }
+
+    if (this._granularity === 'hours') {
+      const socs = this._data
+        .map((r: any) => r.soc_pct)
+        .filter((v: any) => v != null) as number[];
+      return {
+        kind: 'hours' as const,
+        first,
+        last,
+        socMin: socs.length ? Math.min(...socs) : null,
+        socMax: socs.length ? Math.max(...socs) : null,
+        avgPrice: mean('avg_price'),
+        chargeWh: sum('charge_wh'),
+        chargeCost: sum('charge_cost'),
+        dischargeWh: sum('discharge_wh'),
+        dischargeRev: sum('discharge_revenue'),
+      };
+    }
+
+    // days / weeks / months / years
+    return {
+      kind: 'days' as const,
+      first,
+      last,
+      avgAvail: mean('availability_pct'),
+      chargeKwh: sum('charge_kwh'),
+      chargeCost: sum('charge_cost'),
+      dischargeKwh: sum('discharge_kwh'),
+      dischargeRev: sum('discharge_revenue'),
+      netKwh: sum('net_kwh'),
+      netCost: sum('net_cost'),
+      co2Kg: sum('co2_kg'),
+    };
+  }
+
+  private _fmtTotalsPeriod(first: any, last: any): string {
+    if (first === last) return this._fmtPeriod(first.period_start);
+    if (
+      this._granularity === 'quarter_hours' ||
+      this._granularity === 'hours'
+    ) {
+      const start = this._fmtPeriod(first.period_start);
+      const end = this._fmtPeriod(last.period_start);
+      const date = this._fmtDayDate(first.period_start);
+      return `${start} – ${end}, ${date}`;
+    }
+    return `${this._fmtPeriod(first.period_start)} – ${this._fmtPeriod(last.period_start)}`;
+  }
+
+  private _renderTotals(): TemplateResult {
+    if (this._isLoading) {
+      return html`<div class="center muted">
+        <span class="spinner"></span>
+      </div>`;
+    }
+    const t = this._computeTotals();
+    if (!t) {
+      return html`<div class="center muted">${tp('no-data')}</div>`;
+    }
+
+    const tt = (key: string) => tp(`totals.${key}`);
+    const period = this._fmtTotalsPeriod(t.first, t.last);
+
+    if (t.kind === 'quarter_hours') {
+      return html`
+        <div class="totals-layout">
+          <dl class="totals-dl">
+            <div class="totals-row">
+              <dt>${tt('period')}</dt>
+              <dd>${period}</dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('avg-cons-price')}</dt>
+              <dd>${this._fmtCents(t.avgCons)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('avg-prod-price')}</dt>
+              <dd>${this._fmtCents(t.avgProd)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+          </dl>
+          <table class="totals-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>${tp('col.energy')} (Wh)</th>
+              <th>${tp('col.cost')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${tp('col.charge')}</td>
+              <td>${this._fmtWh(t.chargeWh)}</td>
+              <td>${this._fmtCurrency(t.chargeCost)}</td>
+            </tr>
+            <tr>
+              <td>${tp('col.discharge')}</td>
+              <td>${this._fmtWh(t.dischargeWh)}</td>
+              <td>${this._fmtCurrency(t.dischargeRev)}</td>
+            </tr>
+            <tr class="totals-net">
+              <td>${tp('col.net')}</td>
+              <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
+              <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      `;
+    }
+
+    if (t.kind === 'hours') {
+      return html`
+        <div class="totals-layout">
+          <dl class="totals-dl">
+            <div class="totals-row">
+              <dt>${tt('period')}</dt>
+              <dd>${period}</dd>
+            </div>
+            ${t.socMin != null
+              ? html`
+                  <div class="totals-row">
+                    <dt>${tt('soc-range')}</dt>
+                    <dd>
+                      ${this._fmtPct(t.socMin)}% – ${this._fmtPct(t.socMax)}%
+                    </dd>
+                  </div>
+                `
+              : nothing}
+            <div class="totals-row">
+              <dt>${tt('avg-price')}</dt>
+              <dd>${this._fmtCents(t.avgPrice)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+          </dl>
+          <table class="totals-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>${tp('col.energy')} (Wh)</th>
+                <th>${tp('col.cost')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${tp('col.charge')}</td>
+                <td>${this._fmtWh(t.chargeWh)}</td>
+                <td>${this._fmtCurrency(t.chargeCost)}</td>
+              </tr>
+              <tr>
+                <td>${tp('col.discharge')}</td>
+                <td>${this._fmtWh(t.dischargeWh)}</td>
+                <td>${this._fmtCurrency(t.dischargeRev)}</td>
+              </tr>
+              <tr class="totals-net">
+                <td>${tp('col.net')}</td>
+                <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
+                <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // days / weeks / months / years
+    const kwhDec = this._granularity === 'years' ? 0 : 2;
+    const kgDec  = this._granularity === 'years' ? 0 : 1;
+    const curDec = this._granularity === 'years' ? 0 : 2;
+    return html`
+      <div class="totals-layout">
+        <dl class="totals-dl">
+          <div class="totals-row">
+            <dt>${tt('period')}</dt>
+            <dd>${period}</dd>
+          </div>
+          <div class="totals-row">
+            <dt>${tt('availability')}</dt>
+            <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
+          </div>
+        </dl>
+        <table class="totals-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>${tp('col.energy')} (kWh)</th>
+              <th>${tp('col.cost')}</th>
+              <th>${tp('col.emissions')} (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${tp('col.charge')}</td>
+              <td>${this._fmtKwh(t.chargeKwh, kwhDec)}</td>
+              <td>${this._fmtCurrency(t.chargeCost, curDec)}</td>
+              <td>−</td>
+            </tr>
+            <tr>
+              <td>${tp('col.discharge')}</td>
+              <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
+              <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
+              <td>−</td>
+            </tr>
+            <tr class="totals-net">
+              <td>${tp('col.net')}</td>
+              <td>${this._fmtKwh(t.netKwh, kwhDec)}</td>
+              <td>${this._fmtCurrency(t.netCost, curDec)}</td>
+              <td>${this._fmtKg(t.co2Kg, kgDec)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   // ── Table rendering per granularity ───────────────────────────
 
   private _col(key: string, unit?: string): TemplateResult | string {
@@ -511,8 +779,8 @@ export class DataTableCard extends LitElement {
             <th class="indicator-col">${this._col('status')}</th>
             <th class="num">${this._col('soc', '%')}</th>
             <th class="num">${this._col('energy', 'Wh')}</th>
-            <th class="num">${this._col('consumption', '¢/kWh')}</th>
-            <th class="num">${this._col('production', '¢/kWh')}</th>
+            <th class="num">${this._col('consumption', '€¢/kWh')}</th>
+            <th class="num">${this._col('production', '€¢/kWh')}</th>
             <th class="indicator-col">${this._col('rate')}</th>
             <th class="num">${this._col('cost-revenue')}</th>
           </tr>
@@ -559,7 +827,7 @@ export class DataTableCard extends LitElement {
             <th></th>
             <th class="indicator-col"></th>
             <th class="num">%</th>
-            <th class="num">¢/kWh</th>
+            <th class="num">€¢/kWh</th>
             <th class="indicator-col"></th>
             <th class="num group-sep">${tp('col.energy')} (Wh)</th>
             <th class="num">${tp('col.cost')}</th>
@@ -625,21 +893,26 @@ export class DataTableCard extends LitElement {
             ? html`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
               ? html`<tr><td colspan="9"><div class="center muted">${tp('no-data')}</div></td></tr>`
-              : this._data.map(
-                  (row) => html`
-                    <tr>
-                      <td>${this._fmtPeriod(row.period_start)}</td>
-                      <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
-                      <td class="num group-sep">${this._fmtKwh(row.charge_kwh)}</td>
-                      <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                      <td class="num group-sep">${this._fmtKwh(row.discharge_kwh)}</td>
-                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
-                      <td class="num group-sep">${this._fmtKwh(row.net_kwh)}</td>
-                      <td class="num">${this._fmtCurrency(row.net_cost)}</td>
-                      <td class="num">${this._fmtKg(row.co2_kg)}</td>
-                    </tr>
-                  `
-                )}
+              : (() => {
+                  const kwhDec = this._granularity === 'years' ? 0 : 2;
+                  const kgDec  = this._granularity === 'years' ? 0 : 1;
+                  const curDec = this._granularity === 'years' ? 0 : 2;
+                  return this._data.map(
+                    (row) => html`
+                      <tr>
+                        <td>${this._fmtPeriod(row.period_start)}</td>
+                        <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
+                        <td class="num group-sep">${this._fmtKwh(row.charge_kwh, kwhDec)}</td>
+                        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+                        <td class="num group-sep">${this._fmtKwh(row.discharge_kwh, kwhDec)}</td>
+                        <td class="num">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                        <td class="num group-sep">${this._fmtKwh(row.net_kwh, kwhDec)}</td>
+                        <td class="num">${this._fmtCurrency(row.net_cost, curDec)}</td>
+                        <td class="num">${this._fmtKg(row.co2_kg, kgDec)}</td>
+                      </tr>
+                    `
+                  );
+                })()}
         </tbody>
       </table>
     `;
@@ -660,7 +933,7 @@ export class DataTableCard extends LitElement {
 
   render() {
     return html`
-      <div class="page-layout">
+      <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
         <ha-card
           .header=${`${tp('card-title')} — ${tp('granularity.' + this._granularity)}`}
         >
@@ -671,9 +944,9 @@ export class DataTableCard extends LitElement {
           </div>
         </ha-card>
 
-        <ha-card .header=${'Totaal'}>
-          <div class="card-content muted">
-            &nbsp;
+        <ha-card .header=${tp('totals.card-title')}>
+          <div class="totals-card-content">
+            ${this._renderTotals()}
           </div>
         </ha-card>
       </div>
@@ -795,6 +1068,10 @@ export class DataTableCard extends LitElement {
       top: 0;
     }
 
+    .totals-card-content {
+      padding: 0 24px 16px;
+    }
+
     @container (max-width: 1024px) {
       .page-layout {
         grid-template-columns: 1fr;
@@ -804,12 +1081,27 @@ export class DataTableCard extends LitElement {
         order: -1;
         position: static;
       }
-
     }
 
-    .card-content {
-      padding: 0 16px 16px;
+    .page-layout.narrow .totals-layout {
+      display: flex;
+      gap: 48px;
+      align-items: flex-start;
     }
+
+    .page-layout.narrow .totals-layout .totals-dl {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .page-layout.narrow .totals-layout .totals-table {
+      flex: 1;
+    }
+
+    // .card-content {
+    //   max-width: 450px;
+    //   padding: 0 48px 16px;
+    // }
 
     /* ── Floating bar ─────────────────────────────── */
 
@@ -1177,6 +1469,78 @@ export class DataTableCard extends LitElement {
       .price-track[data-level='average']   { --marker-color: #9575cd; }
       .price-track[data-level='high']      { --marker-color: #ba68c8; }
       .price-track[data-level='very-high'] { --marker-color: #e040fb; }
+    }
+
+    /* ── Totals card ───────────────────────────────── */
+
+    .totals-dl {
+      margin: 0 0 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .totals-row dt {
+      color: var(--secondary-text-color);
+      font-size: 0.85em;
+      flex-shrink: 0;
+    }
+
+    .totals-unit {
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+
+    .totals-row dd {
+      margin: 0;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9em;
+    }
+
+    .totals-table th {
+      text-align: right;
+      font-weight: normal;
+      color: var(--secondary-text-color);
+      padding: 2px 4px 4px;
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .totals-table th:first-child {
+      text-align: left;
+      padding-left: 0;
+    }
+
+    .totals-table td {
+      padding: 3px 4px;
+      text-align: right;
+    }
+
+    .totals-table td:first-child {
+      text-align: left;
+      padding-left: 0;
+    }
+
+    .totals-table th:last-child,
+    .totals-table td:last-child {
+      padding-right: 0;
+    }
+
+    .totals-net td {
+      border-top: 1px solid var(--divider-color);
+      font-weight: 500;
+      padding-top: 4px;
     }
   `;
 }

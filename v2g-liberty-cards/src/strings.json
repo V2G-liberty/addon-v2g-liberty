@@ -110,6 +110,15 @@
       "cost": "Cost",
       "revenue": "Revenue",
       "emissions": "Emissions"
+    },
+    "totals": {
+      "card-title": "Totals",
+      "period": "Period",
+      "soc-range": "SoC range",
+      "avg-cons-price": "Avg. cons. price",
+      "avg-prod-price": "Avg. prod. price",
+      "avg-price": "Avg. price",
+      "availability": "Availability"
     }
   },
   "ping-card": {
