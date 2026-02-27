@@ -37,6 +37,8 @@ export class DataTableCard extends LitElement {
   @state() private _narrowBar = false;
   @state() private _narrowLayout = false;
   @state() private _granMenuOpen = false;
+  @state() private _availTipTotals = false;
+  @state() private _availTipHeader = false;
 
   setConfig(_config: LovelaceCardConfig) {}
 
@@ -723,7 +725,16 @@ export class DataTableCard extends LitElement {
             <dd>${period}</dd>
           </div>
           <div class="totals-row">
-            <dt>${tt('availability')}</dt>
+            <dt>
+              ${tt('availability')}
+              <span class="info-container">
+                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+                  @click=${() => { this._availTipTotals = !this._availTipTotals; }}>
+                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+                </svg>
+                ${this._availTipTotals ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
+              </span>
+            </dt>
             <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
           </div>
         </dl>
@@ -870,7 +881,16 @@ export class DataTableCard extends LitElement {
         <thead class="grouped">
           <tr>
             <th>${tp('col.period')}</th>
-            <th class="num">${tp('col.availability')}</th>
+            <th class="num">
+              ${tp('col.availability')}
+              <span class="info-container">
+                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+                  @click=${() => { this._availTipHeader = !this._availTipHeader; }}>
+                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+                </svg>
+                ${this._availTipHeader ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
+              </span>
+            </th>
             <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
             <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
@@ -1495,6 +1515,39 @@ export class DataTableCard extends LitElement {
     .totals-unit {
       font-weight: 400;
       color: var(--secondary-text-color);
+    }
+
+    .info-container {
+      position: relative;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    .info-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--primary-color);
+      cursor: pointer;
+      display: block;
+    }
+
+    .info-popup {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary-text-color);
+      color: var(--card-background-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      width: 200px;
+      white-space: normal;
+      z-index: 100;
+      cursor: default;
     }
 
     .totals-row dd {

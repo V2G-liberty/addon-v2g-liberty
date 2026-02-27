@@ -105,6 +105,7 @@
       "discharge-kwh": "Discharge",
       "discharge-revenue": "Discharge revenue",
       "availability": "Availability",
+      "availability-tooltip": "Percentage of the time the vehicle was connected and available for charging/discharging during this period.",
       "net": "Net",
       "net-cost": "Net cost",
       "cost": "Cost",

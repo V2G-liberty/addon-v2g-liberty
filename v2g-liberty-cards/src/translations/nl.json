@@ -48,6 +48,7 @@
       "discharge-kwh": "Ontladen",
       "discharge-revenue": "Ontlaadopbrengst",
       "availability": "Beschikbaar",
+      "availability-tooltip": "Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.",
       "net": "Netto",
       "net-cost": "Netto kosten",
       "cost": "Kosten",
