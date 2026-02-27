@@ -122,14 +122,15 @@ export class DataTableCard extends LitElement {
       );
 
       if (result.error) {
-        this._error = result.error;
+        this._error = tp('error');
         this._data = [];
       } else {
         this._data = (result.data || []).slice().reverse();
         this._error = null;
       }
     } catch (e) {
-      this._error = e instanceof Error ? e.message : 'Unknown error';
+      const isTimeout = e instanceof Error && e.message.includes('timed out');
+      this._error = isTimeout ? tp('error-timeout') : tp('error');
       this._data = [];
     } finally {
       this._isLoading = false;

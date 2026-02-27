@@ -11,6 +11,8 @@
     "now": "Nu",
     "loading": "Data laden...",
     "no-data": "Geen data voor deze periode",
+    "error": "Kon geen data laden. Probeer het opnieuw.",
+    "error-timeout": "Data laden duurde te lang. Probeer het later opnieuw.",
     "all-time": "Alles",
     "card-title": "Laden",
     "app-state": {
