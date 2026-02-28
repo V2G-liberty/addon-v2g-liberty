@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Unavailable charge power not handled (#408)
 - 🪲 BUG: Gap in chartlines between fixed and forecast (#403)
 - 🪲 BUG: Fixed failing "no prices" notification (#402)
 
