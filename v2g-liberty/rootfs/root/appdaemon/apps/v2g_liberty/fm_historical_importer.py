@@ -26,20 +26,26 @@ _EMPTY_MONTH_THRESHOLD = 50
 _INTERVAL_MINUTES = 5
 _ENERGY_FROM_POWER_FACTOR = 1000 * _INTERVAL_MINUTES / 60
 # Written after a successful import; delete to force a re-import.
-_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_done.txt")
+_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_report.txt")
+_OLD_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_done.txt")
 # EU day-ahead electricity market switched from 60-min to 15-min on this date.
 _PRICE_MARKET_CUTOVER = date(2025, 10, 1)
 
 
-async def run_historical_import(data_store, log_fn, fm_client=None) -> None:
+async def run_historical_import(
+    data_store, log_fn, fm_client=None, on_complete=None
+) -> None:
     """Import historical FM data into the local database.
 
     Skipped if the flag file exists. After a successful import the flag file
     is written containing the completion timestamp. To force a re-import
     (e.g. after a hotfix), delete the file:
-      /data/fm_historical_import_done.txt
+      /data/fm_historical_import_report.txt
+
+    When ``on_complete`` is provided it is called after a successful import.
+    This is used to trigger the DataRepairer to review imported rows.
     """
-    if _IMPORT_DONE_FLAG.exists():
+    if _IMPORT_DONE_FLAG.exists() or _OLD_IMPORT_DONE_FLAG.exists():
         log_fn("Historical import: already done (flag file exists), skipping.")
         return
 
@@ -109,6 +115,10 @@ async def run_historical_import(data_store, log_fn, fm_client=None) -> None:
     )
     log_fn("Historical import: complete.")
 
+    if on_complete is not None:
+        log_fn("Historical import: triggering post-import review.")
+        on_complete()
+
 
 async def _fetch_month_rows(
     fm_client,
@@ -176,6 +186,7 @@ async def _fetch_month_rows(
                 "app_state": "unknown",
                 "soc_pct": soc_events.get(ts),
                 "availability_pct": avail_events.get(ts) or 0.0,
+                "is_repaired": 2,  # Pending review by DataRepairer
             }
         )
 

@@ -13,6 +13,7 @@ from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
 from .fm_data_sender import FMDataSender
 from .api_server import ApiServer
+from .data_repairer import DataRepairer
 from .data_store import DataStore
 from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
@@ -67,6 +68,10 @@ class V2GLibertyApp(Hass):
         self._log_init_time("DataStore", start_module)
 
         start_module = datetime.now()
+        data_repairer = DataRepairer(self)
+        self._log_init_time("DataRepairer", start_module)
+
+        start_module = datetime.now()
         api_server = ApiServer(self)
         self._log_init_time("ApiServer", start_module)
 
@@ -115,6 +120,8 @@ class V2GLibertyApp(Hass):
         main_app.evse_client_app = modbus_evse_client
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
+        data_repairer.data_store = data_store
+        v2g_globals.data_repairer = data_repairer
         data_monitor.evse_client_app = modbus_evse_client
         data_monitor.reservations_client = reservations_client
         data_monitor.data_store = data_store
@@ -147,6 +154,10 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await data_store.initialise()
         self._log_init_time("data_store.initialise()", start_module)
+
+        start_module = datetime.now()
+        await data_repairer.initialise()
+        self._log_init_time("data_repairer.initialise()", start_module)
 
         start_module = datetime.now()
         await api_server.initialise()

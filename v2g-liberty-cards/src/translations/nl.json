@@ -65,6 +65,8 @@
       "avg-prod-price": "Gem. prod. prijs",
       "avg-price": "Gem. prijs",
       "availability": "Beschikbaarheid"
-    }
+    },
+    "estimated-note": "Deels gebaseerd op geschatte data",
+    "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend."
   }
 }

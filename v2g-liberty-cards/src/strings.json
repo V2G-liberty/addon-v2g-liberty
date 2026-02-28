@@ -122,7 +122,9 @@
       "avg-prod-price": "Avg. prod. price",
       "avg-price": "Avg. price",
       "availability": "Availability"
-    }
+    },
+    "estimated-note": "Partly based on estimated data",
+    "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."
   },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",

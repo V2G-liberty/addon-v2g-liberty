@@ -39,6 +39,7 @@ export class DataTableCard extends LitElement {
   @state() private _granMenuOpen = false;
   @state() private _availTipTotals = false;
   @state() private _availTipHeader = false;
+  @state() private _estimatedTip = false;
 
   setConfig(_config: LovelaceCardConfig) {}
 
@@ -549,6 +550,7 @@ export class DataTableCard extends LitElement {
         dischargeWh,
         chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
+        hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
 
@@ -567,6 +569,7 @@ export class DataTableCard extends LitElement {
         chargeCost: sum('charge_cost'),
         dischargeWh: sum('discharge_wh'),
         dischargeRev: sum('discharge_revenue'),
+        hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
 
@@ -583,7 +586,24 @@ export class DataTableCard extends LitElement {
       netKwh: sum('net_kwh'),
       netCost: sum('net_cost'),
       co2Kg: sum('co2_kg'),
+      hasRepaired: this._data.some((r: any) => r.has_repaired),
     };
+  }
+
+  private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
+    if (!hasRepaired) return nothing;
+    return html`
+      <div class="estimated-note">
+        ${tp('estimated-note')}
+        <span class="info-container">
+          <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+            @click=${() => { this._estimatedTip = !this._estimatedTip; }}>
+            <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+          </svg>
+          ${this._estimatedTip ? html`<span class="info-popup">${tp('estimated-tooltip')}</span>` : nothing}
+        </span>
+      </div>
+    `;
   }
 
   private _fmtTotalsPeriod(first: any, last: any): string {
@@ -658,6 +678,7 @@ export class DataTableCard extends LitElement {
           </tbody>
         </table>
         </div>
+        ${this._renderEstimatedNote(t.hasRepaired)}
       `;
     }
 
@@ -711,6 +732,7 @@ export class DataTableCard extends LitElement {
             </tbody>
           </table>
         </div>
+        ${this._renderEstimatedNote(t.hasRepaired)}
       `;
     }
 
@@ -770,6 +792,7 @@ export class DataTableCard extends LitElement {
           </tbody>
         </table>
       </div>
+      ${this._renderEstimatedNote(t.hasRepaired)}
     `;
   }
 
@@ -804,7 +827,7 @@ export class DataTableCard extends LitElement {
               ? html`<tr><td colspan="8"><div class="center muted">${tp('no-data')}</div></td></tr>`
               : this._data.map(
                   (row) => html`
-                    <tr>
+                    <tr class="${row.has_repaired ? 'repaired' : ''}">
                       <td>${this._fmtTime(row.period_start)}</td>
                       <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
                       <td class="num">${this._fmtPct(row.soc_pct)}</td>
@@ -856,7 +879,7 @@ export class DataTableCard extends LitElement {
               ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}</div></td></tr>`
               : this._data.map(
                   (row) => html`
-                    <tr>
+                    <tr class="${row.has_repaired ? 'repaired' : ''}">
                       <td>${this._fmtHour(row.period_start)}</td>
                       <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
                       <td class="num">${this._fmtPct(row.soc_pct)}</td>
@@ -920,7 +943,7 @@ export class DataTableCard extends LitElement {
                   const curDec = this._granularity === 'years' ? 0 : 2;
                   return this._data.map(
                     (row) => html`
-                      <tr>
+                      <tr class="${row.has_repaired ? 'repaired' : ''}">
                         <td>${this._fmtPeriod(row.period_start)}</td>
                         <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
                         <td class="num group-sep">${this._fmtKwh(row.charge_kwh, kwhDec)}</td>
@@ -1406,6 +1429,17 @@ export class DataTableCard extends LitElement {
     .muted {
       color: var(--secondary-text-color);
       font-size: 14px;
+    }
+
+    tr.repaired {
+      color: var(--secondary-text-color);
+    }
+
+    .estimated-note {
+      color: var(--secondary-text-color);
+      font-size: 12px;
+      margin-top: 8px;
+      font-style: italic;
     }
 
     .error {

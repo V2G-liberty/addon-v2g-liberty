@@ -73,7 +73,8 @@ def data_store():
             energy_kwh REAL NOT NULL,
             app_state TEXT NOT NULL,
             soc_pct REAL,
-            availability_pct REAL NOT NULL
+            availability_pct REAL NOT NULL,
+            is_repaired INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE schema_version (version INTEGER NOT NULL, applied_at TEXT NOT NULL);
         INSERT INTO schema_version VALUES (2, '2026-01-01T00:00:00');
@@ -118,7 +119,13 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
     flag = tmp_path / "fm_historical_import_done"
     flag.touch()
 
-    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+    old_flag = tmp_path / "old_flag"
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
+        ),
+    ):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -131,8 +138,14 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
 async def test_aborts_when_no_fm_client(data_store, log_fn, tmp_path):
     """Import aborts cleanly when no FM client is provided."""
     flag = tmp_path / "fm_historical_import_done"
+    old_flag = tmp_path / "old_flag"
 
-    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
+        ),
+    ):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -146,15 +159,19 @@ async def test_aborts_when_no_fm_client(data_store, log_fn, tmp_path):
 async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
     """Import runs even when the database already has some intervals (no flag file)."""
     data_store._DataStore__connection.execute(
-        "INSERT INTO interval_log VALUES ('2026-01-01T00:00:00+00:00', 0.1, 'charge', 80.0, 100.0)"
+        "INSERT INTO interval_log VALUES ('2026-01-01T00:00:00+00:00', 0.1, 'charge', 80.0, 100.0, 0)"
     )
     data_store._DataStore__connection.commit()
 
     flag = tmp_path / "fm_historical_import_done"
+    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
+        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
     ):
         mock_date.today.return_value = date(2024, 11, 1)
@@ -169,10 +186,14 @@ async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
 async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
     """Import stops looping after two consecutive months with insufficient events."""
     flag = tmp_path / "fm_historical_import_done"
+    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
+        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
     ):
         # Use a date well after _EARLIEST_DATE (2025-09-01) so the loop runs.
@@ -183,6 +204,47 @@ async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
     stop_logged = any("two empty months" in str(call) for call in log_fn.call_args_list)
     assert stop_logged
     assert flag.exists()  # flag must be written even after early stop
+
+
+@pytest.mark.asyncio
+async def test_on_complete_called_after_import(data_store, log_fn, tmp_path):
+    """The on_complete callback is called after a successful import."""
+    flag = tmp_path / "fm_historical_import_done"
+    old_flag = tmp_path / "old_flag"
+    fm_client = _make_fm_client(values=[])
+    callback = MagicMock()
+
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
+        ),
+        patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+    ):
+        mock_date.today.return_value = date(2024, 11, 1)
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+        await run_historical_import(data_store, log_fn, fm_client, on_complete=callback)
+
+    callback.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_on_complete_not_called_when_skipped(data_store, log_fn, tmp_path):
+    """The on_complete callback is NOT called when import is skipped."""
+    flag = tmp_path / "fm_historical_import_done"
+    flag.write_text("already done")
+    old_flag = tmp_path / "old_flag"
+    callback = MagicMock()
+
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
+        ),
+    ):
+        await run_historical_import(data_store, log_fn, None, on_complete=callback)
+
+    callback.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -286,8 +348,8 @@ def test_delete_historical_intervals_removes_unknown(data_store):
     conn = data_store._DataStore__connection
     conn.executescript(
         """
-        INSERT INTO interval_log VALUES ('2024-11-01T00:00:00+00:00', 0.1, 'unknown', 50.0, 100.0);
-        INSERT INTO interval_log VALUES ('2024-11-01T00:05:00+00:00', 0.2, 'charge', 80.0, 100.0);
+        INSERT INTO interval_log VALUES ('2024-11-01T00:00:00+00:00', 0.1, 'unknown', 50.0, 100.0, 0);
+        INSERT INTO interval_log VALUES ('2024-11-01T00:05:00+00:00', 0.2, 'charge', 80.0, 100.0, 0);
         """
     )
     deleted = data_store.delete_historical_intervals()
@@ -302,7 +364,7 @@ def test_has_any_intervals_empty(data_store):
 
 def test_has_any_intervals_with_row(data_store):
     data_store._DataStore__connection.execute(
-        "INSERT INTO interval_log VALUES ('2024-11-01T00:00:00+00:00', 0.1, 'charge', 80.0, 100.0)"
+        "INSERT INTO interval_log VALUES ('2024-11-01T00:00:00+00:00', 0.1, 'charge', 80.0, 100.0, 0)"
     )
     data_store._DataStore__connection.commit()
     assert data_store.has_any_intervals() is True
@@ -316,6 +378,7 @@ def test_bulk_insert_or_ignore_inserts_new_rows(data_store):
             "app_state": "unknown",
             "soc_pct": 50.0,
             "availability_pct": 100.0,
+            "is_repaired": 2,
         },
         {
             "timestamp": "2024-11-01T00:05:00+00:00",
@@ -323,6 +386,7 @@ def test_bulk_insert_or_ignore_inserts_new_rows(data_store):
             "app_state": "unknown",
             "soc_pct": None,
             "availability_pct": 100.0,
+            "is_repaired": 2,
         },
     ]
     inserted = data_store.bulk_insert_or_ignore_intervals(rows)
@@ -338,7 +402,7 @@ def test_bulk_insert_or_ignore_skips_existing(data_store):
     """Existing rows are not overwritten — their values are preserved."""
     ts = "2024-11-01T00:00:00+00:00"
     data_store._DataStore__connection.execute(
-        f"INSERT INTO interval_log VALUES ('{ts}', 0.5, 'charge', 80.0, 100.0)"
+        f"INSERT INTO interval_log VALUES ('{ts}', 0.5, 'charge', 80.0, 100.0, 0)"
     )
     data_store._DataStore__connection.commit()
 
@@ -349,6 +413,7 @@ def test_bulk_insert_or_ignore_skips_existing(data_store):
             "app_state": "unknown",
             "soc_pct": None,
             "availability_pct": 0.0,
+            "is_repaired": 2,
         }
     ]
     inserted = data_store.bulk_insert_or_ignore_intervals(rows)

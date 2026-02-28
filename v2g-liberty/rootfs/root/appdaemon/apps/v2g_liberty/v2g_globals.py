@@ -962,8 +962,21 @@ class V2GLibertyGlobals:
         def _hist_log(msg, level="INFO"):
             self.hass.log(msg, level=level)
 
+        repairer = getattr(self, "data_repairer", None)
+        on_import_complete = None
+        if repairer is not None:
+
+            def on_import_complete():
+                summary = repairer.run_full_repair()
+                repairer.write_report(summary)
+
         asyncio.ensure_future(
-            run_historical_import(self.data_store, _hist_log, self.fm_client_app.client)
+            run_historical_import(
+                self.data_store,
+                _hist_log,
+                self.fm_client_app.client,
+                on_complete=on_import_complete,
+            )
         )
 
         self.__log("completed")

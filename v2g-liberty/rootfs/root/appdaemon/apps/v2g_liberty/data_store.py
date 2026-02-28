@@ -206,7 +206,8 @@ class DataStore:
                 energy_kwh REAL NOT NULL,
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
-                availability_pct REAL NOT NULL
+                availability_pct REAL NOT NULL,
+                is_repaired INTEGER NOT NULL DEFAULT 0
             )
         """)
 
@@ -315,28 +316,34 @@ class DataStore:
         app_state: str,
         soc_pct: float | None,
         availability_pct: float,
+        is_repaired: bool = False,
     ) -> None:
         """Insert a single interval row into interval_log."""
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO interval_log "
             "(timestamp, energy_kwh, app_state, soc_pct, "
-            "availability_pct) VALUES (?, ?, ?, ?, ?)",
+            "availability_pct, is_repaired) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 timestamp,
                 energy_kwh,
                 app_state,
                 soc_pct,
                 availability_pct,
+                int(is_repaired),
             ),
         )
         self.__connection.commit()
         cursor.close()
 
     def has_any_intervals(self) -> bool:
-        """Return True if interval_log contains at least one row."""
+        """Return True if interval_log has at least one reviewed row.
+
+        Rows pending review (is_repaired=2) from the historical importer
+        are excluded so the UI doesn't show unreviewed data.
+        """
         cursor = self.__connection.cursor()
-        cursor.execute("SELECT 1 FROM interval_log LIMIT 1")
+        cursor.execute("SELECT 1 FROM interval_log WHERE is_repaired < 2 LIMIT 1")
         result = cursor.fetchone()
         cursor.close()
         return result is not None
@@ -349,8 +356,10 @@ class DataStore:
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR IGNORE INTO interval_log "
-            "(timestamp, energy_kwh, app_state, soc_pct, availability_pct) "
-            "VALUES (:timestamp, :energy_kwh, :app_state, :soc_pct, :availability_pct)",
+            "(timestamp, energy_kwh, app_state, soc_pct, availability_pct, "
+            "is_repaired) "
+            "VALUES (:timestamp, :energy_kwh, :app_state, :soc_pct, "
+            ":availability_pct, :is_repaired)",
             rows,
         )
         inserted = cursor.rowcount
@@ -558,7 +567,9 @@ class DataStore:
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT timestamp, energy_kwh, soc_pct, availability_pct "
-            "FROM interval_log WHERE timestamp > ? ORDER BY timestamp",
+            "FROM interval_log "
+            "WHERE timestamp > ? AND is_repaired < 2 "
+            "ORDER BY timestamp",
             (since,),
         )
         rows = cursor.fetchall()
@@ -623,13 +634,14 @@ class DataStore:
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT i.timestamp, i.energy_kwh, i.app_state, "
-            "i.soc_pct, i.availability_pct, "
+            "i.soc_pct, i.availability_pct, i.is_repaired, "
             "p.consumption_price_kwh, p.production_price_kwh, p.price_rating, "
             "e.emission_intensity_kg_mwh "
             "FROM interval_log i "
             "LEFT JOIN price_log p ON i.timestamp = p.timestamp "
             "LEFT JOIN emission_log e ON i.timestamp = e.timestamp "
             "WHERE i.timestamp >= ? AND i.timestamp < ? "
+            "AND i.is_repaired < 2 "
             "ORDER BY i.timestamp",
             (start, end),
         )
@@ -641,6 +653,7 @@ class DataStore:
     def __aggregate_quarter(period_start: str, intervals: list[dict]) -> dict:
         """Aggregate intervals for a 15-min quarter period."""
         app_states = [i["app_state"] for i in intervals]
+        has_repaired = any(i["is_repaired"] == 1 for i in intervals)
 
         # Net energy
         energy_kwh = sum(i["energy_kwh"] for i in intervals)
@@ -693,12 +706,14 @@ class DataStore:
             "energy_wh": energy_wh,
             "charge_cost": round(charge_cost, 4),
             "discharge_revenue": round(discharge_revenue, 4),
+            "has_repaired": has_repaired,
         }
 
     @staticmethod
     def __aggregate_hour(period_start: str, intervals: list[dict]) -> dict:
         """Aggregate intervals for a 1-hour period."""
         app_states = [i["app_state"] for i in intervals]
+        has_repaired = any(i["is_repaired"] == 1 for i in intervals)
 
         # Charge/discharge split
         charge_kwh = sum(i["energy_kwh"] for i in intervals if i["energy_kwh"] > 0)
@@ -747,11 +762,14 @@ class DataStore:
             "discharge_wh": round(discharge_kwh * 1000),
             "discharge_revenue": round(discharge_revenue, 4),
             "soc_pct": soc_pct,
+            "has_repaired": has_repaired,
         }
 
     @staticmethod
     def __aggregate_period(period_start: str, intervals: list[dict]) -> dict:
         """Aggregate intervals for day/week/month/year periods."""
+        has_repaired = any(i["is_repaired"] == 1 for i in intervals)
+
         # Availability — average across all intervals
         availability_values = [i["availability_pct"] for i in intervals]
         avg_availability = sum(availability_values) / len(availability_values)
@@ -793,6 +811,7 @@ class DataStore:
             "net_kwh": round(net_kwh, 2),
             "net_cost": round(net_cost, 4),
             "co2_kg": round(co2_kg, 1),
+            "has_repaired": has_repaired,
         }
 
     def close(self):
