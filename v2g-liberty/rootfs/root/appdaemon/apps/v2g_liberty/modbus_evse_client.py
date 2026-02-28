@@ -628,7 +628,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             remaining_range=await self.get_car_remaining_range(),
         )
 
-    async def __handle_charge_power_change(self, new_power: int):
+    async def __handle_charge_power_change(self, new_power):
+        if not isinstance(new_power, (int, float)):
+            self.__log(f"Charge power is not a number: '{new_power}', treating as 0W.")
+            new_power = 0
         self.event_bus.emit_event("charge_power_change", new_power=new_power)
         if abs(new_power - self.requested_charge_power) > 500:
             self.__log(
