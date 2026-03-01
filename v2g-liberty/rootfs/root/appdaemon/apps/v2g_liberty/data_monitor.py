@@ -197,8 +197,10 @@ class DataMonitor:
 
             self.current_availability_since = local_now
 
-    async def _process_power_change(self, new_power: int):
+    async def _process_power_change(self, new_power):
         """Keep track of updated power changes within a regular interval."""
+        if not isinstance(new_power, (int, float)):
+            return
         local_now = get_local_now()
         duration = int((local_now - self.current_power_since).total_seconds())
         self.period_power_x_duration += duration * new_power
