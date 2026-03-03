@@ -113,7 +113,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     }
 
     _MCE_ERROR = ModbusConfigEntity(
-        modbus_register=MBR(address=154, data_type="64int", length=4),
+        modbus_register=MBR(address=154, data_type="int64", length=4),
         current_value=None,
         change_handler="_handle_charger_error_state_change",
     )
