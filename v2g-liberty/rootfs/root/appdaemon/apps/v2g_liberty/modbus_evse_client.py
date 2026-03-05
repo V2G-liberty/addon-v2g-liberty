@@ -907,6 +907,22 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.__log("results is None, abort processing.", level="WARNING")
             return
 
+        if len(results) < length:
+            self.__log(
+                f"Modbus returned {len(results)} registers, expected {length}. "
+                f"Partial data, aborting processing.",
+                level="WARNING",
+            )
+            is_unrecoverable = await self.__handle_modbus_exception(
+                source="__get_and_process_registers (partial result)"
+            )
+            if is_unrecoverable:
+                await self.__handle_un_recoverable_error(
+                    reason="persistent partial modbus responses",
+                    source="__get_and_process_registers",
+                )
+            return
+
         for entity in entities:
             # TODO: remove entity_name in this method.
             entity_name = entity.get("ha_entity_name", "now_handled_via_events")
