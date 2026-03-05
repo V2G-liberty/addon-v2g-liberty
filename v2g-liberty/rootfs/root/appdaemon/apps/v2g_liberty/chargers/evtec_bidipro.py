@@ -67,7 +67,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     ################################################################################
 
     _MCE_CAR_SOC = ModbusConfigEntity(
-        modbus_register=MBR(address=112, data_type="float32", length=2),
+        modbus_register=MBR(address=112, data_type="int32", length=2),
         minimum_value=2,
         maximum_value=97,
         relaxed_min_value=1,
