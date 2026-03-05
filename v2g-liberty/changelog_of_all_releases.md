@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Fix schedule request flooding when previous request is lost (#410)
 - 🪲 BUG: Fix crash on partial Modbus response (#409)
 - 🪲 BUG: Unavailable charge power not handled (#408)
 - 🪲 BUG: Gap in chartlines between fixed and forecast (#403)

@@ -401,6 +401,9 @@ class FMClient(AsyncIOEventEmitter):
                     f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
                     f"Getting new schedule."
                 )
+                # Reset the timestamp so that subsequent calls during the new
+                # request don't immediately consider it "lost" again.
+                self.fm_date_time_last_schedule = now
             else:
                 self.__log(
                     "Not getting new schedule, still processing previous request."
@@ -754,7 +757,10 @@ class FMClient(AsyncIOEventEmitter):
             "production-capacity": max_production_power_ranges,
         }
 
-        self.__log(f"flex_model: {flex_model}.")
+        flex_model_str = str(flex_model)
+        if len(flex_model_str) > 1500:
+            flex_model_str = flex_model_str[:1500] + "..."
+        self.__log(f"flex_model: {flex_model_str}.")
         schedule = {}
         max_retries = 2
         for attempt in range(max_retries + 1):
