@@ -10,7 +10,10 @@
         "visualstudioexptteam.vscodeintellicode",
         "redhat.vscode-yaml",
         "esbenp.prettier-vscode",
-        "GitHub.vscode-pull-request-github"
+        "GitHub.vscode-pull-request-github",
+        // Pinned to 2.1.61 — newer versions do not work on Alpine Linux containers.
+        // Check periodically whether a newer release has resolved this.
+        "anthropic.claude-code@2.1.61"
       ],
       // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
       "settings": {
