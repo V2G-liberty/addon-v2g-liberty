@@ -10555,35 +10555,53 @@ function $4dbea3927e6cdc74$export$ce5035b7317f6169(loadbalancerEnabled) {
 function $4dbea3927e6cdc74$export$e5b3375ee042fbb7(quasarLoadBalancerLimit) {
     return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
 }
+function $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass) {
+    const [year, month] = hass.config.version.split('.').map(Number);
+    return year > 2026 || year === 2026 && month >= 3;
+}
+function $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass) {
+    return $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass) ? 'footer' : null;
+}
 function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction = true, label = null, isDisabled = false, testId = null, isBackButton = false) {
     if (label === null) {
         if (isPrimaryAction) label = hass.localize('ui.common.continue');
         else label = hass.localize('ui.common.back');
     }
-    const slot = isPrimaryAction ? 'primaryAction' : 'secondaryAction';
+    const footerSlot = $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass);
+    const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
     const appearance = isPrimaryAction ? 'filled' : 'outlined';
     const variant = isPrimaryAction ? 'brand' : 'secondary';
     const chevronIcon = isBackButton ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small'>
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small' style="width: auto">
       ${chevronIcon}
       ${label}
     </ha-button>
   `;
 }
-function $4dbea3927e6cdc74$export$403c249a0a70d814() {
+function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
+    const slot = hass ? $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass) ?? 'primaryAction' : 'primaryAction';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-spinner
       test-id="progress"
       size="small"
-      slot='primaryAction'
+      slot=${slot}
     ></ha-spinner>
   `;
 }
-function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj, { state: state } = {}) {
+function $4dbea3927e6cdc74$export$4652ab6ca7300a71(hass, stateObj, { state: state } = {}) {
     state = state || (0, $aa1795080f053cd4$export$2c618a4308a30424)(stateObj.state) || stateObj.state;
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
+    if ($4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div test-id="${stateObj.entity_id}" style="display: flex; align-items: center; padding: 8px 0;">
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        <span style="margin-left: 8px; display: inline-flex; flex-direction: column;">
+          <span style="font-size: 0.875rem; color: var(--secondary-text-color);">${name}</span>
+          <span>${state}</span>
+        </span>
+      </div>
+    `;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
       <span slot="heading" test-id="${stateObj.entity_id}">
@@ -11732,11 +11750,14 @@ class $8be8b3713888253d$var$EditAdministratorSettingsDialog extends (0, $942308f
         const mobileNameState = this.hass.states[$755a87c9ee93218f$export$750f693c799177e2];
         const mobilePlatformState = this.hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
         const mobileApps = Object.keys(this.hass.services['notify']).filter((service)=>/^mobile_app_/.test(service)).map((service)=>service.replace(/^mobile_app_/, ''));
+        const _header = $8be8b3713888253d$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $8be8b3713888253d$var$tp('header'))}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         <p><ha-markdown breaks .content=${$8be8b3713888253d$var$tp('sub-header')}></ha-markdown></p>
         ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._mobileName, mobileNameState, (evt)=>this._mobileName = evt.target.value, mobileApps)}
@@ -11817,11 +11838,14 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const content = this._currentPage === 'source-selection' ? this._renderCarCalendarSourceSelection() : this._currentPage === 'caldav-calendar' ? this._renderCaldavCalendar() : this._currentPage === 'homeassistant-calendar' ? this._renderHomeAssistantCalendarSelection() : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        const _header = $056feaf1842f603f$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $056feaf1842f603f$var$tp('header'))}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         ${content}
       </ha-dialog>
@@ -11891,7 +11915,7 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password")}
       ${this._renderConnectionError()}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false, null, false, null, true)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
     `;
     }
     _renderError(errorString) {
@@ -12096,12 +12120,14 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $4163850e13316b31$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         const content = this._hasTriedToConnect && this._isConnected() ? this._renderChargerDetails() : this._renderConnectionDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -12128,7 +12154,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
           <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
         `}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'))}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'))}
     `;
     }
     _renderConnectionError() {
@@ -12324,12 +12350,14 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $528a5968cd9760bd$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         const content = this._currentPage === 'contract-selection' ? this._renderContractSelection() : this._renderContractDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -12538,12 +12566,14 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $ba2cc41e8ffaff3b$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         const content = this._hasTriedToConnect && this._isConnected() ? this._renderAssetDetails() : this._renderAccountDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -12574,7 +12604,7 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
 
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingOtherServer, fmUseOtherServerState, useOtherServerChanged)}
       ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url") : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue)}
     `;
     }
     _renderConnectionError() {
@@ -12733,11 +12763,13 @@ class $967516c80143d3e3$var$EditInputNumberDialog extends (0, $942308f826de48c4$
         const stateObj = this.hass.states[this._params.entity_id];
         const heading = this._params.header;
         const description = this._params.description;
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, heading)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, heading)}
+        .headerTitle=${_isNew ? heading : null}
       >
         ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._value, stateObj, (evt)=>this._value = evt.target.value)}
         ${this._renderInvalidInputAlert(stateObj)}
@@ -12815,11 +12847,13 @@ class $7283b140e865221f$var$EditInputNumberDialog extends (0, $942308f826de48c4$
         const header = this._params.header;
         const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
         const description = this._params.description;
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         <div>
           <span class="name">${name}</span>
@@ -12912,11 +12946,14 @@ class $5dbf4f8d923d5746$export$814ec9585813edb4 extends (0, $942308f826de48c4$ex
             (0, $ee1328194d522913$export$ff7962acd6052c28)(this.hass, '/lovelace-yaml/settings', true);
             this.closeDialog();
         };
+        const _header = $5dbf4f8d923d5746$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $5dbf4f8d923d5746$var$tp('header'))}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         <ha-alert alert-type="error">
           ${$5dbf4f8d923d5746$var$tp('error')}
@@ -13098,8 +13135,8 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobileName)}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobilePlatform)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._adminMobileName)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._adminMobilePlatform)}
       </div>
       <div class="card-content" style="margin-top: 1em;">
         ${this._renderTestNotificationPart()}
@@ -13118,7 +13155,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         `;
         if (this._testNotificationState === 'waiting') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
-        ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)()}
+        ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass)}
         <div style="padding-left: 0.5em;">${$ce5bce3a7c4706d2$var$tt('how-to-react-on-mobile-device')}</div></div>
       `;
         if (this._testNotificationState === 'timeout') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -13332,9 +13369,9 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
           <p>
             ${$8b666ded8df00928$var$tp('type')}: <strong>${title}</strong>
           </p>
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._calendarAccountUrl)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._calendarAccountUsername)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._carCalendarName)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._calendarAccountUrl)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._calendarAccountUsername)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._carCalendarName)}
         `;
     }
     _renderCaldavConnectionStatus() {
@@ -13352,7 +13389,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         const title = $8b666ded8df00928$var$tp(`source-selection.${this._carCalendarSource.state}.title`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <p>${$8b666ded8df00928$var$tp('type')}: <strong>${title}</strong></p>
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName, {
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._integrationCalendarEntityName, {
             state: calendarStateObj.attributes.friendly_name
         })}
       `;
@@ -13437,7 +13474,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._chargerHost)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
@@ -13574,7 +13611,7 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$941ad84dd3f4024)(this);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._electricityProvider)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._electricityProvider)}
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
@@ -13598,15 +13635,15 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
     }
     _renderAmberContractDetails() {
         return this._electricityProvider.state === 'au_amber_electric' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._ownConsumptionPriceEntityId)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._ownProductionPriceEntityId)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._ownConsumptionPriceEntityId)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._ownProductionPriceEntityId)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderOctopusContractDetails() {
         return this._electricityProvider.state === 'gb_octopus_energy' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._octopusImportCode)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._octopusExportCode)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._gbDnoRegion)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._octopusImportCode)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._octopusExportCode)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._gbDnoRegion)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
 }
@@ -13821,12 +13858,12 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderFMConnectionStatus()}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAccountUsername)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._fmAccountUsername)}
         ${isUsingOtherServer ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
               <p>${useOtherServer}</p>
-              ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmHostUrl)}
+              ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._fmHostUrl)}
             ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAsset)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._fmAsset)}
       </div>
       <div class="card-actions">
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}

@@ -3,10 +3,11 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.7.6 2026-03-??
+## 0.7.6 2026-03-06
 
 ### Fixed
 
+- 🪲 BUG: Fix settings cards dialogs broken in HA 2026.3 due to dialog API migration (#411)
 - 🪲 BUG: Fix schedule request flooding when previous request is lost (#410)
 - 🪲 BUG: Fix crash on partial Modbus response (#409)
 - 🪲 BUG: Unavailable charge power not handled (#408)

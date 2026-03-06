@@ -12,6 +12,7 @@ import {
   renderInputSelect,
   renderInputText,
   renderSelectOptionWithLabel,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -81,11 +82,14 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         : this._currentPage === 'homeassistant-calendar'
         ? this._renderHomeAssistantCalendarSelection()
         : nothing;
+    const _header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, tp('header'))}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         ${content}
       </ha-dialog>
@@ -201,7 +205,7 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
       ${this._renderConnectionError()}
       ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${this._isBusyConnecting()
-        ? renderSpinner()
+        ? renderSpinner(this.hass)
         : renderButton(this.hass, this._continueCaldav)
       }
     `;

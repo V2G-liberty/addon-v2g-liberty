@@ -84,7 +84,7 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
-        ${renderEntityBlock(this._chargerHost)}
+        ${renderEntityBlock(this._hass, this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
