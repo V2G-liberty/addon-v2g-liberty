@@ -83,8 +83,8 @@ export class AdministratorSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         <div class="description">${tp('sub-header')}</div>
-        ${renderEntityBlock(this._adminMobileName)}
-        ${renderEntityBlock(this._adminMobilePlatform)}
+        ${renderEntityBlock(this._hass, this._adminMobileName)}
+        ${renderEntityBlock(this._hass, this._adminMobilePlatform)}
       </div>
       <div class="card-content" style="margin-top: 1em;">
         ${this._renderTestNotificationPart()}
@@ -113,7 +113,7 @@ export class AdministratorSettingsCard extends LitElement {
     if (this._testNotificationState === 'waiting') {
       return html`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
-        ${renderSpinner()}
+        ${renderSpinner(this.hass)}
         <div style="padding-left: 0.5em;">${tt('how-to-react-on-mobile-device')}</div></div>
       `;
     }

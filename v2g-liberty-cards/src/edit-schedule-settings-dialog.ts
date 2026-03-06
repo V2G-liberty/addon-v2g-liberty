@@ -10,6 +10,7 @@ import {
   renderInputText,
   renderButton,
   renderSpinner,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -63,6 +64,7 @@ class EditScheduleSettingsDialog extends DialogBase {
     if (!this.isOpen) return nothing;
 
     const header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     const content =
       this._hasTriedToConnect && this._isConnected()
         ? this._renderAssetDetails()
@@ -72,7 +74,8 @@ class EditScheduleSettingsDialog extends DialogBase {
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -139,7 +142,7 @@ class EditScheduleSettingsDialog extends DialogBase {
           )
         : nothing}
       ${this._isBusyConnecting()
-        ? renderSpinner()
+        ? renderSpinner(this.hass)
         : renderButton(this.hass, this._continue)
       }
     `;

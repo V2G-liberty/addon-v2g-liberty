@@ -104,9 +104,9 @@ export class CarReservationCalendarSettingsCard extends LitElement {
           <p>
             ${tp('type')}: <strong>${title}</strong>
           </p>
-          ${renderEntityBlock(this._calendarAccountUrl)}
-          ${renderEntityBlock(this._calendarAccountUsername)}
-          ${renderEntityBlock(this._carCalendarName)}
+          ${renderEntityBlock(this._hass, this._calendarAccountUrl)}
+          ${renderEntityBlock(this._hass, this._calendarAccountUsername)}
+          ${renderEntityBlock(this._hass, this._carCalendarName)}
         `
   }
 
@@ -133,7 +133,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
 
     return html`
         <p>${tp('type')}: <strong>${title}</strong></p>
-        ${renderEntityBlock(this._integrationCalendarEntityName, {
+        ${renderEntityBlock(this._hass, this._integrationCalendarEntityName, {
           state: calendarStateObj.attributes.friendly_name,
         })}
       `;

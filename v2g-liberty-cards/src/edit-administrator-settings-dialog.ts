@@ -2,7 +2,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderInputSelect, renderButton } from './util/render';
+import { renderDialogHeader, renderInputSelect, renderButton, isNewHaDialogAPI } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
 import { defaultState, DialogBase } from './dialog-base';
@@ -41,11 +41,14 @@ class EditAdministratorSettingsDialog extends DialogBase {
       .filter(service => /^mobile_app_/.test(service))
       .map(service => service.replace(/^mobile_app_/, ''));
 
+    const _header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, tp('header'))}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         <p><ha-markdown breaks .content=${tp('sub-header')}></ha-markdown></p>
         ${renderInputSelect(

@@ -10,6 +10,7 @@ import {
   renderInputSelect,
   renderInputText,
   renderSelectOption,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial, to } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -62,6 +63,7 @@ class EditElectricityContractSettingsDialog extends DialogBase {
     if (!this.isOpen) return nothing;
 
     const header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     const content =
       this._currentPage === 'contract-selection'
         ? this._renderContractSelection()
@@ -70,7 +72,8 @@ class EditElectricityContractSettingsDialog extends DialogBase {
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
