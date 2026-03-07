@@ -16,6 +16,8 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
+- 🚀 FEAT: Auto-configure configuration.yaml (#404)
+
 ### Changed
 
 - 🛠️ Refactoring: Made storing settings more robust (#406)

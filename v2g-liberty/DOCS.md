@@ -62,7 +62,19 @@ Now you can move on to the last part: the configuration.
 
 ## Configuration
 
-If you've upgraded from an earlier version of V2G Liberty (also with the manual installation) you can normally skip steps 1 to 4.
+V2G Liberty automatically adds the required package include to your `configuration.yaml` on first startup. A backup of the original file is created and a notification in Home Assistant will inform you of the change.
+
+1. After the first start, restart Home Assistant by going to `settings > system` and in the top
+   right click the top right ⏼ menu and select `Restart Home Assistant`.
+2. When the restart finished the _V2G&nbsp;Liberty_ menu item in the left menu should be visible, open this by clicking it.
+3. Now go to the settings tab (⚙ icon in the blue top-bar).
+4. Review all sections of the page and complete the requested information as necessary.<br/>
+   Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un-touched.
+
+<details>
+<summary>Manual configuration (only needed if auto-configuration could not be applied)</summary>
+
+If you see a notification that manual configuration is required (e.g. because your `homeassistant:` section uses `!include`), follow these steps:
 
 1. Go to the File Editor add-on `settings > add-ons > File Editor`.
 2. Open `configuration.yaml` and add this text:
@@ -83,10 +95,8 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
 
 3. Now restart Home Assistant by going to `settings > system` and in the top
    right click the top right ⏼ menu and select `Restart Home Assistant`.
-4. When the restart finished the _V2G&nbsp;Liberty_ menu item in the left menu should be visible, open this by clicking it.
-5. Now go to the settings tab (⚙ icon in the blue top-bar)
-6. Review all sections of the page and complete the requested information as necessary.<br/>
-   Unfortunately for upgrading users from the "Manual installation version", the settings are not automatically copied from the secrets file. But you can copy-paste them here. This is a one-time-only action. With future updates all settings remain un-touched.
+
+</details>
 
 ## Load balancing
 

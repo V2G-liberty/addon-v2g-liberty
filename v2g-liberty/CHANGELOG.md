@@ -13,6 +13,8 @@
 
 ### Added
 
+- 🚀 FEAT: Auto-configure configuration.yaml (#404)
+
 ### Changed
 
 - 🛠️ Refactoring: Made storing settings more robust (#406)
