@@ -155,13 +155,19 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         InputText.EntityId,
         this._ownConsumptionPriceEntityId,
         consumptionPriceIdState,
-        consumptionPriceEntityIdChanged
+        consumptionPriceEntityIdChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderInputText(
         InputText.EntityId,
         this._ownProductionPriceEntityId,
         productionPriceIdState,
-        productionPriceEntityIdChanged
+        productionPriceEntityIdChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderButton(
         this.hass,
@@ -201,13 +207,19 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         InputText.OctopusCode,
         this._octopusImportCode,
         importCodeState,
-        importCodeChanged
+        importCodeChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderInputText(
         InputText.OctopusCode,
         this._octopusExportCode,
         exportCodeState,
-        exportCodeChanged
+        exportCodeChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderInputSelect(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
       ${renderButton(

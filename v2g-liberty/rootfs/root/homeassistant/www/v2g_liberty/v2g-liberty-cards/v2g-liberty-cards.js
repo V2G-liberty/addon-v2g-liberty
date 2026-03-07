@@ -1360,7 +1360,6 @@ var $24c52f343453d62d$export$2e2bcd8739ae039 = {
 };
 
 
-
 /**
  * @license
  * Copyright 2019 Google LLC
@@ -2496,7 +2495,7 @@ var $9c12443e84042152$exports = {};
  * This can be used to log issues in development environments in critical
  * paths. Removing the logging code for production environments will keep the
  * same logic and follow the same code paths.
- */ var $9c12443e84042152$var$__DEV__ = true;
+ */ var $9c12443e84042152$var$__DEV__ = false;
 var $9c12443e84042152$var$warning = function() {};
 if ($9c12443e84042152$var$__DEV__) {
     var $9c12443e84042152$var$printWarning = function printWarning(format, args) {
@@ -10581,13 +10580,13 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
   `;
 }
 function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
-    const slot = hass ? $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass) ?? 'primaryAction' : 'primaryAction';
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3) does not reliably render a standalone spinner in
+    // slot="footer", so place it in the content area (no slot) instead.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-spinner
-      test-id="progress"
-      size="small"
-      slot=${slot}
-    ></ha-spinner>
+      <ha-spinner test-id="progress" size="small"></ha-spinner>
+    `;
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
   `;
 }
 function $4dbea3927e6cdc74$export$4652ab6ca7300a71(hass, stateObj, { state: state } = {}) {
@@ -10742,7 +10741,7 @@ var $4dbea3927e6cdc74$export$7034fcb7d6351061 = /*#__PURE__*/ function(InputText
     InputText["Password"] = ".{4,}";
     return InputText;
 }({});
-function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback, validationMessage = "", type = "text") {
+function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback, validationMessage = "", type = "text", hass = null) {
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
     // Not happy with fixed height but can't get helper text error to render correctly.
     if (validationMessage === "") {
@@ -10750,24 +10749,33 @@ function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, cha
         const tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
         validationMessage = tp("validation_error");
     }
+    const textField = (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-textfield
+      type="${type}"
+      required="required"
+      .autovalidate=${pattern}
+      .pattern=${pattern}
+      .validationMessage=${validationMessage}
+      .label=${name}
+      .value=${value}
+      @change=${changedCallback}
+      test-id="${stateObj.entity_id}"
+      style="width: 100%"
+    ></ha-textfield>
+  `;
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="display: flex; align-items: flex-start; padding: 4px 0;">
+        <ha-icon .icon="${stateObj.attributes.icon}" style="margin-right: 16px; flex-shrink: 0; margin-top: 16px;"></ha-icon>
+        ${textField}
+      </div>
+    `;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row style="height: 85px;">
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
-      <ha-textfield
-        type="${type}"
-        required="required"
-        .autovalidate=${pattern}
-        .pattern=${pattern}
-        .validationMessage=${validationMessage}
-        .label=${name}
-        .value=${value}
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-        style="width: 100%"
-      ></ha-textfield
-    ></ha-settings-row>
+      ${textField}
+    </ha-settings-row>
   `;
 }
 
@@ -10900,7 +10908,6 @@ var $8944235bd8be49ac$export$f4fd60e41371f80d = {
     hour: 22,
     day: 5
 };
-
 
 
 var $ee1328194d522913$export$27bce688931fdfcc, $ee1328194d522913$export$7fd1ce15b01d50ca, $ee1328194d522913$export$1a0dc7c974e8444d = function(e, t) {
@@ -11910,9 +11917,9 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         const calendarAccountPasswordState = this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value, urlError, "url")}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).UserName, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value, usernameError)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password")}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value, urlError, "url", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).UserName, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value, usernameError, "text", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password", this.hass)}
       ${this._renderConnectionError()}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
@@ -12146,7 +12153,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${_isLoadBalancerEnabled ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <ha-markdown breaks .content="${$4163850e13316b31$var$tp('connection-details.description')}"></ha-markdown><br/>
         `}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Hostname, this._chargerHost, chargerHostState, (evt)=>this._chargerHost = evt.target.value, $4163850e13316b31$var$tp('invalid-host-error'))}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Hostname, this._chargerHost, chargerHostState, (evt)=>this._chargerHost = evt.target.value, $4163850e13316b31$var$tp('invalid-host-error'), "text", this.hass)}
       ${this._renderInvalidHostError()}
       ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerPort, chargerPortState, (evt)=>this._chargerPort = evt.target.value, '[0-9]+')}
       ${this._renderInvalidPortError()}
@@ -12405,8 +12412,8 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
         const productionPriceEntityIdChanged = (evt)=>this._ownProductionPriceEntityId = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownConsumptionPriceEntityId, consumptionPriceIdState, consumptionPriceEntityIdChanged)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownProductionPriceEntityId, productionPriceIdState, productionPriceEntityIdChanged)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownConsumptionPriceEntityId, consumptionPriceIdState, consumptionPriceEntityIdChanged, "", "text", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownProductionPriceEntityId, productionPriceIdState, productionPriceEntityIdChanged, "", "text", this.hass)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
     `;
@@ -12421,8 +12428,8 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
         const dnoRegionChanged = (evt)=>this._gbDnoRegion = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusImportCode, importCodeState, importCodeChanged)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusExportCode, exportCodeState, exportCodeChanged)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusImportCode, importCodeState, importCodeChanged, "", "text", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusExportCode, exportCodeState, exportCodeChanged, "", "text", this.hass)}
       ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
@@ -12599,11 +12606,11 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value, emailError, "email")}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value, passwordError, "password")}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value, emailError, "email", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value, passwordError, "password", this.hass)}
 
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingOtherServer, fmUseOtherServerState, useOtherServerChanged)}
-      ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url") : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url", this.hass) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue)}
     `;
     }
@@ -13155,7 +13162,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         `;
         if (this._testNotificationState === 'waiting') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
-        ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass)}
+        ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this._hass)}
         <div style="padding-left: 0.5em;">${$ce5bce3a7c4706d2$var$tt('how-to-react-on-mobile-device')}</div></div>
       `;
         if (this._testNotificationState === 'timeout') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -13358,7 +13365,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         ${content}
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
@@ -13785,16 +13792,40 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    connectedCallback() {
+        super.connectedCallback();
+        window.addEventListener('location-changed', this._handleLocationChanged);
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        window.removeEventListener('location-changed', this._handleLocationChanged);
+    }
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
         this._checkUnInitialisedEntities();
     }
-    async _checkUnInitialisedEntities() {
-        if ((0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass)) await (0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this);
+    _checkUnInitialisedEntities() {
+        const hasUninitialized = (0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass);
+        if (hasUninitialized && hasUninitialized !== this._hasUninitialisedEntities) {
+            this._hasUninitialisedEntities = hasUninitialized;
+            // Defer one frame so the Lovelace dialog manager is ready.
+            requestAnimationFrame(()=>(0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this));
+        } else if (!hasUninitialized) this._hasUninitialisedEntities = false;
     }
     render() {
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    constructor(...args){
+        super(...args), this._hasUninitialisedEntities = undefined, this._wentToSettings = false, this._handleLocationChanged = ()=>{
+            if (window.location.pathname.includes('/settings')) this._wentToSettings = true;
+            else if (this._wentToSettings) {
+                // Returning from settings page — allow the dialog to re-appear.
+                this._wentToSettings = false;
+                this._hasUninitialisedEntities = undefined;
+                if (this._hass) this._checkUnInitialisedEntities();
+            }
+        };
     }
 }
 $089309bcd79355b2$export$dffc6da272e49631 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([

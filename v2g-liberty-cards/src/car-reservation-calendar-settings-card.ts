@@ -88,7 +88,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
       </div>
       <div class="card-actions">
         ${renderButton(
-          this.hass,
+          this._hass,
           editCallback,
           true,
           this._hass.localize('ui.common.edit')
