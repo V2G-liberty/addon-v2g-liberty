@@ -151,6 +151,11 @@ class FMClient(AsyncIOEventEmitter):
 
         host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
         self.__log(f"host: '{host}', ssl: '{ssl}'.")
+
+        if self.client is not None:
+            await self.client.close()
+            self.client = None
+
         try:
             self.client = FlexMeasuresClient(
                 host=host,
@@ -193,6 +198,9 @@ class FMClient(AsyncIOEventEmitter):
             f"access token: {self.client.access_token}, returning 'Successfully connected'."
         )
 
+        # TODO: Anti-pattern — connection status is set here on success but callers are
+        # responsible for setting it on failure. Ideally callers own the status update in
+        # both success and failure cases, so this method only returns the result string.
         await self.set_fm_connection_status(connected=True)
         return "Successfully connected"
 
@@ -401,6 +409,9 @@ class FMClient(AsyncIOEventEmitter):
                     f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
                     f"Getting new schedule."
                 )
+                # Reset the timestamp so that subsequent calls during the new
+                # request don't immediately consider it "lost" again.
+                self.fm_date_time_last_schedule = now
             else:
                 self.__log(
                     "Not getting new schedule, still processing previous request."
@@ -754,7 +765,10 @@ class FMClient(AsyncIOEventEmitter):
             "production-capacity": max_production_power_ranges,
         }
 
-        self.__log(f"flex_model: {flex_model}.")
+        flex_model_str = str(flex_model)
+        if len(flex_model_str) > 1500:
+            flex_model_str = flex_model_str[:1500] + "..."
+        self.__log(f"flex_model: {flex_model_str}.")
         schedule = {}
         max_retries = 2
         for attempt in range(max_retries + 1):

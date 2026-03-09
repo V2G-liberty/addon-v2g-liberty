@@ -26,6 +26,18 @@ export function isLoadbalancerEnabled(quasarLoadBalancerLimit: string): boolean 
   return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
 }
 
+// HA 2026.3 migrated ha-dialog from MDC (mwc-dialog) to WebAwesome (wa-dialog).
+// The primaryAction/secondaryAction slots and TemplateResult .heading were removed.
+// New API: slot="footer" for buttons, .headerTitle string property for the title.
+export function isNewHaDialogAPI(hass: HomeAssistant): boolean {
+  const [year, month] = hass.config.version.split('.').map(Number);
+  return year > 2026 || (year === 2026 && month >= 3);
+}
+
+function _haDialogFooterSlot(hass: HomeAssistant): string {
+  return isNewHaDialogAPI(hass) ? 'footer' : null;
+}
+
 export function renderButton(
   hass: HomeAssistant,
   action: (() => void),
@@ -42,9 +54,8 @@ export function renderButton(
       label = hass.localize('ui.common.back');
     }
   }
-  const slot = isPrimaryAction
-    ? 'primaryAction'
-    : 'secondaryAction'
+  const footerSlot = _haDialogFooterSlot(hass);
+  const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
   const appearance = isPrimaryAction
     ? 'filled'
     : 'outlined'
@@ -62,29 +73,43 @@ export function renderButton(
   }
 
   return html`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small'>
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small' style="width: auto">
       ${chevronIcon}
       ${label}
     </ha-button>
   `;
 }
 
-export function renderSpinner() {
+export function renderSpinner(hass: HomeAssistant = null) {
+  const slot = hass ? (_haDialogFooterSlot(hass) ?? 'primaryAction') : 'primaryAction';
   return html`
     <ha-spinner
       test-id="progress"
       size="small"
-      slot='primaryAction'
+      slot=${slot}
+      style="margin-left: auto;"
     ></ha-spinner>
   `;
 }
 
 export function renderEntityBlock(
+  hass: HomeAssistant,
   stateObj: HassEntity,
   { state }: { state?: string } = {}
 ) {
   state = state || to(stateObj.state) || stateObj.state;
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+  if (isNewHaDialogAPI(hass)) {
+    return html`
+      <div test-id="${stateObj.entity_id}" style="display: flex; align-items: center; padding: 8px 0;">
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        <span style="margin-left: 8px; display: inline-flex; flex-direction: column;">
+          <span style="font-size: 0.875rem; color: var(--secondary-text-color);">${name}</span>
+          <span>${state}</span>
+        </span>
+      </div>
+    `;
+  }
   return html`
     <ha-settings-row>
       <span slot="heading" test-id="${stateObj.entity_id}">

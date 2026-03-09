@@ -3,6 +3,23 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.7.6 2026-03-09
+
+### Fixed
+
+- 🪲 BUG: Fix settings cards dialogs broken in HA 2026.3 due to dialog API migration (#411, #412)
+- 🪲 BUG: Fix schedule request flooding when previous request is lost (#410)
+- 🪲 BUG: Fix crash on partial Modbus response (#409)
+- 🪲 BUG: Unavailable charge power not handled (#408)
+- 🪲 BUG: Gap in chartlines between fixed and forecast (#403)
+- 🪲 BUG: Fixed failing "no prices" notification (#402)
+
+### Added
+
+### Changed
+
+- 🛠️ Refactoring: Made storing settings more robust (#406)
+
 ## 0.7.5 2026-02-15
 
 ### Fixed

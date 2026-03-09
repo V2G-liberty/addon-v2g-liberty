@@ -175,8 +175,13 @@ class SettingsManager:
 
     def __write_to_file(self):
         # self.__log(f"__write_to_file, settings: '{self.settings}'.")
-        with open(self.settings_file_path, "w", encoding="utf-8") as write_file:
+        # Write to a temporary file first, then atomically replace.
+        # This prevents an empty settings file if the process is killed
+        # during write (e.g. system reboot, HA restart, power loss).
+        tmp_path = self.settings_file_path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as write_file:
             json.dump(self.settings, write_file, indent=2)
+        os.replace(tmp_path, self.settings_file_path)
 
     def reset(self):
         self.settings = {}

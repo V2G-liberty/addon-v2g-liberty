@@ -373,25 +373,32 @@ class TestCheckIfPricesAreUpToDate:
 
     This method runs daily at CHECK_DATA_STATUS_TIME (18:34:52) to check if ENTSOE
     data has been retrieved successfully. If data is late/unavailable, it notifies
-    the user.
+    the user (scenario C).
     """
 
     @pytest.mark.asyncio
     async def test_entsoe_data_not_up_to_date_triggers_notification(
         self, data_importer, notifier, hass
     ):
-        """Test that stale ENTSOE data triggers a notification."""
+        """Test that stale ENTSOE data triggers a notification (scenario C)."""
         # Setup: ENTSOE data is NOT up to date
         data_importer.entsoe_data_is_up_to_date = False
 
         # Call the private method directly (using name mangling)
         await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date()
 
-        # Verify notification was sent with correct message
+        # Verify notification was sent with correct message and tag
         notifier.notify_user.assert_called_once()
         call_kwargs = notifier.notify_user.call_args[1]
-        assert "Price data not available" in call_kwargs["message"]
+        assert (
+            "Electricity prices for tomorrow are not yet available"
+            in call_kwargs["message"]
+        )
         assert call_kwargs["tag"] == "no_price_data"
+        assert call_kwargs["title"] is None
+
+        # Verify the notification tracking flag was set
+        assert data_importer._critical_price_notification_sent is True
 
         # Verify retry process was kicked off
         hass.run_in.assert_called_once()
@@ -415,22 +422,54 @@ class TestCheckIfPricesAreUpToDate:
 class TestCheckIfPricesAreUpToDateAgain:
     """Tests for __check_if_prices_are_up_to_date_again method.
 
-    This method is used to clear the notification when ENTSOE data becomes available
-    after the CHECK_DATA_STATUS_TIME check found it missing.
+    This method handles recovery when ENTSOE data becomes available after a missing-
+    prices notification, or sends a final message when TRY_UNTIL is reached.
+
+    Scenario D: prices arrive before the push notification was sent — only UI cleared.
+    Scenario E: prices arrive after the push notification was sent — replace with confirmation.
+    Scenario F: TRY_UNTIL reached without prices — send final informational notification.
     """
 
     @pytest.mark.asyncio
-    async def test_entsoe_becomes_available_clears_notification(
+    async def test_scenario_e_push_notification_replaced_with_confirmation(
         self, data_importer, notifier, v2g_main_app, hass
     ):
-        """Test that notification is cleared when ENTSOE data becomes available."""
-        # Setup: ENTSOE data is now up to date
+        """Scenario E: prices received after push notification — clear and confirm."""
+        # Setup: push notification was already sent, prices now available
         data_importer.entsoe_data_is_up_to_date = True
+        data_importer._critical_price_notification_sent = True
 
         await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again()
 
-        # Verify notification was cleared
+        # Verify old notification was cleared and confirmation sent
         notifier.clear_notification.assert_called_once_with(tag="no_price_data")
+        notifier.notify_user.assert_called_once()
+        call_kwargs = notifier.notify_user.call_args[1]
+        assert "have now been received" in call_kwargs["message"]
+        assert call_kwargs["tag"] == "no_price_data"
+        assert call_kwargs["critical"] is False
+
+        # Verify tracking flag was reset
+        assert data_importer._critical_price_notification_sent is False
+
+        # Verify UI was updated
+        v2g_main_app.set_price_is_up_to_date.assert_called_once_with(is_up_to_date=True)
+
+    @pytest.mark.asyncio
+    async def test_scenario_d_no_push_when_prices_arrive_before_notification(
+        self, data_importer, notifier, v2g_main_app, hass
+    ):
+        """Scenario D: prices arrived before push was sent — only UI boolean cleared."""
+        # Setup: no push notification was sent yet, prices now available
+        data_importer.entsoe_data_is_up_to_date = True
+        data_importer._critical_price_notification_sent = False
+
+        await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again()
+
+        # Verify no push was cleared or sent (no push existed)
+        notifier.clear_notification.assert_not_called()
+        notifier.notify_user.assert_not_called()
+
         # Verify UI was updated
         v2g_main_app.set_price_is_up_to_date.assert_called_once_with(is_up_to_date=True)
 
@@ -450,16 +489,18 @@ class TestCheckIfPricesAreUpToDateAgain:
 
         # Verify retry was scheduled
         hass.run_in.assert_called_once()
-        # Verify notification was NOT cleared
+        # Verify notification was NOT cleared or replaced
         notifier.clear_notification.assert_not_called()
+        notifier.notify_user.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_entsoe_still_missing_outside_time_bounds_no_retry(
+    async def test_scenario_f_final_notification_at_try_until(
         self, data_importer, notifier, hass
     ):
-        """Test that no retry is scheduled when outside time bounds."""
-        # Setup: ENTSOE data still not up to date
+        """Scenario F: TRY_UNTIL reached without prices — send final notification."""
+        # Setup: ENTSOE data still not up to date and outside retry window
         data_importer.entsoe_data_is_up_to_date = False
+        data_importer._critical_price_notification_sent = True
 
         with patch(
             "apps.v2g_liberty.fm_data_importer.is_local_now_between",
@@ -467,10 +508,129 @@ class TestCheckIfPricesAreUpToDateAgain:
         ):
             await data_importer._FlexMeasuresDataImporter__check_if_prices_are_up_to_date_again()
 
-        # Verify no retry was scheduled (outside time bounds)
+        # Verify final notification was sent (replaces the critical one via same tag)
+        notifier.notify_user.assert_called_once()
+        call_kwargs = notifier.notify_user.call_args[1]
+        assert "have not been received" in call_kwargs["message"]
+        assert call_kwargs["tag"] == "no_price_data"
+        assert call_kwargs["critical"] is False
+
+        # Verify no retry was scheduled
         hass.run_in.assert_not_called()
-        # Verify notification was NOT cleared
+        # clear_notification not called — notify_user with same tag replaces it on device
         notifier.clear_notification.assert_not_called()
+
+
+class TestDailyKickoffPriceDataRootCauseFix:
+    """Tests for the root cause fixes in daily_kickoff_price_data.
+
+    Root cause 1: entsoe_data_is_up_to_date could remain stale True from previous day
+                  when entsoe_fetcher is None (early return without updating flag).
+    Root cause 2: get_prices() return value was ignored — prices could fail silently
+                  while the flag remained True.
+    """
+
+    @pytest.mark.asyncio
+    async def test_flag_reset_at_start_even_when_fetcher_is_none(
+        self, data_importer, hass
+    ):
+        """Root cause 1: flag is reset to False even when entsoe_fetcher is None."""
+        # Simulate stale True from previous day
+        data_importer.entsoe_data_is_up_to_date = True
+        data_importer.entsoe_fetcher = None
+
+        await data_importer.daily_kickoff_price_data()
+
+        # Flag must be False — early return must not preserve the stale True
+        assert data_importer.entsoe_data_is_up_to_date is False
+
+    @pytest.mark.asyncio
+    async def test_prices_ok_sets_flag_true(self, data_importer, hass, v2g_main_app):
+        """Flag becomes True only when ENTSOE is fresh AND prices retrieved successfully."""
+        data_importer.entsoe_data_is_up_to_date = False
+
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=ZoneInfo("Europe/Amsterdam"))
+        tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + __import__(
+            "datetime"
+        ).timedelta(days=1)
+
+        with (
+            patch(
+                "apps.v2g_liberty.fm_data_importer.get_local_now",
+                return_value=now,
+            ),
+            patch.object(
+                data_importer.entsoe_fetcher,
+                "fetch_latest_dt",
+                return_value=tomorrow,
+            ),
+            patch.object(
+                data_importer.entsoe_fetcher,
+                "is_tomorrow_data_available",
+                return_value=True,
+            ),
+            patch.object(
+                data_importer,
+                "get_prices",
+                return_value=True,
+            ),
+            patch.object(
+                data_importer,
+                "get_emission_intensities",
+            ),
+        ):
+            await data_importer.daily_kickoff_price_data()
+
+        assert data_importer.entsoe_data_is_up_to_date is True
+        v2g_main_app.set_price_is_up_to_date.assert_called_with(is_up_to_date=True)
+
+    @pytest.mark.asyncio
+    async def test_prices_fail_keeps_flag_false_and_schedules_retry(
+        self, data_importer, hass, v2g_main_app
+    ):
+        """Root cause 2: flag stays False and retry is scheduled when get_prices() fails."""
+        data_importer.entsoe_data_is_up_to_date = False
+
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=ZoneInfo("Europe/Amsterdam"))
+        tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + __import__(
+            "datetime"
+        ).timedelta(days=1)
+
+        with (
+            patch(
+                "apps.v2g_liberty.fm_data_importer.get_local_now",
+                return_value=now,
+            ),
+            patch.object(
+                data_importer.entsoe_fetcher,
+                "fetch_latest_dt",
+                return_value=tomorrow,
+            ),
+            patch.object(
+                data_importer.entsoe_fetcher,
+                "is_tomorrow_data_available",
+                return_value=True,
+            ),
+            patch.object(
+                data_importer,
+                "get_prices",
+                return_value=False,
+            ),
+            patch.object(
+                data_importer,
+                "get_emission_intensities",
+            ),
+            patch(
+                "apps.v2g_liberty.fm_data_importer.is_local_now_between",
+                return_value=True,
+            ),
+        ):
+            await data_importer.daily_kickoff_price_data()
+
+        # Flag must remain False — price retrieval failed
+        assert data_importer.entsoe_data_is_up_to_date is False
+        # A retry must have been scheduled
+        hass.run_in.assert_called_once()
 
 
 class TestAppDaemonCallbackArgs:

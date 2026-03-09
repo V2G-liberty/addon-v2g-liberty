@@ -3,7 +3,7 @@ import { customElement, query, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderInputNumber, renderButton } from './util/render';
+import { renderDialogHeader, renderInputNumber, renderButton, isNewHaDialogAPI } from './util/render';
 import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
@@ -33,11 +33,13 @@ class EditInputNumberDialog extends DialogBase {
     const heading = this._params.header;
     const description = this._params.description;
 
+    const _isNew = isNewHaDialogAPI(this.hass);
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, heading)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, heading)}
+        .headerTitle=${_isNew ? heading : null}
       >
         ${renderInputNumber(
           this._value,
