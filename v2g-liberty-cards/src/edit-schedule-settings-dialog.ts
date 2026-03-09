@@ -115,7 +115,8 @@ class EditScheduleSettingsDialog extends DialogBase {
         fmAccountUsernameState,
         evt => (this._fmAccountUsername = evt.target.value),
         emailError,
-        "email"
+        "email",
+        this.hass
       )}
       ${renderInputText(
         InputText.Password,
@@ -123,7 +124,8 @@ class EditScheduleSettingsDialog extends DialogBase {
         fmAccountPasswordState,
         evt => (this._fmAccountPassword = evt.target.value),
         passwordError,
-        "password"
+        "password",
+        this.hass
       )}
 
       ${renderInputBoolean(
@@ -138,7 +140,8 @@ class EditScheduleSettingsDialog extends DialogBase {
             fmHostUrlState,
             evt => (this._fmHostUrl = evt.target.value),
             urlError,
-            "url"
+            "url",
+            this.hass
           )
         : nothing}
       ${this._isBusyConnecting()

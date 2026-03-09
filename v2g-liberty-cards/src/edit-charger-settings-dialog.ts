@@ -107,7 +107,9 @@ class EditChargerSettingsDialog extends DialogBase {
         this._chargerHost,
         chargerHostState,
         evt => (this._chargerHost = evt.target.value),
-        tp('invalid-host-error')
+        tp('invalid-host-error'),
+        "text",
+        this.hass
       )}
       ${this._renderInvalidHostError()}
       ${renderInputNumber(

@@ -81,14 +81,15 @@ export function renderButton(
 }
 
 export function renderSpinner(hass: HomeAssistant = null) {
-  const slot = hass ? (_haDialogFooterSlot(hass) ?? 'primaryAction') : 'primaryAction';
+  if (hass && isNewHaDialogAPI(hass)) {
+    // wa-dialog (HA ≥ 2026.3) does not reliably render a standalone spinner in
+    // slot="footer", so place it in the content area (no slot) instead.
+    return html`
+      <ha-spinner test-id="progress" size="small"></ha-spinner>
+    `;
+  }
   return html`
-    <ha-spinner
-      test-id="progress"
-      size="small"
-      slot=${slot}
-      style="margin-left: auto;"
-    ></ha-spinner>
+    <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
   `;
 }
 
@@ -310,7 +311,8 @@ export function renderInputText(
   stateObj: HassEntity,
   changedCallback,
   validationMessage: string = "",
-  type: string = "text"
+  type: string = "text",
+  hass: HomeAssistant = null
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   // Not happy with fixed height but can't get helper text error to render correctly.
@@ -320,23 +322,36 @@ export function renderInputText(
     validationMessage = tp("validation_error");
   }
 
+  const textField = html`
+    <ha-textfield
+      type="${type}"
+      required="required"
+      .autovalidate=${pattern}
+      .pattern=${pattern}
+      .validationMessage=${validationMessage}
+      .label=${name}
+      .value=${value}
+      @change=${changedCallback}
+      test-id="${stateObj.entity_id}"
+      style="width: 100%"
+    ></ha-textfield>
+  `;
+
+  if (hass && isNewHaDialogAPI(hass)) {
+    return html`
+      <div style="display: flex; align-items: flex-start; padding: 4px 0;">
+        <ha-icon .icon="${stateObj.attributes.icon}" style="margin-right: 16px; flex-shrink: 0; margin-top: 16px;"></ha-icon>
+        ${textField}
+      </div>
+    `;
+  }
+
   return html`
     <ha-settings-row style="height: 85px;">
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
-      <ha-textfield
-        type="${type}"
-        required="required"
-        .autovalidate=${pattern}
-        .pattern=${pattern}
-        .validationMessage=${validationMessage}
-        .label=${name}
-        .value=${value}
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-        style="width: 100%"
-      ></ha-textfield
-    ></ha-settings-row>
+      ${textField}
+    </ha-settings-row>
   `;
 }
