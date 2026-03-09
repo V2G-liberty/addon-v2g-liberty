@@ -87,6 +87,7 @@ export function renderSpinner(hass: HomeAssistant = null) {
       test-id="progress"
       size="small"
       slot=${slot}
+      style="margin-left: auto;"
     ></ha-spinner>
   `;
 }
