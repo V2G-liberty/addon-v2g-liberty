@@ -82,10 +82,11 @@ export function renderButton(
 
 export function renderSpinner(hass: HomeAssistant = null) {
   if (hass && isNewHaDialogAPI(hass)) {
-    // wa-dialog (HA ≥ 2026.3) does not reliably render a standalone spinner in
-    // slot="footer", so place it in the content area (no slot) instead.
+    // wa-dialog (HA ≥ 2026.3): render in content area, right-aligned to match button position.
     return html`
-      <ha-spinner test-id="progress" size="small"></ha-spinner>
+      <div style="display: flex; justify-content: flex-end;">
+        <ha-spinner test-id="progress" size="small"></ha-spinner>
+      </div>
     `;
   }
   return html`

@@ -207,10 +207,12 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         this.hass
       )}
       ${this._renderConnectionError()}
-      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${this._isBusyConnecting()
         ? renderSpinner(this.hass)
-        : renderButton(this.hass, this._continueCaldav)
+        : html`
+          ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
+          ${renderButton(this.hass, this._continueCaldav)}
+        `
       }
     `;
   }
