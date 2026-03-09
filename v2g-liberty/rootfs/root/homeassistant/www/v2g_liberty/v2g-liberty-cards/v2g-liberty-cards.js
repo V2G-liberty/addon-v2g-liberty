@@ -13813,16 +13813,40 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    connectedCallback() {
+        super.connectedCallback();
+        window.addEventListener('location-changed', this._handleLocationChanged);
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        window.removeEventListener('location-changed', this._handleLocationChanged);
+    }
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
         this._checkUnInitialisedEntities();
     }
-    async _checkUnInitialisedEntities() {
-        if ((0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass)) await (0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this);
+    _checkUnInitialisedEntities() {
+        const hasUninitialized = (0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass);
+        if (hasUninitialized && hasUninitialized !== this._hasUninitialisedEntities) {
+            this._hasUninitialisedEntities = hasUninitialized;
+            // Defer one frame so the Lovelace dialog manager is ready.
+            requestAnimationFrame(()=>(0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this));
+        } else if (!hasUninitialized) this._hasUninitialisedEntities = false;
     }
     render() {
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    constructor(...args){
+        super(...args), this._hasUninitialisedEntities = undefined, this._wentToSettings = false, this._handleLocationChanged = ()=>{
+            if (window.location.pathname.includes('/settings')) this._wentToSettings = true;
+            else if (this._wentToSettings) {
+                // Returning from settings page — allow the dialog to re-appear.
+                this._wentToSettings = false;
+                this._hasUninitialisedEntities = undefined;
+                if (this._hass) this._checkUnInitialisedEntities();
+            }
+        };
     }
 }
 $089309bcd79355b2$export$dffc6da272e49631 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
