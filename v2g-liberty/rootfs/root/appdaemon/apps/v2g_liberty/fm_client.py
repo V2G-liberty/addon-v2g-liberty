@@ -151,6 +151,11 @@ class FMClient(AsyncIOEventEmitter):
 
         host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
         self.__log(f"host: '{host}', ssl: '{ssl}'.")
+
+        if self.client is not None:
+            await self.client.close()
+            self.client = None
+
         try:
             self.client = FlexMeasuresClient(
                 host=host,
@@ -193,6 +198,9 @@ class FMClient(AsyncIOEventEmitter):
             f"access token: {self.client.access_token}, returning 'Successfully connected'."
         )
 
+        # TODO: Anti-pattern — connection status is set here on success but callers are
+        # responsible for setting it on failure. Ideally callers own the status update in
+        # both success and failure cases, so this method only returns the result string.
         await self.set_fm_connection_status(connected=True)
         return "Successfully connected"
 

@@ -316,7 +316,8 @@ class TestRetrieveSettings:
 
 
 @patch("builtins.open", mock_open())
-def test_store_setting(settings_manager, json_dump_mock):
+@patch("os.replace")
+def test_store_setting(os_replace_mock, settings_manager, json_dump_mock):
     # Arrange
     with patch("json.dump", json_dump_mock):
         # Act
@@ -326,7 +327,9 @@ def test_store_setting(settings_manager, json_dump_mock):
     json_dump_mock.assert_called_with({"entity_id": "value"}, ANY, indent=2)
 
 
-def test_reset(settings_manager, json_dump_mock):
+@patch("builtins.open", mock_open())
+@patch("os.replace")
+def test_reset(os_replace_mock, settings_manager, json_dump_mock):
     # Arrange
     settings_manager.settings = {"entity_id": "value"}
     with patch("json.dump", json_dump_mock):

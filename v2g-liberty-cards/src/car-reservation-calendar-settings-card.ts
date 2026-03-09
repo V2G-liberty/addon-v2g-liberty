@@ -15,8 +15,6 @@ const tc = partial('settings.common');
 
 enum CaldavConnectionStatus {
   Connected = 'Successfully connected',
-  Failed = 'Failed to connect',
-  ConnectionError = 'Connection error',
 }
 
 @customElement('v2g-liberty-car-reservation-calendar-settings-card')
@@ -113,8 +111,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
   private _renderCaldavConnectionStatus() {
     const state = this._caldavConnectionStatus.state;
     const isConnected = state === CaldavConnectionStatus.Connected;
-    const hasConnectionError =
-      state ===  CaldavConnectionStatus.ConnectionError || state === CaldavConnectionStatus.Failed;
+    const hasConnectionError = !!state && !isConnected;
     const error = tp('connection-error');
     const success = tp('connection-success', {
       time: elapsedTimeSince(this._caldavConnectionStatus.last_updated),

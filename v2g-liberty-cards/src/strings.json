@@ -68,7 +68,9 @@
       "input_boolean.admin_settings_initialised": "Administrator Settings",
       "input_boolean.calendar_settings_initialised": "Calendar Settings",
       "input_boolean.electricity_contract_settings_initialised": "Electricity Contract Settings",
-      "input_boolean.charger_settings_initialised": "Charger Settings"
+      "input_boolean.charger_settings_initialised": "Charger Settings",
+      "sensor.fm_connection_status": "FlexMeasures connection",
+      "sensor.calendar_account_connection_status": "Calendar connection"
     }
   },
   "settings": {
