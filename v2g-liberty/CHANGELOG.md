@@ -13,6 +13,8 @@
 
 ### Added
 
+- 🚀 FEAT: Log ha version at startup to FM (#418)
+
 ### Changed
 
 - 🛠️ Refactoring: Made storing settings more robust (#406)
@@ -27,8 +29,8 @@ The next release might include:
 
 #### Adding
 
+- Detailed usage statistics
 - Support for uni-directional charging
-- Support for multiple chargers/cars
 
 #### Changing
 

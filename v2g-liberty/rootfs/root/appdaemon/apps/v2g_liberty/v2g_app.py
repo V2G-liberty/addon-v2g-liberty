@@ -145,6 +145,8 @@ class V2GLibertyApp(Hass):
         await data_monitor.initialize()
         self._log_init_time("data_monitor()", start_module)
 
+        await main_app.log_versions()
+
         self._log_init_time("V2GLibertyApp (total)", start_app, True)
 
     def _log_init_time(self, name: str, start: datetime, forced: bool = False):
