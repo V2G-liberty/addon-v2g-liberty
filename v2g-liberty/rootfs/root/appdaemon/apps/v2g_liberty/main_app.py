@@ -600,9 +600,11 @@ class V2Gliberty:
         )
 
         try:
-            await self.fm_client_app.write_attribute("v2g-liberty-version", v2g_version)
-            await self.fm_client_app.write_attribute(
-                "home-assistant-version", ha_version
+            await self.fm_client_app.set_asset_attributes(
+                {
+                    "v2g-liberty-version": v2g_version,
+                    "home-assistant-version": ha_version,
+                }
             )
         except Exception as e:
             self.__log(f"Error writing versions to FlexMeasures: {e}", level="WARNING")

@@ -214,39 +214,44 @@ class FMClient(AsyncIOEventEmitter):
 
         return "Successfully connected"
 
-    async def write_attribute(self, attribute_name: str, attribute_value: str):
-        """Write an attribute to the FM asset, with retry mechanism."""
+    async def set_asset_attributes(self, attributes: dict):
+        """Write attributes to the FM asset, with retry mechanism.
+
+        All attributes are sent in a single PATCH call to avoid
+        overwriting previously set attributes.
+        """
         if self.client is None:
             self.__log(
-                "Client not initialised, cannot write attribute.", level="WARNING"
+                "Client not initialised, cannot write attributes.", level="WARNING"
             )
             return
         if self._asset_id is None:
-            self.__log("Asset ID not known, cannot write attribute.", level="WARNING")
+            self.__log("Asset ID not known, cannot write attributes.", level="WARNING")
             return
-        if attribute_name is None:
-            self.__log("attribute_name is None, abort.", level="WARNING")
+        if not attributes:
+            self.__log("No attributes to write, abort.", level="WARNING")
             return
 
-        inner_attributes = {attribute_name: attribute_value}
-        asset_attributes = {"attributes": inner_attributes}
+        asset_attributes = {"attributes": attributes}
 
         max_attempts = 5
         delay = 15
         for attempt in range(max_attempts):
             try:
                 await self.client.update_asset(self._asset_id, asset_attributes)
-                self.__log(
-                    f"Wrote '{attribute_name}': '{attribute_value}' to FM asset."
-                )
+                self.__log(f"Wrote attributes to FM asset: {attributes}")
                 return
             except Exception as e:
+                self.__log(
+                    f"Write attributes failed "
+                    f"(attempt {attempt + 1}/{max_attempts}): {e}",
+                    level="WARNING",
+                )
                 if attempt < max_attempts - 1:
                     await asyncio.sleep(delay)
 
         self.__log(
-            f"Failed to write '{attribute_value}' to '{attribute_name}' after {max_attempts} "
-            f"attempts, aborting.",
+            f"Failed to write attributes after {max_attempts} attempts, aborting.",
             level="WARNING",
         )
 
