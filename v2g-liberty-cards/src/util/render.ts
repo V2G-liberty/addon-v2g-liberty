@@ -81,15 +81,14 @@ export function renderButton(
 }
 
 export function renderSpinner(hass: HomeAssistant = null) {
-  if (hass && isNewHaDialogAPI(hass)) {
-    // wa-dialog (HA ≥ 2026.3) does not reliably render a standalone spinner in
-    // slot="footer", so place it in the content area (no slot) instead.
-    return html`
-      <ha-spinner test-id="progress" size="small"></ha-spinner>
-    `;
-  }
+  const slot = hass ? (_haDialogFooterSlot(hass) ?? 'primaryAction') : 'primaryAction';
   return html`
-    <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
+    <ha-spinner
+      test-id="progress"
+      size="small"
+      slot=${slot}
+      style="margin-left: auto;"
+    ></ha-spinner>
   `;
 }
 
