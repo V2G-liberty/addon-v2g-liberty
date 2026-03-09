@@ -10580,14 +10580,15 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
   `;
 }
 function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
-    const slot = hass ? $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass) ?? 'primaryAction' : 'primaryAction';
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3) does not render ha-spinner correctly in slot="footer",
+    // so place it in the content area and right-align it to match the button position.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-spinner
-      test-id="progress"
-      size="small"
-      slot=${slot}
-      style="margin-left: auto;"
-    ></ha-spinner>
+      <div style="display: flex; justify-content: flex-end;">
+        <ha-spinner test-id="progress" size="small"></ha-spinner>
+      </div>
+    `;
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
   `;
 }
 function $4dbea3927e6cdc74$export$4652ab6ca7300a71(hass, stateObj, { state: state } = {}) {
