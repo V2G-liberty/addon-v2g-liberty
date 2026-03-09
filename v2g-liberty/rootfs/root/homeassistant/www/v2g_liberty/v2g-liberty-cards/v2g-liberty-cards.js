@@ -10586,6 +10586,7 @@ function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
       test-id="progress"
       size="small"
       slot=${slot}
+      style="margin-left: auto;"
     ></ha-spinner>
   `;
 }
@@ -13385,7 +13386,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         ${content}
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
