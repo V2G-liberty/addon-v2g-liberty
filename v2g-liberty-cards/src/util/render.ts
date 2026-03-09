@@ -82,10 +82,11 @@ export function renderButton(
 
 export function renderSpinner(hass: HomeAssistant = null) {
   if (hass && isNewHaDialogAPI(hass)) {
-    // wa-dialog (HA ≥ 2026.3) does not render ha-spinner correctly in slot="footer",
-    // so place it in the content area and right-align it to match the button position.
+    // wa-dialog (HA ≥ 2026.3): ha-spinner[slot="footer"] is invisible due to footer
+    // slot CSS, but wrapping it in div[slot="footer"] places the div in the footer row
+    // while the spinner renders normally as a regular child inside the div.
     return html`
-      <div style="display: flex; justify-content: flex-end;">
+      <div slot="footer" style="margin-left: auto; display: flex; align-items: center;">
         <ha-spinner test-id="progress" size="small"></ha-spinner>
       </div>
     `;

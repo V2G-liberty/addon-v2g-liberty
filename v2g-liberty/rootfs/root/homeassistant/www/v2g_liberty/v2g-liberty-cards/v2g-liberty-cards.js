@@ -10580,10 +10580,11 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
   `;
 }
 function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
-    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3) does not render ha-spinner correctly in slot="footer",
-    // so place it in the content area and right-align it to match the button position.
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3): ha-spinner[slot="footer"] is invisible due to footer
+    // slot CSS, but wrapping it in div[slot="footer"] places the div in the footer row
+    // while the spinner renders normally as a regular child inside the div.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div style="display: flex; justify-content: flex-end;">
+      <div slot="footer" style="margin-left: auto; display: flex; align-items: center;">
         <ha-spinner test-id="progress" size="small"></ha-spinner>
       </div>
     `;
