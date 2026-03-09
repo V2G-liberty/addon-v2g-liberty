@@ -181,7 +181,6 @@ class V2Gliberty:
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
-        self.hass.run_in(self.__log_version, delay=15)
         self.__log("Completed")
 
     ######################################################################
@@ -565,27 +564,48 @@ class V2Gliberty:
     #                         PRIVATE METHODS                            #
     ######################################################################
 
-    async def __log_version(self, kwargs):
-        """
-        Log version, to be called at initialisation and retried if log_version fails.
-        """
-        version_number = await self.hass.get_state(
-            "update.v2g_liberty_update", attribute="installed_version"
-        )
-        if version_number is None:
-            self.__log("Failed to retrieve V2G Liberty version number", level="WARNING")
-            version_number = "unknown"
-        res = await self.fm_client_app.log_version(version_number)
-        if not res:
-            # log_version failed
-            attempt = kwargs.get("attempt", 0) + 1
-            if attempt == 5:
+    async def log_versions(self):
+        """Log V2G Liberty and Home Assistant versions at startup."""
+        try:
+            v2g_version = await self.hass.get_state(
+                "update.v2g_liberty_update", attribute="installed_version"
+            )
+            if v2g_version is None:
                 self.__log(
-                    "Failed to log_version to FM after 5 attempts, aborting.",
+                    "Failed to retrieve V2G Liberty version number.",
                     level="WARNING",
                 )
-                return
-            self.hass.run_in(self.__log_version, delay=15, attempt=attempt)
+                v2g_version = "unknown"
+        except Exception as e:
+            self.__log(f"Error retrieving V2G Liberty version: {e}", level="WARNING")
+            v2g_version = "unknown"
+
+        try:
+            ha_version = await self.hass.get_state(
+                "update.home_assistant_core_update",
+                attribute="installed_version",
+            )
+            if ha_version is None:
+                self.__log(
+                    "Failed to retrieve Home Assistant version number.",
+                    level="WARNING",
+                )
+                ha_version = "unknown"
+        except Exception as e:
+            self.__log(f"Error retrieving Home Assistant version: {e}", level="WARNING")
+            ha_version = "unknown"
+
+        self.__log(
+            f"V2G Liberty version: {v2g_version}, Home Assistant version: {ha_version}"
+        )
+
+        try:
+            await self.fm_client_app.write_attribute("v2g-liberty-version", v2g_version)
+            await self.fm_client_app.write_attribute(
+                "home-assistant-version", ha_version
+            )
+        except Exception as e:
+            self.__log(f"Error writing versions to FlexMeasures: {e}", level="WARNING")
 
     async def _update_car_connected(self, is_car_connected: bool):
         self.__log(f"Acting on conneted state of car: {is_car_connected}.")
