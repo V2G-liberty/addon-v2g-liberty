@@ -10580,11 +10580,9 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
   `;
 }
 function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
-    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3): ha-spinner[slot="footer"] is invisible due to footer
-    // slot CSS, but wrapping it in div[slot="footer"] places the div in the footer row
-    // while the spinner renders normally as a regular child inside the div.
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3): render in content area, right-aligned to match button position.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div slot="footer" style="margin-left: auto; display: flex; align-items: center;">
+      <div style="display: flex; justify-content: flex-end;">
         <ha-spinner test-id="progress" size="small"></ha-spinner>
       </div>
     `;
@@ -11924,8 +11922,10 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).UserName, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value, usernameError, "text", this.hass)}
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password", this.hass)}
       ${this._renderConnectionError()}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false, null, false, null, true)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false, null, false, null, true)}
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
+        `}
     `;
     }
     _renderError(errorString) {
