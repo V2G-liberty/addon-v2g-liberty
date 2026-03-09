@@ -185,14 +185,17 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         calendarAccountUrlState,
         evt => (this._calendarAccountUrl = evt.target.value),
         urlError,
-        "url"
+        "url",
+        this.hass
       )}
       ${renderInputText(
         InputText.UserName,
         this._calendarAccountUsername,
         calendarAccountUsernameState,
         evt => (this._calendarAccountUsername = evt.target.value),
-        usernameError
+        usernameError,
+        "text",
+        this.hass
       )}
       ${renderInputText(
         InputText.Password,
@@ -200,7 +203,8 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         calendarAccountPasswordState,
         evt => (this._calendarAccountPassword = evt.target.value),
         passwordError,
-        "password"
+        "password",
+        this.hass
       )}
       ${this._renderConnectionError()}
       ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}

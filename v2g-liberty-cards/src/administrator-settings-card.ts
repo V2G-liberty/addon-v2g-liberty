@@ -113,7 +113,7 @@ export class AdministratorSettingsCard extends LitElement {
     if (this._testNotificationState === 'waiting') {
       return html`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
-        ${renderSpinner(this.hass)}
+        ${renderSpinner(this._hass)}
         <div style="padding-left: 0.5em;">${tt('how-to-react-on-mobile-device')}</div></div>
       `;
     }
