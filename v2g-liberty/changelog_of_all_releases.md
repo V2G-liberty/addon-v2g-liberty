@@ -16,6 +16,8 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
+- 🚀 FEAT: Log ha version at startup to FM (#418)
+
 ### Changed
 
 - 🛠️ Refactoring: Made storing settings more robust (#406)
