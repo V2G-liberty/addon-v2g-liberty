@@ -332,19 +332,25 @@ class TestGapFilling:
 
 
 class TestSocJumpDetection:
-    def test_blanks_constant_run_before_jump(self, repairer, initialised_store):
-        """SoC: 45, 45, 45, 72, 73 → blank the three 45s.
+    """Tests for SoC jump detection.
 
-        Type A blanks the constant run. Type D does NOT fill because
-        there is no before_soc (start of data) and endpoints differ by 27.
+    Upward jumps are handled by step 1a (_reconstruct_upward_jumps).
+    Downward jumps are handled by step 1b (_blank_false_constant_soc).
+    """
+
+    def test_blanks_upward_jump_no_energy(self, repairer, initialised_store):
+        """SoC: 45, 45, 45, 72, 73 → upward jump, no energy → blank.
+
+        Type A-up blanks the constant run (no energy to explain jump).
+        Type D does NOT fill: no before_soc + endpoints too far apart.
         """
         socs = [45.0, 45.0, 45.0, 72.0, 73.0]
         for i, soc in enumerate(socs):
             _insert_interval(initialised_store, _ts(i * 5), soc=soc)
 
         summary = repairer.run_full_repair()
-        assert summary["soc_blanked"] == 3
-        # Type D should NOT fill: no before_soc + endpoints too far apart
+        assert summary["soc_reconstructed_up"] == 3
+        assert summary["soc_blanked"] == 0
         assert summary["soc_constant_filled"] == 0
 
         rows = _get_all_intervals(initialised_store)
@@ -356,8 +362,67 @@ class TestSocJumpDetection:
         assert rows[3]["soc_pct"] == 72.0
         assert rows[4]["soc_pct"] == 73.0
 
-    def test_blanks_with_context_before(self, repairer, initialised_store):
-        """SoC: 30, 45, 45, 45, 72 → blank the three 45s.
+    def test_reconstructs_upward_jump_with_matching_energy(
+        self, repairer, initialised_store
+    ):
+        """SoC frozen at 40%, jumps to 55%. Energy explains jump → reconstruct.
+
+        battery capacity = 24 kWh. 15% jump = 3.6 kWh total.
+        3 intervals × 1.2 kWh = 3.6 kWh → theoretical = 15% → exact match.
+        With scaling (scale=1.0), SoC should smoothly go from 40% to 55%.
+        """
+        # Before the frozen block
+        _insert_interval(initialised_store, _ts(0), soc=38.0, energy=0.1)
+        # Frozen block with charging energy
+        _insert_interval(initialised_store, _ts(5), soc=40.0, energy=1.2)
+        _insert_interval(initialised_store, _ts(10), soc=40.0, energy=1.2)
+        _insert_interval(initialised_store, _ts(15), soc=40.0, energy=1.2)
+        # Jump to 55% (diff=15 > threshold=10)
+        _insert_interval(initialised_store, _ts(20), soc=55.0, energy=1.2)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_reconstructed_up"] == 3
+
+        rows = _get_all_intervals(initialised_store)
+        # The 3 frozen rows should have reconstructed SoC values
+        # Each interval: 1.2/24*100 = 5% per interval, scale=1.0
+        # Row 1 (ts+5):  40 + 5.0 = 45.0
+        # Row 2 (ts+10): 40 + 10.0 = 50.0
+        # Row 3 (ts+15): 40 + 15.0 = 55.0
+        assert rows[1]["soc_pct"] is not None
+        assert rows[2]["soc_pct"] is not None
+        assert rows[3]["soc_pct"] is not None
+        # Values should increase monotonically
+        assert rows[1]["soc_pct"] < rows[2]["soc_pct"] < rows[3]["soc_pct"]
+        # Last reconstructed value should be close to jump target
+        assert abs(rows[3]["soc_pct"] - 55.0) < 0.5
+        # All marked as repaired
+        for r in rows[1:4]:
+            assert r["is_repaired"] == 1
+
+    def test_reconstructs_upward_jump_with_scaling(self, repairer, initialised_store):
+        """Energy explains ~60% of jump → within tolerance → reconstruct with scaling.
+
+        3 intervals × 0.6 kWh = 1.8 kWh → theoretical = 7.5%.
+        Actual jump = 12%. Diff = 4.5 < tolerance (10) → reconstruct.
+        Scale = 12/7.5 = 1.6.
+        """
+        _insert_interval(initialised_store, _ts(0), soc=38.0, energy=0.1)
+        _insert_interval(initialised_store, _ts(5), soc=40.0, energy=0.6)
+        _insert_interval(initialised_store, _ts(10), soc=40.0, energy=0.6)
+        _insert_interval(initialised_store, _ts(15), soc=40.0, energy=0.6)
+        # Jump to 52% (diff=12 > threshold=10)
+        _insert_interval(initialised_store, _ts(20), soc=52.0, energy=0.6)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_reconstructed_up"] == 3
+
+        rows = _get_all_intervals(initialised_store)
+        # Last reconstructed value should hit 52.0 exactly (scaled)
+        assert abs(rows[3]["soc_pct"] - 52.0) < 0.5
+
+    def test_blanks_upward_jump_with_context_before(self, repairer, initialised_store):
+        """SoC: 30, 45, 45, 45, 72 → upward jump, no energy → blank.
 
         After blanking, gap has before=30, after=72 (diff=42 > 10) →
         Type D skips. SoC stays NULL.
@@ -368,11 +433,27 @@ class TestSocJumpDetection:
             _insert_interval(initialised_store, _ts(i * 5), soc=soc, energy=energy)
 
         summary = repairer.run_full_repair()
-        assert summary["soc_blanked"] == 3
+        # Upward jump (45→72) handled by step 1a
+        assert summary["soc_reconstructed_up"] == 3
 
         rows = _get_all_intervals(initialised_store)
         for r in rows[1:4]:
             assert r["soc_pct"] is None
+
+    def test_blanks_downward_jump(self, repairer, initialised_store):
+        """SoC: 72, 72, 72, 45, 44 → downward jump → blank the three 72s."""
+        socs = [72.0, 72.0, 72.0, 45.0, 44.0]
+        for i, soc in enumerate(socs):
+            _insert_interval(initialised_store, _ts(i * 5), soc=soc)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_blanked"] == 3
+        assert summary["soc_reconstructed_up"] == 0
+
+        rows = _get_all_intervals(initialised_store)
+        for r in rows[:3]:
+            assert r["soc_pct"] is None
+            assert r["is_repaired"] == 1
 
     def test_no_jump_below_threshold(self, repairer, initialised_store):
         """Gradual SoC change below threshold → no blanking."""
@@ -382,10 +463,25 @@ class TestSocJumpDetection:
 
         summary = repairer.run_full_repair()
         assert summary["soc_blanked"] == 0
+        assert summary["soc_reconstructed_up"] == 0
 
-    def test_single_value_before_jump_not_blanked(self, repairer, initialised_store):
-        """Single value before jump (run < 2) → not blanked."""
+    def test_single_value_before_upward_jump_not_modified(
+        self, repairer, initialised_store
+    ):
+        """Single value before upward jump (run < 2) → not modified."""
         socs = [45.0, 72.0, 73.0]
+        for i, soc in enumerate(socs):
+            _insert_interval(initialised_store, _ts(i * 5), soc=soc)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_reconstructed_up"] == 0
+        assert summary["soc_blanked"] == 0
+
+    def test_single_value_before_downward_jump_not_blanked(
+        self, repairer, initialised_store
+    ):
+        """Single value before downward jump (run < 2) → not blanked."""
+        socs = [72.0, 45.0, 44.0]
         for i, soc in enumerate(socs):
             _insert_interval(initialised_store, _ts(i * 5), soc=soc)
 
@@ -840,11 +936,13 @@ class TestIntegration:
             assert r["app_state"] == "charge"
             assert r["is_repaired"] == 1
 
-        # --- Verify SoC jump detection (Type A) ---
+        # --- Verify SoC jump detection ---
         # Valid SoC sequence after gap fill: 40, 41, NULL, NULL, 43, 43, 43, 70, 71, None, None, -2
         # dropna: 40, 41, 43, 43, 43, 70, 71, -2
-        # Jump at 70 (diff=27>10): blanks 43@20, 43@25, 43@30 = 3 values
-        assert summary["soc_blanked"] == 3
+        # Upward jump at 70 (diff=27>10): energy too low to explain →
+        # blanked by step 1a (soc_reconstructed_up)
+        assert summary["soc_reconstructed_up"] == 3
+        assert summary["soc_blanked"] == 0
 
         # --- Verify bounds ---
         assert "soc_below_1" in summary["violations"]
@@ -862,6 +960,7 @@ class TestIntegration:
         rows2 = _get_all_intervals(initialised_store)
         assert len(rows2) == len(rows)
         assert summary2["gaps_filled"] == 0
+        assert summary2["soc_reconstructed_up"] == 0
         assert summary2["soc_blanked"] == 0
 
 

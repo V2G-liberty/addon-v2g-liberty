@@ -41,6 +41,9 @@ SOC_RECONSTRUCTION_TOLERANCE: float = 5.0  # Max pp deviation at endpoint
 # Type A & D: negligible energy threshold
 CONSTANT_POWER_TOLERANCE: float = 0.05  # 5% of max charger energy/interval
 
+# Type A-up: upward jump reconstruction tolerance
+UPWARD_JUMP_TOLERANCE: float = 10.0  # Max pp mismatch theoretical vs actual
+
 # Report file written after historical import + repair
 _REPORT_FILE = Path("/data/fm_historical_import_report.txt")
 
@@ -133,7 +136,8 @@ class DataRepairer:
             f"  Total rows:            {row['cnt']}",
             f"  Period:                {row['first_ts']} — {row['last_ts']}",
             f"  Oldest row:            {row['first_ts']}",
-            f"  SoC values blanked:    {summary['soc_blanked']} (Type A)",
+            f"  SoC upward reconstr.: {summary['soc_reconstructed_up']} (Type A-up)",
+            f"  SoC values blanked:    {summary['soc_blanked']} (Type A-down)",
             f"  Energy interpolated:   {summary['energy_interpolated']} (Type B)",
             f"  SoC reconstructed:     {summary['soc_reconstructed']} (Type C)",
             f"  SoC constant filled:   {summary['soc_constant_filled']} (Type D)",
@@ -183,7 +187,11 @@ class DataRepairer:
         df, gaps_filled = self._fill_gaps(df)
         summary["gaps_filled"] = gaps_filled
 
-        # Step 1: Type A — blank false constant SoC
+        # Step 1a: Type A-up — reconstruct SoC for upward jumps
+        df, soc_reconstructed_up = self._reconstruct_upward_jumps(df)
+        summary["soc_reconstructed_up"] = soc_reconstructed_up
+
+        # Step 1b: Type A-down — blank false constant SoC before downward jumps
         df, soc_blanked = self._blank_false_constant_soc(df)
         summary["soc_blanked"] = soc_blanked
 
@@ -279,18 +287,97 @@ class DataRepairer:
         return df, filled_count
 
     # ------------------------------------------------------------------
-    # Step 1: Type A — Blank false constant SoC
+    # Step 1a: Type A-up — Reconstruct SoC for upward jumps
+    # ------------------------------------------------------------------
+
+    def _reconstruct_upward_jumps(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+        """Reconstruct or blank false constant SoC before upward jumps.
+
+        For each upward jump (soc_diff > SOC_JUMP_THRESHOLD):
+        1. Find the constant SoC block preceding the jump
+        2. Calculate the theoretical SoC jump from cumulative energy
+        3. If theoretical ≈ actual (within UPWARD_JUMP_TOLERANCE):
+           → reconstruct SoC using scaled cumulative energy
+        4. Otherwise → blank the block (set SoC to NaN)
+
+        Returns (df, count_of_modified_rows).
+        """
+        soc = df["soc_pct"].copy()
+        soc_valid = soc.dropna()
+
+        if len(soc_valid) < 2:
+            return df, 0
+
+        capacity = c.CAR_MAX_CAPACITY_IN_KWH
+
+        # Find upward jumps only
+        soc_diff = soc_valid.diff()
+        jump_indices = soc_diff[soc_diff > SOC_JUMP_THRESHOLD].index
+
+        modified = 0
+        for jump_idx in jump_indices:
+            pos = soc_valid.index.get_loc(jump_idx)
+            if pos == 0:
+                continue
+
+            soc_after = soc_valid.loc[jump_idx]
+            prev_idx = soc_valid.index[pos - 1]
+            constant_value = soc_valid.loc[prev_idx]
+
+            # Walk backwards to find the constant block
+            block_indices = [prev_idx]
+            for i in range(pos - 2, -1, -1):
+                check_idx = soc_valid.index[i]
+                if soc_valid.loc[check_idx] == constant_value:
+                    block_indices.append(check_idx)
+                else:
+                    break
+
+            # Need at least 2 constant values to consider it a frozen block
+            if len(block_indices) < 2:
+                continue
+
+            # Block indices are in reverse order; sort chronologically
+            block_indices.sort()
+
+            # Calculate theoretical jump from energy in the block
+            block_energy = df.loc[block_indices, "energy_kwh"]
+            charging_energy = block_energy.clip(lower=0).sum()
+            theoretical_jump = 100 * charging_energy / capacity
+            actual_jump = soc_after - constant_value
+
+            if (
+                theoretical_jump > 0
+                and abs(theoretical_jump - actual_jump) < UPWARD_JUMP_TOLERANCE
+            ):
+                # Energy explains the jump → reconstruct SoC with scaling
+                scale = actual_jump / theoretical_jump
+                cumulative_energy = block_energy.clip(lower=0).cumsum()
+                reconstructed = (
+                    constant_value + scale * 100 * cumulative_energy / capacity
+                )
+                for idx in block_indices:
+                    df.loc[idx, "soc_pct"] = round(float(reconstructed.loc[idx]), 1)
+                    df.loc[idx, "is_repaired"] = 1
+                modified += len(block_indices)
+            else:
+                # Energy does not explain the jump → blank the block
+                for idx in block_indices:
+                    df.loc[idx, "soc_pct"] = None
+                    df.loc[idx, "is_repaired"] = 1
+                modified += len(block_indices)
+
+        return df, modified
+
+    # ------------------------------------------------------------------
+    # Step 1b: Type A-down — Blank false constant SoC before downward jumps
     # ------------------------------------------------------------------
 
     def _blank_false_constant_soc(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-        """Blank false constant SoC runs before jumps.
+        """Blank false constant SoC runs before downward jumps.
 
-        Detects SoC jumps (|diff| > threshold) and blanks the constant run
-        leading up to the jump.  Works for both upward and downward jumps.
-
-        When the constant run has negligible energy (car was away), there is
-        no length limit.  When energy is significant (sensor stuck during
-        charging), the run must be ≥ 2 values.
+        Detects downward SoC jumps (diff < -SOC_JUMP_THRESHOLD) and blanks
+        the constant run leading up to the jump.
 
         Only modifies soc_pct (sets to NaN). Marks modified rows as repaired.
         """
@@ -300,11 +387,9 @@ class DataRepairer:
         if len(soc_valid) < 2:
             return df, 0
 
-        threshold = _negligible_energy_threshold()
-
-        # Find jumps: consecutive valid SoC values with |diff| > threshold
-        soc_diff = soc_valid.diff().abs()
-        jump_indices = soc_diff[soc_diff > SOC_JUMP_THRESHOLD].index
+        # Find downward jumps only
+        soc_diff = soc_valid.diff()
+        jump_indices = soc_diff[soc_diff < -SOC_JUMP_THRESHOLD].index
 
         blanked = 0
         for jump_idx in jump_indices:
@@ -675,6 +760,7 @@ def _empty_summary() -> dict:
     """Return an empty repair summary."""
     return {
         "gaps_filled": 0,
+        "soc_reconstructed_up": 0,
         "soc_blanked": 0,
         "energy_interpolated": 0,
         "soc_reconstructed": 0,
@@ -687,6 +773,7 @@ def _total_repairs(summary: dict) -> int:
     """Return total number of repairs performed."""
     return (
         summary["gaps_filled"]
+        + summary["soc_reconstructed_up"]
         + summary["soc_blanked"]
         + summary["energy_interpolated"]
         + summary["soc_reconstructed"]
@@ -699,6 +786,8 @@ def _format_summary(summary: dict) -> str:
     parts = []
     if summary["gaps_filled"]:
         parts.append(f"{summary['gaps_filled']} gaps filled")
+    if summary["soc_reconstructed_up"]:
+        parts.append(f"{summary['soc_reconstructed_up']} SoC upward reconstructed")
     if summary["soc_blanked"]:
         parts.append(f"{summary['soc_blanked']} SoC blanked")
     if summary["energy_interpolated"]:
