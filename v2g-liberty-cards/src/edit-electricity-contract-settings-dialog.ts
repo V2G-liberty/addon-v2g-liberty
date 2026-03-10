@@ -10,6 +10,7 @@ import {
   renderInputSelect,
   renderInputText,
   renderSelectOption,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial, to } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -62,6 +63,7 @@ class EditElectricityContractSettingsDialog extends DialogBase {
     if (!this.isOpen) return nothing;
 
     const header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     const content =
       this._currentPage === 'contract-selection'
         ? this._renderContractSelection()
@@ -70,7 +72,8 @@ class EditElectricityContractSettingsDialog extends DialogBase {
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -152,13 +155,19 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         InputText.EntityId,
         this._ownConsumptionPriceEntityId,
         consumptionPriceIdState,
-        consumptionPriceEntityIdChanged
+        consumptionPriceEntityIdChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderInputText(
         InputText.EntityId,
         this._ownProductionPriceEntityId,
         productionPriceIdState,
-        productionPriceEntityIdChanged
+        productionPriceEntityIdChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderButton(
         this.hass,
@@ -198,13 +207,19 @@ class EditElectricityContractSettingsDialog extends DialogBase {
         InputText.OctopusCode,
         this._octopusImportCode,
         importCodeState,
-        importCodeChanged
+        importCodeChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderInputText(
         InputText.OctopusCode,
         this._octopusExportCode,
         exportCodeState,
-        exportCodeChanged
+        exportCodeChanged,
+        "",
+        "text",
+        this.hass
       )}
       ${renderInputSelect(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
       ${renderButton(

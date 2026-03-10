@@ -1,7 +1,7 @@
 import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { navigate } from 'custom-card-helpers';
-import { renderDialogHeader, renderButton } from './util/render';
+import { renderDialogHeader, renderButton, isNewHaDialogAPI } from './util/render';
 import { partial } from './util/translate';
 import { renderUninitializedEntitiesList } from './util/settings-error-alert';
 import { DialogBase } from './dialog-base';
@@ -27,11 +27,14 @@ export class SettingsErrorAlertDialog extends DialogBase {
       this.closeDialog();
     };
 
+    const _header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, tp('header'))}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         <ha-alert alert-type="error">
           ${tp('error')}

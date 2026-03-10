@@ -2,7 +2,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderSelectOption, renderButton } from './util/render';
+import { renderDialogHeader, renderSelectOption, renderButton, isNewHaDialogAPI } from './util/render';
 import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
@@ -29,11 +29,13 @@ class EditInputNumberDialog extends DialogBase {
     const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
     const description = this._params.description;
 
+    const _isNew = isNewHaDialogAPI(this.hass);
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         <div>
           <span class="name">${name}</span>

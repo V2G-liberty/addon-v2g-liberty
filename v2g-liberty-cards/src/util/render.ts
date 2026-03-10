@@ -26,6 +26,18 @@ export function isLoadbalancerEnabled(quasarLoadBalancerLimit: string): boolean 
   return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
 }
 
+// HA 2026.3 migrated ha-dialog from MDC (mwc-dialog) to WebAwesome (wa-dialog).
+// The primaryAction/secondaryAction slots and TemplateResult .heading were removed.
+// New API: slot="footer" for buttons, .headerTitle string property for the title.
+export function isNewHaDialogAPI(hass: HomeAssistant): boolean {
+  const [year, month] = hass.config.version.split('.').map(Number);
+  return year > 2026 || (year === 2026 && month >= 3);
+}
+
+function _haDialogFooterSlot(hass: HomeAssistant): string {
+  return isNewHaDialogAPI(hass) ? 'footer' : null;
+}
+
 export function renderButton(
   hass: HomeAssistant,
   action: (() => void),
@@ -42,9 +54,8 @@ export function renderButton(
       label = hass.localize('ui.common.back');
     }
   }
-  const slot = isPrimaryAction
-    ? 'primaryAction'
-    : 'secondaryAction'
+  const footerSlot = _haDialogFooterSlot(hass);
+  const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
   const appearance = isPrimaryAction
     ? 'filled'
     : 'outlined'
@@ -62,29 +73,45 @@ export function renderButton(
   }
 
   return html`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small'>
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small' style="width: auto">
       ${chevronIcon}
       ${label}
     </ha-button>
   `;
 }
 
-export function renderSpinner() {
+export function renderSpinner(hass: HomeAssistant = null) {
+  if (hass && isNewHaDialogAPI(hass)) {
+    // wa-dialog (HA ≥ 2026.3): render in content area, right-aligned to match button position.
+    return html`
+      <div style="display: flex; justify-content: flex-end;">
+        <ha-spinner test-id="progress" size="small"></ha-spinner>
+      </div>
+    `;
+  }
   return html`
-    <ha-spinner
-      test-id="progress"
-      size="small"
-      slot='primaryAction'
-    ></ha-spinner>
+    <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
   `;
 }
 
 export function renderEntityBlock(
+  hass: HomeAssistant,
   stateObj: HassEntity,
   { state }: { state?: string } = {}
 ) {
   state = state || to(stateObj.state) || stateObj.state;
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+  if (isNewHaDialogAPI(hass)) {
+    return html`
+      <div test-id="${stateObj.entity_id}" style="display: flex; align-items: center; padding: 8px 0;">
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        <span style="margin-left: 8px; display: inline-flex; flex-direction: column;">
+          <span style="font-size: 0.875rem; color: var(--secondary-text-color);">${name}</span>
+          <span>${state}</span>
+        </span>
+      </div>
+    `;
+  }
   return html`
     <ha-settings-row>
       <span slot="heading" test-id="${stateObj.entity_id}">
@@ -285,7 +312,8 @@ export function renderInputText(
   stateObj: HassEntity,
   changedCallback,
   validationMessage: string = "",
-  type: string = "text"
+  type: string = "text",
+  hass: HomeAssistant = null
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   // Not happy with fixed height but can't get helper text error to render correctly.
@@ -295,23 +323,36 @@ export function renderInputText(
     validationMessage = tp("validation_error");
   }
 
+  const textField = html`
+    <ha-textfield
+      type="${type}"
+      required="required"
+      .autovalidate=${pattern}
+      .pattern=${pattern}
+      .validationMessage=${validationMessage}
+      .label=${name}
+      .value=${value}
+      @change=${changedCallback}
+      test-id="${stateObj.entity_id}"
+      style="width: 100%"
+    ></ha-textfield>
+  `;
+
+  if (hass && isNewHaDialogAPI(hass)) {
+    return html`
+      <div style="display: flex; align-items: flex-start; padding: 4px 0;">
+        <ha-icon .icon="${stateObj.attributes.icon}" style="margin-right: 16px; flex-shrink: 0; margin-top: 16px;"></ha-icon>
+        ${textField}
+      </div>
+    `;
+  }
+
   return html`
     <ha-settings-row style="height: 85px;">
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
-      <ha-textfield
-        type="${type}"
-        required="required"
-        .autovalidate=${pattern}
-        .pattern=${pattern}
-        .validationMessage=${validationMessage}
-        .label=${name}
-        .value=${value}
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-        style="width: 100%"
-      ></ha-textfield
-    ></ha-settings-row>
+      ${textField}
+    </ha-settings-row>
   `;
 }

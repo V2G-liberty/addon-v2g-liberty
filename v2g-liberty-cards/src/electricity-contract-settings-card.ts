@@ -80,7 +80,7 @@ export class ElectricityContractSettingsCard extends LitElement {
 
     return html`
       <div class="card-content">
-        ${renderEntityBlock(this._electricityProvider)}
+        ${renderEntityBlock(this._hass, this._electricityProvider)}
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
@@ -114,8 +114,8 @@ export class ElectricityContractSettingsCard extends LitElement {
   private _renderAmberContractDetails() {
     return this._electricityProvider.state === 'au_amber_electric'
       ? html`
-          ${renderEntityBlock(this._ownConsumptionPriceEntityId)}
-          ${renderEntityBlock(this._ownProductionPriceEntityId)}
+          ${renderEntityBlock(this._hass, this._ownConsumptionPriceEntityId)}
+          ${renderEntityBlock(this._hass, this._ownProductionPriceEntityId)}
         `
       : nothing;
   }
@@ -123,9 +123,9 @@ export class ElectricityContractSettingsCard extends LitElement {
   private _renderOctopusContractDetails() {
     return this._electricityProvider.state === 'gb_octopus_energy'
       ? html`
-          ${renderEntityBlock(this._octopusImportCode)}
-          ${renderEntityBlock(this._octopusExportCode)}
-          ${renderEntityBlock(this._gbDnoRegion)}
+          ${renderEntityBlock(this._hass, this._octopusImportCode)}
+          ${renderEntityBlock(this._hass, this._octopusExportCode)}
+          ${renderEntityBlock(this._hass, this._gbDnoRegion)}
         `
       : nothing;
   }

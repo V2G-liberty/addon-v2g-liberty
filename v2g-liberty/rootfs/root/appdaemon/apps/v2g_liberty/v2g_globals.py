@@ -947,9 +947,8 @@ class V2GLibertyGlobals:
                 f"FlexMeasures client initialisation failed: {init_result}",
                 level="WARNING",
             )
-            self.hass.log(
-                f"Historical import: skipping, FM client not connected ({init_result}).",
-                level="WARNING",
+            await self.fm_client_app.set_fm_connection_status(
+                connected=False, error_message=str(init_result)
             )
             return
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)

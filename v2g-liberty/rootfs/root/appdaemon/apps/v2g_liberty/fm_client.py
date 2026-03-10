@@ -1,5 +1,6 @@
 """Module to manage the communication with the FlexMeasures platform"""
 
+import asyncio
 import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
@@ -53,6 +54,7 @@ class FMClient(AsyncIOEventEmitter):
 
     # Should be FlexMeasuresClient but (early) import statement gives errors..
     client = None
+    _asset_id: int = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
@@ -151,6 +153,11 @@ class FMClient(AsyncIOEventEmitter):
 
         host, ssl = get_host_and_ssl_from_url(c.FM_BASE_URL)
         self.__log(f"host: '{host}', ssl: '{ssl}'.")
+
+        if self.client is not None:
+            await self.client.close()
+            self.client = None
+
         try:
             self.client = FlexMeasuresClient(
                 host=host,
@@ -193,50 +200,62 @@ class FMClient(AsyncIOEventEmitter):
             f"access token: {self.client.access_token}, returning 'Successfully connected'."
         )
 
+        # TODO: Anti-pattern — connection status is set here on success but callers are
+        # responsible for setting it on failure. Ideally callers own the status update in
+        # both success and failure cases, so this method only returns the result string.
         await self.set_fm_connection_status(connected=True)
-        return "Successfully connected"
 
-    async def log_version(self, v2g_liberty_version: str):
-        """Log V2G Liberty version number in the asset on FlexMeasures"""
-        if self.client is None:
-            return False
-        asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
-
-        await self.__set_asset_attribute(
-            asset_id=asset_id,
-            attribute_name="v2g-liberty-version",
-            attribute_value=v2g_liberty_version,
-        )
-        self.__log(
-            f"Logged version '{v2g_liberty_version}' in FM asset_id '{asset_id}'."
-        )
-        return True
-
-    async def __set_asset_attribute(
-        self, asset_id: int, attribute_name: str, attribute_value: str
-    ):
-        """Set attribute on asset in FM"""
-        if attribute_name is None or asset_id is None:
+        self._asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
+        if self._asset_id is None:
             self.__log(
-                f"{asset_id=} or {attribute_name=} is None, abort.", level="WARNING"
-            )
-            return
-
-        inner_attributes = dict({attribute_name: attribute_value})
-        asset_attributes = dict(attributes=inner_attributes)
-
-        try:
-            res = await self.client.update_asset(asset_id, asset_attributes)
-        except Exception as e:
-            self.__log(
-                f"Update for {asset_id=}, {attribute_name=}, {attribute_value=} "
-                f"failed, client returned exception: '{e}'.",
+                f"Could not find asset '{c.FM_ASSET_NAME}' in FlexMeasures.",
                 level="WARNING",
             )
 
+        return "Successfully connected"
+
+    async def set_asset_attributes(self, attributes: dict):
+        """Write attributes to the FM asset, with retry mechanism.
+
+        All attributes are sent in a single PATCH call to avoid
+        overwriting previously set attributes.
+        """
+        if self.client is None:
+            self.__log(
+                "Client not initialised, cannot write attributes.", level="WARNING"
+            )
+            return
+        if self._asset_id is None:
+            self.__log("Asset ID not known, cannot write attributes.", level="WARNING")
+            return
+        if not attributes:
+            self.__log("No attributes to write, abort.", level="WARNING")
+            return
+
+        asset_attributes = {"attributes": attributes}
+
+        max_attempts = 5
+        delay = 15
+        for attempt in range(max_attempts):
+            try:
+                await self.client.update_asset(self._asset_id, asset_attributes)
+                self.__log(f"Wrote attributes to FM asset: {attributes}")
+                return
+            except Exception as e:
+                self.__log(
+                    f"Write attributes failed "
+                    f"(attempt {attempt + 1}/{max_attempts}): {e}",
+                    level="WARNING",
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(delay)
+
+        self.__log(
+            f"Failed to write attributes after {max_attempts} attempts, aborting.",
+            level="WARNING",
+        )
+
     async def __get_asset_id_by_name(self, asset_name: str):
-        # TODO: The asset_id is known already at first configuration time so could be stored then.
-        # See globals module where c.FM_ASSET_NAME is set.
         assets = await self.client.get_assets()
         for asset in assets:
             if asset["name"] == asset_name:
@@ -401,6 +420,9 @@ class FMClient(AsyncIOEventEmitter):
                     f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
                     f"Getting new schedule."
                 )
+                # Reset the timestamp so that subsequent calls during the new
+                # request don't immediately consider it "lost" again.
+                self.fm_date_time_last_schedule = now
             else:
                 self.__log(
                     "Not getting new schedule, still processing previous request."
@@ -754,7 +776,10 @@ class FMClient(AsyncIOEventEmitter):
             "production-capacity": max_production_power_ranges,
         }
 
-        self.__log(f"flex_model: {flex_model}.")
+        flex_model_str = str(flex_model)
+        if len(flex_model_str) > 1500:
+            flex_model_str = flex_model_str[:1500] + "..."
+        self.__log(f"flex_model: {flex_model_str}.")
         schedule = {}
         max_retries = 2
         for attempt in range(max_retries + 1):

@@ -129,6 +129,9 @@ class ReservationsClient(AsyncIOEventEmitter):
                 or c.CALENDAR_ACCOUNT_USERNAME == ""
                 or c.CALENDAR_ACCOUNT_PASSWORD == ""
             ):
+                await self.__set_caldav_connection_status(
+                    connected=False, error_message="Incomplete caldav configuration"
+                )
                 return "Incomplete caldav configuration"
 
             self.cal_client = caldav.DAVClient(
@@ -140,19 +143,34 @@ class ReservationsClient(AsyncIOEventEmitter):
                 self.principal = self.cal_client.principal()
             except caldav.lib.error.PropfindError:
                 self.__log("Wrong URL error")
+                await self.__set_caldav_connection_status(
+                    connected=False, error_message="Wrong URL or authorisation error"
+                )
                 return "Wrong URL or authorisation error"
             except caldav.lib.error.AuthorizationError:
                 self.__log("Authorization error")
+                await self.__set_caldav_connection_status(
+                    connected=False, error_message="Authorization error"
+                )
                 return "Authorization error"
             except requests.exceptions.ConnectionError:
                 self.__log("Connection error")
+                await self.__set_caldav_connection_status(
+                    connected=False, error_message="Connection error"
+                )
                 return "Connection error"
             except Exception as e:
                 self.__log(f"Unknown error: '{e}'.")
+                await self.__set_caldav_connection_status(
+                    connected=False, error_message="Unknown error"
+                )
                 return "Unknown error"
 
             if self.principal is None:
                 self.__log("No calendars found")
+                await self.__set_caldav_connection_status(
+                    connected=False, error_message="No calendars found"
+                )
                 return "No calendars found"
 
             if c.CAR_CALENDAR_NAME not in [
@@ -197,8 +215,12 @@ class ReservationsClient(AsyncIOEventEmitter):
                     "now",
                     self.POLLING_INTERVAL_SECONDS,
                 )
+                await self.__set_caldav_connection_status(connected=True)
                 return "Successfully connected"
             self.__log("No calendar integrations found")
+            await self.__set_caldav_connection_status(
+                connected=False, error_message="No calendar integrations found"
+            )
             return "No calendar integrations found"
         else:
             self.__log(

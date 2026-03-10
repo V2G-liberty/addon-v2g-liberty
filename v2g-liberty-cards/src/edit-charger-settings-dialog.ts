@@ -12,6 +12,7 @@ import {
   renderInputBoolean,
   renderInputNumber,
   renderInputText,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
@@ -66,6 +67,7 @@ class EditChargerSettingsDialog extends DialogBase {
     if (!this.isOpen) return nothing;
 
     const header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     const content =
       this._hasTriedToConnect && this._isConnected()
         ? this._renderChargerDetails()
@@ -74,7 +76,8 @@ class EditChargerSettingsDialog extends DialogBase {
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -104,7 +107,9 @@ class EditChargerSettingsDialog extends DialogBase {
         this._chargerHost,
         chargerHostState,
         evt => (this._chargerHost = evt.target.value),
-        tp('invalid-host-error')
+        tp('invalid-host-error'),
+        "text",
+        this.hass
       )}
       ${this._renderInvalidHostError()}
       ${renderInputNumber(
@@ -122,7 +127,7 @@ class EditChargerSettingsDialog extends DialogBase {
       }
       ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       ${this._isBusyConnecting()
-        ? renderSpinner()
+        ? renderSpinner(this.hass)
         : renderButton(
           this.hass,
           this._continue,

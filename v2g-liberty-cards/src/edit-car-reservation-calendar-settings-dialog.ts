@@ -12,6 +12,7 @@ import {
   renderInputSelect,
   renderInputText,
   renderSelectOptionWithLabel,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -81,11 +82,14 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         : this._currentPage === 'homeassistant-calendar'
         ? this._renderHomeAssistantCalendarSelection()
         : nothing;
+    const _header = tp('header');
+    const _isNew = isNewHaDialogAPI(this.hass);
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, tp('header'))}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         ${content}
       </ha-dialog>
@@ -181,14 +185,17 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         calendarAccountUrlState,
         evt => (this._calendarAccountUrl = evt.target.value),
         urlError,
-        "url"
+        "url",
+        this.hass
       )}
       ${renderInputText(
         InputText.UserName,
         this._calendarAccountUsername,
         calendarAccountUsernameState,
         evt => (this._calendarAccountUsername = evt.target.value),
-        usernameError
+        usernameError,
+        "text",
+        this.hass
       )}
       ${renderInputText(
         InputText.Password,
@@ -196,13 +203,16 @@ class EditCarReservationCalendarSettingsDialog extends DialogBase {
         calendarAccountPasswordState,
         evt => (this._calendarAccountPassword = evt.target.value),
         passwordError,
-        "password"
+        "password",
+        this.hass
       )}
       ${this._renderConnectionError()}
-      ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
       ${this._isBusyConnecting()
-        ? renderSpinner()
-        : renderButton(this.hass, this._continueCaldav)
+        ? renderSpinner(this.hass)
+        : html`
+          ${renderButton(this.hass, this._backToSourceSelection, false, null, false, null, true)}
+          ${renderButton(this.hass, this._continueCaldav)}
+        `
       }
     `;
   }

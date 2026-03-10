@@ -194,6 +194,8 @@ class V2GLibertyApp(Hass):
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")
         self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
 
+        await main_app.log_versions()
+
         self._log_init_time("V2GLibertyApp (total)", start_app, True)
 
     def _log_init_time(self, name: str, start: datetime, forced: bool = False):

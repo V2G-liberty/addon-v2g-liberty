@@ -80,14 +80,14 @@ export class ScheduleSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderFMConnectionStatus()}
-        ${renderEntityBlock(this._fmAccountUsername)}
+        ${renderEntityBlock(this._hass, this._fmAccountUsername)}
         ${isUsingOtherServer
           ? html`
               <p>${useOtherServer}</p>
-              ${renderEntityBlock(this._fmHostUrl)}
+              ${renderEntityBlock(this._hass, this._fmHostUrl)}
             `
           : nothing }
-        ${renderEntityBlock(this._fmAsset)}
+        ${renderEntityBlock(this._hass, this._fmAsset)}
       </div>
       <div class="card-actions">
         ${renderButton(
