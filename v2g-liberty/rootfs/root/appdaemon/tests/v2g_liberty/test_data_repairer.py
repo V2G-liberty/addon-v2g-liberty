@@ -490,6 +490,82 @@ class TestSocJumpDetection:
 
 
 # =====================================================================
+# Linear SoC interpolation tests
+# =====================================================================
+
+
+class TestLinearSocInterpolation:
+    def test_interpolates_small_gap(self, repairer, initialised_store):
+        """SoC: 40, NULL, NULL, 46 with positive energy → linear fill."""
+        _insert_interval(initialised_store, _ts(0), soc=40.0, energy=0.3)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.3)
+        _insert_interval(initialised_store, _ts(10), soc=None, energy=0.3)
+        _insert_interval(initialised_store, _ts(15), soc=46.0, energy=0.3)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 2
+
+        rows = _get_all_intervals(initialised_store)
+        # Should be linearly interpolated: 40, 42, 44, 46
+        assert rows[1]["soc_pct"] == pytest.approx(42.0, abs=0.2)
+        assert rows[2]["soc_pct"] == pytest.approx(44.0, abs=0.2)
+        for r in rows[1:3]:
+            assert r["is_repaired"] == 1
+
+    def test_skips_large_gap(self, repairer, initialised_store):
+        """Gap > MAX_LINEAR_SOC_GAP (10) → not interpolated."""
+        _insert_interval(initialised_store, _ts(0), soc=40.0, energy=0.1)
+        # 11 NULL intervals (exceeds limit of 10)
+        for i in range(1, 12):
+            _insert_interval(initialised_store, _ts(i * 5), soc=None, energy=0.1)
+        _insert_interval(initialised_store, _ts(60), soc=45.0, energy=0.1)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 0
+
+    def test_skips_large_soc_difference(self, repairer, initialised_store):
+        """SoC diff > LINEAR_SOC_JUMP_LIMIT (30) → not interpolated."""
+        _insert_interval(initialised_store, _ts(0), soc=20.0, energy=0.3)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.3)
+        _insert_interval(initialised_store, _ts(10), soc=55.0, energy=0.3)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 0
+
+    def test_skips_inconsistent_energy_direction(self, repairer, initialised_store):
+        """SoC rises but energy after gap is negative → not interpolated."""
+        _insert_interval(initialised_store, _ts(0), soc=40.0, energy=0.3)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.3)
+        _insert_interval(initialised_store, _ts(10), soc=45.0, energy=-0.3)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 0
+
+    def test_interpolates_decreasing_soc(self, repairer, initialised_store):
+        """SoC: 50, NULL, 44 with negative energy → linear fill (discharge)."""
+        _insert_interval(initialised_store, _ts(0), soc=50.0, energy=-0.3)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=-0.3)
+        _insert_interval(initialised_store, _ts(10), soc=44.0, energy=-0.3)
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[1]["soc_pct"] == pytest.approx(47.0, abs=0.2)
+
+    def test_interpolates_constant_soc(self, repairer, initialised_store):
+        """SoC: 50, NULL, 50 with zero energy → linear fill (constant)."""
+        _insert_interval(initialised_store, _ts(0), soc=50.0, energy=0.0)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0)
+        _insert_interval(initialised_store, _ts(10), soc=50.0, energy=0.0)
+
+        summary = repairer.run_full_repair()
+        # Could be filled by linear interp or Type D — either is fine
+        rows = _get_all_intervals(initialised_store)
+        assert rows[1]["soc_pct"] == pytest.approx(50.0, abs=0.2)
+
+
+# =====================================================================
 # Type B: Energy interpolation tests
 # =====================================================================
 
@@ -548,30 +624,34 @@ class TestEnergyInterpolation:
 class TestSocReconstruction:
     @patch("apps.v2g_liberty.data_repairer.c")
     def test_reconstructs_soc_from_energy(self, mock_c, repairer, initialised_store):
-        """NULL SoC with energy → reconstruct from cumulative energy.
+        """NULL SoC with energy, large gap → reconstruct from cumulative energy.
 
-        SoC: 60, NULL, NULL, NULL, 63.75
-        Energy: 0.3, 0.3, 0.3, 0.3, 0.3
+        Uses 12 NULL intervals (exceeds LINEAR_SOC_JUMP_LIMIT of 10) so
+        linear interpolation is skipped, and Type C handles it.
+
+        SoC: 60, NULL×12, ~75
+        Energy: 0.3 kWh/interval
         Capacity: 24 kWh → delta_soc = 0.3/24*100 = 1.25%/interval
-        Reconstructed: 61.25, 62.5, 63.75 → matches endpoint ✓
+        Reconstructed end: 60 + 12*1.25 = 75.0 → matches endpoint ✓
         """
         mock_c.CHARGER_MAX_CHARGE_POWER = 7600
         mock_c.CHARGER_MAX_DISCHARGE_POWER = 7600
         mock_c.CAR_MAX_CAPACITY_IN_KWH = 24
 
         _insert_interval(initialised_store, _ts(0), soc=60.0, energy=0.3)
-        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.3)
-        _insert_interval(initialised_store, _ts(10), soc=None, energy=0.3)
-        _insert_interval(initialised_store, _ts(15), soc=None, energy=0.3)
-        _insert_interval(initialised_store, _ts(20), soc=63.75, energy=0.3)
+        for i in range(1, 13):
+            _insert_interval(initialised_store, _ts(i * 5), soc=None, energy=0.3)
+        _insert_interval(initialised_store, _ts(65), soc=75.0, energy=0.3)
 
         summary = repairer.run_full_repair()
-        assert summary["soc_reconstructed"] == 3
+        assert summary["soc_reconstructed"] == 12
+        assert summary["soc_linear_filled"] == 0
 
         rows = _get_all_intervals(initialised_store)
+        # First NULL row should be ~61.25
         assert rows[1]["soc_pct"] == pytest.approx(61.2, abs=0.2)
-        assert rows[2]["soc_pct"] == pytest.approx(62.5, abs=0.2)
-        assert rows[3]["soc_pct"] == pytest.approx(63.8, abs=0.2)
+        # Last NULL row should be close to endpoint
+        assert rows[12]["soc_pct"] == pytest.approx(75.0, abs=0.5)
 
     @patch("apps.v2g_liberty.data_repairer.c")
     def test_skips_if_endpoint_mismatch(self, mock_c, repairer, initialised_store):
@@ -619,7 +699,8 @@ class TestSocConstantFill:
     def test_fills_with_constant_value(self, repairer, initialised_store):
         """SoC: 45, NULL, NULL, 45, energy ≈ 0 → fill with 45.
 
-        Endpoints match (diff=0 ≤ 10) → fill with before value.
+        Linear interpolation (step 1c) fills this: endpoints equal,
+        energy=0, soc_diff=0 → linspace gives 45, 45.
         """
         _insert_interval(initialised_store, _ts(0), soc=45.0, energy=0.0)
         _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0)
@@ -627,16 +708,17 @@ class TestSocConstantFill:
         _insert_interval(initialised_store, _ts(15), soc=45.0, energy=0.0)
 
         summary = repairer.run_full_repair()
-        assert summary["soc_constant_filled"] == 2
+        # Filled by linear interp (step 1c) — both approaches give 45.0
+        assert summary["soc_linear_filled"] + summary["soc_constant_filled"] == 2
 
         rows = _get_all_intervals(initialised_store)
-        assert rows[1]["soc_pct"] == 45.0
-        assert rows[2]["soc_pct"] == 45.0
+        assert rows[1]["soc_pct"] == pytest.approx(45.0, abs=0.1)
+        assert rows[2]["soc_pct"] == pytest.approx(45.0, abs=0.1)
 
     def test_fills_with_small_endpoint_diff(self, repairer, initialised_store):
-        """SoC: 45, NULL, NULL, 47, energy ≈ 0 → fill with 45.
+        """SoC: 45, NULL, NULL, 47, energy ≈ 0 → linearly interpolated.
 
-        Endpoints differ by 2 ≤ 10 → fill with before value.
+        Linear interpolation fills: 45, ~45.7, ~46.3, 47.
         """
         _insert_interval(initialised_store, _ts(0), soc=45.0, energy=0.0)
         _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0)
@@ -644,20 +726,28 @@ class TestSocConstantFill:
         _insert_interval(initialised_store, _ts(15), soc=47.0, energy=0.0)
 
         summary = repairer.run_full_repair()
-        assert summary["soc_constant_filled"] == 2
+        assert summary["soc_linear_filled"] + summary["soc_constant_filled"] == 2
 
         rows = _get_all_intervals(initialised_store)
-        assert rows[1]["soc_pct"] == 45.0
-        assert rows[2]["soc_pct"] == 45.0
+        # Should be between 45 and 47
+        assert 45.0 <= rows[1]["soc_pct"] <= 47.0
+        assert 45.0 <= rows[2]["soc_pct"] <= 47.0
 
     def test_skips_large_endpoint_diff(self, repairer, initialised_store):
-        """SoC: 45, NULL, NULL, 72, energy ≈ 0 → skip (diff=27 > 10)."""
+        """SoC: 45, NULL, NULL, 72, energy ≈ 0 → skip (diff=27).
+
+        Linear interp skips (diff < 30 but energy=0, soc rises → consistent).
+        Type D skips (diff=27 > 10).
+        Wait — soc_diff=27 < LINEAR_SOC_JUMP_LIMIT=30, energy=0 → linear
+        interpolation would fill this. Make diff > 30 to truly skip both.
+        """
         _insert_interval(initialised_store, _ts(0), soc=45.0, energy=0.0)
         _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0)
         _insert_interval(initialised_store, _ts(10), soc=None, energy=0.0)
-        _insert_interval(initialised_store, _ts(15), soc=72.0, energy=0.0)
+        _insert_interval(initialised_store, _ts(15), soc=80.0, energy=0.0)
 
         summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 0
         assert summary["soc_constant_filled"] == 0
 
         rows = _get_all_intervals(initialised_store)
@@ -671,6 +761,7 @@ class TestSocConstantFill:
         _insert_interval(initialised_store, _ts(10), soc=50.0, energy=0.0)
 
         summary = repairer.run_full_repair()
+        assert summary["soc_linear_filled"] == 0
         assert summary["soc_constant_filled"] == 0
 
 

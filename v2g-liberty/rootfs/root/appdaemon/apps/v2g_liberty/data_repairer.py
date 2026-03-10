@@ -38,6 +38,10 @@ ENERGY_ENDPOINT_TOLERANCE: float = 0.05  # Max 5% relative difference
 MAX_SOC_RECONSTRUCTION_GAP: int = 100  # Max slots for SoC reconstruction
 SOC_RECONSTRUCTION_TOLERANCE: float = 5.0  # Max pp deviation at endpoint
 
+# Linear SoC interpolation
+MAX_LINEAR_SOC_GAP: int = 10  # Max slots for linear interpolation (10 × 5 min)
+LINEAR_SOC_JUMP_LIMIT: float = 30.0  # Max pp SoC diff for linear interpolation
+
 # Type A & D: negligible energy threshold
 CONSTANT_POWER_TOLERANCE: float = 0.05  # 5% of max charger energy/interval
 
@@ -138,6 +142,7 @@ class DataRepairer:
             f"  Oldest row:            {row['first_ts']}",
             f"  SoC upward reconstr.: {summary['soc_reconstructed_up']} (Type A-up)",
             f"  SoC values blanked:    {summary['soc_blanked']} (Type A-down)",
+            f"  SoC linear interp.:   {summary['soc_linear_filled']} (Linear)",
             f"  Energy interpolated:   {summary['energy_interpolated']} (Type B)",
             f"  SoC reconstructed:     {summary['soc_reconstructed']} (Type C)",
             f"  SoC constant filled:   {summary['soc_constant_filled']} (Type D)",
@@ -194,6 +199,10 @@ class DataRepairer:
         # Step 1b: Type A-down — blank false constant SoC before downward jumps
         df, soc_blanked = self._blank_false_constant_soc(df)
         summary["soc_blanked"] = soc_blanked
+
+        # Step 1c: Linear SoC interpolation for small gaps
+        df, soc_linear_filled = self._interpolate_soc_linear(df)
+        summary["soc_linear_filled"] = soc_linear_filled
 
         # Step 2: Type B — interpolate energy in gap-filled rows
         df, energy_interpolated = self._interpolate_energy(df)
@@ -418,6 +427,77 @@ class DataRepairer:
                     blanked += 1
 
         return df, blanked
+
+    # ------------------------------------------------------------------
+    # Step 1c: Linear SoC interpolation
+    # ------------------------------------------------------------------
+
+    def _interpolate_soc_linear(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+        """Linearly interpolate small SoC gaps with known endpoints.
+
+        For NULL SoC gaps ≤ MAX_LINEAR_SOC_GAP:
+        1. Both endpoints must be known (non-NULL)
+        2. SoC difference must be ≤ LINEAR_SOC_JUMP_LIMIT
+        3. Energy direction must be consistent with SoC direction:
+           - SoC rises → energy after gap must not be negative
+           - SoC drops → energy after gap must not be positive
+        4. Fill with np.linspace between endpoints
+
+        Returns (df, count_of_filled_rows).
+        """
+        import numpy as np
+
+        is_null_soc = df["soc_pct"].isna()
+        if not is_null_soc.any():
+            return df, 0
+
+        nan_groups = (is_null_soc != is_null_soc.shift()).cumsum()
+        filled = 0
+
+        for _, block_idx in df[is_null_soc].groupby(nan_groups).groups.items():
+            block = df.loc[block_idx]
+            if len(block) > MAX_LINEAR_SOC_GAP:
+                continue
+
+            start_pos = df.index.get_loc(block.index[0])
+            end_pos = df.index.get_loc(block.index[-1])
+
+            # Skip if block is at the very beginning or end
+            if start_pos == 0 or end_pos >= len(df) - 1:
+                continue
+
+            soc_before = df.iloc[start_pos - 1]["soc_pct"]
+            soc_after = df.iloc[end_pos + 1]["soc_pct"]
+
+            if pd.isna(soc_before) or pd.isna(soc_after):
+                continue
+
+            # SoC difference must be within limit
+            soc_diff = soc_after - soc_before
+            if abs(soc_diff) > LINEAR_SOC_JUMP_LIMIT:
+                continue
+
+            # Energy direction check: energy in the interval after the gap
+            # must be consistent with SoC direction
+            energy_after = df.iloc[end_pos + 1]["energy_kwh"]
+            if pd.isna(energy_after):
+                continue
+
+            if soc_diff > 0 and energy_after < 0:
+                continue  # SoC rises but next interval discharges
+            if soc_diff < 0 and energy_after > 0:
+                continue  # SoC drops but next interval charges
+
+            # Linearly interpolate
+            interpolated = np.linspace(soc_before, soc_after, len(block) + 2)[1:-1]
+
+            for idx, val in zip(block.index, interpolated):
+                df.loc[idx, "soc_pct"] = round(float(val), 1)
+                df.loc[idx, "is_repaired"] = 1
+
+            filled += len(block)
+
+        return df, filled
 
     # ------------------------------------------------------------------
     # Step 2: Type B — Energy interpolation
@@ -762,6 +842,7 @@ def _empty_summary() -> dict:
         "gaps_filled": 0,
         "soc_reconstructed_up": 0,
         "soc_blanked": 0,
+        "soc_linear_filled": 0,
         "energy_interpolated": 0,
         "soc_reconstructed": 0,
         "soc_constant_filled": 0,
@@ -775,6 +856,7 @@ def _total_repairs(summary: dict) -> int:
         summary["gaps_filled"]
         + summary["soc_reconstructed_up"]
         + summary["soc_blanked"]
+        + summary["soc_linear_filled"]
         + summary["energy_interpolated"]
         + summary["soc_reconstructed"]
         + summary["soc_constant_filled"]
@@ -790,6 +872,8 @@ def _format_summary(summary: dict) -> str:
         parts.append(f"{summary['soc_reconstructed_up']} SoC upward reconstructed")
     if summary["soc_blanked"]:
         parts.append(f"{summary['soc_blanked']} SoC blanked")
+    if summary["soc_linear_filled"]:
+        parts.append(f"{summary['soc_linear_filled']} SoC linear interpolated")
     if summary["energy_interpolated"]:
         parts.append(f"{summary['energy_interpolated']} energy interpolated")
     if summary["soc_reconstructed"]:
