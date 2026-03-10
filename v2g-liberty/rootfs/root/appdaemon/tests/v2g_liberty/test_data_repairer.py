@@ -441,10 +441,16 @@ class TestSocJumpDetection:
             assert r["soc_pct"] is None
 
     def test_blanks_downward_jump(self, repairer, initialised_store):
-        """SoC: 72, 72, 72, 45, 44 → downward jump → blank the three 72s."""
-        socs = [72.0, 72.0, 72.0, 45.0, 44.0]
+        """SoC: 72, 72, 72, 35, 34 → downward jump → blank the three 72s.
+
+        Car disconnected (avail=0, energy=0) so exceedance counters stay at 0.
+        Jump=37 > LINEAR_SOC_JUMP_LIMIT so linear interp won't fill the gap.
+        """
+        socs = [72.0, 72.0, 72.0, 35.0, 34.0]
         for i, soc in enumerate(socs):
-            _insert_interval(initialised_store, _ts(i * 5), soc=soc)
+            _insert_interval(
+                initialised_store, _ts(i * 5), soc=soc, energy=0.0, avail=0.0
+            )
 
         summary = repairer.run_full_repair()
         assert summary["soc_blanked"] == 3
@@ -454,6 +460,70 @@ class TestSocJumpDetection:
         for r in rows[:3]:
             assert r["soc_pct"] is None
             assert r["is_repaired"] == 1
+
+    def test_exceedance_stops_blanking_early(self, repairer, initialised_store):
+        """Significant energy proves real activity → stop blanking early.
+
+        SoC: 72, 72, 72, 72, 72, 35, 34 (jump=37 > LINEAR_SOC_JUMP_LIMIT)
+        Energy: 0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0
+        Avail: 0, 0, 0, 0, 0, 0, 0
+
+        Walking back from row 4 (last 72):
+        - Row 4: energy=0 (ok)
+        - Row 3: energy=0 (ok)
+        - Row 2: energy=0.5 → energy_exceeded=1, still < 2 → blanked
+        - Row 1: energy=0.5 → energy_exceeded=2 >= threshold → stop
+        Rows 2,3,4 blanked. Rows 0,1 preserved.
+        """
+        energies = [0.5, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0]
+        socs = [72.0, 72.0, 72.0, 72.0, 72.0, 35.0, 34.0]
+        for i, (soc, energy) in enumerate(zip(socs, energies)):
+            _insert_interval(
+                initialised_store, _ts(i * 5), soc=soc, energy=energy, avail=0.0
+            )
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_blanked"] == 3
+
+        rows = _get_all_intervals(initialised_store)
+        # First two rows preserved (exceedance threshold reached)
+        assert rows[0]["soc_pct"] == 72.0
+        assert rows[1]["soc_pct"] == 72.0
+        # Next three blanked
+        assert rows[2]["soc_pct"] is None
+        assert rows[3]["soc_pct"] is None
+        assert rows[4]["soc_pct"] is None
+
+    def test_availability_exceedance_stops_blanking(self, repairer, initialised_store):
+        """Availability=100 proves charger connected → stop blanking early.
+
+        SoC: 72, 72, 72, 72, 72, 35, 34 (jump=37 > LINEAR_SOC_JUMP_LIMIT)
+        Avail: 100, 100, 100, 0, 0, 0, 0
+        Energy: 0, 0, 0, 0, 0, 0, 0
+
+        Walking back from row 4 (last 72):
+        - Row 4: avail=0 (ok)
+        - Row 3: avail=0 (ok)
+        - Row 2: avail=100 → availability_exceeded=1, still < 2 → blanked
+        - Row 1: avail=100 → availability_exceeded=2 >= threshold → stop
+        Rows 2,3,4 blanked. Rows 0,1 preserved.
+        """
+        avails = [100.0, 100.0, 100.0, 0.0, 0.0, 0.0, 0.0]
+        socs = [72.0, 72.0, 72.0, 72.0, 72.0, 35.0, 34.0]
+        for i, (soc, avail) in enumerate(zip(socs, avails)):
+            _insert_interval(
+                initialised_store, _ts(i * 5), soc=soc, energy=0.0, avail=avail
+            )
+
+        summary = repairer.run_full_repair()
+        assert summary["soc_blanked"] == 3
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["soc_pct"] == 72.0
+        assert rows[1]["soc_pct"] == 72.0
+        assert rows[2]["soc_pct"] is None
+        assert rows[3]["soc_pct"] is None
+        assert rows[4]["soc_pct"] is None
 
     def test_no_jump_below_threshold(self, repairer, initialised_store):
         """Gradual SoC change below threshold → no blanking."""

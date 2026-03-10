@@ -48,6 +48,9 @@ CONSTANT_POWER_TOLERANCE: float = 0.05  # 5% of max charger energy/interval
 # Type A-up: upward jump reconstruction tolerance
 UPWARD_JUMP_TOLERANCE: float = 10.0  # Max pp mismatch theoretical vs actual
 
+# Type A-down: exceedance counter for downward jump blanking
+EXCEEDANCE_THRESHOLD: int = 2  # Observations proving real charger activity
+
 # Report file written after historical import + repair
 _REPORT_FILE = Path("/data/fm_historical_import_report.txt")
 
@@ -386,7 +389,15 @@ class DataRepairer:
         """Blank false constant SoC runs before downward jumps.
 
         Detects downward SoC jumps (diff < -SOC_JUMP_THRESHOLD) and blanks
-        the constant run leading up to the jump.
+        the constant run leading up to the jump.  Walks backwards over the
+        **full** DataFrame (including NaN-SoC rows) to check for evidence of
+        real charger activity via two exceedance counters:
+
+        - ``energy_exceeded``: incremented when |energy_kwh| >= threshold
+        - ``availability_exceeded``: incremented when availability_pct == 100
+
+        Blanking stops when **either** counter reaches EXCEEDANCE_THRESHOLD
+        (OR logic), meaning the charger was genuinely active at that point.
 
         Only modifies soc_pct (sets to NaN). Marks modified rows as repaired.
         """
@@ -395,6 +406,8 @@ class DataRepairer:
 
         if len(soc_valid) < 2:
             return df, 0
+
+        threshold = _negligible_energy_threshold()
 
         # Find downward jumps only
         soc_diff = soc_valid.diff()
@@ -409,16 +422,44 @@ class DataRepairer:
             prev_idx = soc_valid.index[pos - 1]
             constant_value = soc_valid.loc[prev_idx]
 
-            # Walk backwards through constant values
-            blank_indices = [prev_idx]
-            for i in range(pos - 2, -1, -1):
-                check_idx = soc_valid.index[i]
-                if soc_valid.loc[check_idx] == constant_value:
-                    blank_indices.append(check_idx)
-                else:
+            # Walk backwards over the FULL DataFrame from the row before
+            # the jump, collecting indices to blank.
+            df_pos = df.index.get_loc(prev_idx)
+            blank_indices = []
+            energy_exceeded = 0
+            availability_exceeded = 0
+
+            i = df_pos
+            while i >= 0:
+                row = df.iloc[i]
+                row_soc = row["soc_pct"]
+
+                # Stop if SoC deviates from constant value
+                if pd.notna(row_soc) and abs(row_soc - constant_value) > 0.1:
                     break
 
-            # Only blank if there's a run of constant values (≥ 2).
+                # Update exceedance counters and check BEFORE blanking
+                energy = row["energy_kwh"]
+                if pd.notna(energy) and abs(energy) >= threshold:
+                    energy_exceeded += 1
+
+                avail = row["availability_pct"]
+                if pd.notna(avail) and avail == 100:
+                    availability_exceeded += 1
+
+                if (
+                    energy_exceeded >= EXCEEDANCE_THRESHOLD
+                    or availability_exceeded >= EXCEEDANCE_THRESHOLD
+                ):
+                    break  # Real activity proven — stop blanking
+
+                # Only blank rows that have the constant SoC value
+                if pd.notna(row_soc):
+                    blank_indices.append(df.index[i])
+
+                i -= 1
+
+            # Only blank if there's a run of constant values (>= 2).
             # A single value before a jump is not a "constant run".
             if len(blank_indices) >= 2:
                 for idx in blank_indices:
