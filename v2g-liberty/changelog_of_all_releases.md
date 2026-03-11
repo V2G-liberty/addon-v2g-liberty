@@ -3,6 +3,16 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.8.0 2026-03-??
+
+### Fixed
+
+### Added
+
+- 🚀 FEAT: Extend insights (#420)
+
+### Changed
+
 ## 0.7.6 2026-03-09
 
 ### Fixed

@@ -1,40 +1,18 @@
 # What's changed?
 
-## 0.7.6 2026-03-09
+## 0.8.0 2026-03-??
 
 ### Fixed
 
-- 🪲 BUG: Fix settings cards dialogs broken in HA 2026.3 due to dialog API migration (#411, #412)
-- 🪲 BUG: Fix schedule request flooding when previous request is lost (#410)
-- 🪲 BUG: Fix crash on partial Modbus response (#409)
-- 🪲 BUG: Unavailable charge power not handled (#408)
-- 🪲 BUG: Gap in chartlines between fixed and forecast (#403)
-- 🪲 BUG: Fixed failing "no prices" notification (#402)
+-
 
 ### Added
 
-- 🚀 FEAT: Log ha version at startup to FM (#418)
+- 🚀 FEAT: Extend insights (#420)
 
 ### Changed
 
-- 🛠️ Refactoring: Made storing settings more robust (#406)
-
-&nbsp;
-
----
-
-### [Unreleased]
-
-The next release might include:
-
-#### Adding
-
-- Detailed usage statistics
-- Support for uni-directional charging
-
-#### Changing
-
-- ?
+-
 
 #### Removing
 
