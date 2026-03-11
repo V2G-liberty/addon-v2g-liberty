@@ -184,7 +184,7 @@ async def _fetch_month_rows(
                 "energy_kwh": energy_kwh,
                 "app_state": "unknown",
                 "soc_pct": soc_events.get(ts),
-                "availability_pct": avail_events.get(ts) or 0.0,
+                "availability_pct": avail_events.get(ts),
                 "is_repaired": 2,  # Pending review by DataRepairer
             }
         )

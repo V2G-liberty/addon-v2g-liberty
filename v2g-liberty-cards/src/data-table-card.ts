@@ -581,8 +581,10 @@ export class DataTableCard extends LitElement {
       avgAvail: mean('availability_pct'),
       chargeKwh: sum('charge_kwh'),
       chargeCost: sum('charge_cost'),
+      chargeCo2Kg: sum('charge_co2_kg'),
       dischargeKwh: sum('discharge_kwh'),
       dischargeRev: sum('discharge_revenue'),
+      dischargeCo2Kg: sum('discharge_co2_kg'),
       netKwh: sum('net_kwh'),
       netCost: sum('net_cost'),
       co2Kg: sum('co2_kg'),
@@ -775,13 +777,13 @@ export class DataTableCard extends LitElement {
               <td>${tp('col.charge')}</td>
               <td>${this._fmtKwh(t.chargeKwh, kwhDec)}</td>
               <td>${this._fmtCurrency(t.chargeCost, curDec)}</td>
-              <td>−</td>
+              <td>${this._fmtKg(t.chargeCo2Kg, kgDec)}</td>
             </tr>
             <tr>
               <td>${tp('col.discharge')}</td>
               <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
               <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
-              <td>−</td>
+              <td>${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
             </tr>
             <tr class="totals-net">
               <td>${tp('col.net')}</td>

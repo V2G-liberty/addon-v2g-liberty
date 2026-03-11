@@ -212,7 +212,7 @@ class DataStore:
                 energy_kwh REAL NOT NULL,
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
-                availability_pct REAL NOT NULL,
+                availability_pct REAL,
                 is_repaired INTEGER NOT NULL DEFAULT 0
             )
         """)
@@ -410,7 +410,7 @@ class DataStore:
         energy_kwh: float,
         app_state: str,
         soc_pct: float | None,
-        availability_pct: float,
+        availability_pct: float | None,
         is_repaired: bool = False,
     ) -> None:
         """Insert a single interval row into interval_log."""
@@ -865,9 +865,17 @@ class DataStore:
         """Aggregate intervals for day/week/month/year periods."""
         has_repaired = any(i["is_repaired"] == 1 for i in intervals)
 
-        # Availability — average across all intervals
-        availability_values = [i["availability_pct"] for i in intervals]
-        avg_availability = sum(availability_values) / len(availability_values)
+        # Availability — average across intervals with known values
+        availability_values = [
+            i["availability_pct"]
+            for i in intervals
+            if i["availability_pct"] is not None
+        ]
+        avg_availability = (
+            sum(availability_values) / len(availability_values)
+            if availability_values
+            else None
+        )
 
         # Charge/discharge split
         charge_kwh = sum(i["energy_kwh"] for i in intervals if i["energy_kwh"] > 0)
@@ -890,19 +898,29 @@ class DataStore:
         net_cost = charge_cost - discharge_revenue
 
         # CO2: energy_kwh × emission_intensity_kg_mwh / 1000 → kg
-        co2_kg = sum(
+        charge_co2_kg = sum(
             i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
             for i in intervals
-            if i["emission_intensity_kg_mwh"] is not None
+            if i["energy_kwh"] > 0 and i["emission_intensity_kg_mwh"] is not None
         )
+        discharge_co2_kg = sum(
+            abs(i["energy_kwh"]) * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] < 0 and i["emission_intensity_kg_mwh"] is not None
+        )
+        co2_kg = charge_co2_kg - discharge_co2_kg
 
         return {
             "period_start": period_start,
-            "availability_pct": round(avg_availability, 1),
+            "availability_pct": (
+                round(avg_availability, 1) if avg_availability is not None else None
+            ),
             "charge_kwh": round(charge_kwh, 2),
             "charge_cost": round(charge_cost, 4),
+            "charge_co2_kg": round(charge_co2_kg, 1),
             "discharge_kwh": round(discharge_kwh, 2),
             "discharge_revenue": round(discharge_revenue, 4),
+            "discharge_co2_kg": round(discharge_co2_kg, 1),
             "net_kwh": round(net_kwh, 2),
             "net_cost": round(net_cost, 4),
             "co2_kg": round(co2_kg, 1),

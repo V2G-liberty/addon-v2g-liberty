@@ -13715,8 +13715,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             avgAvail: mean('availability_pct'),
             chargeKwh: sum('charge_kwh'),
             chargeCost: sum('charge_cost'),
+            chargeCo2Kg: sum('charge_co2_kg'),
             dischargeKwh: sum('discharge_kwh'),
             dischargeRev: sum('discharge_revenue'),
+            dischargeCo2Kg: sum('discharge_co2_kg'),
             netKwh: sum('net_kwh'),
             netCost: sum('net_cost'),
             co2Kg: sum('co2_kg'),
@@ -13893,13 +13895,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
               <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
               <td>${this._fmtKwh(t.chargeKwh, kwhDec)}</td>
               <td>${this._fmtCurrency(t.chargeCost, curDec)}</td>
-              <td>−</td>
+              <td>${this._fmtKg(t.chargeCo2Kg, kgDec)}</td>
             </tr>
             <tr>
               <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
               <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
               <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
-              <td>−</td>
+              <td>${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
             </tr>
             <tr class="totals-net">
               <td>${$cb691508f8eb446e$var$tp('col.net')}</td>

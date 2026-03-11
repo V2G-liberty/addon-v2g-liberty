@@ -143,9 +143,9 @@ class DataRepairer:
             f"  Total rows:            {row['cnt']}",
             f"  Period:                {row['first_ts']} — {row['last_ts']}",
             f"  Oldest row:            {row['first_ts']}",
-            f"  SoC upward reconstr.: {summary['soc_reconstructed_up']} (Type A-up)",
+            f"  SoC upward reconstr.:  {summary['soc_reconstructed_up']} (Type A-up)",
             f"  SoC values blanked:    {summary['soc_blanked']} (Type A-down)",
-            f"  SoC linear interp.:   {summary['soc_linear_filled']} (Linear)",
+            f"  SoC linear interp.:    {summary['soc_linear_filled']} (Linear)",
             f"  Energy interpolated:   {summary['energy_interpolated']} (Type B)",
             f"  SoC reconstructed:     {summary['soc_reconstructed']} (Type C)",
             f"  SoC constant filled:   {summary['soc_constant_filled']} (Type D)",
@@ -274,7 +274,7 @@ class DataRepairer:
                 fill = {
                     "energy_kwh": 0.0,
                     "app_state": "unknown",
-                    "availability_pct": 0.0,
+                    "availability_pct": None,
                 }
             else:
                 # Short gap: infer from context
@@ -950,7 +950,7 @@ def _infer_gap_context(before: dict | None, after: dict | None) -> dict:
     defaults = {
         "energy_kwh": 0.0,
         "app_state": "unknown",
-        "availability_pct": 0.0,
+        "availability_pct": None,
     }
 
     if before is None or after is None:
@@ -962,10 +962,11 @@ def _infer_gap_context(before: dict | None, after: dict | None) -> dict:
     if b_state == a_state:
         defaults["app_state"] = b_state
         if b_state not in ("not_connected", "error", "unknown"):
-            # Connected state: average availability
-            b_avail = before.get("availability_pct", 0.0) or 0.0
-            a_avail = after.get("availability_pct", 0.0) or 0.0
-            defaults["availability_pct"] = (b_avail + a_avail) / 2
+            # Connected state: average availability if both sides known
+            b_avail = before.get("availability_pct")
+            a_avail = after.get("availability_pct")
+            if b_avail is not None and a_avail is not None:
+                defaults["availability_pct"] = (b_avail + a_avail) / 2
         return defaults
 
     if "not_connected" in (b_state, a_state):

@@ -234,7 +234,7 @@ class TestGapFilling:
         for r in gap_rows:
             assert r["app_state"] == "not_connected"
             assert r["energy_kwh"] == 0.0
-            assert r["availability_pct"] == 0.0
+            assert r["availability_pct"] is None
 
     def test_short_gap_both_error(self, repairer, initialised_store):
         """Gap between two error rows → fill with error."""
