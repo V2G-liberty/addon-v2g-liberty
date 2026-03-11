@@ -11,6 +11,10 @@ from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
+from .fm_data_sender import FMDataSender
+from .api_server import ApiServer
+from .data_repairer import DataRepairer
+from .data_store import DataStore
 from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
@@ -60,8 +64,24 @@ class V2GLibertyApp(Hass):
         self._log_init_time("V2Gliberty", start_module)
 
         start_module = datetime.now()
+        data_store = DataStore(self)
+        self._log_init_time("DataStore", start_module)
+
+        start_module = datetime.now()
+        data_repairer = DataRepairer(self)
+        self._log_init_time("DataRepairer", start_module)
+
+        start_module = datetime.now()
+        api_server = ApiServer(self)
+        self._log_init_time("ApiServer", start_module)
+
+        start_module = datetime.now()
         data_monitor = DataMonitor(self, event_bus=event_bus)
         self._log_init_time("DataMonitor", start_module)
+
+        start_module = datetime.now()
+        fm_data_sender = FMDataSender(self)
+        self._log_init_time("FMDataSender", start_module)
 
         start_module = datetime.now()
         nissan_leaf_monitor = NissanLeafMonitor(
@@ -90,6 +110,7 @@ class V2GLibertyApp(Hass):
         v2g_globals.v2g_main_app = main_app
         v2g_globals.evse_client_app = modbus_evse_client
         v2g_globals.fm_client_app = fm_client
+        v2g_globals.data_store = data_store
         v2g_globals.calendar_client = reservations_client
         v2g_globals.amber_price_data_manager = amber_price_data_manager
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager
@@ -99,8 +120,17 @@ class V2GLibertyApp(Hass):
         main_app.evse_client_app = modbus_evse_client
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
+        data_repairer.data_store = data_store
+        v2g_globals.data_repairer = data_repairer
         data_monitor.evse_client_app = modbus_evse_client
-        data_monitor.fm_client_app = fm_client
+        data_monitor.reservations_client = reservations_client
+        data_monitor.data_store = data_store
+        api_server.data_store = data_store
+        fm_data_sender.data_store = data_store
+        fm_data_sender.fm_client_app = fm_client
+        get_fm_data.data_store = data_store
+        amber_price_data_manager.data_store = data_store
+        octopus_price_data_manager.data_store = data_store
         get_fm_data.v2g_main_app = main_app
         get_fm_data.fm_client_app = fm_client
         amber_price_data_manager.fm_client_app = fm_client
@@ -122,16 +152,24 @@ class V2GLibertyApp(Hass):
         self._log_init_time("notifier.initialize()", start_module)
 
         start_module = datetime.now()
+        await data_store.initialise()
+        self._log_init_time("data_store.initialise()", start_module)
+
+        start_module = datetime.now()
+        await data_repairer.initialise()
+        self._log_init_time("data_repairer.initialise()", start_module)
+
+        start_module = datetime.now()
+        await api_server.initialise()
+        self._log_init_time("api_server.initialise()", start_module)
+
+        start_module = datetime.now()
         await amber_price_data_manager.initialize()
         self._log_init_time("amber_price_data_manager.initialize()", start_module)
 
         start_module = datetime.now()
         await v2g_globals.kick_off_settings()
         self._log_init_time("v2g_globals.kick_off_settings()", start_module)
-
-        start_module = datetime.now()
-        await main_app.kick_off_v2g_liberty(v2g_args="initialise")
-        self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
 
         start_module = datetime.now()
         await get_fm_data.initialize(
@@ -141,9 +179,20 @@ class V2GLibertyApp(Hass):
         )
         self._log_init_time("get_fm_data.initialize()", start_module)
 
+        # DataMonitor and FMDataSender must be initialised before
+        # kick_off_v2g_liberty, because set_active() emits the initial
+        # soc_change event that DataMonitor needs to catch.
         start_module = datetime.now()
         await data_monitor.initialize()
         self._log_init_time("data_monitor()", start_module)
+
+        start_module = datetime.now()
+        await fm_data_sender.initialize()
+        self._log_init_time("fm_data_sender()", start_module)
+
+        start_module = datetime.now()
+        await main_app.kick_off_v2g_liberty(v2g_args="initialise")
+        self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
 
         await main_app.log_versions()
 

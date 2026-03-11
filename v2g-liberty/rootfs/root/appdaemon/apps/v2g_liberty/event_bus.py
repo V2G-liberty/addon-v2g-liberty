@@ -83,6 +83,18 @@ class EventBus(AsyncIOEventEmitter):
         - **Arguments**:
             - `state` (str): connected state.
 
+    #### Data / stats related
+
+    - `today_energy_update`:
+        - **Description**: Emitted after each 5-min interval conclusion with
+          today's aggregated energy totals. Used to update homepage sensors.
+        - **Emitted by** data_monitor
+        - **Arguments**:
+            - `charge_kwh` (float): Total energy charged today in kWh.
+            - `charge_cost` (float): Total charge cost today in currency.
+            - `discharge_kwh` (float): Total energy discharged today in kWh.
+            - `discharge_revenue` (float): Total discharge revenue today in currency.
+
     """
 
     def __init__(self, hass: Hass):

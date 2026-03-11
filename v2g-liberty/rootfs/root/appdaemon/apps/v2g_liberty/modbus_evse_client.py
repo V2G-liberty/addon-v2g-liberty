@@ -817,7 +817,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                 if soc_in_charger in [None, 0]:
                     soc_in_charger = "unavailable"
                 await self.__update_evse_entity(
-                    evse_entity=ecs, new_value=soc_in_charger
+                    evse_entity=ecs,
+                    new_value=soc_in_charger,
+                    force_emit=do_not_use_cache,
                 )
             else:
                 self.__log("start a charge and read the soc until value is valid")
@@ -852,7 +854,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                     soc_in_charger = "unavailable"
                 # Do before restart polling
                 await self.__update_evse_entity(
-                    evse_entity=ecs, new_value=soc_in_charger
+                    evse_entity=ecs,
+                    new_value=soc_in_charger,
+                    force_emit=do_not_use_cache,
                 )
                 self.try_get_new_soc_in_process = False
 
@@ -987,16 +991,20 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self,
         evse_entity: dict,
         new_value,
+        force_emit: bool = False,
     ):
         """
         Update evse_entity.
         :param evse_entity: evse_entity
         :param new_value: new_value, can be "unavailable"
+        :param force_emit: if True, always fire the change handler even if the
+            value has not changed. Used by set_active to broadcast the current
+            state to all listeners on activation.
         :return: Nothing
         """
         current_value = evse_entity["current_value"]
 
-        if current_value != new_value:
+        if current_value != new_value or force_emit:
             evse_entity["current_value"] = new_value
             # Call change_handler if defined
             if "change_handler" in evse_entity.keys():

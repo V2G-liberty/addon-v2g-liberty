@@ -1,2 +1,72 @@
 {
+  "data-table": {
+    "granularity": {
+      "quarter_hours": "15 min",
+      "hours": "Uren",
+      "days": "Dagen",
+      "weeks": "Weken",
+      "months": "Maanden",
+      "years": "Jaren"
+    },
+    "now": "Nu",
+    "loading": "Data laden...",
+    "no-data": "Geen data voor deze periode",
+    "error": "Kon geen data laden. Probeer het opnieuw.",
+    "error-timeout": "Data laden duurde te lang. Probeer het later opnieuw.",
+    "all-time": "Alles",
+    "card-title": "Laden",
+    "app-state": {
+      "automatic": "Automatisch",
+      "charge": "Laden",
+      "discharge": "Ontladen",
+      "pause": "Pauze",
+      "max_boost": "Max boost",
+      "not_connected": "Niet verbonden",
+      "error": "Fout",
+      "unknown": "Onbekend",
+      "mixed": "andere staten"
+    },
+    "price-rating": {
+      "very-low": "Zeer laag",
+      "low": "Laag",
+      "average": "Gemiddeld",
+      "high": "Hoog",
+      "very-high": "Zeer hoog"
+    },
+    "col": {
+      "period": "Periode",
+      "status": "Status",
+      "soc": "SoC",
+      "consumption": "Inkoop",
+      "production": "Verkoop",
+      "avg-price": "Gem. prijs",
+      "rate": "Prijspeil",
+      "energy": "Energie",
+      "cost-revenue": "Netto kosten",
+      "charge": "Laden",
+      "charge-kwh": "Laden",
+      "charge-cost": "Laadkosten",
+      "discharge": "Ontladen",
+      "discharge-kwh": "Ontladen",
+      "discharge-revenue": "Ontlaadopbrengst",
+      "availability": "Beschikbaar",
+      "availability-tooltip": "Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.",
+      "net": "Netto",
+      "net-cost": "Netto kosten",
+      "cost": "Kosten",
+      "revenue": "Opbrengst",
+      "emissions": "Uitstoot"
+    },
+    "totals": {
+      "card-title": "Totalen",
+      "period": "Periode",
+      "soc-range": "SoC bereik",
+      "avg-cons-price": "Gem. cons. prijs",
+      "avg-prod-price": "Gem. prod. prijs",
+      "avg-price": "Gem. prijs",
+      "availability": "Beschikbaarheid"
+    },
+    "estimated-note": "Deels gebaseerd op geschatte data",
+    "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend."
+  }
 }

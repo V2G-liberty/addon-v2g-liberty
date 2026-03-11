@@ -52,6 +52,80 @@
     "nl_tibber": "Tibber",
     "no_generic": "xxx"
   },
+  "homepage-stats": {
+    "header": "Today",
+    "details": "details"
+  },
+  "data-table": {
+    "granularity": {
+      "quarter_hours": "15 min",
+      "hours": "Hours",
+      "days": "Days",
+      "weeks": "Weeks",
+      "months": "Months",
+      "years": "Years"
+    },
+    "now": "Now",
+    "loading": "Loading data...",
+    "no-data": "No data for this period",
+    "error": "Could not load data. Please try again.",
+    "error-timeout": "Loading timed out. Please try again later.",
+    "all-time": "All time",
+    "card-title": "Charging",
+    "app-state": {
+      "automatic": "Automatic",
+      "charge": "Charge",
+      "discharge": "Discharge",
+      "pause": "Pause",
+      "max_boost": "Max boost",
+      "not_connected": "Not connected",
+      "error": "Error",
+      "unknown": "Unknown",
+      "mixed": "other states"
+    },
+    "price-rating": {
+      "very-low": "Very low",
+      "low": "Low",
+      "average": "Average",
+      "high": "High",
+      "very-high": "Very high"
+    },
+    "col": {
+      "period": "Period",
+      "status": "Status",
+      "soc": "SoC",
+      "consumption": "Buy price",
+      "production": "Sell price",
+      "avg-price": "Avg. price",
+      "rate": "Price level",
+      "energy": "Energy",
+      "cost-revenue": "Net cost",
+      "charge": "Charge",
+      "charge-kwh": "Charge",
+      "charge-cost": "Charge cost",
+      "discharge": "Discharge",
+      "discharge-kwh": "Discharge",
+      "discharge-revenue": "Discharge revenue",
+      "availability": "Availability",
+      "availability-tooltip": "Percentage of the time the vehicle was connected and available for charging/discharging during this period.",
+      "net": "Net",
+      "net-cost": "Net cost",
+      "cost": "Cost",
+      "revenue": "Revenue",
+      "emissions": "Emissions"
+    },
+    "totals": {
+      "card-title": "Totals",
+      "period": "Period",
+      "soc-range": "SoC range",
+      "avg-cons-price": "Avg. cons. price",
+      "avg-prod-price": "Avg. prod. price",
+      "avg-price": "Avg. price",
+      "availability": "Availability"
+    },
+    "estimated-note": "Partly based on estimated data",
+    "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."
+  },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",
     "restarting": "Connection with V2G Liberty lost. Restarting...",

@@ -1,11 +1,13 @@
 """Module to initialise settings and CONSTANTS"""
 
+import asyncio
 import math
 from datetime import datetime, timedelta
 import pytz
 
 from appdaemon.plugins.hass.hassapi import Hass
 
+from .fm_historical_importer import run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -418,6 +420,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_charger_settings.result")
 
         await self.__initialise_charger_settings()
+        await self.__try_historical_import()
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
@@ -914,6 +917,9 @@ class V2GLibertyGlobals:
             setting_object=self.SCHEDULE_SETTINGS_INITIALISED
         )
         if not is_initialised:
+            self.hass.log(
+                "Historical import: skipping, FM client settings not yet configured."
+            )
             return
 
         c.FM_ACCOUNT_USERNAME = await self.__process_setting(
@@ -950,7 +956,54 @@ class V2GLibertyGlobals:
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
 
+        await self.__try_historical_import()
+
         self.__log("completed")
+
+    async def __try_historical_import(self):
+        """Attempt to start the historical import if all required settings are ready.
+
+        Checks that both schedule and charger settings have been initialised
+        before starting the import. The import itself is idempotent: if the
+        flag file already exists, nothing happens (checked in run_historical_import).
+
+        Note: car battery capacity (general settings) does not have its own
+        initialised boolean. Assess later whether a guard for this is needed.
+        """
+        schedule_ready = await self.__process_setting(
+            setting_object=self.SCHEDULE_SETTINGS_INITIALISED
+        )
+        charger_ready = await self.__process_setting(
+            setting_object=self.CHARGER_SETTINGS_INITIALISED
+        )
+        if not schedule_ready or not charger_ready:
+            self.__log(
+                "Historical import: deferred — not all settings configured yet "
+                f"(schedule={schedule_ready}, charger={charger_ready})."
+            )
+            return
+
+        # Use a plain closure rather than self.__log to avoid log_wrapper's
+        # frame inspection (which requires a 'self' in the caller's locals).
+        def _hist_log(msg, level="INFO"):
+            self.hass.log(msg, level=level)
+
+        repairer = getattr(self, "data_repairer", None)
+        on_import_complete = None
+        if repairer is not None:
+
+            def on_import_complete():
+                summary = repairer.run_full_repair()
+                repairer.write_report(summary)
+
+        asyncio.ensure_future(
+            run_historical_import(
+                self.data_store,
+                _hist_log,
+                self.fm_client_app.client,
+                on_complete=on_import_complete,
+            )
+        )
 
     async def __process_fm_sensors(self, sensors):
         self.__log("called")

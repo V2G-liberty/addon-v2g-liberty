@@ -2949,11 +2949,11 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Avg. cons. price","avg-prod-price":"Avg. prod. price","avg-price":"Avg. price","availability":"Availability"},"estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
-$4db9c280a88445d4$exports = JSON.parse("{}");
+$4db9c280a88445d4$exports = JSON.parse("{\"data-table\":{\"granularity\":{\"quarter_hours\":\"15 min\",\"hours\":\"Uren\",\"days\":\"Dagen\",\"weeks\":\"Weken\",\"months\":\"Maanden\",\"years\":\"Jaren\"},\"now\":\"Nu\",\"loading\":\"Data laden...\",\"no-data\":\"Geen data voor deze periode\",\"error\":\"Kon geen data laden. Probeer het opnieuw.\",\"error-timeout\":\"Data laden duurde te lang. Probeer het later opnieuw.\",\"all-time\":\"Alles\",\"card-title\":\"Laden\",\"app-state\":{\"automatic\":\"Automatisch\",\"charge\":\"Laden\",\"discharge\":\"Ontladen\",\"pause\":\"Pauze\",\"max_boost\":\"Max boost\",\"not_connected\":\"Niet verbonden\",\"error\":\"Fout\",\"unknown\":\"Onbekend\",\"mixed\":\"andere staten\"},\"price-rating\":{\"very-low\":\"Zeer laag\",\"low\":\"Laag\",\"average\":\"Gemiddeld\",\"high\":\"Hoog\",\"very-high\":\"Zeer hoog\"},\"col\":{\"period\":\"Periode\",\"status\":\"Status\",\"soc\":\"SoC\",\"consumption\":\"Inkoop\",\"production\":\"Verkoop\",\"avg-price\":\"Gem. prijs\",\"rate\":\"Prijspeil\",\"energy\":\"Energie\",\"cost-revenue\":\"Netto kosten\",\"charge\":\"Laden\",\"charge-kwh\":\"Laden\",\"charge-cost\":\"Laadkosten\",\"discharge\":\"Ontladen\",\"discharge-kwh\":\"Ontladen\",\"discharge-revenue\":\"Ontlaadopbrengst\",\"availability\":\"Beschikbaar\",\"availability-tooltip\":\"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.\",\"net\":\"Netto\",\"net-cost\":\"Netto kosten\",\"cost\":\"Kosten\",\"revenue\":\"Opbrengst\",\"emissions\":\"Uitstoot\"},\"totals\":{\"card-title\":\"Totalen\",\"period\":\"Periode\",\"soc-range\":\"SoC bereik\",\"avg-cons-price\":\"Gem. cons. prijs\",\"avg-prod-price\":\"Gem. prod. prijs\",\"avg-price\":\"Gem. prijs\",\"availability\":\"Beschikbaarheid\"},\"estimated-note\":\"Deels gebaseerd op geschatte data\",\"estimated-tooltip\":\"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.\"}}");
 
 
 const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
@@ -3082,6 +3082,974 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
 $c5d85a824175067e$export$b6e3440b5366703f = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-ping-card')
 ], $c5d85a824175067e$export$b6e3440b5366703f);
+
+
+
+
+
+var $8944235bd8be49ac$var$__assign = undefined && undefined.__assign || function() {
+    $8944235bd8be49ac$var$__assign = Object.assign || function(t) {
+        for(var s, i = 1, n = arguments.length; i < n; i++){
+            s = arguments[i];
+            for(var p in s)if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
+        }
+        return t;
+    };
+    return $8944235bd8be49ac$var$__assign.apply(this, arguments);
+};
+var $8944235bd8be49ac$var$MS_PER_SECOND = 1e3;
+var $8944235bd8be49ac$var$SECS_PER_MIN = 60;
+var $8944235bd8be49ac$var$SECS_PER_HOUR = $8944235bd8be49ac$var$SECS_PER_MIN * 60;
+var $8944235bd8be49ac$var$SECS_PER_DAY = $8944235bd8be49ac$var$SECS_PER_HOUR * 24;
+var $8944235bd8be49ac$var$SECS_PER_WEEK = $8944235bd8be49ac$var$SECS_PER_DAY * 7;
+function $8944235bd8be49ac$export$b8f7189986dd5395(from, to, thresholds) {
+    if (to === void 0) to = Date.now();
+    if (thresholds === void 0) thresholds = {};
+    var resolvedThresholds = $8944235bd8be49ac$var$__assign($8944235bd8be49ac$var$__assign({}, $8944235bd8be49ac$export$f4fd60e41371f80d), thresholds || {});
+    var secs = (+from - +to) / $8944235bd8be49ac$var$MS_PER_SECOND;
+    if (Math.abs(secs) < resolvedThresholds.second) return {
+        value: Math.round(secs),
+        unit: 'second'
+    };
+    var mins = secs / $8944235bd8be49ac$var$SECS_PER_MIN;
+    if (Math.abs(mins) < resolvedThresholds.minute) return {
+        value: Math.round(mins),
+        unit: 'minute'
+    };
+    var hours = secs / $8944235bd8be49ac$var$SECS_PER_HOUR;
+    if (Math.abs(hours) < resolvedThresholds.hour) return {
+        value: Math.round(hours),
+        unit: 'hour'
+    };
+    var days = secs / $8944235bd8be49ac$var$SECS_PER_DAY;
+    if (Math.abs(days) < resolvedThresholds.day) return {
+        value: Math.round(days),
+        unit: 'day'
+    };
+    var fromDate = new Date(from);
+    var toDate = new Date(to);
+    var years = fromDate.getFullYear() - toDate.getFullYear();
+    if (Math.round(Math.abs(years)) > 0) return {
+        value: Math.round(years),
+        unit: 'year'
+    };
+    var months = years * 12 + fromDate.getMonth() - toDate.getMonth();
+    if (Math.round(Math.abs(months)) > 0) return {
+        value: Math.round(months),
+        unit: 'month'
+    };
+    var weeks = secs / $8944235bd8be49ac$var$SECS_PER_WEEK;
+    return {
+        value: Math.round(weeks),
+        unit: 'week'
+    };
+}
+var $8944235bd8be49ac$export$f4fd60e41371f80d = {
+    second: 45,
+    minute: 45,
+    hour: 22,
+    day: 5
+};
+
+
+var $ee1328194d522913$export$27bce688931fdfcc, $ee1328194d522913$export$7fd1ce15b01d50ca, $ee1328194d522913$export$1a0dc7c974e8444d = function(e, t) {
+    return $ee1328194d522913$var$i(t).format(e);
+}, $ee1328194d522913$var$i = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        weekday: "long",
+        month: "long",
+        day: "numeric"
+    });
+}, $ee1328194d522913$export$3ae94a2503e890a1 = function(e, t) {
+    return $ee1328194d522913$var$o(t).format(e);
+}, $ee1328194d522913$var$o = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    });
+}, $ee1328194d522913$export$fbb9ef859002af37 = function(e, t) {
+    return $ee1328194d522913$var$c(t).format(e);
+}, $ee1328194d522913$var$c = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric"
+    });
+}, $ee1328194d522913$export$7813392c1f00426f = function(e, t) {
+    return $ee1328194d522913$var$s(t).format(e);
+}, $ee1328194d522913$var$s = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        day: "numeric",
+        month: "short"
+    });
+}, $ee1328194d522913$export$295e1e57d6713bf4 = function(e, t) {
+    return $ee1328194d522913$var$d(t).format(e);
+}, $ee1328194d522913$var$d = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        month: "long",
+        year: "numeric"
+    });
+}, $ee1328194d522913$export$cbc7ca92d37b9650 = function(e, t) {
+    return $ee1328194d522913$var$g(t).format(e);
+}, $ee1328194d522913$var$g = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        month: "long"
+    });
+}, $ee1328194d522913$export$5a252a405018366 = function(e, t) {
+    return $ee1328194d522913$var$h(t).format(e);
+}, $ee1328194d522913$var$h = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        year: "numeric"
+    });
+};
+!function(e) {
+    e.language = "language", e.system = "system", e.comma_decimal = "comma_decimal", e.decimal_comma = "decimal_comma", e.space_comma = "space_comma", e.none = "none";
+}($ee1328194d522913$export$27bce688931fdfcc || ($ee1328194d522913$export$27bce688931fdfcc = {})), function(e) {
+    e.language = "language", e.system = "system", e.am_pm = "12", e.twenty_four = "24";
+}($ee1328194d522913$export$7fd1ce15b01d50ca || ($ee1328194d522913$export$7fd1ce15b01d50ca = {}));
+var $ee1328194d522913$var$b = function(e) {
+    if (e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.language || e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.system) {
+        var t = e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.language ? e.language : void 0, n = (new Date).toLocaleString(t);
+        return n.includes("AM") || n.includes("PM");
+    }
+    return e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.am_pm;
+}, $ee1328194d522913$export$8b492ed8828f789c = function(e, t) {
+    return $ee1328194d522913$var$_(t).format(e);
+}, $ee1328194d522913$var$_ = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
+        minute: "2-digit",
+        hour12: $ee1328194d522913$var$b(e)
+    });
+}, $ee1328194d522913$export$c2c7ff0067c06a13 = function(e, t) {
+    return $ee1328194d522913$var$w(t).format(e);
+}, $ee1328194d522913$var$w = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: $ee1328194d522913$var$b(e)
+    });
+}, $ee1328194d522913$export$c8a72f22956ccab0 = function(e, t) {
+    return $ee1328194d522913$var$x(t).format(e);
+}, $ee1328194d522913$var$x = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: $ee1328194d522913$var$b(e)
+    });
+}, $ee1328194d522913$export$3203edd9e5edd663 = function(e, t) {
+    return $ee1328194d522913$var$S(t).format(e);
+}, $ee1328194d522913$var$S = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: $ee1328194d522913$var$b(e)
+    });
+}, $ee1328194d522913$export$ec86e83f20e68cd8 = function(e, t) {
+    return $ee1328194d522913$var$T(t).format(e);
+}, $ee1328194d522913$var$T = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: $ee1328194d522913$var$b(e)
+    });
+}, $ee1328194d522913$export$ad627f6ad084f5a2 = function(e, t) {
+    return $ee1328194d522913$var$N(t).format(e);
+}, $ee1328194d522913$var$N = function(e) {
+    return new Intl.DateTimeFormat(e.language, {
+        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: $ee1328194d522913$var$b(e)
+    });
+}, $ee1328194d522913$export$caddcc104251c1d7 = function(t, r, n, i) {
+    void 0 === i && (i = !0);
+    var a = (0, $8944235bd8be49ac$export$b8f7189986dd5395)(t, n);
+    return i ? (function(e) {
+        return new Intl.RelativeTimeFormat(e.language, {
+            numeric: "auto"
+        });
+    })(r).format(a.value, a.unit) : Intl.NumberFormat(r.language, {
+        style: "unit",
+        unit: a.unit,
+        unitDisplay: "long"
+    }).format(Math.abs(a.value));
+};
+function $ee1328194d522913$export$50fe296bd2427aef(e) {
+    var t, r = 3600 * (t = e.attributes.remaining.split(":").map(Number))[0] + 60 * t[1] + t[2];
+    if ("active" === e.state) {
+        var n = (new Date).getTime(), i = new Date(e.last_changed).getTime();
+        r = Math.max(r - (n - i) / 1e3, 0);
+    }
+    return r;
+}
+function $ee1328194d522913$var$O() {
+    return ($ee1328194d522913$var$O = Object.assign || function(e) {
+        for(var t = 1; t < arguments.length; t++){
+            var r = arguments[t];
+            for(var n in r)Object.prototype.hasOwnProperty.call(r, n) && (e[n] = r[n]);
+        }
+        return e;
+    }).apply(this, arguments);
+}
+var $ee1328194d522913$export$2a5af2efac2f8dc = function(e, t, r, n) {
+    void 0 === n && (n = !1), e._themes || (e._themes = {});
+    var i = t.default_theme;
+    ("default" === r || r && t.themes[r]) && (i = r);
+    var a = $ee1328194d522913$var$O({}, e._themes);
+    if ("default" !== i) {
+        var o = t.themes[i];
+        Object.keys(o).forEach(function(t) {
+            var r = "--" + t;
+            e._themes[r] = "", a[r] = o[t];
+        });
+    }
+    if (e.updateStyles ? e.updateStyles(a) : window.ShadyCSS && window.ShadyCSS.styleSubtree(e, a), n) {
+        var u = document.querySelector("meta[name=theme-color]");
+        if (u) {
+            u.hasAttribute("default-content") || u.setAttribute("default-content", u.getAttribute("content"));
+            var c = a["--primary-color"] || u.getAttribute("default-content");
+            u.setAttribute("content", c);
+        }
+    }
+}, $ee1328194d522913$export$67835a66b9f6da52 = function(e) {
+    return "function" == typeof e.getCardSize ? e.getCardSize() : 4;
+};
+function $ee1328194d522913$export$2044bdc9670769ab(e) {
+    return e.substr(0, e.indexOf("."));
+}
+function $ee1328194d522913$export$4c7757901b2ff860(e) {
+    return e.substr(e.indexOf(".") + 1);
+}
+function $ee1328194d522913$export$5cacf63e4bbfecae(e) {
+    var t, r = (null == e || null == (t = e.locale) ? void 0 : t.language) || "en";
+    return e.translationMetadata.translations[r] && e.translationMetadata.translations[r].isRTL || !1;
+}
+function $ee1328194d522913$export$703829fe2802931b(e) {
+    return $ee1328194d522913$export$5cacf63e4bbfecae(e) ? "rtl" : "ltr";
+}
+function $ee1328194d522913$export$5b7b50e8043fabe(e) {
+    return $ee1328194d522913$export$2044bdc9670769ab(e.entity_id);
+}
+var $ee1328194d522913$export$88bfc1035e667f37 = function(e) {
+    return !!e.attributes.unit_of_measurement || !!e.attributes.state_class;
+}, $ee1328194d522913$export$5e25e39d6a8c0c11 = function(e) {
+    switch(e.number_format){
+        case $ee1328194d522913$export$27bce688931fdfcc.comma_decimal:
+            return [
+                "en-US",
+                "en"
+            ];
+        case $ee1328194d522913$export$27bce688931fdfcc.decimal_comma:
+            return [
+                "de",
+                "es",
+                "it"
+            ];
+        case $ee1328194d522913$export$27bce688931fdfcc.space_comma:
+            return [
+                "fr",
+                "sv",
+                "cs"
+            ];
+        case $ee1328194d522913$export$27bce688931fdfcc.system:
+            return;
+        default:
+            return e.language;
+    }
+}, $ee1328194d522913$export$2077e0241d6afd3c = function(e, t) {
+    return void 0 === t && (t = 2), Math.round(e * Math.pow(10, t)) / Math.pow(10, t);
+}, $ee1328194d522913$export$f5dd818bff069720 = function(e, r, n) {
+    var i = r ? $ee1328194d522913$export$5e25e39d6a8c0c11(r) : void 0;
+    if (Number.isNaN = Number.isNaN || function e(t) {
+        return "number" == typeof t && e(t);
+    }, (null == r ? void 0 : r.number_format) !== $ee1328194d522913$export$27bce688931fdfcc.none && !Number.isNaN(Number(e)) && Intl) try {
+        return new Intl.NumberFormat(i, $ee1328194d522913$var$V(e, n)).format(Number(e));
+    } catch (t) {
+        return console.error(t), new Intl.NumberFormat(void 0, $ee1328194d522913$var$V(e, n)).format(Number(e));
+    }
+    return "string" == typeof e ? e : $ee1328194d522913$export$2077e0241d6afd3c(e, null == n ? void 0 : n.maximumFractionDigits).toString() + ("currency" === (null == n ? void 0 : n.style) ? " " + n.currency : "");
+}, $ee1328194d522913$var$V = function(e, t) {
+    var r = $ee1328194d522913$var$O({
+        maximumFractionDigits: 2
+    }, t);
+    if ("string" != typeof e) return r;
+    if (!t || !t.minimumFractionDigits && !t.maximumFractionDigits) {
+        var n = e.indexOf(".") > -1 ? e.split(".")[1].length : 0;
+        r.minimumFractionDigits = n, r.maximumFractionDigits = n;
+    }
+    return r;
+}, $ee1328194d522913$export$278f9ea9192cff94 = function(e, t, r, n) {
+    var i = void 0 !== n ? n : t.state;
+    if ("unknown" === i || "unavailable" === i) return e("state.default." + i);
+    if ($ee1328194d522913$export$88bfc1035e667f37(t)) {
+        if ("monetary" === t.attributes.device_class) try {
+            return $ee1328194d522913$export$f5dd818bff069720(i, r, {
+                style: "currency",
+                currency: t.attributes.unit_of_measurement
+            });
+        } catch (e) {}
+        return $ee1328194d522913$export$f5dd818bff069720(i, r) + (t.attributes.unit_of_measurement ? " " + t.attributes.unit_of_measurement : "");
+    }
+    var o = $ee1328194d522913$export$5b7b50e8043fabe(t);
+    if ("input_datetime" === o) {
+        var u;
+        if (void 0 === n) return t.attributes.has_date && t.attributes.has_time ? (u = new Date(t.attributes.year, t.attributes.month - 1, t.attributes.day, t.attributes.hour, t.attributes.minute), $ee1328194d522913$export$8b492ed8828f789c(u, r)) : t.attributes.has_date ? (u = new Date(t.attributes.year, t.attributes.month - 1, t.attributes.day), $ee1328194d522913$export$3ae94a2503e890a1(u, r)) : t.attributes.has_time ? ((u = new Date).setHours(t.attributes.hour, t.attributes.minute), $ee1328194d522913$export$3203edd9e5edd663(u, r)) : t.state;
+        try {
+            var c = n.split(" ");
+            if (2 === c.length) return $ee1328194d522913$export$8b492ed8828f789c(new Date(c.join("T")), r);
+            if (1 === c.length) {
+                if (n.includes("-")) return $ee1328194d522913$export$3ae94a2503e890a1(new Date(n + "T00:00"), r);
+                if (n.includes(":")) {
+                    var m = new Date;
+                    return $ee1328194d522913$export$3203edd9e5edd663(new Date(m.toISOString().split("T")[0] + "T" + n), r);
+                }
+            }
+            return n;
+        } catch (e) {
+            return n;
+        }
+    }
+    return "humidifier" === o && "on" === i && t.attributes.humidity ? t.attributes.humidity + " %" : "counter" === o || "number" === o || "input_number" === o ? $ee1328194d522913$export$f5dd818bff069720(i, r) : t.attributes.device_class && e("component." + o + ".state." + t.attributes.device_class + "." + i) || e("component." + o + ".state._." + i) || i;
+}, $ee1328194d522913$export$25978a5d5a562f09 = "mdi:bookmark", $ee1328194d522913$export$f78a3169a0f9f31b = "lovelace", $ee1328194d522913$export$6df9924792233bc = [
+    "climate",
+    "cover",
+    "configurator",
+    "input_select",
+    "input_number",
+    "input_text",
+    "lock",
+    "media_player",
+    "scene",
+    "script",
+    "timer",
+    "vacuum",
+    "water_heater",
+    "weblink"
+], $ee1328194d522913$export$b9a2b37e93bb73f2 = [
+    "alarm_control_panel",
+    "automation",
+    "camera",
+    "climate",
+    "configurator",
+    "cover",
+    "fan",
+    "group",
+    "history_graph",
+    "input_datetime",
+    "light",
+    "lock",
+    "media_player",
+    "script",
+    "sun",
+    "updater",
+    "vacuum",
+    "water_heater",
+    "weather"
+], $ee1328194d522913$export$ca927753507128f6 = [
+    "input_number",
+    "input_select",
+    "input_text",
+    "scene",
+    "weblink"
+], $ee1328194d522913$export$60e836dfbaf943c5 = [
+    "camera",
+    "configurator",
+    "history_graph",
+    "scene"
+], $ee1328194d522913$export$23bace2b7923e5d1 = [
+    "closed",
+    "locked",
+    "off"
+], $ee1328194d522913$export$1b64f44bed0feb66 = new Set([
+    "fan",
+    "input_boolean",
+    "light",
+    "switch",
+    "group",
+    "automation"
+]), $ee1328194d522913$export$3ed39d80c7b24b62 = "\xb0C", $ee1328194d522913$export$5c7f540eb0eef6a6 = "\xb0F", $ee1328194d522913$export$2c7beb20637e0bd1 = "group.default_view", $ee1328194d522913$export$43835e9acf248a15 = function(e, t, r, n) {
+    n = n || {}, r = null == r ? {} : r;
+    var i = new Event(t, {
+        bubbles: void 0 === n.bubbles || n.bubbles,
+        cancelable: Boolean(n.cancelable),
+        composed: void 0 === n.composed || n.composed
+    });
+    return i.detail = r, e.dispatchEvent(i), i;
+}, $ee1328194d522913$var$ie = new Set([
+    "call-service",
+    "divider",
+    "section",
+    "weblink",
+    "cast",
+    "select"
+]), $ee1328194d522913$var$ae = {
+    alert: "toggle",
+    automation: "toggle",
+    climate: "climate",
+    cover: "cover",
+    fan: "toggle",
+    group: "group",
+    input_boolean: "toggle",
+    input_number: "input-number",
+    input_select: "input-select",
+    input_text: "input-text",
+    light: "toggle",
+    lock: "lock",
+    media_player: "media-player",
+    remote: "toggle",
+    scene: "scene",
+    script: "script",
+    sensor: "sensor",
+    timer: "timer",
+    switch: "toggle",
+    vacuum: "toggle",
+    water_heater: "climate",
+    input_datetime: "input-datetime"
+}, $ee1328194d522913$export$5ad555b55cd85e0c = function(e, t) {
+    void 0 === t && (t = !1);
+    var r = function(e, t) {
+        return n("hui-error-card", {
+            type: "error",
+            error: e,
+            config: t
+        });
+    }, n = function(e, t) {
+        var n = window.document.createElement(e);
+        try {
+            if (!n.setConfig) return;
+            n.setConfig(t);
+        } catch (n) {
+            return console.error(e, n), r(n.message, t);
+        }
+        return n;
+    };
+    if (!e || "object" != typeof e || !t && !e.type) return r("No type defined", e);
+    var i = e.type;
+    if (i && i.startsWith("custom:")) i = i.substr(7);
+    else if (t) {
+        if ($ee1328194d522913$var$ie.has(i)) i = "hui-" + i + "-row";
+        else {
+            if (!e.entity) return r("Invalid config given.", e);
+            var a = e.entity.split(".", 1)[0];
+            i = "hui-" + ($ee1328194d522913$var$ae[a] || "text") + "-entity-row";
+        }
+    } else i = "hui-" + i + "-card";
+    if (customElements.get(i)) return n(i, e);
+    var o = r("Custom element doesn't exist: " + e.type + ".", e);
+    o.style.display = "None";
+    var u = setTimeout(function() {
+        o.style.display = "";
+    }, 2e3);
+    return customElements.whenDefined(e.type).then(function() {
+        clearTimeout(u), $ee1328194d522913$export$43835e9acf248a15(o, "ll-rebuild", {}, o);
+    }), o;
+}, $ee1328194d522913$export$61fc7d43ac8f84b0 = function(e, t, r) {
+    var n;
+    return void 0 === r && (r = !1), function() {
+        var i = [].slice.call(arguments), a = this, o = function() {
+            n = null, r || e.apply(a, i);
+        }, u = r && !n;
+        clearTimeout(n), n = setTimeout(o, t), u && e.apply(a, i);
+    };
+}, $ee1328194d522913$export$a76407ec79ca4ea3 = {
+    alert: "mdi:alert",
+    automation: "mdi:playlist-play",
+    calendar: "mdi:calendar",
+    camera: "mdi:video",
+    climate: "mdi:thermostat",
+    configurator: "mdi:settings",
+    conversation: "mdi:text-to-speech",
+    device_tracker: "mdi:account",
+    fan: "mdi:fan",
+    group: "mdi:google-circles-communities",
+    history_graph: "mdi:chart-line",
+    homeassistant: "mdi:home-assistant",
+    homekit: "mdi:home-automation",
+    image_processing: "mdi:image-filter-frames",
+    input_boolean: "mdi:drawing",
+    input_datetime: "mdi:calendar-clock",
+    input_number: "mdi:ray-vertex",
+    input_select: "mdi:format-list-bulleted",
+    input_text: "mdi:textbox",
+    light: "mdi:lightbulb",
+    mailbox: "mdi:mailbox",
+    notify: "mdi:comment-alert",
+    person: "mdi:account",
+    plant: "mdi:flower",
+    proximity: "mdi:apple-safari",
+    remote: "mdi:remote",
+    scene: "mdi:google-pages",
+    script: "mdi:file-document",
+    sensor: "mdi:eye",
+    simple_alarm: "mdi:bell",
+    sun: "mdi:white-balance-sunny",
+    switch: "mdi:flash",
+    timer: "mdi:timer",
+    updater: "mdi:cloud-upload",
+    vacuum: "mdi:robot-vacuum",
+    water_heater: "mdi:thermometer",
+    weblink: "mdi:open-in-new"
+};
+function $ee1328194d522913$export$13fcd5035aa1446(e, t) {
+    if (e in $ee1328194d522913$export$a76407ec79ca4ea3) return $ee1328194d522913$export$a76407ec79ca4ea3[e];
+    switch(e){
+        case "alarm_control_panel":
+            switch(t){
+                case "armed_home":
+                    return "mdi:bell-plus";
+                case "armed_night":
+                    return "mdi:bell-sleep";
+                case "disarmed":
+                    return "mdi:bell-outline";
+                case "triggered":
+                    return "mdi:bell-ring";
+                default:
+                    return "mdi:bell";
+            }
+        case "binary_sensor":
+            return t && "off" === t ? "mdi:radiobox-blank" : "mdi:checkbox-marked-circle";
+        case "cover":
+            return "closed" === t ? "mdi:window-closed" : "mdi:window-open";
+        case "lock":
+            return t && "unlocked" === t ? "mdi:lock-open" : "mdi:lock";
+        case "media_player":
+            return t && "off" !== t && "idle" !== t ? "mdi:cast-connected" : "mdi:cast";
+        case "zwave":
+            switch(t){
+                case "dead":
+                    return "mdi:emoticon-dead";
+                case "sleeping":
+                    return "mdi:sleep";
+                case "initializing":
+                    return "mdi:timer-sand";
+                default:
+                    return "mdi:z-wave";
+            }
+        default:
+            return console.warn("Unable to find icon for domain " + e + " (" + t + ")"), "mdi:bookmark";
+    }
+}
+var $ee1328194d522913$export$e2b36fa5c60547b2 = function(e, t) {
+    var r = t.value || t, n = t.attribute ? e.attributes[t.attribute] : e.state;
+    switch(t.operator || "=="){
+        case "==":
+            return n === r;
+        case "<=":
+            return n <= r;
+        case "<":
+            return n < r;
+        case ">=":
+            return n >= r;
+        case ">":
+            return n > r;
+        case "!=":
+            return n !== r;
+        case "regex":
+            return n.match(r);
+        default:
+            return !1;
+    }
+}, $ee1328194d522913$export$8bcf112cf396c716 = function(e) {
+    $ee1328194d522913$export$43835e9acf248a15(window, "haptic", e);
+}, $ee1328194d522913$export$ff7962acd6052c28 = function(e, t, r) {
+    void 0 === r && (r = !1), r ? history.replaceState(null, "", t) : history.pushState(null, "", t), $ee1328194d522913$export$43835e9acf248a15(window, "location-changed", {
+        replace: r
+    });
+}, $ee1328194d522913$export$3303cc16da6bc061 = function(e, t, r) {
+    void 0 === r && (r = !0);
+    var n, i = $ee1328194d522913$export$2044bdc9670769ab(t), a = "group" === i ? "homeassistant" : i;
+    switch(i){
+        case "lock":
+            n = r ? "unlock" : "lock";
+            break;
+        case "cover":
+            n = r ? "open_cover" : "close_cover";
+            break;
+        default:
+            n = r ? "turn_on" : "turn_off";
+    }
+    return e.callService(a, n, {
+        entity_id: t
+    });
+}, $ee1328194d522913$export$4f6896672dcf12b1 = function(e, t) {
+    var r = $ee1328194d522913$export$23bace2b7923e5d1.includes(e.states[t].state);
+    return $ee1328194d522913$export$3303cc16da6bc061(e, t, r);
+}, $ee1328194d522913$export$fe63bc0ae3396800 = function(e, t, r, n) {
+    if (n || (n = {
+        action: "more-info"
+    }), !n.confirmation || n.confirmation.exemptions && n.confirmation.exemptions.some(function(e) {
+        return e.user === t.user.id;
+    }) || ($ee1328194d522913$export$8bcf112cf396c716("warning"), confirm(n.confirmation.text || "Are you sure you want to " + n.action + "?"))) switch(n.action){
+        case "more-info":
+            (r.entity || r.camera_image) && $ee1328194d522913$export$43835e9acf248a15(e, "hass-more-info", {
+                entityId: r.entity ? r.entity : r.camera_image
+            });
+            break;
+        case "navigate":
+            n.navigation_path && $ee1328194d522913$export$ff7962acd6052c28(0, n.navigation_path);
+            break;
+        case "url":
+            n.url_path && window.open(n.url_path);
+            break;
+        case "toggle":
+            r.entity && ($ee1328194d522913$export$4f6896672dcf12b1(t, r.entity), $ee1328194d522913$export$8bcf112cf396c716("success"));
+            break;
+        case "call-service":
+            if (!n.service) return void $ee1328194d522913$export$8bcf112cf396c716("failure");
+            var i = n.service.split(".", 2);
+            t.callService(i[0], i[1], n.service_data, n.target), $ee1328194d522913$export$8bcf112cf396c716("success");
+            break;
+        case "fire-dom-event":
+            $ee1328194d522913$export$43835e9acf248a15(e, "ll-custom", n);
+    }
+}, $ee1328194d522913$export$6c6c3f4b7541eaf1 = function(e, t, r, n) {
+    var i;
+    "double_tap" === n && r.double_tap_action ? i = r.double_tap_action : "hold" === n && r.hold_action ? i = r.hold_action : "tap" === n && r.tap_action && (i = r.tap_action), $ee1328194d522913$export$fe63bc0ae3396800(e, t, r, i);
+}, $ee1328194d522913$export$b981489921ee18cd = function(e, t, r, n, i) {
+    var a;
+    if (i && r.double_tap_action ? a = r.double_tap_action : n && r.hold_action ? a = r.hold_action : !n && r.tap_action && (a = r.tap_action), a || (a = {
+        action: "more-info"
+    }), !a.confirmation || a.confirmation.exemptions && a.confirmation.exemptions.some(function(e) {
+        return e.user === t.user.id;
+    }) || confirm(a.confirmation.text || "Are you sure you want to " + a.action + "?")) switch(a.action){
+        case "more-info":
+            (a.entity || r.entity || r.camera_image) && ($ee1328194d522913$export$43835e9acf248a15(e, "hass-more-info", {
+                entityId: a.entity ? a.entity : r.entity ? r.entity : r.camera_image
+            }), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic));
+            break;
+        case "navigate":
+            a.navigation_path && ($ee1328194d522913$export$ff7962acd6052c28(0, a.navigation_path), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic));
+            break;
+        case "url":
+            a.url_path && window.open(a.url_path), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic);
+            break;
+        case "toggle":
+            r.entity && ($ee1328194d522913$export$4f6896672dcf12b1(t, r.entity), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic));
+            break;
+        case "call-service":
+            if (!a.service) return;
+            var o = a.service.split(".", 2), u = o[0], c = o[1], m = $ee1328194d522913$var$O({}, a.service_data);
+            "entity" === m.entity_id && (m.entity_id = r.entity), t.callService(u, c, m, a.target), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic);
+            break;
+        case "fire-dom-event":
+            $ee1328194d522913$export$43835e9acf248a15(e, "ll-custom", a), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic);
+    }
+};
+function $ee1328194d522913$export$e217e69099d082f5(e) {
+    return void 0 !== e && "none" !== e.action;
+}
+function $ee1328194d522913$export$695b4dbcc1028091(e, t, r) {
+    if (t.has("config") || r) return !0;
+    if (e.config.entity) {
+        var n = t.get("hass");
+        return !n || n.states[e.config.entity] !== e.hass.states[e.config.entity];
+    }
+    return !1;
+}
+function $ee1328194d522913$export$72d503079d05a3cf(e) {
+    return void 0 !== e && "none" !== e.action;
+}
+var $ee1328194d522913$export$8d080c28108db9dd = function(e, t, r) {
+    void 0 === r && (r = !0);
+    var n = {};
+    t.forEach(function(t) {
+        if ($ee1328194d522913$export$23bace2b7923e5d1.includes(e.states[t].state) === r) {
+            var i = $ee1328194d522913$export$2044bdc9670769ab(t), a = [
+                "cover",
+                "lock"
+            ].includes(i) ? i : "homeassistant";
+            a in n || (n[a] = []), n[a].push(t);
+        }
+    }), Object.keys(n).forEach(function(t) {
+        var i;
+        switch(t){
+            case "lock":
+                i = r ? "unlock" : "lock";
+                break;
+            case "cover":
+                i = r ? "open_cover" : "close_cover";
+                break;
+            default:
+                i = r ? "turn_on" : "turn_off";
+        }
+        e.callService(t, i, {
+            entity_id: n[t]
+        });
+    });
+}, $ee1328194d522913$export$b5e56594b0d6a61e = function() {
+    var e = document.querySelector("home-assistant");
+    if (e = (e = (e = (e = (e = (e = (e = (e = e && e.shadowRoot) && e.querySelector("home-assistant-main")) && e.shadowRoot) && e.querySelector("app-drawer-layout partial-panel-resolver")) && e.shadowRoot || e) && e.querySelector("ha-panel-lovelace")) && e.shadowRoot) && e.querySelector("hui-root")) {
+        var t = e.lovelace;
+        return t.current_view = e.___curView, t;
+    }
+    return null;
+}, $ee1328194d522913$var$xe = {
+    humidity: "mdi:water-percent",
+    illuminance: "mdi:brightness-5",
+    temperature: "mdi:thermometer",
+    pressure: "mdi:gauge",
+    power: "mdi:flash",
+    signal_strength: "mdi:wifi"
+}, $ee1328194d522913$var$De = {
+    binary_sensor: function(e, t) {
+        var r = "off" === e;
+        switch(null == t ? void 0 : t.attributes.device_class){
+            case "battery":
+                return r ? "mdi:battery" : "mdi:battery-outline";
+            case "battery_charging":
+                return r ? "mdi:battery" : "mdi:battery-charging";
+            case "cold":
+                return r ? "mdi:thermometer" : "mdi:snowflake";
+            case "connectivity":
+                return r ? "mdi:server-network-off" : "mdi:server-network";
+            case "door":
+                return r ? "mdi:door-closed" : "mdi:door-open";
+            case "garage_door":
+                return r ? "mdi:garage" : "mdi:garage-open";
+            case "power":
+                return r ? "mdi:power-plug-off" : "mdi:power-plug";
+            case "gas":
+            case "problem":
+            case "safety":
+            case "tamper":
+                return r ? "mdi:check-circle" : "mdi:alert-circle";
+            case "smoke":
+                return r ? "mdi:check-circle" : "mdi:smoke";
+            case "heat":
+                return r ? "mdi:thermometer" : "mdi:fire";
+            case "light":
+                return r ? "mdi:brightness-5" : "mdi:brightness-7";
+            case "lock":
+                return r ? "mdi:lock" : "mdi:lock-open";
+            case "moisture":
+                return r ? "mdi:water-off" : "mdi:water";
+            case "motion":
+                return r ? "mdi:walk" : "mdi:run";
+            case "occupancy":
+                return r ? "mdi:home-outline" : "mdi:home";
+            case "opening":
+                return r ? "mdi:square" : "mdi:square-outline";
+            case "plug":
+                return r ? "mdi:power-plug-off" : "mdi:power-plug";
+            case "presence":
+                return r ? "mdi:home-outline" : "mdi:home";
+            case "running":
+                return r ? "mdi:stop" : "mdi:play";
+            case "sound":
+                return r ? "mdi:music-note-off" : "mdi:music-note";
+            case "update":
+                return r ? "mdi:package" : "mdi:package-up";
+            case "vibration":
+                return r ? "mdi:crop-portrait" : "mdi:vibrate";
+            case "window":
+                return r ? "mdi:window-closed" : "mdi:window-open";
+            default:
+                return r ? "mdi:radiobox-blank" : "mdi:checkbox-marked-circle";
+        }
+    },
+    cover: function(e) {
+        var t = "closed" !== e.state;
+        switch(e.attributes.device_class){
+            case "garage":
+                return t ? "mdi:garage-open" : "mdi:garage";
+            case "door":
+                return t ? "mdi:door-open" : "mdi:door-closed";
+            case "shutter":
+                return t ? "mdi:window-shutter-open" : "mdi:window-shutter";
+            case "blind":
+                return t ? "mdi:blinds-open" : "mdi:blinds";
+            case "window":
+                return t ? "mdi:window-open" : "mdi:window-closed";
+            default:
+                return $ee1328194d522913$export$13fcd5035aa1446("cover", e.state);
+        }
+    },
+    sensor: function(e) {
+        var t = e.attributes.device_class;
+        if (t && t in $ee1328194d522913$var$xe) return $ee1328194d522913$var$xe[t];
+        if ("battery" === t) {
+            var r = Number(e.state);
+            if (isNaN(r)) return "mdi:battery-unknown";
+            var n = 10 * Math.round(r / 10);
+            return n >= 100 ? "mdi:battery" : n <= 0 ? "mdi:battery-alert" : "hass:battery-" + n;
+        }
+        var i = e.attributes.unit_of_measurement;
+        return "\xb0C" === i || "\xb0F" === i ? "mdi:thermometer" : $ee1328194d522913$export$13fcd5035aa1446("sensor");
+    },
+    input_datetime: function(e) {
+        return e.attributes.has_date ? e.attributes.has_time ? $ee1328194d522913$export$13fcd5035aa1446("input_datetime") : "mdi:calendar" : "mdi:clock";
+    }
+}, $ee1328194d522913$export$d138d1363acbec1f = function(e) {
+    if (!e) return "mdi:bookmark";
+    if (e.attributes.icon) return e.attributes.icon;
+    var t = $ee1328194d522913$export$2044bdc9670769ab(e.entity_id);
+    return t in $ee1328194d522913$var$De ? $ee1328194d522913$var$De[t](e) : $ee1328194d522913$export$13fcd5035aa1446(t, e.state);
+};
+
+
+
+// Administrator
+const $755a87c9ee93218f$export$e912a4111e48f543 = 'input_boolean.admin_settings_initialised';
+const $755a87c9ee93218f$export$750f693c799177e2 = 'input_text.admin_mobile_name';
+const $755a87c9ee93218f$export$d70389959f86dee4 = 'input_select.admin_mobile_platform';
+const $755a87c9ee93218f$export$511a96d8a8b167fa = 'input_number.car_max_capacity_in_kwh';
+const $755a87c9ee93218f$export$7c53730103b0e952 = 'input_number.charger_plus_car_roundtrip_efficiency';
+const $755a87c9ee93218f$export$a6bd64d0b150c939 = 'input_number.car_consumption_wh_per_km';
+const $755a87c9ee93218f$export$327a7fa57ac6cc54 = 'input_boolean.calendar_settings_initialised';
+const $755a87c9ee93218f$export$9c93c6d1ceae75f4 = 'input_text.car_calendar_source';
+const $755a87c9ee93218f$export$2af59ed4d7901cb0 = 'input_text.calendar_account_init_url';
+const $755a87c9ee93218f$export$aafb3ebed7fe4af1 = 'input_text.calendar_account_username';
+const $755a87c9ee93218f$export$9f5a291b67022977 = 'input_text.calendar_account_password';
+const $755a87c9ee93218f$export$b324c5213ab1689e = 'sensor.calendar_account_connection_status';
+const $755a87c9ee93218f$export$7caca1b153da5c06 = 'input_text.car_calendar_name';
+const $755a87c9ee93218f$export$500ee9ae1b823337 = 'input_text.integration_calendar_entity_name';
+const $755a87c9ee93218f$export$2b7224725565ef34 = 'input_boolean.charger_settings_initialised';
+const $755a87c9ee93218f$export$bb6b29d6e8205d89 = 'input_text.charger_host_url';
+const $755a87c9ee93218f$export$6b510d2e1eeb3e11 = 'input_number.charger_port';
+const $755a87c9ee93218f$export$daa3d3280ce4a564 = 'sensor.charger_connection_status';
+const $755a87c9ee93218f$export$2afa365a5af4c631 = 'sensor.charger_max_available_power';
+const $755a87c9ee93218f$export$c541138e582b8ea2 = 'input_boolean.use_reduced_max_charge_power';
+const $755a87c9ee93218f$export$7644ad7394071de6 = 'input_number.charger_max_charging_power';
+const $755a87c9ee93218f$export$8a6641dff4159913 = 'input_number.charger_max_discharging_power';
+const $755a87c9ee93218f$export$f48daca8eb58f881 = 'sensor.quasar_loadbalancer_limit';
+const $755a87c9ee93218f$export$6803b8e9884353c8 = 'input_boolean.electricity_contract_settings_initialised';
+const $755a87c9ee93218f$export$6106300be9012ff7 = 'input_select.electricity_provider';
+const $755a87c9ee93218f$export$8f62940f89c0da8a = 'input_number.energy_price_vat';
+const $755a87c9ee93218f$export$50c9c5ee61c4032 = 'input_number.energy_price_markup_per_kwh';
+const $755a87c9ee93218f$export$41b3f48b3847d98f = 'input_text.own_consumption_price_entity_id';
+const $755a87c9ee93218f$export$30f7c2c4e2d9b638 = 'input_text.own_production_price_entity_id';
+const $755a87c9ee93218f$export$7264ac5bb217f690 = 'input_text.octopus_import_code';
+const $755a87c9ee93218f$export$43beb8995cb3e288 = 'input_text.octopus_export_code';
+const $755a87c9ee93218f$export$54e0b838c6a76104 = 'input_select.gb_dno_region';
+const $755a87c9ee93218f$export$29a786ee773985a = 'input_select.optimisation_mode';
+const $755a87c9ee93218f$export$a81a922cb2dc8458 = 'input_number.car_min_soc_in_percent';
+const $755a87c9ee93218f$export$e39cc2ab91dbbf48 = 'input_number.car_max_soc_in_percent';
+const $755a87c9ee93218f$export$bcf5813544a68726 = 'input_number.allowed_duration_above_max_soc_in_hrs';
+const $755a87c9ee93218f$export$20d139f4f3aeb4ae = 'sensor.v2g_liberty_charged_today_kwh';
+const $755a87c9ee93218f$export$909fe49ce6b9cee5 = 'sensor.v2g_liberty_charge_cost_today';
+const $755a87c9ee93218f$export$5fb82d6848912fff = 'sensor.v2g_liberty_discharged_today_kwh';
+const $755a87c9ee93218f$export$902d3045499efd0e = 'sensor.v2g_liberty_discharge_revenue_today';
+const $755a87c9ee93218f$export$bcc5761a4d7674a4 = 'input_boolean.schedule_settings_initialised';
+const $755a87c9ee93218f$export$e3ef81d1214ac426 = 'input_text.fm_account_username';
+const $755a87c9ee93218f$export$4b92bff470c6dd52 = 'input_text.fm_account_password';
+const $755a87c9ee93218f$export$c7d1877b110c2f09 = 'input_boolean.fm_show_option_to_change_url';
+const $755a87c9ee93218f$export$f1a0886b70e9e963 = 'input_text.fm_host_url';
+const $755a87c9ee93218f$export$82372843d513f2af = 'sensor.fm_connection_status';
+const $755a87c9ee93218f$export$7df7f7ac9cecee8f = 'input_text.fm_asset';
+
+
+const $bdc495d85e37df85$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('homepage-stats');
+class $bdc495d85e37df85$export$29eee0da9bbd43dd extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(config) {}
+    set hass(hass) {
+        this._hass = hass;
+        this._chargedKwh = hass.states[$755a87c9ee93218f$export$20d139f4f3aeb4ae];
+        this._chargeCost = hass.states[$755a87c9ee93218f$export$909fe49ce6b9cee5];
+        this._dischargedKwh = hass.states[$755a87c9ee93218f$export$5fb82d6848912fff];
+        this._dischargeRevenue = hass.states[$755a87c9ee93218f$export$902d3045499efd0e];
+    }
+    _navigateToData() {
+        (0, $ee1328194d522913$export$ff7962acd6052c28)(this._hass, '/lovelace-yaml/data', true);
+    }
+    render() {
+        const chargeCost = this._parseNumber(this._chargeCost);
+        const dischargeRevenue = this._parseNumber(this._dischargeRevenue);
+        const chargedKwh = this._parseNumber(this._chargedKwh);
+        const netCost = chargeCost - dischargeRevenue;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-card @click=${this._navigateToData}>
+        <div class="header">
+          <span class="title">${$bdc495d85e37df85$var$tp('header')}</span>
+          <span class="details-link">${$bdc495d85e37df85$var$tp('details')} <ha-icon icon="mdi:chevron-right"></ha-icon></span>
+        </div>
+        <div class="values">
+          <span class="cost">${this._formatNetCost(netCost)}</span>
+          <span class="kwh">${chargedKwh.toFixed(2)} kWh</span>
+        </div>
+      </ha-card>
+    `;
+    }
+    _parseNumber(entity) {
+        if (!entity || entity.state === 'unavailable' || entity.state === 'unknown') return 0;
+        const val = parseFloat(entity.state);
+        return isNaN(val) ? 0 : val;
+    }
+    _formatNetCost(value) {
+        if (value < 0) return `- \u20AC ${Math.abs(value).toFixed(2)}`;
+        return `\u20AC ${value.toFixed(2)}`;
+    }
+    static{
+        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+    ha-card {
+      cursor: pointer;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title {
+      color: var(--secondary-text-color);
+      font-size: 14px;
+    }
+    .details-link {
+      display: flex;
+      align-items: center;
+      color: var(--primary-color);
+      font-size: 14px;
+    }
+    .details-link ha-icon {
+      --mdc-icon-size: 18px;
+    }
+    .values {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-top: 8px;
+    }
+    .cost,
+    .kwh {
+      font-size: 28px;
+      font-weight: 500;
+    }
+  `;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $bdc495d85e37df85$export$29eee0da9bbd43dd.prototype, "_chargedKwh", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $bdc495d85e37df85$export$29eee0da9bbd43dd.prototype, "_chargeCost", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $bdc495d85e37df85$export$29eee0da9bbd43dd.prototype, "_dischargedKwh", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $bdc495d85e37df85$export$29eee0da9bbd43dd.prototype, "_dischargeRevenue", void 0);
+$bdc495d85e37df85$export$29eee0da9bbd43dd = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-homepage-stats-card')
+], $bdc495d85e37df85$export$29eee0da9bbd43dd);
+
+
+
+
+
+
 
 
 
@@ -10846,826 +11814,6 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
   `;
 
 
-var $8944235bd8be49ac$var$__assign = undefined && undefined.__assign || function() {
-    $8944235bd8be49ac$var$__assign = Object.assign || function(t) {
-        for(var s, i = 1, n = arguments.length; i < n; i++){
-            s = arguments[i];
-            for(var p in s)if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
-        }
-        return t;
-    };
-    return $8944235bd8be49ac$var$__assign.apply(this, arguments);
-};
-var $8944235bd8be49ac$var$MS_PER_SECOND = 1e3;
-var $8944235bd8be49ac$var$SECS_PER_MIN = 60;
-var $8944235bd8be49ac$var$SECS_PER_HOUR = $8944235bd8be49ac$var$SECS_PER_MIN * 60;
-var $8944235bd8be49ac$var$SECS_PER_DAY = $8944235bd8be49ac$var$SECS_PER_HOUR * 24;
-var $8944235bd8be49ac$var$SECS_PER_WEEK = $8944235bd8be49ac$var$SECS_PER_DAY * 7;
-function $8944235bd8be49ac$export$b8f7189986dd5395(from, to, thresholds) {
-    if (to === void 0) to = Date.now();
-    if (thresholds === void 0) thresholds = {};
-    var resolvedThresholds = $8944235bd8be49ac$var$__assign($8944235bd8be49ac$var$__assign({}, $8944235bd8be49ac$export$f4fd60e41371f80d), thresholds || {});
-    var secs = (+from - +to) / $8944235bd8be49ac$var$MS_PER_SECOND;
-    if (Math.abs(secs) < resolvedThresholds.second) return {
-        value: Math.round(secs),
-        unit: 'second'
-    };
-    var mins = secs / $8944235bd8be49ac$var$SECS_PER_MIN;
-    if (Math.abs(mins) < resolvedThresholds.minute) return {
-        value: Math.round(mins),
-        unit: 'minute'
-    };
-    var hours = secs / $8944235bd8be49ac$var$SECS_PER_HOUR;
-    if (Math.abs(hours) < resolvedThresholds.hour) return {
-        value: Math.round(hours),
-        unit: 'hour'
-    };
-    var days = secs / $8944235bd8be49ac$var$SECS_PER_DAY;
-    if (Math.abs(days) < resolvedThresholds.day) return {
-        value: Math.round(days),
-        unit: 'day'
-    };
-    var fromDate = new Date(from);
-    var toDate = new Date(to);
-    var years = fromDate.getFullYear() - toDate.getFullYear();
-    if (Math.round(Math.abs(years)) > 0) return {
-        value: Math.round(years),
-        unit: 'year'
-    };
-    var months = years * 12 + fromDate.getMonth() - toDate.getMonth();
-    if (Math.round(Math.abs(months)) > 0) return {
-        value: Math.round(months),
-        unit: 'month'
-    };
-    var weeks = secs / $8944235bd8be49ac$var$SECS_PER_WEEK;
-    return {
-        value: Math.round(weeks),
-        unit: 'week'
-    };
-}
-var $8944235bd8be49ac$export$f4fd60e41371f80d = {
-    second: 45,
-    minute: 45,
-    hour: 22,
-    day: 5
-};
-
-
-var $ee1328194d522913$export$27bce688931fdfcc, $ee1328194d522913$export$7fd1ce15b01d50ca, $ee1328194d522913$export$1a0dc7c974e8444d = function(e, t) {
-    return $ee1328194d522913$var$i(t).format(e);
-}, $ee1328194d522913$var$i = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        weekday: "long",
-        month: "long",
-        day: "numeric"
-    });
-}, $ee1328194d522913$export$3ae94a2503e890a1 = function(e, t) {
-    return $ee1328194d522913$var$o(t).format(e);
-}, $ee1328194d522913$var$o = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-    });
-}, $ee1328194d522913$export$fbb9ef859002af37 = function(e, t) {
-    return $ee1328194d522913$var$c(t).format(e);
-}, $ee1328194d522913$var$c = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric"
-    });
-}, $ee1328194d522913$export$7813392c1f00426f = function(e, t) {
-    return $ee1328194d522913$var$s(t).format(e);
-}, $ee1328194d522913$var$s = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        day: "numeric",
-        month: "short"
-    });
-}, $ee1328194d522913$export$295e1e57d6713bf4 = function(e, t) {
-    return $ee1328194d522913$var$d(t).format(e);
-}, $ee1328194d522913$var$d = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        month: "long",
-        year: "numeric"
-    });
-}, $ee1328194d522913$export$cbc7ca92d37b9650 = function(e, t) {
-    return $ee1328194d522913$var$g(t).format(e);
-}, $ee1328194d522913$var$g = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        month: "long"
-    });
-}, $ee1328194d522913$export$5a252a405018366 = function(e, t) {
-    return $ee1328194d522913$var$h(t).format(e);
-}, $ee1328194d522913$var$h = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        year: "numeric"
-    });
-};
-!function(e) {
-    e.language = "language", e.system = "system", e.comma_decimal = "comma_decimal", e.decimal_comma = "decimal_comma", e.space_comma = "space_comma", e.none = "none";
-}($ee1328194d522913$export$27bce688931fdfcc || ($ee1328194d522913$export$27bce688931fdfcc = {})), function(e) {
-    e.language = "language", e.system = "system", e.am_pm = "12", e.twenty_four = "24";
-}($ee1328194d522913$export$7fd1ce15b01d50ca || ($ee1328194d522913$export$7fd1ce15b01d50ca = {}));
-var $ee1328194d522913$var$b = function(e) {
-    if (e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.language || e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.system) {
-        var t = e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.language ? e.language : void 0, n = (new Date).toLocaleString(t);
-        return n.includes("AM") || n.includes("PM");
-    }
-    return e.time_format === $ee1328194d522913$export$7fd1ce15b01d50ca.am_pm;
-}, $ee1328194d522913$export$8b492ed8828f789c = function(e, t) {
-    return $ee1328194d522913$var$_(t).format(e);
-}, $ee1328194d522913$var$_ = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
-        minute: "2-digit",
-        hour12: $ee1328194d522913$var$b(e)
-    });
-}, $ee1328194d522913$export$c2c7ff0067c06a13 = function(e, t) {
-    return $ee1328194d522913$var$w(t).format(e);
-}, $ee1328194d522913$var$w = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: $ee1328194d522913$var$b(e)
-    });
-}, $ee1328194d522913$export$c8a72f22956ccab0 = function(e, t) {
-    return $ee1328194d522913$var$x(t).format(e);
-}, $ee1328194d522913$var$x = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: $ee1328194d522913$var$b(e)
-    });
-}, $ee1328194d522913$export$3203edd9e5edd663 = function(e, t) {
-    return $ee1328194d522913$var$S(t).format(e);
-}, $ee1328194d522913$var$S = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: $ee1328194d522913$var$b(e)
-    });
-}, $ee1328194d522913$export$ec86e83f20e68cd8 = function(e, t) {
-    return $ee1328194d522913$var$T(t).format(e);
-}, $ee1328194d522913$var$T = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: $ee1328194d522913$var$b(e)
-    });
-}, $ee1328194d522913$export$ad627f6ad084f5a2 = function(e, t) {
-    return $ee1328194d522913$var$N(t).format(e);
-}, $ee1328194d522913$var$N = function(e) {
-    return new Intl.DateTimeFormat(e.language, {
-        hour: $ee1328194d522913$var$b(e) ? "numeric" : "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: $ee1328194d522913$var$b(e)
-    });
-}, $ee1328194d522913$export$caddcc104251c1d7 = function(t, r, n, i) {
-    void 0 === i && (i = !0);
-    var a = (0, $8944235bd8be49ac$export$b8f7189986dd5395)(t, n);
-    return i ? (function(e) {
-        return new Intl.RelativeTimeFormat(e.language, {
-            numeric: "auto"
-        });
-    })(r).format(a.value, a.unit) : Intl.NumberFormat(r.language, {
-        style: "unit",
-        unit: a.unit,
-        unitDisplay: "long"
-    }).format(Math.abs(a.value));
-};
-function $ee1328194d522913$export$50fe296bd2427aef(e) {
-    var t, r = 3600 * (t = e.attributes.remaining.split(":").map(Number))[0] + 60 * t[1] + t[2];
-    if ("active" === e.state) {
-        var n = (new Date).getTime(), i = new Date(e.last_changed).getTime();
-        r = Math.max(r - (n - i) / 1e3, 0);
-    }
-    return r;
-}
-function $ee1328194d522913$var$O() {
-    return ($ee1328194d522913$var$O = Object.assign || function(e) {
-        for(var t = 1; t < arguments.length; t++){
-            var r = arguments[t];
-            for(var n in r)Object.prototype.hasOwnProperty.call(r, n) && (e[n] = r[n]);
-        }
-        return e;
-    }).apply(this, arguments);
-}
-var $ee1328194d522913$export$2a5af2efac2f8dc = function(e, t, r, n) {
-    void 0 === n && (n = !1), e._themes || (e._themes = {});
-    var i = t.default_theme;
-    ("default" === r || r && t.themes[r]) && (i = r);
-    var a = $ee1328194d522913$var$O({}, e._themes);
-    if ("default" !== i) {
-        var o = t.themes[i];
-        Object.keys(o).forEach(function(t) {
-            var r = "--" + t;
-            e._themes[r] = "", a[r] = o[t];
-        });
-    }
-    if (e.updateStyles ? e.updateStyles(a) : window.ShadyCSS && window.ShadyCSS.styleSubtree(e, a), n) {
-        var u = document.querySelector("meta[name=theme-color]");
-        if (u) {
-            u.hasAttribute("default-content") || u.setAttribute("default-content", u.getAttribute("content"));
-            var c = a["--primary-color"] || u.getAttribute("default-content");
-            u.setAttribute("content", c);
-        }
-    }
-}, $ee1328194d522913$export$67835a66b9f6da52 = function(e) {
-    return "function" == typeof e.getCardSize ? e.getCardSize() : 4;
-};
-function $ee1328194d522913$export$2044bdc9670769ab(e) {
-    return e.substr(0, e.indexOf("."));
-}
-function $ee1328194d522913$export$4c7757901b2ff860(e) {
-    return e.substr(e.indexOf(".") + 1);
-}
-function $ee1328194d522913$export$5cacf63e4bbfecae(e) {
-    var t, r = (null == e || null == (t = e.locale) ? void 0 : t.language) || "en";
-    return e.translationMetadata.translations[r] && e.translationMetadata.translations[r].isRTL || !1;
-}
-function $ee1328194d522913$export$703829fe2802931b(e) {
-    return $ee1328194d522913$export$5cacf63e4bbfecae(e) ? "rtl" : "ltr";
-}
-function $ee1328194d522913$export$5b7b50e8043fabe(e) {
-    return $ee1328194d522913$export$2044bdc9670769ab(e.entity_id);
-}
-var $ee1328194d522913$export$88bfc1035e667f37 = function(e) {
-    return !!e.attributes.unit_of_measurement || !!e.attributes.state_class;
-}, $ee1328194d522913$export$5e25e39d6a8c0c11 = function(e) {
-    switch(e.number_format){
-        case $ee1328194d522913$export$27bce688931fdfcc.comma_decimal:
-            return [
-                "en-US",
-                "en"
-            ];
-        case $ee1328194d522913$export$27bce688931fdfcc.decimal_comma:
-            return [
-                "de",
-                "es",
-                "it"
-            ];
-        case $ee1328194d522913$export$27bce688931fdfcc.space_comma:
-            return [
-                "fr",
-                "sv",
-                "cs"
-            ];
-        case $ee1328194d522913$export$27bce688931fdfcc.system:
-            return;
-        default:
-            return e.language;
-    }
-}, $ee1328194d522913$export$2077e0241d6afd3c = function(e, t) {
-    return void 0 === t && (t = 2), Math.round(e * Math.pow(10, t)) / Math.pow(10, t);
-}, $ee1328194d522913$export$f5dd818bff069720 = function(e, r, n) {
-    var i = r ? $ee1328194d522913$export$5e25e39d6a8c0c11(r) : void 0;
-    if (Number.isNaN = Number.isNaN || function e(t) {
-        return "number" == typeof t && e(t);
-    }, (null == r ? void 0 : r.number_format) !== $ee1328194d522913$export$27bce688931fdfcc.none && !Number.isNaN(Number(e)) && Intl) try {
-        return new Intl.NumberFormat(i, $ee1328194d522913$var$V(e, n)).format(Number(e));
-    } catch (t) {
-        return console.error(t), new Intl.NumberFormat(void 0, $ee1328194d522913$var$V(e, n)).format(Number(e));
-    }
-    return "string" == typeof e ? e : $ee1328194d522913$export$2077e0241d6afd3c(e, null == n ? void 0 : n.maximumFractionDigits).toString() + ("currency" === (null == n ? void 0 : n.style) ? " " + n.currency : "");
-}, $ee1328194d522913$var$V = function(e, t) {
-    var r = $ee1328194d522913$var$O({
-        maximumFractionDigits: 2
-    }, t);
-    if ("string" != typeof e) return r;
-    if (!t || !t.minimumFractionDigits && !t.maximumFractionDigits) {
-        var n = e.indexOf(".") > -1 ? e.split(".")[1].length : 0;
-        r.minimumFractionDigits = n, r.maximumFractionDigits = n;
-    }
-    return r;
-}, $ee1328194d522913$export$278f9ea9192cff94 = function(e, t, r, n) {
-    var i = void 0 !== n ? n : t.state;
-    if ("unknown" === i || "unavailable" === i) return e("state.default." + i);
-    if ($ee1328194d522913$export$88bfc1035e667f37(t)) {
-        if ("monetary" === t.attributes.device_class) try {
-            return $ee1328194d522913$export$f5dd818bff069720(i, r, {
-                style: "currency",
-                currency: t.attributes.unit_of_measurement
-            });
-        } catch (e) {}
-        return $ee1328194d522913$export$f5dd818bff069720(i, r) + (t.attributes.unit_of_measurement ? " " + t.attributes.unit_of_measurement : "");
-    }
-    var o = $ee1328194d522913$export$5b7b50e8043fabe(t);
-    if ("input_datetime" === o) {
-        var u;
-        if (void 0 === n) return t.attributes.has_date && t.attributes.has_time ? (u = new Date(t.attributes.year, t.attributes.month - 1, t.attributes.day, t.attributes.hour, t.attributes.minute), $ee1328194d522913$export$8b492ed8828f789c(u, r)) : t.attributes.has_date ? (u = new Date(t.attributes.year, t.attributes.month - 1, t.attributes.day), $ee1328194d522913$export$3ae94a2503e890a1(u, r)) : t.attributes.has_time ? ((u = new Date).setHours(t.attributes.hour, t.attributes.minute), $ee1328194d522913$export$3203edd9e5edd663(u, r)) : t.state;
-        try {
-            var c = n.split(" ");
-            if (2 === c.length) return $ee1328194d522913$export$8b492ed8828f789c(new Date(c.join("T")), r);
-            if (1 === c.length) {
-                if (n.includes("-")) return $ee1328194d522913$export$3ae94a2503e890a1(new Date(n + "T00:00"), r);
-                if (n.includes(":")) {
-                    var m = new Date;
-                    return $ee1328194d522913$export$3203edd9e5edd663(new Date(m.toISOString().split("T")[0] + "T" + n), r);
-                }
-            }
-            return n;
-        } catch (e) {
-            return n;
-        }
-    }
-    return "humidifier" === o && "on" === i && t.attributes.humidity ? t.attributes.humidity + " %" : "counter" === o || "number" === o || "input_number" === o ? $ee1328194d522913$export$f5dd818bff069720(i, r) : t.attributes.device_class && e("component." + o + ".state." + t.attributes.device_class + "." + i) || e("component." + o + ".state._." + i) || i;
-}, $ee1328194d522913$export$25978a5d5a562f09 = "mdi:bookmark", $ee1328194d522913$export$f78a3169a0f9f31b = "lovelace", $ee1328194d522913$export$6df9924792233bc = [
-    "climate",
-    "cover",
-    "configurator",
-    "input_select",
-    "input_number",
-    "input_text",
-    "lock",
-    "media_player",
-    "scene",
-    "script",
-    "timer",
-    "vacuum",
-    "water_heater",
-    "weblink"
-], $ee1328194d522913$export$b9a2b37e93bb73f2 = [
-    "alarm_control_panel",
-    "automation",
-    "camera",
-    "climate",
-    "configurator",
-    "cover",
-    "fan",
-    "group",
-    "history_graph",
-    "input_datetime",
-    "light",
-    "lock",
-    "media_player",
-    "script",
-    "sun",
-    "updater",
-    "vacuum",
-    "water_heater",
-    "weather"
-], $ee1328194d522913$export$ca927753507128f6 = [
-    "input_number",
-    "input_select",
-    "input_text",
-    "scene",
-    "weblink"
-], $ee1328194d522913$export$60e836dfbaf943c5 = [
-    "camera",
-    "configurator",
-    "history_graph",
-    "scene"
-], $ee1328194d522913$export$23bace2b7923e5d1 = [
-    "closed",
-    "locked",
-    "off"
-], $ee1328194d522913$export$1b64f44bed0feb66 = new Set([
-    "fan",
-    "input_boolean",
-    "light",
-    "switch",
-    "group",
-    "automation"
-]), $ee1328194d522913$export$3ed39d80c7b24b62 = "\xb0C", $ee1328194d522913$export$5c7f540eb0eef6a6 = "\xb0F", $ee1328194d522913$export$2c7beb20637e0bd1 = "group.default_view", $ee1328194d522913$export$43835e9acf248a15 = function(e, t, r, n) {
-    n = n || {}, r = null == r ? {} : r;
-    var i = new Event(t, {
-        bubbles: void 0 === n.bubbles || n.bubbles,
-        cancelable: Boolean(n.cancelable),
-        composed: void 0 === n.composed || n.composed
-    });
-    return i.detail = r, e.dispatchEvent(i), i;
-}, $ee1328194d522913$var$ie = new Set([
-    "call-service",
-    "divider",
-    "section",
-    "weblink",
-    "cast",
-    "select"
-]), $ee1328194d522913$var$ae = {
-    alert: "toggle",
-    automation: "toggle",
-    climate: "climate",
-    cover: "cover",
-    fan: "toggle",
-    group: "group",
-    input_boolean: "toggle",
-    input_number: "input-number",
-    input_select: "input-select",
-    input_text: "input-text",
-    light: "toggle",
-    lock: "lock",
-    media_player: "media-player",
-    remote: "toggle",
-    scene: "scene",
-    script: "script",
-    sensor: "sensor",
-    timer: "timer",
-    switch: "toggle",
-    vacuum: "toggle",
-    water_heater: "climate",
-    input_datetime: "input-datetime"
-}, $ee1328194d522913$export$5ad555b55cd85e0c = function(e, t) {
-    void 0 === t && (t = !1);
-    var r = function(e, t) {
-        return n("hui-error-card", {
-            type: "error",
-            error: e,
-            config: t
-        });
-    }, n = function(e, t) {
-        var n = window.document.createElement(e);
-        try {
-            if (!n.setConfig) return;
-            n.setConfig(t);
-        } catch (n) {
-            return console.error(e, n), r(n.message, t);
-        }
-        return n;
-    };
-    if (!e || "object" != typeof e || !t && !e.type) return r("No type defined", e);
-    var i = e.type;
-    if (i && i.startsWith("custom:")) i = i.substr(7);
-    else if (t) {
-        if ($ee1328194d522913$var$ie.has(i)) i = "hui-" + i + "-row";
-        else {
-            if (!e.entity) return r("Invalid config given.", e);
-            var a = e.entity.split(".", 1)[0];
-            i = "hui-" + ($ee1328194d522913$var$ae[a] || "text") + "-entity-row";
-        }
-    } else i = "hui-" + i + "-card";
-    if (customElements.get(i)) return n(i, e);
-    var o = r("Custom element doesn't exist: " + e.type + ".", e);
-    o.style.display = "None";
-    var u = setTimeout(function() {
-        o.style.display = "";
-    }, 2e3);
-    return customElements.whenDefined(e.type).then(function() {
-        clearTimeout(u), $ee1328194d522913$export$43835e9acf248a15(o, "ll-rebuild", {}, o);
-    }), o;
-}, $ee1328194d522913$export$61fc7d43ac8f84b0 = function(e, t, r) {
-    var n;
-    return void 0 === r && (r = !1), function() {
-        var i = [].slice.call(arguments), a = this, o = function() {
-            n = null, r || e.apply(a, i);
-        }, u = r && !n;
-        clearTimeout(n), n = setTimeout(o, t), u && e.apply(a, i);
-    };
-}, $ee1328194d522913$export$a76407ec79ca4ea3 = {
-    alert: "mdi:alert",
-    automation: "mdi:playlist-play",
-    calendar: "mdi:calendar",
-    camera: "mdi:video",
-    climate: "mdi:thermostat",
-    configurator: "mdi:settings",
-    conversation: "mdi:text-to-speech",
-    device_tracker: "mdi:account",
-    fan: "mdi:fan",
-    group: "mdi:google-circles-communities",
-    history_graph: "mdi:chart-line",
-    homeassistant: "mdi:home-assistant",
-    homekit: "mdi:home-automation",
-    image_processing: "mdi:image-filter-frames",
-    input_boolean: "mdi:drawing",
-    input_datetime: "mdi:calendar-clock",
-    input_number: "mdi:ray-vertex",
-    input_select: "mdi:format-list-bulleted",
-    input_text: "mdi:textbox",
-    light: "mdi:lightbulb",
-    mailbox: "mdi:mailbox",
-    notify: "mdi:comment-alert",
-    person: "mdi:account",
-    plant: "mdi:flower",
-    proximity: "mdi:apple-safari",
-    remote: "mdi:remote",
-    scene: "mdi:google-pages",
-    script: "mdi:file-document",
-    sensor: "mdi:eye",
-    simple_alarm: "mdi:bell",
-    sun: "mdi:white-balance-sunny",
-    switch: "mdi:flash",
-    timer: "mdi:timer",
-    updater: "mdi:cloud-upload",
-    vacuum: "mdi:robot-vacuum",
-    water_heater: "mdi:thermometer",
-    weblink: "mdi:open-in-new"
-};
-function $ee1328194d522913$export$13fcd5035aa1446(e, t) {
-    if (e in $ee1328194d522913$export$a76407ec79ca4ea3) return $ee1328194d522913$export$a76407ec79ca4ea3[e];
-    switch(e){
-        case "alarm_control_panel":
-            switch(t){
-                case "armed_home":
-                    return "mdi:bell-plus";
-                case "armed_night":
-                    return "mdi:bell-sleep";
-                case "disarmed":
-                    return "mdi:bell-outline";
-                case "triggered":
-                    return "mdi:bell-ring";
-                default:
-                    return "mdi:bell";
-            }
-        case "binary_sensor":
-            return t && "off" === t ? "mdi:radiobox-blank" : "mdi:checkbox-marked-circle";
-        case "cover":
-            return "closed" === t ? "mdi:window-closed" : "mdi:window-open";
-        case "lock":
-            return t && "unlocked" === t ? "mdi:lock-open" : "mdi:lock";
-        case "media_player":
-            return t && "off" !== t && "idle" !== t ? "mdi:cast-connected" : "mdi:cast";
-        case "zwave":
-            switch(t){
-                case "dead":
-                    return "mdi:emoticon-dead";
-                case "sleeping":
-                    return "mdi:sleep";
-                case "initializing":
-                    return "mdi:timer-sand";
-                default:
-                    return "mdi:z-wave";
-            }
-        default:
-            return console.warn("Unable to find icon for domain " + e + " (" + t + ")"), "mdi:bookmark";
-    }
-}
-var $ee1328194d522913$export$e2b36fa5c60547b2 = function(e, t) {
-    var r = t.value || t, n = t.attribute ? e.attributes[t.attribute] : e.state;
-    switch(t.operator || "=="){
-        case "==":
-            return n === r;
-        case "<=":
-            return n <= r;
-        case "<":
-            return n < r;
-        case ">=":
-            return n >= r;
-        case ">":
-            return n > r;
-        case "!=":
-            return n !== r;
-        case "regex":
-            return n.match(r);
-        default:
-            return !1;
-    }
-}, $ee1328194d522913$export$8bcf112cf396c716 = function(e) {
-    $ee1328194d522913$export$43835e9acf248a15(window, "haptic", e);
-}, $ee1328194d522913$export$ff7962acd6052c28 = function(e, t, r) {
-    void 0 === r && (r = !1), r ? history.replaceState(null, "", t) : history.pushState(null, "", t), $ee1328194d522913$export$43835e9acf248a15(window, "location-changed", {
-        replace: r
-    });
-}, $ee1328194d522913$export$3303cc16da6bc061 = function(e, t, r) {
-    void 0 === r && (r = !0);
-    var n, i = $ee1328194d522913$export$2044bdc9670769ab(t), a = "group" === i ? "homeassistant" : i;
-    switch(i){
-        case "lock":
-            n = r ? "unlock" : "lock";
-            break;
-        case "cover":
-            n = r ? "open_cover" : "close_cover";
-            break;
-        default:
-            n = r ? "turn_on" : "turn_off";
-    }
-    return e.callService(a, n, {
-        entity_id: t
-    });
-}, $ee1328194d522913$export$4f6896672dcf12b1 = function(e, t) {
-    var r = $ee1328194d522913$export$23bace2b7923e5d1.includes(e.states[t].state);
-    return $ee1328194d522913$export$3303cc16da6bc061(e, t, r);
-}, $ee1328194d522913$export$fe63bc0ae3396800 = function(e, t, r, n) {
-    if (n || (n = {
-        action: "more-info"
-    }), !n.confirmation || n.confirmation.exemptions && n.confirmation.exemptions.some(function(e) {
-        return e.user === t.user.id;
-    }) || ($ee1328194d522913$export$8bcf112cf396c716("warning"), confirm(n.confirmation.text || "Are you sure you want to " + n.action + "?"))) switch(n.action){
-        case "more-info":
-            (r.entity || r.camera_image) && $ee1328194d522913$export$43835e9acf248a15(e, "hass-more-info", {
-                entityId: r.entity ? r.entity : r.camera_image
-            });
-            break;
-        case "navigate":
-            n.navigation_path && $ee1328194d522913$export$ff7962acd6052c28(0, n.navigation_path);
-            break;
-        case "url":
-            n.url_path && window.open(n.url_path);
-            break;
-        case "toggle":
-            r.entity && ($ee1328194d522913$export$4f6896672dcf12b1(t, r.entity), $ee1328194d522913$export$8bcf112cf396c716("success"));
-            break;
-        case "call-service":
-            if (!n.service) return void $ee1328194d522913$export$8bcf112cf396c716("failure");
-            var i = n.service.split(".", 2);
-            t.callService(i[0], i[1], n.service_data, n.target), $ee1328194d522913$export$8bcf112cf396c716("success");
-            break;
-        case "fire-dom-event":
-            $ee1328194d522913$export$43835e9acf248a15(e, "ll-custom", n);
-    }
-}, $ee1328194d522913$export$6c6c3f4b7541eaf1 = function(e, t, r, n) {
-    var i;
-    "double_tap" === n && r.double_tap_action ? i = r.double_tap_action : "hold" === n && r.hold_action ? i = r.hold_action : "tap" === n && r.tap_action && (i = r.tap_action), $ee1328194d522913$export$fe63bc0ae3396800(e, t, r, i);
-}, $ee1328194d522913$export$b981489921ee18cd = function(e, t, r, n, i) {
-    var a;
-    if (i && r.double_tap_action ? a = r.double_tap_action : n && r.hold_action ? a = r.hold_action : !n && r.tap_action && (a = r.tap_action), a || (a = {
-        action: "more-info"
-    }), !a.confirmation || a.confirmation.exemptions && a.confirmation.exemptions.some(function(e) {
-        return e.user === t.user.id;
-    }) || confirm(a.confirmation.text || "Are you sure you want to " + a.action + "?")) switch(a.action){
-        case "more-info":
-            (a.entity || r.entity || r.camera_image) && ($ee1328194d522913$export$43835e9acf248a15(e, "hass-more-info", {
-                entityId: a.entity ? a.entity : r.entity ? r.entity : r.camera_image
-            }), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic));
-            break;
-        case "navigate":
-            a.navigation_path && ($ee1328194d522913$export$ff7962acd6052c28(0, a.navigation_path), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic));
-            break;
-        case "url":
-            a.url_path && window.open(a.url_path), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic);
-            break;
-        case "toggle":
-            r.entity && ($ee1328194d522913$export$4f6896672dcf12b1(t, r.entity), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic));
-            break;
-        case "call-service":
-            if (!a.service) return;
-            var o = a.service.split(".", 2), u = o[0], c = o[1], m = $ee1328194d522913$var$O({}, a.service_data);
-            "entity" === m.entity_id && (m.entity_id = r.entity), t.callService(u, c, m, a.target), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic);
-            break;
-        case "fire-dom-event":
-            $ee1328194d522913$export$43835e9acf248a15(e, "ll-custom", a), a.haptic && $ee1328194d522913$export$8bcf112cf396c716(a.haptic);
-    }
-};
-function $ee1328194d522913$export$e217e69099d082f5(e) {
-    return void 0 !== e && "none" !== e.action;
-}
-function $ee1328194d522913$export$695b4dbcc1028091(e, t, r) {
-    if (t.has("config") || r) return !0;
-    if (e.config.entity) {
-        var n = t.get("hass");
-        return !n || n.states[e.config.entity] !== e.hass.states[e.config.entity];
-    }
-    return !1;
-}
-function $ee1328194d522913$export$72d503079d05a3cf(e) {
-    return void 0 !== e && "none" !== e.action;
-}
-var $ee1328194d522913$export$8d080c28108db9dd = function(e, t, r) {
-    void 0 === r && (r = !0);
-    var n = {};
-    t.forEach(function(t) {
-        if ($ee1328194d522913$export$23bace2b7923e5d1.includes(e.states[t].state) === r) {
-            var i = $ee1328194d522913$export$2044bdc9670769ab(t), a = [
-                "cover",
-                "lock"
-            ].includes(i) ? i : "homeassistant";
-            a in n || (n[a] = []), n[a].push(t);
-        }
-    }), Object.keys(n).forEach(function(t) {
-        var i;
-        switch(t){
-            case "lock":
-                i = r ? "unlock" : "lock";
-                break;
-            case "cover":
-                i = r ? "open_cover" : "close_cover";
-                break;
-            default:
-                i = r ? "turn_on" : "turn_off";
-        }
-        e.callService(t, i, {
-            entity_id: n[t]
-        });
-    });
-}, $ee1328194d522913$export$b5e56594b0d6a61e = function() {
-    var e = document.querySelector("home-assistant");
-    if (e = (e = (e = (e = (e = (e = (e = (e = e && e.shadowRoot) && e.querySelector("home-assistant-main")) && e.shadowRoot) && e.querySelector("app-drawer-layout partial-panel-resolver")) && e.shadowRoot || e) && e.querySelector("ha-panel-lovelace")) && e.shadowRoot) && e.querySelector("hui-root")) {
-        var t = e.lovelace;
-        return t.current_view = e.___curView, t;
-    }
-    return null;
-}, $ee1328194d522913$var$xe = {
-    humidity: "mdi:water-percent",
-    illuminance: "mdi:brightness-5",
-    temperature: "mdi:thermometer",
-    pressure: "mdi:gauge",
-    power: "mdi:flash",
-    signal_strength: "mdi:wifi"
-}, $ee1328194d522913$var$De = {
-    binary_sensor: function(e, t) {
-        var r = "off" === e;
-        switch(null == t ? void 0 : t.attributes.device_class){
-            case "battery":
-                return r ? "mdi:battery" : "mdi:battery-outline";
-            case "battery_charging":
-                return r ? "mdi:battery" : "mdi:battery-charging";
-            case "cold":
-                return r ? "mdi:thermometer" : "mdi:snowflake";
-            case "connectivity":
-                return r ? "mdi:server-network-off" : "mdi:server-network";
-            case "door":
-                return r ? "mdi:door-closed" : "mdi:door-open";
-            case "garage_door":
-                return r ? "mdi:garage" : "mdi:garage-open";
-            case "power":
-                return r ? "mdi:power-plug-off" : "mdi:power-plug";
-            case "gas":
-            case "problem":
-            case "safety":
-            case "tamper":
-                return r ? "mdi:check-circle" : "mdi:alert-circle";
-            case "smoke":
-                return r ? "mdi:check-circle" : "mdi:smoke";
-            case "heat":
-                return r ? "mdi:thermometer" : "mdi:fire";
-            case "light":
-                return r ? "mdi:brightness-5" : "mdi:brightness-7";
-            case "lock":
-                return r ? "mdi:lock" : "mdi:lock-open";
-            case "moisture":
-                return r ? "mdi:water-off" : "mdi:water";
-            case "motion":
-                return r ? "mdi:walk" : "mdi:run";
-            case "occupancy":
-                return r ? "mdi:home-outline" : "mdi:home";
-            case "opening":
-                return r ? "mdi:square" : "mdi:square-outline";
-            case "plug":
-                return r ? "mdi:power-plug-off" : "mdi:power-plug";
-            case "presence":
-                return r ? "mdi:home-outline" : "mdi:home";
-            case "running":
-                return r ? "mdi:stop" : "mdi:play";
-            case "sound":
-                return r ? "mdi:music-note-off" : "mdi:music-note";
-            case "update":
-                return r ? "mdi:package" : "mdi:package-up";
-            case "vibration":
-                return r ? "mdi:crop-portrait" : "mdi:vibrate";
-            case "window":
-                return r ? "mdi:window-closed" : "mdi:window-open";
-            default:
-                return r ? "mdi:radiobox-blank" : "mdi:checkbox-marked-circle";
-        }
-    },
-    cover: function(e) {
-        var t = "closed" !== e.state;
-        switch(e.attributes.device_class){
-            case "garage":
-                return t ? "mdi:garage-open" : "mdi:garage";
-            case "door":
-                return t ? "mdi:door-open" : "mdi:door-closed";
-            case "shutter":
-                return t ? "mdi:window-shutter-open" : "mdi:window-shutter";
-            case "blind":
-                return t ? "mdi:blinds-open" : "mdi:blinds";
-            case "window":
-                return t ? "mdi:window-open" : "mdi:window-closed";
-            default:
-                return $ee1328194d522913$export$13fcd5035aa1446("cover", e.state);
-        }
-    },
-    sensor: function(e) {
-        var t = e.attributes.device_class;
-        if (t && t in $ee1328194d522913$var$xe) return $ee1328194d522913$var$xe[t];
-        if ("battery" === t) {
-            var r = Number(e.state);
-            if (isNaN(r)) return "mdi:battery-unknown";
-            var n = 10 * Math.round(r / 10);
-            return n >= 100 ? "mdi:battery" : n <= 0 ? "mdi:battery-alert" : "hass:battery-" + n;
-        }
-        var i = e.attributes.unit_of_measurement;
-        return "\xb0C" === i || "\xb0F" === i ? "mdi:thermometer" : $ee1328194d522913$export$13fcd5035aa1446("sensor");
-    },
-    input_datetime: function(e) {
-        return e.attributes.has_date ? e.attributes.has_time ? $ee1328194d522913$export$13fcd5035aa1446("input_datetime") : "mdi:calendar" : "mdi:clock";
-    }
-}, $ee1328194d522913$export$d138d1363acbec1f = function(e) {
-    if (!e) return "mdi:bookmark";
-    if (e.attributes.icon) return e.attributes.icon;
-    var t = $ee1328194d522913$export$2044bdc9670769ab(e.entity_id);
-    return t in $ee1328194d522913$var$De ? $ee1328194d522913$var$De[t](e) : $ee1328194d522913$export$13fcd5035aa1446(t, e.state);
-};
-
-
-
-
-
-
-
-
-
 
 
 
@@ -11696,51 +11844,6 @@ class $942308f826de48c4$export$569e42c9a98af7b7 extends (0, $ab210b2da7b39b9d$ex
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $942308f826de48c4$export$569e42c9a98af7b7.prototype, "isOpen", void 0);
 
-
-// Administrator
-const $755a87c9ee93218f$export$e912a4111e48f543 = 'input_boolean.admin_settings_initialised';
-const $755a87c9ee93218f$export$750f693c799177e2 = 'input_text.admin_mobile_name';
-const $755a87c9ee93218f$export$d70389959f86dee4 = 'input_select.admin_mobile_platform';
-const $755a87c9ee93218f$export$511a96d8a8b167fa = 'input_number.car_max_capacity_in_kwh';
-const $755a87c9ee93218f$export$7c53730103b0e952 = 'input_number.charger_plus_car_roundtrip_efficiency';
-const $755a87c9ee93218f$export$a6bd64d0b150c939 = 'input_number.car_consumption_wh_per_km';
-const $755a87c9ee93218f$export$327a7fa57ac6cc54 = 'input_boolean.calendar_settings_initialised';
-const $755a87c9ee93218f$export$9c93c6d1ceae75f4 = 'input_text.car_calendar_source';
-const $755a87c9ee93218f$export$2af59ed4d7901cb0 = 'input_text.calendar_account_init_url';
-const $755a87c9ee93218f$export$aafb3ebed7fe4af1 = 'input_text.calendar_account_username';
-const $755a87c9ee93218f$export$9f5a291b67022977 = 'input_text.calendar_account_password';
-const $755a87c9ee93218f$export$b324c5213ab1689e = 'sensor.calendar_account_connection_status';
-const $755a87c9ee93218f$export$7caca1b153da5c06 = 'input_text.car_calendar_name';
-const $755a87c9ee93218f$export$500ee9ae1b823337 = 'input_text.integration_calendar_entity_name';
-const $755a87c9ee93218f$export$2b7224725565ef34 = 'input_boolean.charger_settings_initialised';
-const $755a87c9ee93218f$export$bb6b29d6e8205d89 = 'input_text.charger_host_url';
-const $755a87c9ee93218f$export$6b510d2e1eeb3e11 = 'input_number.charger_port';
-const $755a87c9ee93218f$export$daa3d3280ce4a564 = 'sensor.charger_connection_status';
-const $755a87c9ee93218f$export$2afa365a5af4c631 = 'sensor.charger_max_available_power';
-const $755a87c9ee93218f$export$c541138e582b8ea2 = 'input_boolean.use_reduced_max_charge_power';
-const $755a87c9ee93218f$export$7644ad7394071de6 = 'input_number.charger_max_charging_power';
-const $755a87c9ee93218f$export$8a6641dff4159913 = 'input_number.charger_max_discharging_power';
-const $755a87c9ee93218f$export$f48daca8eb58f881 = 'sensor.quasar_loadbalancer_limit';
-const $755a87c9ee93218f$export$6803b8e9884353c8 = 'input_boolean.electricity_contract_settings_initialised';
-const $755a87c9ee93218f$export$6106300be9012ff7 = 'input_select.electricity_provider';
-const $755a87c9ee93218f$export$8f62940f89c0da8a = 'input_number.energy_price_vat';
-const $755a87c9ee93218f$export$50c9c5ee61c4032 = 'input_number.energy_price_markup_per_kwh';
-const $755a87c9ee93218f$export$41b3f48b3847d98f = 'input_text.own_consumption_price_entity_id';
-const $755a87c9ee93218f$export$30f7c2c4e2d9b638 = 'input_text.own_production_price_entity_id';
-const $755a87c9ee93218f$export$7264ac5bb217f690 = 'input_text.octopus_import_code';
-const $755a87c9ee93218f$export$43beb8995cb3e288 = 'input_text.octopus_export_code';
-const $755a87c9ee93218f$export$54e0b838c6a76104 = 'input_select.gb_dno_region';
-const $755a87c9ee93218f$export$29a786ee773985a = 'input_select.optimisation_mode';
-const $755a87c9ee93218f$export$a81a922cb2dc8458 = 'input_number.car_min_soc_in_percent';
-const $755a87c9ee93218f$export$e39cc2ab91dbbf48 = 'input_number.car_max_soc_in_percent';
-const $755a87c9ee93218f$export$bcf5813544a68726 = 'input_number.allowed_duration_above_max_soc_in_hrs';
-const $755a87c9ee93218f$export$bcc5761a4d7674a4 = 'input_boolean.schedule_settings_initialised';
-const $755a87c9ee93218f$export$e3ef81d1214ac426 = 'input_text.fm_account_username';
-const $755a87c9ee93218f$export$4b92bff470c6dd52 = 'input_text.fm_account_password';
-const $755a87c9ee93218f$export$c7d1877b110c2f09 = 'input_boolean.fm_show_option_to_change_url';
-const $755a87c9ee93218f$export$f1a0886b70e9e963 = 'input_text.fm_host_url';
-const $755a87c9ee93218f$export$82372843d513f2af = 'sensor.fm_connection_status';
-const $755a87c9ee93218f$export$7df7f7ac9cecee8f = 'input_text.fm_asset';
 
 
 const $8be8b3713888253d$export$45e0b80f1e500bd4 = 'edit-administrator-settings-dialog';
@@ -13130,6 +13233,1533 @@ const $de105ef1fecb85b1$export$71b3137c010ebfae = (element, dialogParams)=>{
         dialogParams: dialogParams
     });
 };
+
+
+
+const $cb691508f8eb446e$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('data-table');
+const $cb691508f8eb446e$var$GRANULARITIES = [
+    'quarter_hours',
+    'hours',
+    'days',
+    'weeks',
+    'months',
+    'years'
+];
+class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(_config) {}
+    set hass(hass) {
+        this._hass = hass;
+        this._checkUninitialisedEntities();
+    }
+    _checkUninitialisedEntities() {
+        if ((0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass)) (0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this);
+    }
+    connectedCallback() {
+        super.connectedCallback();
+    }
+    firstUpdated() {
+        const container = this.shadowRoot?.querySelector('.table-container');
+        if (container) container.addEventListener('scroll', ()=>{
+            container.classList.toggle('scrolled', container.scrollTop > 0);
+        });
+        // Set table-container max-height from its actual viewport position rather than
+        // guessing HA's chrome height via CSS calc(). Measured values are always correct
+        // regardless of HA version, theme, view type or number of navigation bars.
+        const syncHeight = ()=>{
+            if (!container) return;
+            const top = container.getBoundingClientRect().top;
+            if (top <= 0) return; // Not yet positioned in DOM
+            // 40px = bar midpoint (bottom:12 + half of ~56px bar height) so the card
+            // visually extends halfway behind the floating island.
+            const h = Math.max(200, Math.floor(window.innerHeight - top - 40));
+            container.style.maxHeight = `${h}px`;
+        };
+        const syncNarrow = ()=>{
+            this._narrowBar = this.offsetWidth <= 800;
+            this._narrowLayout = this.offsetWidth <= 1024;
+        };
+        const ro = new ResizeObserver(()=>requestAnimationFrame(()=>{
+                syncHeight();
+                syncNarrow();
+            }));
+        ro.observe(this);
+        window.addEventListener('resize', syncHeight);
+        requestAnimationFrame(syncNarrow); // initial check after layout
+        // Close granularity dropdown when clicking outside the shadow DOM
+        document.addEventListener('click', (e)=>{
+            if (!this._granMenuOpen) return;
+            const menu = this.shadowRoot?.querySelector('.gran-menu');
+            if (menu && !e.composedPath().includes(menu)) this._granMenuOpen = false;
+        });
+        this._fetchData();
+    }
+    // ── Data fetching ─────────────────────────────────────────────
+    async _fetchData() {
+        if (!this._hass) return;
+        const { start: start, end: end } = this._getViewWindow();
+        this._isLoading = true;
+        this._error = null;
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'v2g_data_query', {
+                start: start,
+                end: end,
+                granularity: this._granularity
+            }, 30000);
+            if (result.error) {
+                this._error = $cb691508f8eb446e$var$tp('error');
+                this._data = [];
+            } else {
+                this._data = (result.data || []).slice().reverse();
+                this._error = null;
+            }
+        } catch (e) {
+            const isTimeout = e instanceof Error && e.message.includes('timed out');
+            this._error = isTimeout ? $cb691508f8eb446e$var$tp('error-timeout') : $cb691508f8eb446e$var$tp('error');
+            this._data = [];
+        } finally{
+            this._isLoading = false;
+        }
+    }
+    // ── View window calculation ───────────────────────────────────
+    _getViewWindow() {
+        const d = this._viewDate;
+        let start;
+        let end;
+        switch(this._granularity){
+            case 'quarter_hours':
+            case 'hours':
+                start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                end = new Date(start);
+                end.setDate(end.getDate() + 1);
+                break;
+            case 'days':
+                start = new Date(d.getFullYear(), d.getMonth(), 1);
+                end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+                break;
+            case 'weeks':
+                // Quarter: floor to quarter start
+                const quarterMonth = Math.floor(d.getMonth() / 3) * 3;
+                start = new Date(d.getFullYear(), quarterMonth, 1);
+                end = new Date(d.getFullYear(), quarterMonth + 3, 1);
+                break;
+            case 'months':
+                start = new Date(d.getFullYear(), 0, 1);
+                end = new Date(d.getFullYear() + 1, 0, 1);
+                break;
+            case 'years':
+                start = new Date(2020, 0, 1);
+                end = new Date();
+                end.setDate(end.getDate() + 1);
+                break;
+        }
+        return {
+            start: this._toLocalIso(start),
+            end: this._toLocalIso(end)
+        };
+    }
+    _toLocalIso(date) {
+        const offset = -date.getTimezoneOffset();
+        const sign = offset >= 0 ? '+' : '-';
+        const absOffset = Math.abs(offset);
+        const hh = String(Math.floor(absOffset / 60)).padStart(2, '0');
+        const mm = String(absOffset % 60).padStart(2, '0');
+        const y = date.getFullYear();
+        const mo = String(date.getMonth() + 1).padStart(2, '0');
+        const da = String(date.getDate()).padStart(2, '0');
+        const h = String(date.getHours()).padStart(2, '0');
+        const mi = String(date.getMinutes()).padStart(2, '0');
+        const s = String(date.getSeconds()).padStart(2, '0');
+        return `${y}-${mo}-${da}T${h}:${mi}:${s}${sign}${hh}:${mm}`;
+    }
+    // ── Navigation ────────────────────────────────────────────────
+    _navigate(direction) {
+        const d = new Date(this._viewDate);
+        switch(this._granularity){
+            case 'quarter_hours':
+            case 'hours':
+                d.setDate(d.getDate() + direction);
+                break;
+            case 'days':
+                d.setMonth(d.getMonth() + direction);
+                break;
+            case 'weeks':
+                d.setMonth(d.getMonth() + 3 * direction);
+                break;
+            case 'months':
+                d.setFullYear(d.getFullYear() + direction);
+                break;
+        }
+        this._viewDate = d;
+        this._fetchData();
+    }
+    _goToNow() {
+        this._viewDate = new Date();
+        this._fetchData();
+    }
+    _setGranularity(g) {
+        this._granularity = g;
+        this._fetchData();
+    }
+    _toggleGranMenu() {
+        this._granMenuOpen = !this._granMenuOpen;
+    }
+    _selectGranFromMenu(g) {
+        this._setGranularity(g);
+        this._granMenuOpen = false;
+    }
+    _onDateChange(e) {
+        const input = e.target;
+        if (input.value) {
+            const parts = input.value.split('-');
+            this._viewDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            this._fetchData();
+        }
+    }
+    _isNextDisabled() {
+        if (this._granularity === 'years') return true;
+        const { end: end } = this._getViewWindow();
+        const endDate = new Date(end);
+        return endDate > new Date();
+    }
+    // ── Date label ────────────────────────────────────────────────
+    _getDateLabel() {
+        const d = this._viewDate;
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        switch(this._granularity){
+            case 'quarter_hours':
+            case 'hours':
+                return `${dd}-${mm}-${yyyy}`;
+            case 'days':
+                {
+                    const monthName = d.toLocaleDateString(undefined, {
+                        month: 'long'
+                    });
+                    return `${monthName} ${yyyy}`;
+                }
+            case 'weeks':
+                {
+                    const qStart = Math.floor(d.getMonth() / 3) * 3;
+                    const qEnd = qStart + 2;
+                    const startMonth = new Date(yyyy, qStart, 1).toLocaleDateString(undefined, {
+                        month: 'short'
+                    });
+                    const endMonth = new Date(yyyy, qEnd, 1).toLocaleDateString(undefined, {
+                        month: 'short'
+                    });
+                    return `${startMonth} \u{2013} ${endMonth} ${yyyy}`;
+                }
+            case 'months':
+                return `${yyyy}`;
+            case 'years':
+                return $cb691508f8eb446e$var$tp('all-time');
+        }
+    }
+    _getDateInputValue() {
+        const d = this._viewDate;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const da = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${da}`;
+    }
+    // ── Formatting helpers ────────────────────────────────────────
+    _getCurrency() {
+        return this._hass?.config?.currency || 'EUR';
+    }
+    _fmtCurrency(value, decimals = 2) {
+        if (value === null || value === undefined) return "\u2212";
+        const currency = this._getCurrency();
+        const rounded = this._round(value, decimals);
+        try {
+            return new Intl.NumberFormat(undefined, {
+                style: 'currency',
+                currency: currency,
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }).format(rounded);
+        } catch  {
+            return `${rounded.toFixed(decimals)}`;
+        }
+    }
+    _fmtCents(value) {
+        if (value === null || value === undefined) return "\u2212";
+        return (value * 100).toLocaleString(undefined, {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3
+        });
+    }
+    _fmtPct(value, decimals = 1) {
+        if (value === null || value === undefined) return "\u2212";
+        return value.toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+    _fmtWh(value) {
+        if (value === null || value === undefined) return "\u2212";
+        return Math.round(value).toString();
+    }
+    _round(value, decimals) {
+        const factor = Math.pow(10, decimals);
+        return Math.round((value + Number.EPSILON) * factor) / factor;
+    }
+    _fmtKwh(value, decimals = 2) {
+        if (value === null || value === undefined) return "\u2212";
+        return this._round(value, decimals).toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+    _fmtKg(value, decimals = 1) {
+        if (value === null || value === undefined) return "\u2212";
+        return this._round(value, decimals).toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+    _fmtTime(isoStr) {
+        if (!isoStr) return "\u2212";
+        const d = new Date(isoStr);
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
+    _fmtHour(isoStr) {
+        if (!isoStr) return "\u2212";
+        const d = new Date(isoStr);
+        const hh = String(d.getHours()).padStart(2, '0');
+        return `${hh}:00`;
+    }
+    _fmtDayDate(isoStr) {
+        if (!isoStr) return "\u2212";
+        const d = new Date(isoStr);
+        const dayName = d.toLocaleDateString(undefined, {
+            weekday: 'short'
+        });
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dayName} ${dd}-${mm}`;
+    }
+    _fmtWeek(weekStr) {
+        // weekStr is like "2026-W08" (ISO week key from the backend)
+        const m = /^(\d{4})-W(\d{2})$/.exec(weekStr);
+        if (!m) return weekStr;
+        const year = parseInt(m[1]);
+        const week = parseInt(m[2]);
+        // ISO week 1 always contains Jan 4; Mon=1…Sun=7
+        const jan4 = new Date(year, 0, 4);
+        const weekday = jan4.getDay() || 7;
+        const monday = new Date(year, 0, 4 - (weekday - 1) + (week - 1) * 7);
+        const dd = String(monday.getDate()).padStart(2, '0');
+        const mm = String(monday.getMonth() + 1).padStart(2, '0');
+        return `W${m[2]} ${dd}-${mm}`;
+    }
+    _fmtMonthYear(isoStr) {
+        if (!isoStr) return "\u2212";
+        const d = new Date(isoStr);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${mm}-${d.getFullYear()}`;
+    }
+    _fmtYear(isoStr) {
+        if (!isoStr) return "\u2212";
+        return new Date(isoStr).getFullYear().toString();
+    }
+    _fmtPeriod(isoStr) {
+        switch(this._granularity){
+            case 'quarter_hours':
+                return this._fmtTime(isoStr);
+            case 'hours':
+                return this._fmtHour(isoStr);
+            case 'days':
+                return this._fmtDayDate(isoStr);
+            case 'weeks':
+                return this._fmtWeek(isoStr);
+            case 'months':
+                return this._fmtMonthYear(isoStr);
+            case 'years':
+                return this._fmtYear(isoStr);
+        }
+    }
+    _renderAppState(state) {
+        if (!state) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span>−</span>`;
+        const STATE_ICONS = {
+            automatic: {
+                icon: 'mdi:auto-fix',
+                color: 'var(--primary-color)'
+            },
+            charge: {
+                icon: 'mdi:battery-arrow-up-outline',
+                color: 'var(--primary-color)'
+            },
+            discharge: {
+                icon: 'mdi:battery-arrow-down-outline',
+                color: 'var(--primary-color)'
+            },
+            pause: {
+                icon: 'mdi:pause-box-outline',
+                color: 'var(--secondary-text-color)'
+            },
+            max_boost: {
+                icon: 'mdi:flash-alert',
+                color: 'var(--warning-color)'
+            },
+            not_connected: {
+                icon: 'mdi:power-plug-off-outline',
+                color: 'var(--secondary-text-color)'
+            },
+            error: {
+                icon: 'mdi:alert',
+                color: 'var(--error-color)'
+            },
+            unknown: {
+                icon: 'mdi:help-rhombus-outline',
+                color: 'var(--secondary-text-color)'
+            }
+        };
+        const mixed = state.endsWith('+');
+        const baseState = mixed ? state.slice(0, -1) : state;
+        const cfg = STATE_ICONS[baseState];
+        if (!cfg) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span>${state}</span>`;
+        const title = mixed ? `${$cb691508f8eb446e$var$tp(`app-state.${baseState}`)} + ${$cb691508f8eb446e$var$tp('app-state.mixed')}` : $cb691508f8eb446e$var$tp(`app-state.${baseState}`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <span class="state-cell" title="${title}">
+        <ha-icon
+          icon="${cfg.icon}"
+          style="color: ${cfg.color}; --mdc-icon-size: 20px;"
+        ></ha-icon>${mixed ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<sup class="state-plus">+</sup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </span>
+    `;
+    }
+    _currencySymbol() {
+        const code = this._hass?.config?.currency ?? 'EUR';
+        const symbols = {
+            EUR: "\u20AC",
+            GBP: "\xa3",
+            USD: '$',
+            AUD: '$',
+            CAD: '$',
+            NOK: 'kr',
+            SEK: 'kr',
+            DKK: 'kr',
+            CHF: 'Fr',
+            JPY: "\xa5",
+            CNY: "\xa5",
+            INR: "\u20B9",
+            BRL: 'R$'
+        };
+        return symbols[code] ?? code;
+    }
+    _renderPriceIndicator(rating) {
+        if (!rating) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span>−</span>`;
+        const level = rating.replace(/_/g, '-');
+        const title = $cb691508f8eb446e$var$tp(`price-rating.${level}`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="price-track" data-level="${level}" title="${title}">
+        <span class="price-marker">${this._currencySymbol()}</span>
+      </div>
+    `;
+    }
+    _fmtCostRevenue(row) {
+        if (row.charge_cost && row.charge_cost > 0) return this._fmtCurrency(row.charge_cost);
+        if (row.discharge_revenue && row.discharge_revenue > 0) return this._fmtCurrency(row.discharge_revenue);
+        return "\u2212";
+    }
+    // ── Totals card ───────────────────────────────────────────────
+    _computeTotals() {
+        if (!this._data?.length) return null;
+        const first = this._data[this._data.length - 1];
+        const last = this._data[0];
+        const sum = (key)=>this._data.reduce((s, r)=>s + (r[key] ?? 0), 0);
+        const mean = (key)=>{
+            const vals = this._data.map((r)=>r[key]).filter((v)=>v != null);
+            return vals.length ? vals.reduce((a, b)=>a + b, 0) / vals.length : null;
+        };
+        if (this._granularity === 'quarter_hours') {
+            const chargeWh = this._data.reduce((s, r)=>s + Math.max(0, r.energy_wh ?? 0), 0);
+            const dischargeWh = this._data.reduce((s, r)=>s + Math.max(0, -(r.energy_wh ?? 0)), 0);
+            return {
+                kind: 'quarter_hours',
+                first: first,
+                last: last,
+                avgCons: mean('consumption_price'),
+                avgProd: mean('production_price'),
+                chargeWh: chargeWh,
+                dischargeWh: dischargeWh,
+                chargeCost: sum('charge_cost'),
+                dischargeRev: sum('discharge_revenue'),
+                hasRepaired: this._data.some((r)=>r.has_repaired)
+            };
+        }
+        if (this._granularity === 'hours') {
+            const socs = this._data.map((r)=>r.soc_pct).filter((v)=>v != null);
+            return {
+                kind: 'hours',
+                first: first,
+                last: last,
+                socMin: socs.length ? Math.min(...socs) : null,
+                socMax: socs.length ? Math.max(...socs) : null,
+                avgPrice: mean('avg_price'),
+                chargeWh: sum('charge_wh'),
+                chargeCost: sum('charge_cost'),
+                dischargeWh: sum('discharge_wh'),
+                dischargeRev: sum('discharge_revenue'),
+                hasRepaired: this._data.some((r)=>r.has_repaired)
+            };
+        }
+        // days / weeks / months / years
+        return {
+            kind: 'days',
+            first: first,
+            last: last,
+            avgAvail: mean('availability_pct'),
+            chargeKwh: sum('charge_kwh'),
+            chargeCost: sum('charge_cost'),
+            chargeCo2Kg: sum('charge_co2_kg'),
+            dischargeKwh: sum('discharge_kwh'),
+            dischargeRev: sum('discharge_revenue'),
+            dischargeCo2Kg: sum('discharge_co2_kg'),
+            netKwh: sum('net_kwh'),
+            netCost: sum('net_cost'),
+            co2Kg: sum('co2_kg'),
+            hasRepaired: this._data.some((r)=>r.has_repaired)
+        };
+    }
+    _renderEstimatedNote(hasRepaired) {
+        if (!hasRepaired) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="estimated-note">
+        ${$cb691508f8eb446e$var$tp('estimated-note')}
+        <span class="info-container">
+          <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+            @click=${()=>{
+            this._estimatedTip = !this._estimatedTip;
+        }}>
+            <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+          </svg>
+          ${this._estimatedTip ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp('estimated-tooltip')}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </span>
+      </div>
+    `;
+    }
+    _fmtTotalsPeriod(first, last) {
+        if (first === last) return this._fmtPeriod(first.period_start);
+        if (this._granularity === 'quarter_hours' || this._granularity === 'hours') {
+            const start = this._fmtPeriod(first.period_start);
+            const end = this._fmtPeriod(last.period_start);
+            const date = this._fmtDayDate(first.period_start);
+            return `${start} \u{2013} ${end}, ${date}`;
+        }
+        return `${this._fmtPeriod(first.period_start)} \u{2013} ${this._fmtPeriod(last.period_start)}`;
+    }
+    _renderTotals() {
+        if (this._isLoading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted">
+        <span class="spinner"></span>
+      </div>`;
+        const t = this._computeTotals();
+        if (!t) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div>`;
+        const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
+        const period = this._fmtTotalsPeriod(t.first, t.last);
+        if (t.kind === 'quarter_hours') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="totals-layout">
+          <dl class="totals-dl">
+            <div class="totals-row">
+              <dt>${tt('period')}</dt>
+              <dd>${period}</dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('avg-cons-price')}</dt>
+              <dd>${this._fmtCents(t.avgCons)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('avg-prod-price')}</dt>
+              <dd>${this._fmtCents(t.avgProd)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+          </dl>
+          <table class="totals-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+              <th>${$cb691508f8eb446e$var$tp('col.cost')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
+              <td>${this._fmtWh(t.chargeWh)}</td>
+              <td>${this._fmtCurrency(t.chargeCost)}</td>
+            </tr>
+            <tr>
+              <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
+              <td>${this._fmtWh(t.dischargeWh)}</td>
+              <td>${this._fmtCurrency(t.dischargeRev)}</td>
+            </tr>
+            <tr class="totals-net">
+              <td>${$cb691508f8eb446e$var$tp('col.net')}</td>
+              <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
+              <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        ${this._renderEstimatedNote(t.hasRepaired)}
+      `;
+        if (t.kind === 'hours') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="totals-layout">
+          <dl class="totals-dl">
+            <div class="totals-row">
+              <dt>${tt('period')}</dt>
+              <dd>${period}</dd>
+            </div>
+            ${t.socMin != null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <div class="totals-row">
+                    <dt>${tt('soc-range')}</dt>
+                    <dd>
+                      ${this._fmtPct(t.socMin)}% – ${this._fmtPct(t.socMax)}%
+                    </dd>
+                  </div>
+                ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+            <div class="totals-row">
+              <dt>${tt('avg-price')}</dt>
+              <dd>${this._fmtCents(t.avgPrice)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+          </dl>
+          <table class="totals-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+                <th>${$cb691508f8eb446e$var$tp('col.cost')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
+                <td>${this._fmtWh(t.chargeWh)}</td>
+                <td>${this._fmtCurrency(t.chargeCost)}</td>
+              </tr>
+              <tr>
+                <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
+                <td>${this._fmtWh(t.dischargeWh)}</td>
+                <td>${this._fmtCurrency(t.dischargeRev)}</td>
+              </tr>
+              <tr class="totals-net">
+                <td>${$cb691508f8eb446e$var$tp('col.net')}</td>
+                <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
+                <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        ${this._renderEstimatedNote(t.hasRepaired)}
+      `;
+        // days / weeks / months / years
+        const kwhDec = this._granularity === 'years' ? 0 : 2;
+        const kgDec = this._granularity === 'years' ? 0 : 1;
+        const curDec = this._granularity === 'years' ? 0 : 2;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="totals-layout">
+        <dl class="totals-dl">
+          <div class="totals-row">
+            <dt>${tt('period')}</dt>
+            <dd>${period}</dd>
+          </div>
+          <div class="totals-row">
+            <dt>
+              ${tt('availability')}
+              <span class="info-container">
+                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+                  @click=${()=>{
+            this._availTipTotals = !this._availTipTotals;
+        }}>
+                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+                </svg>
+                ${this._availTipTotals ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp('col.availability-tooltip')}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+              </span>
+            </dt>
+            <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
+          </div>
+        </dl>
+        <table class="totals-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
+              <th>${$cb691508f8eb446e$var$tp('col.cost')}</th>
+              <th>${$cb691508f8eb446e$var$tp('col.emissions')} (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
+              <td>${this._fmtKwh(t.chargeKwh, kwhDec)}</td>
+              <td>${this._fmtCurrency(t.chargeCost, curDec)}</td>
+              <td>${this._fmtKg(t.chargeCo2Kg, kgDec)}</td>
+            </tr>
+            <tr>
+              <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
+              <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
+              <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
+              <td>${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
+            </tr>
+            <tr class="totals-net">
+              <td>${$cb691508f8eb446e$var$tp('col.net')}</td>
+              <td>${this._fmtKwh(t.netKwh, kwhDec)}</td>
+              <td>${this._fmtCurrency(t.netCost, curDec)}</td>
+              <td>${this._fmtKg(t.co2Kg, kgDec)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      ${this._renderEstimatedNote(t.hasRepaired)}
+    `;
+    }
+    // ── Table rendering per granularity ───────────────────────────
+    _col(key, unit) {
+        if (unit) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${$cb691508f8eb446e$var$tp(`col.${key}`)}<span class="unit">${unit}</span>`;
+        return $cb691508f8eb446e$var$tp(`col.${key}`);
+    }
+    _renderQuarterTable() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <table>
+        <thead>
+          <tr>
+            <th>${this._col('period')}</th>
+            <th class="indicator-col">${this._col('status')}</th>
+            <th class="num">${this._col('soc', '%')}</th>
+            <th class="num">${this._col('energy', 'Wh')}</th>
+            <th class="num">${this._col('consumption', "\u20AC\xa2/kWh")}</th>
+            <th class="num">${this._col('production', "\u20AC\xa2/kWh")}</th>
+            <th class="indicator-col">${this._col('rate')}</th>
+            <th class="num">${this._col('cost-revenue')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                    <tr class="${row.has_repaired ? 'repaired' : ''}">
+                      <td>${this._fmtTime(row.period_start)}</td>
+                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtWh(row.energy_wh)}</td>
+                      <td class="num">${this._fmtCents(row.consumption_price)}</td>
+                      <td class="num">${this._fmtCents(row.production_price)}</td>
+                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                      <td class="num">${this._fmtCostRevenue(row)}</td>
+                    </tr>
+                  `)}
+        </tbody>
+      </table>
+    `;
+    }
+    _renderHourTable() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <table>
+        <thead class="grouped">
+          <tr>
+            <th>${$cb691508f8eb446e$var$tp('col.period')}</th>
+            <th class="indicator-col">${$cb691508f8eb446e$var$tp('col.status')}</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.soc')}</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.avg-price')}</th>
+            <th class="indicator-col">${$cb691508f8eb446e$var$tp('col.rate')}</th>
+            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.charge')}</th>
+            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.discharge')}</th>
+            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.net')}</th>
+          </tr>
+          <tr class="sub-header">
+            <th></th>
+            <th class="indicator-col"></th>
+            <th class="num">%</th>
+            <th class="num">€¢/kWh</th>
+            <th class="indicator-col"></th>
+            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
+            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.revenue')}</th>
+            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                    <tr class="${row.has_repaired ? 'repaired' : ''}">
+                      <td>${this._fmtHour(row.period_start)}</td>
+                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
+                      <td class="num">${this._fmtCents(row.avg_price)}</td>
+                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                      <td class="num group-sep">${this._fmtWh(row.charge_wh)}</td>
+                      <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
+                      <td class="num group-sep">${this._fmtWh(row.discharge_wh)}</td>
+                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
+                      <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
+                      <td class="num">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
+                    </tr>
+                  `)}
+        </tbody>
+      </table>
+    `;
+    }
+    _renderDayTable() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <table>
+        <thead class="grouped">
+          <tr>
+            <th>${$cb691508f8eb446e$var$tp('col.period')}</th>
+            <th class="num">
+              ${$cb691508f8eb446e$var$tp('col.availability')}
+              <span class="info-container">
+                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+                  @click=${()=>{
+            this._availTipHeader = !this._availTipHeader;
+        }}>
+                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+                </svg>
+                ${this._availTipHeader ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp('col.availability-tooltip')}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+              </span>
+            </th>
+            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.charge')}</th>
+            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.discharge')}</th>
+            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.net')}</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.emissions')}</th>
+          </tr>
+          <tr class="sub-header">
+            <th></th>
+            <th class="num">%</th>
+            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
+            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.revenue')}</th>
+            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
+            <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
+            <th class="num">kg CO₂</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="9"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div></td></tr>` : (()=>{
+            const kwhDec = this._granularity === 'years' ? 0 : 2;
+            const kgDec = this._granularity === 'years' ? 0 : 1;
+            const curDec = this._granularity === 'years' ? 0 : 2;
+            return this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                      <tr class="${row.has_repaired ? 'repaired' : ''}">
+                        <td>${this._fmtPeriod(row.period_start)}</td>
+                        <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
+                        <td class="num group-sep">${this._fmtKwh(row.charge_kwh, kwhDec)}</td>
+                        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+                        <td class="num group-sep">${this._fmtKwh(row.discharge_kwh, kwhDec)}</td>
+                        <td class="num">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                        <td class="num group-sep">${this._fmtKwh(row.net_kwh, kwhDec)}</td>
+                        <td class="num">${this._fmtCurrency(row.net_cost, curDec)}</td>
+                        <td class="num">${this._fmtKg(row.co2_kg, kgDec)}</td>
+                      </tr>
+                    `);
+        })()}
+        </tbody>
+      </table>
+    `;
+    }
+    _renderTable() {
+        switch(this._granularity){
+            case 'quarter_hours':
+                return this._renderQuarterTable();
+            case 'hours':
+                return this._renderHourTable();
+            default:
+                return this._renderDayTable();
+        }
+    }
+    // ── Main render ───────────────────────────────────────────────
+    render() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
+        <ha-card
+          .header=${`${$cb691508f8eb446e$var$tp('card-title')} \u{2014} ${$cb691508f8eb446e$var$tp('granularity.' + this._granularity)}`}
+        >
+          <div class="table-container">
+            ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
+          </div>
+        </ha-card>
+
+        <ha-card .header=${$cb691508f8eb446e$var$tp('totals.card-title')}>
+          <div class="totals-card-content">
+            ${this._renderTotals()}
+          </div>
+        </ha-card>
+      </div>
+
+      <div class="floating-bar">
+        <div class="bar-content">
+          ${this._granularity !== 'years' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <ha-icon-button
+                  .path=${'M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z'}
+                  @click=${()=>this._navigate(-1)}
+                ></ha-icon-button>
+              ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+          <div class="date-wrapper">
+            <span class="date-label">${this._getDateLabel()}</span>
+            ${this._granularity !== 'years' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <input
+                    type="date"
+                    class="date-input"
+                    .value=${this._getDateInputValue()}
+                    @change=${this._onDateChange}
+                  />
+                ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          </div>
+
+          ${this._granularity !== 'years' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <ha-icon-button
+                  .path=${'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z'}
+                  ?disabled=${this._isNextDisabled()}
+                  @click=${()=>this._navigate(1)}
+                ></ha-icon-button>
+                <button class="pill now-btn" @click=${this._goToNow}>
+                  ${$cb691508f8eb446e$var$tp('now')}
+                </button>
+              ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+          <div class="bar-separator"></div>
+
+          ${this._narrowBar ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <div class="gran-menu">
+                  <button class="gran-trigger" @click=${this._toggleGranMenu}>
+                    ${$cb691508f8eb446e$var$tp(`granularity.${this._granularity}`)}
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                      <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  ${this._granMenuOpen ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                        <ul class="gran-dropdown">
+                          ${$cb691508f8eb446e$var$GRANULARITIES.map((g)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                              <li>
+                                <button
+                                  class="gran-item ${g === this._granularity ? 'active' : ''}"
+                                  @click=${()=>this._selectGranFromMenu(g)}
+                                >
+                                  ${$cb691508f8eb446e$var$tp(`granularity.${g}`)}
+                                </button>
+                              </li>
+                            `)}
+                        </ul>
+                      ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+                </div>
+              ` : $cb691508f8eb446e$var$GRANULARITIES.map((g)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <button
+                    class="pill ${this._granularity === g ? 'active' : ''}"
+                    @click=${()=>this._setGranularity(g)}
+                  >
+                    ${$cb691508f8eb446e$var$tp(`granularity.${g}`)}
+                  </button>
+                `)}
+        </div>
+      </div>
+    `;
+    }
+    static{
+        // ── Styles ────────────────────────────────────────────────────
+        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+    :host {
+      display: block;
+      max-height: calc(100vh - var(--header-height, 56px));
+      overflow: hidden;
+      padding: 12px;
+      box-sizing: border-box;
+      container-type: inline-size;
+    }
+
+    /* ─- Page layout ──────────────────────────────── */
+
+    .page-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 12px;
+    }
+
+    .page-layout ha-card {
+      --ha-card-border-radius: 12px;
+      --ha-card-border-width: 1px;
+      --ha-card-border-color: var(--divider-color, #e0e0e0);
+      overflow: hidden;
+    }
+
+    .page-layout > ha-card:last-child {
+      align-self: start;
+      position: sticky;
+      top: 0;
+    }
+
+    .totals-card-content {
+      padding: 0 24px 16px;
+    }
+
+    @container (max-width: 1024px) {
+      .page-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .page-layout > ha-card:last-child {
+        order: -1;
+        position: static;
+      }
+    }
+
+    .page-layout.narrow .totals-layout {
+      display: flex;
+      gap: 48px;
+      align-items: flex-start;
+    }
+
+    .page-layout.narrow .totals-layout .totals-dl {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .page-layout.narrow .totals-layout .totals-table {
+      flex: 1;
+    }
+
+    // .card-content {
+    //   max-width: 450px;
+    //   padding: 0 48px 16px;
+    // }
+
+    /* ── Floating bar ─────────────────────────────── */
+
+    .floating-bar {
+      position: fixed;
+      bottom: 12px;
+      left: var(--mdc-drawer-width, 0px);
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 5;
+    }
+
+    .bar-content {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--card-background-color, white);
+      border-radius: 12px;
+      padding: 4px 8px;
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.25);
+      min-height: 48px;
+    }
+
+    .bar-separator {
+      width: 1px;
+      height: 24px;
+      background: var(--divider-color, #e0e0e0);
+      margin: 0 4px;
+    }
+
+    .pill {
+      border: none;
+      border-radius: 18px;
+      padding: 6px 12px;
+      font-size: 13px;
+      background: transparent;
+      color: var(--primary-text-color);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .pill:hover {
+      background: var(--secondary-background-color, #f5f5f5);
+    }
+
+    .pill.active {
+      background: var(--primary-color);
+      color: var(--text-primary-color, #fff);
+    }
+
+    /* ── Granularity dropdown (narrow bar) ──────── */
+
+    .gran-menu {
+      position: relative;
+    }
+
+    .gran-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--primary-color);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 8px 6px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary-color, #fff);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .gran-trigger:hover {
+      opacity: 0.85;
+    }
+
+    .gran-dropdown {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      background: var(--card-background-color, #fff);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      min-width: 140px;
+      z-index: 100;
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+    }
+
+    .gran-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--primary-text-color);
+      cursor: pointer;
+    }
+
+    .gran-item:hover {
+      background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+    }
+
+    .gran-item.active {
+      color: var(--primary-color, #1976d2);
+      font-weight: 500;
+    }
+
+    .gran-dropdown li:first-child .gran-item {
+      border-radius: 12px 12px 0 0;
+    }
+
+    .gran-dropdown li:last-child .gran-item {
+      border-radius: 0 0 12px 12px;
+    }
+
+    .date-wrapper {
+      position: relative;
+      text-align: center;
+      cursor: pointer;
+      min-width: 130px;
+    }
+
+    .date-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+    }
+
+    .date-input {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* ── Table ─────────────────────────────────────── */
+
+    .table-container {
+      /* Pre-JS fallback only — firstUpdated() sets maxHeight via ResizeObserver
+         based on the container's actual viewport position. */
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      /* Whitespace below last row; works because border-collapse is separate */
+      padding-bottom: 48px;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .table-container.scrolled thead {
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0), 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    thead th {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 12px;
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--primary-text-color);
+      background: var(--card-background-color, white);
+    }
+
+    thead th.group-sep {
+      border-left: 1px solid var(--divider-color, #e0e0e0);
+    }
+
+    thead th .unit {
+      display: block;
+      font-weight: 400;
+      font-size: 11px;
+      color: var(--secondary-text-color, #797979);
+    }
+
+    thead th.num {
+      text-align: right;
+    }
+
+    /* ── Grouped two-row header (hours/days view) ─────── */
+
+    .group-header {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    thead.grouped tr.sub-header th {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--secondary-text-color, #797979);
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+
+    tbody td.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 20%;
+      bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    tbody td.group-sep {
+      position: relative;
+    }
+
+    tbody td.group-sep::before {
+      top: 20%;
+      bottom: 20%;
+    }
+
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+      white-space: nowrap;
+    }
+
+    thead th:first-child,
+    tbody td:first-child {
+      padding-left: 24px;
+    }
+
+    thead th:last-child,
+    tbody td:last-child {
+      padding-right: 24px;
+    }
+
+    tbody td.num {
+      text-align: right;
+    }
+
+    tbody tr:hover {
+      background: var(--table-row-alternative-background-color, #f9f9f9);
+    }
+
+    .center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 24px 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--secondary-text-color);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .muted {
+      color: var(--secondary-text-color);
+      font-size: 14px;
+    }
+
+    tr.repaired {
+      color: var(--secondary-text-color);
+    }
+
+    .estimated-note {
+      color: var(--secondary-text-color);
+      font-size: 12px;
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .error {
+      color: var(--error-color, #db4437);
+      font-size: 14px;
+    }
+
+    /* ── Price indicator ───────────────────────────── */
+
+    .indicator-col,
+    .indicator-cell {
+      text-align: center;
+    }
+
+    .state-cell {
+      position: relative;
+      display: inline-block;
+    }
+
+    .state-plus {
+      position: absolute;
+      top: -2px;
+      right: -6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--primary-color);
+      line-height: 1;
+    }
+
+    /* ── Price sparkline track ─────────────────────── */
+
+    .price-track {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 48px;
+      height: 20px;
+    }
+
+    .price-track::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: calc(var(--marker-left) - 7px);
+      top: 50%;
+      height: 1px;
+      background: var(--secondary-text-color);
+    }
+
+    .price-track::after {
+      content: '';
+      position: absolute;
+      left: calc(var(--marker-left) + 7px);
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--secondary-text-color);
+    }
+
+    .price-marker {
+      position: absolute;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      transform: translateX(-50%);
+      color: var(--marker-color);
+      left: var(--marker-left);
+      z-index: 1;
+      user-select: none;
+    }
+
+    /* Light mode */
+    .price-track[data-level='very-low']  { --marker-left: 8%;  --marker-color: #90caf9; }
+    .price-track[data-level='low']       { --marker-left: 28%; --marker-color: #5c8dc9; }
+    .price-track[data-level='average']   { --marker-left: 50%; --marker-color: #7e57c2; }
+    .price-track[data-level='high']      { --marker-left: 72%; --marker-color: #6a1b9a; }
+    .price-track[data-level='very-high'] { --marker-left: 92%; --marker-color: #4a0072; }
+
+    @media (prefers-color-scheme: dark) {
+      .price-track[data-level='very-low']  { --marker-color: #37474f; }
+      .price-track[data-level='low']       { --marker-color: #5c6bc0; }
+      .price-track[data-level='average']   { --marker-color: #9575cd; }
+      .price-track[data-level='high']      { --marker-color: #ba68c8; }
+      .price-track[data-level='very-high'] { --marker-color: #e040fb; }
+    }
+
+    /* ── Totals card ───────────────────────────────── */
+
+    .totals-dl {
+      margin: 0 0 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .totals-row dt {
+      color: var(--secondary-text-color);
+      font-size: 0.85em;
+      flex-shrink: 0;
+    }
+
+    .totals-unit {
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+
+    .info-container {
+      position: relative;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    .info-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--primary-color);
+      cursor: pointer;
+      display: block;
+    }
+
+    .info-popup {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary-text-color);
+      color: var(--card-background-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      width: 200px;
+      white-space: normal;
+      z-index: 100;
+      cursor: default;
+    }
+
+    .totals-row dd {
+      margin: 0;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9em;
+    }
+
+    .totals-table th {
+      text-align: right;
+      font-weight: normal;
+      color: var(--secondary-text-color);
+      padding: 2px 4px 4px;
+      border-bottom: 1px solid var(--divider-color);
+    }
+
+    .totals-table th:first-child {
+      text-align: left;
+      padding-left: 0;
+    }
+
+    .totals-table td {
+      padding: 3px 4px;
+      text-align: right;
+    }
+
+    .totals-table td:first-child {
+      text-align: left;
+      padding-left: 0;
+    }
+
+    .totals-table th:last-child,
+    .totals-table td:last-child {
+      padding-right: 0;
+    }
+
+    .totals-net td {
+      border-top: 1px solid var(--divider-color);
+      font-weight: 500;
+      padding-top: 4px;
+    }
+  `;
+    }
+    constructor(...args){
+        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._narrowLayout = false, this._granMenuOpen = false, this._availTipTotals = false, this._availTipHeader = false, this._estimatedTip = false;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_hass", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_granularity", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_viewDate", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_data", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_isLoading", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_error", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowBar", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowLayout", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_granMenuOpen", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_availTipTotals", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_availTipHeader", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_estimatedTip", void 0);
+$cb691508f8eb446e$export$9eb0c07a02bac54 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-data-table-card')
+], $cb691508f8eb446e$export$9eb0c07a02bac54);
+
+
+
+
+
+
+
+
 
 
 

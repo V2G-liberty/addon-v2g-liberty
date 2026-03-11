@@ -349,6 +349,7 @@
           charger.</ha-alert>
         layout_options:
           grid_columns: full
+
 - type: grid
   cards:
     - type: custom:apexcharts-card
@@ -937,23 +938,9 @@
             }
 
 
-    - type: markdown
+    - type: custom:v2g-liberty-homepage-stats-card
       layout_options:
         grid_columns: full
-      entities:
-        - entity: sensor.total_charging_cost_last_7_days
-        - entity: sensor.net_energy_last_7_days
-        - entity: sensor.total_charge_time_last_7_days
-        - entity: sensor.total_emissions_last_7_days
-        - entity: sensor.total_charged_energy_last_7_days
-        - entity: sensor.total_discharge_time_last_7_days
-        - entity: sensor.total_saved_emissions_last_7_days
-        - entity: sensor.total_discharged_energy_last_7_days
-        - entity: sensor.net_emissions_last_7_days
-        - entity: sensor.net_energy_last_7_days
-      content: !include v2g_liberty_ui_module_stats.yaml
-      card_mod:
-        style: !include table_style.yaml
 
     - type: markdown
       layout_options:

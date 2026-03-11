@@ -1,6 +1,8 @@
 """Module for reading and transforming Amber price data and making it available to fm_client."""
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+import pandas as pd
 import isodate
 from appdaemon.plugins.hass.hassapi import Hass
 from . import constants as c
@@ -55,6 +57,8 @@ class ManageAmberPriceData:
     v2g_main_app: object = None
     get_fm_data_module: object = None
     fm_client_app: object = None
+    # For persisting prices to local SQLite database
+    data_store = None
     hass: Hass = None
 
     def __init__(self, hass: Hass):
@@ -127,6 +131,7 @@ class ManageAmberPriceData:
         self.__log(f"forced: {forced}.")
 
         new_schedule_needed = False
+        prices_changed = False
 
         #### Consumption prices (& emissions) ####
         consumption_prices = []
@@ -151,6 +156,7 @@ class ManageAmberPriceData:
 
         if consumption_prices != self.last_consumption_prices or forced:
             self.__log("consumption_prices changed")
+            prices_changed = True
             start_cpf = parse_to_rounded_local_datetime(
                 collection_cpf[0][self.START_LABEL]
             )
@@ -255,6 +261,7 @@ class ManageAmberPriceData:
 
         if production_prices != self.last_production_prices or forced:
             self.__log("production_prices changed")
+            prices_changed = True
             self.last_production_prices = list(production_prices)
             start_ppf = parse_to_rounded_local_datetime(
                 collection_ppf[0][self.START_LABEL]
@@ -300,6 +307,16 @@ class ManageAmberPriceData:
                 f"new_schedule: {new_schedule_needed}"
             )
 
+        # Persist prices to local DB (upsampled to 5-min resolution)
+        if prices_changed:
+            try:
+                self._persist_prices_to_db(collection_cpf, collection_ppf)
+            except Exception as e:
+                self.__log(
+                    f"Failed to persist Amber prices to DB: {e}",
+                    level="WARNING",
+                )
+
         if not new_schedule_needed:
             self.__log("not any changes")
             return
@@ -309,6 +326,81 @@ class ManageAmberPriceData:
             await self.v2g_main_app.set_next_action(v2g_args=msg)
         else:
             self.__log("Could not call set_next_action on v2g_main_app as it is None.")
+
+    def _persist_prices_to_db(self, consumption_forecasts, production_forecasts):
+        """Persist Amber prices to local SQLite database.
+
+        Combines consumption and production forecasts, upsamples from
+        native resolution to 5-min intervals, and writes to price_log
+        via DataStore.upsert_prices().
+
+        Amber prices (per_kwh) are already end-user prices including
+        all fees — no VAT/markup conversion needed.
+        price_rating calculation is deferred to Fase 7 (Amber-specific logic).
+        """
+        if self.data_store is None:
+            self.__log(
+                "DataStore not available, skipping price persistence.",
+                level="WARNING",
+            )
+            return
+
+        resolution = c.PRICE_RESOLUTION_MINUTES
+
+        # Build dicts from forecast items: {timestamp: per_kwh}
+        cons_data = {}
+        for item in consumption_forecasts:
+            dt = parse_to_rounded_local_datetime(item[self.START_LABEL])
+            cons_data[dt] = float(item[self.PRICE_LABEL])
+
+        prod_data = {}
+        for item in production_forecasts:
+            dt = parse_to_rounded_local_datetime(item[self.START_LABEL])
+            prod_data[dt] = float(item[self.PRICE_LABEL])
+
+        if not cons_data or not prod_data:
+            self.__log("No valid Amber price data to persist.")
+            return
+
+        # Combine into DataFrame, keep only timestamps with both prices
+        cons_series = pd.Series(cons_data, name="consumption_price_kwh")
+        prod_series = pd.Series(prod_data, name="production_price_kwh")
+        prices_df = pd.concat([cons_series, prod_series], axis=1, sort=True).dropna()
+
+        if prices_df.empty:
+            return
+
+        # Upsample to 5-min resolution using reindex + forward-fill
+        n_subintervals = resolution // 5
+        full_index = pd.date_range(
+            start=prices_df.index.min(),
+            end=prices_df.index.max() + timedelta(minutes=resolution - 5),
+            freq="5min",
+        )
+        prices_5min = prices_df.reindex(
+            full_index, method="ffill", limit=n_subintervals - 1
+        ).dropna()
+
+        if prices_5min.empty:
+            return
+
+        prices_5min = prices_5min.round(6)
+
+        # Build row tuples for upsert_prices()
+        # Amber prices are already in AUD/kWh (end-user price), no conversion needed
+        rows = list(
+            zip(
+                (ts.tz_convert(timezone.utc).isoformat() for ts in prices_5min.index),
+                prices_5min["consumption_price_kwh"],
+                prices_5min["production_price_kwh"],
+                [None] * len(prices_5min),
+            )
+        )
+
+        if rows:
+            # No price_rating recalculation for Amber (deferred to Fase 7)
+            self.data_store.upsert_prices(rows, recalculate_ratings=False)
+            self.__log(f"Persisted {len(rows)} Amber price rows to local DB.")
 
 
 # TODO: Make generic function in globals, it is copied to Octopus module.
