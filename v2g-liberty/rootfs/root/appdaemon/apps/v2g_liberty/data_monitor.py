@@ -1,6 +1,6 @@
 """Module to collect and monitor charge data at regular intervals."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Union
 
 from appdaemon.plugins.hass.hassapi import Hass
@@ -212,7 +212,7 @@ class DataMonitor:
         if self.data_store is None or v2g_events is None:
             return
 
-        timestamp = get_local_now().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
 
         for event in v2g_events:
             if event == "un-initiated":
@@ -227,8 +227,8 @@ class DataMonitor:
             try:
                 self.data_store.insert_reservation(
                     timestamp=timestamp,
-                    start_timestamp=start.isoformat(),
-                    end_timestamp=end.isoformat(),
+                    start_timestamp=start.astimezone(timezone.utc).isoformat(),
+                    end_timestamp=end.astimezone(timezone.utc).isoformat(),
                     target_soc_pct=(
                         float(target_soc_pct) if target_soc_pct is not None else None
                     ),
@@ -445,12 +445,12 @@ class DataMonitor:
         if self.data_store is None:
             return
 
-        # Timestamp = start of the interval that just concluded
+        # Timestamp = start of the interval that just concluded, in UTC.
         interval_end = time_round(get_local_now(), c.EVENT_RESOLUTION)
         interval_start = interval_end - timedelta(
             minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
         )
-        timestamp = interval_start.isoformat()
+        timestamp = interval_start.astimezone(timezone.utc).isoformat()
 
         try:
             self.data_store.insert_interval(
@@ -477,8 +477,8 @@ class DataMonitor:
 
         try:
             result = self.data_store.get_aggregated_data(
-                start=today_start.isoformat(),
-                end=today_end.isoformat(),
+                start=today_start.astimezone(timezone.utc).isoformat(),
+                end=today_end.astimezone(timezone.utc).isoformat(),
                 granularity="days",
             )
         except Exception as e:

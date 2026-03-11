@@ -58,9 +58,8 @@ async def run_historical_import(
 
     log_fn("Historical import: starting.")
 
-    # Remove any rows from a previous historical import so that the fresh
-    # import (now using local-timezone timestamps) doesn't leave duplicates
-    # alongside old UTC-format rows in interval_log.
+    # Remove any rows from a previous historical import so that a fresh
+    # import doesn't leave duplicates in interval_log.
     deleted = data_store.delete_historical_intervals()
     if deleted:
         log_fn(f"Historical import: removed {deleted} stale 'unknown' interval rows.")
@@ -333,10 +332,7 @@ async def _fetch_sensor_events(
         )
         return {}
 
-    # Convert to the local timezone so timestamps match those written by the
-    # live system (which uses get_local_now() / c.TZ).  Fall back to UTC if
-    # c.TZ has not been initialised yet (e.g. in unit tests).
-    local_tz = getattr(c, "TZ", None) or timezone.utc
+    # Timestamps are stored in UTC.
     now_utc = datetime.now(timezone.utc)
 
     result = {}
@@ -347,7 +343,6 @@ async def _fetch_sensor_events(
         if utc_dt >= now_utc:
             break
         if value is not None:
-            ts = utc_dt.astimezone(local_tz).isoformat()
-            result[ts] = value
+            result[utc_dt.isoformat()] = value
 
     return result

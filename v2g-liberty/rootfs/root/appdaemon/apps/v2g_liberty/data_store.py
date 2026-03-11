@@ -2,15 +2,14 @@
 
 import sqlite3
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
-from .v2g_globals import get_local_now
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -61,20 +60,27 @@ def calculate_price_ratings(prices_df: pd.DataFrame) -> pd.Series:
 def _period_key(timestamp_str: str, granularity: str) -> str:
     """Compute the period bucket key for a given timestamp and granularity.
 
+    Timestamps are stored in UTC; this function converts to local time
+    (via ``c.TZ``) so that day/week/month boundaries align with the
+    user's timezone.
+
     Args:
-        timestamp_str: ISO 8601 timestamp string (e.g. "2026-02-21T12:05:00+01:00").
+        timestamp_str: ISO 8601 timestamp string in UTC
+            (e.g. "2026-02-21T11:05:00+00:00").
         granularity: One of "quarter_hours", "hours", "days", "weeks",
             "months", "years".
 
     Returns:
-        Period key string. Format depends on granularity:
+        Period key string in local time. Format depends on granularity:
         - quarter_hours/hours: ISO 8601 timestamp (e.g. "2026-02-21T12:00:00+01:00")
         - day: date string (e.g. "2026-02-21")
         - week: ISO week string (e.g. "2026-W08")
         - month: year-month string (e.g. "2026-02")
         - year: year string (e.g. "2026")
     """
-    dt = datetime.fromisoformat(timestamp_str)
+    from . import constants as c
+
+    dt = datetime.fromisoformat(timestamp_str).astimezone(c.TZ)
     if granularity == "quarter_hours":
         quarter_minute = (dt.minute // 15) * 15
         return dt.replace(minute=quarter_minute, second=0, microsecond=0).isoformat()
@@ -256,7 +262,7 @@ class DataStore:
 
         if row is None:
             # First start: insert initial version
-            now = get_local_now().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             cursor.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
                 (CURRENT_SCHEMA_VERSION, now),
@@ -295,7 +301,14 @@ class DataStore:
             cursor.execute("ALTER TABLE interval_log DROP COLUMN power_kw")
             self.__log("Migration v2: dropped power_kw column from interval_log.")
 
-        now = get_local_now().isoformat()
+        if from_version < 3:
+            # V3: Convert all timestamps from local timezone to UTC.
+            # DST fall-back creates duplicate UTC timestamps when local
+            # timestamps like 02:30+02:00 and 02:30+01:00 both exist.
+            self.__migrate_timestamps_to_utc(cursor)
+            self.__log("Migration v3: converted all timestamps to UTC.")
+
+        now = datetime.now(timezone.utc).isoformat()
         cursor.execute(
             "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
             (CURRENT_SCHEMA_VERSION, now),
@@ -303,6 +316,88 @@ class DataStore:
         self.__connection.commit()
         cursor.close()
         self.__log(f"Database migrated to version {CURRENT_SCHEMA_VERSION}.")
+
+    def __migrate_timestamps_to_utc(self, cursor: sqlite3.Cursor):
+        """Convert all stored local-timezone timestamps to UTC.
+
+        Handles DST duplicates by keeping the first occurrence (the row
+        with the earlier UTC offset, i.e. the summer-time row).
+        """
+        tables_with_pk_timestamp = [
+            "interval_log",
+            "price_log",
+            "emission_log",
+        ]
+        for table in tables_with_pk_timestamp:
+            rows = cursor.execute(
+                f"SELECT timestamp FROM {table} ORDER BY timestamp"  # noqa: S608
+            ).fetchall()
+            if not rows:
+                continue
+
+            seen_utc = set()
+            duplicates = []
+            updates = []
+            for (ts_str,) in rows:
+                dt = datetime.fromisoformat(ts_str)
+                utc_str = dt.astimezone(timezone.utc).isoformat()
+                if utc_str in seen_utc:
+                    duplicates.append(ts_str)
+                else:
+                    seen_utc.add(utc_str)
+                    if utc_str != ts_str:
+                        updates.append((utc_str, ts_str))
+
+            for old_ts in duplicates:
+                cursor.execute(
+                    f"DELETE FROM {table} WHERE timestamp = ?",  # noqa: S608
+                    (old_ts,),
+                )
+
+            for new_ts, old_ts in updates:
+                cursor.execute(
+                    f"UPDATE {table} SET timestamp = ? "  # noqa: S608
+                    "WHERE timestamp = ?",
+                    (new_ts, old_ts),
+                )
+
+            self.__log(
+                f"  {table}: {len(updates)} timestamps converted, "
+                f"{len(duplicates)} DST duplicates removed."
+            )
+
+        # reservation_log has 3 timestamp columns, none are primary key.
+        res_rows = cursor.execute(
+            "SELECT rowid, timestamp, start_timestamp, end_timestamp "
+            "FROM reservation_log"
+        ).fetchall()
+        for row in res_rows:
+            rowid, ts, start_ts, end_ts = row
+            new_ts = datetime.fromisoformat(ts).astimezone(timezone.utc).isoformat()
+            new_start = (
+                datetime.fromisoformat(start_ts).astimezone(timezone.utc).isoformat()
+            )
+            new_end = (
+                datetime.fromisoformat(end_ts).astimezone(timezone.utc).isoformat()
+            )
+            if new_ts != ts or new_start != start_ts or new_end != end_ts:
+                cursor.execute(
+                    "UPDATE reservation_log SET timestamp = ?, "
+                    "start_timestamp = ?, end_timestamp = ? "
+                    "WHERE rowid = ?",
+                    (new_ts, new_start, new_end, rowid),
+                )
+
+        # fm_send_status: single-row table.
+        fm_row = cursor.execute("SELECT last_sent_up_to FROM fm_send_status").fetchone()
+        if fm_row:
+            old_ts = fm_row[0]
+            new_ts = datetime.fromisoformat(old_ts).astimezone(timezone.utc).isoformat()
+            if new_ts != old_ts:
+                cursor.execute(
+                    "UPDATE fm_send_status SET last_sent_up_to = ?",
+                    (new_ts,),
+                )
 
     @property
     def connection(self) -> sqlite3.Connection | None:

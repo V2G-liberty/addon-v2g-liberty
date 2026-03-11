@@ -44,8 +44,7 @@ def data_store(hass, tmp_path):
 
 
 @pytest.fixture
-@patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-def initialised_store(mock_now, data_store):
+def initialised_store(data_store):
     """Return a DataStore that has been fully initialised."""
     asyncio.get_event_loop().run_until_complete(data_store.initialise())
     return data_store
@@ -74,9 +73,9 @@ def _insert_interval(
 
 
 def _ts(minutes_offset):
-    """Generate an ISO timestamp at TEST_NOW + offset minutes."""
+    """Generate an ISO timestamp at TEST_NOW + offset minutes, in UTC."""
     dt = TEST_NOW + timedelta(minutes=minutes_offset)
-    return dt.isoformat()
+    return dt.astimezone(timezone.utc).isoformat()
 
 
 def _get_all_intervals(store):

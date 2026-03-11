@@ -1,6 +1,6 @@
 """Module for importing price and usage data from FlexMeasures."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
@@ -383,7 +383,8 @@ class FlexMeasuresDataImporter:
         # Persist emission data to local database
         if self.data_store is not None and emission_cache:
             rows = [
-                (ts.isoformat(), intensity) for ts, intensity in emission_cache.items()
+                (ts.astimezone(timezone.utc).isoformat(), intensity)
+                for ts, intensity in emission_cache.items()
             ]
             self.data_store.upsert_emissions(rows)
 
@@ -584,7 +585,7 @@ class FlexMeasuresDataImporter:
         # Build row tuples for upsert_prices()
         rows = list(
             zip(
-                (ts.isoformat() for ts in prices_5min.index),
+                (ts.tz_convert(timezone.utc).isoformat() for ts in prices_5min.index),
                 prices_5min["consumption_price_kwh"],
                 prices_5min["production_price_kwh"],
                 [None] * len(prices_5min),

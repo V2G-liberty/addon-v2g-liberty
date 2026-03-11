@@ -79,8 +79,7 @@ def data_store(hass, tmp_path):
     store._DataStore__connection = conn
     store._DataStore__set_pragmas()
     store._DataStore__create_tables()
-    with patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW):
-        store._DataStore__check_schema_version()
+    store._DataStore__check_schema_version()
     return store
 
 
@@ -144,7 +143,7 @@ class TestIntervalWriteFlow:
         assert len(intervals) == 1
 
         row = intervals[0]
-        assert row["timestamp"] == "2026-02-22T11:55:00+01:00"
+        assert row["timestamp"] == "2026-02-22T10:55:00+00:00"
         assert row["app_state"] == "automatic"
         assert row["soc_pct"] == 60.0
         assert row["availability_pct"] == 100.0
@@ -245,8 +244,8 @@ class TestReservationIntegration:
         reservations = _query_all(data_store, "reservation_log")
         assert len(reservations) == 1
         row = reservations[0]
-        assert row["start_timestamp"] == "2026-02-23T08:00:00+01:00"
-        assert row["end_timestamp"] == "2026-02-23T18:00:00+01:00"
+        assert row["start_timestamp"] == "2026-02-23T07:00:00+00:00"
+        assert row["end_timestamp"] == "2026-02-23T17:00:00+00:00"
         assert row["target_soc_pct"] == 80.0
 
     @pytest.mark.asyncio
@@ -329,7 +328,7 @@ class TestFullConcludeInterval:
         intervals = _query_all(data_store, "interval_log")
         assert len(intervals) == 1
         row = intervals[0]
-        assert row["timestamp"] == "2026-02-22T11:55:00+01:00"
+        assert row["timestamp"] == "2026-02-22T10:55:00+00:00"
         # Energy: 3000W avg for 5 min → 3.0 × 5/60 = 0.25 kWh
         assert row["energy_kwh"] == 0.25
         assert row["app_state"] == "automatic"

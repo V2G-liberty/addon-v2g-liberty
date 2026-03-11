@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from appdaemon.plugins.hass.hassapi import Hass
 
+from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.data_store import (
     DataStore,
     _dominant_app_state,
@@ -19,9 +20,24 @@ TEST_TZ = timezone(timedelta(hours=1))
 TEST_NOW = datetime(2026, 2, 23, 12, 0, 0, tzinfo=TEST_TZ)
 
 
+@pytest.fixture(autouse=True)
+def _set_tz():
+    """Set c.TZ so _period_key can convert UTC → local."""
+    old = getattr(c, "TZ", None)
+    c.TZ = TEST_TZ
+    yield
+    c.TZ = old
+
+
 def ts(hour: int, minute: int = 0) -> str:
-    """Create an ISO 8601 timestamp for 2026-02-23 at given hour:minute +01:00."""
+    """Create a local ISO 8601 timestamp for 2026-02-23 at given hour:minute +01:00."""
     return datetime(2026, 2, 23, hour, minute, 0, tzinfo=TEST_TZ).isoformat()
+
+
+def utc_ts(hour: int, minute: int = 0) -> str:
+    """Create a UTC ISO 8601 timestamp for 2026-02-23 at given hour:minute +01:00."""
+    dt = datetime(2026, 2, 23, hour, minute, 0, tzinfo=TEST_TZ)
+    return dt.astimezone(timezone.utc).isoformat()
 
 
 @pytest.fixture
@@ -217,15 +233,13 @@ class TestDominantPriceRating:
 
 class TestAggregatedDataQuarter:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_empty_range_returns_empty(self, mock_now, data_store):
+    async def test_empty_range_returns_empty(self, data_store):
         await data_store.initialise()
         result = data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "quarter_hours")
         assert result == []
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_single_interval_quarter(self, mock_now, data_store):
+    async def test_single_interval_quarter(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.25, "automatic", soc_pct=55.0)
         _insert_price(data_store, ts(8, 0), 0.25, 0.10, "low")
@@ -243,8 +257,7 @@ class TestAggregatedDataQuarter:
         assert row["charge_cost"] == round(0.25 * 0.25, 4)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_three_intervals_in_one_quarter(self, mock_now, data_store):
+    async def test_three_intervals_in_one_quarter(self, data_store):
         await data_store.initialise()
         # Three 5-min intervals in the 08:00-08:15 quarter
         _insert_interval(data_store, ts(8, 0), -0.167, "automatic", soc_pct=50.0)
@@ -266,8 +279,7 @@ class TestAggregatedDataQuarter:
         assert row["charge_cost"] == 0
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_two_quarters_in_range(self, mock_now, data_store):
+    async def test_two_quarters_in_range(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic", soc_pct=50.0)
         _insert_interval(data_store, ts(8, 15), 0.25, "charge", soc_pct=52.0)
@@ -278,8 +290,7 @@ class TestAggregatedDataQuarter:
         assert result[1]["period_start"] == ts(8, 15)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_quarter_no_prices(self, mock_now, data_store):
+    async def test_quarter_no_prices(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
@@ -291,8 +302,7 @@ class TestAggregatedDataQuarter:
         assert row["charge_cost"] == 0
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_quarter_soc_null_when_disconnected(self, mock_now, data_store):
+    async def test_quarter_soc_null_when_disconnected(self, data_store):
         await data_store.initialise()
         _insert_interval(
             data_store,
@@ -306,8 +316,7 @@ class TestAggregatedDataQuarter:
         assert result[0]["soc_pct"] is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_quarter_app_state_plus_suffix(self, mock_now, data_store):
+    async def test_quarter_app_state_plus_suffix(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
         _insert_interval(data_store, ts(8, 5), 0.167, "automatic")
@@ -319,8 +328,7 @@ class TestAggregatedDataQuarter:
 
 class TestAggregatedDataHour:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_hourly_charge_and_discharge_split(self, mock_now, data_store):
+    async def test_hourly_charge_and_discharge_split(self, data_store):
         await data_store.initialise()
         # 6 intervals of charging, 6 of discharging within one hour
         for m in range(0, 30, 5):
@@ -339,8 +347,7 @@ class TestAggregatedDataHour:
         assert row["discharge_revenue"] == round(0.167 * 6 * 0.15, 4)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_hourly_weighted_avg_price(self, mock_now, data_store):
+    async def test_hourly_weighted_avg_price(self, data_store):
         await data_store.initialise()
         # 2 intervals charging at 0.30 cons, 1 interval discharging at 0.10 prod
         _insert_interval(data_store, ts(8, 0), 0.25, "automatic")
@@ -361,8 +368,7 @@ class TestAggregatedDataHour:
         assert row["avg_price"] == round(expected_avg, 5)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_hourly_no_energy_uses_simple_avg_price(self, mock_now, data_store):
+    async def test_hourly_no_energy_uses_simple_avg_price(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.0, "pause")
         _insert_price(data_store, ts(8, 0), 0.20, 0.10, "low")
@@ -374,8 +380,7 @@ class TestAggregatedDataHour:
         assert row["avg_price"] == round((0.20 + 0.30) / 2, 5)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_hourly_soc_last_value(self, mock_now, data_store):
+    async def test_hourly_soc_last_value(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic", soc_pct=50.0)
         _insert_interval(data_store, ts(8, 5), 0.167, "automatic", soc_pct=52.0)
@@ -388,8 +393,7 @@ class TestAggregatedDataHour:
 
 class TestAggregatedDataPeriod:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_daily_aggregation(self, mock_now, data_store):
+    async def test_daily_aggregation(self, data_store):
         await data_store.initialise()
         # 3 intervals: 2 charging, 1 discharging
         _insert_interval(
@@ -419,8 +423,7 @@ class TestAggregatedDataPeriod:
         assert row["availability_pct"] == round((100 + 100 + 50) / 3, 1)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_daily_co2_calculation(self, mock_now, data_store):
+    async def test_daily_co2_calculation(self, data_store):
         await data_store.initialise()
         # Charging: 0.25 kWh at 400 kg/MWh -> 0.25 * 400 / 1000 = 0.1 kg
         _insert_interval(data_store, ts(8, 0), 0.25, "automatic")
@@ -435,8 +438,7 @@ class TestAggregatedDataPeriod:
         assert row["co2_kg"] == round(expected_co2, 1)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_daily_no_emissions(self, mock_now, data_store):
+    async def test_daily_no_emissions(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.25, "automatic")
 
@@ -444,8 +446,7 @@ class TestAggregatedDataPeriod:
         assert result[0]["co2_kg"] == 0
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_weekly_grouping(self, mock_now, data_store):
+    async def test_weekly_grouping(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
         _insert_interval(data_store, ts(8, 5), 0.167, "automatic")
@@ -455,8 +456,7 @@ class TestAggregatedDataPeriod:
         assert result[0]["period_start"] == "2026-W09"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_monthly_grouping(self, mock_now, data_store):
+    async def test_monthly_grouping(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
@@ -465,8 +465,7 @@ class TestAggregatedDataPeriod:
         assert result[0]["period_start"] == "2026-02"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_yearly_grouping(self, mock_now, data_store):
+    async def test_yearly_grouping(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
 
@@ -477,15 +476,13 @@ class TestAggregatedDataPeriod:
 
 class TestAggregatedDataEdgeCases:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_invalid_granularity_raises(self, mock_now, data_store):
+    async def test_invalid_granularity_raises(self, data_store):
         await data_store.initialise()
         with pytest.raises(ValueError, match="Invalid granularity"):
             data_store.get_aggregated_data(ts(8, 0), ts(9, 0), "minute")
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_range_excludes_end_timestamp(self, mock_now, data_store):
+    async def test_range_excludes_end_timestamp(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.167, "automatic")
         # This interval is AT the end boundary — should be excluded
@@ -496,8 +493,7 @@ class TestAggregatedDataEdgeCases:
         assert result[0]["period_start"] == ts(8, 0)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_only_charging_intervals(self, mock_now, data_store):
+    async def test_only_charging_intervals(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), 0.25, "charge")
         _insert_price(data_store, ts(8, 0), 0.30, 0.10)
@@ -510,8 +506,7 @@ class TestAggregatedDataEdgeCases:
         assert row["net_kwh"] == 0.25
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_only_discharging_intervals(self, mock_now, data_store):
+    async def test_only_discharging_intervals(self, data_store):
         await data_store.initialise()
         _insert_interval(data_store, ts(8, 0), -0.167, "discharge")
         _insert_price(data_store, ts(8, 0), 0.30, 0.15)
@@ -525,8 +520,7 @@ class TestAggregatedDataEdgeCases:
         assert row["net_kwh"] == round(-0.167, 2)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_results_ordered_by_period(self, mock_now, data_store):
+    async def test_results_ordered_by_period(self, data_store):
         await data_store.initialise()
         # Insert in reverse order
         _insert_interval(data_store, ts(10, 0), 0.083, "automatic")

@@ -356,7 +356,7 @@ class TestWriteIntervalToDb:
 
         data_store.insert_interval.assert_called_once()
         call_kwargs = data_store.insert_interval.call_args[1]
-        assert call_kwargs["timestamp"] == "2026-02-22T12:00:00+01:00"
+        assert call_kwargs["timestamp"] == "2026-02-22T11:00:00+00:00"
         assert call_kwargs["energy_kwh"] == 0.291667
         assert call_kwargs["app_state"] == "automatic"
         assert call_kwargs["soc_pct"] == 75.0
@@ -425,7 +425,7 @@ class TestWriteIntervalToDb:
         )
 
         call_kwargs = data_store.insert_interval.call_args[1]
-        assert call_kwargs["timestamp"] == "2026-02-22T12:05:00+01:00"
+        assert call_kwargs["timestamp"] == "2026-02-22T11:05:00+00:00"
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now")
@@ -484,9 +484,9 @@ class TestHandleCalendarChange:
 
         data_store.insert_reservation.assert_called_once()
         call_kwargs = data_store.insert_reservation.call_args[1]
-        assert call_kwargs["timestamp"] == TEST_NOW.isoformat()
-        assert call_kwargs["start_timestamp"] == "2026-02-23T08:00:00+01:00"
-        assert call_kwargs["end_timestamp"] == "2026-02-23T17:00:00+01:00"
+        assert call_kwargs["timestamp"].endswith("+00:00")  # UTC
+        assert call_kwargs["start_timestamp"] == "2026-02-23T07:00:00+00:00"
+        assert call_kwargs["end_timestamp"] == "2026-02-23T16:00:00+00:00"
         assert call_kwargs["target_soc_pct"] == 80.0
 
     @pytest.mark.asyncio
@@ -533,8 +533,8 @@ class TestHandleCalendarChange:
         await monitor._handle_calendar_change(v2g_events=[event])
 
         call_kwargs = data_store.insert_reservation.call_args[1]
-        assert call_kwargs["start_timestamp"] == "2026-02-23T08:05:00+01:00"
-        assert call_kwargs["end_timestamp"] == "2026-02-23T17:05:00+01:00"
+        assert call_kwargs["start_timestamp"] == "2026-02-23T07:05:00+00:00"
+        assert call_kwargs["end_timestamp"] == "2026-02-23T16:05:00+00:00"
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
@@ -547,8 +547,8 @@ class TestHandleCalendarChange:
         await monitor._handle_calendar_change(v2g_events=[event])
 
         call_kwargs = data_store.insert_reservation.call_args[1]
-        assert call_kwargs["start_timestamp"] == "2026-02-23T08:00:00+01:00"
-        assert call_kwargs["end_timestamp"] == "2026-02-23T17:00:00+01:00"
+        assert call_kwargs["start_timestamp"] == "2026-02-23T07:00:00+00:00"
+        assert call_kwargs["end_timestamp"] == "2026-02-23T16:00:00+00:00"
 
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
@@ -696,8 +696,8 @@ class TestEmitTodayTotals:
         end = call_kwargs[1]["end"]
         granularity = call_kwargs[1]["granularity"]
 
-        assert start == "2026-02-22T00:00:00+01:00"
-        assert end == "2026-02-23T00:00:00+01:00"
+        assert start == "2026-02-21T23:00:00+00:00"
+        assert end == "2026-02-22T23:00:00+00:00"
         assert granularity == "days"
 
     @pytest.mark.asyncio

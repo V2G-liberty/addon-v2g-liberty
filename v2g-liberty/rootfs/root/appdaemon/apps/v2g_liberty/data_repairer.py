@@ -12,7 +12,7 @@ Runs at startup (full repair) and periodically (incremental).
 Repaired/added rows are marked with is_repaired=1 in interval_log.
 """
 
-from datetime import timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -180,14 +180,7 @@ class DataRepairer:
         if df.empty:
             return summary
 
-        # Detect original timezone from the first timestamp so we can
-        # convert back when writing repaired rows (timestamps in interval_log
-        # are stored in local timezone, not UTC).
-        first_ts = pd.Timestamp(df["timestamp"].iloc[0])
-        local_tz = first_ts.tzinfo or timezone.utc
-
-        # Convert to UTC for consistent processing (pd.date_range works
-        # cleanly with a single timezone).
+        # Timestamps are stored in UTC; parse and index directly.
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         df = df.set_index("timestamp").sort_index()
 
@@ -222,9 +215,8 @@ class DataRepairer:
         # Step 5: Validate bounds (log only)
         summary["violations"] = self._validate_bounds(df)
 
-        # Write repaired rows back to DB (convert timestamps back to
-        # the original local timezone to match existing rows).
-        written = self._write_repaired_rows(df, local_tz)
+        # Write repaired rows back to DB (timestamps remain in UTC).
+        written = self._write_repaired_rows(df)
         if written > 0:
             self.__log(f"Wrote {written} repaired rows to interval_log.")
 
@@ -780,8 +772,8 @@ class DataRepairer:
             )
 
         # Impossible states: SoC direction inconsistent with energy direction
-        soc_series = df["soc_pct"]
-        energy_series = df["energy_kwh"]
+        soc_series = pd.to_numeric(df["soc_pct"], errors="coerce")
+        energy_series = pd.to_numeric(df["energy_kwh"], errors="coerce")
         soc_diff = soc_series.diff()
         # Only check where both SoC values are valid and energy is significant
         threshold = _negligible_energy_threshold()
@@ -812,24 +804,23 @@ class DataRepairer:
     # Write-back
     # ------------------------------------------------------------------
 
-    def _write_repaired_rows(self, df: pd.DataFrame, local_tz=None) -> int:
+    def _write_repaired_rows(self, df: pd.DataFrame) -> int:
         """Write repaired/new rows back to interval_log.
 
         Only writes rows where is_repaired=1.
         Uses INSERT OR REPLACE for both new gap-fill rows and updated rows.
-        Converts timestamps back to ``local_tz`` so they match existing rows.
+        Timestamps are kept in UTC.
         """
         repaired = df[df["is_repaired"] == 1]
         if repaired.empty:
             return 0
 
-        tz = local_tz or timezone.utc
         rows = []
         for ts, row in repaired.iterrows():
             soc = None if pd.isna(row["soc_pct"]) else float(row["soc_pct"])
             rows.append(
                 {
-                    "timestamp": ts.tz_convert(tz).isoformat(),
+                    "timestamp": ts.isoformat(),
                     "energy_kwh": float(row["energy_kwh"]),
                     "app_state": str(row["app_state"]),
                     "soc_pct": soc,

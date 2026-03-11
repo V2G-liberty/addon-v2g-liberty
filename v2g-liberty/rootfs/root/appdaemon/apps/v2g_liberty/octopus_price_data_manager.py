@@ -517,7 +517,7 @@ class ManageOctopusPriceData:
         # Octopus value_inc_vat already includes VAT, converted to GBP/kWh
         rows = list(
             zip(
-                (ts.isoformat() for ts in prices_5min.index),
+                (ts.tz_convert(timezone.utc).isoformat() for ts in prices_5min.index),
                 prices_5min["consumption_price_kwh"],
                 prices_5min["production_price_kwh"],
                 [None] * len(prices_5min),

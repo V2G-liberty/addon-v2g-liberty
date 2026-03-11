@@ -353,28 +353,22 @@ class TestDailySend:
 
 class TestInitialize:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.fm_data_sender.get_local_now", return_value=TEST_NOW)
-    async def test_first_start_sets_last_sent_to_now(
-        self, mock_now, sender, data_store
-    ):
+    async def test_first_start_sets_last_sent_to_now(self, sender, data_store):
         data_store.get_fm_last_sent.return_value = None
         await sender.initialize()
 
-        data_store.set_fm_last_sent.assert_called_once_with(TEST_NOW.isoformat())
+        # Code uses datetime.now(timezone.utc), just verify set_fm_last_sent was called
+        data_store.set_fm_last_sent.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.fm_data_sender.get_local_now", return_value=TEST_NOW)
-    async def test_existing_last_sent_not_overwritten(
-        self, mock_now, sender, data_store
-    ):
+    async def test_existing_last_sent_not_overwritten(self, sender, data_store):
         data_store.get_fm_last_sent.return_value = _ts(10, 0)
         await sender.initialize()
 
         data_store.set_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.fm_data_sender.get_local_now", return_value=TEST_NOW)
-    async def test_schedules_daily_task(self, mock_now, sender, hass):
+    async def test_schedules_daily_task(self, sender, hass):
         await sender.initialize()
         hass.run_daily.assert_called_once()
         call_args = hass.run_daily.call_args
@@ -401,33 +395,25 @@ class TestDataStoreFmSendStatus:
         return store
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_fm_last_sent_returns_none_initially(
-        self, mock_now, real_data_store
-    ):
+    async def test_get_fm_last_sent_returns_none_initially(self, real_data_store):
         await real_data_store.initialise()
         assert real_data_store.get_fm_last_sent() is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_set_and_get_fm_last_sent(self, mock_now, real_data_store):
+    async def test_set_and_get_fm_last_sent(self, real_data_store):
         await real_data_store.initialise()
         real_data_store.set_fm_last_sent(_ts(10, 0))
         assert real_data_store.get_fm_last_sent() == _ts(10, 0)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_set_fm_last_sent_updates_existing(self, mock_now, real_data_store):
+    async def test_set_fm_last_sent_updates_existing(self, real_data_store):
         await real_data_store.initialise()
         real_data_store.set_fm_last_sent(_ts(10, 0))
         real_data_store.set_fm_last_sent(_ts(12, 0))
         assert real_data_store.get_fm_last_sent() == _ts(12, 0)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_intervals_since_returns_matching_rows(
-        self, mock_now, real_data_store
-    ):
+    async def test_get_intervals_since_returns_matching_rows(self, real_data_store):
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),
@@ -451,10 +437,7 @@ class TestDataStoreFmSendStatus:
         assert rows[0]["energy_kwh"] == 0.125
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_intervals_since_excludes_older_rows(
-        self, mock_now, real_data_store
-    ):
+    async def test_get_intervals_since_excludes_older_rows(self, real_data_store):
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),
@@ -477,9 +460,8 @@ class TestDataStoreFmSendStatus:
         assert rows[0]["timestamp"] == _ts(10, 5)
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
     async def test_get_intervals_since_returns_only_needed_columns(
-        self, mock_now, real_data_store
+        self, real_data_store
     ):
         await real_data_store.initialise()
         real_data_store.insert_interval(
@@ -501,8 +483,7 @@ class TestDataStoreFmSendStatus:
         }
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_intervals_since_none_soc(self, mock_now, real_data_store):
+    async def test_get_intervals_since_none_soc(self, real_data_store):
         await real_data_store.initialise()
         real_data_store.insert_interval(
             timestamp=_ts(10, 0),

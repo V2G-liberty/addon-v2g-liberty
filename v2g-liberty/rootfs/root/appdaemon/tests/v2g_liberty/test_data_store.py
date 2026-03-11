@@ -58,14 +58,12 @@ def data_store(hass, tmp_path):
 
 class TestInitialisation:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_initialise_creates_database(self, mock_now, data_store):
+    async def test_initialise_creates_database(self, data_store):
         await data_store.initialise()
         assert data_store.connection is not None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_initialise_sets_wal_journal_mode(self, mock_now, data_store):
+    async def test_initialise_sets_wal_journal_mode(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA journal_mode")
@@ -74,8 +72,7 @@ class TestInitialisation:
         assert mode == "wal"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_initialise_sets_synchronous_normal(self, mock_now, data_store):
+    async def test_initialise_sets_synchronous_normal(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA synchronous")
@@ -85,8 +82,7 @@ class TestInitialisation:
         assert value == 1
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_initialise_sets_temp_store_memory(self, mock_now, data_store):
+    async def test_initialise_sets_temp_store_memory(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA temp_store")
@@ -98,8 +94,7 @@ class TestInitialisation:
 
 class TestTableCreation:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_all_five_tables_created(self, mock_now, data_store):
+    async def test_all_five_tables_created(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute(
@@ -114,8 +109,7 @@ class TestTableCreation:
         assert "reservation_log" in tables
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_interval_log_columns(self, mock_now, data_store):
+    async def test_interval_log_columns(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(interval_log)")
@@ -132,8 +126,7 @@ class TestTableCreation:
         assert "price_rating" not in columns
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_price_log_columns(self, mock_now, data_store):
+    async def test_price_log_columns(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(price_log)")
@@ -145,8 +138,7 @@ class TestTableCreation:
         assert columns["price_rating"] == "TEXT"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_emission_log_columns(self, mock_now, data_store):
+    async def test_emission_log_columns(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(emission_log)")
@@ -156,10 +148,7 @@ class TestTableCreation:
         assert columns["emission_intensity_kg_mwh"] == "REAL"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_emission_log_has_primary_key_on_timestamp(
-        self, mock_now, data_store
-    ):
+    async def test_emission_log_has_primary_key_on_timestamp(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(emission_log)")
@@ -168,8 +157,7 @@ class TestTableCreation:
         assert pk_columns == ["timestamp"]
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_reservation_log_columns(self, mock_now, data_store):
+    async def test_reservation_log_columns(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(reservation_log)")
@@ -181,10 +169,7 @@ class TestTableCreation:
         assert columns["target_soc_pct"] == "REAL"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_interval_log_has_primary_key_on_timestamp(
-        self, mock_now, data_store
-    ):
+    async def test_interval_log_has_primary_key_on_timestamp(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(interval_log)")
@@ -194,8 +179,7 @@ class TestTableCreation:
         assert pk_columns == ["timestamp"]
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_price_log_has_primary_key_on_timestamp(self, mock_now, data_store):
+    async def test_price_log_has_primary_key_on_timestamp(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("PRAGMA table_info(price_log)")
@@ -206,8 +190,7 @@ class TestTableCreation:
 
 class TestSchemaVersion:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_first_start_inserts_version_1(self, mock_now, data_store):
+    async def test_first_start_inserts_version_1(self, data_store):
         await data_store.initialise()
         cursor = data_store.connection.cursor()
         cursor.execute("SELECT version, applied_at FROM schema_version")
@@ -215,11 +198,10 @@ class TestSchemaVersion:
         cursor.close()
         assert row is not None
         assert row[0] == CURRENT_SCHEMA_VERSION
-        assert row[1] == TEST_NOW.isoformat()
+        assert row[1].endswith("+00:00")  # Stored as UTC
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_second_start_does_not_duplicate_version(self, mock_now, data_store):
+    async def test_second_start_does_not_duplicate_version(self, data_store):
         await data_store.initialise()
         # Close and reinitialise to simulate restart
         data_store.close()
@@ -232,16 +214,14 @@ class TestSchemaVersion:
         assert count == 1
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_second_start_logs_up_to_date(self, mock_now, data_store, hass):
+    async def test_second_start_logs_up_to_date(self, data_store, hass):
         await data_store.initialise()
         data_store.close()
         await data_store.initialise()
         assert find_log_containing(hass, "up to date") is not None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_newer_version_logs_warning(self, mock_now, data_store, hass):
+    async def test_newer_version_logs_warning(self, data_store, hass):
         await data_store.initialise()
         # Manually bump version to simulate a downgrade scenario
         cursor = data_store.connection.cursor()
@@ -259,8 +239,7 @@ class TestSchemaVersion:
         assert warning_call.kwargs.get("level") == "WARNING"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_tables_preserved_after_reinitialise(self, mock_now, data_store):
+    async def test_tables_preserved_after_reinitialise(self, data_store):
         """Verify that CREATE TABLE IF NOT EXISTS does not drop existing data."""
         await data_store.initialise()
         # Insert a test row into price_log
@@ -285,22 +264,19 @@ class TestSchemaVersion:
 
 class TestClose:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_close_sets_connection_to_none(self, mock_now, data_store):
+    async def test_close_sets_connection_to_none(self, data_store):
         await data_store.initialise()
         data_store.close()
         assert data_store.connection is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_close_without_initialise_does_not_error(self, mock_now, data_store):
+    async def test_close_without_initialise_does_not_error(self, data_store):
         # Should not raise
         data_store.close()
         assert data_store.connection is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_double_close_does_not_error(self, mock_now, data_store):
+    async def test_double_close_does_not_error(self, data_store):
         await data_store.initialise()
         data_store.close()
         # Second close should not raise
@@ -310,8 +286,7 @@ class TestClose:
 
 class TestInsertInterval:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_insert_interval_stores_all_fields(self, mock_now, data_store):
+    async def test_insert_interval_stores_all_fields(self, data_store):
         await data_store.initialise()
         data_store.insert_interval(
             timestamp="2026-02-21T12:00:00+01:00",
@@ -331,8 +306,7 @@ class TestInsertInterval:
         assert row["availability_pct"] == 100.0
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_insert_interval_nullable_fields(self, mock_now, data_store):
+    async def test_insert_interval_nullable_fields(self, data_store):
         await data_store.initialise()
         data_store.insert_interval(
             timestamp="2026-02-21T12:00:00+01:00",
@@ -348,10 +322,7 @@ class TestInsertInterval:
         assert row["soc_pct"] is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_insert_interval_duplicate_timestamp_replaces(
-        self, mock_now, data_store
-    ):
+    async def test_insert_interval_duplicate_timestamp_replaces(self, data_store):
         """A second insert on the same timestamp replaces the earlier row (INSERT OR REPLACE)."""
         await data_store.initialise()
         data_store.insert_interval(
@@ -380,8 +351,7 @@ class TestInsertInterval:
 
 class TestUpsertPrices:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_prices_inserts_rows(self, mock_now, data_store):
+    async def test_upsert_prices_inserts_rows(self, data_store):
         await data_store.initialise()
         rows = [
             ("2026-02-21T12:00:00+01:00", 0.25, 0.10, "average"),
@@ -396,8 +366,7 @@ class TestUpsertPrices:
         assert count == 3
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_prices_overwrites_existing(self, mock_now, data_store):
+    async def test_upsert_prices_overwrites_existing(self, data_store):
         """Verify UPSERT: forecast price is overwritten by definitive price."""
         await data_store.initialise()
         # Insert forecast
@@ -429,8 +398,7 @@ class TestUpsertPrices:
         assert count == 1
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_prices_with_null_rating(self, mock_now, data_store):
+    async def test_upsert_prices_with_null_rating(self, data_store):
         await data_store.initialise()
         data_store.upsert_prices(
             [
@@ -445,8 +413,7 @@ class TestUpsertPrices:
         assert row["price_rating"] is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_prices_logs_count(self, mock_now, data_store, hass):
+    async def test_upsert_prices_logs_count(self, data_store, hass):
         await data_store.initialise()
         data_store.upsert_prices(
             [
@@ -459,8 +426,7 @@ class TestUpsertPrices:
 
 class TestInsertReservation:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_insert_reservation_stores_all_fields(self, mock_now, data_store):
+    async def test_insert_reservation_stores_all_fields(self, data_store):
         await data_store.initialise()
         data_store.insert_reservation(
             timestamp="2026-02-21T12:00:00+01:00",
@@ -478,8 +444,7 @@ class TestInsertReservation:
         assert row["target_soc_pct"] == 90.0
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_insert_reservation_nullable_soc(self, mock_now, data_store):
+    async def test_insert_reservation_nullable_soc(self, data_store):
         await data_store.initialise()
         data_store.insert_reservation(
             timestamp="2026-02-21T12:00:00+01:00",
@@ -495,8 +460,7 @@ class TestInsertReservation:
 
 class TestGetPriceAt:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_price_at_existing(self, mock_now, data_store):
+    async def test_get_price_at_existing(self, data_store):
         await data_store.initialise()
         data_store.upsert_prices(
             [
@@ -508,15 +472,13 @@ class TestGetPriceAt:
         assert result == (0.25, 0.10, "low")
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_price_at_missing(self, mock_now, data_store):
+    async def test_get_price_at_missing(self, data_store):
         await data_store.initialise()
         result = data_store.get_price_at("2026-02-21T12:00:00+01:00")
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_get_price_at_null_rating(self, mock_now, data_store):
+    async def test_get_price_at_null_rating(self, data_store):
         await data_store.initialise()
         data_store.upsert_prices(
             [
@@ -530,8 +492,7 @@ class TestGetPriceAt:
 
 class TestGetPricesInWindow:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_empty_window(self, mock_now, data_store):
+    async def test_empty_window(self, data_store):
         await data_store.initialise()
         df = data_store.get_prices_in_window(
             "2026-02-21T12:00:00+01:00", "2026-02-21T13:00:00+01:00"
@@ -545,8 +506,7 @@ class TestGetPricesInWindow:
         ]
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_window_returns_matching_rows(self, mock_now, data_store):
+    async def test_window_returns_matching_rows(self, data_store):
         await data_store.initialise()
         data_store.upsert_prices(
             [
@@ -565,8 +525,7 @@ class TestGetPricesInWindow:
         assert df.iloc[2]["timestamp"] == "2026-02-21T12:10:00+01:00"
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_window_returns_ordered_by_timestamp(self, mock_now, data_store):
+    async def test_window_returns_ordered_by_timestamp(self, data_store):
         await data_store.initialise()
         # Insert out of order
         data_store.upsert_prices(
@@ -587,8 +546,7 @@ class TestGetPricesInWindow:
         ]
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_window_dataframe_has_correct_dtypes(self, mock_now, data_store):
+    async def test_window_dataframe_has_correct_dtypes(self, data_store):
         await data_store.initialise()
         data_store.upsert_prices(
             [
@@ -649,8 +607,7 @@ class TestCalculatePriceRatings:
 
 class TestUpsertPricesRecalculation:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_recalculates_ratings_in_db(self, mock_now, data_store):
+    async def test_upsert_recalculates_ratings_in_db(self, data_store):
         """After upserting with recalculate_ratings=True, DB has calculated ratings."""
         await data_store.initialise()
         # 20 distinct prices → predictable rating distribution
@@ -679,8 +636,7 @@ class TestUpsertPricesRecalculation:
         assert db_ratings[17:20] == ["very_high"] * 3
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_recalculate_false_preserves_input_rating(self, mock_now, data_store):
+    async def test_recalculate_false_preserves_input_rating(self, data_store):
         """With recalculate_ratings=False, input ratings are preserved as-is."""
         await data_store.initialise()
         data_store.upsert_prices(
@@ -697,8 +653,7 @@ class TestUpsertPricesRecalculation:
         assert ratings == [None, "custom"]
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_overwrite_triggers_recalculation(self, mock_now, data_store):
+    async def test_overwrite_triggers_recalculation(self, data_store):
         """When forecast is replaced by definitive, ratings are recalculated."""
         await data_store.initialise()
         base = datetime(2026, 2, 21, 12, 0, tzinfo=timezone(timedelta(hours=1)))
@@ -736,8 +691,7 @@ class TestUpsertPricesRecalculation:
 
 class TestUpsertEmissions:
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_emissions_inserts_rows(self, mock_now, data_store):
+    async def test_upsert_emissions_inserts_rows(self, data_store):
         await data_store.initialise()
         rows = [
             ("2026-02-21T12:00:00+01:00", 350.5),
@@ -752,8 +706,7 @@ class TestUpsertEmissions:
         assert count == 3
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_emissions_stores_correct_values(self, mock_now, data_store):
+    async def test_upsert_emissions_stores_correct_values(self, data_store):
         await data_store.initialise()
         data_store.upsert_emissions([("2026-02-21T12:00:00+01:00", 350.5)])
         cursor = data_store.connection.cursor()
@@ -764,8 +717,7 @@ class TestUpsertEmissions:
         assert row["emission_intensity_kg_mwh"] == 350.5
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_emissions_overwrites_existing(self, mock_now, data_store):
+    async def test_upsert_emissions_overwrites_existing(self, data_store):
         await data_store.initialise()
         data_store.upsert_emissions([("2026-02-21T12:00:00+01:00", 350.5)])
         data_store.upsert_emissions([("2026-02-21T12:00:00+01:00", 360.0)])
@@ -781,8 +733,7 @@ class TestUpsertEmissions:
         assert count == 1
 
     @pytest.mark.asyncio
-    @patch("apps.v2g_liberty.data_store.get_local_now", return_value=TEST_NOW)
-    async def test_upsert_emissions_logs_count(self, mock_now, data_store, hass):
+    async def test_upsert_emissions_logs_count(self, data_store, hass):
         await data_store.initialise()
         data_store.upsert_emissions(
             [

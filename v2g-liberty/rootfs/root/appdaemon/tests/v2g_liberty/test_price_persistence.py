@@ -125,7 +125,7 @@ class TestPersistEpexPricesToDb:
 
         expected_timestamps = [TEST_START + timedelta(minutes=5 * i) for i in range(6)]
         for row, expected_ts in zip(rows, expected_timestamps):
-            assert row[0] == expected_ts.isoformat()
+            assert row[0] == expected_ts.astimezone(timezone.utc).isoformat()
 
     @patch("apps.v2g_liberty.fm_data_importer.c")
     def test_30min_resolution_produces_6_rows_per_interval(
@@ -392,7 +392,7 @@ class TestPersistAmberPricesToDb:
 
         expected_timestamps = [TEST_START + timedelta(minutes=5 * i) for i in range(6)]
         for row, expected_ts in zip(rows, expected_timestamps):
-            assert row[0] == expected_ts.isoformat()
+            assert row[0] == expected_ts.astimezone(timezone.utc).isoformat()
 
     @patch("apps.v2g_liberty.amber_price_data_manager.parse_to_rounded_local_datetime")
     @patch("apps.v2g_liberty.amber_price_data_manager.c")
@@ -551,7 +551,7 @@ class TestPersistOctopusPricesToDb:
 
         expected_timestamps = [TEST_START + timedelta(minutes=5 * i) for i in range(6)]
         for row, expected_ts in zip(rows, expected_timestamps):
-            assert row[0] == expected_ts.isoformat()
+            assert row[0] == expected_ts.astimezone(timezone.utc).isoformat()
 
     @patch("apps.v2g_liberty.octopus_price_data_manager.c")
     def test_recalculate_ratings_default_true(

@@ -14,8 +14,14 @@ TEST_TZ = timezone(timedelta(hours=1))
 
 
 def ts(hour: int, minute: int = 0) -> str:
-    """Create an ISO 8601 timestamp for 2026-02-23 at given hour:minute +01:00."""
+    """Create a local ISO 8601 timestamp for 2026-02-23 at given hour:minute +01:00."""
     return datetime(2026, 2, 23, hour, minute, 0, tzinfo=TEST_TZ).isoformat()
+
+
+def utc_ts(hour: int, minute: int = 0) -> str:
+    """Create the UTC equivalent of ts() for assertion against API responses."""
+    dt = datetime(2026, 2, 23, hour, minute, 0, tzinfo=TEST_TZ)
+    return dt.astimezone(timezone.utc).isoformat()
 
 
 def _make_kwargs(start=None, end=None, granularity=None):
@@ -167,8 +173,8 @@ class TestSuccessfulRequests:
         assert status == 200
         assert response["data"] == mock_result
         assert response["granularity"] == "hours"
-        assert response["start"] == ts(8, 0)
-        assert response["end"] == ts(9, 0)
+        assert response["start"] == utc_ts(8, 0)
+        assert response["end"] == utc_ts(9, 0)
 
     @pytest.mark.asyncio
     async def test_passes_params_to_data_store(self, api_server):
@@ -178,7 +184,7 @@ class TestSuccessfulRequests:
         await api_server._ApiServer__handle_aggregated_data(None, kwargs)
 
         api_server.data_store.get_aggregated_data.assert_called_once_with(
-            ts(8, 0), ts(9, 0), "days"
+            utc_ts(8, 0), utc_ts(9, 0), "days"
         )
 
     @pytest.mark.asyncio
@@ -280,8 +286,8 @@ class TestEventHandlerSuccess:
         assert call.args[0] == "v2g_data_query.result"
         assert call.kwargs["data"] == mock_result
         assert call.kwargs["granularity"] == "hours"
-        assert call.kwargs["start"] == ts(8, 0)
-        assert call.kwargs["end"] == ts(9, 0)
+        assert call.kwargs["start"] == utc_ts(8, 0)
+        assert call.kwargs["end"] == utc_ts(9, 0)
 
     @pytest.mark.asyncio
     async def test_passes_params_to_data_store(self, api_server, hass):
@@ -290,7 +296,7 @@ class TestEventHandlerSuccess:
         data = {"start": ts(8, 0), "end": ts(9, 0), "granularity": "days"}
         await api_server._ApiServer__handle_data_query_event("v2g_data_query", data, {})
         api_server.data_store.get_aggregated_data.assert_called_once_with(
-            ts(8, 0), ts(9, 0), "days"
+            utc_ts(8, 0), utc_ts(9, 0), "days"
         )
 
     @pytest.mark.asyncio

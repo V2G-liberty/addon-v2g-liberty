@@ -1,13 +1,12 @@
 """Module for daily batch export of interval data to FlexMeasures."""
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .v2g_globals import get_local_now
 
 
 class FMDataSender:
@@ -34,7 +33,7 @@ class FMDataSender:
         if self.data_store is not None:
             last_sent = self.data_store.get_fm_last_sent()
             if last_sent is None:
-                now = get_local_now().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 self.data_store.set_fm_last_sent(now)
                 self.__log(
                     "First start: set last_sent_up_to to now, "

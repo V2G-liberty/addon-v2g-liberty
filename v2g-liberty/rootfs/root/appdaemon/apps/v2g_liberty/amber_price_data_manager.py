@@ -1,6 +1,6 @@
 """Module for reading and transforming Amber price data and making it available to fm_client."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import isodate
@@ -390,7 +390,7 @@ class ManageAmberPriceData:
         # Amber prices are already in AUD/kWh (end-user price), no conversion needed
         rows = list(
             zip(
-                (ts.isoformat() for ts in prices_5min.index),
+                (ts.tz_convert(timezone.utc).isoformat() for ts in prices_5min.index),
                 prices_5min["consumption_price_kwh"],
                 prices_5min["production_price_kwh"],
                 [None] * len(prices_5min),

@@ -1,6 +1,6 @@
 """REST API and HA event interface for aggregated interval data."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -72,10 +72,12 @@ class ApiServer:
                     )
                 }, 400
 
-            # Validate ISO 8601 timestamps
+            # Validate and convert to UTC for database comparison
             try:
-                datetime.fromisoformat(start)
-                datetime.fromisoformat(end)
+                start = (
+                    datetime.fromisoformat(start).astimezone(timezone.utc).isoformat()
+                )
+                end = datetime.fromisoformat(end).astimezone(timezone.utc).isoformat()
             except ValueError:
                 return {"error": "Invalid timestamp format. Use ISO 8601."}, 400
 
@@ -127,8 +129,10 @@ class ApiServer:
                 return
 
             try:
-                datetime.fromisoformat(start)
-                datetime.fromisoformat(end)
+                start = (
+                    datetime.fromisoformat(start).astimezone(timezone.utc).isoformat()
+                )
+                end = datetime.fromisoformat(end).astimezone(timezone.utc).isoformat()
             except ValueError:
                 self.__hass.fire_event(
                     "v2g_data_query.result",
