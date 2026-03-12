@@ -73,6 +73,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         relaxed_min_value=1,
         relaxed_max_value=100,
         current_value=None,
+        pre_processor="_convert_soc_permille_to_percent",
         change_handler="_handle_soc_change",
     )
 
@@ -565,6 +566,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         return self._BASE_STATE_MAPPING.get(
             bidipro_state, 0
         )  # Default to "Booting" if unknown
+
+    def _convert_soc_permille_to_percent(self, raw_value: int) -> float:
+        """Convert SoC from per-mille (e.g. 779) to percentage (e.g. 77.9)."""
+        return raw_value / 10.0
 
     async def _get_charger_info(self) -> str:
         try:
