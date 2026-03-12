@@ -9,7 +9,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -248,6 +248,17 @@ class DataStore:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS reference_price_log (
+                month TEXT PRIMARY KEY,
+                delivery_price_eur_kwh REAL NOT NULL,
+                energy_tax_eur_kwh REAL NOT NULL,
+                total_price_eur_kwh REAL NOT NULL,
+                source TEXT NOT NULL,
+                fetched_at TEXT NOT NULL
+            )
+        """)
+
         self.__connection.commit()
         cursor.close()
         self.__log("All tables created/verified.")
@@ -307,6 +318,20 @@ class DataStore:
             # timestamps like 02:30+02:00 and 02:30+01:00 both exist.
             self.__migrate_timestamps_to_utc(cursor)
             self.__log("Migration v3: converted all timestamps to UTC.")
+
+        if from_version < 4:
+            # V4: Add reference_price_log table for CBS reference prices.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reference_price_log (
+                    month TEXT PRIMARY KEY,
+                    delivery_price_eur_kwh REAL NOT NULL,
+                    energy_tax_eur_kwh REAL NOT NULL,
+                    total_price_eur_kwh REAL NOT NULL,
+                    source TEXT NOT NULL,
+                    fetched_at TEXT NOT NULL
+                )
+            """)
+            self.__log("Migration v4: created reference_price_log table.")
 
         now = datetime.now(timezone.utc).isoformat()
         cursor.execute(
@@ -546,6 +571,70 @@ class DataStore:
         self.__connection.commit()
         cursor.close()
         self.__log(f"Upserted {len(rows)} emission row(s).")
+
+    def upsert_reference_prices(
+        self,
+        rows: list[tuple[str, float, float, str, str]],
+    ) -> None:
+        """Insert or replace reference price rows in reference_price_log.
+
+        Each row is a tuple:
+            (month, delivery_price_eur_kwh, energy_tax_eur_kwh, source, fetched_at)
+
+        The total_price_eur_kwh is computed as the sum of the two components.
+        Uses INSERT OR REPLACE for UPSERT behaviour.
+        """
+        enriched = [
+            (month, delivery, tax, round(delivery + tax, 6), source, fetched_at)
+            for month, delivery, tax, source, fetched_at in rows
+        ]
+        cursor = self.__connection.cursor()
+        cursor.executemany(
+            "INSERT OR REPLACE INTO reference_price_log "
+            "(month, delivery_price_eur_kwh, energy_tax_eur_kwh, "
+            "total_price_eur_kwh, source, fetched_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            enriched,
+        )
+        self.__connection.commit()
+        cursor.close()
+        self.__log(f"Upserted {len(rows)} reference price row(s).")
+
+    def get_reference_price(self, month: str) -> float | None:
+        """Return the total reference price (€/kWh) for the given month (YYYY-MM).
+
+        Falls back to the most recent known price if the requested month is
+        not available. Returns None if no reference prices are stored at all.
+        """
+        cursor = self.__connection.cursor()
+
+        # Exact match first.
+        cursor.execute(
+            "SELECT total_price_eur_kwh FROM reference_price_log WHERE month = ?",
+            (month,),
+        )
+        row = cursor.fetchone()
+        if row:
+            cursor.close()
+            return row["total_price_eur_kwh"]
+
+        # Fallback: most recent price on or before the requested month.
+        cursor.execute(
+            "SELECT total_price_eur_kwh FROM reference_price_log "
+            "WHERE month <= ? ORDER BY month DESC LIMIT 1",
+            (month,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        if row:
+            self.__log(
+                f"Reference price for {month} not found — "
+                f"using most recent available price as fallback.",
+                level="WARNING",
+            )
+            return row["total_price_eur_kwh"]
+
+        return None
 
     def insert_reservation(
         self,

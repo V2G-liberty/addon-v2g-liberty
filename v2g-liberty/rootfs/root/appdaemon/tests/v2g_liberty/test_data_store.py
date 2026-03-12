@@ -1,7 +1,7 @@
 """Unit test (pytest) for data_store module."""
 
 from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from appdaemon.plugins.hass.hassapi import Hass
@@ -107,6 +107,7 @@ class TestTableCreation:
         assert "price_log" in tables
         assert "emission_log" in tables
         assert "reservation_log" in tables
+        assert "reference_price_log" in tables
 
     @pytest.mark.asyncio
     async def test_interval_log_columns(self, data_store):
@@ -742,3 +743,122 @@ class TestUpsertEmissions:
             ]
         )
         assert find_log_containing(hass, "2 emission row(s)") is not None
+
+
+class TestUpsertReferencePrices:
+    # Helper: insert a single reference price row.
+    def _insert(self, store, month, delivery=0.10, tax=0.15, source="cbs"):
+        store.upsert_reference_prices(
+            [(month, delivery, tax, source, "2026-03-01T00:00:00+00:00")]
+        )
+
+    @pytest.mark.asyncio
+    async def test_upsert_inserts_row(self, data_store):
+        await data_store.initialise()
+        self._insert(data_store, "2026-01")
+        cursor = data_store._DataStore__connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM reference_price_log")
+        assert cursor.fetchone()[0] == 1
+
+    @pytest.mark.asyncio
+    async def test_upsert_stores_correct_components(self, data_store):
+        await data_store.initialise()
+        self._insert(data_store, "2026-01", delivery=0.12, tax=0.18)
+        cursor = data_store._DataStore__connection.cursor()
+        cursor.execute("SELECT * FROM reference_price_log WHERE month = '2026-01'")
+        row = dict(cursor.fetchone())
+        assert row["delivery_price_eur_kwh"] == pytest.approx(0.12)
+        assert row["energy_tax_eur_kwh"] == pytest.approx(0.18)
+        assert row["total_price_eur_kwh"] == pytest.approx(0.30)
+
+    @pytest.mark.asyncio
+    async def test_upsert_computes_total_as_sum(self, data_store):
+        await data_store.initialise()
+        self._insert(data_store, "2026-02", delivery=0.09, tax=0.14)
+        cursor = data_store._DataStore__connection.cursor()
+        cursor.execute(
+            "SELECT total_price_eur_kwh FROM reference_price_log WHERE month = '2026-02'"
+        )
+        assert cursor.fetchone()[0] == pytest.approx(0.23)
+
+    @pytest.mark.asyncio
+    async def test_upsert_overwrites_existing_month(self, data_store):
+        await data_store.initialise()
+        self._insert(data_store, "2026-01", delivery=0.10, tax=0.15)
+        self._insert(data_store, "2026-01", delivery=0.11, tax=0.16)
+        cursor = data_store._DataStore__connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM reference_price_log WHERE month = '2026-01'"
+        )
+        assert cursor.fetchone()[0] == 1
+        cursor.execute(
+            "SELECT total_price_eur_kwh FROM reference_price_log WHERE month = '2026-01'"
+        )
+        assert cursor.fetchone()[0] == pytest.approx(0.27)
+
+    @pytest.mark.asyncio
+    async def test_upsert_multiple_months(self, data_store):
+        await data_store.initialise()
+        data_store.upsert_reference_prices(
+            [
+                ("2026-01", 0.10, 0.15, "cbs", "2026-03-01T00:00:00+00:00"),
+                ("2026-02", 0.11, 0.16, "cbs", "2026-03-01T00:00:00+00:00"),
+                ("2026-03", 0.12, 0.17, "cbs", "2026-03-01T00:00:00+00:00"),
+            ]
+        )
+        cursor = data_store._DataStore__connection.cursor()
+        cursor.execute("SELECT COUNT(*) FROM reference_price_log")
+        assert cursor.fetchone()[0] == 3
+
+    @pytest.mark.asyncio
+    async def test_upsert_logs_count(self, data_store, hass):
+        await data_store.initialise()
+        data_store.upsert_reference_prices(
+            [
+                ("2026-01", 0.10, 0.15, "cbs", "2026-03-01T00:00:00+00:00"),
+                ("2026-02", 0.11, 0.16, "cbs", "2026-03-01T00:00:00+00:00"),
+            ]
+        )
+        assert find_log_containing(hass, "2 reference price row(s)") is not None
+
+
+class TestGetReferencePrice:
+    def _insert(self, store, month, delivery=0.10, tax=0.15, source="cbs"):
+        store.upsert_reference_prices(
+            [(month, delivery, tax, source, "2026-03-01T00:00:00+00:00")]
+        )
+
+    @pytest.mark.asyncio
+    async def test_exact_month_match(self, data_store):
+        await data_store.initialise()
+        self._insert(data_store, "2026-01", delivery=0.12, tax=0.18)
+        price = data_store.get_reference_price("2026-01")
+        assert price == pytest.approx(0.30)
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_most_recent_earlier_month(self, data_store):
+        await data_store.initialise()
+        self._insert(data_store, "2026-01", delivery=0.10, tax=0.15)
+        self._insert(data_store, "2026-02", delivery=0.11, tax=0.16)
+        # Request a future month not yet in DB.
+        price = data_store.get_reference_price("2026-06")
+        assert price == pytest.approx(0.27)  # 2026-02 is latest ≤ 2026-06
+
+    @pytest.mark.asyncio
+    async def test_fallback_logs_warning(self, data_store, hass):
+        await data_store.initialise()
+        self._insert(data_store, "2026-01")
+        data_store.get_reference_price("2026-06")
+        assert find_log_containing(hass, "fallback") is not None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_data(self, data_store):
+        await data_store.initialise()
+        assert data_store.get_reference_price("2026-01") is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_only_future_data(self, data_store):
+        # Only future months stored — request an older month → no fallback possible.
+        await data_store.initialise()
+        self._insert(data_store, "2026-06")
+        assert data_store.get_reference_price("2026-01") is None
