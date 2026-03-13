@@ -306,16 +306,24 @@ class DataRepairer:
     # Step 0a: Bounds correction — clamp impossible values
     # ------------------------------------------------------------------
 
+    # Absolute upper bound for home charging: 25 kW.  Any energy value above
+    # this per 5-min interval is certainly erroneous.  We intentionally do NOT
+    # use the current charger settings because those may have changed over time
+    # and would incorrectly clamp historical data recorded with a different
+    # charger or different max-power configuration.
+    _MAX_HOME_POWER_KW = 25
+    _MAX_ENERGY_KWH_PER_INTERVAL = _MAX_HOME_POWER_KW * 5 / 60  # 2.083 kWh
+
     def _correct_bounds(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         """Clamp physically impossible values and mark rows as repaired.
 
-        Corrects SoC (1–100%), energy (charger limits), and availability
-        (0–100%). NaN values are skipped. Returns (df, count_of_corrections).
+        Corrects SoC (1–100%), energy (absolute home-charging bound), and
+        availability (0–100%). NaN values are skipped. Returns
+        (df, count_of_corrections).
         """
         corrected = 0
 
-        max_charge_kwh = c.CHARGER_MAX_CHARGE_POWER / 1000 * 5 / 60
-        max_discharge_kwh = c.CHARGER_MAX_DISCHARGE_POWER / 1000 * 5 / 60
+        max_energy_kwh = self._MAX_ENERGY_KWH_PER_INTERVAL
 
         # SoC < 1% → 1%
         mask = df["soc_pct"].notna() & (df["soc_pct"] < 1)
@@ -335,29 +343,29 @@ class DataRepairer:
             df.loc[mask, "is_repaired"] = 1
             corrected += n
 
-        # Energy > max charge → max charge
-        mask = df["energy_kwh"].notna() & (df["energy_kwh"] > max_charge_kwh)
+        # Energy > max → clamp
+        mask = df["energy_kwh"].notna() & (df["energy_kwh"] > max_energy_kwh)
         if mask.any():
             n = mask.sum()
             self.__log(
-                f"Bounds: clamped {n} energy values above charge limit "
-                f"({max_charge_kwh:.3f} kWh).",
+                f"Bounds: clamped {n} energy values above {max_energy_kwh:.3f} kWh "
+                f"({self._MAX_HOME_POWER_KW} kW limit).",
                 level="WARNING",
             )
-            df.loc[mask, "energy_kwh"] = max_charge_kwh
+            df.loc[mask, "energy_kwh"] = max_energy_kwh
             df.loc[mask, "is_repaired"] = 1
             corrected += n
 
-        # Energy < -max discharge → -max discharge
-        mask = df["energy_kwh"].notna() & (df["energy_kwh"] < -max_discharge_kwh)
+        # Energy < -max → clamp
+        mask = df["energy_kwh"].notna() & (df["energy_kwh"] < -max_energy_kwh)
         if mask.any():
             n = mask.sum()
             self.__log(
-                f"Bounds: clamped {n} energy values below discharge limit "
-                f"({max_discharge_kwh:.3f} kWh).",
+                f"Bounds: clamped {n} energy values below -{max_energy_kwh:.3f} kWh "
+                f"({self._MAX_HOME_POWER_KW} kW limit).",
                 level="WARNING",
             )
-            df.loc[mask, "energy_kwh"] = -max_discharge_kwh
+            df.loc[mask, "energy_kwh"] = -max_energy_kwh
             df.loc[mask, "is_repaired"] = 1
             corrected += n
 
@@ -836,25 +844,23 @@ class DataRepairer:
             violations["soc_above_100"] = len(soc_high)
             self.__log(f"{len(soc_high)} intervals with SoC > 100%.", level="WARNING")
 
-        # Energy exceeds charger limits per interval
-        max_charge_kwh = c.CHARGER_MAX_CHARGE_POWER / 1000 * 5 / 60
-        max_discharge_kwh = c.CHARGER_MAX_DISCHARGE_POWER / 1000 * 5 / 60
-        tolerance = 1.1  # 10% tolerance
+        # Energy exceeds absolute home-charging bound per interval
+        max_energy_kwh = self._MAX_ENERGY_KWH_PER_INTERVAL
 
-        energy_too_high = df[df["energy_kwh"] > max_charge_kwh * tolerance]
-        energy_too_low = df[df["energy_kwh"] < -max_discharge_kwh * tolerance]
+        energy_too_high = df[df["energy_kwh"] > max_energy_kwh]
+        energy_too_low = df[df["energy_kwh"] < -max_energy_kwh]
         if len(energy_too_high) > 0:
             violations["energy_exceeds_charge_limit"] = len(energy_too_high)
             self.__log(
                 f"{len(energy_too_high)} intervals with energy above "
-                f"charge limit ({max_charge_kwh:.3f} kWh).",
+                f"{max_energy_kwh:.3f} kWh ({self._MAX_HOME_POWER_KW} kW limit).",
                 level="WARNING",
             )
         if len(energy_too_low) > 0:
             violations["energy_exceeds_discharge_limit"] = len(energy_too_low)
             self.__log(
-                f"{len(energy_too_low)} intervals with energy above "
-                f"discharge limit ({max_discharge_kwh:.3f} kWh).",
+                f"{len(energy_too_low)} intervals with energy below "
+                f"-{max_energy_kwh:.3f} kWh ({self._MAX_HOME_POWER_KW} kW limit).",
                 level="WARNING",
             )
 

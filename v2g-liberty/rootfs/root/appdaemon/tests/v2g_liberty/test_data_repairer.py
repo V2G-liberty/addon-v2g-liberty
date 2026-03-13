@@ -943,21 +943,18 @@ class TestBoundsCorrection:
         rows = _get_all_intervals(initialised_store)
         assert rows[0]["soc_pct"] == 100.0
 
-    def test_energy_above_charge_limit_clamped(
-        self, _mock_constants, repairer, initialised_store
-    ):
-        """Energy above charger limit → clamped by step 0a."""
-        # Override to 1380W → max 0.115 kWh/interval
-        _mock_constants.CHARGER_MAX_CHARGE_POWER = 1380
-        _mock_constants.CHARGER_MAX_DISCHARGE_POWER = 1380
-        _insert_interval(initialised_store, _ts(0), energy=0.5)
+    def test_energy_above_charge_limit_clamped(self, repairer, initialised_store):
+        """Energy above 25 kW home-charging bound → clamped by step 0a."""
+        # 25 kW × 5/60 = 2.083 kWh max per interval
+        _insert_interval(initialised_store, _ts(0), energy=5.0)
         _insert_interval(initialised_store, _ts(5), energy=0.01)
 
         summary = repairer.run_full_repair()
         assert summary["bounds_corrected"] >= 1
 
+        expected = 25 * 5 / 60  # 2.083 kWh
         rows = _get_all_intervals(initialised_store)
-        assert rows[0]["energy_kwh"] == pytest.approx(0.115, abs=0.001)
+        assert rows[0]["energy_kwh"] == pytest.approx(expected, abs=0.001)
 
     def test_availability_below_0_clamped(self, repairer, initialised_store):
         """Availability < 0% → clamped to 0% by step 0a."""
