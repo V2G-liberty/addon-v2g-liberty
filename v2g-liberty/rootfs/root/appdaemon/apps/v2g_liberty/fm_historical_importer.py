@@ -8,6 +8,7 @@ successful import; deleting the flag file forces a re-import on next startup
 This module is temporary and will be removed once all users have upgraded.
 """
 
+import asyncio
 import calendar
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -18,17 +19,28 @@ from . import constants as c
 _EARLIEST_DATE = date(2024, 9, 1)
 # Treat a month as empty if fewer than this many events are returned.
 _EMPTY_MONTH_THRESHOLD = 50
-# 5-minute intervals: energy_kwh = power_MW * 1000 * 5 / 60
+# 5-minute intervals: energy_kwh = power_kW * 5 / 60
 _INTERVAL_MINUTES = 5
-_ENERGY_FROM_POWER_FACTOR = 1000 * _INTERVAL_MINUTES / 60
+_ENERGY_FROM_POWER_FACTOR = _INTERVAL_MINUTES / 60
 # Written after a successful import; delete to force a re-import.
 _IMPORT_DONE_FLAG = Path("/data/fm_historical_import_report.txt")
 # EU day-ahead electricity market switched from 60-min to 15-min on this date.
 _PRICE_MARKET_CUTOVER = date(2025, 10, 1)
+# Retry settings for sensor fetches.
+_MAX_RETRIES = 3
+_RETRY_DELAY_SECONDS = 10
+# Pause between months to avoid overwhelming the FM server.
+_MONTH_PAUSE_SECONDS = 30
+# Maximum chunk size for FM API queries to avoid server-side timeouts.
+_CHUNK_DAYS = 7
+# Pause between individual sensor fetches within a chunk (seconds).
+_SENSOR_PAUSE_SECONDS = 2
+# Pause between weekly chunks (seconds).
+_CHUNK_PAUSE_SECONDS = 5
 
 
 async def run_historical_import(
-    data_store, log_fn, fm_client=None, on_complete=None
+    data_store, log_fn, fm_client=None, on_complete=None, on_notify=None
 ) -> None:
     """Import historical FM data into the local database.
 
@@ -39,6 +51,10 @@ async def run_historical_import(
 
     When ``on_complete`` is provided it is called after a successful import.
     This is used to trigger the DataRepairer to review imported rows.
+
+    When ``on_notify`` is provided it is called with a single string message
+    after the import finishes (success or failure).  This is used to send a
+    persistent notification to the user.
     """
     if _IMPORT_DONE_FLAG.exists():
         log_fn("Historical import: already done (flag file exists), skipping.")
@@ -61,8 +77,13 @@ async def run_historical_import(
 
     month = date.today().replace(day=1)
     consecutive_empty = 0
+    months_processed = 0
 
     while month >= _EARLIEST_DATE:
+        # Pause between months to avoid overwhelming the FM server.
+        if months_processed > 0:
+            await asyncio.sleep(_MONTH_PAUSE_SECONDS)
+
         month_start = datetime(month.year, month.month, 1, tzinfo=timezone.utc)
         last_day = calendar.monthrange(month.year, month.month)[1]
         month_end = datetime(
@@ -75,7 +96,10 @@ async def run_historical_import(
         )
         effective_end = min(month_end, today_midnight)
 
-        rows = await _fetch_month_rows(fm_client, month_start, effective_end, log_fn)
+        errors = []
+        rows = await _fetch_month_rows(
+            fm_client, month_start, effective_end, log_fn, errors=errors
+        )
 
         # Count rows where at least one sensor has actual data.
         rows_with_data = sum(
@@ -103,11 +127,27 @@ async def run_historical_import(
 
         # Import prices and emissions for this month regardless of interval count.
         await _import_prices_for_month(
-            fm_client, data_store, month_start, effective_end, log_fn
+            fm_client, data_store, month_start, effective_end, log_fn, errors=errors
         )
         await _import_emissions_for_month(
-            fm_client, data_store, month_start, effective_end, log_fn
+            fm_client, data_store, month_start, effective_end, log_fn, errors=errors
         )
+
+        # Stop import if any sensor fetch failed after all retries.
+        if errors:
+            log_fn(
+                f"Historical import: stopping due to API errors "
+                f"(sensors: {errors}) at {month.strftime('%Y-%m')}.",
+                level="WARNING",
+            )
+            if on_notify is not None:
+                on_notify(
+                    "Historische import gestopt vanwege API-fouten. "
+                    "Herstart V2G Liberty om het opnieuw te proberen."
+                )
+            return
+
+        months_processed += 1
 
         # Step back one month.
         month = (month - timedelta(days=1)).replace(day=1)
@@ -116,6 +156,9 @@ async def run_historical_import(
         f"Historical import completed at {datetime.now(timezone.utc).isoformat()}\n"
     )
     log_fn("Historical import: complete.")
+
+    if on_notify is not None:
+        on_notify("Historische data-import is succesvol afgerond.")
 
     if on_complete is not None:
         log_fn("Historical import: triggering post-import review.")
@@ -127,6 +170,7 @@ async def _fetch_month_rows(
     month_start: datetime,
     month_end: datetime,
     log_fn,
+    errors: list | None = None,
 ) -> list[dict]:
     """Fetch and merge power, SoC, and availability data for one month.
 
@@ -147,12 +191,14 @@ async def _fetch_month_rows(
     power_events = await _fetch_sensor_events(
         fm_client,
         c.FM_ACCOUNT_POWER_SENSOR_ID,
-        "MW",
+        "kW",
         month_start,
         month_end,
         log_fn,
         prior=prior,
+        errors=errors,
     )
+    await asyncio.sleep(_SENSOR_PAUSE_SECONDS)
     soc_events = await _fetch_sensor_events(
         fm_client,
         c.FM_ACCOUNT_SOC_SENSOR_ID,
@@ -161,7 +207,9 @@ async def _fetch_month_rows(
         month_end,
         log_fn,
         prior=prior,
+        errors=errors,
     )
+    await asyncio.sleep(_SENSOR_PAUSE_SECONDS)
     avail_events = await _fetch_sensor_events(
         fm_client,
         c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID,
@@ -170,6 +218,7 @@ async def _fetch_month_rows(
         month_end,
         log_fn,
         prior=prior,
+        errors=errors,
     )
 
     # Build a complete 5-minute grid for the month.  Every slot gets a row;
@@ -180,9 +229,9 @@ async def _fetch_month_rows(
         ts = slot.isoformat()
         slot += timedelta(minutes=_INTERVAL_MINUTES)
 
-        power_mw = power_events.get(ts)
+        power_kw = power_events.get(ts)
         energy_kwh = (
-            power_mw * _ENERGY_FROM_POWER_FACTOR if power_mw is not None else None
+            power_kw * _ENERGY_FROM_POWER_FACTOR if power_kw is not None else None
         )
         rows.append(
             {
@@ -204,6 +253,7 @@ async def _import_prices_for_month(
     month_start: datetime,
     month_end: datetime,
     log_fn,
+    errors: list | None = None,
 ) -> None:
     """Fetch consumption and production prices for one month and store them.
 
@@ -230,7 +280,9 @@ async def _import_prices_for_month(
         month_end,
         log_fn,
         step_minutes=step,
+        errors=errors,
     )
+    await asyncio.sleep(_SENSOR_PAUSE_SECONDS)
     prod = await _fetch_sensor_events(
         fm_client,
         c.FM_PRICE_PRODUCTION_SENSOR_ID,
@@ -239,6 +291,7 @@ async def _import_prices_for_month(
         month_end,
         log_fn,
         step_minutes=step,
+        errors=errors,
     )
 
     all_ts = set(cons) | set(prod)
@@ -273,6 +326,7 @@ async def _import_emissions_for_month(
     month_start: datetime,
     month_end: datetime,
     log_fn,
+    errors: list | None = None,
 ) -> None:
     """Fetch CO2 emission intensity for one month and store it."""
     if not c.FM_EMISSIONS_SENSOR_ID:
@@ -285,7 +339,7 @@ async def _import_emissions_for_month(
         month_start,
         month_end,
         log_fn,
-        # step_minutes defaults to _INTERVAL_MINUTES (5)
+        errors=errors,
     )
     if not events:
         return
@@ -306,49 +360,81 @@ async def _fetch_sensor_events(
     log_fn,
     step_minutes: int = _INTERVAL_MINUTES,
     prior: str | None = None,
+    errors: list | None = None,
 ) -> dict[str, float]:
     """Fetch sensor data and return a {timestamp_iso: value} dict.
 
-    Uses the FlexMeasures client to request data at the given resolution.
-    Null values (gaps in the data) are omitted from the result.
+    Splits the requested period into chunks of ``_CHUNK_DAYS`` to avoid
+    server-side timeouts on large queries.  Uses the FlexMeasures client to
+    request data at the given resolution.  Null values (gaps in the data)
+    are omitted from the result.
 
     When ``prior`` is provided it is passed to FM as a belief-time upper bound
     so only beliefs formed before that timestamp are considered.  This lets
     callers retrieve actual charger measurements (stored shortly after each
     event) rather than retroactively-updated scheduler beliefs (stored today).
+
+    Retries up to ``_MAX_RETRIES`` times per chunk on failure, with a
+    ``_RETRY_DELAY_SECONDS`` pause between attempts.  When all retries are
+    exhausted the sensor_id is appended to ``errors`` (if provided) and the
+    results collected so far are returned.
     """
     if not sensor_id:
         return {}
 
-    duration = end - start
-    extra = {"prior": prior} if prior is not None else {}
-    try:
-        data = await fm_client.get_sensor_data(
-            sensor_id=sensor_id,
-            start=start,
-            duration=duration,
-            unit=unit,
-            resolution=f"PT{step_minutes}M",
-            **extra,
-        )
-    except Exception as exc:
-        log_fn(
-            f"Historical import: fetching sensor {sensor_id} failed: {exc}",
-            level="WARNING",
-        )
-        return {}
-
-    # Timestamps are stored in UTC.
+    result: dict[str, float] = {}
     now_utc = datetime.now(timezone.utc)
+    extra = {"prior": prior} if prior is not None else {}
 
-    result = {}
-    start_dt = datetime.fromisoformat(data["start"]).astimezone(timezone.utc)
-    for i, value in enumerate(data.get("values", [])):
-        utc_dt = start_dt + timedelta(minutes=step_minutes * i)
-        # Never import future data — FM may return day-ahead prices beyond now.
-        if utc_dt >= now_utc:
-            break
-        if value is not None:
-            result[utc_dt.isoformat()] = value
+    chunk_start = start
+    while chunk_start < end:
+        chunk_end = min(chunk_start + timedelta(days=_CHUNK_DAYS), end)
+        duration = chunk_end - chunk_start
+
+        data = None
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                data = await fm_client.get_sensor_data(
+                    sensor_id=sensor_id,
+                    start=chunk_start,
+                    duration=duration,
+                    unit=unit,
+                    resolution=f"PT{step_minutes}M",
+                    **extra,
+                )
+                break
+            except Exception as exc:
+                if attempt < _MAX_RETRIES:
+                    log_fn(
+                        f"Historical import: fetching sensor {sensor_id} failed "
+                        f"(attempt {attempt}/{_MAX_RETRIES}): {exc}. "
+                        f"Retrying in {_RETRY_DELAY_SECONDS}s...",
+                        level="WARNING",
+                    )
+                    await asyncio.sleep(_RETRY_DELAY_SECONDS)
+                else:
+                    log_fn(
+                        f"Historical import: fetching sensor {sensor_id} failed "
+                        f"after {_MAX_RETRIES} attempts: {exc}",
+                        level="WARNING",
+                    )
+                    if errors is not None:
+                        errors.append(sensor_id)
+                    return result
+
+        if data is not None:
+            start_dt = datetime.fromisoformat(data["start"]).astimezone(timezone.utc)
+            for i, value in enumerate(data.get("values", [])):
+                utc_dt = start_dt + timedelta(minutes=step_minutes * i)
+                # Never import future data.
+                if utc_dt >= now_utc:
+                    break
+                if value is not None:
+                    result[utc_dt.isoformat()] = value
+
+        chunk_start = chunk_end
+        # Pause before the next chunk to avoid overwhelming the FM server.
+        if chunk_start < end:
+            await asyncio.sleep(_CHUNK_PAUSE_SECONDS)
 
     return result
