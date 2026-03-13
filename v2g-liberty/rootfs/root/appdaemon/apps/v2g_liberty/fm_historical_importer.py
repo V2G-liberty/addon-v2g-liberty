@@ -15,11 +15,7 @@ from pathlib import Path
 from . import constants as c
 
 # Never fetch data older than this date.
-########################################################################
-# TODO:                                                                #
-# change to (2024, 9, 1) for production, this value is for testing.    #
-########################################################################
-_EARLIEST_DATE = date(2025, 9, 1)
+_EARLIEST_DATE = date(2024, 9, 1)
 # Treat a month as empty if fewer than this many events are returned.
 _EMPTY_MONTH_THRESHOLD = 50
 # 5-minute intervals: energy_kwh = power_MW * 1000 * 5 / 60
@@ -27,7 +23,6 @@ _INTERVAL_MINUTES = 5
 _ENERGY_FROM_POWER_FACTOR = 1000 * _INTERVAL_MINUTES / 60
 # Written after a successful import; delete to force a re-import.
 _IMPORT_DONE_FLAG = Path("/data/fm_historical_import_report.txt")
-_OLD_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_done.txt")
 # EU day-ahead electricity market switched from 60-min to 15-min on this date.
 _PRICE_MARKET_CUTOVER = date(2025, 10, 1)
 
@@ -45,7 +40,7 @@ async def run_historical_import(
     When ``on_complete`` is provided it is called after a successful import.
     This is used to trigger the DataRepairer to review imported rows.
     """
-    if _IMPORT_DONE_FLAG.exists() or _OLD_IMPORT_DONE_FLAG.exists():
+    if _IMPORT_DONE_FLAG.exists():
         log_fn("Historical import: already done (flag file exists), skipping.")
         return
 
@@ -82,7 +77,15 @@ async def run_historical_import(
 
         rows = await _fetch_month_rows(fm_client, month_start, effective_end, log_fn)
 
-        if len(rows) < _EMPTY_MONTH_THRESHOLD:
+        # Count rows where at least one sensor has actual data.
+        rows_with_data = sum(
+            1
+            for r in rows
+            if r["energy_kwh"] is not None
+            or r["soc_pct"] is not None
+            or r["availability_pct"] is not None
+        )
+        if rows_with_data < _EMPTY_MONTH_THRESHOLD:
             consecutive_empty += 1
             if consecutive_empty >= 2:
                 log_fn(
@@ -169,14 +172,17 @@ async def _fetch_month_rows(
         prior=prior,
     )
 
-    # Union of all timestamps seen across the three sensors.
-    all_timestamps = set(power_events) | set(soc_events) | set(avail_events)
-
+    # Build a complete 5-minute grid for the month.  Every slot gets a row;
+    # energy_kwh is None when no power measurement exists (not 0.0).
     rows = []
-    for ts in sorted(all_timestamps):
+    slot = month_start
+    while slot < month_end:
+        ts = slot.isoformat()
+        slot += timedelta(minutes=_INTERVAL_MINUTES)
+
         power_mw = power_events.get(ts)
         energy_kwh = (
-            (power_mw * _ENERGY_FROM_POWER_FACTOR) if power_mw is not None else 0.0
+            power_mw * _ENERGY_FROM_POWER_FACTOR if power_mw is not None else None
         )
         rows.append(
             {

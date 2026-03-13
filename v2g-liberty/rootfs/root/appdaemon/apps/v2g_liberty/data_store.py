@@ -209,7 +209,7 @@ class DataStore:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS interval_log (
                 timestamp TEXT PRIMARY KEY,
-                energy_kwh REAL NOT NULL,
+                energy_kwh REAL,
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
                 availability_pct REAL,
@@ -839,8 +839,10 @@ class DataStore:
         app_states = [i["app_state"] for i in intervals]
         has_repaired = any(i["is_repaired"] == 1 for i in intervals)
 
-        # Net energy
-        energy_kwh = sum(i["energy_kwh"] for i in intervals)
+        # Net energy (skip None — no measurement available)
+        energy_kwh = sum(
+            i["energy_kwh"] for i in intervals if i["energy_kwh"] is not None
+        )
         energy_wh = round(energy_kwh * 1000)
 
         # Average prices (non-null only)
@@ -868,12 +870,16 @@ class DataStore:
         charge_cost = sum(
             i["energy_kwh"] * i["consumption_price_kwh"]
             for i in intervals
-            if i["energy_kwh"] > 0 and i["consumption_price_kwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["consumption_price_kwh"] is not None
         )
         discharge_revenue = sum(
             abs(i["energy_kwh"]) * i["production_price_kwh"]
             for i in intervals
-            if i["energy_kwh"] < 0 and i["production_price_kwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["production_price_kwh"] is not None
         )
 
         return {
@@ -899,21 +905,31 @@ class DataStore:
         app_states = [i["app_state"] for i in intervals]
         has_repaired = any(i["is_repaired"] == 1 for i in intervals)
 
-        # Charge/discharge split
-        charge_kwh = sum(i["energy_kwh"] for i in intervals if i["energy_kwh"] > 0)
+        # Charge/discharge split (skip None — no measurement available)
+        charge_kwh = sum(
+            i["energy_kwh"]
+            for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+        )
         discharge_kwh = sum(
-            abs(i["energy_kwh"]) for i in intervals if i["energy_kwh"] < 0
+            abs(i["energy_kwh"])
+            for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] < 0
         )
 
         charge_cost = sum(
             i["energy_kwh"] * i["consumption_price_kwh"]
             for i in intervals
-            if i["energy_kwh"] > 0 and i["consumption_price_kwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["consumption_price_kwh"] is not None
         )
         discharge_revenue = sum(
             abs(i["energy_kwh"]) * i["production_price_kwh"]
             for i in intervals
-            if i["energy_kwh"] < 0 and i["production_price_kwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["production_price_kwh"] is not None
         )
 
         # Weighted average price
@@ -966,21 +982,31 @@ class DataStore:
             else None
         )
 
-        # Charge/discharge split
-        charge_kwh = sum(i["energy_kwh"] for i in intervals if i["energy_kwh"] > 0)
+        # Charge/discharge split (skip None — no measurement available)
+        charge_kwh = sum(
+            i["energy_kwh"]
+            for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+        )
         discharge_kwh = sum(
-            abs(i["energy_kwh"]) for i in intervals if i["energy_kwh"] < 0
+            abs(i["energy_kwh"])
+            for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] < 0
         )
 
         charge_cost = sum(
             i["energy_kwh"] * i["consumption_price_kwh"]
             for i in intervals
-            if i["energy_kwh"] > 0 and i["consumption_price_kwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["consumption_price_kwh"] is not None
         )
         discharge_revenue = sum(
             abs(i["energy_kwh"]) * i["production_price_kwh"]
             for i in intervals
-            if i["energy_kwh"] < 0 and i["production_price_kwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["production_price_kwh"] is not None
         )
 
         net_kwh = charge_kwh - discharge_kwh
@@ -990,12 +1016,16 @@ class DataStore:
         charge_co2_kg = sum(
             i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
             for i in intervals
-            if i["energy_kwh"] > 0 and i["emission_intensity_kg_mwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["emission_intensity_kg_mwh"] is not None
         )
         discharge_co2_kg = sum(
             abs(i["energy_kwh"]) * i["emission_intensity_kg_mwh"] / 1000
             for i in intervals
-            if i["energy_kwh"] < 0 and i["emission_intensity_kg_mwh"] is not None
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["emission_intensity_kg_mwh"] is not None
         )
         co2_kg = charge_co2_kg - discharge_co2_kg
 

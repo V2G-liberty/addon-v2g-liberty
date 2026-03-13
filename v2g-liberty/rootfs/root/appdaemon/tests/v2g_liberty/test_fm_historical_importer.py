@@ -10,6 +10,9 @@ Tests cover:
 - Skips null values (gaps in sensor data)
 - Returns empty dict when get_sensor_data raises an exception
 - Uses INSERT OR IGNORE (does not overwrite existing rows)
+- Complete 5-min grid: all slots from month_start to month_end
+- energy_kwh=None when power data is missing (not 0.0)
+- SoC/availability preserved even without power data
 """
 
 import sqlite3
@@ -22,6 +25,7 @@ from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.data_store import DataStore
 from apps.v2g_liberty.fm_historical_importer import (
     _ENERGY_FROM_POWER_FACTOR,
+    _fetch_month_rows,
     _fetch_sensor_events,
     _import_emissions_for_month,
     _import_prices_for_month,
@@ -119,13 +123,7 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
     flag = tmp_path / "fm_historical_import_done"
     flag.touch()
 
-    old_flag = tmp_path / "old_flag"
-    with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
-    ):
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -138,14 +136,8 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
 async def test_aborts_when_no_fm_client(data_store, log_fn, tmp_path):
     """Import aborts cleanly when no FM client is provided."""
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
 
-    with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
-    ):
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -164,14 +156,10 @@ async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
     data_store._DataStore__connection.commit()
 
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
     ):
         mock_date.today.return_value = date(2024, 11, 1)
@@ -186,17 +174,13 @@ async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
 async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
     """Import stops looping after two consecutive months with insufficient events."""
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
     ):
-        # Use a date well after _EARLIEST_DATE (2025-09-01) so the loop runs.
+        # Use a date well after _EARLIEST_DATE so the loop runs.
         mock_date.today.return_value = date(2026, 6, 1)
         mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
         await run_historical_import(data_store, log_fn, fm_client)
@@ -210,15 +194,11 @@ async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
 async def test_on_complete_called_after_import(data_store, log_fn, tmp_path):
     """The on_complete callback is called after a successful import."""
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
     callback = MagicMock()
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
     ):
         mock_date.today.return_value = date(2024, 11, 1)
@@ -233,15 +213,9 @@ async def test_on_complete_not_called_when_skipped(data_store, log_fn, tmp_path)
     """The on_complete callback is NOT called when import is skipped."""
     flag = tmp_path / "fm_historical_import_done"
     flag.write_text("already done")
-    old_flag = tmp_path / "old_flag"
     callback = MagicMock()
 
-    with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
-    ):
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
         await run_historical_import(data_store, log_fn, None, on_complete=callback)
 
     callback.assert_not_called()
@@ -592,3 +566,123 @@ async def test_fetch_sensor_events_passes_prior(log_fn):
 
     call_kwargs = fm_client.get_sensor_data.call_args.kwargs
     assert call_kwargs.get("prior") == prior_str
+
+
+# ---------------------------------------------------------------------------
+# _fetch_month_rows — power-only timestamp fix
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_union_of_timestamps_fills_missing_with_none(log_fn):
+    """Rows are created for the union of all sensor timestamps.
+
+    Each sensor can have a different set of timestamps. The importer
+    creates rows for the union of all timestamps. Where a sensor has
+    no value for a given timestamp, its field is set to None.
+    """
+    start = "2024-11-01T00:00:00+00:00"
+
+    # Power: 2 values (00:00 and 00:05).
+    power_client = _make_fm_client(values=[0.005, 0.003], start=start)
+    # SoC: 5 values (00:00 through 00:20).
+    soc_client = _make_fm_client(values=[50.0, 51.0, 52.0, 53.0, 54.0], start=start)
+    # Availability: 5 values.
+    avail_client = _make_fm_client(values=[100.0] * 5, start=start)
+
+    # Patch _fetch_sensor_events to return different data per sensor_id.
+    power_result = await _fetch_sensor_events(
+        power_client,
+        _POWER_ID,
+        "MW",
+        datetime(2024, 11, 1, tzinfo=timezone.utc),
+        datetime(2024, 12, 1, tzinfo=timezone.utc),
+        log_fn,
+    )
+    soc_result = await _fetch_sensor_events(
+        soc_client,
+        _SOC_ID,
+        "%",
+        datetime(2024, 11, 1, tzinfo=timezone.utc),
+        datetime(2024, 12, 1, tzinfo=timezone.utc),
+        log_fn,
+    )
+    avail_result = await _fetch_sensor_events(
+        avail_client,
+        _AVAIL_ID,
+        "%",
+        datetime(2024, 11, 1, tzinfo=timezone.utc),
+        datetime(2024, 12, 1, tzinfo=timezone.utc),
+        log_fn,
+    )
+
+    async def mock_fetch(fm_client, sensor_id, unit, start_dt, end_dt, log, **kwargs):
+        if sensor_id == _POWER_ID:
+            return power_result
+        if sensor_id == _SOC_ID:
+            return soc_result
+        return avail_result
+
+    month_start = datetime(2024, 11, 1, tzinfo=timezone.utc)
+    month_end = datetime(2024, 12, 1, tzinfo=timezone.utc)
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+    ):
+        rows = await _fetch_month_rows(MagicMock(), month_start, month_end, log_fn)
+
+    # Complete 5-minute grid for November (30 days × 288 slots/day).
+    assert len(rows) == 8640
+    # First 2 slots have power data → non-None energy.
+    assert rows[0]["energy_kwh"] is not None
+    assert rows[1]["energy_kwh"] is not None
+    # Third slot onward has no power data → energy_kwh=None.
+    assert rows[2]["energy_kwh"] is None
+    # SoC populated where available (first 5 slots), None elsewhere.
+    for i, expected_soc in enumerate([50.0, 51.0, 52.0, 53.0, 54.0]):
+        assert rows[i]["soc_pct"] == pytest.approx(expected_soc)
+    assert rows[5]["soc_pct"] is None
+    # Availability populated where available (first 5 slots), None elsewhere.
+    for i in range(5):
+        assert rows[i]["availability_pct"] == pytest.approx(100.0)
+    assert rows[5]["availability_pct"] is None
+
+
+@pytest.mark.asyncio
+async def test_month_with_only_soc_data_produces_rows_with_none_energy(log_fn):
+    """A month with only SoC/availability data still produces rows.
+
+    The SoC and availability data is preserved; energy_kwh is None
+    because no power data is available.
+    """
+
+    async def mock_fetch(fm_client, sensor_id, unit, start_dt, end_dt, log, **kwargs):
+        if sensor_id == _POWER_ID:
+            return {}  # No power data
+        # SoC and availability have data.
+        return {
+            "2024-11-01T00:00:00+00:00": 50.0,
+            "2024-11-01T00:05:00+00:00": 51.0,
+            "2024-11-01T00:10:00+00:00": 52.0,
+        }
+
+    month_start = datetime(2024, 11, 1, tzinfo=timezone.utc)
+    month_end = datetime(2024, 12, 1, tzinfo=timezone.utc)
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+    ):
+        rows = await _fetch_month_rows(MagicMock(), month_start, month_end, log_fn)
+
+    # Complete 5-minute grid for November.
+    assert len(rows) == 8640
+    # All rows have None energy (no power data at all).
+    assert all(r["energy_kwh"] is None for r in rows)
+    # SoC and availability are preserved where available.
+    assert rows[0]["soc_pct"] == pytest.approx(50.0)
+    assert rows[1]["soc_pct"] == pytest.approx(51.0)
+    assert rows[2]["soc_pct"] == pytest.approx(52.0)
+    assert rows[3]["soc_pct"] is None  # No SoC data for this slot
+    # Availability uses same mock data as SoC.
+    assert rows[0]["availability_pct"] == pytest.approx(50.0)
+    assert rows[3]["availability_pct"] is None
