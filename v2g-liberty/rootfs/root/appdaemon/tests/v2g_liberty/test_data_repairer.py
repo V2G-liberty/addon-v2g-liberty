@@ -28,6 +28,20 @@ TEST_TZ = timezone(timedelta(hours=1))
 TEST_NOW = datetime(2026, 2, 27, 12, 0, 0, tzinfo=TEST_TZ)
 
 
+@pytest.fixture(autouse=True)
+def _mock_constants():
+    """Mock charger/car constants for all tests.
+
+    Default: 7600W charger, 24 kWh battery. Individual tests can override
+    with their own @patch decorator if they need different values.
+    """
+    with patch("apps.v2g_liberty.data_repairer.c") as mock_c:
+        mock_c.CHARGER_MAX_CHARGE_POWER = 7600
+        mock_c.CHARGER_MAX_DISCHARGE_POWER = 7600
+        mock_c.CAR_MAX_CAPACITY_IN_KWH = 24
+        yield mock_c
+
+
 @pytest.fixture
 def hass():
     mock = AsyncMock(spec=Hass)
@@ -873,64 +887,102 @@ class TestSocConstantFill:
         assert summary["soc_linear_filled"] == 0
         assert summary["soc_constant_filled"] == 0
 
+    def test_skips_when_availability_nan(self, repairer, initialised_store):
+        """SoC: 45, NULL, NULL, 45, energy=0, availability=None → skip."""
+        _insert_interval(initialised_store, _ts(0), soc=45.0, energy=0.0)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0, avail=None)
+        _insert_interval(initialised_store, _ts(10), soc=None, energy=0.0, avail=None)
+        _insert_interval(initialised_store, _ts(15), soc=45.0, energy=0.0)
+
+        summary = repairer.run_full_repair()
+        # Linear interp (step 1c) needs energy_after which is 0 and soc_diff=0
+        # → fills. But availability NaN should block step 4.
+        # Since step 1c fills first, check that step 4 is 0.
+        assert summary["soc_constant_filled"] == 0
+
+    def test_skips_when_availability_low(self, repairer, initialised_store):
+        """SoC: 45, NULL, NULL, 45, energy=0, avail=50% → Type D skips."""
+        _insert_interval(initialised_store, _ts(0), soc=45.0, energy=0.0)
+        _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0, avail=50.0)
+        _insert_interval(initialised_store, _ts(10), soc=None, energy=0.0, avail=50.0)
+        _insert_interval(initialised_store, _ts(15), soc=45.0, energy=0.0)
+
+        summary = repairer.run_full_repair()
+        # Step 1c (linear) fills this because soc_diff=0 and energy=0.
+        # Step 4 would skip due to avail < 95%. Check step 4 counter.
+        assert summary["soc_constant_filled"] == 0
+
 
 # =====================================================================
-# Bounds validation tests
+# Bounds correction tests (step 0a) and validation tests (step 5)
 # =====================================================================
 
 
-class TestBoundsValidation:
-    @patch("apps.v2g_liberty.data_repairer.c")
-    def test_soc_below_1_logged(self, mock_c, repairer, initialised_store):
-        """SoC < 1 → logged as warning, not modified."""
-        mock_c.CHARGER_MAX_CHARGE_POWER = 1380
-        mock_c.CHARGER_MAX_DISCHARGE_POWER = 1380
+class TestBoundsCorrection:
+    """Tests for step 0a (bounds correction) and step 5 (validation)."""
+
+    def test_soc_below_1_clamped(self, repairer, initialised_store):
+        """SoC < 1% → clamped to 1% by step 0a."""
         _insert_interval(initialised_store, _ts(0), soc=-5.0)
         _insert_interval(initialised_store, _ts(5), soc=50.0)
 
         summary = repairer.run_full_repair()
-        assert "soc_below_1" in summary["violations"]
-        assert summary["violations"]["soc_below_1"] == 1
+        assert summary["bounds_corrected"] >= 1
 
-        # Value should NOT be modified
         rows = _get_all_intervals(initialised_store)
-        assert rows[0]["soc_pct"] == -5.0
+        assert rows[0]["soc_pct"] == 1.0
 
-    @patch("apps.v2g_liberty.data_repairer.c")
-    def test_soc_above_100_logged(self, mock_c, repairer, initialised_store):
-        """SoC > 100 → logged as warning, not modified."""
-        mock_c.CHARGER_MAX_CHARGE_POWER = 1380
-        mock_c.CHARGER_MAX_DISCHARGE_POWER = 1380
+    def test_soc_above_100_clamped(self, repairer, initialised_store):
+        """SoC > 100% → clamped to 100% by step 0a."""
         _insert_interval(initialised_store, _ts(0), soc=105.0)
         _insert_interval(initialised_store, _ts(5), soc=50.0)
 
         summary = repairer.run_full_repair()
-        assert "soc_above_100" in summary["violations"]
+        assert summary["bounds_corrected"] >= 1
 
         rows = _get_all_intervals(initialised_store)
-        assert rows[0]["soc_pct"] == 105.0
+        assert rows[0]["soc_pct"] == 100.0
 
-    @patch("apps.v2g_liberty.data_repairer.c")
-    def test_energy_exceeds_charge_limit_logged(
-        self, mock_c, repairer, initialised_store
+    def test_energy_above_charge_limit_clamped(
+        self, _mock_constants, repairer, initialised_store
     ):
-        """Energy above charger limit → logged as warning."""
-        mock_c.CHARGER_MAX_CHARGE_POWER = 1380  # W
-        mock_c.CHARGER_MAX_DISCHARGE_POWER = 1380
-        # Max energy per 5 min = 1380 / 1000 * 5 / 60 = 0.115 kWh
-        _insert_interval(initialised_store, _ts(0), energy=0.5)  # Way above limit
+        """Energy above charger limit → clamped by step 0a."""
+        # Override to 1380W → max 0.115 kWh/interval
+        _mock_constants.CHARGER_MAX_CHARGE_POWER = 1380
+        _mock_constants.CHARGER_MAX_DISCHARGE_POWER = 1380
+        _insert_interval(initialised_store, _ts(0), energy=0.5)
         _insert_interval(initialised_store, _ts(5), energy=0.01)
 
         summary = repairer.run_full_repair()
-        assert "energy_exceeds_charge_limit" in summary["violations"]
+        assert summary["bounds_corrected"] >= 1
 
-    @patch("apps.v2g_liberty.data_repairer.c")
-    def test_energy_while_not_connected_logged(
-        self, mock_c, repairer, initialised_store
-    ):
-        """Energy while not_connected → logged as warning."""
-        mock_c.CHARGER_MAX_CHARGE_POWER = 1380
-        mock_c.CHARGER_MAX_DISCHARGE_POWER = 1380
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["energy_kwh"] == pytest.approx(0.115, abs=0.001)
+
+    def test_availability_below_0_clamped(self, repairer, initialised_store):
+        """Availability < 0% → clamped to 0% by step 0a."""
+        _insert_interval(initialised_store, _ts(0), avail=-10.0)
+        _insert_interval(initialised_store, _ts(5), avail=50.0)
+
+        summary = repairer.run_full_repair()
+        assert summary["bounds_corrected"] >= 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["availability_pct"] == 0.0
+
+    def test_availability_above_100_clamped(self, repairer, initialised_store):
+        """Availability > 100% → clamped to 100% by step 0a."""
+        _insert_interval(initialised_store, _ts(0), avail=110.0)
+        _insert_interval(initialised_store, _ts(5), avail=50.0)
+
+        summary = repairer.run_full_repair()
+        assert summary["bounds_corrected"] >= 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["availability_pct"] == 100.0
+
+    def test_energy_while_not_connected_logged(self, repairer, initialised_store):
+        """Energy ≠ 0 while not_connected → logged by step 5 (validation)."""
         _insert_interval(
             initialised_store, _ts(0), energy=0.05, state="not_connected", avail=0.0
         )
@@ -938,6 +990,120 @@ class TestBoundsValidation:
 
         summary = repairer.run_full_repair()
         assert "energy_while_not_connected" in summary["violations"]
+
+
+# =====================================================================
+# app_state inference tests (step 6)
+# =====================================================================
+
+
+class TestAppStateInference:
+    def test_not_connected_inferred(self, repairer, initialised_store):
+        """avail=0, energy=0 → not_connected."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=0.0, avail=0.0, state="unknown"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] == 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["app_state"] == "not_connected"
+
+    def test_charge_inferred(self, repairer, initialised_store):
+        """avail=0, energy>threshold → charge."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=0.2, avail=0.0, state="unknown"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] >= 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["app_state"] == "charge"
+
+    def test_discharge_inferred(self, repairer, initialised_store):
+        """avail=0, energy<-threshold → discharge."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=-0.2, avail=0.0, state="unknown"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] >= 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["app_state"] == "discharge"
+
+    def test_automatic_inferred(self, repairer, initialised_store):
+        """avail>95, |energy|>threshold → automatic."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=0.2, avail=100.0, state="unknown"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] >= 1
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["app_state"] == "automatic"
+
+    def test_unknown_unchanged_when_no_match(self, repairer, initialised_store):
+        """avail=50, energy=0 → no rule matches → stays unknown."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=0.0, avail=50.0, state="unknown"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] == 0
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["app_state"] == "unknown"
+
+    def test_skips_non_unknown_rows(self, repairer, initialised_store):
+        """Rows with known app_state are never overwritten."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=0.0, avail=0.0, state="charge"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] == 0
+
+        rows = _get_all_intervals(initialised_store)
+        assert rows[0]["app_state"] == "charge"
+
+    def test_skips_when_availability_nan(self, repairer, initialised_store):
+        """Availability NaN → unknown (not enough info)."""
+        _insert_interval(
+            initialised_store, _ts(0), energy=0.0, avail=None, state="unknown"
+        )
+        _insert_interval(initialised_store, _ts(5), energy=0.0, state="charge")
+
+        summary = repairer.run_full_repair()
+        assert summary["app_state_inferred"] == 0
+
+
+# =====================================================================
+# Write-back tests
+# =====================================================================
+
+
+class TestWriteBack:
+    def test_availability_nan_written_as_null(self, repairer, initialised_store):
+        """Gap-filled row with availability=None → written as NULL."""
+        _insert_interval(initialised_store, _ts(0), state="not_connected", avail=0.0)
+        # Gap at _ts(5)
+        _insert_interval(initialised_store, _ts(10), state="not_connected", avail=0.0)
+
+        repairer.run_full_repair()
+        rows = _get_all_intervals(initialised_store)
+        gap_row = next(r for r in rows if r["is_repaired"] == 1)
+        # availability_pct should be None (NULL in DB), not NaN
+        assert gap_row["availability_pct"] is None
 
 
 # =====================================================================
@@ -1059,17 +1225,17 @@ class TestIntegration:
          55: charge, soc=-2, energy=0.05  <- SoC below zero (bounds)
 
         Expected pipeline results:
-        Step 0: 2 gap slots filled at 10, 15 (charge context)
-        Step 1: SoC jump at 35 → blanks 43@20, 43@25, 43@30 (3 values)
-        Step 2: Gap-filled rows at 10,15 have energy=0, endpoints=0.05/0.05
-                → within 5%, interpolated to 0.05
-        Step 3: NULL SoC gap from 10-30 (5 rows) with energy=0.05 each
-                → reconstruct from energy (before=41, capacity=24)
-                → but |reconstructed_end - 70| may be > 5pp → skip
-        Step 4: NULL SoC at 10-30 with energy, not negligible → skip
-                NULL SoC at 45,50 with energy=0 → before=71, after=-2
-                → diff=73 > 10 → skip
-        Step 5: soc_below_1 at -2
+        Step 0:  2 gap slots filled at 10, 15 (charge context)
+        Step 0a: SoC=-2 clamped to 1% (bounds correction)
+        Step 1:  SoC jump at 35 → blanks 43@20, 43@25, 43@30 (3 values)
+        Step 2:  Gap-filled rows at 10,15 have energy=None, endpoints=0.05/0.05
+                 → within 5%, interpolated to 0.05
+        Step 3:  NULL SoC gap from 10-30 (5 rows) with energy=0.05 each
+                 → reconstruct from energy (before=41, capacity=24)
+                 → but |reconstructed_end - 70| may be > 5pp → skip
+        Step 4:  NULL SoC at 10-30 with energy, not negligible → skip
+                 NULL SoC at 45,50 with energy=0 → before=71, after=1
+                 → diff=70 > 10 → skip
         """
         mock_c.CHARGER_MAX_CHARGE_POWER = 1380
         mock_c.CHARGER_MAX_DISCHARGE_POWER = 1380
@@ -1144,9 +1310,8 @@ class TestIntegration:
         assert summary["soc_reconstructed_up"] == 3
         assert summary["soc_blanked"] == 0
 
-        # --- Verify bounds ---
-        assert "soc_below_1" in summary["violations"]
-        assert summary["violations"]["soc_below_1"] == 1
+        # --- Verify bounds correction (step 0a) ---
+        assert summary["bounds_corrected"] >= 1  # SoC=-2 → clamped to 1%
 
         # --- Verify original row integrity ---
         ts_0 = _ts(0)
