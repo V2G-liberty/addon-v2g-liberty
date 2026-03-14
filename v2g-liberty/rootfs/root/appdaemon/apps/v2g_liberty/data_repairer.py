@@ -1,12 +1,14 @@
 """Module for data validation and repair of the interval_log table.
 
 Ensures completeness and physical consistency of the 5-minute time series:
-  Step 0: Fill gaps — insert missing 5-min slots with context-aware defaults
-  Step 1: Type A — blank false constant SoC (sensor stuck, energy ≈ 0)
-  Step 2: Type B — interpolate energy in gap-filled rows
-  Step 3: Type C — reconstruct SoC from energy (energy-validated)
-  Step 4: Type D — fill constant SoC where energy ≈ 0
-  Step 5: Bounds validation — log impossible states (no modification)
+  Step 0:  Fill gaps — insert missing 5-min slots with context-aware defaults
+  Step 0a: Bounds correction — clamp physically impossible values
+  Step 1:  Type A — blank/reconstruct false constant SoC (sensor stuck)
+  Step 2:  Type B — interpolate energy in gap-filled rows
+  Step 3:  Type C — reconstruct SoC from energy (energy-validated)
+  Step 4:  Type D — fill constant SoC where energy ≈ 0 and availability > 95%
+  Step 5:  Bounds validation — log impossible states (no modification)
+  Step 6:  app_state inference — derive state from energy + availability
 
 Runs at startup (full repair) and periodically (incremental).
 Repaired/added rows are marked with is_repaired=1 in interval_log.
@@ -143,12 +145,14 @@ class DataRepairer:
             f"  Total rows:            {row['cnt']}",
             f"  Period:                {row['first_ts']} — {row['last_ts']}",
             f"  Oldest row:            {row['first_ts']}",
+            f"  Bounds corrected:      {summary['bounds_corrected']}",
             f"  SoC upward reconstr.:  {summary['soc_reconstructed_up']} (Type A-up)",
             f"  SoC values blanked:    {summary['soc_blanked']} (Type A-down)",
             f"  SoC linear interp.:    {summary['soc_linear_filled']} (Linear)",
             f"  Energy interpolated:   {summary['energy_interpolated']} (Type B)",
             f"  SoC reconstructed:     {summary['soc_reconstructed']} (Type C)",
             f"  SoC constant filled:   {summary['soc_constant_filled']} (Type D)",
+            f"  app_state inferred:    {summary['app_state_inferred']}",
             f"  Gaps filled:           {summary['gaps_filled']}",
         ]
         violations = summary.get("violations", {})
@@ -188,6 +192,10 @@ class DataRepairer:
         df, gaps_filled = self._fill_gaps(df)
         summary["gaps_filled"] = gaps_filled
 
+        # Step 0a: Correct physically impossible values (clamp)
+        df, bounds_corrected = self._correct_bounds(df)
+        summary["bounds_corrected"] = bounds_corrected
+
         # Step 1a: Type A-up — reconstruct SoC for upward jumps
         df, soc_reconstructed_up = self._reconstruct_upward_jumps(df)
         summary["soc_reconstructed_up"] = soc_reconstructed_up
@@ -214,6 +222,10 @@ class DataRepairer:
 
         # Step 5: Validate bounds (log only)
         summary["violations"] = self._validate_bounds(df)
+
+        # Step 6: Infer app_state for historical "unknown" rows
+        df, app_state_inferred = self._infer_app_state(df)
+        summary["app_state_inferred"] = app_state_inferred
 
         # Write repaired rows back to DB (timestamps remain in UTC).
         written = self._write_repaired_rows(df)
@@ -272,7 +284,7 @@ class DataRepairer:
             if gap_length > MAX_GAP_LENGTH:
                 # Long gap: fill with unknown defaults
                 fill = {
-                    "energy_kwh": 0.0,
+                    "energy_kwh": None,
                     "app_state": "unknown",
                     "availability_pct": None,
                 }
@@ -289,6 +301,99 @@ class DataRepairer:
             filled_count += gap_length
 
         return df, filled_count
+
+    # ------------------------------------------------------------------
+    # Step 0a: Bounds correction — clamp impossible values
+    # ------------------------------------------------------------------
+
+    # Absolute upper bound for home charging: 25 kW.  Any energy value above
+    # this per 5-min interval is certainly erroneous.  We intentionally do NOT
+    # use the current charger settings because those may have changed over time
+    # and would incorrectly clamp historical data recorded with a different
+    # charger or different max-power configuration.
+    _MAX_HOME_POWER_KW = 25
+    _MAX_ENERGY_KWH_PER_INTERVAL = _MAX_HOME_POWER_KW * 5 / 60  # 2.083 kWh
+
+    def _correct_bounds(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+        """Clamp physically impossible values and mark rows as repaired.
+
+        Corrects SoC (1–100%), energy (absolute home-charging bound), and
+        availability (0–100%). NaN values are skipped. Returns
+        (df, count_of_corrections).
+        """
+        corrected = 0
+
+        max_energy_kwh = self._MAX_ENERGY_KWH_PER_INTERVAL
+
+        # SoC < 1% → 1%
+        mask = df["soc_pct"].notna() & (df["soc_pct"] < 1)
+        if mask.any():
+            n = mask.sum()
+            self.__log(f"Bounds: clamped {n} SoC values below 1%.", level="WARNING")
+            df.loc[mask, "soc_pct"] = 1.0
+            df.loc[mask, "is_repaired"] = 1
+            corrected += n
+
+        # SoC > 100% → 100%
+        mask = df["soc_pct"].notna() & (df["soc_pct"] > 100)
+        if mask.any():
+            n = mask.sum()
+            self.__log(f"Bounds: clamped {n} SoC values above 100%.", level="WARNING")
+            df.loc[mask, "soc_pct"] = 100.0
+            df.loc[mask, "is_repaired"] = 1
+            corrected += n
+
+        # Energy > max → clamp
+        mask = df["energy_kwh"].notna() & (df["energy_kwh"] > max_energy_kwh)
+        if mask.any():
+            n = mask.sum()
+            self.__log(
+                f"Bounds: clamped {n} energy values above {max_energy_kwh:.3f} kWh "
+                f"({self._MAX_HOME_POWER_KW} kW limit).",
+                level="WARNING",
+            )
+            df.loc[mask, "energy_kwh"] = max_energy_kwh
+            df.loc[mask, "is_repaired"] = 1
+            corrected += n
+
+        # Energy < -max → clamp
+        mask = df["energy_kwh"].notna() & (df["energy_kwh"] < -max_energy_kwh)
+        if mask.any():
+            n = mask.sum()
+            self.__log(
+                f"Bounds: clamped {n} energy values below -{max_energy_kwh:.3f} kWh "
+                f"({self._MAX_HOME_POWER_KW} kW limit).",
+                level="WARNING",
+            )
+            df.loc[mask, "energy_kwh"] = -max_energy_kwh
+            df.loc[mask, "is_repaired"] = 1
+            corrected += n
+
+        # Availability < 0% → 0%
+        mask = df["availability_pct"].notna() & (df["availability_pct"] < 0)
+        if mask.any():
+            n = mask.sum()
+            self.__log(
+                f"Bounds: clamped {n} availability values below 0%.",
+                level="WARNING",
+            )
+            df.loc[mask, "availability_pct"] = 0.0
+            df.loc[mask, "is_repaired"] = 1
+            corrected += n
+
+        # Availability > 100% → 100%
+        mask = df["availability_pct"].notna() & (df["availability_pct"] > 100)
+        if mask.any():
+            n = mask.sum()
+            self.__log(
+                f"Bounds: clamped {n} availability values above 100%.",
+                level="WARNING",
+            )
+            df.loc[mask, "availability_pct"] = 100.0
+            df.loc[mask, "is_repaired"] = 1
+            corrected += n
+
+        return df, corrected
 
     # ------------------------------------------------------------------
     # Step 1a: Type A-up — Reconstruct SoC for upward jumps
@@ -344,8 +449,9 @@ class DataRepairer:
             # Block indices are in reverse order; sort chronologically
             block_indices.sort()
 
-            # Calculate theoretical jump from energy in the block
-            block_energy = df.loc[block_indices, "energy_kwh"]
+            # Calculate theoretical jump from energy in the block.
+            # NaN energy is treated as 0 (no measurement → no known change).
+            block_energy = df.loc[block_indices, "energy_kwh"].fillna(0.0)
             charging_energy = block_energy.clip(lower=0).sum()
             theoretical_jump = 100 * charging_energy / capacity
             actual_jump = soc_after - constant_value
@@ -537,24 +643,28 @@ class DataRepairer:
     # ------------------------------------------------------------------
 
     def _interpolate_energy(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
-        """Interpolate energy in gap-filled rows.
+        """Interpolate energy in rows with unknown energy.
 
-        Gap-filled rows (is_repaired=1, energy_kwh=0.0) likely had real energy
-        that we don't know.  If the surrounding real energy values are within
-        5% (relative), fill the gap linearly.
+        Targets two kinds of rows:
+        - Gap-filled rows (is_repaired=1, energy_kwh=0.0)
+        - Imported rows without power data (is_repaired=2, energy_kwh=NaN)
+
+        If the surrounding real energy values are within 5% (relative),
+        fill the gap linearly.
 
         Max gap length: MAX_ENERGY_INTERPOLATION_GAP.
         Endpoints must be same direction (both positive or both negative).
         """
-        # Identify gap-filled rows: is_repaired=1 AND energy=0
-        is_gap_filled = (df["is_repaired"] == 1) & (df["energy_kwh"] == 0.0)
-        if not is_gap_filled.any():
+        # Rows needing interpolation: gap-filled (energy=None) or imported
+        # without power data (energy=NaN). Both have is_repaired in (1, 2).
+        needs_interpolation = df["energy_kwh"].isna() & df["is_repaired"].isin([1, 2])
+        if not needs_interpolation.any():
             return df, 0
 
-        gap_groups = (is_gap_filled != is_gap_filled.shift()).cumsum()
+        gap_groups = (needs_interpolation != needs_interpolation.shift()).cumsum()
         filled = 0
 
-        for _, block_idx in df[is_gap_filled].groupby(gap_groups).groups.items():
+        for _, block_idx in df[needs_interpolation].groupby(gap_groups).groups.items():
             block = df.loc[block_idx]
             if len(block) > MAX_ENERGY_INTERPOLATION_GAP:
                 continue
@@ -586,6 +696,7 @@ class DataRepairer:
             step = (after_energy - before_energy) / n
             for i, idx in enumerate(block.index, start=1):
                 df.loc[idx, "energy_kwh"] = round(before_energy + step * i, 6)
+                df.loc[idx, "is_repaired"] = 1
 
             filled += len(block)
 
@@ -622,10 +733,12 @@ class DataRepairer:
             if len(block) > MAX_SOC_RECONSTRUCTION_GAP:
                 continue
 
-            # Check that at least some rows have significant energy
+            # Check that at least some rows have significant energy.
+            # NaN energy counts as negligible (no measurement available).
             block_energy = df.loc[block.index, "energy_kwh"]
-            if (block_energy.abs() <= threshold).all():
-                continue  # All negligible → Type D, not Type C
+            known_energy = block_energy.dropna()
+            if known_energy.empty or (known_energy.abs() <= threshold).all():
+                continue  # All negligible/unknown → Type D, not Type C
 
             # Get SoC endpoints
             before_soc = _get_soc_before(df, block.index[0])
@@ -633,11 +746,13 @@ class DataRepairer:
             if before_soc is None or after_soc is None:
                 continue
 
-            # Reconstruct SoC cumulatively from energy
+            # Reconstruct SoC cumulatively from energy.
+            # NaN energy → zero delta (no measurement, assume no change).
             cumulative_soc = float(before_soc)
             soc_values = []
             for idx in block.index:
-                energy = float(df.loc[idx, "energy_kwh"])
+                energy_val = df.loc[idx, "energy_kwh"]
+                energy = 0.0 if pd.isna(energy_val) else float(energy_val)
                 delta_soc = energy / capacity * 100
                 cumulative_soc += delta_soc
                 soc_values.append(round(cumulative_soc, 1))
@@ -663,8 +778,9 @@ class DataRepairer:
         """Fill NULL SoC with constant value where energy is negligible.
 
         When there is no significant energy flow, SoC should not change.
-        Requires BOTH endpoints and they must be consistent (within
-        SOC_JUMP_THRESHOLD) to avoid filling incorrectly blanked gaps.
+        Requires availability > 95% (car was connected), BOTH SoC endpoints,
+        and they must be consistent (within SOC_JUMP_THRESHOLD).
+        If availability is NaN/None for any row in the block → skip.
         """
         is_null_soc = df["soc_pct"].isna()
         if not is_null_soc.any():
@@ -677,9 +793,16 @@ class DataRepairer:
         for _, block_idx in df[is_null_soc].groupby(nan_groups).groups.items():
             block = df.loc[block_idx]
 
-            # All energy must be negligible
-            block_energy = df.loc[block.index, "energy_kwh"]
-            if not (block_energy.abs() <= threshold).all():
+            # Availability must be known and > 95% for all rows in the block.
+            block_avail = df.loc[block.index, "availability_pct"]
+            if block_avail.isna().any():
+                continue  # Unknown availability → skip
+            if not (block_avail > 95).all():
+                continue  # Car was not (fully) connected → skip
+
+            # All energy must be negligible (NaN counts as negligible).
+            block_energy = df.loc[block.index, "energy_kwh"].dropna()
+            if not block_energy.empty and not (block_energy.abs() <= threshold).all():
                 continue  # Has significant energy → not Type D
 
             # Require BOTH endpoints
@@ -721,25 +844,23 @@ class DataRepairer:
             violations["soc_above_100"] = len(soc_high)
             self.__log(f"{len(soc_high)} intervals with SoC > 100%.", level="WARNING")
 
-        # Energy exceeds charger limits per interval
-        max_charge_kwh = c.CHARGER_MAX_CHARGE_POWER / 1000 * 5 / 60
-        max_discharge_kwh = c.CHARGER_MAX_DISCHARGE_POWER / 1000 * 5 / 60
-        tolerance = 1.1  # 10% tolerance
+        # Energy exceeds absolute home-charging bound per interval
+        max_energy_kwh = self._MAX_ENERGY_KWH_PER_INTERVAL
 
-        energy_too_high = df[df["energy_kwh"] > max_charge_kwh * tolerance]
-        energy_too_low = df[df["energy_kwh"] < -max_discharge_kwh * tolerance]
+        energy_too_high = df[df["energy_kwh"] > max_energy_kwh]
+        energy_too_low = df[df["energy_kwh"] < -max_energy_kwh]
         if len(energy_too_high) > 0:
             violations["energy_exceeds_charge_limit"] = len(energy_too_high)
             self.__log(
                 f"{len(energy_too_high)} intervals with energy above "
-                f"charge limit ({max_charge_kwh:.3f} kWh).",
+                f"{max_energy_kwh:.3f} kWh ({self._MAX_HOME_POWER_KW} kW limit).",
                 level="WARNING",
             )
         if len(energy_too_low) > 0:
             violations["energy_exceeds_discharge_limit"] = len(energy_too_low)
             self.__log(
-                f"{len(energy_too_low)} intervals with energy above "
-                f"discharge limit ({max_discharge_kwh:.3f} kWh).",
+                f"{len(energy_too_low)} intervals with energy below "
+                f"-{max_energy_kwh:.3f} kWh ({self._MAX_HOME_POWER_KW} kW limit).",
                 level="WARNING",
             )
 
@@ -760,9 +881,11 @@ class DataRepairer:
                 level="WARNING",
             )
 
-        # Impossible states: energy ≠ 0 when not_connected
+        # Impossible states: energy ≠ 0 (exact) when not_connected
         nc_with_energy = df[
-            (df["app_state"] == "not_connected") & (df["energy_kwh"].abs() > 0.001)
+            (df["app_state"] == "not_connected")
+            & df["energy_kwh"].notna()
+            & (df["energy_kwh"] != 0)
         ]
         if len(nc_with_energy) > 0:
             violations["energy_while_not_connected"] = len(nc_with_energy)
@@ -801,6 +924,60 @@ class DataRepairer:
         return violations
 
     # ------------------------------------------------------------------
+    # Step 6: app_state inference for historical imports
+    # ------------------------------------------------------------------
+
+    def _infer_app_state(self, df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+        """Infer app_state for rows with state "unknown" (historical import).
+
+        Rules (in priority order):
+        1. availability=0, energy=0        → not_connected
+        2. availability=0, energy>threshold → charge
+        3. availability=0, energy<-threshold→ discharge
+        4. availability>95, |energy|>threshold → automatic
+        5. Otherwise                       → unknown (unchanged)
+
+        If availability is NaN → skip (not enough information).
+        Only modifies rows where app_state == "unknown".
+        """
+        unknown_mask = df["app_state"] == "unknown"
+        if not unknown_mask.any():
+            return df, 0
+
+        threshold = _negligible_energy_threshold()
+        inferred = 0
+
+        for idx in df[unknown_mask].index:
+            avail = df.loc[idx, "availability_pct"]
+            energy = df.loc[idx, "energy_kwh"]
+
+            if pd.isna(avail):
+                continue
+
+            if pd.isna(energy):
+                energy_val = 0.0
+            else:
+                energy_val = float(energy)
+
+            new_state = None
+            if avail == 0:
+                if energy_val == 0:
+                    new_state = "not_connected"
+                elif energy_val > threshold:
+                    new_state = "charge"
+                elif energy_val < -threshold:
+                    new_state = "discharge"
+            elif avail > 95 and abs(energy_val) > threshold:
+                new_state = "automatic"
+
+            if new_state is not None:
+                df.loc[idx, "app_state"] = new_state
+                df.loc[idx, "is_repaired"] = 1
+                inferred += 1
+
+        return df, inferred
+
+    # ------------------------------------------------------------------
     # Write-back
     # ------------------------------------------------------------------
 
@@ -821,10 +998,16 @@ class DataRepairer:
             rows.append(
                 {
                     "timestamp": ts.isoformat(),
-                    "energy_kwh": float(row["energy_kwh"]),
+                    "energy_kwh": (
+                        None if pd.isna(row["energy_kwh"]) else float(row["energy_kwh"])
+                    ),
                     "app_state": str(row["app_state"]),
                     "soc_pct": soc,
-                    "availability_pct": float(row["availability_pct"]),
+                    "availability_pct": (
+                        None
+                        if pd.isna(row["availability_pct"])
+                        else float(row["availability_pct"])
+                    ),
                     "is_repaired": 1,
                 }
             )
@@ -872,12 +1055,14 @@ def _empty_summary() -> dict:
     """Return an empty repair summary."""
     return {
         "gaps_filled": 0,
+        "bounds_corrected": 0,
         "soc_reconstructed_up": 0,
         "soc_blanked": 0,
         "soc_linear_filled": 0,
         "energy_interpolated": 0,
         "soc_reconstructed": 0,
         "soc_constant_filled": 0,
+        "app_state_inferred": 0,
         "violations": {},
     }
 
@@ -886,12 +1071,14 @@ def _total_repairs(summary: dict) -> int:
     """Return total number of repairs performed."""
     return (
         summary["gaps_filled"]
+        + summary["bounds_corrected"]
         + summary["soc_reconstructed_up"]
         + summary["soc_blanked"]
         + summary["soc_linear_filled"]
         + summary["energy_interpolated"]
         + summary["soc_reconstructed"]
         + summary["soc_constant_filled"]
+        + summary["app_state_inferred"]
     )
 
 
@@ -900,6 +1087,8 @@ def _format_summary(summary: dict) -> str:
     parts = []
     if summary["gaps_filled"]:
         parts.append(f"{summary['gaps_filled']} gaps filled")
+    if summary["bounds_corrected"]:
+        parts.append(f"{summary['bounds_corrected']} bounds corrected")
     if summary["soc_reconstructed_up"]:
         parts.append(f"{summary['soc_reconstructed_up']} SoC upward reconstructed")
     if summary["soc_blanked"]:
@@ -912,6 +1101,8 @@ def _format_summary(summary: dict) -> str:
         parts.append(f"{summary['soc_reconstructed']} SoC reconstructed")
     if summary["soc_constant_filled"]:
         parts.append(f"{summary['soc_constant_filled']} SoC constant filled")
+    if summary["app_state_inferred"]:
+        parts.append(f"{summary['app_state_inferred']} app_state inferred")
     return ", ".join(parts) if parts else "no repairs"
 
 
@@ -948,7 +1139,7 @@ def _infer_gap_context(before: dict | None, after: dict | None) -> dict:
     - Otherwise → fill with unknown (conservative)
     """
     defaults = {
-        "energy_kwh": 0.0,
+        "energy_kwh": None,
         "app_state": "unknown",
         "availability_pct": None,
     }
@@ -961,8 +1152,12 @@ def _infer_gap_context(before: dict | None, after: dict | None) -> dict:
 
     if b_state == a_state:
         defaults["app_state"] = b_state
-        if b_state not in ("not_connected", "error", "unknown"):
-            # Connected state: average availability if both sides known
+        if b_state in ("not_connected", "error"):
+            # No charger activity — energy is known to be 0.
+            defaults["energy_kwh"] = 0.0
+        elif b_state != "unknown":
+            # Connected state: average availability if both sides known.
+            # Energy stays None (unknown — let Type B interpolate).
             b_avail = before.get("availability_pct")
             a_avail = after.get("availability_pct")
             if b_avail is not None and a_avail is not None:
@@ -971,10 +1166,12 @@ def _infer_gap_context(before: dict | None, after: dict | None) -> dict:
 
     if "not_connected" in (b_state, a_state):
         defaults["app_state"] = "not_connected"
+        defaults["energy_kwh"] = 0.0
         return defaults
 
     if "error" in (b_state, a_state):
         defaults["app_state"] = "error"
+        defaults["energy_kwh"] = 0.0
         return defaults
 
     return defaults
@@ -1001,8 +1198,9 @@ def _get_soc_after(df: pd.DataFrame, idx) -> float | None:
 
 
 def _get_adjacent_energy(df: pd.DataFrame, idx, direction: int) -> float | None:
-    """Get the energy value from the adjacent non-gap-filled row.
+    """Get the energy value from the adjacent row with known energy.
 
+    Skips gap-filled rows (is_repaired=1, energy=0) and rows with NaN energy.
     direction: -1 for before, +1 for after.
     """
     pos = df.index.get_loc(idx)
@@ -1010,8 +1208,13 @@ def _get_adjacent_energy(df: pd.DataFrame, idx, direction: int) -> float | None:
     i = pos + step
     while 0 <= i < len(df):
         row = df.iloc[i]
-        # Not a gap-filled row (gap-filled: is_repaired=1 AND energy=0)
-        if not (row["is_repaired"] == 1 and row["energy_kwh"] == 0.0):
-            return float(row["energy_kwh"])
-        i += step
+        energy = row["energy_kwh"]
+        # Skip rows without usable energy: gap-filled zeros or NaN
+        if pd.isna(energy):
+            i += step
+            continue
+        if row["is_repaired"] == 1 and energy == 0.0:
+            i += step
+            continue
+        return float(energy)
     return None

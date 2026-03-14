@@ -988,6 +988,13 @@ class V2GLibertyGlobals:
         def _hist_log(msg, level="INFO"):
             self.hass.log(msg, level=level)
 
+        def _hist_notify(message):
+            self.notifier.post_sticky_memo(
+                title="Historical import",
+                message=message,
+                memo_id="notification_historical_import",
+            )
+
         repairer = getattr(self, "data_repairer", None)
         on_import_complete = None
         if repairer is not None:
@@ -1002,6 +1009,7 @@ class V2GLibertyGlobals:
                 _hist_log,
                 self.fm_client_app.client,
                 on_complete=on_import_complete,
+                on_notify=_hist_notify,
             )
         )
 

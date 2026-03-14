@@ -9,7 +9,15 @@ Tests cover:
 - Reconstructs UTC timestamps from start + 5-minute offset
 - Skips null values (gaps in sensor data)
 - Returns empty dict when get_sensor_data raises an exception
+- Retries up to 3 times on failure with delay
+- Appends sensor_id to errors list on exhausted retries
 - Uses INSERT OR IGNORE (does not overwrite existing rows)
+- Complete 5-min grid: all slots from month_start to month_end
+- energy_kwh=None when power data is missing (not 0.0)
+- SoC/availability preserved even without power data
+- 30s pause between months
+- Stops import on API errors (no flag file written)
+- on_notify callback on success and failure
 """
 
 import sqlite3
@@ -22,6 +30,7 @@ from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.data_store import DataStore
 from apps.v2g_liberty.fm_historical_importer import (
     _ENERGY_FROM_POWER_FACTOR,
+    _fetch_month_rows,
     _fetch_sensor_events,
     _import_emissions_for_month,
     _import_prices_for_month,
@@ -119,13 +128,7 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
     flag = tmp_path / "fm_historical_import_done"
     flag.touch()
 
-    old_flag = tmp_path / "old_flag"
-    with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
-    ):
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -138,14 +141,8 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
 async def test_aborts_when_no_fm_client(data_store, log_fn, tmp_path):
     """Import aborts cleanly when no FM client is provided."""
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
 
-    with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
-    ):
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -164,15 +161,15 @@ async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
     data_store._DataStore__connection.commit()
 
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
     ):
         mock_date.today.return_value = date(2024, 11, 1)
         mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
@@ -186,17 +183,17 @@ async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
 async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
     """Import stops looping after two consecutive months with insufficient events."""
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
     ):
-        # Use a date well after _EARLIEST_DATE (2025-09-01) so the loop runs.
+        # Use a date well after _EARLIEST_DATE so the loop runs.
         mock_date.today.return_value = date(2026, 6, 1)
         mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
         await run_historical_import(data_store, log_fn, fm_client)
@@ -210,16 +207,16 @@ async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
 async def test_on_complete_called_after_import(data_store, log_fn, tmp_path):
     """The on_complete callback is called after a successful import."""
     flag = tmp_path / "fm_historical_import_done"
-    old_flag = tmp_path / "old_flag"
     fm_client = _make_fm_client(values=[])
     callback = MagicMock()
 
     with (
         patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
     ):
         mock_date.today.return_value = date(2024, 11, 1)
         mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
@@ -233,15 +230,9 @@ async def test_on_complete_not_called_when_skipped(data_store, log_fn, tmp_path)
     """The on_complete callback is NOT called when import is skipped."""
     flag = tmp_path / "fm_historical_import_done"
     flag.write_text("already done")
-    old_flag = tmp_path / "old_flag"
     callback = MagicMock()
 
-    with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
-        patch(
-            "apps.v2g_liberty.fm_historical_importer._OLD_IMPORT_DONE_FLAG", old_flag
-        ),
-    ):
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
         await run_historical_import(data_store, log_fn, None, on_complete=callback)
 
     callback.assert_not_called()
@@ -257,14 +248,17 @@ async def test_fetch_reconstructs_timestamps(log_fn):
     """Values are mapped to UTC timestamps reconstructed from start + 5-min offset."""
     fm_client = _make_fm_client(values=[0.005, None, 0.003], start=_TS_ISO)
 
-    result = await _fetch_sensor_events(
-        fm_client,
-        _POWER_ID,
-        "MW",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        result = await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 1, 0, 15, tzinfo=timezone.utc),
+            log_fn,
+        )
 
     # None at index 1 is skipped; index 0 → +0 min, index 2 → +10 min.
     assert len(result) == 2
@@ -276,20 +270,25 @@ async def test_fetch_reconstructs_timestamps(log_fn):
 
 @pytest.mark.asyncio
 async def test_fetch_returns_empty_on_exception(log_fn):
-    """Returns an empty dict when get_sensor_data raises an exception."""
+    """Returns an empty dict after exhausting all retries on the first chunk."""
     fm_client = MagicMock()
     fm_client.get_sensor_data = AsyncMock(side_effect=Exception("server error"))
 
-    result = await _fetch_sensor_events(
-        fm_client,
-        _POWER_ID,
-        "MW",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        result = await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 8, tzinfo=timezone.utc),
+            log_fn,
+        )
 
     assert result == {}
+    # Should have been called 3 times (all retries exhausted on first chunk).
+    assert fm_client.get_sensor_data.call_count == 3
     log_fn.assert_called()  # warning should be logged
 
 
@@ -298,14 +297,17 @@ async def test_fetch_skips_null_values(log_fn):
     """Null entries in the values list are not included in the result."""
     fm_client = _make_fm_client(values=[None, None, 0.007], start=_TS_ISO)
 
-    result = await _fetch_sensor_events(
-        fm_client,
-        _POWER_ID,
-        "MW",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        result = await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 1, 0, 15, tzinfo=timezone.utc),
+            log_fn,
+        )
 
     assert len(result) == 1
     assert "2024-11-01T00:10:00+00:00" in result
@@ -321,7 +323,13 @@ async def test_fetch_skips_future_timestamps(log_fn):
     fm_client = _make_fm_client(values=[1.0, 2.0, 3.0], start=_TS_ISO)
     cutoff = real_datetime(2024, 11, 1, 0, 5, tzinfo=timezone.utc)
 
-    with patch.object(_module, "datetime") as mock_dt:
+    with (
+        patch.object(_module, "datetime") as mock_dt,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+    ):
         mock_dt.now.return_value = cutoff
         mock_dt.fromisoformat = real_datetime.fromisoformat
 
@@ -330,7 +338,7 @@ async def test_fetch_skips_future_timestamps(log_fn):
             _POWER_ID,
             "MW",
             real_datetime(2024, 11, 1, tzinfo=timezone.utc),
-            real_datetime(2024, 12, 1, tzinfo=timezone.utc),
+            real_datetime(2024, 11, 1, 0, 15, tzinfo=timezone.utc),
             log_fn,
         )
 
@@ -427,10 +435,10 @@ def test_bulk_insert_or_ignore_skips_existing(data_store):
 
 
 def test_energy_kwh_conversion():
-    """power_MW * 1000 * 5 / 60 == power_MW * 83.333..."""
-    power_mw = 0.006  # 6 kW
-    expected_kwh = 0.006 * 1000 * 5 / 60  # = 0.5 kWh
-    assert power_mw * _ENERGY_FROM_POWER_FACTOR == pytest.approx(expected_kwh)
+    """power_kW * 5 / 60 converts kW to kWh for a 5-min interval."""
+    power_kw = 6.0  # 6 kW
+    expected_kwh = 6.0 * 5 / 60  # = 0.5 kWh
+    assert power_kw * _ENERGY_FROM_POWER_FACTOR == pytest.approx(expected_kwh)
 
 
 # ---------------------------------------------------------------------------
@@ -443,15 +451,18 @@ async def test_fetch_sensor_events_with_step_minutes(log_fn):
     """step_minutes=15 produces timestamps 15 minutes apart."""
     fm_client = _make_fm_client(values=[0.1, 0.2], start=_TS_ISO)
 
-    result = await _fetch_sensor_events(
-        fm_client,
-        _POWER_ID,
-        "MW",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-        step_minutes=15,
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        result = await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 1, 0, 30, tzinfo=timezone.utc),
+            log_fn,
+            step_minutes=15,
+        )
 
     assert len(result) == 2
     assert "2024-11-01T00:00:00+00:00" in result
@@ -480,9 +491,12 @@ async def test_import_prices_upsample_post_cutover(log_fn):
     )
     data_store = MagicMock()
 
-    await _import_prices_for_month(
-        fm_client, data_store, month_start, month_end, log_fn
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        await _import_prices_for_month(
+            fm_client, data_store, month_start, month_end, log_fn
+        )
 
     data_store.upsert_prices.assert_called_once()
     rows = data_store.upsert_prices.call_args[0][0]
@@ -511,9 +525,12 @@ async def test_import_prices_upsample_pre_cutover(log_fn):
     )
     data_store = MagicMock()
 
-    await _import_prices_for_month(
-        fm_client, data_store, month_start, month_end, log_fn
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        await _import_prices_for_month(
+            fm_client, data_store, month_start, month_end, log_fn
+        )
 
     data_store.upsert_prices.assert_called_once()
     rows = data_store.upsert_prices.call_args[0][0]
@@ -533,9 +550,12 @@ async def test_import_prices_skipped_when_no_sensor(log_fn):
 
     data_store = MagicMock()
 
-    await _import_prices_for_month(
-        _make_fm_client(), data_store, month_start, month_end, log_fn
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        await _import_prices_for_month(
+            _make_fm_client(), data_store, month_start, month_end, log_fn
+        )
 
     data_store.upsert_prices.assert_not_called()
 
@@ -560,9 +580,12 @@ async def test_import_emissions_inserts_rows(log_fn):
     )
     data_store = MagicMock()
 
-    await _import_emissions_for_month(
-        fm_client, data_store, month_start, month_end, log_fn
-    )
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        await _import_emissions_for_month(
+            fm_client, data_store, month_start, month_end, log_fn
+        )
 
     data_store.upsert_emissions.assert_called_once()
     rows = data_store.upsert_emissions.call_args[0][0]
@@ -580,15 +603,316 @@ async def test_fetch_sensor_events_passes_prior(log_fn):
     fm_client = _make_fm_client(values=[0.5], start=_TS_ISO)
     prior_str = "2024-12-02T00:00:00+00:00"
 
-    await _fetch_sensor_events(
-        fm_client,
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 8, tzinfo=timezone.utc),
+            log_fn,
+            prior=prior_str,
+        )
+
+    call_kwargs = fm_client.get_sensor_data.call_args.kwargs
+    assert call_kwargs.get("prior") == prior_str
+
+
+# ---------------------------------------------------------------------------
+# _fetch_month_rows — power-only timestamp fix
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_union_of_timestamps_fills_missing_with_none(log_fn):
+    """Rows are created for the union of all sensor timestamps.
+
+    Each sensor can have a different set of timestamps. The importer
+    creates rows for the union of all timestamps. Where a sensor has
+    no value for a given timestamp, its field is set to None.
+    """
+    start = "2024-11-01T00:00:00+00:00"
+
+    # Power: 2 values (00:00 and 00:05).
+    power_client = _make_fm_client(values=[0.005, 0.003], start=start)
+    # SoC: 5 values (00:00 through 00:20).
+    soc_client = _make_fm_client(values=[50.0, 51.0, 52.0, 53.0, 54.0], start=start)
+    # Availability: 5 values.
+    avail_client = _make_fm_client(values=[100.0] * 5, start=start)
+
+    # Patch _fetch_sensor_events to return different data per sensor_id.
+    power_result = await _fetch_sensor_events(
+        power_client,
         _POWER_ID,
         "MW",
         datetime(2024, 11, 1, tzinfo=timezone.utc),
         datetime(2024, 12, 1, tzinfo=timezone.utc),
         log_fn,
-        prior=prior_str,
+    )
+    soc_result = await _fetch_sensor_events(
+        soc_client,
+        _SOC_ID,
+        "%",
+        datetime(2024, 11, 1, tzinfo=timezone.utc),
+        datetime(2024, 12, 1, tzinfo=timezone.utc),
+        log_fn,
+    )
+    avail_result = await _fetch_sensor_events(
+        avail_client,
+        _AVAIL_ID,
+        "%",
+        datetime(2024, 11, 1, tzinfo=timezone.utc),
+        datetime(2024, 12, 1, tzinfo=timezone.utc),
+        log_fn,
     )
 
-    call_kwargs = fm_client.get_sensor_data.call_args.kwargs
-    assert call_kwargs.get("prior") == prior_str
+    async def mock_fetch(fm_client, sensor_id, unit, start_dt, end_dt, log, **kwargs):
+        if sensor_id == _POWER_ID:
+            return power_result
+        if sensor_id == _SOC_ID:
+            return soc_result
+        return avail_result
+
+    month_start = datetime(2024, 11, 1, tzinfo=timezone.utc)
+    month_end = datetime(2024, 12, 1, tzinfo=timezone.utc)
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+    ):
+        rows = await _fetch_month_rows(MagicMock(), month_start, month_end, log_fn)
+
+    # Complete 5-minute grid for November (30 days × 288 slots/day).
+    assert len(rows) == 8640
+    # First 2 slots have power data → non-None energy.
+    assert rows[0]["energy_kwh"] is not None
+    assert rows[1]["energy_kwh"] is not None
+    # Third slot onward has no power data → energy_kwh=None.
+    assert rows[2]["energy_kwh"] is None
+    # SoC populated where available (first 5 slots), None elsewhere.
+    for i, expected_soc in enumerate([50.0, 51.0, 52.0, 53.0, 54.0]):
+        assert rows[i]["soc_pct"] == pytest.approx(expected_soc)
+    assert rows[5]["soc_pct"] is None
+    # Availability populated where available (first 5 slots), None elsewhere.
+    for i in range(5):
+        assert rows[i]["availability_pct"] == pytest.approx(100.0)
+    assert rows[5]["availability_pct"] is None
+
+
+@pytest.mark.asyncio
+async def test_month_with_only_soc_data_produces_rows_with_none_energy(log_fn):
+    """A month with only SoC/availability data still produces rows.
+
+    The SoC and availability data is preserved; energy_kwh is None
+    because no power data is available.
+    """
+
+    async def mock_fetch(fm_client, sensor_id, unit, start_dt, end_dt, log, **kwargs):
+        if sensor_id == _POWER_ID:
+            return {}  # No power data
+        # SoC and availability have data.
+        return {
+            "2024-11-01T00:00:00+00:00": 50.0,
+            "2024-11-01T00:05:00+00:00": 51.0,
+            "2024-11-01T00:10:00+00:00": 52.0,
+        }
+
+    month_start = datetime(2024, 11, 1, tzinfo=timezone.utc)
+    month_end = datetime(2024, 12, 1, tzinfo=timezone.utc)
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+    ):
+        rows = await _fetch_month_rows(MagicMock(), month_start, month_end, log_fn)
+
+    # Complete 5-minute grid for November.
+    assert len(rows) == 8640
+    # All rows have None energy (no power data at all).
+    assert all(r["energy_kwh"] is None for r in rows)
+    # SoC and availability are preserved where available.
+    assert rows[0]["soc_pct"] == pytest.approx(50.0)
+    assert rows[1]["soc_pct"] == pytest.approx(51.0)
+    assert rows[2]["soc_pct"] == pytest.approx(52.0)
+    assert rows[3]["soc_pct"] is None  # No SoC data for this slot
+    # Availability uses same mock data as SoC.
+    assert rows[0]["availability_pct"] == pytest.approx(50.0)
+    assert rows[3]["availability_pct"] is None
+
+
+# ---------------------------------------------------------------------------
+# Retry logic in _fetch_sensor_events
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fetch_retries_on_failure_then_succeeds(log_fn):
+    """Succeeds on the second attempt after an initial failure."""
+    fm_client = MagicMock()
+    good_response = {
+        "values": [0.005],
+        "start": _TS_ISO,
+        "duration": "PT5M",
+        "unit": "MW",
+    }
+    fm_client.get_sensor_data = AsyncMock(
+        side_effect=[Exception("timeout"), good_response]
+    )
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ) as mock_sleep:
+        result = await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 8, tzinfo=timezone.utc),
+            log_fn,
+        )
+
+    assert len(result) == 1
+    assert fm_client.get_sensor_data.call_count == 2
+    # First sleep is the retry delay.
+    assert mock_sleep.call_args_list[0].args == (10,)
+
+
+@pytest.mark.asyncio
+async def test_fetch_appends_to_errors_on_exhausted_retries(log_fn):
+    """Sensor ID is appended to errors list when all retries fail."""
+    fm_client = MagicMock()
+    fm_client.get_sensor_data = AsyncMock(side_effect=Exception("server error"))
+    errors = []
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        result = await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "MW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 8, tzinfo=timezone.utc),
+            log_fn,
+            errors=errors,
+        )
+
+    assert result == {}
+    assert _POWER_ID in errors
+
+
+# ---------------------------------------------------------------------------
+# Pause between months
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pause_between_months(data_store, log_fn, tmp_path):
+    """A 30-second pause is inserted between months (not before the first)."""
+    flag = tmp_path / "fm_historical_import_done"
+    fm_client = _make_fm_client(values=[])
+
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ) as mock_sleep,
+    ):
+        # 3 months to process: Nov, Oct, Sep 2024. Two empty → stop.
+        mock_date.today.return_value = date(2024, 11, 1)
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+        await run_historical_import(data_store, log_fn, fm_client)
+
+    # Pause should be called between months (not before first).
+    pause_calls = [c for c in mock_sleep.call_args_list if c.args == (30,)]
+    assert len(pause_calls) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Error stop behaviour
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stops_on_api_error_no_flag_file(data_store, log_fn, tmp_path):
+    """Import stops when a sensor fetch fails after retries; no flag file is written."""
+    flag = tmp_path / "fm_historical_import_done"
+
+    # Simulate a sensor fetch that always fails.
+    fm_client = MagicMock()
+    fm_client.get_sensor_data = AsyncMock(side_effect=Exception("connection refused"))
+
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+    ):
+        # Use mid-month so the current month has a non-zero fetch range.
+        mock_date.today.return_value = date(2024, 11, 15)
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+        await run_historical_import(data_store, log_fn, fm_client)
+
+    # Flag file must NOT be written on API error.
+    assert not flag.exists()
+    # Error stop should be logged.
+    stop_logged = any("API errors" in str(call) for call in log_fn.call_args_list)
+    assert stop_logged
+
+
+# ---------------------------------------------------------------------------
+# on_notify callback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_on_notify_called_on_success(data_store, log_fn, tmp_path):
+    """on_notify is called with a success message after a successful import."""
+    flag = tmp_path / "fm_historical_import_done"
+    fm_client = _make_fm_client(values=[])
+    notify = MagicMock()
+
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+    ):
+        mock_date.today.return_value = date(2024, 11, 1)
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+        await run_historical_import(data_store, log_fn, fm_client, on_notify=notify)
+
+    notify.assert_called_once()
+    assert "succesvol" in notify.call_args[0][0].lower()
+
+
+@pytest.mark.asyncio
+async def test_on_notify_called_on_api_error(data_store, log_fn, tmp_path):
+    """on_notify is called with a failure message when import stops due to API errors."""
+    flag = tmp_path / "fm_historical_import_done"
+    fm_client = MagicMock()
+    fm_client.get_sensor_data = AsyncMock(side_effect=Exception("connection refused"))
+    notify = MagicMock()
+
+    with (
+        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+    ):
+        # Use mid-month so the current month has a non-zero fetch range.
+        mock_date.today.return_value = date(2024, 11, 15)
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+        await run_historical_import(data_store, log_fn, fm_client, on_notify=notify)
+
+    notify.assert_called_once()
+    assert "API-fouten" in notify.call_args[0][0]
+    assert not flag.exists()
