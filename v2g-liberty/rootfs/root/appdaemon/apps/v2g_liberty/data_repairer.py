@@ -69,6 +69,8 @@ def _negligible_energy_threshold() -> float:
 class DataRepairer:
     """Validates and repairs gaps in interval_log data."""
 
+    _MEMO_ID = "data_repairer_db_issue"
+
     data_store: DataStore = None
 
     def __init__(self, hass: Hass):
@@ -77,7 +79,41 @@ class DataRepairer:
 
     async def initialise(self):
         """Run full repair at startup, then schedule periodic incremental runs."""
-        summary = self.run_full_repair()
+        try:
+            summary = self.run_full_repair()
+        except Exception as e:
+            self.__log(
+                f"Data repair failed: {e}. Repair is disabled for this session.",
+                level="WARNING",
+            )
+            self.__hass.call_service(
+                "persistent_notification/create",
+                title="V2G Liberty: database update needed",
+                message=(
+                    "V2G Liberty detected that its database needs updating. "
+                    "The app is running, but some background data maintenance "
+                    "is temporarily disabled.\n\n"
+                    "**What to do:**\n"
+                    "1. Make sure V2G Liberty is up to date\n"
+                    "2. Restart V2G Liberty\n\n"
+                    "If this message keeps appearing after restarting:\n"
+                    "1. Stop V2G Liberty\n"
+                    "2. Delete the files `v2g_liberty_data.db` and "
+                    "`v2g_liberty_settings.txt` from the data folder\n"
+                    "3. Start V2G Liberty again\n\n"
+                    "Note: this will remove historical charging data and "
+                    "settings. A fresh database will be created automatically."
+                ),
+                notification_id=self._MEMO_ID,
+            )
+            return
+
+        # Success — dismiss any leftover notification from a previous failure.
+        self.__hass.call_service(
+            "persistent_notification/dismiss",
+            notification_id=self._MEMO_ID,
+        )
+
         total = _total_repairs(summary)
         if total > 0:
             self.__log(f"Startup repair complete: {_format_summary(summary)}")
