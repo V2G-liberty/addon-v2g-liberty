@@ -96,20 +96,22 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         change_handler="__handle_evse_state_change",
     )
 
-    # Mapping of _MCE_CONNECTOR_STATE to BASE_EVSE_STATE
+    # V2.0 ECP4 Connector States → BASE_EVSE_STATE
+    # States 4-6 map to base 1 because the charger is not yet controllable
+    # in these transitional states.
     _BASE_STATE_MAPPING: dict[int, int] = {
-        0: 0,  # Booting
-        1: 1,  # No car connected
-        2: 9,  # Error
-        3: 7,  # OCPP, external control
-        4: 1,  # contract authorization -> No car connected
-        5: 1,  # plugged in + power check -> No car connected
-        6: 1,  # initialize connection + safety checks -> No car connected
-        7: 3,  # Charge
-        8: 4,  # Discharge
-        9: 7,  # OCPP, external control
-        10: 2,  # Connected & idle
-        11: 1,  # No car connected
+        0: 0,  # Boot
+        1: 1,  # Ready (no car connected)
+        2: 9,  # Unavailable (not operative)
+        3: 7,  # Reserved (OCPP)
+        4: 1,  # Contract authorisation — not controllable yet
+        5: 1,  # Plugged in — not controllable yet
+        6: 1,  # Initialise connection — not controllable yet
+        7: 3,  # Current demand (charging)
+        8: 4,  # Grid feed in (discharging)
+        9: 2,  # Session stop
+        10: 2,  # Wait for grid
+        11: 2,  # Charging end (car still connected, awaiting unplug)
         12: 9,  # Error
     }
 
