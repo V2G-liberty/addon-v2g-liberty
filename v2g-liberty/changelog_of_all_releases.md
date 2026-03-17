@@ -13,6 +13,8 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
+
 ## 0.7.6 2026-03-09
 
 ### Fixed
