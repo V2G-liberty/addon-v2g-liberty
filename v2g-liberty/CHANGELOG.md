@@ -12,7 +12,7 @@
 
 ### Changed
 
--
+- ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
 
 #### Removing
 

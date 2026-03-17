@@ -127,7 +127,7 @@ class FMClient(AsyncIOEventEmitter):
 
         self.__log("successfully connect to flexmeasures")
         try:
-            assets = await client.get_assets()
+            assets = await client.get_assets(parse_json_fields=True)
             await self.set_fm_connection_status(connected=True)
             return assets
         except Exception as e:
@@ -256,7 +256,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
     async def __get_asset_id_by_name(self, asset_name: str):
-        assets = await self.client.get_assets()
+        assets = await self.client.get_assets(parse_json_fields=True)
         for asset in assets:
             if asset["name"] == asset_name:
                 return asset["id"]
@@ -269,7 +269,7 @@ class FMClient(AsyncIOEventEmitter):
                 level="WARNING",
             )
             return []
-        assets = await self.client.get_assets()
+        assets = await self.client.get_assets(parse_json_fields=True)
         for asset in assets:
             if asset["name"] == asset_name:
                 sensors = [sensor for sensor in asset["sensors"]]
