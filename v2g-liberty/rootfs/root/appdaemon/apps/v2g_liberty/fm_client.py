@@ -55,6 +55,7 @@ class FMClient(AsyncIOEventEmitter):
     # Should be FlexMeasuresClient but (early) import statement gives errors..
     client = None
     _asset_id: int = None
+    user_id: int | None = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
@@ -212,6 +213,14 @@ class FMClient(AsyncIOEventEmitter):
                 level="WARNING",
             )
 
+        try:
+            user = await self.client.get_user()
+            self.user_id = user.get("id")
+            self.__log(f"FM user id: {self.user_id}.")
+        except Exception as e:
+            self.__log(f"Could not retrieve FM user id: {e}.", level="WARNING")
+            self.user_id = None
+
         return "Successfully connected"
 
     async def set_asset_attributes(self, attributes: dict):
@@ -275,6 +284,112 @@ class FMClient(AsyncIOEventEmitter):
                 sensors = [sensor for sensor in asset["sensors"]]
                 return sensors
         return []
+
+    async def discover_power_source_id(
+        self,
+        sensor_id: int,
+        user_id: int,
+        variance_threshold_kw: float = 0.05,
+    ) -> int | None:
+        """Probe FM source_ids to find the one containing actual charger measurements.
+
+        The FM power sensor receives beliefs from two sources:
+        - The Seita scheduler: near-constant values (~0.005 kW), belief_time updated today.
+        - The user's charger reporter: widely varying values (real charge/discharge).
+
+        Probing starts at user_id and increments upward (upper bound: user_id + 500).
+        The first source_id whose returned values have a standard deviation above
+        variance_threshold_kw is returned as the measured source.
+
+        Returns None if no measured source is found within the search range, or if
+        the client is not initialised.
+        """
+        if self.client is None:
+            self.__log(
+                "Abort source_id discovery, client not initialised.", level="WARNING"
+            )
+            return None
+
+        # Find a reference week: scan back up to 6 months to find a week with data.
+        reference_duration = timedelta(days=7)
+        reference_start = None
+        today = get_local_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        for weeks_back in range(1, 27):  # up to ~6 months
+            candidate_start = today - timedelta(weeks=weeks_back)
+            try:
+                result = await self.client.get_sensor_data(
+                    sensor_id=sensor_id,
+                    start=candidate_start,
+                    duration=reference_duration,
+                    unit="kW",
+                    resolution="PT5M",
+                )
+            except Exception:
+                continue
+            values = [v for v in (result or {}).get("values", []) if v is not None]
+            if values:
+                reference_start = candidate_start
+                self.__log(
+                    f"Source discovery: reference week is "
+                    f"{candidate_start.date()} — {(candidate_start + reference_duration).date()}."
+                )
+                break
+
+        if reference_start is None:
+            self.__log(
+                "Source discovery: no data found in the last 6 months, aborting.",
+                level="WARNING",
+            )
+            return None
+
+        # Probe source_ids starting from user_id.
+        upper_bound = user_id + 500
+        skipped_no_exist = []
+        skipped_no_data = []
+        skipped_low_variance = []
+
+        for source_id in range(user_id, upper_bound + 1):
+            if source_id > user_id:
+                await asyncio.sleep(1)
+            try:
+                result = await self.client.get_sensor_data(
+                    sensor_id=sensor_id,
+                    start=reference_start,
+                    duration=reference_duration,
+                    unit="kW",
+                    resolution="PT5M",
+                    source=source_id,
+                )
+            except Exception:
+                # 422 = source_id does not exist in FM.
+                skipped_no_exist.append(source_id)
+                continue
+
+            values = [v for v in (result or {}).get("values", []) if v is not None]
+            if not values:
+                skipped_no_data.append(source_id)
+                continue
+
+            std = math.sqrt(
+                sum((v - sum(values) / len(values)) ** 2 for v in values) / len(values)
+            )
+            if std > variance_threshold_kw:
+                self.__log(
+                    f"Source discovery: found measured source_id={source_id} "
+                    f"(std={std:.4f} kW) after probing {source_id - user_id + 1} id(s)."
+                )
+                return source_id
+            skipped_low_variance.append(source_id)
+
+        self.__log(
+            f"Source discovery: no measured source found in range "
+            f"{user_id}..{upper_bound}. "
+            f"Not found: {skipped_no_exist}, "
+            f"no data: {skipped_no_data}, "
+            f"low variance: {skipped_low_variance}.",
+            level="WARNING",
+        )
+        return None
 
     async def get_sensor_data(
         self,

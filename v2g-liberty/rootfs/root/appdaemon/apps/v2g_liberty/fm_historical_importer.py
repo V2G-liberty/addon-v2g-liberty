@@ -67,7 +67,23 @@ async def run_historical_import(
         )
         return
 
-    log_fn("Historical import: starting.")
+    if c.FM_ACCOUNT_POWER_SOURCE_ID is None:
+        log_fn(
+            "Historical import: power source_id unknown — import blocked to prevent "
+            "contaminated data. Discovery may retry on next startup.",
+            level="WARNING",
+        )
+        if on_notify is not None:
+            on_notify(
+                "Historical import cancelled: the FlexMeasures data source for "
+                "power measurements could not be determined. "
+                "Please contact support if this problem persists."
+            )
+        return
+
+    log_fn(
+        f"Historical import: starting (power source_id={c.FM_ACCOUNT_POWER_SOURCE_ID})."
+    )
 
     # Remove any rows from a previous historical import so that a fresh
     # import doesn't leave duplicates in interval_log.
@@ -176,18 +192,10 @@ async def _fetch_month_rows(
 
     Returns a list of interval dicts ready for bulk_insert_or_ignore_intervals().
 
-    Uses the FM ``prior`` belief-time parameter to retrieve actual charger
-    measurements rather than retroactively-stored scheduler beliefs.  The
-    Seita scheduler re-runs regularly and stores new schedule beliefs with
-    belief_time = today; actual measurements were stored shortly after each
-    5-minute interval back in the historical month.  By capping ``prior`` to
-    24 hours after month_end, those recent scheduler beliefs are excluded and
-    FM returns the actual measurements as the most recent eligible belief.
+    Filters power data by ``FM_ACCOUNT_POWER_SOURCE_ID`` when known, so only
+    actual charger measurements are returned rather than near-constant scheduler
+    beliefs.  SoC and availability come from a single source and need no filter.
     """
-    # 24-hour buffer ensures all measurements for the last interval of the
-    # month are captured even if the charger reported them slightly late.
-    prior = (month_end + timedelta(hours=24)).isoformat()
-
     power_events = await _fetch_sensor_events(
         fm_client,
         c.FM_ACCOUNT_POWER_SENSOR_ID,
@@ -195,7 +203,7 @@ async def _fetch_month_rows(
         month_start,
         month_end,
         log_fn,
-        prior=prior,
+        source_id=c.FM_ACCOUNT_POWER_SOURCE_ID,
         errors=errors,
     )
     await asyncio.sleep(_SENSOR_PAUSE_SECONDS)
@@ -206,7 +214,6 @@ async def _fetch_month_rows(
         month_start,
         month_end,
         log_fn,
-        prior=prior,
         errors=errors,
     )
     await asyncio.sleep(_SENSOR_PAUSE_SECONDS)
@@ -217,7 +224,6 @@ async def _fetch_month_rows(
         month_start,
         month_end,
         log_fn,
-        prior=prior,
         errors=errors,
     )
 
@@ -359,7 +365,7 @@ async def _fetch_sensor_events(
     end: datetime,
     log_fn,
     step_minutes: int = _INTERVAL_MINUTES,
-    prior: str | None = None,
+    source_id: int | None = None,
     errors: list | None = None,
 ) -> dict[str, float]:
     """Fetch sensor data and return a {timestamp_iso: value} dict.
@@ -369,10 +375,9 @@ async def _fetch_sensor_events(
     request data at the given resolution.  Null values (gaps in the data)
     are omitted from the result.
 
-    When ``prior`` is provided it is passed to FM as a belief-time upper bound
-    so only beliefs formed before that timestamp are considered.  This lets
-    callers retrieve actual charger measurements (stored shortly after each
-    event) rather than retroactively-updated scheduler beliefs (stored today).
+    When ``source_id`` is provided only beliefs from that source are returned.
+    Pass ``c.FM_ACCOUNT_POWER_SOURCE_ID`` for the power sensor to filter out
+    near-constant scheduler beliefs and retrieve actual charger measurements.
 
     Retries up to ``_MAX_RETRIES`` times per chunk on failure, with a
     ``_RETRY_DELAY_SECONDS`` pause between attempts.  When all retries are
@@ -384,7 +389,6 @@ async def _fetch_sensor_events(
 
     result: dict[str, float] = {}
     now_utc = datetime.now(timezone.utc)
-    extra = {"prior": prior} if prior is not None else {}
 
     chunk_start = start
     while chunk_start < end:
@@ -394,14 +398,16 @@ async def _fetch_sensor_events(
         data = None
         for attempt in range(1, _MAX_RETRIES + 1):
             try:
-                data = await fm_client.get_sensor_data(
-                    sensor_id=sensor_id,
-                    start=chunk_start,
-                    duration=duration,
-                    unit=unit,
-                    resolution=f"PT{step_minutes}M",
-                    **extra,
-                )
+                kwargs = {
+                    "sensor_id": sensor_id,
+                    "start": chunk_start,
+                    "duration": duration,
+                    "unit": unit,
+                    "resolution": f"PT{step_minutes}M",
+                }
+                if source_id is not None:
+                    kwargs["source"] = source_id
+                data = await fm_client.get_sensor_data(**kwargs)
                 break
             except Exception as exc:
                 if attempt < _MAX_RETRIES:

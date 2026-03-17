@@ -955,10 +955,50 @@ class V2GLibertyGlobals:
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
+        await self.__initialise_fm_power_source_id()
 
         await self.__try_historical_import()
 
         self.__log("completed")
+
+    async def __initialise_fm_power_source_id(self):
+        """Load or discover the FM source_id for measured charger power data.
+
+        Loads a previously stored source_id from settings. If none is stored,
+        probes FM to find the source_id whose power values show real charge/
+        discharge variance (as opposed to near-constant scheduler beliefs).
+        The discovered id is persisted so subsequent startups skip probing.
+        """
+        stored = self.v2g_settings.get_fm_power_source_id()
+        if stored is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = stored
+            self.__log(f"FM power source_id loaded from settings: {stored}.")
+            return
+
+        if not c.FM_ACCOUNT_POWER_SENSOR_ID:
+            self.__log(
+                "FM power source_id discovery skipped: power sensor ID not known.",
+                level="WARNING",
+            )
+            return
+
+        user_id = self.fm_client_app.user_id
+        if user_id is None:
+            self.__log(
+                "FM power source_id discovery skipped: FM user ID not known.",
+                level="WARNING",
+            )
+            return
+
+        self.__log("FM power source_id not yet stored — starting discovery.")
+        source_id = await self.fm_client_app.discover_power_source_id(
+            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+            user_id=user_id,
+        )
+        if source_id is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
+            self.v2g_settings.store_fm_power_source_id(source_id)
+            self.__log(f"FM power source_id={source_id} stored.")
 
     async def __try_historical_import(self):
         """Attempt to start the historical import if all required settings are ready.
@@ -1379,5 +1419,5 @@ def parse_to_int(number_string, default_value: int):
     """
     try:
         return int(float(number_string))
-    except:
+    except (TypeError, ValueError):
         return default_value

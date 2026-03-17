@@ -58,6 +58,7 @@ def _set_constants():
     c.FM_ACCOUNT_USERNAME = "user@example.com"
     c.FM_ACCOUNT_PASSWORD = "secret"
     c.FM_ACCOUNT_POWER_SENSOR_ID = _POWER_ID
+    c.FM_ACCOUNT_POWER_SOURCE_ID = 4  # known measured source
     c.FM_ACCOUNT_SOC_SENSOR_ID = _SOC_ID
     c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID = _AVAIL_ID
     # Price/emission sensors disabled by default; override in specific tests.
@@ -150,6 +151,25 @@ async def test_aborts_when_no_fm_client(data_store, log_fn, tmp_path):
     ).fetchone()[0]
     assert count == 0
     assert not flag.exists()  # flag must NOT be written on failure
+
+
+@pytest.mark.asyncio
+async def test_aborts_when_power_source_id_unknown(data_store, log_fn, tmp_path):
+    """Import is blocked when FM_ACCOUNT_POWER_SOURCE_ID is None to prevent
+    contaminated data from scheduler beliefs being imported."""
+    c.FM_ACCOUNT_POWER_SOURCE_ID = None
+    flag = tmp_path / "fm_historical_import_done"
+    notify_messages = []
+
+    fm_client = MagicMock()
+    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+        await run_historical_import(
+            data_store, log_fn, fm_client, on_notify=notify_messages.append
+        )
+
+    assert not flag.exists()
+    assert len(notify_messages) == 1
+    assert "data source" in notify_messages[0]
 
 
 @pytest.mark.asyncio
@@ -593,15 +613,14 @@ async def test_import_emissions_inserts_rows(log_fn):
 
 
 # ---------------------------------------------------------------------------
-# prior belief-time filtering
+# source_id filtering
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_fetch_sensor_events_passes_prior(log_fn):
-    """prior is forwarded to get_sensor_data as a keyword argument."""
+async def test_fetch_sensor_events_passes_source_id(log_fn):
+    """source_id is forwarded to get_sensor_data when provided."""
     fm_client = _make_fm_client(values=[0.5], start=_TS_ISO)
-    prior_str = "2024-12-02T00:00:00+00:00"
 
     with patch(
         "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
@@ -609,15 +628,36 @@ async def test_fetch_sensor_events_passes_prior(log_fn):
         await _fetch_sensor_events(
             fm_client,
             _POWER_ID,
-            "MW",
+            "kW",
             datetime(2024, 11, 1, tzinfo=timezone.utc),
             datetime(2024, 11, 8, tzinfo=timezone.utc),
             log_fn,
-            prior=prior_str,
+            source_id=4,
         )
 
     call_kwargs = fm_client.get_sensor_data.call_args.kwargs
-    assert call_kwargs.get("prior") == prior_str
+    assert call_kwargs.get("source") == 4
+
+
+@pytest.mark.asyncio
+async def test_fetch_sensor_events_omits_source_when_none(log_fn):
+    """source is not passed to get_sensor_data when source_id is None."""
+    fm_client = _make_fm_client(values=[0.5], start=_TS_ISO)
+
+    with patch(
+        "apps.v2g_liberty.fm_historical_importer.asyncio.sleep", new_callable=AsyncMock
+    ):
+        await _fetch_sensor_events(
+            fm_client,
+            _POWER_ID,
+            "kW",
+            datetime(2024, 11, 1, tzinfo=timezone.utc),
+            datetime(2024, 11, 8, tzinfo=timezone.utc),
+            log_fn,
+        )
+
+    call_kwargs = fm_client.get_sensor_data.call_args.kwargs
+    assert "source" not in call_kwargs
 
 
 # ---------------------------------------------------------------------------

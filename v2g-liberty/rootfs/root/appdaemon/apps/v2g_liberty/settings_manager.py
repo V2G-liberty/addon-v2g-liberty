@@ -189,3 +189,21 @@ class SettingsManager:
 
     def get(self, entity_id):
         return self.settings.get(entity_id, None)
+
+    # ── Internal (non-HA) values ──────────────────────────────────────────────
+    # These are technical values with no corresponding HA input entity.
+    # Keys use a plain string (no "input_*." prefix) to distinguish them.
+
+    _FM_POWER_SOURCE_ID_KEY = "fm_power_source_id"
+
+    def store_fm_power_source_id(self, source_id: int) -> None:
+        self.store_setting(self._FM_POWER_SOURCE_ID_KEY, source_id)
+
+    def get_fm_power_source_id(self) -> int | None:
+        value = self.settings.get(self._FM_POWER_SOURCE_ID_KEY)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None

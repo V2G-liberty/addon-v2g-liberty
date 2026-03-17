@@ -162,6 +162,12 @@ FM_ACCOUNT_SOC_SENSOR_ID: int = 0
 # FSC: Used in data_import only, move there.
 FM_ACCOUNT_COST_SENSOR_ID: int = 0
 
+# Source ID for the user's own charger measurements on the power sensor.
+# Discovered at startup by probing FM.
+# None = not yet known (no source filter applied).
+# FSC: Used in fm_client and fm_historical_importer, keep here.
+FM_ACCOUNT_POWER_SOURCE_ID: int | None = None
+
 # Sensors for optimisation context, also in case prices are self_provided (e.g. au_amber_electric)
 # Sensor entity for sending and id for retrieving data to/from FM
 # FSC: Used in fm_client, data_import, octopus/amber, keep here.
