@@ -3,11 +3,12 @@
 import asyncio
 import math
 from datetime import datetime, timedelta
+
 import pytz
 
 from appdaemon.plugins.hass.hassapi import Hass
 
-from .fm_historical_importer import run_historical_import
+from .fm_historical_importer import clear_import_flag, run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -18,7 +19,6 @@ class V2GLibertyGlobals:
     """Class to initialise settings and CONSTANTS"""
 
     v2g_settings: SettingsManager
-    settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
     evse_client_app: object
     fm_client_app: object
@@ -955,11 +955,33 @@ class V2GLibertyGlobals:
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
+        self.__set_fm_user_id(self.fm_client_app.user_id)
         await self.__initialise_fm_power_source_id()
 
         await self.__try_historical_import()
 
         self.__log("completed")
+
+    def __set_fm_user_id(self, user_id: int):
+        """Persist the FM user_id and reset account-derived values if it changed.
+
+        If the user_id differs from the stored one, the cached power source_id
+        and historical import flag are cleared so that discovery and re-import
+        run automatically for the new account.
+        """
+        old_user_id = self.v2g_settings.get_fm_user_id()
+        self.v2g_settings.store_fm_user_id(user_id)
+
+        if old_user_id is None or old_user_id == user_id:
+            return
+
+        self.__log(
+            f"FM user_id changed ({old_user_id} → {user_id}): "
+            "clearing power source_id and historical import flag."
+        )
+        self.v2g_settings.store_fm_power_source_id(None)
+        c.FM_ACCOUNT_POWER_SOURCE_ID = None
+        clear_import_flag()
 
     async def __initialise_fm_power_source_id(self):
         """Load or discover the FM source_id for measured charger power data.

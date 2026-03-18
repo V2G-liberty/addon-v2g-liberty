@@ -23,7 +23,7 @@ _EMPTY_MONTH_THRESHOLD = 50
 _INTERVAL_MINUTES = 5
 _ENERGY_FROM_POWER_FACTOR = _INTERVAL_MINUTES / 60
 # Written after a successful import; delete to force a re-import.
-_IMPORT_DONE_FLAG = Path("/data/fm_historical_import_report.txt")
+_REPORT_FILE = Path("/data/fm_historical_import_report.txt")
 # EU day-ahead electricity market switched from 60-min to 15-min on this date.
 _PRICE_MARKET_CUTOVER = date(2025, 10, 1)
 # Retry settings for sensor fetches.
@@ -37,6 +37,17 @@ _CHUNK_DAYS = 7
 _SENSOR_PAUSE_SECONDS = 2
 # Pause between weekly chunks (seconds).
 _CHUNK_PAUSE_SECONDS = 5
+
+
+def clear_import_flag() -> None:
+    """Delete the historical import flag, forcing a re-import on next startup."""
+    _REPORT_FILE.unlink(missing_ok=True)
+
+
+def append_to_report(text: str) -> None:
+    """Append text to the historical import report file."""
+    with open(_REPORT_FILE, "a") as f:
+        f.write(text)
 
 
 async def run_historical_import(
@@ -56,7 +67,7 @@ async def run_historical_import(
     after the import finishes (success or failure).  This is used to send a
     persistent notification to the user.
     """
-    if _IMPORT_DONE_FLAG.exists():
+    if _REPORT_FILE.exists():
         log_fn("Historical import: already done (flag file exists), skipping.")
         return
 
@@ -168,7 +179,7 @@ async def run_historical_import(
         # Step back one month.
         month = (month - timedelta(days=1)).replace(day=1)
 
-    _IMPORT_DONE_FLAG.write_text(
+    _REPORT_FILE.write_text(
         f"Historical import completed at {datetime.now(timezone.utc).isoformat()}\n"
     )
     log_fn("Historical import: complete.")

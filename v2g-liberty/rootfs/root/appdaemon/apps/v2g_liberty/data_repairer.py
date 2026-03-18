@@ -15,13 +15,13 @@ Repaired/added rows are marked with is_repaired=1 in interval_log.
 """
 
 from datetime import timedelta
-from pathlib import Path
 
 import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .data_store import DataStore
+from .fm_historical_importer import append_to_report
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now
 
@@ -52,9 +52,6 @@ UPWARD_JUMP_TOLERANCE: float = 10.0  # Max pp mismatch theoretical vs actual
 
 # Type A-down: exceedance counter for downward jump blanking
 EXCEEDANCE_THRESHOLD: int = 2  # Observations proving real charger activity
-
-# Report file written after historical import + repair
-_REPORT_FILE = Path("/data/fm_historical_import_report.txt")
 
 
 def _negligible_energy_threshold() -> float:
@@ -196,10 +193,9 @@ class DataRepairer:
             lines.append(f"  Violations logged:     {sum(violations.values())}")
         lines.append("")
 
-        with open(_REPORT_FILE, "a") as f:
-            f.write("\n".join(lines))
+        append_to_report("\n".join(lines))
 
-        self.__log(f"Repair report written to {_REPORT_FILE}.")
+        self.__log("Repair report written to historical import report file.")
 
     # ------------------------------------------------------------------
     # Core repair pipeline
