@@ -331,7 +331,7 @@ class FMClient(AsyncIOEventEmitter):
                 reference_start = candidate_start
                 self.__log(
                     f"Source discovery: reference week is "
-                    f"{candidate_start.date()} — {(candidate_start + reference_duration).date()}."
+                    f"{candidate_start.date()} -- {(candidate_start + reference_duration).date()}."
                 )
                 break
 

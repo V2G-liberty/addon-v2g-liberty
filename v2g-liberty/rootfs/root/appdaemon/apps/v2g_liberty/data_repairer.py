@@ -176,7 +176,7 @@ class DataRepairer:
             "",
             "Summary:",
             f"  Total rows:            {row['cnt']}",
-            f"  Period:                {row['first_ts']} — {row['last_ts']}",
+            f"  Period:                {row['first_ts']} -- {row['last_ts']}",
             f"  Oldest row:            {row['first_ts']}",
             f"  Bounds corrected:      {summary['bounds_corrected']}",
             f"  SoC upward reconstr.:  {summary['soc_reconstructed_up']} (Type A-up)",

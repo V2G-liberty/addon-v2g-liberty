@@ -1012,7 +1012,7 @@ class V2GLibertyGlobals:
             )
             return
 
-        self.__log("FM power source_id not yet stored — starting discovery.")
+        self.__log("FM power source_id not yet stored -- starting discovery.")
         source_id = await self.fm_client_app.discover_power_source_id(
             sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
             user_id=user_id,
@@ -1020,7 +1020,12 @@ class V2GLibertyGlobals:
         if source_id is not None:
             c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
             self.v2g_settings.store_fm_power_source_id(source_id)
-            self.__log(f"FM power source_id={source_id} stored.")
+            self.__log(f"FM power source_id={source_id} discovered and stored.")
+        else:
+            self.__log(
+                "FM power source_id discovery failed: no matching source found.",
+                level="WARNING",
+            )
 
     async def __try_historical_import(self):
         """Attempt to start the historical import if all required settings are ready.
@@ -1040,7 +1045,7 @@ class V2GLibertyGlobals:
         )
         if not schedule_ready or not charger_ready:
             self.__log(
-                "Historical import: deferred — not all settings configured yet "
+                "Historical import: deferred -- not all settings configured yet "
                 f"(schedule={schedule_ready}, charger={charger_ready})."
             )
             return

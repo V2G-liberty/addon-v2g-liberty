@@ -80,7 +80,7 @@ async def run_historical_import(
 
     if c.FM_ACCOUNT_POWER_SOURCE_ID is None:
         log_fn(
-            "Historical import: power source_id unknown — import blocked to prevent "
+            "Historical import: power source_id unknown -- import blocked to prevent "
             "contaminated data. Discovery may retry on next startup.",
             level="WARNING",
         )
