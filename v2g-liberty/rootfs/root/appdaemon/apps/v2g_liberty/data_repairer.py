@@ -15,13 +15,13 @@ Repaired/added rows are marked with is_repaired=1 in interval_log.
 """
 
 from datetime import timedelta
-from pathlib import Path
 
 import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .data_store import DataStore
+from .fm_historical_importer import append_to_report
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now
 
@@ -53,9 +53,6 @@ UPWARD_JUMP_TOLERANCE: float = 10.0  # Max pp mismatch theoretical vs actual
 # Type A-down: exceedance counter for downward jump blanking
 EXCEEDANCE_THRESHOLD: int = 2  # Observations proving real charger activity
 
-# Report file written after historical import + repair
-_REPORT_FILE = Path("/data/fm_historical_import_report.txt")
-
 
 def _negligible_energy_threshold() -> float:
     """Energy threshold below which flow is considered negligible.
@@ -69,6 +66,8 @@ def _negligible_energy_threshold() -> float:
 class DataRepairer:
     """Validates and repairs gaps in interval_log data."""
 
+    _MEMO_ID = "data_repairer_db_issue"
+
     data_store: DataStore = None
 
     def __init__(self, hass: Hass):
@@ -77,7 +76,41 @@ class DataRepairer:
 
     async def initialise(self):
         """Run full repair at startup, then schedule periodic incremental runs."""
-        summary = self.run_full_repair()
+        try:
+            summary = self.run_full_repair()
+        except Exception as e:
+            self.__log(
+                f"Data repair failed: {e}. Repair is disabled for this session.",
+                level="WARNING",
+            )
+            self.__hass.call_service(
+                "persistent_notification/create",
+                title="V2G Liberty: database update needed",
+                message=(
+                    "V2G Liberty detected that its database needs updating. "
+                    "The app is running, but some background data maintenance "
+                    "is temporarily disabled.\n\n"
+                    "**What to do:**\n"
+                    "1. Make sure V2G Liberty is up to date\n"
+                    "2. Restart V2G Liberty\n\n"
+                    "If this message keeps appearing after restarting:\n"
+                    "1. Stop V2G Liberty\n"
+                    "2. Delete the files `v2g_liberty_data.db` and "
+                    "`v2g_liberty_settings.txt` from the data folder\n"
+                    "3. Start V2G Liberty again\n\n"
+                    "Note: this will remove historical charging data and "
+                    "settings. A fresh database will be created automatically."
+                ),
+                notification_id=self._MEMO_ID,
+            )
+            return
+
+        # Success — dismiss any leftover notification from a previous failure.
+        self.__hass.call_service(
+            "persistent_notification/dismiss",
+            notification_id=self._MEMO_ID,
+        )
+
         total = _total_repairs(summary)
         if total > 0:
             self.__log(f"Startup repair complete: {_format_summary(summary)}")
@@ -143,7 +176,7 @@ class DataRepairer:
             "",
             "Summary:",
             f"  Total rows:            {row['cnt']}",
-            f"  Period:                {row['first_ts']} — {row['last_ts']}",
+            f"  Period:                {row['first_ts']} -- {row['last_ts']}",
             f"  Oldest row:            {row['first_ts']}",
             f"  Bounds corrected:      {summary['bounds_corrected']}",
             f"  SoC upward reconstr.:  {summary['soc_reconstructed_up']} (Type A-up)",
@@ -160,10 +193,9 @@ class DataRepairer:
             lines.append(f"  Violations logged:     {sum(violations.values())}")
         lines.append("")
 
-        with open(_REPORT_FILE, "a") as f:
-            f.write("\n".join(lines))
+        append_to_report("\n".join(lines))
 
-        self.__log(f"Repair report written to {_REPORT_FILE}.")
+        self.__log("Repair report written to historical import report file.")
 
     # ------------------------------------------------------------------
     # Core repair pipeline

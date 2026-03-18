@@ -3,11 +3,12 @@
 import asyncio
 import math
 from datetime import datetime, timedelta
+
 import pytz
 
 from appdaemon.plugins.hass.hassapi import Hass
 
-from .fm_historical_importer import run_historical_import
+from .fm_historical_importer import clear_import_flag, run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -18,7 +19,6 @@ class V2GLibertyGlobals:
     """Class to initialise settings and CONSTANTS"""
 
     v2g_settings: SettingsManager
-    settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
     evse_client_app: object
     fm_client_app: object
@@ -955,10 +955,77 @@ class V2GLibertyGlobals:
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
+        self.__set_fm_user_id(self.fm_client_app.user_id)
+        await self.__initialise_fm_power_source_id()
 
         await self.__try_historical_import()
 
         self.__log("completed")
+
+    def __set_fm_user_id(self, user_id: int):
+        """Persist the FM user_id and reset account-derived values if it changed.
+
+        If the user_id differs from the stored one, the cached power source_id
+        and historical import flag are cleared so that discovery and re-import
+        run automatically for the new account.
+        """
+        old_user_id = self.v2g_settings.get_fm_user_id()
+        self.v2g_settings.store_fm_user_id(user_id)
+
+        if old_user_id is None or old_user_id == user_id:
+            return
+
+        self.__log(
+            f"FM user_id changed ({old_user_id} → {user_id}): "
+            "clearing power source_id and historical import flag."
+        )
+        self.v2g_settings.store_fm_power_source_id(None)
+        c.FM_ACCOUNT_POWER_SOURCE_ID = None
+        clear_import_flag()
+
+    async def __initialise_fm_power_source_id(self):
+        """Load or discover the FM source_id for measured charger power data.
+
+        Loads a previously stored source_id from settings. If none is stored,
+        probes FM to find the source_id whose power values show real charge/
+        discharge variance (as opposed to near-constant scheduler beliefs).
+        The discovered id is persisted so subsequent startups skip probing.
+        """
+        stored = self.v2g_settings.get_fm_power_source_id()
+        if stored is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = stored
+            self.__log(f"FM power source_id loaded from settings: {stored}.")
+            return
+
+        if not c.FM_ACCOUNT_POWER_SENSOR_ID:
+            self.__log(
+                "FM power source_id discovery skipped: power sensor ID not known.",
+                level="WARNING",
+            )
+            return
+
+        user_id = self.fm_client_app.user_id
+        if user_id is None:
+            self.__log(
+                "FM power source_id discovery skipped: FM user ID not known.",
+                level="WARNING",
+            )
+            return
+
+        self.__log("FM power source_id not yet stored -- starting discovery.")
+        source_id = await self.fm_client_app.discover_power_source_id(
+            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+            user_id=user_id,
+        )
+        if source_id is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
+            self.v2g_settings.store_fm_power_source_id(source_id)
+            self.__log(f"FM power source_id={source_id} discovered and stored.")
+        else:
+            self.__log(
+                "FM power source_id discovery failed: no matching source found.",
+                level="WARNING",
+            )
 
     async def __try_historical_import(self):
         """Attempt to start the historical import if all required settings are ready.
@@ -978,7 +1045,7 @@ class V2GLibertyGlobals:
         )
         if not schedule_ready or not charger_ready:
             self.__log(
-                "Historical import: deferred — not all settings configured yet "
+                "Historical import: deferred -- not all settings configured yet "
                 f"(schedule={schedule_ready}, charger={charger_ready})."
             )
             return
@@ -1379,5 +1446,5 @@ def parse_to_int(number_string, default_value: int):
     """
     try:
         return int(float(number_string))
-    except:
+    except (TypeError, ValueError):
         return default_value

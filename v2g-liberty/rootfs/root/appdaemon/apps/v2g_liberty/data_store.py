@@ -628,7 +628,7 @@ class DataStore:
         cursor.close()
         if row:
             self.__log(
-                f"Reference price for {month} not found — "
+                f"Reference price for {month} not found -- "
                 f"using most recent available price as fallback.",
                 level="WARNING",
             )
