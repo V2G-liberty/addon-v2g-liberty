@@ -13752,7 +13752,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             month: 'long',
             year: 'numeric'
         });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span style="display:block">${$cb691508f8eb446e$var$tp('no-data-hint')} ${firstDate}</span>`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<small>${$cb691508f8eb446e$var$tp('no-data-hint')} ${firstDate}</small>`;
     }
     _renderEstimatedNote(hasRepaired) {
         if (!hasRepaired) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
@@ -13786,7 +13786,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         <span class="spinner"></span>
       </div>`;
         const t = this._computeTotals();
-        if (!t) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div>`;
+        if (!t) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted"><div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></div>`;
         const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
         const period = this._fmtTotalsPeriod(t.first, t.last);
         if (t.kind === 'quarter_hours') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -13969,7 +13969,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted"><div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
                     <tr class="${row.has_repaired ? 'repaired' : ''}">
                       <td>${this._fmtTime(row.period_start)}</td>
                       <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
@@ -14014,7 +14014,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
                     <tr class="${row.has_repaired ? 'repaired' : ''}">
                       <td>${this._fmtHour(row.period_start)}</td>
                       <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
@@ -14070,7 +14070,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></td></tr>` : (()=>{
+          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></div></td></tr>` : (()=>{
             const kwhDec = this._granularity === 'years' ? 0 : 2;
             const kgDec = this._granularity === 'years' ? 0 : 1;
             const curDec = this._granularity === 'years' ? 0 : 2;
@@ -14556,6 +14556,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     .muted {
       color: var(--secondary-text-color);
       font-size: 14px;
+    }
+
+    .no-data-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
 
     tr.repaired {

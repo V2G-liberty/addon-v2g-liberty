@@ -623,7 +623,7 @@ export class DataTableCard extends LitElement {
       undefined,
       { month: 'long', year: 'numeric' }
     );
-    return html`<span style="display:block">${tp('no-data-hint')} ${firstDate}</span>`;
+    return html`<small>${tp('no-data-hint')} ${firstDate}</small>`;
   }
 
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
@@ -664,7 +664,7 @@ export class DataTableCard extends LitElement {
     }
     const t = this._computeTotals();
     if (!t) {
-      return html`<div class="center muted">${tp('no-data')}${this._noDataHint()}</div>`;
+      return html`<div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div>`;
     }
 
     const tt = (key: string) => tp(`totals.${key}`);
@@ -864,7 +864,7 @@ export class DataTableCard extends LitElement {
           ${this._isLoading
             ? html`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="8"><div class="center muted">${tp('no-data')}${this._noDataHint()}</div></td></tr>`
+              ? html`<tr><td colspan="8"><div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div></td></tr>`
               : this._data.map(
                   (row) => html`
                     <tr class="${row.has_repaired ? 'repaired' : ''}">
@@ -916,7 +916,7 @@ export class DataTableCard extends LitElement {
           ${this._isLoading
             ? html`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}${this._noDataHint()}</div></td></tr>`
+              ? html`<tr><td colspan="11"><div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div></td></tr>`
               : this._data.map(
                   (row) => html`
                     <tr class="${row.has_repaired ? 'repaired' : ''}">
@@ -977,7 +977,7 @@ export class DataTableCard extends LitElement {
           ${this._isLoading
             ? html`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}${this._noDataHint()}</div></td></tr>`
+              ? html`<tr><td colspan="11"><div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div></td></tr>`
               : (() => {
                   const kwhDec = this._granularity === 'years' ? 0 : 2;
                   const kgDec  = this._granularity === 'years' ? 0 : 1;
@@ -1486,6 +1486,13 @@ export class DataTableCard extends LitElement {
     .muted {
       color: var(--secondary-text-color);
       font-size: 14px;
+    }
+
+    .no-data-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
 
     tr.repaired {
