@@ -813,6 +813,22 @@ class DataStore:
 
         return results
 
+    def get_first_available(self) -> str | None:
+        """Return the period_start of the oldest row in interval_log.
+
+        Returns the earliest timestamp converted to local time, or None
+        if the table is empty. Rows with is_repaired >= 2 are excluded.
+        """
+        from . import constants as c
+
+        cursor = self.__connection.cursor()
+        cursor.execute("SELECT MIN(timestamp) FROM interval_log WHERE is_repaired < 2")
+        row = cursor.fetchone()
+        cursor.close()
+        if row is None or row[0] is None:
+            return None
+        return datetime.fromisoformat(row[0]).astimezone(c.TZ).isoformat()
+
     def __fetch_intervals_with_joins(self, start: str, end: str) -> list[dict]:
         """Fetch intervals with joined price and emission data."""
         cursor = self.__connection.cursor()

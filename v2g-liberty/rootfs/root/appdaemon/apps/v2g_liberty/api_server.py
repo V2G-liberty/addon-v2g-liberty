@@ -82,8 +82,10 @@ class ApiServer:
                 return {"error": "Invalid timestamp format. Use ISO 8601."}, 400
 
             result = self.data_store.get_aggregated_data(start, end, granularity)
+            first_available = self.data_store.get_first_available()
             return {
                 "data": result,
+                "first_available": first_available,
                 "granularity": granularity,
                 "start": start,
                 "end": end,
@@ -141,9 +143,11 @@ class ApiServer:
                 return
 
             result = self.data_store.get_aggregated_data(start, end, granularity)
+            first_available = self.data_store.get_first_available()
             self.__hass.fire_event(
                 "v2g_data_query.result",
                 data=result,
+                first_available=first_available,
                 granularity=granularity,
                 start=start,
                 end=end,
