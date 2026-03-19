@@ -37,6 +37,7 @@ export class DataTableCard extends LitElement {
   @state() private _narrowBar = false;
   @state() private _narrowLayout = false;
   @state() private _granMenuOpen = false;
+  @state() private _firstDataWindowStart: string | null = null;
   @state() private _availTipTotals = false;
   @state() private _availTipHeader = false;
   @state() private _estimatedTip = false;
@@ -128,6 +129,13 @@ export class DataTableCard extends LitElement {
       } else {
         this._data = (result.data || []).slice().reverse();
         this._error = null;
+        if (this._data.length > 0) {
+          const oldest = this._data[this._data.length - 1].period_start;
+          const oldestIso = this._periodToDate(oldest).toISOString();
+          if (!this._firstDataWindowStart || oldestIso < this._firstDataWindowStart) {
+            this._firstDataWindowStart = oldestIso;
+          }
+        }
       }
     } catch (e) {
       const isTimeout = e instanceof Error && e.message.includes('timed out');
@@ -205,12 +213,15 @@ export class DataTableCard extends LitElement {
         d.setDate(d.getDate() + direction);
         break;
       case 'days':
+        d.setDate(1);
         d.setMonth(d.getMonth() + direction);
         break;
       case 'weeks':
+        d.setDate(1);
         d.setMonth(d.getMonth() + 3 * direction);
         break;
       case 'months':
+        d.setDate(1);
         d.setFullYear(d.getFullYear() + direction);
         break;
     }
@@ -592,6 +603,29 @@ export class DataTableCard extends LitElement {
     };
   }
 
+  private _periodToDate(periodStart: string): Date {
+    const m = /^(\d{4})-W(\d{2})$/.exec(periodStart);
+    if (m) {
+      const year = parseInt(m[1]);
+      const week = parseInt(m[2]);
+      const jan4 = new Date(year, 0, 4);
+      const weekday = jan4.getDay() || 7;
+      return new Date(year, 0, 4 - (weekday - 1) + (week - 1) * 7);
+    }
+    return new Date(periodStart);
+  }
+
+  private _noDataHint(): TemplateResult | typeof nothing {
+    if (!this._firstDataWindowStart) return nothing;
+    const { end } = this._getViewWindow();
+    if (new Date(end) > new Date(this._firstDataWindowStart)) return nothing;
+    const firstDate = new Date(this._firstDataWindowStart).toLocaleDateString(
+      undefined,
+      { month: 'long', year: 'numeric' }
+    );
+    return html`<span style="display:block">${tp('no-data-hint')} ${firstDate}</span>`;
+  }
+
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
     if (!hasRepaired) return nothing;
     return html`
@@ -630,7 +664,7 @@ export class DataTableCard extends LitElement {
     }
     const t = this._computeTotals();
     if (!t) {
-      return html`<div class="center muted">${tp('no-data')}</div>`;
+      return html`<div class="center muted">${tp('no-data')}${this._noDataHint()}</div>`;
     }
 
     const tt = (key: string) => tp(`totals.${key}`);
@@ -670,12 +704,12 @@ export class DataTableCard extends LitElement {
             <tr>
               <td>${tp('col.discharge')}</td>
               <td>${this._fmtWh(t.dischargeWh)}</td>
-              <td>${this._fmtCurrency(t.dischargeRev)}</td>
+              <td class="profit">${this._fmtCurrency(t.dischargeRev)}</td>
             </tr>
             <tr class="totals-net">
               <td>${tp('col.net')}</td>
               <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
-              <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
+              <td class="${t.chargeCost - t.dischargeRev < 0 ? 'profit' : ''}">${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
             </tr>
           </tbody>
         </table>
@@ -724,12 +758,12 @@ export class DataTableCard extends LitElement {
               <tr>
                 <td>${tp('col.discharge')}</td>
                 <td>${this._fmtWh(t.dischargeWh)}</td>
-                <td>${this._fmtCurrency(t.dischargeRev)}</td>
+                <td class="profit">${this._fmtCurrency(t.dischargeRev)}</td>
               </tr>
               <tr class="totals-net">
                 <td>${tp('col.net')}</td>
                 <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
-                <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
+                <td class="${t.chargeCost - t.dischargeRev < 0 ? 'profit' : ''}">${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
               </tr>
             </tbody>
           </table>
@@ -739,8 +773,8 @@ export class DataTableCard extends LitElement {
     }
 
     // days / weeks / months / years
-    const kwhDec = this._granularity === 'years' ? 0 : 2;
-    const kgDec  = this._granularity === 'years' ? 0 : 1;
+    const kwhDec = 0;
+    const kgDec  = 0;
     const curDec = this._granularity === 'years' ? 0 : 2;
     return html`
       <div class="totals-layout">
@@ -762,14 +796,18 @@ export class DataTableCard extends LitElement {
             </dt>
             <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
           </div>
+          <div class="totals-row">
+            <dt>${tt('net-avg-price')}</dt>
+            <dd class="${t.netKwh !== 0 && t.netCost / t.netKwh < 0 ? 'profit' : ''}">${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)} <span class="totals-unit">€¢/kWh</span></dd>
+          </div>
         </dl>
         <table class="totals-table">
           <thead>
             <tr>
               <th></th>
               <th>${tp('col.energy')} (kWh)</th>
-              <th>${tp('col.cost')}</th>
-              <th>${tp('col.emissions')} (kg)</th>
+              <th>${tp('col.cost')} &nbsp;&nbsp;</th>
+              <th>${tp('col.emissions')} (kg&nbsp;CO₂)</th>
             </tr>
           </thead>
           <tbody>
@@ -782,14 +820,14 @@ export class DataTableCard extends LitElement {
             <tr>
               <td>${tp('col.discharge')}</td>
               <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
-              <td>${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
+              <td class="profit">${this._fmtCurrency(t.dischargeRev, curDec)}</td>
+              <td class="profit">${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
             </tr>
             <tr class="totals-net">
               <td>${tp('col.net')}</td>
               <td>${this._fmtKwh(t.netKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.netCost, curDec)}</td>
-              <td>${this._fmtKg(t.co2Kg, kgDec)}</td>
+              <td class="${t.netCost < 0 ? 'profit' : ''}">${this._fmtCurrency(t.netCost, curDec)}</td>
+              <td class="${t.co2Kg < 0 ? 'profit' : ''}">${this._fmtKg(t.co2Kg, kgDec)}</td>
             </tr>
           </tbody>
         </table>
@@ -826,7 +864,7 @@ export class DataTableCard extends LitElement {
           ${this._isLoading
             ? html`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="8"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              ? html`<tr><td colspan="8"><div class="center muted">${tp('no-data')}${this._noDataHint()}</div></td></tr>`
               : this._data.map(
                   (row) => html`
                     <tr class="${row.has_repaired ? 'repaired' : ''}">
@@ -878,7 +916,7 @@ export class DataTableCard extends LitElement {
           ${this._isLoading
             ? html`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}${this._noDataHint()}</div></td></tr>`
               : this._data.map(
                   (row) => html`
                     <tr class="${row.has_repaired ? 'repaired' : ''}">
@@ -890,9 +928,9 @@ export class DataTableCard extends LitElement {
                       <td class="num group-sep">${this._fmtWh(row.charge_wh)}</td>
                       <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
                       <td class="num group-sep">${this._fmtWh(row.discharge_wh)}</td>
-                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
+                      <td class="num profit">${this._fmtCurrency(row.discharge_revenue)}</td>
                       <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
-                      <td class="num">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
+                      <td class="num ${(row.charge_cost ?? 0) - (row.discharge_revenue ?? 0) < 0 ? 'profit' : ''}">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
                     </tr>
                   `
                 )}
@@ -907,8 +945,15 @@ export class DataTableCard extends LitElement {
         <thead class="grouped">
           <tr>
             <th>${tp('col.period')}</th>
-            <th class="num">
-              ${tp('col.availability')}
+            <th class="num"><span class="wide-title-wrapper">${tp('col.availability')}</span></th>
+            <th class="group-header group-sep" colspan="3">${tp('col.charge')}</th>
+            <th class="group-header group-sep" colspan="3">${tp('col.discharge')}</th>
+            <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
+            <th class="num"></th>
+          </tr>
+          <tr class="sub-header">
+            <th></th>
+            <th class="num">%
               <span class="info-container">
                 <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
                   @click=${() => { this._availTipHeader = !this._availTipHeader; }}>
@@ -917,28 +962,22 @@ export class DataTableCard extends LitElement {
                 ${this._availTipHeader ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
               </span>
             </th>
-            <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
-            <th class="num">${tp('col.emissions')}</th>
-          </tr>
-          <tr class="sub-header">
-            <th></th>
-            <th class="num">%</th>
             <th class="num group-sep">${tp('col.energy')} (kWh)</th>
             <th class="num">${tp('col.cost')}</th>
+            <th class="num">CO₂ (kg)</th>
             <th class="num group-sep">${tp('col.energy')} (kWh)</th>
             <th class="num">${tp('col.revenue')}</th>
+            <th class="num">CO₂ (kg)</th>
             <th class="num group-sep">${tp('col.energy')} (kWh)</th>
             <th class="num">${tp('col.cost')}</th>
-            <th class="num">kg CO₂</th>
+            <th class="num">CO₂ (kg)</th>
           </tr>
         </thead>
         <tbody>
           ${this._isLoading
-            ? html`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
+            ? html`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
             : this._data.length === 0
-              ? html`<tr><td colspan="9"><div class="center muted">${tp('no-data')}</div></td></tr>`
+              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}${this._noDataHint()}</div></td></tr>`
               : (() => {
                   const kwhDec = this._granularity === 'years' ? 0 : 2;
                   const kgDec  = this._granularity === 'years' ? 0 : 1;
@@ -950,11 +989,13 @@ export class DataTableCard extends LitElement {
                         <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
                         <td class="num group-sep">${this._fmtKwh(row.charge_kwh, kwhDec)}</td>
                         <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+                        <td class="num">${this._fmtKg(row.charge_co2_kg, kgDec)}</td>
                         <td class="num group-sep">${this._fmtKwh(row.discharge_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                        <td class="num profit">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                        <td class="num profit">${this._fmtKg(row.discharge_co2_kg, kgDec)}</td>
                         <td class="num group-sep">${this._fmtKwh(row.net_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.net_cost, curDec)}</td>
-                        <td class="num">${this._fmtKg(row.co2_kg, kgDec)}</td>
+                        <td class="num ${row.net_cost < 0 ? 'profit' : ''}">${this._fmtCurrency(row.net_cost, curDec)}</td>
+                        <td class="num ${row.co2_kg < 0 ? 'profit' : ''}">${this._fmtKg(row.co2_kg, kgDec)}</td>
                       </tr>
                     `
                   );
@@ -1091,6 +1132,7 @@ export class DataTableCard extends LitElement {
       padding: 12px;
       box-sizing: border-box;
       container-type: inline-size;
+      --v2g-profit-colour: #66A802;
     }
 
     /* ─- Page layout ──────────────────────────────── */
@@ -1347,6 +1389,15 @@ export class DataTableCard extends LitElement {
       text-align: right;
     }
 
+    .wide-title-wrapper {
+      display: block;
+      width: 55px;
+      min-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     /* ── Grouped two-row header (hours/days view) ─────── */
 
     .group-header {
@@ -1399,6 +1450,10 @@ export class DataTableCard extends LitElement {
 
     tbody td.num {
       text-align: right;
+    }
+
+    .profit {
+      color: var(--v2g-profit-colour);
     }
 
     tbody tr:hover {
@@ -1526,6 +1581,11 @@ export class DataTableCard extends LitElement {
       .price-track[data-level='average']   { --marker-color: #9575cd; }
       .price-track[data-level='high']      { --marker-color: #ba68c8; }
       .price-track[data-level='very-high'] { --marker-color: #e040fb; }
+
+      :host {
+        --v2g-profit-colour: #8DC556;
+      }
+
     }
 
     /* ── Totals card ───────────────────────────────── */
@@ -1574,6 +1634,7 @@ export class DataTableCard extends LitElement {
       top: calc(100% + 4px);
       left: 50%;
       transform: translateX(-50%);
+      text-align: left;
       background: var(--primary-text-color);
       color: var(--card-background-color);
       padding: 6px 10px;
