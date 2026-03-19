@@ -68,7 +68,7 @@
     "now": "Now",
     "loading": "Loading data...",
     "no-data": "No data for this period",
-    "no-data-hint": "First data available from:",
+    "no-data-hint": "Try navigating to a more recent period.",
     "error": "Could not load data. Please try again.",
     "error-timeout": "Loading timed out. Please try again later.",
     "all-time": "All time",

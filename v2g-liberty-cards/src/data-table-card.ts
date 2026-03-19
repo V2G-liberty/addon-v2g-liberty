@@ -37,7 +37,6 @@ export class DataTableCard extends LitElement {
   @state() private _narrowBar = false;
   @state() private _narrowLayout = false;
   @state() private _granMenuOpen = false;
-  @state() private _firstDataWindowStart: string | null = null;
   @state() private _availTipTotals = false;
   @state() private _availTipHeader = false;
   @state() private _estimatedTip = false;
@@ -129,13 +128,6 @@ export class DataTableCard extends LitElement {
       } else {
         this._data = (result.data || []).slice().reverse();
         this._error = null;
-        if (this._data.length > 0) {
-          const oldest = this._data[this._data.length - 1].period_start;
-          const oldestIso = this._periodToDate(oldest).toISOString();
-          if (!this._firstDataWindowStart || oldestIso < this._firstDataWindowStart) {
-            this._firstDataWindowStart = oldestIso;
-          }
-        }
       }
     } catch (e) {
       const isTimeout = e instanceof Error && e.message.includes('timed out');
@@ -603,27 +595,10 @@ export class DataTableCard extends LitElement {
     };
   }
 
-  private _periodToDate(periodStart: string): Date {
-    const m = /^(\d{4})-W(\d{2})$/.exec(periodStart);
-    if (m) {
-      const year = parseInt(m[1]);
-      const week = parseInt(m[2]);
-      const jan4 = new Date(year, 0, 4);
-      const weekday = jan4.getDay() || 7;
-      return new Date(year, 0, 4 - (weekday - 1) + (week - 1) * 7);
-    }
-    return new Date(periodStart);
-  }
-
   private _noDataHint(): TemplateResult | typeof nothing {
-    if (!this._firstDataWindowStart) return nothing;
     const { end } = this._getViewWindow();
-    if (new Date(end) > new Date(this._firstDataWindowStart)) return nothing;
-    const firstDate = new Date(this._firstDataWindowStart).toLocaleDateString(
-      undefined,
-      { month: 'long', year: 'numeric' }
-    );
-    return html`<small>${tp('no-data-hint')} ${firstDate}</small>`;
+    if (new Date(end) >= new Date()) return nothing;
+    return html`<small>${tp('no-data-hint')}</small>`;
   }
 
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {

@@ -11,7 +11,7 @@
     "now": "Nu",
     "loading": "Data laden...",
     "no-data": "Geen data voor deze periode",
-    "no-data-hint": "Eerste data beschikbaar:",
+    "no-data-hint": "Probeer een recentere periode te selecteren.",
     "error": "Kon geen data laden. Probeer het opnieuw.",
     "error-timeout": "Data laden duurde te lang. Probeer het later opnieuw.",
     "all-time": "Alles",
