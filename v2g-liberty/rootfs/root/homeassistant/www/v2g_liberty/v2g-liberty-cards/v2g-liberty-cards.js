@@ -13311,11 +13311,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             } else {
                 this._data = (result.data || []).slice().reverse();
                 this._error = null;
-                if (this._data.length > 0) {
-                    const oldest = this._data[this._data.length - 1].period_start;
-                    const oldestIso = this._periodToDate(oldest).toISOString();
-                    if (!this._firstDataWindowStart || oldestIso < this._firstDataWindowStart) this._firstDataWindowStart = oldestIso;
-                }
+                if (result.first_available) this._firstAvailable = result.first_available;
             }
         } catch (e) {
             const isTimeout = e instanceof Error && e.message.includes('timed out');
@@ -13733,22 +13729,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             hasRepaired: this._data.some((r)=>r.has_repaired)
         };
     }
-    _periodToDate(periodStart) {
-        const m = /^(\d{4})-W(\d{2})$/.exec(periodStart);
-        if (m) {
-            const year = parseInt(m[1]);
-            const week = parseInt(m[2]);
-            const jan4 = new Date(year, 0, 4);
-            const weekday = jan4.getDay() || 7;
-            return new Date(year, 0, 4 - (weekday - 1) + (week - 1) * 7);
-        }
-        return new Date(periodStart);
-    }
     _noDataHint() {
-        if (!this._firstDataWindowStart) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (!this._firstAvailable) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const { end: end } = this._getViewWindow();
-        if (new Date(end) > new Date(this._firstDataWindowStart)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const firstDate = new Date(this._firstDataWindowStart).toLocaleDateString(undefined, {
+        if (new Date(end) > new Date(this._firstAvailable)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const firstDate = new Date(this._firstAvailable).toLocaleDateString(undefined, {
             month: 'long',
             year: 'numeric'
         });
@@ -14773,7 +14758,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
   `;
     }
     constructor(...args){
-        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._narrowLayout = false, this._granMenuOpen = false, this._firstDataWindowStart = null, this._availTipTotals = false, this._availTipHeader = false, this._estimatedTip = false;
+        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._narrowLayout = false, this._granMenuOpen = false, this._firstAvailable = null, this._availTipTotals = false, this._availTipHeader = false, this._estimatedTip = false;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -14805,7 +14790,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_granMenuOpen", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_firstDataWindowStart", void 0);
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_firstAvailable", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_availTipTotals", void 0);
