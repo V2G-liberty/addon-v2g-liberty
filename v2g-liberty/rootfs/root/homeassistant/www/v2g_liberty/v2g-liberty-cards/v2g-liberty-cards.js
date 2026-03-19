@@ -13739,6 +13739,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<small>${$cb691508f8eb446e$var$tp('no-data-hint')} ${firstDate}</small>`;
     }
+    // NOTE: ha-tooltip and ha-icon (HA design system) do not work reliably in custom
+    // card shadow DOM. ha-tooltip is absent from the DOM entirely; ha-icon in <th>
+    // elements appears in the DOM but produces no visual output. The custom SVG +
+    // click-toggle approach below is the correct solution for info icons in this card.
     _renderEstimatedNote(hasRepaired) {
         if (!hasRepaired) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`

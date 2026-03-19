@@ -608,6 +608,10 @@ export class DataTableCard extends LitElement {
     return html`<small>${tp('no-data-hint')} ${firstDate}</small>`;
   }
 
+  // NOTE: ha-tooltip and ha-icon (HA design system) do not work reliably in custom
+  // card shadow DOM. ha-tooltip is absent from the DOM entirely; ha-icon in <th>
+  // elements appears in the DOM but produces no visual output. The custom SVG +
+  // click-toggle approach below is the correct solution for info icons in this card.
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
     if (!hasRepaired) return nothing;
     return html`
