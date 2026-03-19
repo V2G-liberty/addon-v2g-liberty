@@ -14060,8 +14060,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         </thead>
         <tbody>
           ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></div></td></tr>` : (()=>{
-            const kwhDec = this._granularity === 'years' ? 0 : 2;
-            const kgDec = this._granularity === 'years' ? 0 : 1;
+            const aggGran = [
+                'weeks',
+                'months',
+                'years'
+            ].includes(this._granularity);
+            const kwhDec = aggGran ? 0 : 2;
+            const kgDec = aggGran ? 0 : 1;
             const curDec = this._granularity === 'years' ? 0 : 2;
             return this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
                       <tr class="${row.has_repaired ? 'repaired' : ''}">

@@ -965,8 +965,9 @@ export class DataTableCard extends LitElement {
             : this._data.length === 0
               ? html`<tr><td colspan="11"><div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div></td></tr>`
               : (() => {
-                  const kwhDec = this._granularity === 'years' ? 0 : 2;
-                  const kgDec  = this._granularity === 'years' ? 0 : 1;
+                  const aggGran = ['weeks', 'months', 'years'].includes(this._granularity);
+                  const kwhDec = aggGran ? 0 : 2;
+                  const kgDec  = aggGran ? 0 : 1;
                   const curDec = this._granularity === 'years' ? 0 : 2;
                   return this._data.map(
                     (row) => html`
