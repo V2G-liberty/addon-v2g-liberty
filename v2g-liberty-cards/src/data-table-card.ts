@@ -37,6 +37,7 @@ export class DataTableCard extends LitElement {
   @state() private _narrowBar = false;
   @state() private _narrowLayout = false;
   @state() private _granMenuOpen = false;
+  @state() private _firstAvailable: string | null = null;
   @state() private _availTipTotals = false;
   @state() private _availTipHeader = false;
   @state() private _estimatedTip = false;
@@ -128,6 +129,7 @@ export class DataTableCard extends LitElement {
       } else {
         this._data = (result.data || []).slice().reverse();
         this._error = null;
+        if (result.first_available) this._firstAvailable = result.first_available;
       }
     } catch (e) {
       const isTimeout = e instanceof Error && e.message.includes('timed out');
@@ -596,9 +598,14 @@ export class DataTableCard extends LitElement {
   }
 
   private _noDataHint(): TemplateResult | typeof nothing {
+    if (!this._firstAvailable) return nothing;
     const { end } = this._getViewWindow();
-    if (new Date(end) >= new Date()) return nothing;
-    return html`<small>${tp('no-data-hint')}</small>`;
+    if (new Date(end) > new Date(this._firstAvailable)) return nothing;
+    const firstDate = new Date(this._firstAvailable).toLocaleDateString(
+      undefined,
+      { month: 'long', year: 'numeric' }
+    );
+    return html`<small>${tp('no-data-hint')} ${firstDate}</small>`;
   }
 
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
