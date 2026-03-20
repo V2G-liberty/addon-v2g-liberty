@@ -35,7 +35,6 @@ export class DataTableCard extends LitElement {
   @state() private _isLoading: boolean = false;
   @state() private _error: string | null = null;
   @state() private _narrowBar = false;
-  @state() private _narrowLayout = false;
   @state() private _granMenuOpen = false;
   @state() private _firstAvailable: string | null = null;
   @state() private _availTipTotals = false;
@@ -82,7 +81,6 @@ export class DataTableCard extends LitElement {
 
     const syncNarrow = () => {
       this._narrowBar = this.offsetWidth <= 800;
-      this._narrowLayout = this.offsetWidth <= 1024;
     };
 
     const ro = new ResizeObserver(() => requestAnimationFrame(() => {
@@ -1037,18 +1035,18 @@ export class DataTableCard extends LitElement {
   render() {
     return html`
       <h1 class="page-title">${this._getPageTitle()}</h1>
-      <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
+      <div class="page-layout">
+        <ha-card>
+          <div class="totals-card-content">
+            ${this._renderTotals()}
+          </div>
+        </ha-card>
+
         <ha-card>
           <div class="table-container">
             ${this._error
               ? html`<div class="center error">${this._error}</div>`
               : this._renderTable()}
-          </div>
-        </ha-card>
-
-        <ha-card>
-          <div class="totals-card-content">
-            ${this._renderTotals()}
           </div>
         </ha-card>
       </div>
@@ -1153,7 +1151,7 @@ export class DataTableCard extends LitElement {
     /* ─- Page title ───────────────────────────────── */
 
     .page-title {
-      margin: 12px 0 12px 24px;
+      margin: 12px 0 24px 24px;
       font-size: var(--ha-card-header-font-size, 1.5rem);
       font-weight: 500;
       line-height: 1.2;
@@ -1163,8 +1161,8 @@ export class DataTableCard extends LitElement {
     /* ─- Page layout ──────────────────────────────── */
 
     .page-layout {
-      display: grid;
-      grid-template-columns: 1fr 300px;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
     }
 
@@ -1175,39 +1173,22 @@ export class DataTableCard extends LitElement {
       overflow: hidden;
     }
 
-    .page-layout > ha-card:last-child {
-      align-self: start;
-      position: sticky;
-      top: 0;
-    }
-
     .totals-card-content {
       padding: 0 24px 16px;
     }
 
-    @container (max-width: 1024px) {
-      .page-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .page-layout > ha-card:last-child {
-        order: -1;
-        position: static;
-      }
-    }
-
-    .page-layout.narrow .totals-layout {
+    .totals-layout {
       display: flex;
       gap: 48px;
       align-items: flex-start;
     }
 
-    .page-layout.narrow .totals-layout .totals-dl {
+    .totals-layout .totals-dl {
       flex: 1;
       margin-bottom: 0;
     }
 
-    .page-layout.narrow .totals-layout .totals-table {
+    .totals-layout .totals-table {
       flex: 1;
     }
 

@@ -13276,7 +13276,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         };
         const syncNarrow = ()=>{
             this._narrowBar = this.offsetWidth <= 800;
-            this._narrowLayout = this.offsetWidth <= 1024;
         };
         const ro = new ResizeObserver(()=>requestAnimationFrame(()=>{
                 syncHeight();
@@ -14130,16 +14129,16 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     render() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <h1 class="page-title">${this._getPageTitle()}</h1>
-      <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
+      <div class="page-layout">
         <ha-card>
-          <div class="table-container">
-            ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
+          <div class="totals-card-content">
+            ${this._renderTotals()}
           </div>
         </ha-card>
 
         <ha-card>
-          <div class="totals-card-content">
-            ${this._renderTotals()}
+          <div class="table-container">
+            ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
           </div>
         </ha-card>
       </div>
@@ -14229,7 +14228,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     /* ─- Page title ───────────────────────────────── */
 
     .page-title {
-      margin: 12px 0 12px 24px;
+      margin: 12px 0 24px 24px;
       font-size: var(--ha-card-header-font-size, 1.5rem);
       font-weight: 500;
       line-height: 1.2;
@@ -14239,8 +14238,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     /* ─- Page layout ──────────────────────────────── */
 
     .page-layout {
-      display: grid;
-      grid-template-columns: 1fr 300px;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
     }
 
@@ -14251,39 +14250,22 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
       overflow: hidden;
     }
 
-    .page-layout > ha-card:last-child {
-      align-self: start;
-      position: sticky;
-      top: 0;
-    }
-
     .totals-card-content {
       padding: 0 24px 16px;
     }
 
-    @container (max-width: 1024px) {
-      .page-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .page-layout > ha-card:last-child {
-        order: -1;
-        position: static;
-      }
-    }
-
-    .page-layout.narrow .totals-layout {
+    .totals-layout {
       display: flex;
       gap: 48px;
       align-items: flex-start;
     }
 
-    .page-layout.narrow .totals-layout .totals-dl {
+    .totals-layout .totals-dl {
       flex: 1;
       margin-bottom: 0;
     }
 
-    .page-layout.narrow .totals-layout .totals-table {
+    .totals-layout .totals-table {
       flex: 1;
     }
 
@@ -14804,7 +14786,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
   `;
     }
     constructor(...args){
-        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._narrowLayout = false, this._granMenuOpen = false, this._firstAvailable = null, this._availTipTotals = false, this._availTipHeader = false, this._estimatedTip = false;
+        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._granMenuOpen = false, this._firstAvailable = null, this._availTipTotals = false, this._availTipHeader = false, this._estimatedTip = false;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -14828,9 +14810,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowBar", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowLayout", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_granMenuOpen", void 0);
