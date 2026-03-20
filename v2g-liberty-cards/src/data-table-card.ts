@@ -1384,13 +1384,36 @@ export class DataTableCard extends LitElement {
       position: relative;
     }
 
-    thead th.group-sep::before {
+    /* Single-row thead: gap at top and bottom */
+    thead:not(.grouped) th.group-sep::before {
       content: '';
       position: absolute;
       left: 0;
       width: 1px;
       top: 20%;
       bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    /* Grouped thead first row: gap only at top, line continues into sub-header */
+    thead.grouped tr:first-child th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 30%;
+      bottom: 0;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    /* Grouped thead sub-header row: gap only at bottom, continues from first row */
+    thead.grouped tr.sub-header th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 0;
+      bottom: 30%;
       background: var(--divider-color, #e0e0e0);
     }
 
