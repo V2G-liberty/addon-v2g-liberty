@@ -37,9 +37,7 @@ export class DataTableCard extends LitElement {
   @state() private _narrowBar = false;
   @state() private _granMenuOpen = false;
   @state() private _firstAvailable: string | null = null;
-  @state() private _availTipTotals = false;
-  @state() private _availTipHeader = false;
-  @state() private _estimatedTip = false;
+  @state() private _openTip: string | null = null;
 
   setConfig(_config: LovelaceCardConfig) {}
 
@@ -646,27 +644,31 @@ export class DataTableCard extends LitElement {
         ${tp('estimated-note')}
         <span class="info-container">
           <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-            @click=${() => { this._estimatedTip = !this._estimatedTip; }}>
+            @click=${() => { this._openTip = this._openTip === 'estimated' ? null : 'estimated'; }}>
             <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
           </svg>
-          ${this._estimatedTip ? html`<span class="info-popup">${tp('estimated-tooltip')}</span>` : nothing}
+          ${this._openTip === 'estimated' ? html`<span class="info-popup">${tp('estimated-tooltip')}</span>` : nothing}
         </span>
       </div>
     `;
   }
 
-  private _fmtTotalsPeriod(first: any, last: any): string {
-    if (first === last) return this._fmtPeriod(first.period_start);
-    if (
-      this._granularity === 'quarter_hours' ||
-      this._granularity === 'hours'
-    ) {
-      const start = this._fmtPeriod(first.period_start);
-      const end = this._fmtPeriod(last.period_start);
-      const date = this._fmtDayDate(first.period_start);
-      return `${start} – ${end}, ${date}`;
-    }
-    return `${this._fmtPeriod(first.period_start)} – ${this._fmtPeriod(last.period_start)}`;
+  private _renderSavingsRow(): TemplateResult {
+    return html`
+      <div class="totals-row">
+        <dt>
+          ${tp('totals.savings')}
+          <span class="info-container">
+            <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+              @click=${() => { this._openTip = this._openTip === 'savings' ? null : 'savings'; }}>
+              <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+            </svg>
+            ${this._openTip === 'savings' ? html`<span class="info-popup">${tp('totals.savings-tooltip')}</span>` : nothing}
+          </span>
+        </dt>
+        <dd>${this._fmtCurrency(2.33)}</dd>
+      </div>
+    `;
   }
 
   private _renderTotals(): TemplateResult {
@@ -681,16 +683,11 @@ export class DataTableCard extends LitElement {
     }
 
     const tt = (key: string) => tp(`totals.${key}`);
-    const period = this._fmtTotalsPeriod(t.first, t.last);
 
     if (t.kind === 'quarter_hours') {
       return html`
         <div class="totals-layout">
           <dl class="totals-dl">
-            <div class="totals-row">
-              <dt>${tt('period')}</dt>
-              <dd>${period}</dd>
-            </div>
             <div class="totals-row">
               <dt>${tt('avg-cons-price')}</dt>
               <dd>${this._fmtCents(t.avgCons)} <span class="totals-unit">€¢/kWh</span></dd>
@@ -699,6 +696,7 @@ export class DataTableCard extends LitElement {
               <dt>${tt('avg-prod-price')}</dt>
               <dd>${this._fmtCents(t.avgProd)} <span class="totals-unit">€¢/kWh</span></dd>
             </div>
+            ${this._renderSavingsRow()}
           </dl>
           <table class="totals-table">
           <thead>
@@ -734,10 +732,6 @@ export class DataTableCard extends LitElement {
       return html`
         <div class="totals-layout">
           <dl class="totals-dl">
-            <div class="totals-row">
-              <dt>${tt('period')}</dt>
-              <dd>${period}</dd>
-            </div>
             ${t.socMin != null
               ? html`
                   <div class="totals-row">
@@ -752,6 +746,7 @@ export class DataTableCard extends LitElement {
               <dt>${tt('avg-price')}</dt>
               <dd>${this._fmtCents(t.avgPrice)} <span class="totals-unit">€¢/kWh</span></dd>
             </div>
+            ${this._renderSavingsRow()}
           </dl>
           <table class="totals-table">
             <thead>
@@ -791,18 +786,14 @@ export class DataTableCard extends LitElement {
       <div class="totals-layout">
         <dl class="totals-dl">
           <div class="totals-row">
-            <dt>${tt('period')}</dt>
-            <dd>${period}</dd>
-          </div>
-          <div class="totals-row">
             <dt>
               ${tt('availability')}
               <span class="info-container">
                 <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-                  @click=${() => { this._availTipTotals = !this._availTipTotals; }}>
+                  @click=${() => { this._openTip = this._openTip === 'avail-totals' ? null : 'avail-totals'; }}>
                   <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
                 </svg>
-                ${this._availTipTotals ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
+                ${this._openTip === 'avail-totals' ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
               </span>
             </dt>
             <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
@@ -811,6 +802,7 @@ export class DataTableCard extends LitElement {
             <dt>${tt('net-avg-price')}</dt>
             <dd class="${t.netKwh !== 0 && t.netCost / t.netKwh < 0 ? 'profit' : ''}">${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)} <span class="totals-unit">€¢/kWh</span></dd>
           </div>
+          ${this._renderSavingsRow()}
         </dl>
         <table class="totals-table">
           <thead>
@@ -966,10 +958,10 @@ export class DataTableCard extends LitElement {
             <th class="num">%
               <span class="info-container">
                 <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-                  @click=${() => { this._availTipHeader = !this._availTipHeader; }}>
+                  @click=${() => { this._openTip = this._openTip === 'avail-header' ? null : 'avail-header'; }}>
                   <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
                 </svg>
-                ${this._availTipHeader ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
+                ${this._openTip === 'avail-header' ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
               </span>
             </th>
             <th class="num group-sep">${tp('col.energy')} (kWh)</th>
@@ -1177,7 +1169,6 @@ export class DataTableCard extends LitElement {
       --ha-card-border-radius: 12px;
       --ha-card-border-width: 1px;
       --ha-card-border-color: var(--divider-color, #e0e0e0);
-      overflow: hidden;
     }
 
     .totals-card-content {
@@ -1702,9 +1693,26 @@ export class DataTableCard extends LitElement {
       cursor: default;
     }
 
+    .info-popup::before {
+      content: '';
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-bottom-color: var(--primary-text-color);
+      pointer-events: none;
+    }
+
     .estimated-note .info-popup {
       left: auto;
       right: 0;
+      transform: none;
+    }
+
+    .estimated-note .info-popup::before {
+      left: auto;
+      right: 10px;
       transform: none;
     }
 

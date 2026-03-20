@@ -124,7 +124,9 @@
       "avg-prod-price": "Sell price (avg.)",
       "avg-price": "Avg. price",
       "net-avg-price": "Avg. net price",
-      "availability": "Availability"
+      "availability": "Availability",
+      "savings": "Savings",
+      "savings-tooltip": "Savings compared to non-smart charging based on CBS monthly average kWh prices."
     },
     "estimated-note": "Partly based on estimated data",
     "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."

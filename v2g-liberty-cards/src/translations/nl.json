@@ -67,7 +67,9 @@
       "avg-prod-price": "Verkoop (gem.)",
       "avg-price": "Gem. prijs",
       "net-avg-price": "Prijs",
-      "availability": "Beschikbaarheid"
+      "availability": "Beschikbaarheid",
+      "savings": "Besparing",
+      "savings-tooltip": "Besparing tov niet-slim laden en kWh prijzen obv CBS maandgemiddelden."
     },
     "estimated-note": "Deels gebaseerd op geschatte data",
     "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend."
