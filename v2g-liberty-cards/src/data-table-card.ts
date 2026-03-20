@@ -1038,9 +1038,7 @@ export class DataTableCard extends LitElement {
     return html`
       <h1 class="page-title">${this._getPageTitle()}</h1>
       <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
-        <ha-card
-          .header=${`${tp('card-title')} — ${tp('granularity.' + this._granularity)}`}
-        >
+        <ha-card>
           <div class="table-container">
             ${this._error
               ? html`<div class="center error">${this._error}</div>`
@@ -1048,7 +1046,7 @@ export class DataTableCard extends LitElement {
           </div>
         </ha-card>
 
-        <ha-card .header=${tp('totals.card-title')}>
+        <ha-card>
           <div class="totals-card-content">
             ${this._renderTotals()}
           </div>
@@ -1156,9 +1154,10 @@ export class DataTableCard extends LitElement {
 
     .page-title {
       margin: 0 0 12px;
-      font-size: 1.3rem;
+      font-size: var(--ha-card-header-font-size, 1.4rem);
       font-weight: 500;
-      color: var(--primary-text-color);
+      line-height: 1.2;
+      color: var(--ha-card-header-color, var(--primary-text-color));
     }
 
     /* ─- Page layout ──────────────────────────────── */

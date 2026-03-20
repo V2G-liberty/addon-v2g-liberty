@@ -14131,15 +14131,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <h1 class="page-title">${this._getPageTitle()}</h1>
       <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
-        <ha-card
-          .header=${`${$cb691508f8eb446e$var$tp('card-title')} \u{2014} ${$cb691508f8eb446e$var$tp('granularity.' + this._granularity)}`}
-        >
+        <ha-card>
           <div class="table-container">
             ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
           </div>
         </ha-card>
 
-        <ha-card .header=${$cb691508f8eb446e$var$tp('totals.card-title')}>
+        <ha-card>
           <div class="totals-card-content">
             ${this._renderTotals()}
           </div>
@@ -14232,9 +14230,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
     .page-title {
       margin: 0 0 12px;
-      font-size: 1.3rem;
+      font-size: var(--ha-card-header-font-size, 1.4rem);
       font-weight: 500;
-      color: var(--primary-text-color);
+      line-height: 1.2;
+      color: var(--ha-card-header-color, var(--primary-text-color));
     }
 
     /* ─- Page layout ──────────────────────────────── */
