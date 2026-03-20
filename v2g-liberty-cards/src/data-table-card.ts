@@ -439,6 +439,35 @@ export class DataTableCard extends LitElement {
     }
   }
 
+  private _fmtTitleDate(isoStr: string): string {
+    if (!isoStr) return '−';
+    switch (this._granularity) {
+      case 'months':
+        return this._fmtMonthYear(isoStr);
+      case 'years':
+        return this._fmtYear(isoStr);
+      case 'weeks':
+        return this._fmtWeek(isoStr);
+      default: {
+        const d = new Date(isoStr);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dd}-${mm}-${d.getFullYear()}`;
+      }
+    }
+  }
+
+  private _getPageTitle(): string {
+    const base = tp('page-title');
+    if (!this._data?.length) return base;
+    const first = this._data[this._data.length - 1];
+    const last = this._data[0];
+    const from = this._fmtTitleDate(first.period_start);
+    const to = this._fmtTitleDate(last.period_start);
+    if (from === to) return `${base}: ${from}`;
+    return `${base}: ${from} – ${to}`;
+  }
+
   private _renderAppState(state: string | null | undefined): TemplateResult {
     if (!state) return html`<span>−</span>`;
 
@@ -1007,6 +1036,7 @@ export class DataTableCard extends LitElement {
 
   render() {
     return html`
+      <h1 class="page-title">${this._getPageTitle()}</h1>
       <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
         <ha-card
           .header=${`${tp('card-title')} — ${tp('granularity.' + this._granularity)}`}
@@ -1120,6 +1150,15 @@ export class DataTableCard extends LitElement {
       box-sizing: border-box;
       container-type: inline-size;
       --v2g-profit-colour: #66A802;
+    }
+
+    /* ─- Page title ───────────────────────────────── */
+
+    .page-title {
+      margin: 0 0 12px;
+      font-size: 1.3rem;
+      font-weight: 500;
+      color: var(--primary-text-color);
     }
 
     /* ─- Page layout ──────────────────────────────── */

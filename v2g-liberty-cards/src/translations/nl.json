@@ -15,6 +15,7 @@
     "error": "Kon geen data laden. Probeer het opnieuw.",
     "error-timeout": "Data laden duurde te lang. Probeer het later opnieuw.",
     "all-time": "Alles",
+    "page-title": "Slimme energie",
     "card-title": "Laden",
     "app-state": {
       "automatic": "Automatisch",
