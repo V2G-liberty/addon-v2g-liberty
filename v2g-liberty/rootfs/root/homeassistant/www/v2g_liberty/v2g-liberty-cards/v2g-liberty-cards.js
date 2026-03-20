@@ -13848,7 +13848,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </tbody>
         </table>
         </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
       `;
         if (t.kind === 'hours') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <div class="totals-layout">
@@ -13897,7 +13896,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             </tbody>
           </table>
         </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
       `;
         // days / weeks / months / years
         const kwhDec = 0;
@@ -13961,7 +13959,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </tbody>
         </table>
       </div>
-      ${this._renderEstimatedNote(t.hasRepaired)}
     `;
     }
     // ── Table rendering per granularity ───────────────────────────
@@ -14128,7 +14125,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     // ── Main render ───────────────────────────────────────────────
     render() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <h1 class="page-title">${this._getPageTitle()}</h1>
+      <div class="page-header">
+        <h1 class="page-title">${this._getPageTitle()}</h1>
+        ${this._renderEstimatedNote(this._data?.some((r)=>r.has_repaired) ?? false)}
+      </div>
       <div class="page-layout">
         <ha-card>
           <div class="totals-card-content">
@@ -14225,10 +14225,17 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
       --v2g-profit-colour: #66A802;
     }
 
-    /* ─- Page title ───────────────────────────────── */
+    /* ─- Page header ──────────────────────────────── */
+
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 12px 0 24px 0;
+    }
 
     .page-title {
-      margin: 12px 0 24px 24px;
+      margin: 0 0 0 24px;
       font-size: var(--ha-card-header-font-size, 1.5rem);
       font-weight: 500;
       line-height: 1.2;
@@ -14618,8 +14625,9 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     .estimated-note {
       color: var(--secondary-text-color);
       font-size: 12px;
-      margin-top: 8px;
+      margin: 0 24px 0 0;
       font-style: italic;
+      text-align: right;
     }
 
     .error {
@@ -14769,6 +14777,12 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
       white-space: normal;
       z-index: 100;
       cursor: default;
+    }
+
+    .estimated-note .info-popup {
+      left: auto;
+      right: 0;
+      transform: none;
     }
 
     .totals-row dd {

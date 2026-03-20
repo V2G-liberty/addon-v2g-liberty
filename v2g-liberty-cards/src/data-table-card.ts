@@ -727,7 +727,6 @@ export class DataTableCard extends LitElement {
           </tbody>
         </table>
         </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
       `;
     }
 
@@ -781,7 +780,6 @@ export class DataTableCard extends LitElement {
             </tbody>
           </table>
         </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
       `;
     }
 
@@ -845,7 +843,6 @@ export class DataTableCard extends LitElement {
           </tbody>
         </table>
       </div>
-      ${this._renderEstimatedNote(t.hasRepaired)}
     `;
   }
 
@@ -1034,7 +1031,10 @@ export class DataTableCard extends LitElement {
 
   render() {
     return html`
-      <h1 class="page-title">${this._getPageTitle()}</h1>
+      <div class="page-header">
+        <h1 class="page-title">${this._getPageTitle()}</h1>
+        ${this._renderEstimatedNote(this._data?.some((r: any) => r.has_repaired) ?? false)}
+      </div>
       <div class="page-layout">
         <ha-card>
           <div class="totals-card-content">
@@ -1148,10 +1148,17 @@ export class DataTableCard extends LitElement {
       --v2g-profit-colour: #66A802;
     }
 
-    /* ─- Page title ───────────────────────────────── */
+    /* ─- Page header ──────────────────────────────── */
+
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 12px 0 24px 0;
+    }
 
     .page-title {
-      margin: 12px 0 24px 24px;
+      margin: 0 0 0 24px;
       font-size: var(--ha-card-header-font-size, 1.5rem);
       font-weight: 500;
       line-height: 1.2;
@@ -1541,8 +1548,9 @@ export class DataTableCard extends LitElement {
     .estimated-note {
       color: var(--secondary-text-color);
       font-size: 12px;
-      margin-top: 8px;
+      margin: 0 24px 0 0;
       font-style: italic;
+      text-align: right;
     }
 
     .error {
@@ -1692,6 +1700,12 @@ export class DataTableCard extends LitElement {
       white-space: normal;
       z-index: 100;
       cursor: default;
+    }
+
+    .estimated-note .info-popup {
+      left: auto;
+      right: 0;
+      transform: none;
     }
 
     .totals-row dd {
