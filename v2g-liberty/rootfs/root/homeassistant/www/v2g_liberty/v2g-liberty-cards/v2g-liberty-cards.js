@@ -14229,8 +14229,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     /* ─- Page title ───────────────────────────────── */
 
     .page-title {
-      margin: 0 0 12px;
-      font-size: var(--ha-card-header-font-size, 1.4rem);
+      margin: 12px 0 12px 24px;
+      font-size: var(--ha-card-header-font-size, 1.5rem);
       font-weight: 500;
       line-height: 1.2;
       color: var(--ha-card-header-color, var(--primary-text-color));
