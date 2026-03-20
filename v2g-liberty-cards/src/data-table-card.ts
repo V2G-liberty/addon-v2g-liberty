@@ -1409,6 +1409,8 @@ export class DataTableCard extends LitElement {
     .group-header {
       text-align: left;
       font-weight: 600;
+      padding-top: 10px;
+      padding-bottom: 10px;
     }
 
     thead.grouped tr.sub-header th {

@@ -14486,6 +14486,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     .group-header {
       text-align: left;
       font-weight: 600;
+      padding-top: 10px;
+      padding-bottom: 10px;
     }
 
     thead.grouped tr.sub-header th {
