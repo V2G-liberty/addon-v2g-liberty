@@ -1381,7 +1381,17 @@ export class DataTableCard extends LitElement {
     }
 
     thead th.group-sep {
-      border-left: 1px solid var(--divider-color, #e0e0e0);
+      position: relative;
+    }
+
+    thead th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 20%;
+      bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
     }
 
     thead th .unit {
@@ -1409,8 +1419,6 @@ export class DataTableCard extends LitElement {
     .group-header {
       text-align: left;
       font-weight: 600;
-      padding-top: 10px;
-      padding-bottom: 10px;
     }
 
     thead.grouped tr.sub-header th {

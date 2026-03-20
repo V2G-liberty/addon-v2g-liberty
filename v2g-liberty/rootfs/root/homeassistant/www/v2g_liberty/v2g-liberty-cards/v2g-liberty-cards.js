@@ -14458,7 +14458,17 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     }
 
     thead th.group-sep {
-      border-left: 1px solid var(--divider-color, #e0e0e0);
+      position: relative;
+    }
+
+    thead th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 20%;
+      bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
     }
 
     thead th .unit {
@@ -14486,8 +14496,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     .group-header {
       text-align: left;
       font-weight: 600;
-      padding-top: 10px;
-      padding-bottom: 10px;
     }
 
     thead.grouped tr.sub-header th {
