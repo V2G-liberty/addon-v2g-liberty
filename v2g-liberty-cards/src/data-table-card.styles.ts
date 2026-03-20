@@ -46,19 +46,102 @@ export const dataTableStyles = css`
       padding: 0 24px 16px;
     }
 
-    .totals-layout {
-      display: flex;
-      gap: 48px;
-      align-items: flex-start;
+    .totals-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0 24px;
+      padding: 40px 24px 16px;
     }
 
-    .totals-layout .totals-dl {
-      flex: 1;
+    @container (max-width: 700px) {
+      .totals-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @container (max-width: 400px) {
+      .totals-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .totals-col {
+      display: grid;
+      grid-template-columns: auto auto;
+      column-gap: 6px;
+      row-gap: 2px;
+      align-items: baseline;
+      position: relative;
+    }
+
+    /* Vertical separator between columns */
+    .totals-col + .totals-col::before {
+      content: '';
+      position: absolute;
+      left: -12px;
+      top: 10%;
+      bottom: 10%;
+      width: 1px;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    /* Totalen column: single-column, left-aligned */
+    .totals-col-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .totals-col-summary .totals-col-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .totals-col-summary .totals-col-header .totals-col-title {
       margin-bottom: 0;
     }
 
-    .totals-layout .totals-table {
-      flex: 1;
+    .totals-col-summary .totals-val {
+      text-align: left;
+    }
+
+    .totals-col-icon {
+      --mdc-icon-size: 32px;
+      color: var(--primary-color);
+      justify-self: end;
+      align-self: center;
+      margin-bottom: 12px;
+    }
+
+    .totals-col-title {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      align-self: center;
+      margin-bottom: 12px;
+    }
+
+    .totals-label {
+      grid-column: 1 / -1;
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      margin-top: 4px;
+    }
+
+    .totals-val {
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      text-align: right;
+      justify-self: end;
+    }
+
+    .totals-unit {
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--secondary-text-color);
     }
 
     /* ── Floating bar ─────────────────────────────── */
@@ -501,30 +584,6 @@ export const dataTableStyles = css`
 
     /* ── Totals card ───────────────────────────────── */
 
-    .totals-dl {
-      margin: 0 0 12px;
-      display: grid;
-      gap: 4px;
-    }
-
-    .totals-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-    }
-
-    .totals-row dt {
-      color: var(--secondary-text-color);
-      font-size: 0.85em;
-      flex-shrink: 0;
-    }
-
-    .totals-unit {
-      font-weight: 400;
-      color: var(--secondary-text-color);
-    }
-
     .info-container {
       position: relative;
       display: inline-block;
@@ -582,49 +641,4 @@ export const dataTableStyles = css`
       transform: none;
     }
 
-    .totals-row dd {
-      margin: 0;
-      font-weight: 500;
-      text-align: right;
-    }
-
-    .totals-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9em;
-    }
-
-    .totals-table th {
-      text-align: right;
-      font-weight: normal;
-      color: var(--secondary-text-color);
-      padding: 2px 4px 4px;
-      border-bottom: 1px solid var(--divider-color);
-    }
-
-    .totals-table th:first-child {
-      text-align: left;
-      padding-left: 0;
-    }
-
-    .totals-table td {
-      padding: 3px 4px;
-      text-align: right;
-    }
-
-    .totals-table td:first-child {
-      text-align: left;
-      padding-left: 0;
-    }
-
-    .totals-table th:last-child,
-    .totals-table td:last-child {
-      padding-right: 0;
-    }
-
-    .totals-net td {
-      border-top: 1px solid var(--divider-color);
-      font-weight: 500;
-      padding-top: 4px;
-    }
 `;
