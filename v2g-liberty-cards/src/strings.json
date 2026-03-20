@@ -125,6 +125,8 @@
       "avg-price": "Avg. price",
       "net-avg-price": "Avg. net price",
       "availability": "Availability",
+      "charge-duration": "Charge duration",
+      "discharge-duration": "Discharge duration",
       "savings": "Savings",
       "savings-tooltip": "Savings compared to non-smart charging based on CBS monthly average kWh prices."
     },

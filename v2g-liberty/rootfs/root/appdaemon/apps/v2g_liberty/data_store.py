@@ -968,6 +968,15 @@ class DataStore:
         soc_values = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
         soc_pct = soc_values[-1] if soc_values else None
 
+        charge_duration_min = sum(
+            15 for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+        )
+        discharge_duration_min = sum(
+            15 for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+        )
+
         return {
             "period_start": period_start,
             "app_state": _dominant_app_state(app_states),
@@ -975,8 +984,10 @@ class DataStore:
             "price_rating": _dominant_price_rating(ratings),
             "charge_wh": round(charge_kwh * 1000),
             "charge_cost": round(charge_cost, 4),
+            "charge_duration_min": charge_duration_min,
             "discharge_wh": round(discharge_kwh * 1000),
             "discharge_revenue": round(discharge_revenue, 4),
+            "discharge_duration_min": discharge_duration_min,
             "soc_pct": soc_pct,
             "has_repaired": has_repaired,
         }
@@ -1045,6 +1056,15 @@ class DataStore:
         )
         co2_kg = charge_co2_kg - discharge_co2_kg
 
+        charge_duration_min = sum(
+            15 for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+        )
+        discharge_duration_min = sum(
+            15 for i in intervals
+            if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+        )
+
         return {
             "period_start": period_start,
             "availability_pct": (
@@ -1053,9 +1073,11 @@ class DataStore:
             "charge_kwh": round(charge_kwh, 2),
             "charge_cost": round(charge_cost, 4),
             "charge_co2_kg": round(charge_co2_kg, 1),
+            "charge_duration_min": charge_duration_min,
             "discharge_kwh": round(discharge_kwh, 2),
             "discharge_revenue": round(discharge_revenue, 4),
             "discharge_co2_kg": round(discharge_co2_kg, 1),
+            "discharge_duration_min": discharge_duration_min,
             "net_kwh": round(net_kwh, 2),
             "net_cost": round(net_cost, 4),
             "co2_kg": round(co2_kg, 1),

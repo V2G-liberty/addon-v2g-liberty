@@ -367,6 +367,21 @@ export class DataTableCard extends LitElement {
     });
   }
 
+  private _fmtDuration(minutes: number | null | undefined, granularity?: string): string {
+    if (minutes == null || minutes === 0) return '−';
+    const gran = granularity ?? this._granularity;
+    if (gran === 'quarter_hours') {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      const hh = String(h).padStart(2, '0');
+      const mm = String(m).padStart(2, '0');
+      return `${hh}:${mm} uur`;
+    }
+    // hours and larger: round to whole hours
+    const h = Math.round(minutes / 60);
+    return `${h} uur`;
+  }
+
   private _fmtTime(isoStr: string): string {
     if (!isoStr) return '−';
     const d = new Date(isoStr);
@@ -570,6 +585,12 @@ export class DataTableCard extends LitElement {
         (s: number, r: any) => s + Math.max(0, -(r.energy_wh ?? 0)),
         0
       );
+      const chargeDurationMin = this._data.filter(
+        (r: any) => (r.energy_wh ?? 0) > 0
+      ).length * 15;
+      const dischargeDurationMin = this._data.filter(
+        (r: any) => (r.energy_wh ?? 0) < 0
+      ).length * 15;
       return {
         kind: 'quarter_hours' as const,
         first,
@@ -577,7 +598,9 @@ export class DataTableCard extends LitElement {
         avgCons: mean('consumption_price'),
         avgProd: mean('production_price'),
         chargeWh,
+        chargeDurationMin,
         dischargeWh,
+        dischargeDurationMin,
         chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
@@ -596,8 +619,10 @@ export class DataTableCard extends LitElement {
         socMax: socs.length ? Math.max(...socs) : null,
         avgPrice: mean('avg_price'),
         chargeWh: sum('charge_wh'),
-        chargeCost: sum('charge_cost'),
+        chargeDurationMin: sum('charge_duration_min'),
         dischargeWh: sum('discharge_wh'),
+        dischargeDurationMin: sum('discharge_duration_min'),
+        chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
@@ -612,9 +637,11 @@ export class DataTableCard extends LitElement {
       chargeKwh: sum('charge_kwh'),
       chargeCost: sum('charge_cost'),
       chargeCo2Kg: sum('charge_co2_kg'),
+      chargeDurationMin: sum('charge_duration_min'),
       dischargeKwh: sum('discharge_kwh'),
       dischargeRev: sum('discharge_revenue'),
       dischargeCo2Kg: sum('discharge_co2_kg'),
+      dischargeDurationMin: sum('discharge_duration_min'),
       netKwh: sum('net_kwh'),
       netCost: sum('net_cost'),
       co2Kg: sum('co2_kg'),
@@ -696,6 +723,14 @@ export class DataTableCard extends LitElement {
               <dt>${tt('avg-prod-price')}</dt>
               <dd>${this._fmtCents(t.avgProd)} <span class="totals-unit">€¢/kWh</span></dd>
             </div>
+            <div class="totals-row">
+              <dt>${tt('charge-duration')}</dt>
+              <dd>${this._fmtDuration(t.chargeDurationMin)}</dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('discharge-duration')}</dt>
+              <dd>${this._fmtDuration(t.dischargeDurationMin)}</dd>
+            </div>
             ${this._renderSavingsRow()}
           </dl>
           <table class="totals-table">
@@ -745,6 +780,14 @@ export class DataTableCard extends LitElement {
             <div class="totals-row">
               <dt>${tt('avg-price')}</dt>
               <dd>${this._fmtCents(t.avgPrice)} <span class="totals-unit">€¢/kWh</span></dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('charge-duration')}</dt>
+              <dd>${this._fmtDuration(t.chargeDurationMin)}</dd>
+            </div>
+            <div class="totals-row">
+              <dt>${tt('discharge-duration')}</dt>
+              <dd>${this._fmtDuration(t.dischargeDurationMin)}</dd>
             </div>
             ${this._renderSavingsRow()}
           </dl>
@@ -801,6 +844,14 @@ export class DataTableCard extends LitElement {
           <div class="totals-row">
             <dt>${tt('net-avg-price')}</dt>
             <dd class="${t.netKwh !== 0 && t.netCost / t.netKwh < 0 ? 'profit' : ''}">${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)} <span class="totals-unit">€¢/kWh</span></dd>
+          </div>
+          <div class="totals-row">
+            <dt>${tt('charge-duration')}</dt>
+            <dd>${this._fmtDuration(t.chargeDurationMin)}</dd>
+          </div>
+          <div class="totals-row">
+            <dt>${tt('discharge-duration')}</dt>
+            <dd>${this._fmtDuration(t.dischargeDurationMin)}</dd>
           </div>
           ${this._renderSavingsRow()}
         </dl>
