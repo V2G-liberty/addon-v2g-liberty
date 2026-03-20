@@ -2949,7 +2949,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","wallbox-quasar-1":"Wallbox Quasar 1","evtec-bidi-pro-10":"EVtec BiDiPro10","alert":"Please configure the charger, V2G Liberty needs this to work.","1-select-charger-type":{"header":"Select Charger Type","description":"Please select the type of charger you are using:","validation-error":"Please select a charger type to continue."},"invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","2-connection-details":{"header":"connection settings","description":{"generic":"To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.","evtec-bidi-pro-10":"You can find this in your network router or in the EVtec manager via the webbrowser.","wallbox-quasar-1":"You can find these in the Wallbox app: in the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."},"port-description":"Default is %{value}, so if you haven\u2019t changed it, keep this."},"3-power-details":{"header":"power settings","description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","wallbox-quasar-1":"Wallbox Quasar 1","evtec-bidi-pro-10":"EVtec BiDiPro10","alert":"Please configure the charger, V2G Liberty needs this to work.","1-select-charger-type":{"header":"Select Charger Type","description":"Please select the type of charger you are using:","validation-error":"Please select a charger type to continue."},"invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","2-connection-details":{"header":"connection settings","description":{"generic":"To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.","evtec-bidi-pro-10":"You can find this in your network router or in the EVtec manager via the webbrowser.","wallbox-quasar-1":"You can find these in the Wallbox app: in the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."},"port-description":"Default is %{value}, so if you haven\u2019t changed it, keep this."},"3-power-details":{"header":"power settings","description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
@@ -10554,35 +10554,54 @@ function $4dbea3927e6cdc74$export$ce5035b7317f6169(loadbalancerEnabled) {
 function $4dbea3927e6cdc74$export$e5b3375ee042fbb7(quasarLoadBalancerLimit) {
     return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
 }
+function $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass) {
+    const [year, month] = hass.config.version.split('.').map(Number);
+    return year > 2026 || year === 2026 && month >= 3;
+}
+function $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass) {
+    return $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass) ? 'footer' : null;
+}
 function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction = true, label = null, isDisabled = false, testId = null, isBackButton = false) {
     if (label === null) {
         if (isPrimaryAction) label = hass.localize('ui.common.continue');
         else label = hass.localize('ui.common.back');
     }
-    const slot = isPrimaryAction ? 'primaryAction' : 'secondaryAction';
+    const footerSlot = $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass);
+    const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
     const appearance = isPrimaryAction ? 'filled' : 'outlined';
     const variant = isPrimaryAction ? 'brand' : 'secondary';
     const chevronIcon = isBackButton ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small'>
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small' style="width: auto">
       ${chevronIcon}
       ${label}
     </ha-button>
   `;
 }
-function $4dbea3927e6cdc74$export$403c249a0a70d814() {
+function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3): render in content area, right-aligned to match button position.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-spinner
-      test-id="progress"
-      size="small"
-      slot='primaryAction'
-    ></ha-spinner>
+      <div style="display: flex; justify-content: flex-end;">
+        <ha-spinner test-id="progress" size="small"></ha-spinner>
+      </div>
+    `;
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
   `;
 }
-function $4dbea3927e6cdc74$export$4652ab6ca7300a71(stateObj, { state: state } = {}) {
+function $4dbea3927e6cdc74$export$4652ab6ca7300a71(hass, stateObj, { state: state } = {}) {
     state = state || (0, $aa1795080f053cd4$export$2c618a4308a30424)(stateObj.state) || stateObj.state;
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
+    if ($4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div test-id="${stateObj.entity_id}" style="display: flex; align-items: center; padding: 8px 0;">
+        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>
+        <span style="margin-left: 8px; display: inline-flex; flex-direction: column;">
+          <span style="font-size: 0.875rem; color: var(--secondary-text-color);">${name}</span>
+          <span>${state}</span>
+        </span>
+      </div>
+    `;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
       <span slot="heading" test-id="${stateObj.entity_id}">
@@ -10723,7 +10742,7 @@ var $4dbea3927e6cdc74$export$7034fcb7d6351061 = /*#__PURE__*/ function(InputText
     InputText["Password"] = ".{4,}";
     return InputText;
 }({});
-function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback, validationMessage = "", type = "text") {
+function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback, validationMessage = "", type = "text", hass = null) {
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
     // Not happy with fixed height but can't get helper text error to render correctly.
     if (validationMessage === "") {
@@ -10731,24 +10750,33 @@ function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, cha
         const tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
         validationMessage = tp("validation_error");
     }
+    const textField = (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-textfield
+      type="${type}"
+      required="required"
+      .autovalidate=${pattern}
+      .pattern=${pattern}
+      .validationMessage=${validationMessage}
+      .label=${name}
+      .value=${value}
+      @change=${changedCallback}
+      test-id="${stateObj.entity_id}"
+      style="width: 100%"
+    ></ha-textfield>
+  `;
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="display: flex; align-items: flex-start; padding: 4px 0;">
+        <ha-icon .icon="${stateObj.attributes.icon}" style="margin-right: 16px; flex-shrink: 0; margin-top: 16px;"></ha-icon>
+        ${textField}
+      </div>
+    `;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row style="height: 85px;">
       <span slot="heading">
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
       </span>
-      <ha-textfield
-        type="${type}"
-        required="required"
-        .autovalidate=${pattern}
-        .pattern=${pattern}
-        .validationMessage=${validationMessage}
-        .label=${name}
-        .value=${value}
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-        style="width: 100%"
-      ></ha-textfield
-    ></ha-settings-row>
+      ${textField}
+    </ha-settings-row>
   `;
 }
 
@@ -11816,11 +11844,14 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const content = this._currentPage === 'source-selection' ? this._renderCarCalendarSourceSelection() : this._currentPage === 'caldav-calendar' ? this._renderCaldavCalendar() : this._currentPage === 'homeassistant-calendar' ? this._renderHomeAssistantCalendarSelection() : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        const _header = $056feaf1842f603f$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $056feaf1842f603f$var$tp('header'))}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         ${content}
       </ha-dialog>
@@ -11885,12 +11916,14 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
         const calendarAccountPasswordState = this.hass.states[$755a87c9ee93218f$export$9f5a291b67022977];
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value, urlError, "url")}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).UserName, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value, usernameError)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password")}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._calendarAccountUrl, calendarAccountUrlState, (evt)=>this._calendarAccountUrl = evt.target.value, urlError, "url", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).UserName, this._calendarAccountUsername, calendarAccountUsernameState, (evt)=>this._calendarAccountUsername = evt.target.value, usernameError, "text", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._calendarAccountPassword, calendarAccountPasswordState, (evt)=>this._calendarAccountPassword = evt.target.value, passwordError, "password", this.hass)}
       ${this._renderConnectionError()}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false, null, false, null, true)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._backToSourceSelection, false, null, false, null, true)}
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continueCaldav)}
+        `}
     `;
     }
     _renderError(errorString) {
@@ -12096,11 +12129,13 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = this._getDialogHeader();
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${this._currentPage === '1-select-charger-type' ? this._renderChargerSelection() : this._currentPage === '2-connection-details' ? this._renderConnectionDetails() : this._renderPowerDetails()}
       </ha-dialog>
@@ -12166,7 +12201,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${this._selectedChargerType === 'evtec-bidi-pro-10' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-markdown breaks .content="${$4163850e13316b31$var$tp('2-connection-details.description.evtec-bidi-pro-10')}"></ha-markdown>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._selectedChargerType === 'wallbox-quasar-1' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-markdown breaks .content="${$4163850e13316b31$var$tp('2-connection-details.description.wallbox-quasar-1')}"></ha-markdown>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
 
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Hostname, this._chargerHost, chargerHostState, (evt)=>this._chargerHost = evt.target.value, $4163850e13316b31$var$tp('invalid-host-error'))}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Hostname, this._chargerHost, chargerHostState, (evt)=>this._chargerHost = evt.target.value, $4163850e13316b31$var$tp('invalid-host-error'), "text", this.hass)}
       ${this._renderInvalidHostError()}
       ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerPort, chargerPortState, (evt)=>this._chargerPort = evt.target.value, '[0-9]+')}
       ${this._renderInvalidPortError()}
@@ -12176,7 +12211,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goBackToChargerSelection, false, this.hass.localize('ui.common.back'), false, 'back', true)}
 
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goToPowerDetails, true, this.hass.localize('ui.common.continue'))}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goToPowerDetails, true, this.hass.localize('ui.common.continue'))}
     `;
     }
     _getDefaultPort() {
@@ -12423,12 +12458,14 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $528a5968cd9760bd$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         const content = this._currentPage === 'contract-selection' ? this._renderContractSelection() : this._renderContractDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -12476,8 +12513,8 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
         const productionPriceEntityIdChanged = (evt)=>this._ownProductionPriceEntityId = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownConsumptionPriceEntityId, consumptionPriceIdState, consumptionPriceEntityIdChanged)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownProductionPriceEntityId, productionPriceIdState, productionPriceEntityIdChanged)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownConsumptionPriceEntityId, consumptionPriceIdState, consumptionPriceEntityIdChanged, "", "text", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EntityId, this._ownProductionPriceEntityId, productionPriceIdState, productionPriceEntityIdChanged, "", "text", this.hass)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
     `;
@@ -12492,8 +12529,8 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
         const dnoRegionChanged = (evt)=>this._gbDnoRegion = evt.target.value;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusImportCode, importCodeState, importCodeChanged)}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusExportCode, exportCodeState, exportCodeChanged)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusImportCode, importCodeState, importCodeChanged, "", "text", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).OctopusCode, this._octopusExportCode, exportCodeState, exportCodeChanged, "", "text", this.hass)}
       ${(0, $4dbea3927e6cdc74$export$1bc2b02519e65ffd)(this._gbDnoRegion, dnoRegionState, dnoRegionChanged)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._back, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
@@ -12637,12 +12674,14 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $ba2cc41e8ffaff3b$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         const content = this._hasTriedToConnect && this._isConnected() ? this._renderAssetDetails() : this._renderAccountDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${content}
       </ha-dialog>
@@ -12668,12 +12707,12 @@ class $ba2cc41e8ffaff3b$var$EditScheduleSettingsDialog extends (0, $942308f826de
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       <ha-markdown breaks .content=${description}></ha-markdown>
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value, emailError, "email")}
-      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value, passwordError, "password")}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).EMail, this._fmAccountUsername, fmAccountUsernameState, (evt)=>this._fmAccountUsername = evt.target.value, emailError, "email", this.hass)}
+      ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Password, this._fmAccountPassword, fmAccountPasswordState, (evt)=>this._fmAccountPassword = evt.target.value, passwordError, "password", this.hass)}
 
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingOtherServer, fmUseOtherServerState, useOtherServerChanged)}
-      ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url") : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)() : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue)}
+      ${isUsingOtherServer ? (0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).URL, this._fmHostUrl, fmHostUrlState, (evt)=>this._fmHostUrl = evt.target.value, urlError, "url", this.hass) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue)}
     `;
     }
     _renderConnectionError() {
@@ -12977,15 +13016,46 @@ const $fe3d519835c26128$var$REQUIRED_ENTITY_IDS = [
     $755a87c9ee93218f$export$6803b8e9884353c8,
     $755a87c9ee93218f$export$2b7224725565ef34
 ];
+/**
+ * Connection-status sensors to check after the corresponding settings category
+ * has been configured (i.e. the requiresInitId entity is 'on'). If the sensor
+ * state is non-empty and not 'Successfully connected', a connection error is
+ * shown in the alert dialog alongside any unconfigured-settings items.
+ */ const $fe3d519835c26128$var$CONNECTION_STATUS_SENSORS = [
+    {
+        sensorId: $755a87c9ee93218f$export$82372843d513f2af,
+        requiresInitId: $755a87c9ee93218f$export$bcc5761a4d7674a4
+    },
+    {
+        sensorId: $755a87c9ee93218f$export$b324c5213ab1689e,
+        requiresInitId: $755a87c9ee93218f$export$327a7fa57ac6cc54
+    }
+];
 const $fe3d519835c26128$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings-alert-dialog');
+function $fe3d519835c26128$var$hasConnectionErrors(hass) {
+    return $fe3d519835c26128$var$CONNECTION_STATUS_SENSORS.some(({ sensorId: sensorId, requiresInitId: requiresInitId })=>{
+        if (hass.states[requiresInitId]?.state !== 'on') return false;
+        const state = hass.states[sensorId]?.state;
+        return !!state && state !== 'Successfully connected';
+    });
+}
 function $fe3d519835c26128$export$650588b5465ce857(hass) {
     const entities = $fe3d519835c26128$var$REQUIRED_ENTITY_IDS.map((id)=>hass.states[id]).filter(Boolean);
     const uninitializedEntities = entities.filter((entity)=>entity?.state === 'off');
-    if (uninitializedEntities.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    const connectionErrorSensors = $fe3d519835c26128$var$CONNECTION_STATUS_SENSORS.filter(({ sensorId: sensorId, requiresInitId: requiresInitId })=>{
+        if (hass.states[requiresInitId]?.state !== 'on') return false;
+        const state = hass.states[sensorId]?.state;
+        return !!state && state !== 'Successfully connected';
+    });
+    if (uninitializedEntities.length === 0 && connectionErrorSensors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ul>
       ${uninitializedEntities.map((entity)=>{
         const localizedName = $fe3d519835c26128$var$tp(`entity_names.${entity.entity_id}`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${localizedName}</li>`;
+    })}
+      ${connectionErrorSensors.map(({ sensorId: sensorId })=>{
+        const localizedName = $fe3d519835c26128$var$tp(`entity_names.${sensorId}`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${localizedName}</li>`;
     })}
     </ul>
@@ -12993,7 +13063,7 @@ function $fe3d519835c26128$export$650588b5465ce857(hass) {
 }
 function $fe3d519835c26128$export$a013b40e08750c0c(hass) {
     const entities = $fe3d519835c26128$var$REQUIRED_ENTITY_IDS.map((id)=>hass.states[id]).filter(Boolean);
-    return entities.some((entity)=>entity?.state === 'off');
+    return entities.some((entity)=>entity?.state === 'off') || $fe3d519835c26128$var$hasConnectionErrors(hass);
 }
 
 
@@ -13011,11 +13081,14 @@ class $5dbf4f8d923d5746$export$814ec9585813edb4 extends (0, $942308f826de48c4$ex
             (0, $ee1328194d522913$export$ff7962acd6052c28)(this.hass, '/lovelace-yaml/settings', true);
             this.closeDialog();
         };
+        const _header = $5dbf4f8d923d5746$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${(0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, $5dbf4f8d923d5746$var$tp('header'))}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, _header)}
+        .headerTitle=${_isNew ? _header : null}
       >
         <ha-alert alert-type="error">
           ${$5dbf4f8d923d5746$var$tp('error')}
@@ -13197,8 +13270,8 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         <div class="description">${$ce5bce3a7c4706d2$var$tp('sub-header')}</div>
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobileName)}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._adminMobilePlatform)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._adminMobileName)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._adminMobilePlatform)}
       </div>
       <div class="card-content" style="margin-top: 1em;">
         ${this._renderTestNotificationPart()}
@@ -13217,7 +13290,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         `;
         if (this._testNotificationState === 'waiting') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
-        ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)()}
+        ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this._hass)}
         <div style="padding-left: 0.5em;">${$ce5bce3a7c4706d2$var$tt('how-to-react-on-mobile-device')}</div></div>
       `;
         if (this._testNotificationState === 'timeout') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -13376,8 +13449,6 @@ const $8b666ded8df00928$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)(
 const $8b666ded8df00928$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
 var $8b666ded8df00928$var$CaldavConnectionStatus = /*#__PURE__*/ function(CaldavConnectionStatus) {
     CaldavConnectionStatus["Connected"] = "Successfully connected";
-    CaldavConnectionStatus["Failed"] = "Failed to connect";
-    CaldavConnectionStatus["ConnectionError"] = "Connection error";
     return CaldavConnectionStatus;
 }($8b666ded8df00928$var$CaldavConnectionStatus || {});
 class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
@@ -13420,7 +13491,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         ${content}
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
@@ -13431,15 +13502,15 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
           <p>
             ${$8b666ded8df00928$var$tp('type')}: <strong>${title}</strong>
           </p>
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._calendarAccountUrl)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._calendarAccountUsername)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._carCalendarName)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._calendarAccountUrl)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._calendarAccountUsername)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._carCalendarName)}
         `;
     }
     _renderCaldavConnectionStatus() {
         const state = this._caldavConnectionStatus.state;
         const isConnected = state === "Successfully connected";
-        const hasConnectionError = state === "Connection error" || state === "Failed to connect";
+        const hasConnectionError = !!state && !isConnected;
         const error = $8b666ded8df00928$var$tp('connection-error');
         const success = $8b666ded8df00928$var$tp('connection-success', {
             time: (0, $3e7075d7d44f6925$export$bb2bfceb6aaff8bf)(this._caldavConnectionStatus.last_updated)
@@ -13451,7 +13522,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
         const title = $8b666ded8df00928$var$tp(`source-selection.${this._carCalendarSource.state}.title`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <p>${$8b666ded8df00928$var$tp('type')}: <strong>${title}</strong></p>
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._integrationCalendarEntityName, {
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._integrationCalendarEntityName, {
             state: calendarStateObj.attributes.friendly_name
         })}
       `;
@@ -13537,7 +13608,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._chargerHost)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
@@ -13677,7 +13748,7 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$941ad84dd3f4024)(this);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._electricityProvider)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._electricityProvider)}
         ${this._renderNLGenericContractDetails()}
         ${this._renderAmberContractDetails()}
         ${this._renderOctopusContractDetails()}
@@ -13701,15 +13772,15 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
     }
     _renderAmberContractDetails() {
         return this._electricityProvider.state === 'au_amber_electric' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._ownConsumptionPriceEntityId)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._ownProductionPriceEntityId)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._ownConsumptionPriceEntityId)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._ownProductionPriceEntityId)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
     _renderOctopusContractDetails() {
         return this._electricityProvider.state === 'gb_octopus_energy' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._octopusImportCode)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._octopusExportCode)}
-          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._gbDnoRegion)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._octopusImportCode)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._octopusExportCode)}
+          ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._gbDnoRegion)}
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     }
 }
@@ -13851,16 +13922,40 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    connectedCallback() {
+        super.connectedCallback();
+        window.addEventListener('location-changed', this._handleLocationChanged);
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        window.removeEventListener('location-changed', this._handleLocationChanged);
+    }
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
         this._checkUnInitialisedEntities();
     }
-    async _checkUnInitialisedEntities() {
-        if ((0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass)) await (0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this);
+    _checkUnInitialisedEntities() {
+        const hasUninitialized = (0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass);
+        if (hasUninitialized && hasUninitialized !== this._hasUninitialisedEntities) {
+            this._hasUninitialisedEntities = hasUninitialized;
+            // Defer one frame so the Lovelace dialog manager is ready.
+            requestAnimationFrame(()=>(0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this));
+        } else if (!hasUninitialized) this._hasUninitialisedEntities = false;
     }
     render() {
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    constructor(...args){
+        super(...args), this._hasUninitialisedEntities = undefined, this._wentToSettings = false, this._handleLocationChanged = ()=>{
+            if (window.location.pathname.includes('/settings')) this._wentToSettings = true;
+            else if (this._wentToSettings) {
+                // Returning from settings page — allow the dialog to re-appear.
+                this._wentToSettings = false;
+                this._hasUninitialisedEntities = undefined;
+                if (this._hass) this._checkUnInitialisedEntities();
+            }
+        };
     }
 }
 $089309bcd79355b2$export$dffc6da272e49631 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -13924,12 +14019,12 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderFMConnectionStatus()}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAccountUsername)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._fmAccountUsername)}
         ${isUsingOtherServer ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
               <p>${useOtherServer}</p>
-              ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmHostUrl)}
+              ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._fmHostUrl)}
             ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._fmAsset)}
+        ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._fmAsset)}
       </div>
       <div class="card-actions">
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}

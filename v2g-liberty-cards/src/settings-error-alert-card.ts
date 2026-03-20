@@ -7,6 +7,29 @@ import { hasUninitializedEntities } from './util/settings-error-alert';
 @customElement('v2g-liberty-settings-error-alert-card')
 export class SettingsErrorAlertCard extends LitElement {
   private _hass: HomeAssistant;
+  private _hasUninitialisedEntities: boolean | undefined = undefined;
+  private _wentToSettings = false;
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('location-changed', this._handleLocationChanged);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('location-changed', this._handleLocationChanged);
+  }
+
+  private _handleLocationChanged = () => {
+    if (window.location.pathname.includes('/settings')) {
+      this._wentToSettings = true;
+    } else if (this._wentToSettings) {
+      // Returning from settings page — allow the dialog to re-appear.
+      this._wentToSettings = false;
+      this._hasUninitialisedEntities = undefined;
+      if (this._hass) this._checkUnInitialisedEntities();
+    }
+  };
 
   setConfig(config: LovelaceCardConfig) {}
 
@@ -15,9 +38,14 @@ export class SettingsErrorAlertCard extends LitElement {
     this._checkUnInitialisedEntities();
   }
 
-  private async _checkUnInitialisedEntities() {
-    if (hasUninitializedEntities(this._hass)) {
-      await showSettingsErrorAlertDialog(this);
+  private _checkUnInitialisedEntities() {
+    const hasUninitialized = hasUninitializedEntities(this._hass);
+    if (hasUninitialized && hasUninitialized !== this._hasUninitialisedEntities) {
+      this._hasUninitialisedEntities = hasUninitialized;
+      // Defer one frame so the Lovelace dialog manager is ready.
+      requestAnimationFrame(() => showSettingsErrorAlertDialog(this));
+    } else if (!hasUninitialized) {
+      this._hasUninitialisedEntities = false;
     }
   }
 

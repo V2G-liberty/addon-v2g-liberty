@@ -13,6 +13,7 @@ import {
   renderInputNumber,
   renderInputText,
   renderSelectOptionWithLabel,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
@@ -93,12 +94,14 @@ class EditChargerSettingsDialog extends DialogBase {
     if (!this.isOpen) return nothing;
 
     const header = this._getDialogHeader();
+    const _isNew = isNewHaDialogAPI(this.hass);
 
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${this._currentPage === '1-select-charger-type'
           ? this._renderChargerSelection()
@@ -199,7 +202,9 @@ class EditChargerSettingsDialog extends DialogBase {
         this._chargerHost,
         chargerHostState,
         evt => (this._chargerHost = evt.target.value),
-        tp('invalid-host-error')
+        tp('invalid-host-error'),
+        "text",
+        this.hass
       )}
       ${this._renderInvalidHostError()}
       ${renderInputNumber(
@@ -225,7 +230,7 @@ class EditChargerSettingsDialog extends DialogBase {
       )}
 
       ${this._isBusyConnecting()
-        ? renderSpinner()
+        ? renderSpinner(this.hass)
         : renderButton(
           this.hass,
           this._goToPowerDetails,
