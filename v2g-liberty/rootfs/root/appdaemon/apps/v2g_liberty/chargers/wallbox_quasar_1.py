@@ -250,39 +250,57 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         self._log("WallboxQuasar1Client initialized.")
 
-    async def get_max_power_pre_init(
+    async def test_connection(
         self, host: str, port: int | None = None
-    ) -> tuple[bool, int | None]:
-        """Tests the Modbus TCP connection to the EVSE charger before full initialization.
+    ) -> tuple[str, int | None]:
+        """Test connection and validate charger identity before full initialisation.
 
-        This method is designed to validate communication settings (host and port)
-        prior to calling `initialise_EVSE`. It establishes a temporary connection,
-        reads the maximum available power (in Watts), and returns it. This can be called
-        from the UI (via globals) even if the module is not yet initialized.
+        Establishes a temporary connection, reads the maximum available power
+        and the firmware version, validates the charger signature, and returns
+        the result. Can be called from the UI even if the module is not yet
+        initialised.
 
         Args:
             host (str): IP address or hostname of the EVSE charger.
-            port (int): Modbus TCP port of the EVSE charger
+            port (int): Modbus TCP port of the EVSE charger.
 
         Returns:
-            tuple[bool, int | None]:
-            - Element 1: boolean indicating connection success.
-            - Element 2: the maximum available power (int in Watts) if successful, otherwise None.
+            tuple[str, int | None]:
+            - status: "connection_failed", "not_recognised", or "success".
+            - max available power in Watts if connected, otherwise None.
         """
-
         mb_client = V2GmodbusClient(self._hass)
 
         connected, max_hardware_power = await mb_client.adhoc_read_register(
             modbus_address=self._MBR_MAX_AVAILABLE_POWER.address, host=host, port=port
         )
 
-        self._log(
-            f"Pre-init connection to Wallbox Quasar 1 at {host}:{port} "
-            f"{'succeeded' if connected else 'failed'}, "
-            f"max power: {max_hardware_power if connected else 'N/A'} W"
+        if not connected:
+            self._log(
+                f"Pre-init connection to Wallbox Quasar 1 at {host}:{port} failed."
+            )
+            await self._emit_modbus_communication_state(can_communicate=False)
+            return "connection_failed", None
+
+        # Read firmware version to validate charger signature
+        _, firmware_version = await mb_client.adhoc_read_register(
+            modbus_address=self._MBR_FIRMWARE_VERSION.address, host=host, port=port
         )
-        await self._emit_modbus_communication_state(can_communicate=connected)
-        return connected, max_hardware_power
+
+        if not firmware_version:
+            self._log(
+                f"Connected at {host}:{port} but charger not recognised. "
+                f"Firmware version: {firmware_version}.",
+                level="WARNING",
+            )
+            return "not_recognised", max_hardware_power
+
+        self._log(
+            f"Pre-init connection to Wallbox Quasar 1 at {host}:{port} succeeded, "
+            f"max power: {max_hardware_power} W, firmware: {firmware_version}"
+        )
+        await self._emit_modbus_communication_state(can_communicate=True)
+        return "success", max_hardware_power
 
     async def initialise_evse(
         self,

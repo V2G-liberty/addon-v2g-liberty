@@ -49,6 +49,26 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
         return self._EVSE_STATES.get(evse_state, "Unknown")
 
     @abstractmethod
+    async def test_connection(
+        self, host: str, port: int | None = None
+    ) -> tuple[str, int | None]:
+        """Test connection and validate charger identity before full initialisation.
+
+        Establishes a temporary connection, reads power limits and charger-specific
+        identification registers, and validates the charger signature.
+
+        Args:
+            host: IP address or hostname of the EVSE charger.
+            port: Modbus TCP port (defaults to 502 in implementations).
+
+        Returns:
+            tuple[str, int | None]:
+            - status: "connection_failed", "not_recognised", or "success".
+            - max available power in Watts if connected, otherwise None.
+        """
+        raise NotImplementedError("Subclasses must implement test_connection()")
+
+    @abstractmethod
     async def initialise_evse(
         self,
         communication_config: dict,

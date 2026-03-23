@@ -142,6 +142,7 @@
       "invalid-host-error": "Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).",
       "invalid-port-error": "Please provide a valid port.",
       "connection-error": "No communication with charger, please check connection.",
+      "charger-not-recognised-error": "Connected successfully, but the charger at this address does not appear to be the selected type. Please verify the charger type selection.",
       "connection-success": "Succesfully connected",
       "connected-since": "Connected, last contact %{time} ago",
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",

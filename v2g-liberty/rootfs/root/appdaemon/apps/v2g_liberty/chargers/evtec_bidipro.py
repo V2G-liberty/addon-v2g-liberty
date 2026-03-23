@@ -170,49 +170,56 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         self._log("EVtecBiDiProclient initialized.")
 
-    async def get_max_power_pre_init(
+    async def test_connection(
         self, host: str, port: int | None = None
-    ) -> tuple[bool, int | None]:
-        """Tests the Modbus TCP connection to the EVSE charger before full initialization.
+    ) -> tuple[str, int | None]:
+        """Test connection and validate charger identity before full initialisation.
 
-        This method is designed to validate communication settings (host and port)
-        prior to calling `initialise_EVSE`. It establishes a temporary connection,
-        reads the maximum available power (in Watts), and returns it. This can be called
-        from the UI (via globals) even if the module is not yet initialized.
+        Establishes a temporary connection, reads the maximum available power
+        and the EVSE model string, validates the charger signature, and returns
+        the result. Can be called from the UI even if the module is not yet
+        initialised.
 
         Args:
             host (str): IP address or hostname of the EVSE charger.
-            port (int): Modbus TCP port of the EVSE charger
+            port (int): Modbus TCP port of the EVSE charger.
 
         Returns:
-            tuple[bool, int | None]:
-            - Element 1: boolean indicating connection success.
-            - Element 2: the maximum available power (int in Watts) if successful, otherwise None.
+            tuple[str, int | None]:
+            - status: "connection_failed", "not_recognised", or "success".
+            - max available power in Watts if connected, otherwise None.
         """
-
         mb_client = V2GmodbusClient(self._hass)
         connected = mb_client.initialise(host=host, port=port)
         if not connected:
             self._log(
-                f"Connecting at {host}:{port} failed, max power: None", level="WARNING"
+                f"Connecting at {host}:{port} failed.", level="WARNING"
             )
-            return False, None
+            return "connection_failed", None
 
-        result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
-
-        ####### DEBUGGING CODE #######
-        self._log(f"get_max_power_pre_init extended result={result}.")
-
-        result2 = await mb_client.modbus_read(address=130, length=2)
-        self._log(f"get_max_power_pre_init Simple result={result2}.")
-
+        result = await mb_client.read_registers(
+            [self._MBR_MAX_CHARGE_POWER, self._MBR_EVSE_MODEL]
+        )
         mb_client.terminate()
+
         max_hardware_power = result[0]
+        model = result[1]
+
+        # Validate charger signature
+        if model is None or "crema" not in model.lower():
+            self._log(
+                f"Connected at {host}:{port} but charger not recognised. "
+                f"Model: '{model}', expected to contain 'crema'.",
+                level="WARNING",
+            )
+            return "not_recognised", max_hardware_power
+
         self._log(
-            f"Connecting at {host}:{port} succeeded, max power: {max_hardware_power} W"
+            f"Connecting at {host}:{port} succeeded, "
+            f"max power: {max_hardware_power} W, model: {model}"
         )
         await self._emit_modbus_communication_state(can_communicate=True)
-        return True, max_hardware_power
+        return "success", max_hardware_power
 
     ######################################################################
     #                  INITIALISATION RELATED METHODS                    #

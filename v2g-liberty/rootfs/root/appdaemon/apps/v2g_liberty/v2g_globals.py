@@ -535,22 +535,28 @@ class V2GLibertyGlobals:
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
     async def __test_charger_connection(self, event, data, kwargs):
-        """Tests the connection with the charger and processes the maximum charge power read from
-        the charger. Called from the settings page."""
+        """Tests connection with charger, validates charger type,
+        and processes max charge power. Called from settings page."""
         self.__log("Called")
         charger_type = data["charger_type"]
         host = data["host"]
         port = data["port"]
         evse = self._get_evse_client(charger_type)
         if evse is None:
-            return False, None
+            return
 
-        (
-            success,
-            max_available_power,
-        ) = await evse.get_max_power_pre_init(host=host, port=port)
-        msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f'TCC result: "{msg}", {max_available_power}')
+        status, max_available_power = await evse.test_connection(
+            host=host, port=port
+        )
+
+        msg_map = {
+            "success": "Successfully connected",
+            "connection_failed": "Failed to connect",
+            "not_recognised": "Charger not recognised",
+        }
+        msg = msg_map.get(status, "Failed to connect")
+
+        self.__log(f'TCC result: "{msg}", power={max_available_power}')
         self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,

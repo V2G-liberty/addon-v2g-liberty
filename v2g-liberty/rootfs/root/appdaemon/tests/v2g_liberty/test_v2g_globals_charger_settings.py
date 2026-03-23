@@ -333,3 +333,93 @@ class TestSaveChargerSettings:
         mock_settings_manager.store_setting.assert_any_call(
             "input_boolean.charger_settings_initialised", True
         )
+
+
+class TestChargerConnection:
+    """Test suite for __test_charger_connection method."""
+
+    @pytest.mark.asyncio
+    async def test_connection_success(self, v2g_globals, mock_hass):
+        """Test successful connection and recognition."""
+        mock_evse = MagicMock()
+        mock_evse.test_connection = AsyncMock(return_value=("success", 5750))
+        v2g_globals._get_evse_client = Mock(return_value=mock_evse)
+        data = {
+            "charger_type": "evtec-bidi-pro-10",
+            "host": "192.168.1.100",
+            "port": 502,
+        }
+
+        await v2g_globals._V2GLibertyGlobals__test_charger_connection(
+            None, data, None
+        )
+
+        mock_hass.fire_event.assert_called_once_with(
+            "test_charger_connection.result",
+            msg="Successfully connected",
+            max_available_power=5750,
+        )
+
+    @pytest.mark.asyncio
+    async def test_connection_not_recognised(self, v2g_globals, mock_hass):
+        """Test connected but charger signature doesn't match."""
+        mock_evse = MagicMock()
+        mock_evse.test_connection = AsyncMock(
+            return_value=("not_recognised", 5750)
+        )
+        v2g_globals._get_evse_client = Mock(return_value=mock_evse)
+        data = {
+            "charger_type": "evtec-bidi-pro-10",
+            "host": "192.168.1.100",
+            "port": 502,
+        }
+
+        await v2g_globals._V2GLibertyGlobals__test_charger_connection(
+            None, data, None
+        )
+
+        mock_hass.fire_event.assert_called_once_with(
+            "test_charger_connection.result",
+            msg="Charger not recognised",
+            max_available_power=5750,
+        )
+
+    @pytest.mark.asyncio
+    async def test_connection_failed(self, v2g_globals, mock_hass):
+        """Test failed connection (wrong IP/port)."""
+        mock_evse = MagicMock()
+        mock_evse.test_connection = AsyncMock(
+            return_value=("connection_failed", None)
+        )
+        v2g_globals._get_evse_client = Mock(return_value=mock_evse)
+        data = {
+            "charger_type": "evtec-bidi-pro-10",
+            "host": "192.168.1.100",
+            "port": 502,
+        }
+
+        await v2g_globals._V2GLibertyGlobals__test_charger_connection(
+            None, data, None
+        )
+
+        mock_hass.fire_event.assert_called_once_with(
+            "test_charger_connection.result",
+            msg="Failed to connect",
+            max_available_power=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_connection_unknown_charger_type(self, v2g_globals, mock_hass):
+        """Test unknown charger type returns early without firing event."""
+        v2g_globals._get_evse_client = Mock(return_value=None)
+        data = {
+            "charger_type": "unknown-charger",
+            "host": "192.168.1.100",
+            "port": 502,
+        }
+
+        await v2g_globals._V2GLibertyGlobals__test_charger_connection(
+            None, data, None
+        )
+
+        mock_hass.fire_event.assert_not_called()
