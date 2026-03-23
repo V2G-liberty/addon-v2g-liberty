@@ -5,7 +5,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { callFunction } from './util/appdaemon';
 import { partial } from './util/translate';
-import { showSettingsErrorAlertDialog } from './show-dialogs';
+import { showSettingsErrorAlertDialog, showResetDatabaseDialog } from './show-dialogs';
 import { hasUninitializedEntities } from './util/settings-error-alert';
 
 const tp = partial('data-table');
@@ -39,6 +39,7 @@ export class DataTableCard extends LitElement {
   @state() private _granMenuOpen = false;
   @state() private _firstAvailable: string | null = null;
   @state() private _openTip: string | null = null;
+  @state() private _overflowMenuOpen = false;
 
   private _resizeObserver?: ResizeObserver;
   private _syncHeightHandler?: () => void;
@@ -97,12 +98,16 @@ export class DataTableCard extends LitElement {
     window.addEventListener('resize', this._syncHeightHandler);
     requestAnimationFrame(syncNarrow); // initial check after layout
 
-    // Close granularity dropdown when clicking outside the shadow DOM
+    // Close dropdowns when clicking outside the shadow DOM
     this._docClickHandler = (e: MouseEvent) => {
-      if (!this._granMenuOpen) return;
-      const menu = this.shadowRoot?.querySelector('.gran-menu');
-      if (menu && !(e.composedPath() as Node[]).includes(menu)) {
-        this._granMenuOpen = false;
+      const path = e.composedPath() as Node[];
+      if (this._granMenuOpen) {
+        const menu = this.shadowRoot?.querySelector('.gran-menu');
+        if (menu && !path.includes(menu)) this._granMenuOpen = false;
+      }
+      if (this._overflowMenuOpen) {
+        const overflow = this.shadowRoot?.querySelector('.overflow-menu');
+        if (overflow && !path.includes(overflow)) this._overflowMenuOpen = false;
       }
     };
     document.addEventListener('click', this._docClickHandler);
@@ -654,6 +659,15 @@ export class DataTableCard extends LitElement {
     `;
   }
 
+  private _toggleOverflowMenu() {
+    this._overflowMenuOpen = !this._overflowMenuOpen;
+  }
+
+  private _onResetDatabase() {
+    this._overflowMenuOpen = false;
+    showResetDatabaseDialog(this);
+  }
+
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
     if (!hasRepaired) return nothing;
     return html`
@@ -1019,11 +1033,26 @@ export class DataTableCard extends LitElement {
     return html`
       <div class="page-header">
         <h1 class="page-title">${this._getPageTitle()}</h1>
-        ${this._renderEstimatedNote(this._data?.some((r: any) => r.has_repaired) ?? false)}
+        <div class="overflow-menu">
+          <ha-icon-button
+            .path=${'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z'}
+            @click=${this._toggleOverflowMenu}
+          ></ha-icon-button>
+          ${this._overflowMenuOpen ? html`
+            <ul class="overflow-dropdown">
+              <li>
+                <button class="overflow-item" @click=${this._onResetDatabase}>
+                  ${tp('overflow-reset-database')}
+                </button>
+              </li>
+            </ul>
+          ` : nothing}
+        </div>
       </div>
       <div class="page-layout">
         <ha-card>
           <div class="totals-card-content">
+            ${this._renderEstimatedNote(this._data?.some((r: any) => r.has_repaired) ?? false)}
             ${this._renderTotals()}
           </div>
         </ha-card>

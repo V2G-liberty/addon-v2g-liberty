@@ -342,6 +342,7 @@ class V2GLibertyGlobals:
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
+        self.hass.listen_event(self.__reset_database, "reset_database")
 
         self.__log("Completed initializing V2GLibertyGlobals")
 
@@ -505,6 +506,35 @@ class V2GLibertyGlobals:
         self.__log("called")
         self.v2g_settings.reset()
         await self.restart_v2g_liberty()
+
+    async def __reset_database(self, event=None, data=None, kwargs=None):
+        """Reset database and/or re-import. Called from data page menu.
+
+        Event data 'mode':
+          'reimport' — delete import flag only, re-run historical import
+          'full'     — delete DB + import flag, re-create DB, re-run import
+        """
+        from .data_store import DataStore
+
+        mode = (data or {}).get("mode", "full")
+        self.__log(f"called with mode={mode}")
+
+        if mode == "full":
+            self.data_store.close()
+            deleted = DataStore.delete_database()
+            self.__log(f"Database {'deleted' if deleted else 'not found'}")
+            await self.data_store.initialise()
+
+        # Clear historical import flag so it re-runs
+        clear_import_flag()
+
+        # Re-run data repair and kick off historical import
+        if hasattr(self, "data_repairer") and self.data_repairer is not None:
+            await self.data_repairer.initialise()
+        await self.__try_historical_import()
+
+        self.hass.fire_event("reset_database.result", success=True)
+        self.__log(f"Reset ({mode}) complete, historical import started")
 
     async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
         self.__log("called")

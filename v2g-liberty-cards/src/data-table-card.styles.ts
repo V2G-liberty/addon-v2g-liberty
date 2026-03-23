@@ -15,7 +15,7 @@ export const dataTableStyles = css`
 
     .page-header {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       margin: 12px 0 24px 0;
     }
@@ -26,6 +26,43 @@ export const dataTableStyles = css`
       font-weight: 500;
       line-height: 1.2;
       color: var(--ha-card-header-color, var(--primary-text-color));
+    }
+
+    /* ─- Overflow menu ─────────────────────────────── */
+
+    .overflow-menu {
+      position: relative;
+      margin-right: 8px;
+    }
+
+    .overflow-dropdown {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 100;
+      min-width: 180px;
+      background: var(--card-background-color, #fff);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+    }
+
+    .overflow-item {
+      display: block;
+      width: 100%;
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--primary-text-color);
+    }
+    .overflow-item:hover {
+      background: var(--secondary-background-color);
     }
 
     /* ─- Page layout ──────────────────────────────── */
@@ -43,6 +80,7 @@ export const dataTableStyles = css`
     }
 
     .totals-card-content {
+      position: relative;
       padding: 0 24px 16px;
     }
 
@@ -486,9 +524,12 @@ export const dataTableStyles = css`
     }
 
     .estimated-note {
+      position: absolute;
+      top: 8px;
+      right: 8px;
       color: var(--secondary-text-color);
       font-size: 12px;
-      margin: 0 24px 0 0;
+      margin: 0;
       font-style: italic;
       text-align: right;
     }

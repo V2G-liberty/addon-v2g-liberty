@@ -1090,3 +1090,13 @@ class DataStore:
             self.__connection.close()
             self.__connection = None
             self.__log("Database connection closed.")
+
+    @staticmethod
+    def delete_database() -> bool:
+        """Delete the database file from disk. Returns True if deleted."""
+        import os
+
+        if os.path.exists(DataStore.DB_PATH):
+            os.remove(DataStore.DB_PATH)
+            return True
+        return False

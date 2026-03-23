@@ -132,7 +132,23 @@
       "savings-tooltip": "Savings compared to non-smart charging based on CBS monthly average kWh prices."
     },
     "estimated-note": "Partly based on estimated data",
-    "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."
+    "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.",
+    "overflow-reset-database": "Reset history",
+    "reset-dialog": {
+      "header": "Reset history",
+      "reimport-label": "Re-import history",
+      "reimport-explanation": "Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.",
+      "full-label": "Full database reset",
+      "full-explanation": "Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.",
+      "duration-note": "Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.",
+      "full-warning": "This will permanently delete all local charging data. This cannot be undone.",
+      "confirm-prompt": "Type \"Yes\" or \"Ja\" to confirm:",
+      "confirm-placeholder": "Yes / Ja",
+      "confirm-button": "Continue",
+      "error": "Reset failed. Please try again.",
+      "success": "Done. Historical data is being re-imported — the Data page will gradually fill up.",
+      "close": "Close"
+    }
   },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",

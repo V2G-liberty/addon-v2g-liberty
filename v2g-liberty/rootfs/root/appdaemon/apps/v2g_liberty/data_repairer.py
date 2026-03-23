@@ -94,12 +94,11 @@ class DataRepairer:
                     "1. Make sure V2G Liberty is up to date\n"
                     "2. Restart V2G Liberty\n\n"
                     "If this message keeps appearing after restarting:\n"
-                    "1. Stop V2G Liberty\n"
-                    "2. Delete the files `v2g_liberty_data.db` and "
-                    "`v2g_liberty_settings.txt` from the data folder\n"
-                    "3. Start V2G Liberty again\n\n"
-                    "Note: this will remove historical charging data and "
-                    "settings. A fresh database will be created automatically."
+                    "1. Open the V2G Liberty **Data** page\n"
+                    "2. Click the \u2261 menu (top right)\n"
+                    "3. Select **Reset history**\n\n"
+                    "Note: this will remove historical charging data. "
+                    "A fresh database will be created automatically."
                 ),
                 notification_id=self._MEMO_ID,
             )
