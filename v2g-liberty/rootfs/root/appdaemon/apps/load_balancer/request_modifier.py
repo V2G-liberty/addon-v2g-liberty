@@ -47,7 +47,7 @@ class RequestModifier(EventEmitter):
         self.log(f"set limit to {new_limit_in_watt} ({self._requested_power_setpoint})")
         sign = -1 if self._requested_power_setpoint < 0 else 1
         self.emit("limit", sign * self.limit)
-        if self.limit < abs(self._requested_power_setpoint):
+        if self.limit <= abs(self._requested_power_setpoint):
             self.log(f"writing new limit {self.limit * sign} to client")
             # Push new limit onto the server
             result = self.proxy.client.write_register(
