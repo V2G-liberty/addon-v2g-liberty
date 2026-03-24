@@ -152,7 +152,30 @@ class V2GLibertyApp(Hass):
         self._log_init_time("notifier.initialize()", start_module)
 
         start_module = datetime.now()
-        await data_store.initialise()
+        try:
+            await data_store.initialise()
+        except Exception as e:
+            self.log(
+                f"Database initialisation failed: {e}. "
+                "Data features are disabled for this session.",
+                level="WARNING",
+            )
+            await self.call_service(
+                "persistent_notification/create",
+                title="V2G Liberty: data unavailable",
+                message=(
+                    "V2G Liberty could not access its stored data. "
+                    "The app is running, but charging history and statistics "
+                    "are temporarily unavailable.\n\n"
+                    "**What to do:**\n"
+                    "1. Open the V2G Liberty **Data** page\n"
+                    "2. Click the \u2261 menu (top right)\n"
+                    "3. Select **Reset history** \u2192 **Full database reset**\n\n"
+                    "This will rebuild the data store and re-import "
+                    "your charging history from FlexMeasures."
+                ),
+                notification_id="data_store_init_error",
+            )
         self._log_init_time("data_store.initialise()", start_module)
 
         start_module = datetime.now()

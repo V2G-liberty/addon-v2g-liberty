@@ -9,7 +9,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 1
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -177,14 +177,23 @@ class DataStore:
         self.__connection: sqlite3.Connection | None = None
         self.__log("DataStore initialised (no DB connection yet).")
 
+    @property
+    def is_available(self) -> bool:
+        """Whether the database connection is open and usable."""
+        return self.__connection is not None
+
     async def initialise(self):
         """Open database, set PRAGMAs, create tables, and check schema version."""
         self.__log("Initialising DataStore.")
-        self.__connection = sqlite3.connect(self.DB_PATH)
-        self.__connection.row_factory = sqlite3.Row
-        self.__set_pragmas()
-        self.__create_tables()
-        self.__check_schema_version()
+        try:
+            self.__connection = sqlite3.connect(self.DB_PATH)
+            self.__connection.row_factory = sqlite3.Row
+            self.__set_pragmas()
+            self.__create_tables()
+            self.__check_schema_version()
+        except Exception:
+            self.close()
+            raise
         self.__log("DataStore initialised successfully.")
 
     def __set_pragmas(self):
@@ -285,7 +294,10 @@ class DataStore:
         else:
             current_version = row["version"]
             if current_version < CURRENT_SCHEMA_VERSION:
-                self.__run_migrations(current_version)
+                raise RuntimeError(
+                    f"Database schema version {current_version} is older than "
+                    f"expected {CURRENT_SCHEMA_VERSION}. A database reset is needed."
+                )
             elif current_version > CURRENT_SCHEMA_VERSION:
                 self.__log(
                     f"Database schema version {current_version} is newer than "
@@ -296,133 +308,6 @@ class DataStore:
                 self.__log(f"Database schema version {current_version} is up to date.")
 
         cursor.close()
-
-    def __run_migrations(self, from_version: int):
-        """Run sequential migrations from from_version to CURRENT_SCHEMA_VERSION."""
-        self.__log(
-            f"Migrating database from version {from_version} "
-            f"to {CURRENT_SCHEMA_VERSION}."
-        )
-
-        cursor = self.__connection.cursor()
-
-        if from_version < 2:
-            # V2: Remove power_kw column from interval_log.
-            # power_kw is always derivable from energy_kwh (power = energy × 12).
-            cursor.execute("ALTER TABLE interval_log DROP COLUMN power_kw")
-            self.__log("Migration v2: dropped power_kw column from interval_log.")
-
-        if from_version < 3:
-            # V3: Convert all timestamps from local timezone to UTC.
-            # DST fall-back creates duplicate UTC timestamps when local
-            # timestamps like 02:30+02:00 and 02:30+01:00 both exist.
-            self.__migrate_timestamps_to_utc(cursor)
-            self.__log("Migration v3: converted all timestamps to UTC.")
-
-        if from_version < 4:
-            # V4: Add reference_price_log table for CBS reference prices.
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reference_price_log (
-                    month TEXT PRIMARY KEY,
-                    delivery_price_eur_kwh REAL NOT NULL,
-                    energy_tax_eur_kwh REAL NOT NULL,
-                    total_price_eur_kwh REAL NOT NULL,
-                    source TEXT NOT NULL,
-                    fetched_at TEXT NOT NULL
-                )
-            """)
-            self.__log("Migration v4: created reference_price_log table.")
-
-        now = datetime.now(timezone.utc).isoformat()
-        cursor.execute(
-            "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
-            (CURRENT_SCHEMA_VERSION, now),
-        )
-        self.__connection.commit()
-        cursor.close()
-        self.__log(f"Database migrated to version {CURRENT_SCHEMA_VERSION}.")
-
-    def __migrate_timestamps_to_utc(self, cursor: sqlite3.Cursor):
-        """Convert all stored local-timezone timestamps to UTC.
-
-        Handles DST duplicates by keeping the first occurrence (the row
-        with the earlier UTC offset, i.e. the summer-time row).
-        """
-        tables_with_pk_timestamp = [
-            "interval_log",
-            "price_log",
-            "emission_log",
-        ]
-        for table in tables_with_pk_timestamp:
-            rows = cursor.execute(
-                f"SELECT timestamp FROM {table} ORDER BY timestamp"  # noqa: S608
-            ).fetchall()
-            if not rows:
-                continue
-
-            seen_utc = set()
-            duplicates = []
-            updates = []
-            for (ts_str,) in rows:
-                dt = datetime.fromisoformat(ts_str)
-                utc_str = dt.astimezone(timezone.utc).isoformat()
-                if utc_str in seen_utc:
-                    duplicates.append(ts_str)
-                else:
-                    seen_utc.add(utc_str)
-                    if utc_str != ts_str:
-                        updates.append((utc_str, ts_str))
-
-            for old_ts in duplicates:
-                cursor.execute(
-                    f"DELETE FROM {table} WHERE timestamp = ?",  # noqa: S608
-                    (old_ts,),
-                )
-
-            for new_ts, old_ts in updates:
-                cursor.execute(
-                    f"UPDATE {table} SET timestamp = ? "  # noqa: S608
-                    "WHERE timestamp = ?",
-                    (new_ts, old_ts),
-                )
-
-            self.__log(
-                f"  {table}: {len(updates)} timestamps converted, "
-                f"{len(duplicates)} DST duplicates removed."
-            )
-
-        # reservation_log has 3 timestamp columns, none are primary key.
-        res_rows = cursor.execute(
-            "SELECT rowid, timestamp, start_timestamp, end_timestamp "
-            "FROM reservation_log"
-        ).fetchall()
-        for row in res_rows:
-            rowid, ts, start_ts, end_ts = row
-            new_ts = datetime.fromisoformat(ts).astimezone(timezone.utc).isoformat()
-            new_start = (
-                datetime.fromisoformat(start_ts).astimezone(timezone.utc).isoformat()
-            )
-            new_end = (
-                datetime.fromisoformat(end_ts).astimezone(timezone.utc).isoformat()
-            )
-            if new_ts != ts or new_start != start_ts or new_end != end_ts:
-                cursor.execute(
-                    "UPDATE reservation_log SET timestamp = ?, "
-                    "start_timestamp = ?, end_timestamp = ? "
-                    "WHERE rowid = ?",
-                    (new_ts, new_start, new_end, rowid),
-                )
-
-        # fm_send_status: single-row table.
-        fm_row = cursor.execute("SELECT last_sent_up_to FROM fm_send_status").fetchone()
-        if fm_row:
-            old_ts = fm_row[0]
-            new_ts = datetime.fromisoformat(old_ts).astimezone(timezone.utc).isoformat()
-            if new_ts != old_ts:
-                cursor.execute(
-                    "UPDATE fm_send_status SET last_sent_up_to = ?",
-                    (new_ts,),
-                )
 
     @property
     def connection(self) -> sqlite3.Connection | None:
@@ -439,6 +324,8 @@ class DataStore:
         is_repaired: bool = False,
     ) -> None:
         """Insert a single interval row into interval_log."""
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO interval_log "
@@ -462,6 +349,8 @@ class DataStore:
         Rows pending review (is_repaired=2) from the historical importer
         are excluded so the UI doesn't show unreviewed data.
         """
+        if not self.is_available:
+            return False
         cursor = self.__connection.cursor()
         cursor.execute("SELECT 1 FROM interval_log WHERE is_repaired < 2 LIMIT 1")
         result = cursor.fetchone()
@@ -473,6 +362,8 @@ class DataStore:
 
         Returns the number of newly inserted rows.
         """
+        if not self.is_available:
+            return 0
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR IGNORE INTO interval_log "
@@ -497,6 +388,8 @@ class DataStore:
 
         Returns the number of rows deleted.
         """
+        if not self.is_available:
+            return 0
         cursor = self.__connection.cursor()
         cursor.execute("DELETE FROM interval_log WHERE app_state = 'unknown'")
         deleted = cursor.rowcount
@@ -517,6 +410,8 @@ class DataStore:
         When recalculate_ratings is True (default), recalculates price_rating
         for the affected 24h window (6h back, 18h forward).
         """
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR REPLACE INTO price_log "
@@ -562,6 +457,8 @@ class DataStore:
         Each row is a tuple: (timestamp, emission_intensity_kg_mwh).
         Uses INSERT OR REPLACE for UPSERT behaviour.
         """
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR REPLACE INTO emission_log "
@@ -584,6 +481,8 @@ class DataStore:
         The total_price_eur_kwh is computed as the sum of the two components.
         Uses INSERT OR REPLACE for UPSERT behaviour.
         """
+        if not self.is_available:
+            return
         enriched = [
             (month, delivery, tax, round(delivery + tax, 6), source, fetched_at)
             for month, delivery, tax, source, fetched_at in rows
@@ -606,6 +505,8 @@ class DataStore:
         Falls back to the most recent known price if the requested month is
         not available. Returns None if no reference prices are stored at all.
         """
+        if not self.is_available:
+            return None
         cursor = self.__connection.cursor()
 
         # Exact match first.
@@ -644,6 +545,8 @@ class DataStore:
         target_soc_pct: float | None = None,
     ) -> None:
         """Insert a reservation snapshot into reservation_log."""
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT INTO reservation_log "
@@ -660,6 +563,8 @@ class DataStore:
         Returns (consumption_price_kwh, production_price_kwh, price_rating)
         or None if no price exists for the given timestamp.
         """
+        if not self.is_available:
+            return None
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT consumption_price_kwh, production_price_kwh, price_rating "
@@ -683,6 +588,8 @@ class DataStore:
         production_price_kwh, price_rating. Used for price_rating
         (re)calculation over a 24-hour window.
         """
+        if not self.is_available:
+            return pd.DataFrame()
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT timestamp, consumption_price_kwh, production_price_kwh, "
@@ -713,6 +620,8 @@ class DataStore:
 
         Returns the ISO 8601 timestamp, or None if no data has been sent yet.
         """
+        if not self.is_available:
+            return None
         cursor = self.__connection.cursor()
         cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
         row = cursor.fetchone()
@@ -726,6 +635,8 @@ class DataStore:
 
         Inserts a new row if none exists, otherwise updates the existing row.
         """
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.execute("SELECT COUNT(*) as cnt FROM fm_send_status")
         count = cursor.fetchone()["cnt"]
@@ -748,6 +659,8 @@ class DataStore:
         Returns a list of dicts with keys: timestamp, energy_kwh,
         soc_pct, availability_pct. Ordered by timestamp ascending.
         """
+        if not self.is_available:
+            return []
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT timestamp, energy_kwh, soc_pct, availability_pct "
@@ -784,6 +697,8 @@ class DataStore:
         Returns:
             List of dicts, one per period, ordered by period_start.
         """
+        if not self.is_available:
+            return []
         if granularity not in VALID_GRANULARITIES:
             raise ValueError(
                 f"Invalid granularity '{granularity}'. "
@@ -819,6 +734,8 @@ class DataStore:
         Returns the earliest timestamp converted to local time, or None
         if the table is empty. Rows with is_repaired >= 2 are excluded.
         """
+        if not self.is_available:
+            return None
         from . import constants as c
 
         cursor = self.__connection.cursor()
