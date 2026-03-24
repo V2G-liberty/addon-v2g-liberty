@@ -28,6 +28,7 @@ const enum ConnectionStatus {
   Failed = 'Failed to connect',
   TimedOut = 'Timed out',
   NotRecognised = 'Charger not recognised',
+  NoCarConnected = 'No car connected',
 }
 const enum ChargerType {
   EVtecBiDiPro10 = 'evtec-bidi-pro-10',
@@ -255,12 +256,23 @@ class EditChargerSettingsDialog extends DialogBase {
       this._chargerConnectionStatus == ConnectionStatus.TimedOut;
     const hasNotRecognisedError =
       this._chargerConnectionStatus == ConnectionStatus.NotRecognised;
+    const hasNoCarConnected =
+      this._chargerConnectionStatus == ConnectionStatus.NoCarConnected;
 
     if (hasNotRecognisedError) {
       return html`
         <p>
           <ha-alert test-id="not-recognised-error" alert-type="warning">
             ${tp('charger-not-recognised-error')}
+          </ha-alert>
+        </p>
+      `;
+    }
+    if (hasNoCarConnected) {
+      return html`
+        <p>
+          <ha-alert test-id="no-car-connected-error" alert-type="warning">
+            ${tp('no-car-connected-error')}
           </ha-alert>
         </p>
       `;

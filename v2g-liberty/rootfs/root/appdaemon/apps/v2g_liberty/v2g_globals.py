@@ -545,14 +545,13 @@ class V2GLibertyGlobals:
         if evse is None:
             return
 
-        status, max_available_power = await evse.test_connection(
-            host=host, port=port
-        )
+        status, max_available_power = await evse.test_connection(host=host, port=port)
 
         msg_map = {
             "success": "Successfully connected",
             "connection_failed": "Failed to connect",
             "not_recognised": "Charger not recognised",
+            "no_car_connected": "No car connected",
         }
         msg = msg_map.get(status, "Failed to connect")
 
@@ -685,7 +684,9 @@ class V2GLibertyGlobals:
         self.__store_setting(
             "input_number.charger_plus_car_roundtrip_efficiency", efficiency
         )
-        self.__store_setting("input_number.car_consumption_wh_per_km", consumption_wh_km)
+        self.__store_setting(
+            "input_number.car_consumption_wh_per_km", consumption_wh_km
+        )
 
         # Save to HA entities
         await self.__write_setting_to_ha(self.SETTING_CAR_NAME, car_name, "user_input")
@@ -927,11 +928,30 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CHARGER_PORT
         )
 
-        (connected, max_power_by_charger) = await self.evse.get_max_power_pre_init(
+        (status, max_power_by_charger) = await self.evse.test_connection(
             host=charger_host_url, port=charger_port
         )
-        if not connected or max_power_by_charger is None:
-            self.__log("Unable to connect to charger", level="WARNING")
+        if status == "not_recognised":
+            self.__log(
+                "Connected to charger but it was not recognised. "
+                "Please check the charger type in settings.",
+                level="WARNING",
+            )
+            # TODO: Set is_initialised to false? Set error state?
+            return
+        if status == "no_car_connected":
+            self.__log(
+                "Connected to charger but no car is connected. "
+                "Please connect a car and restart.",
+                level="WARNING",
+            )
+            # TODO: Set is_initialised to false? Set error state?
+            return
+        if status != "success" or max_power_by_charger is None:
+            self.__log(
+                f"Unable to connect to charger (status: {status}).",
+                level="WARNING",
+            )
             # TODO: Set is_initialised to false? Set error state?
             return
 

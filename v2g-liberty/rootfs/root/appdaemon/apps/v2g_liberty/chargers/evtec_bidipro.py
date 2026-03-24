@@ -190,20 +190,22 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             - max available power in Watts if connected, otherwise None.
         """
         mb_client = V2GmodbusClient(self._hass)
-        connected = mb_client.initialise(host=host, port=port)
+        connected = await mb_client.initialise(host=host, port=port)
         if not connected:
-            self._log(
-                f"Connecting at {host}:{port} failed.", level="WARNING"
-            )
+            self._log(f"Connecting at {host}:{port} failed.", level="WARNING")
             return "connection_failed", None
 
-        result = await mb_client.read_registers(
-            [self._MBR_MAX_CHARGE_POWER, self._MBR_EVSE_MODEL]
-        )
+        # Read registers separately: a single batch spanning address 26..131
+        # triggers "Illegal Data Address" on the EVtec because there are gaps
+        # in the register map.
+        power_result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
+        model_result = await mb_client.read_registers([self._MBR_EVSE_MODEL])
+        state_mbr = self._MCE_EVSE_STATE.modbus_register
+        state_result = await mb_client.read_registers([state_mbr])
         mb_client.terminate()
 
-        max_hardware_power = result[0]
-        model = result[1]
+        max_hardware_power = power_result[0]
+        model = model_result[0]
 
         # Validate charger signature
         if model is None or "crema" not in model.lower():
@@ -213,6 +215,17 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 level="WARNING",
             )
             return "not_recognised", max_hardware_power
+
+        # Check if a car is connected by mapping the raw state to a base state
+        raw_state = state_result[0]
+        base_state = self._BASE_STATE_MAPPING.get(raw_state)
+        if base_state in self._DISCONNECTED_STATES:
+            self._log(
+                f"Connected at {host}:{port}, charger recognised, "
+                f"but no car connected (state: {raw_state}).",
+                level="WARNING",
+            )
+            return "no_car_connected", max_hardware_power
 
         self._log(
             f"Connecting at {host}:{port} succeeded, "
@@ -261,7 +274,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         mcp = await self.get_hardware_power_limit()
         await self.set_max_charge_power(mcp)
 
-        result = self._mb_client.read_registers([self._MBR_CONNECTOR_TYPE])
+        result = await self._mb_client.read_registers([self._MBR_CONNECTOR_TYPE])
         connector_type = self._CONNECTOR_TYPES.get(result[0], "Unknown")
         if connector_type != "CSS":
             # For now, just a warning, how to handle this correctly?
