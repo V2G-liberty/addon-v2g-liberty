@@ -4,7 +4,7 @@ from pymodbus.pdu import ModbusPDU
 from pymodbus.pdu.register_message import (
     ReadHoldingRegistersRequest,
     ReadHoldingRegistersResponse,
-    WriteSingleRegisterRequest
+    WriteSingleRegisterRequest,
 )
 
 from ._log_wrapper import get_class_method_logger
@@ -14,7 +14,7 @@ from .server import Tcp2TcpProxyServer
 class RegisterAddress(int, enum.Enum):
     ACTION = 0x0101
     SET_POWER_SETPOINT = 0x0104
-    AC_ACTIVE_POWER_RMS = 0x020e
+    AC_ACTIVE_POWER_RMS = 0x020E
 
 
 class RequestModifier(EventEmitter):
@@ -47,13 +47,14 @@ class RequestModifier(EventEmitter):
         self.log(f"set limit to {new_limit_in_watt} ({self._requested_power_setpoint})")
         sign = -1 if self._requested_power_setpoint < 0 else 1
         self.emit("limit", sign * self.limit)
-        if self.limit <= abs(self._requested_power_setpoint):
-            self.log(f"writing new limit {self.limit * sign} to client")
-            # Push new limit onto the server
-            result = self.proxy.client.write_register(
-                RegisterAddress.SET_POWER_SETPOINT, int16_to_uint16(self.limit * sign)
-            )
-            self.log(f"{result}")
+
+        limited_setpoint = self._limit_value(self._requested_power_setpoint, self.limit)
+        self.log(f"writing new limit {limited_setpoint} to client")
+        # Push new limit onto the server
+        result = self.proxy.client.write_register(
+            RegisterAddress.SET_POWER_SETPOINT, int16_to_uint16(limited_setpoint)
+        )
+        self.log(f"{result}")
 
     def server_trace_pdu(self, sending: bool, pdu: ModbusPDU) -> ModbusPDU:
         # print(f"---> TRACE_PDU: {pdu}")
@@ -66,10 +67,16 @@ class RequestModifier(EventEmitter):
         return pdu
 
     def _process_read_request(self, request: ReadHoldingRegistersRequest):
-        if request.address <= RegisterAddress.AC_ACTIVE_POWER_RMS < (request.address + request.count):
+        if (
+            request.address
+            <= RegisterAddress.AC_ACTIVE_POWER_RMS
+            < (request.address + request.count)
+        ):
             # print(f"---> read request: {request}")
             self._read_power_transaction_id = request.transaction_id
-            self._read_power_index = RegisterAddress.AC_ACTIVE_POWER_RMS - request.address
+            self._read_power_index = (
+                RegisterAddress.AC_ACTIVE_POWER_RMS - request.address
+            )
 
     def _process_read_response(self, request: ReadHoldingRegistersResponse):
         if request.transaction_id == self._read_power_transaction_id:
