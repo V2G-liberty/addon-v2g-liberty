@@ -141,7 +141,7 @@
       },
       "invalid-host-error": "Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).",
       "invalid-port-error": "Please provide a valid port.",
-      "connection-error": "No communication with charger, please check connection.",
+      "connection-error": "No communication with charger. Please check the IP address, port, and whether Modbus is enabled on the charger.",
       "charger-not-recognised-error": "Connected successfully, but the charger at this address does not appear to be the selected type. Please verify the charger type selection.",
       "no-car-connected-error": "Connected to the charger, but no car is connected. Please plug in the car and try again.",
       "connection-success": "Succesfully connected",
