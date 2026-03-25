@@ -552,6 +552,7 @@ class V2GLibertyGlobals:
             "connection_failed": "Failed to connect",
             "not_recognised": "Charger not recognised",
             "no_car_connected": "No car connected",
+            "no_active_plug": "No active plug found",
         }
         msg = msg_map.get(status, "Failed to connect")
 
@@ -935,6 +936,14 @@ class V2GLibertyGlobals:
             self.__log(
                 "Connected to charger but it was not recognised. "
                 "Please check the charger type in settings.",
+                level="WARNING",
+            )
+            # TODO: Set is_initialised to false? Set error state?
+            return
+        if status == "no_active_plug":
+            self.__log(
+                "Connected to charger but no active plug found. "
+                "Please check the charger configuration.",
                 level="WARNING",
             )
             # TODO: Set is_initialised to false? Set error state?

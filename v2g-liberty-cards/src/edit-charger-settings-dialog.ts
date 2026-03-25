@@ -29,6 +29,7 @@ const enum ConnectionStatus {
   TimedOut = 'Timed out',
   NotRecognised = 'Charger not recognised',
   NoCarConnected = 'No car connected',
+  NoActivePlug = 'No active plug found',
 }
 const enum ChargerType {
   EVtecBiDiPro10 = 'evtec-bidi-pro-10',
@@ -273,6 +274,17 @@ class EditChargerSettingsDialog extends DialogBase {
         <p>
           <ha-alert test-id="no-car-connected-error" alert-type="warning">
             ${tp('no-car-connected-error')}
+          </ha-alert>
+        </p>
+      `;
+    }
+    const hasNoActivePlug =
+      this._chargerConnectionStatus == ConnectionStatus.NoActivePlug;
+    if (hasNoActivePlug) {
+      return html`
+        <p>
+          <ha-alert test-id="no-active-plug-error" alert-type="warning">
+            ${tp('no-active-plug-error')}
           </ha-alert>
         </p>
       `;

@@ -167,18 +167,103 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._evse_state: int | None = None
 
         self._am_i_active: bool = False
+        self._active_plug: int | None = None
 
         self._log("EVtecBiDiProclient initialized.")
+
+    async def _detect_active_plug(self, mb_client: V2GmodbusClient) -> int | None:
+        """Scan plug address spaces 1-11 to find the first active plug.
+
+        Each plug occupies 100 registers at plug_number * 100.
+        The connector state register is at offset 0 within each plug space.
+        A non-zero state indicates the plug is configured/active.
+
+        Returns:
+            The detected plug number (1-11), or None if no active plug found.
+        """
+        for plug_number in range(1, 12):
+            state_mbr = MBR(address=plug_number * 100, data_type="int32", length=2)
+            result = await mb_client.read_registers([state_mbr])
+            if result and result[0] is not None and result[0] != 0:
+                self._log(
+                    f"Detected active plug at position {plug_number} "
+                    f"(connector state: {result[0]})"
+                )
+                return plug_number
+        self._log("No active plug detected.", level="WARNING")
+        return None
+
+    def _apply_plug_offset(self, plug_number: int):
+        """Create instance-level copies of plug-specific MBR/MCE with adjusted addresses.
+
+        ChargePoint-level registers (addresses 0-99) are not affected.
+        Plug-specific registers get address = plug_number * 100 + offset.
+        """
+        plug_base = plug_number * 100
+
+        def offset_mbr(mbr: MBR) -> MBR:
+            original_offset = mbr.address % 100
+            return MBR(
+                address=plug_base + original_offset,
+                data_type=mbr.data_type,
+                length=mbr.length,
+                device_id=mbr.device_id,
+            )
+
+        def offset_mce(mce: ModbusConfigEntity) -> ModbusConfigEntity:
+            return ModbusConfigEntity(
+                modbus_register=offset_mbr(mce.modbus_register),
+                minimum_value=mce.minimum_value,
+                maximum_value=mce.maximum_value,
+                relaxed_min_value=mce.relaxed_min_value,
+                relaxed_max_value=mce.relaxed_max_value,
+                current_value=mce.current_value,
+                pre_processor=mce.pre_processor,
+                change_handler=mce.change_handler,
+            )
+
+        # Plug-specific MBRs
+        self._MBR_CONNECTOR_TYPE = offset_mbr(EVtecBiDiProClient._MBR_CONNECTOR_TYPE)
+        self._MBR_MAX_CHARGE_POWER = offset_mbr(
+            EVtecBiDiProClient._MBR_MAX_CHARGE_POWER
+        )
+        self._MBR_CAR_BATTERY_CAPACITY_WH = offset_mbr(
+            EVtecBiDiProClient._MBR_CAR_BATTERY_CAPACITY_WH
+        )
+        self._MBR_CAR_MIN_BATTERY_CAPACITY_WH = offset_mbr(
+            EVtecBiDiProClient._MBR_CAR_MIN_BATTERY_CAPACITY_WH
+        )
+        self._MBR_CAR_ID = offset_mbr(EVtecBiDiProClient._MBR_CAR_ID)
+        self._MBR_SET_ACTION = offset_mbr(EVtecBiDiProClient._MBR_SET_ACTION)
+        self._MBR_SET_CHARGE_POWER = offset_mbr(
+            EVtecBiDiProClient._MBR_SET_CHARGE_POWER
+        )
+
+        # Plug-specific MCEs
+        self._MCE_EVSE_STATE = offset_mce(EVtecBiDiProClient._MCE_EVSE_STATE)
+        self._MCE_ACTUAL_POWER = offset_mce(EVtecBiDiProClient._MCE_ACTUAL_POWER)
+        self._MCE_CAR_SOC = offset_mce(EVtecBiDiProClient._MCE_CAR_SOC)
+        self._MCE_ERROR = offset_mce(EVtecBiDiProClient._MCE_ERROR)
+
+        # Rebuild polling entities with instance-level MCEs
+        self._POLLING_ENTITIES = [
+            self._MCE_EVSE_STATE,
+            self._MCE_ACTUAL_POWER,
+            self._MCE_CAR_SOC,
+            self._MCE_ERROR,
+        ]
+
+        self._log(f"Applied plug offset: plug {plug_number}, base address {plug_base}")
 
     async def test_connection(
         self, host: str, port: int | None = None
     ) -> tuple[str, int | None]:
         """Test connection and validate charger identity before full initialisation.
 
-        Establishes a temporary connection, reads the maximum available power
-        and the EVSE model string, validates the charger signature, and returns
-        the result. Can be called from the UI even if the module is not yet
-        initialised.
+        Establishes a temporary connection, validates the charger model,
+        auto-detects the active plug, and reads max power and connector state
+        from the detected plug. Can be called from the UI even if the module
+        is not yet initialised.
 
         Args:
             host (str): IP address or hostname of the EVSE charger.
@@ -186,7 +271,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         Returns:
             tuple[str, int | None]:
-            - status: "connection_failed", "not_recognised", or "success".
+            - status: "connection_failed", "not_recognised", "no_active_plug",
+              "no_car_connected", or "success".
             - max available power in Watts if connected, otherwise None.
         """
         mb_client = V2GmodbusClient(self._hass)
@@ -195,33 +281,47 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._log(f"Connecting at {host}:{port} failed.", level="WARNING")
             return "connection_failed", None
 
-        # Read registers separately: a single batch spanning address 26..131
-        # triggers "Illegal Data Address" on the EVtec because there are gaps
-        # in the register map.
-        power_result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
+        # Validate charger signature (ChargePoint-level register, not plug-specific)
         model_result = await mb_client.read_registers([self._MBR_EVSE_MODEL])
-        state_mbr = self._MCE_EVSE_STATE.modbus_register
-        state_result = await mb_client.read_registers([state_mbr])
-        mb_client.terminate()
-
-        max_hardware_power = power_result[0]
         model = model_result[0]
-
-        # Validate charger signature
         if model is None or "crema" not in model.lower():
+            mb_client.terminate()
             self._log(
                 f"Connected at {host}:{port} but charger not recognised. "
                 f"Model: '{model}', expected to contain 'crema'.",
                 level="WARNING",
             )
-            return "not_recognised", max_hardware_power
+            return "not_recognised", None
+
+        # Auto-detect the active plug
+        plug_number = await self._detect_active_plug(mb_client)
+        if plug_number is None:
+            mb_client.terminate()
+            self._log(
+                f"Connected at {host}:{port}, charger recognised, "
+                f"but no active plug found.",
+                level="WARNING",
+            )
+            return "no_active_plug", None
+
+        self._active_plug = plug_number
+        self._apply_plug_offset(plug_number)
+
+        # Read power and state from the detected plug (using offset registers)
+        power_result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
+        state_result = await mb_client.read_registers(
+            [self._MCE_EVSE_STATE.modbus_register]
+        )
+        mb_client.terminate()
+
+        max_hardware_power = power_result[0]
 
         # Check if a car is connected by mapping the raw state to a base state
         raw_state = state_result[0]
         base_state = self._BASE_STATE_MAPPING.get(raw_state)
         if base_state in self._DISCONNECTED_STATES:
             self._log(
-                f"Connected at {host}:{port}, charger recognised, "
+                f"Connected at {host}:{port}, plug {plug_number}, "
                 f"but no car connected (state: {raw_state}).",
                 level="WARNING",
             )
@@ -229,7 +329,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         self._log(
             f"Connecting at {host}:{port} succeeded, "
-            f"max power: {max_hardware_power} W, model: {model}"
+            f"plug {plug_number}, max power: {max_hardware_power} W, "
+            f"model: {model}"
         )
         await self._emit_modbus_communication_state(can_communicate=True)
         return "success", max_hardware_power
@@ -270,6 +371,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 level="WARNING",
             )
             return False
+
+        # Apply plug offset so all subsequent reads/writes use the correct addresses.
+        # _active_plug is set by test_connection which always runs before initialise_evse.
+        if self._active_plug is not None:
+            self._apply_plug_offset(self._active_plug)
 
         mcp = await self.get_hardware_power_limit()
         await self.set_max_charge_power(mcp)
