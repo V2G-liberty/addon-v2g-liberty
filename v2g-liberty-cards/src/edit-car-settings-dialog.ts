@@ -25,7 +25,8 @@ const enum RetrievalStatus {
 type DialogPage =
   | '1-connect-car'      // EVtec only: prompt user to connect car
   | '2-manual-entry'     // Wallbox or EVtec after retrieval: form with fields
-  | 'loading';           // Spinner during retrieval
+  | 'loading'            // Spinner during retrieval
+  | 'error';             // Error state (e.g. no charger configured)
 
 @customElement(tagName)
 class EditCarSettingsDialog extends DialogBase {
@@ -41,6 +42,9 @@ class EditCarSettingsDialog extends DialogBase {
   @state() private _evId: string;
   @state() private _isEdit: boolean;  // Add vs Edit mode
   @state() private _expandedHelpField: string | null = null;  // Track which help is expanded
+  @state() private _showDifferentCarPrompt: boolean = false;
+  @state() private _differentCarEvId: string = '';
+  @state() private _differentCarCapacity: number | null = null;
 
   public async showDialog(): Promise<void> {
     super.showDialog();
@@ -51,7 +55,18 @@ class EditCarSettingsDialog extends DialogBase {
     this._roundtripEfficiency = defaultState(this.hass.states[entityIds.roundtripEfficiency], '85');
     this._carEnergyConsumption = defaultState(this.hass.states[entityIds.carEnergyConsumption], '');
     this._chargerType = this.hass.states[entityIds.chargerType]?.state || '';
-    this._isEdit = this._carName !== '';
+    this._isEdit = this.hass.states[entityIds.carSettingsInitialised]?.state === 'on';
+
+    // Check if charger is configured
+    const chargerInitialised = this.hass.states[entityIds.chargerSettingsInitialised]?.state === 'on';
+    if (!chargerInitialised) {
+      this._errorMessage = tp('errors.no-charger-configured');
+      this._currentPage = 'error';
+      this._evId = '';
+      this._expandedHelpField = null;
+      await this.updateComplete;
+      return;
+    }
 
     // Determine starting page based on charger type and mode
     if (this._chargerType === 'evtec-bidi-pro-10' && !this._isEdit) {
@@ -63,7 +78,15 @@ class EditCarSettingsDialog extends DialogBase {
     this._retrievalStatus = RetrievalStatus.NotStarted;
     this._errorMessage = '';
     this._evId = '';
-    this._expandedHelpField = null;  // Reset any expanded help sections
+    this._expandedHelpField = null;
+    this._showDifferentCarPrompt = false;
+    this._differentCarEvId = '';
+    this._differentCarCapacity = null;
+
+    // In edit mode with EVtec: check if a different car is connected
+    if (this._isEdit && this._chargerType === 'evtec-bidi-pro-10') {
+      this._checkForDifferentCar();
+    }
 
     await this.updateComplete;
   }
@@ -79,17 +102,29 @@ class EditCarSettingsDialog extends DialogBase {
         @closed=${this.closeDialog}
         .heading=${renderDialogHeader(this.hass, header)}
       >
-        ${this._currentPage === '1-connect-car'
-          ? this._renderConnectCarPrompt()
-          : this._currentPage === 'loading'
-            ? this._renderLoading()
-            : this._renderManualEntry()}
+        ${this._currentPage === 'error'
+          ? html`
+              <ha-alert alert-type="error">${this._errorMessage}</ha-alert>
+              ${renderButton(
+                this.hass,
+                () => this.closeDialog(),
+                true,
+                this.hass.localize('ui.common.close')
+              )}
+            `
+          : this._currentPage === '1-connect-car'
+            ? this._renderConnectCarPrompt()
+            : this._currentPage === 'loading'
+              ? this._renderLoading()
+              : this._renderManualEntry()}
       </ha-dialog>
     `;
   }
 
   private _getDialogHeader(): string {
-    if (this._currentPage === '1-connect-car') {
+    if (this._currentPage === 'error') {
+      return tp('errors.header');
+    } else if (this._currentPage === '1-connect-car') {
       return tp('1-connect-car.header');
     } else if (this._isEdit) {
       return tp('edit.header', { name: this._carName });
@@ -149,6 +184,17 @@ class EditCarSettingsDialog extends DialogBase {
     const carEnergyConsumptionState = this.hass.states[entityIds.carEnergyConsumption];
 
     return html`
+      ${this._showDifferentCarPrompt ? html`
+        <ha-alert alert-type="warning">
+          ${tp('edit.different-car-detected', { evId: this._differentCarEvId })}
+          <br/>
+          <mwc-button @click=${() => this._replaceWithNewCar()}>
+            ${tp('edit.replace-car-button')}
+          </mwc-button>
+        </ha-alert>
+        <br/>
+      ` : nothing}
+
       <ha-markdown breaks .content=${tp('2-manual-entry.description')}></ha-markdown>
       <br/>
 
@@ -246,6 +292,30 @@ class EditCarSettingsDialog extends DialogBase {
   //              Business Logic                  //
   //////////////////////////////////////////////////
 
+  private async _checkForDifferentCar() {
+    try {
+      const result = await callFunction(this.hass, 'get_car_details', {}, 10000);
+      if (result.success && result.is_new) {
+        this._differentCarEvId = result.ev_id;
+        this._differentCarCapacity = result.battery_capacity_kwh;
+        this._showDifferentCarPrompt = true;
+      }
+    } catch {
+      // Car not connected or timeout — ignore, stay in edit mode
+    }
+  }
+
+  private _replaceWithNewCar() {
+    if (this._differentCarEvId) {
+      this._evId = this._differentCarEvId;
+    }
+    if (this._differentCarCapacity) {
+      this._usableCapacity = this._differentCarCapacity.toString();
+    }
+    this._carName = '';
+    this._showDifferentCarPrompt = false;
+  }
+
   private async _retrieveCarData() {
     this._currentPage = 'loading';
     this._retrievalStatus = RetrievalStatus.Retrieving;
@@ -284,9 +354,13 @@ class EditCarSettingsDialog extends DialogBase {
       return;
     }
 
-    // Generate fake ev_id for Wallbox if not already set
-    if (!this._evId && this._chargerType === 'wallbox-quasar-1') {
-      this._evId = `wallbox_${this._carName.replace(/\s/g, '_')}`;
+    // Generate fallback ev_id if not set by auto-retrieval
+    if (!this._evId) {
+      if (this._chargerType === 'wallbox-quasar-1') {
+        this._evId = 'wallbox_quasar_1_car';
+      } else {
+        this._evId = this._carName.replace(/\s/g, '_');
+      }
     }
 
     try {

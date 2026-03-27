@@ -188,6 +188,12 @@ class V2GLibertyGlobals:
     }  # min is not used yet...
 
     # Settings related to car
+    CAR_SETTINGS_INITIALISED = {
+        "entity_name": "car_settings_initialised",
+        "entity_type": "input_boolean",
+        "value_type": "bool",
+        "factory_default": False,
+    }
     SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = {
         "entity_name": "charger_plus_car_roundtrip_efficiency",
         "entity_type": "input_number",
@@ -198,7 +204,7 @@ class V2GLibertyGlobals:
         "entity_name": "car_max_capacity_in_kwh",
         "entity_type": "input_number",
         "value_type": "int",
-        "factory_default": 24,
+        "factory_default": None,
     }
     SETTING_CAR_CONSUMPTION_WH_PER_KM = {
         "entity_name": "car_consumption_wh_per_km",
@@ -679,6 +685,9 @@ class V2GLibertyGlobals:
             return
 
         # Save to settings.json (note: car_ev_id is internal, not exposed as HA entity)
+        # Preserve existing ev_id if none provided (e.g. in edit mode)
+        if not ev_id:
+            ev_id = self.v2g_settings.get("car_ev_id") or ""
         self.v2g_settings.store_setting("car_ev_id", ev_id)
         self.__store_setting("input_text.car_name", car_name)
         self.__store_setting("input_number.car_max_capacity_in_kwh", capacity_kwh)
@@ -700,6 +709,8 @@ class V2GLibertyGlobals:
         await self.__write_setting_to_ha(
             self.SETTING_CAR_CONSUMPTION_WH_PER_KM, consumption_wh_km, "user_input"
         )
+
+        self.__store_setting("input_boolean.car_settings_initialised", True)
 
         self.__log(f"Saved car settings: name={car_name}, ev_id={ev_id}")
         self.hass.fire_event("save_car_settings.result", success=True)
@@ -1037,6 +1048,10 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
+        car_is_initialised = await self.__process_setting(
+            setting_object=self.CAR_SETTINGS_INITIALISED,
+        )
+
         await self.__process_setting(
             setting_object=self.SETTING_CAR_NAME,
         )
@@ -1064,10 +1079,17 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
         )
 
+        if not car_is_initialised:
+            self.__log("Car settings not configured yet, skipping vehicle creation.")
+            return
+
+        car_name = self.v2g_settings.get("input_text.car_name") or ""
+        car_ev_id = self.v2g_settings.get("car_ev_id") or ""
+
         ev = ElectricVehicle(self.hass, self.event_bus)
         ev.initialise_ev(
-            name="NissanLeaf",
-            ev_id="NissanLeaf",
+            name=car_name,
+            ev_id=car_ev_id,
             battery_capacity_kwh=battery_capacity_kwh,
             charging_efficiency_percent=charger_plus_car_roundtrip_efficiency,
             consumption_wh_per_km=ev_consumption_wh_per_km,

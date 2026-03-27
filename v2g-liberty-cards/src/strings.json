@@ -112,7 +112,9 @@
         "header": "Add Car"
       },
       "edit": {
-        "header": "Edit %{name}"
+        "header": "Edit %{name}",
+        "different-car-detected": "A different car is connected (ID: %{evId}). Currently only one car is supported.",
+        "replace-car-button": "Replace with connected car"
       },
       "loading": {
         "message": "Retrieving data from car..."
@@ -127,6 +129,8 @@
         "show-less": "Show less"
       },
       "errors": {
+        "header": "Car Settings",
+        "no-charger-configured": "Please configure your charger first before configuring car settings.",
         "charger-not-connected": "Charger must be connected to edit EVtec car settings. Please check charger connection status.",
         "retrieval-failed": "Failed to retrieve car data. Please ensure the car is connected to the charger.",
         "timeout": "Timeout while retrieving car data. Please try again."

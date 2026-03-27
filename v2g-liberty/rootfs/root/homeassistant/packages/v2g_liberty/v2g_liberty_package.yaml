@@ -88,6 +88,9 @@ input_boolean:
   calendar_settings_initialised:
     name: Car reservation calendar settings are initialised
 
+  car_settings_initialised:
+    name: Car settings are initialised
+
   charger_settings_initialised:
     name: Charger settings are initialised
 

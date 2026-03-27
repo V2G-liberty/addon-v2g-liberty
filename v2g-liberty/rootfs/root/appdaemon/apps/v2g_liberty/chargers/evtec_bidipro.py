@@ -870,9 +870,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 "From disconnected to connected: get connected car and try to get the SoC"
             )
             success = await self.try_set_connected_vehicle()
-            self._eb.emit_event("is_car_connected", is_car_connected=True)
             if success:
+                self._eb.emit_event("is_car_connected", is_car_connected=True)
                 await self._get_car_soc(force_renew=True)
+            else:
+                self._eb.emit_event("unknown_car_connected")
         else:
             # From one connected state to an other connected state: not a change that this method
             # needs to react upon.

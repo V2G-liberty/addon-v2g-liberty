@@ -103,10 +103,17 @@ class EventBus(AsyncIOEventEmitter):
             - `stop` (bool): If True stop the poll indicator, set text to "".
 
     - `is_car_connected`:
-        - **Description**: Monitors if a car is connected to the charger.
-        - **Emitted by** wallbox_quasar_1
+        - **Description**: Monitors if a known/registered car is connected to the charger.
+        - **Emitted by** wallbox_quasar_1, evtec_bidipro
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
+
+    - `unknown_car_connected`:
+        - **Description**: Emitted when a car connects but cannot be matched to a registered
+          vehicle. Only relevant for EVtec (which reads ev_id from Modbus). For Wallbox the
+          ev_id is hardcoded so this event will not occur in practice.
+        - **Emitted by** evtec_bidipro, wallbox_quasar_1 (preparation for multi-car)
+        - **Arguments**: None
 
     #### FlexMeasures related
 

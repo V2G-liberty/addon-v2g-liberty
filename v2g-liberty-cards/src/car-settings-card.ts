@@ -34,7 +34,7 @@ class CarSettingsCard extends LitElement {
   static styles = styles;
 
   render() {
-    const isInitialised = this._carName?.attributes.initialised;
+    const isInitialised = this._hass.states[entityIds.carSettingsInitialised]?.state === 'on';
 
     const header = isInitialised ? this._carName.state : tp('header');
 

@@ -772,10 +772,14 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._log(
                 "From disconnected to connected: get connected car and try to get the SoC"
             )
+            # Note: for Wallbox, ev_id is hardcoded so this will always succeed.
+            # The else branch is preparation for future multi-car support.
             success = self.try_set_connected_vehicle()
             if success:
+                self._eb.emit_event("is_car_connected", is_car_connected=True)
                 await self._get_car_soc(force_renew=True)
-            self._eb.emit_event("is_car_connected", is_car_connected=True)
+            else:
+                self._eb.emit_event("unknown_car_connected")
         else:
             # From one connected state to an other connected state: not a change that this method
             # needs to react upon.
@@ -788,7 +792,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         For ISO15118 capable chargers we would get the car info (name) from the charger here.
         For now only one car can be used with V2G Liberty, always a (the same) Nissan Leaf.
         """
-        ev_id = "NissanLeaf"
+        ev_id = "wallbox_quasar_1_car"
         ev = self.get_vehicle_by_ev_id(ev_id)
         if ev is None:
             self._log(

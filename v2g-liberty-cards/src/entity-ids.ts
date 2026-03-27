@@ -5,6 +5,8 @@ export const adminMobileName = 'input_text.admin_mobile_name';
 export const adminMobilePlatform = 'input_select.admin_mobile_platform';
 
 // Car
+export const carSettingsInitialised =
+  'input_boolean.car_settings_initialised';
 export const carName = 'input_text.car_name';
 export const usableCapacity = 'input_number.car_max_capacity_in_kwh';
 export const roundtripEfficiency =

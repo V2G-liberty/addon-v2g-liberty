@@ -179,6 +179,9 @@ class V2Gliberty:
             "charger_error_state_change", self.__handle_charger_error_state_change
         )
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
+        self.event_bus.add_event_listener(
+            "unknown_car_connected", self.__handle_unknown_car
+        )
 
         self.scheduling_timer_handles = []
 
@@ -652,6 +655,24 @@ class V2Gliberty:
             await self.__handle_car_connect()
         else:
             await self.__handle_car_disconnect()
+
+    async def __handle_unknown_car(self):
+        """Called when a car connects but cannot be matched to a registered vehicle.
+        Notifies the user and sets charge mode to Stop.
+        """
+        self.__log("Unknown car connected, notifying user and stopping.")
+        self.notifier.notify_user(
+            message=(
+                "An unregistered car was connected to the charger. "
+                "V2G Liberty has been paused. "
+                "Please register this car in the car settings."
+            ),
+            title="Unknown car connected",
+            tag="unknown_car_connected",
+            critical=True,
+            send_to_all=True,
+        )
+        await self.__set_charge_mode_in_ui("Stop")
 
     async def __handle_car_connect(self):
         """
