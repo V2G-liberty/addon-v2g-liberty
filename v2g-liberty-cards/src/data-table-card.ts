@@ -42,7 +42,6 @@ export class DataTableCard extends LitElement {
   @state() private _overflowMenuOpen = false;
 
   private _resizeObserver?: ResizeObserver;
-  private _syncHeightHandler?: () => void;
   private _docClickHandler?: (e: MouseEvent) => void;
 
   setConfig(_config: LovelaceCardConfig) {}
@@ -64,41 +63,27 @@ export class DataTableCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._resizeObserver?.disconnect();
-    if (this._syncHeightHandler) window.removeEventListener('resize', this._syncHeightHandler);
     if (this._docClickHandler) document.removeEventListener('click', this._docClickHandler);
   }
 
   protected firstUpdated() {
     const container = this.shadowRoot?.querySelector('.table-container') as HTMLElement;
-    if (container) {
-      container.addEventListener('scroll', () => {
-        container.classList.toggle('scrolled', container.scrollTop > 0);
-      });
-    }
 
-    // Set table-container max-height from its actual viewport position rather than
-    // guessing HA's chrome height via CSS calc(). Measured values are always correct
-    // regardless of HA version, theme, view type or number of navigation bars.
-    this._syncHeightHandler = () => {
+    // Toggle enhanced thead shadow when the table header is sticking.
+    // :host is the scroll container; thead sticks relative to it.
+    this.addEventListener('scroll', () => {
       if (!container) return;
-      const top = container.getBoundingClientRect().top;
-      if (top <= 0) return; // Not yet positioned in DOM
-      // 40px = bar midpoint (bottom:12 + half of ~56px bar height) so the card
-      // visually extends halfway behind the floating island.
-      const h = Math.max(200, Math.floor(window.innerHeight - top - 40));
-      container.style.maxHeight = `${h}px`;
-    };
+      const hostTop = this.getBoundingClientRect().top;
+      const containerTop = container.getBoundingClientRect().top;
+      container.classList.toggle('scrolled', containerTop <= hostTop);
+    });
 
     const syncNarrow = () => {
       this._narrowBar = this.offsetWidth <= 800;
     };
 
-    this._resizeObserver = new ResizeObserver(() => requestAnimationFrame(() => {
-      this._syncHeightHandler!();
-      syncNarrow();
-    }));
+    this._resizeObserver = new ResizeObserver(() => requestAnimationFrame(syncNarrow));
     this._resizeObserver.observe(this);
-    window.addEventListener('resize', this._syncHeightHandler);
     requestAnimationFrame(syncNarrow); // initial check after layout
 
     // Close dropdowns when clicking outside the shadow DOM
@@ -770,7 +755,7 @@ export class DataTableCard extends LitElement {
           </div>
           <div class="subcard-hero">
             ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
-            <span class="hero-unit">${cur}c/kWh</span>
+            <span class="hero-unit">${cur}\u00a2/kWh</span>
           </div>
           <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
@@ -788,7 +773,7 @@ export class DataTableCard extends LitElement {
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${tp('col.charge')}</span>
           </div>
           <div class="metric-grid">
@@ -801,7 +786,7 @@ export class DataTableCard extends LitElement {
 
         <div class="subcard subcard-discharge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${tp('col.discharge')}</span>
           </div>
           <div class="metric-grid">
@@ -850,7 +835,7 @@ export class DataTableCard extends LitElement {
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${tp('col.charge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -862,7 +847,7 @@ export class DataTableCard extends LitElement {
 
         <div class="subcard subcard-discharge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${tp('col.discharge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -904,7 +889,7 @@ export class DataTableCard extends LitElement {
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${tp('col.charge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -916,7 +901,7 @@ export class DataTableCard extends LitElement {
 
         <div class="subcard subcard-discharge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${tp('col.discharge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -1130,13 +1115,11 @@ export class DataTableCard extends LitElement {
       <div class="page-layout">
         ${this._renderTotals()}
 
-        <ha-card>
-          <div class="table-container">
-            ${this._error
-              ? html`<div class="center error">${this._error}</div>`
-              : this._renderTable()}
-          </div>
-        </ha-card>
+        <div class="table-container">
+          ${this._error
+            ? html`<div class="center error">${this._error}</div>`
+            : this._renderTable()}
+        </div>
       </div>
 
       <div class="floating-bar">

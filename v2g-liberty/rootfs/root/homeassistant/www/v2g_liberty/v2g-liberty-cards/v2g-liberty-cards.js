@@ -4054,7 +4054,7 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
     :host {
       display: block;
       max-height: calc(100vh - var(--header-height, 56px));
-      overflow: hidden;
+      overflow-y: auto;
       padding: 12px;
       box-sizing: border-box;
       container-type: inline-size;
@@ -4076,7 +4076,7 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       --di-teal-dark-2: #0E2424;
       --di-bg: #FFF8F5;
       --di-netto-bg: var(--di-teal-tint-20);
-      --di-netto-border: var(--di-teal-tint-20);
+      --di-netto-border: var(--di-teal-100);
     }
 
     /* ─- Page header ──────────────────────────────── */
@@ -4144,12 +4144,6 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-
-    .page-layout ha-card {
-      --ha-card-border-radius: 12px;
-      --ha-card-border-width: 1px;
-      --ha-card-border-color: var(--divider-color, #e0e0e0);
     }
 
     /* ── Sub-cards grid ──────────────────────────── */
@@ -4457,10 +4451,7 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
     /* ── Table ─────────────────────────────────────── */
 
     .table-container {
-      /* Pre-JS fallback only — firstUpdated() sets maxHeight via ResizeObserver
-         based on the container's actual viewport position. */
-      max-height: 400px;
-      overflow-y: auto;
+      /* No own scroll — :host is the scroll container */
     }
 
     table {
@@ -4477,12 +4468,16 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       position: sticky;
       top: 0;
       z-index: 3;
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+      /* Upward shadow covers any pixel gap above the header when sticky */
+      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
+                  0 1px 0 var(--divider-color, #e0e0e0);
       transition: box-shadow 0.2s ease;
     }
 
     .table-container.scrolled thead {
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0), 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
+                  0 1px 0 var(--divider-color, #e0e0e0),
+                  0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     thead th {
@@ -14204,35 +14199,23 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     disconnectedCallback() {
         super.disconnectedCallback();
         this._resizeObserver?.disconnect();
-        if (this._syncHeightHandler) window.removeEventListener('resize', this._syncHeightHandler);
         if (this._docClickHandler) document.removeEventListener('click', this._docClickHandler);
     }
     firstUpdated() {
         const container = this.shadowRoot?.querySelector('.table-container');
-        if (container) container.addEventListener('scroll', ()=>{
-            container.classList.toggle('scrolled', container.scrollTop > 0);
-        });
-        // Set table-container max-height from its actual viewport position rather than
-        // guessing HA's chrome height via CSS calc(). Measured values are always correct
-        // regardless of HA version, theme, view type or number of navigation bars.
-        this._syncHeightHandler = ()=>{
+        // Toggle enhanced thead shadow when the table header is sticking.
+        // :host is the scroll container; thead sticks relative to it.
+        this.addEventListener('scroll', ()=>{
             if (!container) return;
-            const top = container.getBoundingClientRect().top;
-            if (top <= 0) return; // Not yet positioned in DOM
-            // 40px = bar midpoint (bottom:12 + half of ~56px bar height) so the card
-            // visually extends halfway behind the floating island.
-            const h = Math.max(200, Math.floor(window.innerHeight - top - 40));
-            container.style.maxHeight = `${h}px`;
-        };
+            const hostTop = this.getBoundingClientRect().top;
+            const containerTop = container.getBoundingClientRect().top;
+            container.classList.toggle('scrolled', containerTop <= hostTop);
+        });
         const syncNarrow = ()=>{
             this._narrowBar = this.offsetWidth <= 800;
         };
-        this._resizeObserver = new ResizeObserver(()=>requestAnimationFrame(()=>{
-                this._syncHeightHandler();
-                syncNarrow();
-            }));
+        this._resizeObserver = new ResizeObserver(()=>requestAnimationFrame(syncNarrow));
         this._resizeObserver.observe(this);
-        window.addEventListener('resize', this._syncHeightHandler);
         requestAnimationFrame(syncNarrow); // initial check after layout
         // Close dropdowns when clicking outside the shadow DOM
         this._docClickHandler = (e)=>{
@@ -14815,7 +14798,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </div>
           <div class="subcard-hero">
             ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
-            <span class="hero-unit">${cur}c/kWh</span>
+            <span class="hero-unit">${cur}\u00a2/kWh</span>
           </div>
           <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
@@ -14829,7 +14812,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
           </div>
           <div class="metric-grid">
@@ -14842,7 +14825,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
         <div class="subcard subcard-discharge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
           </div>
           <div class="metric-grid">
@@ -14880,7 +14863,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -14892,7 +14875,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
         <div class="subcard subcard-discharge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -14929,7 +14912,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -14941,7 +14924,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 
         <div class="subcard subcard-discharge">
           <div class="subcard-header">
-            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
           </div>
           <div class="metric-grid cols-3">
@@ -15135,11 +15118,9 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
       <div class="page-layout">
         ${this._renderTotals()}
 
-        <ha-card>
-          <div class="table-container">
-            ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
-          </div>
-        </ha-card>
+        <div class="table-container">
+          ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
+        </div>
       </div>
 
       <div class="floating-bar">

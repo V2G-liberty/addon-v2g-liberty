@@ -4,7 +4,7 @@ export const dataTableStyles = css`
     :host {
       display: block;
       max-height: calc(100vh - var(--header-height, 56px));
-      overflow: hidden;
+      overflow-y: auto;
       padding: 12px;
       box-sizing: border-box;
       container-type: inline-size;
@@ -26,7 +26,7 @@ export const dataTableStyles = css`
       --di-teal-dark-2: #0E2424;
       --di-bg: #FFF8F5;
       --di-netto-bg: var(--di-teal-tint-20);
-      --di-netto-border: var(--di-teal-tint-20);
+      --di-netto-border: var(--di-teal-100);
     }
 
     /* ─- Page header ──────────────────────────────── */
@@ -94,12 +94,6 @@ export const dataTableStyles = css`
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-
-    .page-layout ha-card {
-      --ha-card-border-radius: 12px;
-      --ha-card-border-width: 1px;
-      --ha-card-border-color: var(--divider-color, #e0e0e0);
     }
 
     /* ── Sub-cards grid ──────────────────────────── */
@@ -407,10 +401,7 @@ export const dataTableStyles = css`
     /* ── Table ─────────────────────────────────────── */
 
     .table-container {
-      /* Pre-JS fallback only — firstUpdated() sets maxHeight via ResizeObserver
-         based on the container's actual viewport position. */
-      max-height: 400px;
-      overflow-y: auto;
+      /* No own scroll — :host is the scroll container */
     }
 
     table {
@@ -427,12 +418,16 @@ export const dataTableStyles = css`
       position: sticky;
       top: 0;
       z-index: 3;
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+      /* Upward shadow covers any pixel gap above the header when sticky */
+      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
+                  0 1px 0 var(--divider-color, #e0e0e0);
       transition: box-shadow 0.2s ease;
     }
 
     .table-container.scrolled thead {
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0), 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
+                  0 1px 0 var(--divider-color, #e0e0e0),
+                  0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     thead th {
