@@ -114,7 +114,9 @@
       "net-cost": "Net cost",
       "cost": "Cost",
       "revenue": "Revenue",
-      "emissions": "Emissions"
+      "emissions": "Emissions",
+      "avoided-emissions": "Avoided",
+      "duration": "Duration"
     },
     "totals": {
       "card-title": "Totals",

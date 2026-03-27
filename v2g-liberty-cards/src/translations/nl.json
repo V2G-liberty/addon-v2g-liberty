@@ -57,7 +57,9 @@
       "net-cost": "Netto kosten",
       "cost": "Kosten",
       "revenue": "Opbrengst",
-      "emissions": "Emissies"
+      "emissions": "Emissies",
+      "avoided-emissions": "Vermeden",
+      "duration": "Duur"
     },
     "totals": {
       "card-title": "Totalen",

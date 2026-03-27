@@ -50,6 +50,9 @@ export class DataTableCard extends LitElement {
   set hass(hass: HomeAssistant) {
     this._hass = hass;
     this._checkUninitialisedEntities();
+    // HA's runtime hass.themes has darkMode but the type doesn't include it
+    const isDark = (hass as any).themes?.darkMode ?? false;
+    this.classList.toggle('dark', isDark);
   }
 
   private _checkUninitialisedEntities() {
@@ -451,15 +454,15 @@ export class DataTableCard extends LitElement {
     }
   }
 
-  private _getPageTitle(): string {
+  private _getPageTitle(): TemplateResult {
     const base = tp('page-title');
-    if (!this._data?.length) return base;
+    if (!this._data?.length) return html`${base}`;
     const first = this._data[this._data.length - 1];
     const last = this._data[0];
     const from = this._fmtTitleDate(first.period_start);
     const to = this._fmtTitleDate(last.period_start);
-    if (from === to) return `${base}: ${from}`;
-    return `${base}: ${from} – ${to}`;
+    const range = from === to ? from : `${from} – ${to}`;
+    return html`${base}: <span class="date-range">${range}</span>`;
   }
 
   private _renderAppState(state: string | null | undefined): TemplateResult {
@@ -688,6 +691,40 @@ export class DataTableCard extends LitElement {
     return `${Math.round(minutes / 60)}`;
   }
 
+  private _renderMetric(
+    label: string | TemplateResult,
+    value: string,
+    unit: string,
+    profit = false,
+  ): TemplateResult {
+    return html`
+      <div class="metric">
+        <span class="metric-label">${label}</span>
+        <span class="metric-value ${profit ? 'profit' : ''}"
+          >${value} <span class="metric-unit">${unit}</span></span
+        >
+      </div>
+    `;
+  }
+
+  private _renderSavingsCard(): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    return html`
+      <div class="subcard subcard-savings">
+        <div class="subcard-header">
+          <span class="subcard-title">${tt('savings')}</span>
+          <ha-icon icon="mdi:piggy-bank-outline"></ha-icon>
+        </div>
+        <div class="subcard-hero">${cur} ${this._fmtNum(2.33, 2)}</div>
+        <div class="savings-sublabel">
+          ${tt('savings-label')}
+          ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
+        </div>
+      </div>
+    `;
+  }
+
   private _renderTotals(): TemplateResult {
     if (this._isLoading) {
       return html`<div class="center muted">
@@ -696,156 +733,197 @@ export class DataTableCard extends LitElement {
     }
     const t = this._computeTotals();
     if (!t) {
-      return html`<div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div>`;
+      return html`<div class="center muted">
+        <div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div>
+      </div>`;
     }
 
-    const tt = (key: string) => tp(`totals.${key}`);
-    const cur = this._currencySymbol();
-    const savingsVal = this._fmtNum(2.33, 2);
-    const savingsProfit = true;
-
-    // Each column is a 2-col grid: value (right-aligned) | unit (left-aligned).
-    // The header icon sits in the value column, the title in the unit column.
-    const val = (value: string, unit: string, profit = false) => html`
-      <span class="totals-val ${profit ? 'profit' : ''}">${value}</span>
-      <span class="totals-unit">${unit}</span>
-    `;
-
-    // Summary column (Totalen): single-column, left-aligned, value+unit together.
-    const sval = (value: string, unit: string, profit = false) => html`
-      <span class="totals-val ${profit ? 'profit' : ''}">${value} <span class="totals-unit">${unit}</span></span>
-    `;
-
-    const label = (content: TemplateResult | string) => html`
-      <span class="totals-label">${content}</span>
-    `;
+    const hasRepaired =
+      this._data?.some((r: any) => r.has_repaired) ?? false;
 
     if (t.kind === 'quarter_hours') {
-      const netWh = t.chargeWh - t.dischargeWh;
-      const netCost = t.chargeCost - t.dischargeRev;
-      return html`
-        <div class="totals-grid">
-          <div class="totals-col totals-col-summary">
-            <div class="totals-col-header">
-              <ha-icon class="totals-col-icon" icon="mdi:bullseye-arrow"></ha-icon>
-              <span class="totals-col-title">${tt('card-title')}</span>
-            </div>
-            ${sval(this._fmtCents(t.avgCons), `${cur}c/kWh`)}
-            ${label(tt('avg-cons-price'))}
-            ${sval(this._fmtCents(t.avgProd), `${cur}c/kWh`)}
-            ${label(tt('avg-prod-price'))}
-            ${label(html`${tt('savings-label')} ${this._renderInfoTip('savings', 'totals.savings-tooltip')}`)}
-            ${sval(savingsVal, cur, savingsProfit)}
-          </div>
-          <div class="totals-col">
-            <ha-icon class="totals-col-icon" icon="mdi:calculator-variant-outline"></ha-icon>
-            <span class="totals-col-title">${tp('col.net')}</span>
-            ${val(this._fmtWh(netWh), 'Wh')}
-            ${val(this._fmtNum(netCost, 2), cur, netCost < 0)}
-          </div>
-          <div class="totals-col">
-            <ha-icon class="totals-col-icon" icon="mdi:car-arrow-right"></ha-icon>
-            <span class="totals-col-title">${tp('col.charge')}</span>
-            ${val(this._fmtDurationVal(t.chargeDurationMin), 'uur')}
-            ${val(this._fmtWh(t.chargeWh), 'Wh')}
-            ${val(this._fmtNum(t.chargeCost, 2), cur)}
-          </div>
-          <div class="totals-col">
-            <ha-icon class="totals-col-icon" icon="mdi:car-arrow-left"></ha-icon>
-            <span class="totals-col-title">${tp('col.discharge')}</span>
-            ${val(this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
-            ${val(this._fmtWh(t.dischargeWh), 'Wh')}
-            ${val(this._fmtNum(t.dischargeRev, 2), cur, true)}
-          </div>
-        </div>
-      `;
+      return this._renderTotalsSubcards_QH(t, hasRepaired);
     }
-
     if (t.kind === 'hours') {
-      const netWh = t.chargeWh - t.dischargeWh;
-      const netCost = t.chargeCost - t.dischargeRev;
-      return html`
-        <div class="totals-grid">
-          <div class="totals-col totals-col-summary">
-            <div class="totals-col-header">
-              <ha-icon class="totals-col-icon" icon="mdi:bullseye-arrow"></ha-icon>
-              <span class="totals-col-title">${tt('card-title')}</span>
-            </div>
-            ${t.socMin != null
-              ? html`
-                  ${sval(`${this._fmtNum(t.socMin, 1)}% – ${this._fmtNum(t.socMax, 1)}`, '%')}
-                  ${label(tt('soc-range'))}
-                `
-              : nothing}
-            ${sval(this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
-            ${label(tt('avg-price'))}
-            ${label(html`${tt('savings-label')} ${this._renderInfoTip('savings', 'totals.savings-tooltip')}`)}
-            ${sval(savingsVal, cur, savingsProfit)}
-          </div>
-          <div class="totals-col">
-            <ha-icon class="totals-col-icon" icon="mdi:calculator-variant-outline"></ha-icon>
-            <span class="totals-col-title">${tp('col.net')}</span>
-            ${val(this._fmtWh(netWh), 'Wh')}
-            ${val(this._fmtNum(netCost, 2), cur, netCost < 0)}
-          </div>
-          <div class="totals-col">
-            <ha-icon class="totals-col-icon" icon="mdi:car-arrow-right"></ha-icon>
-            <span class="totals-col-title">${tp('col.charge')}</span>
-            ${val(this._fmtDurationVal(t.chargeDurationMin), 'uur')}
-            ${val(this._fmtWh(t.chargeWh), 'Wh')}
-            ${val(this._fmtNum(t.chargeCost, 2), cur)}
-          </div>
-          <div class="totals-col">
-            <ha-icon class="totals-col-icon" icon="mdi:car-arrow-left"></ha-icon>
-            <span class="totals-col-title">${tp('col.discharge')}</span>
-            ${val(this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
-            ${val(this._fmtWh(t.dischargeWh), 'Wh')}
-            ${val(this._fmtNum(t.dischargeRev, 2), cur, true)}
-          </div>
-        </div>
-      `;
+      return this._renderTotalsSubcards_Hours(t, hasRepaired);
     }
+    return this._renderTotalsSubcards_Days(t, hasRepaired);
+  }
 
-    // days / weeks / months / years
+  private _renderTotalsSubcards_Days(
+    t: any,
+    hasRepaired: boolean,
+  ): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
     const kwhDec = 0;
-    const kgDec  = 0;
+    const kgDec = 0;
     const curDec = this._granularity === 'years' ? 0 : 2;
-    const netPriceProfit = t.netKwh !== 0 && t.netCost / t.netKwh < 0;
+
     return html`
-      <div class="totals-grid">
-        <div class="totals-col totals-col-summary">
-          <div class="totals-col-header">
-            <ha-icon class="totals-col-icon" icon="mdi:bullseye-arrow"></ha-icon>
-            <span class="totals-col-title">${tt('card-title')}</span>
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${tp('col.net')}</span>
           </div>
-          ${label(html`${tt('savings-label')} ${this._renderInfoTip('savings', 'totals.savings-tooltip')}`)}
-          ${sval(savingsVal, cur, savingsProfit)}
-          ${label(html`${tt('availability')} ${this._renderInfoTip('avail-totals', 'col.availability-tooltip')}`)}
-          ${sval(this._fmtNum(t.avgAvail, 0), '%')}
+          <div class="subcard-hero">
+            ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
+            <span class="hero-unit">${cur}c/kWh</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.netCost, curDec), cur, t.netCost < 0)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.co2Kg, kgDec), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric(
+              html`${tt('availability')} ${this._renderInfoTip('avail-totals', 'col.availability-tooltip')}`,
+              this._fmtNum(t.avgAvail, 0),
+              '%',
+            )}
+          </div>
         </div>
-        <div class="totals-col">
-          <ha-icon class="totals-col-icon" icon="mdi:calculator-variant-outline"></ha-icon>
-          <span class="totals-col-title">${tp('col.net')}</span>
-          ${val(this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null), `${cur}c/kWh`, netPriceProfit)}
-          ${val(this._fmtNum(t.netKwh, kwhDec), 'kWh')}
-          ${val(this._fmtNum(t.netCost, curDec), cur, t.netCost < 0)}
-          ${val(this._fmtNum(t.co2Kg, kgDec), 'kg CO₂', t.co2Kg < 0)}
+
+        ${this._renderSavingsCard()}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtNum(t.chargeKwh, kwhDec), 'kWh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, curDec), cur)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, kgDec), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
         </div>
-        <div class="totals-col">
-          <ha-icon class="totals-col-icon" icon="mdi:car-arrow-right"></ha-icon>
-          <span class="totals-col-title">${tp('col.charge')}</span>
-          ${val(this._fmtDurationVal(t.chargeDurationMin), 'uur')}
-          ${val(this._fmtNum(t.chargeKwh, kwhDec), 'kWh')}
-          ${val(this._fmtNum(t.chargeCost, curDec), cur)}
-          ${val(this._fmtNum(t.chargeCo2Kg, kgDec), 'kg CO₂')}
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtNum(t.dischargeKwh, kwhDec), 'kWh')}
+            ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, curDec), cur, true)}
+            ${this._renderMetric(tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, kgDec), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
         </div>
-        <div class="totals-col">
-          <ha-icon class="totals-col-icon" icon="mdi:car-arrow-left"></ha-icon>
-          <span class="totals-col-title">${tp('col.discharge')}</span>
-          ${val(this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
-          ${val(this._fmtNum(t.dischargeKwh, kwhDec), 'kWh')}
-          ${val(this._fmtNum(t.dischargeRev, curDec), cur, true)}
-          ${val(this._fmtNum(t.dischargeCo2Kg, kgDec), 'kg CO₂')}
+      </div>
+    `;
+  }
+
+  private _renderTotalsSubcards_Hours(
+    t: any,
+    hasRepaired: boolean,
+  ): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    const netWh = t.chargeWh - t.dischargeWh;
+    const netCost = t.chargeCost - t.dischargeRev;
+
+    return html`
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${tp('col.net')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${t.socMin != null
+              ? this._renderMetric(
+                  tt('soc-range'),
+                  `${this._fmtNum(t.socMin, 1)}–${this._fmtNum(t.socMax, 1)}`,
+                  '%',
+                )
+              : this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
+            ${this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard()}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid cols-3">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid cols-3">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderTotalsSubcards_QH(
+    t: any,
+    hasRepaired: boolean,
+  ): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    const netWh = t.chargeWh - t.dischargeWh;
+    const netCost = t.chargeCost - t.dischargeRev;
+
+    return html`
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${tp('col.net')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric(tt('avg-cons-price'), this._fmtCents(t.avgCons), `${cur}c/kWh`)}
+            ${this._renderMetric(tt('avg-prod-price'), this._fmtCents(t.avgProd), `${cur}c/kWh`)}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard()}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid cols-3">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid cols-3">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
         </div>
       </div>
     `;
@@ -1050,12 +1128,7 @@ export class DataTableCard extends LitElement {
         </div>
       </div>
       <div class="page-layout">
-        <ha-card>
-          <div class="totals-card-content">
-            ${this._renderEstimatedNote(this._data?.some((r: any) => r.has_repaired) ?? false)}
-            ${this._renderTotals()}
-          </div>
-        </ha-card>
+        ${this._renderTotals()}
 
         <ha-card>
           <div class="table-container">

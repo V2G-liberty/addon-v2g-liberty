@@ -9,6 +9,24 @@ export const dataTableStyles = css`
       box-sizing: border-box;
       container-type: inline-size;
       --v2g-profit-colour: #66A802;
+
+      /* Data-inzicht colour palette */
+      --di-green-100: #70B603;
+      --di-green-92: #66A802;
+      --di-green-84: #5E9903;
+      --di-green-tint-80: #8DC556;
+      --di-slate-100: #002E4E;
+      --di-slate-80: #345470;
+      --di-slate-60: #637C92;
+      --di-slate-40: #95A6B5;
+      --di-slate-20: #C9D2DA;
+      --di-teal-100: #60B9B6;
+      --di-teal-tint-20: #E8F5F4;
+      --di-teal-dark-1: #346A68;
+      --di-teal-dark-2: #0E2424;
+      --di-bg: #FFF8F5;
+      --di-netto-bg: var(--di-teal-tint-20);
+      --di-netto-border: var(--di-teal-tint-20);
     }
 
     /* ─- Page header ──────────────────────────────── */
@@ -26,6 +44,11 @@ export const dataTableStyles = css`
       font-weight: 500;
       line-height: 1.2;
       color: var(--ha-card-header-color, var(--primary-text-color));
+    }
+
+    .page-title .date-range {
+      display: block;
+      color: var(--di-teal-100);
     }
 
     /* ─- Overflow menu ─────────────────────────────── */
@@ -79,107 +102,164 @@ export const dataTableStyles = css`
       --ha-card-border-color: var(--divider-color, #e0e0e0);
     }
 
-    .totals-card-content {
-      position: relative;
-      padding: 0 24px 16px;
+    /* ── Sub-cards grid ──────────────────────────── */
+
+    .totals-subcards-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 12px;
     }
 
-    .totals-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0 24px;
-      padding: 40px 24px 16px;
-    }
+    .subcard-netto     { grid-column: 1 / 8; }
+    .subcard-savings   { grid-column: 8 / 11; }
+    .subcard-charge    { grid-column: 1 / 6; }
+    .subcard-discharge { grid-column: 6 / 11; }
 
     @container (max-width: 700px) {
-      .totals-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @container (max-width: 400px) {
-      .totals-grid {
+      .totals-subcards-grid {
         grid-template-columns: 1fr;
       }
+      .subcard-netto, .subcard-savings,
+      .subcard-charge, .subcard-discharge {
+        grid-column: 1 / -1;
+      }
     }
 
-    .totals-col {
-      display: grid;
-      grid-template-columns: auto auto;
-      column-gap: 6px;
-      row-gap: 2px;
-      align-items: baseline;
+    /* ── Base sub-card ───────────────────────────── */
+
+    .subcard {
+      border-radius: 12px;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      padding: 20px 24px;
+      background: var(--card-background-color, #fff);
       position: relative;
     }
 
-    /* Vertical separator between columns */
-    .totals-col + .totals-col::before {
-      content: '';
-      position: absolute;
-      left: -12px;
-      top: 10%;
-      bottom: 10%;
-      width: 1px;
-      background: var(--divider-color, #e0e0e0);
+    /* ── NETTO card — teal tinted background ─────── */
+
+    .subcard-netto {
+      background: var(--di-netto-bg);
+      border-color: var(--di-netto-border);
     }
 
-    /* Totalen column: single-column, left-aligned */
-    .totals-col-summary {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+    /* ── Sub-card header ─────────────────────────── */
 
-    .totals-col-summary .totals-col-header {
+    .subcard-header {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
 
-    .totals-col-summary .totals-col-header .totals-col-title {
-      margin-bottom: 0;
+    .subcard-header ha-icon {
+      --mdc-icon-size: 24px;
+      color: var(--di-slate-60);
     }
 
-    .totals-col-summary .totals-val {
-      text-align: left;
+    .subcard-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--di-slate-60);
     }
 
-    .totals-col-icon {
-      --mdc-icon-size: 32px;
-      color: var(--primary-color);
-      justify-self: end;
-      align-self: center;
-      margin-bottom: 12px;
-    }
+    /* ── Hero value (Netto card — days+ only) ────── */
 
-    .totals-col-title {
-      font-size: 20px;
-      font-weight: 500;
+    .subcard-hero {
+      font-size: 32px;
+      font-weight: 600;
       color: var(--primary-text-color);
-      align-self: center;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
 
-    .totals-label {
-      grid-column: 1 / -1;
-      font-size: 13px;
-      color: var(--secondary-text-color);
-      margin-top: 4px;
-    }
-
-    .totals-val {
-      font-size: 24px;
-      font-weight: 500;
-      color: var(--primary-text-color);
-      text-align: right;
-      justify-self: end;
-    }
-
-    .totals-unit {
-      font-size: 16px;
+    .subcard-hero .hero-unit {
+      font-size: 18px;
       font-weight: 400;
       color: var(--secondary-text-color);
+    }
+
+    /* ── Metric grid (4 columns, single row) ─────── */
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px 16px;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--di-slate-40);
+      white-space: nowrap;
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      white-space: nowrap;
+    }
+
+    .metric-value .metric-unit {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+
+    .metric-grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* ── Savings card — green gradient ───────────── */
+
+    .subcard-savings {
+      background: linear-gradient(160deg, var(--di-green-tint-80) 0%, var(--di-green-84) 100%);
+      border-color: var(--di-green-92);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .subcard-savings .subcard-header {
+      justify-content: space-between;
+    }
+
+    .subcard-savings .subcard-header ha-icon {
+      --mdc-icon-size: 28px;
+      color: rgba(0, 0, 0, 0.3);
+    }
+
+    .subcard-savings .subcard-title {
+      color: var(--di-slate-100);
+      font-size: 18px;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .subcard-savings .subcard-hero {
+      color: var(--di-bg);
+      font-size: 42px;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .subcard-savings .savings-sublabel {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.85);
     }
 
     /* ── Floating bar ─────────────────────────────── */
@@ -610,18 +690,18 @@ export const dataTableStyles = css`
     .price-track[data-level='high']      { --marker-left: 72%; --marker-color: #6a1b9a; }
     .price-track[data-level='very-high'] { --marker-left: 92%; --marker-color: #4a0072; }
 
-    @media (prefers-color-scheme: dark) {
-      .price-track[data-level='very-low']  { --marker-color: #37474f; }
-      .price-track[data-level='low']       { --marker-color: #5c6bc0; }
-      .price-track[data-level='average']   { --marker-color: #9575cd; }
-      .price-track[data-level='high']      { --marker-color: #ba68c8; }
-      .price-track[data-level='very-high'] { --marker-color: #e040fb; }
-
-      :host {
-        --v2g-profit-colour: #8DC556;
-      }
-
+    /* Dark mode: detected via hass.themes.darkMode → .dark class on host */
+    :host(.dark) {
+      --v2g-profit-colour: #8DC556;
+      --di-netto-bg: var(--di-teal-dark-2);
+      --di-netto-border: var(--di-teal-dark-1);
     }
+
+    :host(.dark) .price-track[data-level='very-low']  { --marker-color: #37474f; }
+    :host(.dark) .price-track[data-level='low']       { --marker-color: #5c6bc0; }
+    :host(.dark) .price-track[data-level='average']   { --marker-color: #9575cd; }
+    :host(.dark) .price-track[data-level='high']      { --marker-color: #ba68c8; }
+    :host(.dark) .price-track[data-level='very-high'] { --marker-color: #e040fb; }
 
     /* ── Totals card ───────────────────────────────── */
 
@@ -646,6 +726,8 @@ export const dataTableStyles = css`
       left: 50%;
       transform: translateX(-50%);
       text-align: left;
+      text-transform: none;
+      letter-spacing: normal;
       background: var(--primary-text-color);
       color: var(--card-background-color);
       padding: 6px 10px;
