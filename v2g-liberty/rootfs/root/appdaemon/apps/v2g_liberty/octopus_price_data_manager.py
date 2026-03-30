@@ -4,7 +4,7 @@ carbon intensity data from /api.carbonintensity.org.uk/."""
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
-import pytz
+from zoneinfo import ZoneInfo
 import json
 import isodate
 import aiohttp
@@ -55,7 +55,7 @@ class ManageOctopusPriceData:
     emission_region_slug: str = ""
 
     # This module is specific to Octopus UK, all times will be UK times
-    UK_TZ = pytz.timezone("Europe/London")
+    UK_TZ = ZoneInfo("Europe/London")
 
     # Octopus publishes price data around 16:00, add a little slack.
     FIRST_TRY_TIME_GET_DATA: str = "16:15:14"

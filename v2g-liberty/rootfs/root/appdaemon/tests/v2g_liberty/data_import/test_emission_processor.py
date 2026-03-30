@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timedelta
-import pytz
+from datetime import timezone
 from apps.v2g_liberty.data_import.processors.emission_processor import (
     EmissionProcessor,
 )
@@ -34,8 +34,8 @@ class TestProcessEmissions:
     def test_process_emissions_full_data(self, emission_processor):
         """Test emission processing with complete data (no Nones)."""
         raw_emissions = [100.0, 150.0, 200.0, 250.0]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=timezone.utc)
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now
@@ -63,8 +63,8 @@ class TestProcessEmissions:
     def test_process_emissions_with_nones(self, emission_processor):
         """Test emission processing filters out None values correctly."""
         raw_emissions = [100.0, None, 200.0, None, None, 300.0]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=timezone.utc)
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now
@@ -90,8 +90,8 @@ class TestProcessEmissions:
     def test_process_emissions_filters_old_data(self, emission_processor):
         """Test that old data (>5 hours) is cached but not added to chart."""
         raw_emissions = [100.0, 150.0, 200.0, 250.0]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 6, 0, 0, tzinfo=pytz.UTC)  # 6 hours after start
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 6, 0, 0, tzinfo=timezone.utc)  # 6 hours after start
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now, history_hours=5
@@ -116,8 +116,8 @@ class TestProcessEmissions:
             150.0,
             200.0,
         ]  # Repeated values
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=timezone.utc)
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now
@@ -135,8 +135,8 @@ class TestProcessEmissions:
     def test_process_emissions_empty_list(self, emission_processor):
         """Test processing an empty emission list."""
         raw_emissions = []
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now
@@ -149,8 +149,8 @@ class TestProcessEmissions:
     def test_process_emissions_all_none(self, emission_processor):
         """Test processing a list with only None values."""
         raw_emissions = [None, None, None]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now
@@ -163,8 +163,8 @@ class TestProcessEmissions:
     def test_process_emissions_custom_history_window(self, emission_processor):
         """Test emission processing with custom history window."""
         raw_emissions = [100.0, 150.0, 200.0, 250.0]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 3, 0, 0, tzinfo=pytz.UTC)  # 3 hours after start
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 3, 0, 0, tzinfo=timezone.utc)  # 3 hours after start
 
         # With 2-hour history window, all data should be excluded from chart
         cache, chart_points, latest_dt = emission_processor.process_emissions(
@@ -185,8 +185,8 @@ class TestProcessEmissions:
     def test_process_emissions_scaling(self, emission_processor):
         """Test that emission values are correctly scaled for display."""
         raw_emissions = [105.5, 154.9, 155.0, 155.1]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 30, 0, tzinfo=timezone.utc)
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now
@@ -205,8 +205,10 @@ class TestProcessEmissions:
     def test_process_emissions_partial_history_window(self, emission_processor):
         """Test that only recent emissions appear in chart."""
         raw_emissions = [100.0, 150.0, 200.0, 250.0]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 20, 0, tzinfo=pytz.UTC)  # 20 minutes after start
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(
+            2026, 1, 28, 0, 20, 0, tzinfo=timezone.utc
+        )  # 20 minutes after start
 
         cache, chart_points, latest_dt = emission_processor.process_emissions(
             raw_emissions, start, now, history_hours=5
