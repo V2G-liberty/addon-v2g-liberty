@@ -521,7 +521,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return None
         result = self._MBR_MAX_CHARGE_POWER.coerce_value(result[0])
         await self._emit_modbus_communication_state(can_communicate=True)
-        return result
+        return int(result) if result is not None else None
 
     @property
     def max_charge_power_w(self) -> int | None:
@@ -536,7 +536,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         Used for reducing the hardware limit."""
         hardware_power_limit = await self.get_hardware_power_limit()
 
-        if not isinstance(hardware_power_limit, int):
+        if not isinstance(hardware_power_limit, (int, float)):
             self._log(
                 "Cannot set max charge power, hardware limit unavailable",
                 level="WARNING",
@@ -571,7 +571,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         Used for reducing the hardware limit."""
         hardware_power_limit = await self.get_hardware_power_limit()
 
-        if not isinstance(hardware_power_limit, int):
+        if not isinstance(hardware_power_limit, (int, float)):
             self._log(
                 "Cannot set max discharge power, hardware limit unavailable",
                 level="WARNING",
@@ -767,7 +767,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             success = await self.try_set_connected_vehicle()
             if success:
                 self._eb.emit_event("is_car_connected", is_car_connected=True)
-                await self._get_car_soc(force_renew=True)
+                soc = await self._get_car_soc(force_renew=True)
+                # Force-set SoC on the car: the MCE value may not have changed
+                # (same SoC as before matching), so _handle_soc_change won't fire.
+                if soc is not None:
+                    self._connected_car.set_soc(new_soc=soc)
 
         self._eb.emit_event("evse_polled", stop=False)
 
@@ -881,6 +885,13 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             if success:
                 self._eb.emit_event("is_car_connected", is_car_connected=True)
                 await self._get_car_soc(force_renew=True)
+            elif old_evse_state is None:
+                # First poll at startup: vehicle might not be registered yet.
+                # The polling loop will retry matching, so don't raise the alarm.
+                self._log(
+                    "Vehicle not found at startup, polling will retry.",
+                    level="WARNING",
+                )
             else:
                 self._eb.emit_event("unknown_car_connected")
         else:
@@ -1086,6 +1097,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 charge_power = 0
 
         # Clip values to min/max charging current
+        if self._max_charge_power_w is None or self._max_discharge_power_w is None:
+            self._log(
+                "Max charge/discharge power not yet known, cannot set power.",
+                level="WARNING",
+            )
+            return
         if charge_power > self._max_charge_power_w:
             self._log(
                 f"Requested charge power {charge_power} W too high, reducing.",
