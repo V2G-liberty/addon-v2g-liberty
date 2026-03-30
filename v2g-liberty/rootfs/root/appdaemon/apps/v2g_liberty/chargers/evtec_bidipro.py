@@ -93,7 +93,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         maximum_value=12,
         current_value=None,
         pre_processor="_get_base_state",
-        change_handler="__handle_evse_state_change",
+        change_handler="_handle_evse_state_change",
     )
 
     # V2.0 ECP4 Connector States → BASE_EVSE_STATE
