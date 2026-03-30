@@ -8,3 +8,6 @@ mkdir -p .devcontainer/config/{packages,www}
 cp -avR v2g-liberty/rootfs/root/homeassistant/packages/* .devcontainer/config/packages/
 cp -avR v2g-liberty/rootfs/root/homeassistant/www/* .devcontainer/config/www/
 cp -av  v2g-liberty/rootfs/root/homeassistant/v2g_liberty_example_configuration.yaml .devcontainer/config/configuration.yaml
+
+# Clean up macOS metadata files
+find .devcontainer/config -name '.DS_Store' -delete
