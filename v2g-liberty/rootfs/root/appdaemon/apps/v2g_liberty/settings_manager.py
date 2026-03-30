@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 
 
 class SettingsManager:
@@ -87,9 +88,27 @@ class SettingsManager:
         self.__write_to_file()
 
     def __write_to_file(self):
-        # self.__log(f"__write_to_file, settings: '{self.settings}'.")
-        with open(self.settings_file_path, "w", encoding="utf-8") as write_file:
-            json.dump(self.settings, write_file, indent=2)
+        """Write settings to file atomically.
+
+        Writes to a temporary file first, then renames it to the target path.
+        This prevents data loss if the process is interrupted mid-write.
+        """
+        target_dir = os.path.dirname(self.settings_file_path)
+        try:
+            fd, tmp_path = tempfile.mkstemp(
+                dir=target_dir, suffix=".tmp", prefix=".settings_"
+            )
+            with os.fdopen(fd, "w", encoding="utf-8") as tmp_file:
+                json.dump(self.settings, tmp_file, indent=2)
+                tmp_file.flush()
+                os.fsync(tmp_file.fileno())
+            os.replace(tmp_path, self.settings_file_path)
+        except Exception as e:
+            self.__log(f"Failed to write settings file: {e}", level="ERROR")
+            # Clean up temp file if rename failed
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            raise
 
     def reset(self):
         self.settings = {}
