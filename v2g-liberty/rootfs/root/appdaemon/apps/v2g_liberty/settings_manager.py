@@ -93,6 +93,20 @@ class SettingsManager:
         Writes to a temporary file first, then renames it to the target path.
         This prevents data loss if the process is interrupted mid-write.
         """
+        import traceback
+
+        data = json.dumps(self.settings, indent=2)
+        if len(data) < 100:
+            self.__log(
+                f"WARNING: about to write suspiciously small settings ({len(data)} bytes): "
+                f"{data[:200]}",
+                level="WARNING",
+            )
+            self.__log(
+                f"Call stack: {''.join(traceback.format_stack())}",
+                level="WARNING",
+            )
+
         target_dir = os.path.dirname(self.settings_file_path)
         try:
             fd, tmp_path = tempfile.mkstemp(
