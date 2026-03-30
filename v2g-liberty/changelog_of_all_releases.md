@@ -7,6 +7,8 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲  BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
+
 ### Added
 
 - 🚀 FEAT: Extend insights (#420, #423)
