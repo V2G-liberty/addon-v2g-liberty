@@ -315,6 +315,9 @@ class ReservationsClient(AsyncIOEventEmitter):
         would not be necessary.
         """
         self.__log("Called")
+        if self._ev is None:
+            self.__log("No vehicle configured yet, skipping calendar poll.")
+            return
 
         now = get_local_now()
         start = now.isoformat()
@@ -361,6 +364,9 @@ class ReservationsClient(AsyncIOEventEmitter):
         await self.__process_v2g_events(tmp_v2g_events)
 
     async def __poll_dav_calendar(self, kwargs=None):
+        if self._ev is None:
+            self.__log("No vehicle configured yet, skipping calendar poll.")
+            return
         # Get the items in from now to the next week from the calendar
         start = get_local_now()
         end = start + dt.timedelta(days=7)
