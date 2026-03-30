@@ -7,6 +7,7 @@ import {
   renderButton,
   renderDialogHeader,
   renderInputNumber,
+  isNewHaDialogAPI,
 } from './util/render';
 import { partial } from './util/translate';
 import { defaultState, DialogBase } from './dialog-base';
@@ -70,7 +71,8 @@ class EditCarSettingsDialog extends DialogBase {
 
     // Determine starting page based on charger type and mode
     if (this._chargerType === 'evtec-bidi-pro-10' && !this._isEdit) {
-      this._currentPage = '1-connect-car';  // New EVtec car: start with connect prompt
+      // New EVtec car: immediately attempt to retrieve data from connected car
+      this._currentPage = 'loading';
     } else {
       this._currentPage = '2-manual-entry';  // Edit mode or Wallbox: go to form
     }
@@ -89,18 +91,25 @@ class EditCarSettingsDialog extends DialogBase {
     }
 
     await this.updateComplete;
+
+    // New EVtec car: start auto-retrieval after dialog is rendered
+    if (this._chargerType === 'evtec-bidi-pro-10' && !this._isEdit) {
+      this._retrieveCarData();
+    }
   }
 
   protected render() {
     if (!this.isOpen) return nothing;
 
     const header = this._getDialogHeader();
+    const _isNew = isNewHaDialogAPI(this.hass);
 
     return html`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${renderDialogHeader(this.hass, header)}
+        .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
       >
         ${this._currentPage === 'error'
           ? html`
@@ -124,7 +133,7 @@ class EditCarSettingsDialog extends DialogBase {
   private _getDialogHeader(): string {
     if (this._currentPage === 'error') {
       return tp('errors.header');
-    } else if (this._currentPage === '1-connect-car') {
+    } else if (this._currentPage === '1-connect-car' || this._currentPage === 'loading') {
       return tp('1-connect-car.header');
     } else if (this._isEdit) {
       return tp('edit.header', { name: this._carName });
@@ -139,25 +148,16 @@ class EditCarSettingsDialog extends DialogBase {
 
   private _renderConnectCarPrompt() {
     return html`
+      <ha-alert alert-type="warning">${tp('1-connect-car.no-car-connected')}</ha-alert>
+      <br/>
       <ha-markdown breaks .content=${tp('1-connect-car.description')}></ha-markdown>
       <br/>
-      ${this._retrievalStatus === RetrievalStatus.Failed
-        ? html`<ha-alert alert-type="error">${this._errorMessage}</ha-alert>`
-        : nothing}
-      <div class="actions">
-        ${renderButton(
-          this.hass,
-          () => this._retrieveCarData(),
-          true,
-          tp('1-connect-car.retrieve-button')
-        )}
-        ${renderButton(
-          this.hass,
-          () => { this._currentPage = '2-manual-entry'; },
-          false,
-          tp('1-connect-car.manual-entry-button')
-        )}
-      </div>
+      ${renderButton(
+        this.hass,
+        () => this._retrieveCarData(),
+        true,
+        tp('1-connect-car.try-again-button')
+      )}
     `;
   }
 
@@ -217,7 +217,7 @@ class EditCarSettingsDialog extends DialogBase {
       ${renderInputNumber(
         this._usableCapacity,
         usableCapacityState,
-        (value) => { this._usableCapacity = value; }
+        evt => { this._usableCapacity = evt.target.value; }
       )}
       ${this._renderExpandableHelp(
         'usableCapacity',
@@ -228,7 +228,7 @@ class EditCarSettingsDialog extends DialogBase {
       ${renderInputNumber(
         this._roundtripEfficiency,
         roundtripEfficiencyState,
-        (value) => { this._roundtripEfficiency = value; }
+        evt => { this._roundtripEfficiency = evt.target.value; }
       )}
       ${this._renderExpandableHelp(
         'roundtripEfficiency',
@@ -239,7 +239,7 @@ class EditCarSettingsDialog extends DialogBase {
       ${renderInputNumber(
         this._carEnergyConsumption,
         carEnergyConsumptionState,
-        (value) => { this._carEnergyConsumption = value; }
+        evt => { this._carEnergyConsumption = evt.target.value; }
       )}
       ${this._renderExpandableHelp(
         'carEnergyConsumption',
@@ -354,13 +354,11 @@ class EditCarSettingsDialog extends DialogBase {
       return;
     }
 
-    // Generate fallback ev_id if not set by auto-retrieval
-    if (!this._evId) {
-      if (this._chargerType === 'wallbox-quasar-1') {
-        this._evId = 'wallbox_quasar_1_car';
-      } else {
-        this._evId = this._carName.replace(/\s/g, '_');
-      }
+    // Generate fallback ev_id for Wallbox only (no auto-retrieval available).
+    // For BiDiPro, ev_id always comes from the car; send empty to let
+    // the backend preserve the existing value in edit mode.
+    if (!this._evId && this._chargerType === 'wallbox-quasar-1') {
+      this._evId = 'wallbox_quasar_1_car';
     }
 
     try {

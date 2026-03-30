@@ -100,9 +100,9 @@
     "car-dialog": {
       "1-connect-car": {
         "header": "Connect Your Car",
-        "description": "Please connect your electric vehicle to the charger. Once connected, click 'Retrieve Data' to automatically fetch battery specifications from the car.",
-        "retrieve-button": "Retrieve Data from Car",
-        "manual-entry-button": "Enter Manually Instead"
+        "no-car-connected": "No car connected.",
+        "description": "Please connect your electric vehicle to the charger and try again.",
+        "try-again-button": "Try Again"
       },
       "2-manual-entry": {
         "header": "Car Configuration",
