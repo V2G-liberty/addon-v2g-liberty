@@ -790,7 +790,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # Process each entity with its corresponding result
         for i, entity in enumerate(entities):
             raw_value = results[i]  # Already decoded by MBR.decode()
-            self._update_mce(entity, raw_value)
+            await self._update_mce(entity, raw_value)
 
     async def _update_mce(self, mce: ModbusConfigEntity, new_value):
         old_value = mce.current_value
