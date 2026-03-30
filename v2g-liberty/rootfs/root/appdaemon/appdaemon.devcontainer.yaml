@@ -10,7 +10,10 @@ appdaemon:
   # If you would like your log timestamps to be in local time set it to the right timezone here.
   time_zone: Europe/Amsterdam
 
-  production_mode: False
+  # Prevent AppDaemon from auto-reloading apps when Python files change.
+  # This avoids partial reinitialisation (and settings file corruption)
+  # when editing code while the app is running. Restart manually to test.
+  production_mode: True
   plugins:
     HASS:
       type: hass
