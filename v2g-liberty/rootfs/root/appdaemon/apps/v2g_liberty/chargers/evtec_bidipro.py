@@ -760,7 +760,15 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
         await self._get_and_process_registers(self._POLLING_ENTITIES)
-        # await self._get_and_process_registers([self.ENTITY_CHARGER_LOCKED])
+
+        # If a car is physically connected but not yet matched to a vehicle
+        # (e.g. vehicle registered after charger connected), retry matching.
+        if self._connected_car is None and await self.is_car_connected():
+            success = await self.try_set_connected_vehicle()
+            if success:
+                self._eb.emit_event("is_car_connected", is_car_connected=True)
+                await self._get_car_soc(force_renew=True)
+
         self._eb.emit_event("evse_polled", stop=False)
 
     async def _get_and_process_registers(self, entities: list[ModbusConfigEntity]):
