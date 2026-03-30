@@ -326,6 +326,7 @@ class V2GLibertyGlobals:
         self.notifier = notifier
         self.__log = get_class_method_logger(hass.log)
         self.v2g_settings = SettingsManager(log=self.__log)
+        self.evse = None
 
     async def initialize(self):
         self.__log("Initializing V2GLibertyGlobals")
@@ -714,6 +715,9 @@ class V2GLibertyGlobals:
 
         self.__log(f"Saved car settings: name={car_name}, ev_id={ev_id}")
         self.hass.fire_event("save_car_settings.result", success=True)
+
+        await self.__initialise_general_settings()
+        await self.v2g_main_app.kick_off_v2g_liberty()
 
     ######################################################################
     #                            HA METHODS                              #
