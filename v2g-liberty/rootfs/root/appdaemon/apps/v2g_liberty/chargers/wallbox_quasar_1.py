@@ -765,9 +765,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             # explicitly send a stop-charging command:
             await self._set_charger_action("stop", reason="car disconnected")
             self._eb.emit_event("is_car_connected", is_car_connected=False)
-        elif old_evse_state in self._DISCONNECTED_STATES:
-            # new_charger_state must be a connected state, so if the old state was disconnected
-            # there was a change in connected state.
+        elif old_evse_state in self._DISCONNECTED_STATES or old_evse_state is None:
+            # Transition from disconnected to connected, or first poll after startup
+            # with a car already connected.
 
             self._log(
                 "From disconnected to connected: get connected car and try to get the SoC"
@@ -781,7 +781,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             else:
                 self._eb.emit_event("unknown_car_connected")
         else:
-            # From one connected state to an other connected state: not a change that this method
+            # From one connected state to another connected state: not a change that this method
             # needs to react upon.
             pass
 
