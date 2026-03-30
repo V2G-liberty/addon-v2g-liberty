@@ -7,19 +7,20 @@ timezone-aware datetimes and preserve timezone information across operations.
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
-import pytz
+from datetime import timezone
+from zoneinfo import ZoneInfo
 from apps.v2g_liberty.data_import.utils.datetime_utils import DatetimeUtils
 from apps.v2g_liberty.data_import.validators.data_validator import DataValidator
 
 
 # Define various timezones to test
 TIMEZONES = [
-    ("UTC", pytz.UTC),
-    ("Europe/Amsterdam", pytz.timezone("Europe/Amsterdam")),
-    ("America/New_York", pytz.timezone("America/New_York")),
-    ("Australia/Sydney", pytz.timezone("Australia/Sydney")),
-    ("Asia/Tokyo", pytz.timezone("Asia/Tokyo")),
-    ("Europe/London", pytz.timezone("Europe/London")),
+    ("UTC", timezone.utc),
+    ("Europe/Amsterdam", ZoneInfo("Europe/Amsterdam")),
+    ("America/New_York", ZoneInfo("America/New_York")),
+    ("Australia/Sydney", ZoneInfo("Australia/Sydney")),
+    ("Asia/Tokyo", ZoneInfo("Asia/Tokyo")),
+    ("Europe/London", ZoneInfo("Europe/London")),
 ]
 
 
@@ -146,13 +147,13 @@ class TestTimezoneEdgeCases:
     def test_datetime_comparison_across_dst_boundary(self):
         """Test that datetime comparisons work across DST boundaries."""
         # Europe/Amsterdam has DST: switches in March and October
-        tz = pytz.timezone("Europe/Amsterdam")
+        tz = ZoneInfo("Europe/Amsterdam")
 
         # Date before DST (winter time)
-        winter_dt = tz.localize(datetime(2026, 1, 28, 15, 0, 0))
+        winter_dt = datetime(2026, 1, 28, 15, 0, 0, tzinfo=tz)
 
         # Date after DST (summer time)
-        summer_dt = tz.localize(datetime(2026, 6, 28, 15, 0, 0))
+        summer_dt = datetime(2026, 6, 28, 15, 0, 0, tzinfo=tz)
 
         validator = DataValidator()
 
@@ -189,8 +190,8 @@ class TestTimezoneEdgeCases:
 
     def test_timezone_arithmetic_preserves_tzinfo(self):
         """Test that timedelta operations preserve timezone info."""
-        tz = pytz.timezone("Europe/Amsterdam")
-        dt = tz.localize(datetime(2026, 1, 28, 15, 0, 0))
+        tz = ZoneInfo("Europe/Amsterdam")
+        dt = datetime(2026, 1, 28, 15, 0, 0, tzinfo=tz)
 
         # Adding/subtracting timedelta should preserve timezone
         dt_plus_day = dt + timedelta(days=1)
@@ -200,13 +201,9 @@ class TestTimezoneEdgeCases:
         assert dt_plus_day.tzinfo is not None
         assert dt_minus_hour.tzinfo is not None
 
-        # Compare timezone names instead of objects (pytz has different internal representations)
-        assert str(dt_plus_day.tzinfo) == str(dt.tzinfo) or "Europe/Amsterdam" in str(
-            dt_plus_day.tzinfo
-        )
-        assert str(dt_minus_hour.tzinfo) == str(dt.tzinfo) or "Europe/Amsterdam" in str(
-            dt_minus_hour.tzinfo
-        )
+        # ZoneInfo objects are cached, so identity/equality checks work reliably
+        assert dt_plus_day.tzinfo == dt.tzinfo
+        assert dt_minus_hour.tzinfo == dt.tzinfo
 
     @pytest.mark.parametrize("tz_name,tz_obj", TIMEZONES)
     def test_midnight_calculation_in_different_timezones(self, tz_name, tz_obj):
@@ -248,8 +245,8 @@ class TestCrossTimezoneComparisons:
     def test_comparison_with_different_timezones(self):
         """Test that datetime comparisons work when timezones differ."""
         # Same moment in time, different timezones
-        utc_dt = datetime(2026, 1, 28, 12, 0, 0, tzinfo=pytz.UTC)
-        amsterdam_dt = utc_dt.astimezone(pytz.timezone("Europe/Amsterdam"))
+        utc_dt = datetime(2026, 1, 28, 12, 0, 0, tzinfo=timezone.utc)
+        amsterdam_dt = utc_dt.astimezone(ZoneInfo("Europe/Amsterdam"))
 
         # Should be equal despite different tzinfo
         assert utc_dt == amsterdam_dt
@@ -259,11 +256,11 @@ class TestCrossTimezoneComparisons:
 
         # Latest price in Amsterdam timezone
         latest_price_amsterdam = datetime(
-            2026, 1, 29, 23, 0, 0, tzinfo=pytz.timezone("Europe/Amsterdam")
+            2026, 1, 29, 23, 0, 0, tzinfo=ZoneInfo("Europe/Amsterdam")
         )
 
         # Expected in UTC
-        expected_utc = datetime(2026, 1, 29, 21, 55, 0, tzinfo=pytz.UTC)
+        expected_utc = datetime(2026, 1, 29, 21, 55, 0, tzinfo=timezone.utc)
 
         with patch.object(
             validator.datetime_utils,
@@ -273,9 +270,7 @@ class TestCrossTimezoneComparisons:
             # Should work correctly even with different timezones
             is_valid, error_msg = validator.validate_price_freshness(
                 latest_price_amsterdam,
-                datetime(
-                    2026, 1, 28, 15, 0, 0, tzinfo=pytz.timezone("Europe/Amsterdam")
-                ),
+                datetime(2026, 1, 28, 15, 0, 0, tzinfo=ZoneInfo("Europe/Amsterdam")),
             )
 
             # Both represent times, comparison should work
@@ -286,14 +281,14 @@ class TestCrossTimezoneComparisons:
         validator = DataValidator()
 
         # Now in UTC
-        now_utc = datetime(2026, 1, 28, 12, 0, 0, tzinfo=pytz.UTC)
+        now_utc = datetime(2026, 1, 28, 12, 0, 0, tzinfo=timezone.utc)
 
         # Latest price in Europe/Amsterdam (UTC+1 in winter)
-        tz_amsterdam = pytz.timezone("Europe/Amsterdam")
-        latest_price_local = tz_amsterdam.localize(datetime(2026, 1, 29, 23, 0, 0))
+        tz_amsterdam = ZoneInfo("Europe/Amsterdam")
+        latest_price_local = datetime(2026, 1, 29, 23, 0, 0, tzinfo=tz_amsterdam)
 
         # Expected in UTC
-        expected_utc = datetime(2026, 1, 29, 21, 55, 0, tzinfo=pytz.UTC)
+        expected_utc = datetime(2026, 1, 29, 21, 55, 0, tzinfo=timezone.utc)
 
         with patch.object(
             validator.datetime_utils,

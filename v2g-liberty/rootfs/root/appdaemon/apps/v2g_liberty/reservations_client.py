@@ -479,7 +479,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                 # Assume this is only a date without timezone info.
                 # This happens for all_day events in local calendar.
                 any_date_type = dt.datetime.strptime(any_date_type, "%Y-%m-%d")
-                any_date_type = c.TZ.localize(any_date_type)
+                any_date_type = any_date_type.replace(tzinfo=c.TZ)
             else:
                 try:
                     any_date_type = dt.datetime.fromisoformat(any_date_type)
@@ -498,8 +498,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                 # No time in date, but for localize we need this.
                 # Assume 00:00:00 and local timezone
                 tm = dt.time(0, 0, 0)
-                any_date_type = dt.datetime.combine(any_date_type, tm)
-                any_date_type = c.TZ.localize(any_date_type)
+                any_date_type = dt.datetime.combine(any_date_type, tm, tzinfo=c.TZ)
         else:
             self.__log(
                 f"Could not parse date {any_date_type}, returning None", level="WARNING"
