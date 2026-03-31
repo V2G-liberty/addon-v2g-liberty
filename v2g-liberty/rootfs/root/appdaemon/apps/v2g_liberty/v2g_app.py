@@ -18,6 +18,7 @@ from .data_store import DataStore
 from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
+from .reference_price_manager import ReferencePriceManager
 from .nissan_leaf_monitor import NissanLeafMonitor
 from .monitor_pause_at_reconnect import MonitorPauseAtReconnect
 
@@ -83,6 +84,8 @@ class V2GLibertyApp(Hass):
         fm_data_sender = FMDataSender(self)
         self._log_init_time("FMDataSender", start_module)
 
+        reference_price_manager = ReferencePriceManager(self)
+
         start_module = datetime.now()
         nissan_leaf_monitor = NissanLeafMonitor(
             self, event_bus=event_bus, notifier=notifier
@@ -138,6 +141,7 @@ class V2GLibertyApp(Hass):
         amber_price_data_manager.get_fm_data_module = get_fm_data
         octopus_price_data_manager.fm_client_app = fm_client
         octopus_price_data_manager.get_fm_data_module = get_fm_data
+        reference_price_manager.data_store = data_store
 
         start_module = datetime.now()
         await v2g_globals.initialize()
@@ -212,6 +216,8 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await fm_data_sender.initialize()
         self._log_init_time("fm_data_sender()", start_module)
+
+        await reference_price_manager.initialise()
 
         start_module = datetime.now()
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")
