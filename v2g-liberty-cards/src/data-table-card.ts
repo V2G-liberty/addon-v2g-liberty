@@ -574,6 +574,9 @@ export class DataTableCard extends LitElement {
         dischargeDurationMin,
         chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
+        chargeCo2Kg: sum('charge_co2_kg'),
+        dischargeCo2Kg: sum('discharge_co2_kg'),
+        co2Kg: sum('co2_kg'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
@@ -595,6 +598,9 @@ export class DataTableCard extends LitElement {
         dischargeDurationMin: sum('discharge_duration_min'),
         chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
+        chargeCo2Kg: sum('charge_co2_kg'),
+        dischargeCo2Kg: sum('discharge_co2_kg'),
+        co2Kg: sum('co2_kg'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
@@ -809,6 +815,7 @@ export class DataTableCard extends LitElement {
     const netWh = t.chargeWh - t.dischargeWh;
     const netCost = t.chargeCost - t.dischargeRev;
 
+    const netKwh = netWh / 1000;
     return html`
       <div class="totals-subcards-grid">
         <div class="subcard subcard-netto">
@@ -817,16 +824,14 @@ export class DataTableCard extends LitElement {
             <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
             <span class="subcard-title">${tp('col.net')}</span>
           </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2/kWh</span>
+          </div>
           <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
             ${this._renderMetric(tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
-            ${t.socMin != null
-              ? this._renderMetric(
-                  tt('soc-range'),
-                  `${this._fmtNum(t.socMin, 1)}–${this._fmtNum(t.socMax, 1)}`,
-                  '%',
-                )
-              : this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
             ${this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
           </div>
         </div>
@@ -838,9 +843,10 @@ export class DataTableCard extends LitElement {
             <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${tp('col.charge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
             ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
           </div>
         </div>
@@ -850,9 +856,10 @@ export class DataTableCard extends LitElement {
             <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${tp('col.discharge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
             ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric(tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
           </div>
         </div>
@@ -868,6 +875,7 @@ export class DataTableCard extends LitElement {
     const tt = (key: string) => tp(`totals.${key}`);
     const netWh = t.chargeWh - t.dischargeWh;
     const netCost = t.chargeCost - t.dischargeRev;
+    const netKwh = netWh / 1000;
 
     return html`
       <div class="totals-subcards-grid">
@@ -877,11 +885,15 @@ export class DataTableCard extends LitElement {
             <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
             <span class="subcard-title">${tp('col.net')}</span>
           </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2/kWh</span>
+          </div>
           <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
             ${this._renderMetric(tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
             ${this._renderMetric(tt('avg-cons-price'), this._fmtCents(t.avgCons), `${cur}c/kWh`)}
-            ${this._renderMetric(tt('avg-prod-price'), this._fmtCents(t.avgProd), `${cur}c/kWh`)}
           </div>
         </div>
 
@@ -892,9 +904,10 @@ export class DataTableCard extends LitElement {
             <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${tp('col.charge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
             ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
           </div>
         </div>
@@ -904,9 +917,10 @@ export class DataTableCard extends LitElement {
             <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${tp('col.discharge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
             ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric(tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
           </div>
         </div>

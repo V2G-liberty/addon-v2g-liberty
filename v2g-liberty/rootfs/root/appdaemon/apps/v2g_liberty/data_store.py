@@ -815,6 +815,23 @@ class DataStore:
             and i["production_price_kwh"] is not None
         )
 
+        # CO2: energy_kwh × emission_intensity_kg_mwh / 1000 → kg
+        charge_co2_kg = sum(
+            i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        discharge_co2_kg = sum(
+            abs(i["energy_kwh"]) * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        co2_kg = charge_co2_kg - discharge_co2_kg
+
         return {
             "period_start": period_start,
             "app_state": _dominant_app_state(app_states),
@@ -829,6 +846,9 @@ class DataStore:
             "energy_wh": energy_wh,
             "charge_cost": round(charge_cost, 4),
             "discharge_revenue": round(discharge_revenue, 4),
+            "charge_co2_kg": round(charge_co2_kg, 1),
+            "discharge_co2_kg": round(discharge_co2_kg, 1),
+            "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
         }
 
@@ -885,6 +905,23 @@ class DataStore:
         soc_values = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
         soc_pct = soc_values[-1] if soc_values else None
 
+        # CO2: energy_kwh × emission_intensity_kg_mwh / 1000 → kg
+        charge_co2_kg = sum(
+            i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        discharge_co2_kg = sum(
+            abs(i["energy_kwh"]) * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        co2_kg = charge_co2_kg - discharge_co2_kg
+
         charge_duration_min = sum(
             15 for i in intervals
             if i["energy_kwh"] is not None and i["energy_kwh"] > 0
@@ -901,11 +938,14 @@ class DataStore:
             "price_rating": _dominant_price_rating(ratings),
             "charge_wh": round(charge_kwh * 1000),
             "charge_cost": round(charge_cost, 4),
+            "charge_co2_kg": round(charge_co2_kg, 1),
             "charge_duration_min": charge_duration_min,
             "discharge_wh": round(discharge_kwh * 1000),
             "discharge_revenue": round(discharge_revenue, 4),
+            "discharge_co2_kg": round(discharge_co2_kg, 1),
             "discharge_duration_min": discharge_duration_min,
             "soc_pct": soc_pct,
+            "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
         }
 
