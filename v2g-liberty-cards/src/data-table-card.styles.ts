@@ -418,15 +418,12 @@ export const dataTableStyles = css`
       position: sticky;
       top: 0;
       z-index: 3;
-      /* Upward shadow covers any pixel gap above the header when sticky */
-      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
-                  0 1px 0 var(--divider-color, #e0e0e0);
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
       transition: box-shadow 0.2s ease;
     }
 
     .table-container.scrolled thead {
-      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
-                  0 1px 0 var(--divider-color, #e0e0e0),
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0),
                   0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
@@ -535,6 +532,23 @@ export const dataTableStyles = css`
       padding: 10px 12px;
       border-bottom: 1px solid var(--divider-color, #e0e0e0);
       white-space: nowrap;
+    }
+
+    /* Border around the table header: top, left, right */
+    thead tr:first-child th {
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+    }
+    thead tr:first-child th:first-child {
+      border-top-left-radius: 8px;
+    }
+    thead tr:first-child th:last-child {
+      border-top-right-radius: 8px;
+    }
+    thead th:first-child {
+      border-left: 1px solid var(--divider-color, #e0e0e0);
+    }
+    thead th:last-child {
+      border-right: 1px solid var(--divider-color, #e0e0e0);
     }
 
     thead th:first-child,
