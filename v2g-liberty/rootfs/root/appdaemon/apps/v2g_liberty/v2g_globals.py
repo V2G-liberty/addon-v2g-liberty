@@ -986,9 +986,7 @@ class V2GLibertyGlobals:
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
         self.__set_fm_user_id(self.fm_client_app.user_id)
-        await self.__initialise_fm_power_source_id()
-
-        await self.__try_historical_import()
+        asyncio.ensure_future(self.__discover_source_id_and_import())
 
         self.__log("completed")
 
@@ -1013,13 +1011,17 @@ class V2GLibertyGlobals:
         c.FM_ACCOUNT_POWER_SOURCE_ID = None
         clear_import_flag()
 
+    async def __discover_source_id_and_import(self):
+        """Background task: discover source_id then attempt historical import."""
+        await self.__initialise_fm_power_source_id()
+        await self.__try_historical_import()
+
     async def __initialise_fm_power_source_id(self):
         """Load or discover the FM source_id for measured charger power data.
 
         Loads a previously stored source_id from settings. If none is stored,
-        probes FM to find the source_id whose power values show real charge/
-        discharge variance (as opposed to near-constant scheduler beliefs).
-        The discovered id is persisted so subsequent startups skip probing.
+        queries the FM chart_data endpoint to find the non-scheduler source.
+        The discovered id is persisted so subsequent startups skip discovery.
         """
         stored = self.v2g_settings.get_fm_power_source_id()
         if stored is not None:
@@ -1034,18 +1036,9 @@ class V2GLibertyGlobals:
             )
             return
 
-        user_id = self.fm_client_app.user_id
-        if user_id is None:
-            self.__log(
-                "FM power source_id discovery skipped: FM user ID not known.",
-                level="WARNING",
-            )
-            return
-
         self.__log("FM power source_id not yet stored -- starting discovery.")
         source_id = await self.fm_client_app.discover_power_source_id(
             sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
-            user_id=user_id,
         )
         if source_id is not None:
             c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
