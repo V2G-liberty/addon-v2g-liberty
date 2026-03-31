@@ -222,7 +222,9 @@ class DataStore:
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
                 availability_pct REAL,
-                is_repaired INTEGER NOT NULL DEFAULT 0
+                is_repaired INTEGER NOT NULL DEFAULT 0,
+                naive_power_w REAL,
+                naive_soc_pct REAL
             )
         """)
 
@@ -536,6 +538,42 @@ class DataStore:
             return row["total_price_eur_kwh"]
 
         return None
+
+    def update_naive_charging(
+        self,
+        rows: list[tuple[float, float, str]],
+    ) -> None:
+        """Update naive charging columns for existing interval_log rows.
+
+        Each row is a tuple: (naive_power_w, naive_soc_pct, timestamp).
+        Only updates rows that already exist (no insert).
+        """
+        if not self.is_available or not rows:
+            return
+        cursor = self.__connection.cursor()
+        cursor.executemany(
+            "UPDATE interval_log SET naive_power_w = ?, naive_soc_pct = ? "
+            "WHERE timestamp = ?",
+            rows,
+        )
+        self.__connection.commit()
+        updated = cursor.rowcount
+        cursor.close()
+        self.__log(f"Updated {updated} naive charging row(s).")
+
+    def get_last_naive_soc(self) -> float | None:
+        """Return the most recent naive_soc_pct value, or None if unavailable."""
+        if not self.is_available:
+            return None
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT naive_soc_pct FROM interval_log "
+            "WHERE naive_soc_pct IS NOT NULL "
+            "ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        return row["naive_soc_pct"] if row else None
 
     def insert_reservation(
         self,
@@ -923,12 +961,10 @@ class DataStore:
         co2_kg = charge_co2_kg - discharge_co2_kg
 
         charge_duration_min = sum(
-            15 for i in intervals
-            if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
         )
         discharge_duration_min = sum(
-            15 for i in intervals
-            if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
         )
 
         return {
@@ -1014,12 +1050,10 @@ class DataStore:
         co2_kg = charge_co2_kg - discharge_co2_kg
 
         charge_duration_min = sum(
-            15 for i in intervals
-            if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
         )
         discharge_duration_min = sum(
-            15 for i in intervals
-            if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
         )
 
         return {

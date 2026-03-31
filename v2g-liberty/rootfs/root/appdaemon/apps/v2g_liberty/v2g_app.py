@@ -19,6 +19,7 @@ from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
 from .reference_price_manager import ReferencePriceManager
+from .naive_charging_simulator import NaiveChargingSimulator
 from .nissan_leaf_monitor import NissanLeafMonitor
 from .monitor_pause_at_reconnect import MonitorPauseAtReconnect
 
@@ -85,6 +86,7 @@ class V2GLibertyApp(Hass):
         self._log_init_time("FMDataSender", start_module)
 
         reference_price_manager = ReferencePriceManager(self)
+        naive_charging_simulator = NaiveChargingSimulator(self, event_bus=event_bus)
 
         start_module = datetime.now()
         nissan_leaf_monitor = NissanLeafMonitor(
@@ -124,7 +126,9 @@ class V2GLibertyApp(Hass):
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
         data_repairer.data_store = data_store
+        data_repairer.event_bus = event_bus
         v2g_globals.data_repairer = data_repairer
+        naive_charging_simulator.data_store = data_store
         data_monitor.evse_client_app = modbus_evse_client
         data_monitor.reservations_client = reservations_client
         data_monitor.data_store = data_store
@@ -185,6 +189,8 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await data_repairer.initialise()
         self._log_init_time("data_repairer.initialise()", start_module)
+
+        await naive_charging_simulator.initialise()
 
         start_module = datetime.now()
         await api_server.initialise()

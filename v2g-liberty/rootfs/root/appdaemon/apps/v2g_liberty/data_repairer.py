@@ -69,6 +69,7 @@ class DataRepairer:
     _MEMO_ID = "data_repairer_db_issue"
 
     data_store: DataStore = None
+    event_bus = None
 
     def __init__(self, hass: Hass):
         self.__hass = hass
@@ -122,6 +123,8 @@ class DataRepairer:
                 level="WARNING",
             )
 
+        self._emit_repairer_complete()
+
         # Schedule incremental repair every 6 hours.
         six_hours_in_seconds = 6 * 60 * 60
         await self.__hass.run_every(
@@ -155,6 +158,12 @@ class DataRepairer:
         total = _total_repairs(summary)
         if total > 0:
             self.__log(f"Incremental repair: {_format_summary(summary)}")
+        self._emit_repairer_complete()
+
+    def _emit_repairer_complete(self):
+        """Notify listeners that a repair run has finished."""
+        if self.event_bus is not None:
+            self.event_bus.emit_event("repairer_complete")
 
     def write_report(self, summary: dict):
         """Append repair summary to the report file.
