@@ -4,7 +4,7 @@
 
 ### Fixed
 
--
+- 🪲  BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
 
 ### Added
 

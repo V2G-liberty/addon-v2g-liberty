@@ -4,7 +4,7 @@ import asyncio
 import math
 from datetime import datetime, timedelta
 
-import pytz
+from zoneinfo import ZoneInfo
 
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -306,7 +306,7 @@ class V2GLibertyGlobals:
         self.__log("Initializing V2GLibertyGlobals")
         config = await self.hass.get_plugin_config()
         # Use the HA time_zone, and not the TZ from appdaemon.yaml that AD uses.
-        c.TZ = pytz.timezone(config["time_zone"])
+        c.TZ = ZoneInfo(config["time_zone"])
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
@@ -1414,12 +1414,12 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
         now = get_local_now()
     else:
         time_obj = datetime.strptime(now_time, "%H:%M:%S").time()
-        now = c.TZ.localize(datetime.combine(today_date, time_obj))
+        now = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
-    start_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    start_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
     time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
-    end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    end_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     if end_dt < start_dt:
         # self.__log(f"end_dt < start_dt ...")

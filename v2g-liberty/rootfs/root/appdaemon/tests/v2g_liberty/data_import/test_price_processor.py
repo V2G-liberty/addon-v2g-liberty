@@ -2,7 +2,8 @@
 
 import pytest
 from datetime import datetime, timedelta
-import pytz
+from datetime import timezone
+from zoneinfo import ZoneInfo
 from apps.v2g_liberty.data_import.processors.price_processor import PriceProcessor
 
 
@@ -32,8 +33,8 @@ class TestProcessPrices:
     def test_process_prices_with_vat_and_markup(self, price_processor):
         """Test price processing applies VAT and markup correctly."""
         raw_prices = [0.10, 0.20, 0.30]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
         vat_factor = 1.21  # 21% VAT
         markup_per_kwh = 0.05
 
@@ -68,8 +69,8 @@ class TestProcessPrices:
     def test_process_prices_with_none_values(self, price_processor):
         """Test price processing filters out None values correctly."""
         raw_prices = [0.10, None, 0.20, None, None, 0.30]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -96,8 +97,10 @@ class TestProcessPrices:
     def test_process_prices_detects_negative_future_price(self, price_processor):
         """Test detection of first negative price in the future."""
         raw_prices = [0.10, 0.20, -0.05, -0.10, 0.15]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 25, 0, tzinfo=pytz.UTC)  # After first two prices
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(
+            2026, 1, 28, 0, 25, 0, tzinfo=timezone.utc
+        )  # After first two prices
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -118,8 +121,10 @@ class TestProcessPrices:
     def test_process_prices_ignores_negative_past_price(self, price_processor):
         """Test that negative prices in the past are ignored."""
         raw_prices = [-0.10, -0.05, 0.10, 0.20]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 35, 0, tzinfo=pytz.UTC)  # After first two prices
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(
+            2026, 1, 28, 0, 35, 0, tzinfo=timezone.utc
+        )  # After first two prices
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -140,8 +145,8 @@ class TestProcessPrices:
     def test_process_prices_adds_trailing_point(self, price_processor):
         """Test that a trailing point is added to extend the step-line chart."""
         raw_prices = [0.10, 0.20]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -165,8 +170,8 @@ class TestProcessPrices:
     def test_process_prices_empty_list(self, price_processor):
         """Test processing an empty price list."""
         raw_prices = []
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -184,8 +189,8 @@ class TestProcessPrices:
     def test_process_prices_all_none(self, price_processor):
         """Test processing a list with only None values."""
         raw_prices = [None, None, None]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -204,8 +209,8 @@ class TestProcessPrices:
         """Test price processing with 30-minute resolution."""
         processor = PriceProcessor(price_resolution_minutes=30)
         raw_prices = [0.10, 0.20]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
         vat_factor = 1.0
         markup_per_kwh = 0.0
 
@@ -227,8 +232,8 @@ class TestEndOfFixedPrices:
     def test_efp_none_by_default(self, price_processor):
         """Test that EFP is None when not provided."""
         raw_prices = [0.10, 0.20]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
 
         price_points, first_negative, none_count, efp_iso = (
             price_processor.process_prices(
@@ -241,9 +246,9 @@ class TestEndOfFixedPrices:
     def test_efp_passed_through_as_iso(self, price_processor):
         """Test that EFP datetime is converted to ISO format string."""
         raw_prices = [0.10, 0.20]
-        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=pytz.UTC)
-        efp_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
+        start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=timezone.utc)
+        efp_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
 
         price_points, first_negative, none_count, efp_iso = (
             price_processor.process_prices(
@@ -262,7 +267,7 @@ class TestEndOfFixedPrices:
     def test_efp_with_different_timezone(self, price_processor):
         """Test that EFP works with different timezones."""
         raw_prices = [0.10, 0.20]
-        amsterdam_tz = pytz.timezone("Europe/Amsterdam")
+        amsterdam_tz = ZoneInfo("Europe/Amsterdam")
         start = datetime(2026, 1, 28, 0, 0, 0, tzinfo=amsterdam_tz)
         now = datetime(2026, 1, 28, 0, 0, 0, tzinfo=amsterdam_tz)
         efp_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=amsterdam_tz)
