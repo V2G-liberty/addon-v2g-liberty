@@ -1104,10 +1104,10 @@ class DataStore:
         co2_kg = charge_co2_kg - discharge_co2_kg
 
         charge_duration_min = sum(
-            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
         )
         discharge_duration_min = sum(
-            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
         )
 
         return {
@@ -1194,10 +1194,10 @@ class DataStore:
         co2_kg = charge_co2_kg - discharge_co2_kg
 
         charge_duration_min = sum(
-            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
         )
         discharge_duration_min = sum(
-            15 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
         )
 
         return {
