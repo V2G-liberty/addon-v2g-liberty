@@ -237,6 +237,9 @@ export const dataTableStyles = css`
       display: flex;
       align-items: center;
       gap: 4px;
+      /* Keep clear of the piggy icon */
+      margin-right: 40px;
+      min-width: 0;
     }
 
     .subcard-savings .subcard-title {
@@ -245,9 +248,14 @@ export const dataTableStyles = css`
       color: var(--di-slate-100);
       text-transform: none;
       line-height: 0.8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
 
     .subcard-savings .savings-title-row .info-icon {
+      flex-shrink: 0;
       color: var(--di-teal-tint-20);
     }
 
@@ -255,6 +263,10 @@ export const dataTableStyles = css`
       font-size: 13px;
       color: var(--di-bg);
       margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 40px;
     }
 
     .subcard-savings .subcard-hero {
@@ -283,6 +295,10 @@ export const dataTableStyles = css`
     .subcard-savings .savings-dyn-label {
       font-size: 13px;
       color: rgba(255, 255, 255, 0.7);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
 
     /* ── Floating bar ─────────────────────────────── */

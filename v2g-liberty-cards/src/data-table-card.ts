@@ -568,6 +568,8 @@ export class DataTableCard extends LitElement {
         chargeCo2Kg: sum('charge_co2_kg'),
         dischargeCo2Kg: sum('discharge_co2_kg'),
         co2Kg: sum('co2_kg'),
+        savingsFixed: sum('savings_fixed_eur'),
+        savingsDyn: sum('savings_dynamic_eur'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
@@ -592,6 +594,8 @@ export class DataTableCard extends LitElement {
         chargeCo2Kg: sum('charge_co2_kg'),
         dischargeCo2Kg: sum('discharge_co2_kg'),
         co2Kg: sum('co2_kg'),
+        savingsFixed: sum('savings_fixed_eur'),
+        savingsDyn: sum('savings_dynamic_eur'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
@@ -613,6 +617,8 @@ export class DataTableCard extends LitElement {
       netKwh: sum('net_kwh'),
       netCost: sum('net_cost'),
       co2Kg: sum('co2_kg'),
+      savingsFixed: sum('savings_fixed_eur'),
+      savingsDyn: sum('savings_dynamic_eur'),
       hasRepaired: this._data.some((r: any) => r.has_repaired),
     };
   }
@@ -689,9 +695,11 @@ export class DataTableCard extends LitElement {
     `;
   }
 
-  private _renderSavingsCard(): TemplateResult {
+  private _renderSavingsCard(savingsFixed: number | null, savingsDyn: number | null): TemplateResult {
     const cur = this._currencySymbol();
     const tt = (key: string) => tp(`totals.${key}`);
+    const fixedStr = savingsFixed != null ? this._fmtNum(savingsFixed, 2) : '−';
+    const dynStr = savingsDyn != null ? this._fmtNum(savingsDyn, 2) : '−';
     return html`
       <div class="subcard subcard-savings">
         <ha-icon class="savings-piggy" icon="mdi:piggy-bank-outline"></ha-icon>
@@ -700,9 +708,9 @@ export class DataTableCard extends LitElement {
           ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
         </div>
         <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
-        <div class="subcard-hero">${cur} ${this._fmtNum(2.34, 2)}</div>
+        <div class="subcard-hero">${cur}\u202F${fixedStr}</div>
         <div class="savings-dyn">
-          <span class="savings-dyn-amount">${cur} ${this._fmtNum(1.73, 2)}</span>
+          <span class="savings-dyn-amount">${cur}\u202F${dynStr}</span>
           <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
         </div>
       </div>
@@ -754,7 +762,7 @@ export class DataTableCard extends LitElement {
           </div>
           <div class="subcard-hero">
             ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
-            <span class="hero-unit">${cur}\u00a2/kWh</span>
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
           </div>
           <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
@@ -768,7 +776,7 @@ export class DataTableCard extends LitElement {
           </div>
         </div>
 
-        ${this._renderSavingsCard()}
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
@@ -819,7 +827,7 @@ export class DataTableCard extends LitElement {
           </div>
           <div class="subcard-hero">
             ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
-            <span class="hero-unit">${cur}\u00a2/kWh</span>
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
           </div>
           <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
@@ -829,7 +837,7 @@ export class DataTableCard extends LitElement {
           </div>
         </div>
 
-        ${this._renderSavingsCard()}
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
@@ -880,7 +888,7 @@ export class DataTableCard extends LitElement {
           </div>
           <div class="subcard-hero">
             ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
-            <span class="hero-unit">${cur}\u00a2/kWh</span>
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
           </div>
           <div class="metric-grid">
             ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
@@ -890,7 +898,7 @@ export class DataTableCard extends LitElement {
           </div>
         </div>
 
-        ${this._renderSavingsCard()}
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
