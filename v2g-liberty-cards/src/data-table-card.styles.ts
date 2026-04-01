@@ -134,6 +134,13 @@ export const dataTableStyles = css`
     .subcard-netto {
       background: var(--di-netto-bg);
       border-color: var(--di-netto-border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .subcard-netto .metric-grid {
+      margin-top: auto;
+      padding-top: 16px;
     }
 
     /* ── Sub-card header ─────────────────────────── */
@@ -247,7 +254,7 @@ export const dataTableStyles = css`
       font-weight: 600;
       color: var(--di-slate-100);
       text-transform: none;
-      line-height: 0.8;
+      line-height: 1.1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
