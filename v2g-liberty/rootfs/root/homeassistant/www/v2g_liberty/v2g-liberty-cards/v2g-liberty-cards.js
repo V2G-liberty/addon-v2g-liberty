@@ -2949,11 +2949,11 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-tooltip":"Savings compared to non-smart charging based on CBS monthly average kWh prices."},"estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
-$4db9c280a88445d4$exports = JSON.parse('{"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Uren","days":"Dagen","weeks":"Weken","months":"Maanden","years":"Jaren"},"now":"Nu","loading":"Data laden...","no-data":"Geen data voor deze periode","no-data-hint":"Eerste data beschikbaar:","error":"Kon geen data laden. Probeer het opnieuw.","error-timeout":"Data laden duurde te lang. Probeer het later opnieuw.","all-time":"Alles","page-title":"Slimme energie","card-title":"Laden","app-state":{"automatic":"Automatisch","charge":"Laden","discharge":"Ontladen","pause":"Pauze","max_boost":"Max boost","not_connected":"Niet verbonden","error":"Fout","unknown":"Onbekend","mixed":"andere staten"},"price-rating":{"very-low":"Zeer laag","low":"Laag","average":"Gemiddeld","high":"Hoog","very-high":"Zeer hoog"},"col":{"period":"Periode","status":"Status","soc":"SoC","consumption":"Inkoop","production":"Verkoop","avg-price":"Gem. prijs","rate":"Prijspeil","energy":"Energie","cost-revenue":"Netto kosten","charge":"Laden","charge-kwh":"Laden","charge-cost":"Laadkosten","discharge":"Ontladen","discharge-kwh":"Ontladen","discharge-revenue":"Ontlaadopbrengst","availability":"Beschikbaarheid","availability-tooltip":"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.","net":"Netto","net-cost":"Netto kosten","cost":"Kosten","revenue":"Opbrengst","emissions":"Emissies","avoided-emissions":"Vermeden","duration":"Duur"},"totals":{"card-title":"Totalen","period":"Periode","soc-range":"SoC bereik","avg-cons-price":"Inkoop (gem.)","avg-prod-price":"Verkoop (gem.)","avg-price":"Gem. prijs","net-avg-price":"Prijs","availability":"Beschikbaarheid","charge-duration":"Laadduur","discharge-duration":"Ontlaadduur","savings":"Besparing","savings-label":"Besparing tov vast","savings-tooltip":"Besparing tov niet-slim laden en kWh prijzen obv CBS maandgemiddelden."},"estimated-note":"Deels gebaseerd op geschatte data","estimated-tooltip":"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.","overflow-reset-database":"Geschiedenis resetten","reset-dialog":{"header":"Geschiedenis resetten","reimport-label":"Geschiedenis opnieuw importeren","reimport-explanation":"Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.","full-label":"Volledige database reset","full-explanation":"Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.","duration-note":"De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.","full-warning":"Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.","confirm-prompt":"Typ \\"Yes\\" of \\"Ja\\" ter bevestiging:","confirm-placeholder":"Yes / Ja","confirm-button":"Doorgaan","error":"Reset mislukt. Probeer het opnieuw.","success":"Klaar. Historische data wordt opnieuw ge\xefmporteerd \u2014 de Data-pagina wordt geleidelijk gevuld.","close":"Sluiten"}}}');
+$4db9c280a88445d4$exports = JSON.parse('{"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Uren","days":"Dagen","weeks":"Weken","months":"Maanden","years":"Jaren"},"now":"Nu","loading":"Data laden...","no-data":"Geen data voor deze periode","no-data-hint":"Eerste data beschikbaar:","error":"Kon geen data laden. Probeer het opnieuw.","error-timeout":"Data laden duurde te lang. Probeer het later opnieuw.","all-time":"Alles","page-title":"Slimme energie","card-title":"Laden","app-state":{"automatic":"Automatisch","charge":"Laden","discharge":"Ontladen","pause":"Pauze","max_boost":"Max boost","not_connected":"Niet verbonden","error":"Fout","unknown":"Onbekend","mixed":"andere staten"},"price-rating":{"very-low":"Zeer laag","low":"Laag","average":"Gemiddeld","high":"Hoog","very-high":"Zeer hoog"},"col":{"period":"Periode","status":"Status","soc":"SoC","consumption":"Inkoop","production":"Verkoop","avg-price":"Gem. prijs","rate":"Prijspeil","energy":"Energie","cost-revenue":"Netto kosten","charge":"Laden","charge-kwh":"Laden","charge-cost":"Laadkosten","discharge":"Ontladen","discharge-kwh":"Ontladen","discharge-revenue":"Ontlaadopbrengst","availability":"Beschikbaarheid","availability-tooltip":"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.","net":"Netto","net-cost":"Netto kosten","cost":"Kosten","revenue":"Opbrengst","emissions":"Emissies","avoided-emissions":"Vermeden","duration":"Duur"},"totals":{"card-title":"Totalen","period":"Periode","soc-range":"SoC bereik","avg-cons-price":"Inkoop (gem.)","avg-prod-price":"Verkoop (gem.)","avg-price":"Gem. prijs","net-avg-price":"Prijs","availability":"Beschikbaarheid","charge-duration":"Laadduur","discharge-duration":"Ontlaadduur","savings":"Besparingen","savings-label":"Besparing tov vast","savings-fixed-label":"t.o.v. standaard laden + vast contract","savings-dyn-label":"t.o.v. standaard laden + dyn. contract","savings-tooltip":"Dit is uw besparing t.o.v. standaard laden.\\n\\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage \u2014 zonder slim schema.\\n\\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\\n \u2022 Vast: standaard laden kWh \xd7 maandelijkse gemiddelde contractprijzen (CBS).\\n \u2022 Dynamisch: standaard laden kWh \xd7 dezelfde dynamische energieprijzen."},"estimated-note":"Deels gebaseerd op geschatte data","estimated-tooltip":"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.","overflow-reset-database":"Geschiedenis resetten","reset-dialog":{"header":"Geschiedenis resetten","reimport-label":"Geschiedenis opnieuw importeren","reimport-explanation":"Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.","full-label":"Volledige database reset","full-explanation":"Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.","duration-note":"De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.","full-warning":"Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.","confirm-prompt":"Typ \\"Yes\\" of \\"Ja\\" ter bevestiging:","confirm-placeholder":"Yes / Ja","confirm-button":"Doorgaan","error":"Reset mislukt. Probeer het opnieuw.","success":"Klaar. Historische data wordt opnieuw ge\xefmporteerd \u2014 de Data-pagina wordt geleidelijk gevuld.","close":"Sluiten"}}}');
 
 
 const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
@@ -4065,6 +4065,7 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       --di-green-92: #66A802;
       --di-green-84: #5E9903;
       --di-green-tint-80: #8DC556;
+      --di-green-68: #4C7B02;
       --di-slate-100: #002E4E;
       --di-slate-80: #345470;
       --di-slate-60: #637C92;
@@ -4097,7 +4098,6 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
     }
 
     .page-title .date-range {
-      display: block;
       color: var(--di-teal-100);
     }
 
@@ -4267,33 +4267,62 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
     /* ── Savings card — green gradient ───────────── */
 
     .subcard-savings {
-      background: linear-gradient(160deg, var(--di-green-tint-80) 0%, var(--di-green-84) 100%);
+      background: linear-gradient(160deg, var(--di-green-100) 0%, var(--di-green-68) 100%);
       border-color: var(--di-green-92);
       color: #fff;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
 
-    .subcard-savings .subcard-header {
-      justify-content: space-between;
+    .subcard-savings .savings-piggy {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      --mdc-icon-size: 32px;
+      color: var(--di-teal-tint-20);
     }
 
-    .subcard-savings .subcard-header ha-icon {
-      --mdc-icon-size: 28px;
-      color: rgba(0, 0, 0, 0.3);
+    .subcard-savings .savings-title-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      /* Keep clear of the piggy icon */
+      margin-right: 40px;
+      min-width: 0;
     }
 
     .subcard-savings .subcard-title {
-      color: var(--di-slate-100);
-      font-size: 18px;
+      font-size: 32px;
       font-weight: 600;
+      color: var(--di-slate-100);
       text-transform: none;
-      letter-spacing: 0;
+      line-height: 0.8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .subcard-savings .savings-title-row .info-icon {
+      flex-shrink: 0;
+      color: var(--di-teal-tint-20);
+    }
+
+    .subcard-savings .savings-sublabel {
+      font-size: 13px;
+      color: var(--di-bg);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 40px;
     }
 
     .subcard-savings .subcard-hero {
       color: var(--di-bg);
-      font-size: 42px;
+      font-size: 48px;
+      font-weight: normal;
       text-align: center;
       flex: 1;
       display: flex;
@@ -4301,9 +4330,25 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       justify-content: center;
     }
 
-    .subcard-savings .savings-sublabel {
-      font-size: 13px;
+    .subcard-savings .savings-dyn {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .subcard-savings .savings-dyn-amount {
+      font-size: 18px;
+      font-weight: 500;
       color: rgba(255, 255, 255, 0.85);
+    }
+
+    .subcard-savings .savings-dyn-label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
 
     /* ── Floating bar ─────────────────────────────── */
@@ -4468,15 +4513,12 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       position: sticky;
       top: 0;
       z-index: 3;
-      /* Upward shadow covers any pixel gap above the header when sticky */
-      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
-                  0 1px 0 var(--divider-color, #e0e0e0);
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
       transition: box-shadow 0.2s ease;
     }
 
     .table-container.scrolled thead {
-      box-shadow: 0 -4px 0 0 var(--card-background-color, white),
-                  0 1px 0 var(--divider-color, #e0e0e0),
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0),
                   0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
@@ -4587,6 +4629,23 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       white-space: nowrap;
     }
 
+    /* Border around the table header: top, left, right */
+    thead tr:first-child th {
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+    }
+    thead tr:first-child th:first-child {
+      border-top-left-radius: 8px;
+    }
+    thead tr:first-child th:last-child {
+      border-top-right-radius: 8px;
+    }
+    thead th:first-child {
+      border-left: 1px solid var(--divider-color, #e0e0e0);
+    }
+    thead th:last-child {
+      border-right: 1px solid var(--divider-color, #e0e0e0);
+    }
+
     thead th:first-child,
     tbody td:first-child {
       padding-left: 24px;
@@ -4650,8 +4709,8 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
 
     .estimated-note {
       position: absolute;
-      top: 8px;
-      right: 8px;
+      top: 16px;
+      right: 16px;
       color: var(--secondary-text-color);
       font-size: 12px;
       margin: 0;
@@ -4780,8 +4839,8 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       font-size: 12px;
       font-weight: 400;
       line-height: 1.4;
-      width: 200px;
-      white-space: normal;
+      width: 280px;
+      white-space: pre-line;
       z-index: 100;
       cursor: default;
     }
@@ -14376,23 +14435,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             case 'hours':
                 return `${dd}-${mm}-${yyyy}`;
             case 'days':
-                {
-                    const monthName = d.toLocaleDateString(undefined, {
-                        month: 'long'
-                    });
-                    return `${monthName} ${yyyy}`;
-                }
+                return `${mm}-${yyyy}`;
             case 'weeks':
                 {
                     const qStart = Math.floor(d.getMonth() / 3) * 3;
-                    const qEnd = qStart + 2;
-                    const startMonth = new Date(yyyy, qStart, 1).toLocaleDateString(undefined, {
-                        month: 'short'
-                    });
-                    const endMonth = new Date(yyyy, qEnd, 1).toLocaleDateString(undefined, {
-                        month: 'short'
-                    });
-                    return `${startMonth} \u{2013} ${endMonth} ${yyyy}`;
+                    const qStartMM = String(qStart + 1).padStart(2, '0');
+                    const qEndMM = String(qStart + 3).padStart(2, '0');
+                    return `${qStartMM} \u{2013} ${qEndMM} ${yyyy}`;
                 }
             case 'months':
                 return `${yyyy}`;
@@ -14649,6 +14698,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                 dischargeDurationMin: dischargeDurationMin,
                 chargeCost: sum('charge_cost'),
                 dischargeRev: sum('discharge_revenue'),
+                chargeCo2Kg: sum('charge_co2_kg'),
+                dischargeCo2Kg: sum('discharge_co2_kg'),
+                co2Kg: sum('co2_kg'),
+                savingsFixed: sum('savings_fixed_eur'),
+                savingsDyn: sum('savings_dynamic_eur'),
                 hasRepaired: this._data.some((r)=>r.has_repaired)
             };
         }
@@ -14667,6 +14721,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                 dischargeDurationMin: sum('discharge_duration_min'),
                 chargeCost: sum('charge_cost'),
                 dischargeRev: sum('discharge_revenue'),
+                chargeCo2Kg: sum('charge_co2_kg'),
+                dischargeCo2Kg: sum('discharge_co2_kg'),
+                co2Kg: sum('co2_kg'),
+                savingsFixed: sum('savings_fixed_eur'),
+                savingsDyn: sum('savings_dynamic_eur'),
                 hasRepaired: this._data.some((r)=>r.has_repaired)
             };
         }
@@ -14687,6 +14746,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             netKwh: sum('net_kwh'),
             netCost: sum('net_cost'),
             co2Kg: sum('co2_kg'),
+            savingsFixed: sum('savings_fixed_eur'),
+            savingsDyn: sum('savings_dynamic_eur'),
             hasRepaired: this._data.some((r)=>r.has_repaired)
         };
     }
@@ -14752,19 +14813,23 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
       </div>
     `;
     }
-    _renderSavingsCard() {
+    _renderSavingsCard(savingsFixed, savingsDyn) {
         const cur = this._currencySymbol();
         const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
+        const fixedStr = savingsFixed != null ? this._fmtNum(savingsFixed, 2) : "\u2212";
+        const dynStr = savingsDyn != null ? this._fmtNum(savingsDyn, 2) : "\u2212";
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="subcard subcard-savings">
-        <div class="subcard-header">
+        <ha-icon class="savings-piggy" icon="mdi:piggy-bank-outline"></ha-icon>
+        <div class="savings-title-row">
           <span class="subcard-title">${tt('savings')}</span>
-          <ha-icon icon="mdi:piggy-bank-outline"></ha-icon>
-        </div>
-        <div class="subcard-hero">${cur} ${this._fmtNum(2.33, 2)}</div>
-        <div class="savings-sublabel">
-          ${tt('savings-label')}
           ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
+        </div>
+        <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
+        <div class="subcard-hero">${cur}\u202F${fixedStr}</div>
+        <div class="savings-dyn">
+          <span class="savings-dyn-amount">${cur}\u202F${dynStr}</span>
+          <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
         </div>
       </div>
     `;
@@ -14798,7 +14863,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </div>
           <div class="subcard-hero">
             ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
-            <span class="hero-unit">${cur}\u00a2/kWh</span>
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
           </div>
           <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
@@ -14808,7 +14873,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </div>
         </div>
 
-        ${this._renderSavingsCard()}
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
@@ -14843,6 +14908,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
         const netWh = t.chargeWh - t.dischargeWh;
         const netCost = t.chargeCost - t.dischargeRev;
+        const netKwh = netWh / 1000;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="totals-subcards-grid">
         <div class="subcard subcard-netto">
@@ -14851,24 +14917,29 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.net')}</span>
           </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
+          </div>
           <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(netWh), 'Wh')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
-            ${t.socMin != null ? this._renderMetric(tt('soc-range'), `${this._fmtNum(t.socMin, 1)}\u{2013}${this._fmtNum(t.socMax, 1)}`, '%') : this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
             ${this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
           </div>
         </div>
 
-        ${this._renderSavingsCard()}
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
             <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
           </div>
         </div>
@@ -14878,9 +14949,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
           </div>
         </div>
@@ -14892,6 +14964,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
         const netWh = t.chargeWh - t.dischargeWh;
         const netCost = t.chargeCost - t.dischargeRev;
+        const netKwh = netWh / 1000;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="totals-subcards-grid">
         <div class="subcard subcard-netto">
@@ -14900,24 +14973,29 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.net')}</span>
           </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
+          </div>
           <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(netWh), 'Wh')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
             ${this._renderMetric(tt('avg-cons-price'), this._fmtCents(t.avgCons), `${cur}c/kWh`)}
-            ${this._renderMetric(tt('avg-prod-price'), this._fmtCents(t.avgProd), `${cur}c/kWh`)}
           </div>
         </div>
 
-        ${this._renderSavingsCard()}
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
 
         <div class="subcard subcard-charge">
           <div class="subcard-header">
             <ha-icon icon="mdi:car-arrow-left"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
           </div>
         </div>
@@ -14927,9 +15005,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             <ha-icon icon="mdi:car-arrow-right"></ha-icon>
             <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
           </div>
-          <div class="metric-grid cols-3">
+          <div class="metric-grid">
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
             ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
           </div>
         </div>
