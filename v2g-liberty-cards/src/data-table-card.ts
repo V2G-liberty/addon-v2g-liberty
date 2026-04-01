@@ -274,22 +274,13 @@ export class DataTableCard extends LitElement {
       case 'quarter_hours':
       case 'hours':
         return `${dd}-${mm}-${yyyy}`;
-      case 'days': {
-        const monthName = d.toLocaleDateString(undefined, { month: 'long' });
-        return `${monthName} ${yyyy}`;
-      }
+      case 'days':
+        return `${mm}-${yyyy}`;
       case 'weeks': {
         const qStart = Math.floor(d.getMonth() / 3) * 3;
-        const qEnd = qStart + 2;
-        const startMonth = new Date(yyyy, qStart, 1).toLocaleDateString(
-          undefined,
-          { month: 'short' }
-        );
-        const endMonth = new Date(yyyy, qEnd, 1).toLocaleDateString(
-          undefined,
-          { month: 'short' }
-        );
-        return `${startMonth} – ${endMonth} ${yyyy}`;
+        const qStartMM = String(qStart + 1).padStart(2, '0');
+        const qEndMM = String(qStart + 3).padStart(2, '0');
+        return `${qStartMM} – ${qEndMM} ${yyyy}`;
       }
       case 'months':
         return `${yyyy}`;

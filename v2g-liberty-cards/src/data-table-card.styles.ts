@@ -15,6 +15,7 @@ export const dataTableStyles = css`
       --di-green-92: #66A802;
       --di-green-84: #5E9903;
       --di-green-tint-80: #8DC556;
+      --di-green-68: #4C7B02;
       --di-slate-100: #002E4E;
       --di-slate-80: #345470;
       --di-slate-60: #637C92;
@@ -47,7 +48,6 @@ export const dataTableStyles = css`
     }
 
     .page-title .date-range {
-      display: block;
       color: var(--di-teal-100);
     }
 
@@ -217,7 +217,7 @@ export const dataTableStyles = css`
     /* ── Savings card — green gradient ───────────── */
 
     .subcard-savings {
-      background: linear-gradient(160deg, var(--di-green-tint-80) 0%, var(--di-green-84) 100%);
+      background: linear-gradient(160deg, var(--di-green-100) 0%, var(--di-green-68) 100%);
       border-color: var(--di-green-92);
       color: #fff;
       display: flex;
@@ -243,7 +243,8 @@ export const dataTableStyles = css`
 
     .subcard-savings .subcard-hero {
       color: var(--di-bg);
-      font-size: 42px;
+      font-size: 48px;
+      font-weight: normal;
       text-align: center;
       flex: 1;
       display: flex;
