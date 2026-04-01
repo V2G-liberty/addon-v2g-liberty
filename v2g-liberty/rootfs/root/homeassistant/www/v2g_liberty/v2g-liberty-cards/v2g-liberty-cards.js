@@ -4184,6 +4184,13 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
     .subcard-netto {
       background: var(--di-netto-bg);
       border-color: var(--di-netto-border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .subcard-netto .metric-grid {
+      margin-top: auto;
+      padding-top: 16px;
     }
 
     /* ── Sub-card header ─────────────────────────── */
@@ -4297,7 +4304,7 @@ const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$d
       font-weight: 600;
       color: var(--di-slate-100);
       text-transform: none;
-      line-height: 0.8;
+      line-height: 1.1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
