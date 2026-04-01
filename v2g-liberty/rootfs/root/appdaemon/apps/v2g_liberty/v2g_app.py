@@ -190,8 +190,6 @@ class V2GLibertyApp(Hass):
         await data_repairer.initialise()
         self._log_init_time("data_repairer.initialise()", start_module)
 
-        await naive_charging_simulator.initialise()
-
         start_module = datetime.now()
         await api_server.initialise()
         self._log_init_time("api_server.initialise()", start_module)
@@ -203,6 +201,11 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await v2g_globals.kick_off_settings()
         self._log_init_time("v2g_globals.kick_off_settings()", start_module)
+
+        # Naive charging simulator must init after kick_off_settings so that
+        # constants (CHARGER_MAX_CHARGE_POWER, CAR_MAX_CAPACITY_IN_KWH etc.)
+        # have their runtime values instead of defaults.
+        await naive_charging_simulator.initialise()
 
         start_module = datetime.now()
         await get_fm_data.initialize(

@@ -38,6 +38,7 @@ class NaiveChargingSimulator:
     # In-memory state for real-time tracking.
     _naive_soc: float | None = None
     _prev_connected: bool = False
+    _charge_power_factor: float = 0.82
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
@@ -49,6 +50,14 @@ class NaiveChargingSimulator:
         if self.data_store is None or not self.data_store.is_available:
             self.__log("Skipped: DataStore not available.", level="WARNING")
             return
+
+        # Calculate charge power factor from historical data.
+        self._charge_power_factor = self.data_store.get_charge_power_factor()
+        self.__log(
+            f"Charge power factor: {self._charge_power_factor:.3f} "
+            f"(effective naive power: "
+            f"{c.CHARGER_MAX_CHARGE_POWER * self._charge_power_factor:.0f}W)."
+        )
 
         # Subscribe to events.
         self.event_bus.on("interval_concluded", self._on_interval_concluded)
@@ -105,7 +114,7 @@ class NaiveChargingSimulator:
 
         # Naive charging logic.
         soc_max = c.CAR_MAX_SOC_IN_PERCENT
-        max_power = c.CHARGER_MAX_CHARGE_POWER
+        max_power = c.CHARGER_MAX_CHARGE_POWER * self._charge_power_factor
         efficiency = math.sqrt(c.ROUNDTRIP_EFFICIENCY_FACTOR)
 
         if connected and self._naive_soc < soc_max:
@@ -205,7 +214,7 @@ class NaiveChargingSimulator:
         Uses the same algorithm as the MichaMand analysis codebase.
         """
         soc_max = float(c.CAR_MAX_SOC_IN_PERCENT)
-        max_power = float(c.CHARGER_MAX_CHARGE_POWER)
+        max_power = float(c.CHARGER_MAX_CHARGE_POWER) * self._charge_power_factor
         efficiency = math.sqrt(c.ROUNDTRIP_EFFICIENCY_FACTOR)
         capacity = float(c.CAR_MAX_CAPACITY_IN_KWH)
         dt_hours = c.FM_EVENT_RESOLUTION_IN_MINUTES / 60

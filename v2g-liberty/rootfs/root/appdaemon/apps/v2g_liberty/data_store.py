@@ -160,6 +160,106 @@ def _dominant_price_rating(ratings: list) -> str | None:
     return counter.most_common(1)[0][0]
 
 
+_DT_HOURS = 5 / 60  # 5-minute interval in hours
+
+
+def _calculate_savings(intervals: list[dict]) -> dict:
+    """Calculate savings vs naive charging for a set of intervals.
+
+    Returns a dict with savings_fixed_eur, savings_dynamic_eur, and
+    soc_depletion_correction_eur. Returns None values when insufficient
+    data is available (no naive_power_w or no prices).
+
+    Savings = naive_cost - algorithm_cost + soc_depletion_correction.
+    The SoC depletion correction compensates for any difference in
+    battery state between naive and real charging at the period boundaries.
+    """
+    from . import constants as c
+
+    # Collect per-interval costs for algorithm and naive scenarios.
+    algo_cost_total = 0.0
+    naive_cost_dynamic_total = 0.0
+    naive_cost_fixed_total = 0.0
+    has_naive = False
+    has_dynamic_price = False
+    has_fixed_price = False
+
+    for i in intervals:
+        energy = i["energy_kwh"]
+        naive_power = i["naive_power_w"]
+        cons_price = i["consumption_price_kwh"]
+        ref_price = i["ref_price_kwh"]
+
+        # Algorithm cost (actual energy × actual price).
+        if energy is not None and cons_price is not None:
+            if energy > 0:
+                algo_cost_total += energy * cons_price
+            elif energy < 0:
+                prod_price = i["production_price_kwh"]
+                if prod_price is not None:
+                    algo_cost_total -= abs(energy) * prod_price
+
+        if naive_power is None:
+            continue
+        has_naive = True
+
+        # Naive energy in kWh for this interval.
+        naive_kwh = (naive_power / 1000.0) * _DT_HOURS
+
+        # Naive cost on dynamic tariff.
+        if cons_price is not None:
+            naive_cost_dynamic_total += naive_kwh * cons_price
+            has_dynamic_price = True
+
+        # Naive cost on fixed (CBS) tariff.
+        if ref_price is not None:
+            naive_cost_fixed_total += naive_kwh * ref_price
+            has_fixed_price = True
+
+    if not has_naive:
+        return {
+            "savings_fixed_eur": None,
+            "savings_dynamic_eur": None,
+        }
+
+    # SoC depletion correction: compensate for difference in battery state.
+    # Uses first/last valid SoC values for both real and naive.
+    correction = 0.0
+    real_socs = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
+    naive_socs = [
+        i["naive_soc_pct"] for i in intervals if i["naive_soc_pct"] is not None
+    ]
+    if real_socs and naive_socs:
+        real_delta = real_socs[-1] - real_socs[0]
+        naive_delta = naive_socs[-1] - naive_socs[0]
+        soc_diff = naive_delta - real_delta
+        capacity = c.CAR_MAX_CAPACITY_IN_KWH
+        # Average consumption price for valuation.
+        cons_prices = [
+            i["consumption_price_kwh"]
+            for i in intervals
+            if i["consumption_price_kwh"] is not None
+        ]
+        avg_price = sum(cons_prices) / len(cons_prices) if cons_prices else 0.0
+        correction = (soc_diff / 100) * capacity * avg_price
+
+    savings_dynamic = (
+        round(naive_cost_dynamic_total - algo_cost_total + correction, 4)
+        if has_dynamic_price
+        else None
+    )
+    savings_fixed = (
+        round(naive_cost_fixed_total - algo_cost_total + correction, 4)
+        if has_fixed_price
+        else None
+    )
+
+    return {
+        "savings_fixed_eur": savings_fixed,
+        "savings_dynamic_eur": savings_dynamic,
+    }
+
+
 class DataStore:
     """Local SQLite database for interval, price, and reservation data.
 
@@ -575,6 +675,42 @@ class DataStore:
         cursor.close()
         return row["naive_soc_pct"] if row else None
 
+    def get_charge_power_factor(self, min_intervals: int = 100) -> float:
+        """Calculate the average charge power as a fraction of max charger power.
+
+        Analyses historical charging intervals (excluding low-power intervals
+        below 500W) to determine how much of the configured max charge power
+        is typically delivered. Returns 0.82 (typical default) if insufficient
+        data is available.
+
+        Used by the naive charging simulator for realistic power estimation.
+        """
+        if not self.is_available:
+            return 0.82
+        from . import constants as c
+
+        max_power = c.CHARGER_MAX_CHARGE_POWER
+        if max_power <= 0:
+            return 0.82
+
+        threshold_kwh = 500 / 12000  # 500W in kWh per 5-min interval
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) AS cnt, AVG(energy_kwh * 12 * 1000) AS avg_w "
+            "FROM interval_log "
+            "WHERE energy_kwh > ? AND is_repaired < 2",
+            (threshold_kwh,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+
+        if row["cnt"] < min_intervals or row["avg_w"] is None:
+            return 0.82
+
+        factor = row["avg_w"] / max_power
+        # Clamp to reasonable range (0.5 – 1.0).
+        return max(0.5, min(1.0, round(factor, 3)))
+
     def insert_reservation(
         self,
         timestamp: str,
@@ -785,16 +921,22 @@ class DataStore:
         return datetime.fromisoformat(row[0]).astimezone(c.TZ).isoformat()
 
     def __fetch_intervals_with_joins(self, start: str, end: str) -> list[dict]:
-        """Fetch intervals with joined price and emission data."""
+        """Fetch intervals with joined price, emission, and reference price data."""
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT i.timestamp, i.energy_kwh, i.app_state, "
             "i.soc_pct, i.availability_pct, i.is_repaired, "
+            "i.naive_power_w, i.naive_soc_pct, "
             "p.consumption_price_kwh, p.production_price_kwh, p.price_rating, "
-            "e.emission_intensity_kg_mwh "
+            "e.emission_intensity_kg_mwh, "
+            "r.total_price_eur_kwh AS ref_price_kwh "
             "FROM interval_log i "
             "LEFT JOIN price_log p ON i.timestamp = p.timestamp "
             "LEFT JOIN emission_log e ON i.timestamp = e.timestamp "
+            "LEFT JOIN reference_price_log r ON r.month = ("
+            "  SELECT month FROM reference_price_log "
+            "  WHERE month <= strftime('%Y-%m', i.timestamp) "
+            "  ORDER BY month DESC LIMIT 1) "
             "WHERE i.timestamp >= ? AND i.timestamp < ? "
             "AND i.is_repaired < 2 "
             "ORDER BY i.timestamp",
@@ -888,6 +1030,7 @@ class DataStore:
             "discharge_co2_kg": round(discharge_co2_kg, 1),
             "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
+            **_calculate_savings(intervals),
         }
 
     @staticmethod
@@ -983,6 +1126,7 @@ class DataStore:
             "soc_pct": soc_pct,
             "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
+            **_calculate_savings(intervals),
         }
 
     @staticmethod
@@ -1073,6 +1217,7 @@ class DataStore:
             "net_cost": round(net_cost, 4),
             "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
+            **_calculate_savings(intervals),
         }
 
     def close(self):
