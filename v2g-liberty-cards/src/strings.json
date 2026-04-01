@@ -131,7 +131,9 @@
       "discharge-duration": "Discharge duration",
       "savings": "Savings",
       "savings-label": "Savings vs fixed",
-      "savings-tooltip": "Savings compared to non-smart charging based on CBS monthly average kWh prices."
+      "savings-fixed-label": "vs non-smart charging + fixed contract",
+      "savings-dyn-label": "vs non-smart charging + dyn. contract",
+      "savings-tooltip": "Comparison with immediate charging: as soon as the car is plugged in, charge at full power until the configured charge target is reached — without a smart schedule. Any difference in battery level is valued at the average electricity price.\n\nFixed: monthly average contract prices (CBS).\nDynamic: the same dynamic energy prices."
     },
     "estimated-note": "Partly based on estimated data",
     "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.",

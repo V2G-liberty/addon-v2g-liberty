@@ -222,23 +222,39 @@ export const dataTableStyles = css`
       color: #fff;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
 
-    .subcard-savings .subcard-header {
-      justify-content: space-between;
+    .subcard-savings .savings-piggy {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      --mdc-icon-size: 32px;
+      color: var(--di-teal-tint-20);
     }
 
-    .subcard-savings .subcard-header ha-icon {
-      --mdc-icon-size: 28px;
-      color: rgba(0, 0, 0, 0.3);
+    .subcard-savings .savings-title-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .subcard-savings .subcard-title {
-      color: var(--di-slate-100);
-      font-size: 18px;
+      font-size: 32px;
       font-weight: 600;
+      color: var(--di-slate-100);
       text-transform: none;
-      letter-spacing: 0;
+      line-height: 0.8;
+    }
+
+    .subcard-savings .savings-title-row .info-icon {
+      color: var(--di-teal-tint-20);
+    }
+
+    .subcard-savings .savings-sublabel {
+      font-size: 13px;
+      color: var(--di-bg);
+      margin-top: 2px;
     }
 
     .subcard-savings .subcard-hero {
@@ -252,9 +268,21 @@ export const dataTableStyles = css`
       justify-content: center;
     }
 
-    .subcard-savings .savings-sublabel {
-      font-size: 13px;
+    .subcard-savings .savings-dyn {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .subcard-savings .savings-dyn-amount {
+      font-size: 18px;
+      font-weight: 500;
       color: rgba(255, 255, 255, 0.85);
+    }
+
+    .subcard-savings .savings-dyn-label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
     }
 
     /* ── Floating bar ─────────────────────────────── */
@@ -615,8 +643,8 @@ export const dataTableStyles = css`
 
     .estimated-note {
       position: absolute;
-      top: 8px;
-      right: 8px;
+      top: 16px;
+      right: 16px;
       color: var(--secondary-text-color);
       font-size: 12px;
       margin: 0;
@@ -745,8 +773,8 @@ export const dataTableStyles = css`
       font-size: 12px;
       font-weight: 400;
       line-height: 1.4;
-      width: 200px;
-      white-space: normal;
+      width: 280px;
+      white-space: pre-line;
       z-index: 100;
       cursor: default;
     }

@@ -694,14 +694,16 @@ export class DataTableCard extends LitElement {
     const tt = (key: string) => tp(`totals.${key}`);
     return html`
       <div class="subcard subcard-savings">
-        <div class="subcard-header">
+        <ha-icon class="savings-piggy" icon="mdi:piggy-bank-outline"></ha-icon>
+        <div class="savings-title-row">
           <span class="subcard-title">${tt('savings')}</span>
-          <ha-icon icon="mdi:piggy-bank-outline"></ha-icon>
-        </div>
-        <div class="subcard-hero">${cur} ${this._fmtNum(2.33, 2)}</div>
-        <div class="savings-sublabel">
-          ${tt('savings-label')}
           ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
+        </div>
+        <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
+        <div class="subcard-hero">${cur} ${this._fmtNum(2.34, 2)}</div>
+        <div class="savings-dyn">
+          <span class="savings-dyn-amount">${cur} ${this._fmtNum(1.73, 2)}</span>
+          <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
         </div>
       </div>
     `;

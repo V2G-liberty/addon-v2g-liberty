@@ -72,9 +72,11 @@
       "availability": "Beschikbaarheid",
       "charge-duration": "Laadduur",
       "discharge-duration": "Ontlaadduur",
-      "savings": "Besparing",
+      "savings": "Besparingen",
       "savings-label": "Besparing tov vast",
-      "savings-tooltip": "Besparing tov niet-slim laden en kWh prijzen obv CBS maandgemiddelden."
+      "savings-fixed-label": "t.o.v. dom laden + vast contract",
+      "savings-dyn-label": "t.o.v. dom laden + dyn. contract",
+      "savings-tooltip": "Vergelijking met direct laden: zodra de auto aangesloten is, laden op vol vermogen tot het ingestelde laaddoel bereikt is — zonder slim schema. Het verschil in batterijniveau wordt verrekend tegen de gemiddelde stroomprijs.\n\nVast: maandelijkse gemiddelde contractprijzen (CBS).\nDynamisch: dezelfde dynamische energieprijzen."
     },
     "estimated-note": "Deels gebaseerd op geschatte data",
     "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.",
