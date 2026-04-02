@@ -406,7 +406,7 @@ class V2GmodbusClient(AsyncIOEventEmitter):
                 )
             except ModbusException as me:
                 self._log(
-                    f"ModbusException reading device {device_id}: {me}", level="WARNIG"
+                    f"ModbusException reading device {device_id}: {me}", level="WARNING"
                 )
                 is_unrecoverable = await self._handle_modbus_exception(
                     source="read_registers"

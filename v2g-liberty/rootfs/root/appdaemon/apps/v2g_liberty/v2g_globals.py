@@ -448,6 +448,7 @@ class V2GLibertyGlobals:
                 data["maxDischargingPower"],
             )
         self.__store_setting("input_boolean.charger_settings_initialised", True)
+        await self.__write_setting_to_ha(self.CHARGER_SETTINGS_INITIALISED, True, "user_input")
 
         self.hass.fire_event("save_charger_settings.result")
 
@@ -712,6 +713,7 @@ class V2GLibertyGlobals:
         )
 
         self.__store_setting("input_boolean.car_settings_initialised", True)
+        await self.__write_setting_to_ha(self.CAR_SETTINGS_INITIALISED, True, "user_input")
 
         self.__log(f"Saved car settings: name={car_name}, ev_id={ev_id}")
         self.hass.fire_event("save_car_settings.result", success=True)

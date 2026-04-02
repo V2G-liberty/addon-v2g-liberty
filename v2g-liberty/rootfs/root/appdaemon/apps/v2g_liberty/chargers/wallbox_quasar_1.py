@@ -750,9 +750,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         )
 
         if new_evse_state in self._ERROR_STATES:
-            # to exclude the other cases to run.
-            pass
-        elif new_evse_state in self._DISCONNECTED_STATES:
+            return
+
+        if new_evse_state in self._DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
 

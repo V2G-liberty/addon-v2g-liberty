@@ -118,7 +118,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     _MCE_ERROR = ModbusConfigEntity(
         modbus_register=MBR(address=154, data_type="int64", length=4),
         current_value=None,
-        change_handler="_handle_charger_error_state_change",
+        change_handler="_handle_error_mce_change",
     )
 
     # How long should an error state be present before it is communicated to the user.
@@ -307,14 +307,13 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._active_plug = plug_number
         self._apply_plug_offset(plug_number)
 
-        # Read power and state from the detected plug (using offset registers)
-        power_result = await mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
+        # Read state from the detected plug (using offset registers)
         state_result = await mb_client.read_registers(
             [self._MCE_EVSE_STATE.modbus_register]
         )
         mb_client.terminate()
 
-        max_hardware_power = power_result[0]
+        max_hardware_power = self._DEFAULT_HARDWARE_POWER_LIMIT_W
 
         # Check if a car is connected by mapping the raw state to a base state
         raw_state = state_result[0]
@@ -382,7 +381,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         result = await self._mb_client.read_registers([self._MBR_CONNECTOR_TYPE])
         connector_type = self._CONNECTOR_TYPES.get(result[0], "Unknown")
-        if connector_type != "CSS":
+        if connector_type != "CCS":
             # For now, just a warning, how to handle this correctly?
             self._log(f"Unexpected connector type: {connector_type}.", level="WARNING")
 
@@ -455,22 +454,15 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         if not self.is_car_connected:
             return None
 
-        result = await self._mb_client.read_registers(
-            [
-                self._MBR_CAR_BATTERY_CAPACITY_WH,
-                self._MBR_CAR_MIN_BATTERY_CAPACITY_WH,
-                self._MBR_CAR_ID,
-            ]
-        )
+        # Battery capacity from ISO15118 is unreliable (e.g. VW ID.7 reports 10 kWh
+        # instead of 77 kWh). Only the ev_id is read; capacity is left to the
+        # user-configured value in settings.
+        result = await self._mb_client.read_registers([self._MBR_CAR_ID])
 
         if result is None:
-            bc = None
-            mbc = None
             ev_id = None
         else:
-            bc = self._MBR_CAR_BATTERY_CAPACITY_WH.coerce_value(result[0])
-            mbc = self._MBR_CAR_MIN_BATTERY_CAPACITY_WH.coerce_value(result[1])
-            ev_id = result[2]  # Already a string from MBR.decode(), no coercion needed
+            ev_id = result[0]  # Already a string from MBR.decode(), no coercion needed
 
         ev = None
         if ev_id not in [0, None]:
@@ -479,8 +471,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         return {
             "ev_id": ev_id,
-            "battery_capacity_wh": bc,
-            "min_battery_capacity_wh": mbc,
+            "battery_capacity_wh": None,
+            "min_battery_capacity_wh": None,
             "is_new": is_new,
         }
 
@@ -506,22 +498,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # Eventhough it probably did not stop
         await self._kick_off_polling()
 
-    async def get_hardware_power_limit(self) -> int | None:
-        if self._mb_client is None:
-            self._log(
-                "Modbus client not initialised, cannot get hardware power limit",
-                level="WARNING",
-            )
-            return None
-        result = await self._mb_client.read_registers([self._MBR_MAX_CHARGE_POWER])
+    _DEFAULT_HARDWARE_POWER_LIMIT_W: int = 10000
 
-        if not result:
-            self._log("No valid read hardware limit", level="WARNING")
-            await self._emit_modbus_communication_state(can_communicate=False)
-            return None
-        result = self._MBR_MAX_CHARGE_POWER.coerce_value(result[0])
-        await self._emit_modbus_communication_state(can_communicate=True)
-        return int(result) if result is not None else None
+    async def get_hardware_power_limit(self) -> int | None:
+        # The hardware power limit reported via ISO15118 / Modbus is unreliable
+        # (e.g. 0 W when the car is not yet charge-ready). Use a fixed default.
+        return self._DEFAULT_HARDWARE_POWER_LIMIT_W
 
     @property
     def max_charge_power_w(self) -> int | None:
@@ -823,10 +805,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     async def _handle_charge_power_change(self, new_power, old_power):
         self._eb.emit_event("charge_power_change", new_power=new_power)
 
-    async def _handle_charger_error_registers_state_change(self, new_error, old_error):
-        # This is the case for the ENTITY_ERROR_1..4. The charger_state
-        # does not necessarily change only (one or more of) these error-states.
-        # So the state is not added to the call.
+    async def _handle_error_mce_change(self, new_error, old_error):
+        """MCE change handler wrapper for the error register.
+        Bridges the (new_value, old_value) MCE convention to
+        _handle_charger_error_state_change which expects a kwargs dict.
+        """
         self._log(f"new_error: {new_error}, old_error: {old_error}.", level="WARNING")
         await self._handle_charger_error_state_change({"dummy": None})
 
@@ -860,6 +843,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             new_charger_state_str=charger_state_text,
         )
 
+        if new_evse_state in self._ERROR_STATES:
+            return
+
         if new_evse_state in self._DISCONNECTED_STATES:
             # Goes to this status when the plug is removed from the car-socket,
             # not when disconnect is requested from the UI.
@@ -878,13 +864,19 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             # Transition from disconnected to connected, or first poll after startup
             # with a car already connected.
 
-            self._log(
-                "From disconnected to connected: get connected car and try to get the SoC"
-            )
-            success = await self.try_set_connected_vehicle()
-            if success:
+            result = await self.try_set_connected_vehicle()
+            if result is True:
+                self._log(
+                    "From disconnected to connected: get connected car and try to get the SoC"
+                )
                 self._eb.emit_event("is_car_connected", is_car_connected=True)
                 await self._get_car_soc(force_renew=True)
+            elif result is None:
+                # ev_id not yet available from charger, polling will retry.
+                self._log(
+                    "Vehicle ev_id not yet available, polling will retry.",
+                    level="WARNING",
+                )
             elif old_evse_state is None:
                 # First poll at startup: vehicle might not be registered yet.
                 # The polling loop will retry matching, so don't raise the alarm.
@@ -893,6 +885,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                     level="WARNING",
                 )
             else:
+                # The ev_id was read successfully but does not match any registered
+                # vehicle. This means a genuinely unknown car has been connected.
                 self._eb.emit_event("unknown_car_connected")
         else:
             # From one connected state to another connected state: not a change that this method
@@ -916,12 +910,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return False
 
         ev_id = result[0]
-        if ev_id in [0, None]:
+        if ev_id in [0, None, ""]:
             self._log(
-                f"Cannot set connected vehicle, ev_id invalid: '{ev_id}'.",
-                level="WARNING",
+                f"Cannot set connected vehicle, ev_id not yet available: '{ev_id}'."
             )
-            return False
+            return None
 
         ev = self.get_vehicle_by_ev_id(ev_id)
         if ev is None:
