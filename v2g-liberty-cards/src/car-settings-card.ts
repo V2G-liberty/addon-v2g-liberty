@@ -18,6 +18,8 @@ class CarSettingsCard extends LitElement {
   @state() private _usableCapacity: HassEntity;
   @state() private _roundtripEfficiency: HassEntity;
   @state() private _carEnergyConsumption: HassEntity;
+  @state() private _lowerChargeLimit: HassEntity;
+  @state() private _upperChargeLimit: HassEntity;
 
   private _hass: HomeAssistant;
 
@@ -29,6 +31,8 @@ class CarSettingsCard extends LitElement {
     this._usableCapacity = hass.states[entityIds.usableCapacity];
     this._roundtripEfficiency = hass.states[entityIds.roundtripEfficiency];
     this._carEnergyConsumption = hass.states[entityIds.carEnergyConsumption];
+    this._lowerChargeLimit = hass.states[entityIds.lowerChargeLimit];
+    this._upperChargeLimit = hass.states[entityIds.upperChargeLimit];
   }
 
   static styles = styles;
@@ -77,6 +81,15 @@ class CarSettingsCard extends LitElement {
         ${renderEntityRow(this._carEnergyConsumption, {
           state: this._hass.formatEntityState(this._carEnergyConsumption)
         })}
+        <ha-settings-row>
+          <span slot="heading">
+            <ha-icon .icon=${'mdi:chart-sankey'}></ha-icon>&nbsp;&nbsp;
+            ${tp('scheduling-limits')}
+          </span>
+          <div class="text-content value state">
+            ${this._lowerChargeLimit.state} - ${this._upperChargeLimit.state} %
+          </div>
+        </ha-settings-row>
       </div>
       <div class="card-actions">
         ${renderButton(

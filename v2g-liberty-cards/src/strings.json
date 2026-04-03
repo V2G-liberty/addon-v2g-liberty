@@ -95,7 +95,8 @@
     },
     "car": {
       "header": "Car",
-      "alert": "Please configure car details, V2G Liberty needs this to work."
+      "alert": "Please configure car details, V2G Liberty needs this to work.",
+      "scheduling-limits": "Scheduling limits"
     },
     "car-dialog": {
       "1-connect-car": {
@@ -119,12 +120,18 @@
       "loading": {
         "message": "Retrieving data from car..."
       },
+      "3-scheduling-limits": {
+        "header": "Scheduling limits"
+      },
       "fields": {
         "name": "Car Name",
         "name-placeholder": "e.g., Nissan Leaf",
         "usable-capacity-help-short": "Maximum usable battery capacity for charging/discharging. Often lower than advertised capacity.",
         "roundtrip-efficiency-help-short": "Efficiency of charge and discharge cycle (charger + car). Typical value is 85%.",
         "car-energy-consumption-help-short": "Average electricity usage in Wh per kilometre. Typically 140-300 Wh/km.",
+        "min-soc-help-short": "The schedule will never discharge the battery below this percentage.",
+        "max-soc-help-short": "The schedule uses this as the regular upper charge limit.",
+        "allowed-duration-help-short": "How long the schedule may take to bring an over-charged battery back to the maximum.",
         "learn-more": "Learn more...",
         "show-less": "Show less"
       },

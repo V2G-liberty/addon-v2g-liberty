@@ -15,6 +15,7 @@ import * as entityIds from './entity-ids';
 
 export const tagName = 'edit-car-settings-dialog';
 const tp = partial('settings.car-dialog');
+const tp_dialogs = partial('settings.dialogs');
 
 const enum RetrievalStatus {
   NotStarted = 'not-started',
@@ -26,6 +27,7 @@ const enum RetrievalStatus {
 type DialogPage =
   | '1-connect-car'      // EVtec only: prompt user to connect car
   | '2-manual-entry'     // Wallbox or EVtec after retrieval: form with fields
+  | '3-scheduling-limits' // Scheduling limits: min/max SoC and allowed duration
   | 'loading'            // Spinner during retrieval
   | 'error';             // Error state (e.g. no charger configured)
 
@@ -36,6 +38,9 @@ class EditCarSettingsDialog extends DialogBase {
   @state() private _usableCapacity: string;
   @state() private _roundtripEfficiency: string;
   @state() private _carEnergyConsumption: string;
+  @state() private _minSoc: string;
+  @state() private _maxSoc: string;
+  @state() private _allowedDurationAboveMax: string;
   @state() private _currentPage: DialogPage;
   @state() private _retrievalStatus: RetrievalStatus;
   @state() private _errorMessage: string;
@@ -55,6 +60,9 @@ class EditCarSettingsDialog extends DialogBase {
     this._usableCapacity = defaultState(this.hass.states[entityIds.usableCapacity], '');
     this._roundtripEfficiency = defaultState(this.hass.states[entityIds.roundtripEfficiency], '85');
     this._carEnergyConsumption = defaultState(this.hass.states[entityIds.carEnergyConsumption], '');
+    this._minSoc = defaultState(this.hass.states[entityIds.lowerChargeLimit], '20');
+    this._maxSoc = defaultState(this.hass.states[entityIds.upperChargeLimit], '80');
+    this._allowedDurationAboveMax = defaultState(this.hass.states[entityIds.allowedDurationAboveMax], '4');
     this._chargerType = this.hass.states[entityIds.chargerType]?.state || '';
     this._isEdit = this.hass.states[entityIds.carSettingsInitialised]?.state === 'on';
 
@@ -125,7 +133,9 @@ class EditCarSettingsDialog extends DialogBase {
             ? this._renderConnectCarPrompt()
             : this._currentPage === 'loading'
               ? this._renderLoading()
-              : this._renderManualEntry()}
+              : this._currentPage === '3-scheduling-limits'
+                ? this._renderSchedulingLimits()
+                : this._renderManualEntry()}
       </ha-dialog>
     `;
   }
@@ -135,6 +145,8 @@ class EditCarSettingsDialog extends DialogBase {
       return tp('errors.header');
     } else if (this._currentPage === '1-connect-car' || this._currentPage === 'loading') {
       return tp('1-connect-car.header');
+    } else if (this._currentPage === '3-scheduling-limits') {
+      return tp('3-scheduling-limits.header');
     } else if (this._isEdit) {
       return tp('edit.header', { name: this._carName });
     } else {
@@ -175,7 +187,7 @@ class EditCarSettingsDialog extends DialogBase {
   }
 
   //////////////////////////////////////////////////
-  //     Step 3: Manual Entry / Review Form       //
+  //     Step 2: Manual Entry / Review Form       //
   //////////////////////////////////////////////////
 
   private _renderManualEntry() {
@@ -249,6 +261,67 @@ class EditCarSettingsDialog extends DialogBase {
 
       ${renderButton(
         this.hass,
+        () => { this._currentPage = '3-scheduling-limits'; this._expandedHelpField = null; },
+        true,
+        this.hass.localize('ui.common.continue')
+      )}
+    `;
+  }
+
+  //////////////////////////////////////////////////
+  //     Step 3: Scheduling Limits               //
+  //////////////////////////////////////////////////
+
+  private _renderSchedulingLimits() {
+    const lowerChargeLimitState = this.hass.states[entityIds.lowerChargeLimit];
+    const upperChargeLimitState = this.hass.states[entityIds.upperChargeLimit];
+    const allowedDurationState = this.hass.states[entityIds.allowedDurationAboveMax];
+
+    return html`
+      ${renderInputNumber(
+        this._minSoc,
+        lowerChargeLimitState,
+        evt => { this._minSoc = evt.target.value; }
+      )}
+      ${this._renderExpandableHelp(
+        'minSoc',
+        'fields.min-soc-help-short',
+        'car-battery-lower-charge-limit.description'
+      )}
+
+      ${renderInputNumber(
+        this._maxSoc,
+        upperChargeLimitState,
+        evt => { this._maxSoc = evt.target.value; }
+      )}
+      ${this._renderExpandableHelp(
+        'maxSoc',
+        'fields.max-soc-help-short',
+        'car-battery-upper-charge-limit.description'
+      )}
+
+      ${renderInputNumber(
+        this._allowedDurationAboveMax,
+        allowedDurationState,
+        evt => { this._allowedDurationAboveMax = evt.target.value; }
+      )}
+      ${this._renderExpandableHelp(
+        'allowedDuration',
+        'fields.allowed-duration-help-short',
+        'allowed-duration-above-max.description'
+      )}
+
+      ${renderButton(
+        this.hass,
+        () => { this._currentPage = '2-manual-entry'; this._expandedHelpField = null; },
+        false,
+        this.hass.localize('ui.common.back'),
+        false,
+        'back',
+        true
+      )}
+      ${renderButton(
+        this.hass,
         () => this._saveSettings(),
         true,
         this.hass.localize('ui.common.save')
@@ -266,13 +339,13 @@ class EditCarSettingsDialog extends DialogBase {
     fullTextKey: string
   ) {
     const isExpanded = this._expandedHelpField === fieldId;
-    const tp_dialogs = partial('settings.dialogs');
+    const fullText = tp_dialogs(fullTextKey);
 
     return html`
       <div class="help-text">
         ${isExpanded
           ? html`
-              <ha-markdown breaks .content=${tp_dialogs(fullTextKey)}></ha-markdown>
+              <ha-markdown breaks .content=${fullText}></ha-markdown>
               <a href="#" class="help-toggle" @click=${(e) => { e.preventDefault(); this._expandedHelpField = null; }}>
                 ${tp('fields.show-less')}
               </a>
@@ -350,7 +423,6 @@ class EditCarSettingsDialog extends DialogBase {
   private async _saveSettings() {
     // Validation
     if (!this._carName.trim()) {
-      // Show error
       return;
     }
 
@@ -371,6 +443,9 @@ class EditCarSettingsDialog extends DialogBase {
           efficiency: parseFloat(this._roundtripEfficiency),
           consumption_wh_km: parseFloat(this._carEnergyConsumption),
           ev_id: this._evId,
+          min_soc: parseInt(this._minSoc, 10),
+          max_soc: parseInt(this._maxSoc, 10),
+          allowed_duration_above_max: parseInt(this._allowedDurationAboveMax, 10),
         },
         10000
       );

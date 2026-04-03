@@ -678,6 +678,9 @@ class V2GLibertyGlobals:
         efficiency = data.get("efficiency")
         consumption_wh_km = data.get("consumption_wh_km")
         ev_id = data.get("ev_id", "")
+        min_soc = data.get("min_soc")
+        max_soc = data.get("max_soc")
+        allowed_duration_above_max = data.get("allowed_duration_above_max")
 
         # Validate required fields
         if not car_name:
@@ -699,6 +702,11 @@ class V2GLibertyGlobals:
         self.__store_setting(
             "input_number.car_consumption_wh_per_km", consumption_wh_km
         )
+        self.__store_setting("input_number.car_min_soc_in_percent", min_soc)
+        self.__store_setting("input_number.car_max_soc_in_percent", max_soc)
+        self.__store_setting(
+            "input_number.allowed_duration_above_max_soc_in_hrs", allowed_duration_above_max
+        )
 
         # Save to HA entities
         await self.__write_setting_to_ha(self.SETTING_CAR_NAME, car_name, "user_input")
@@ -710,6 +718,17 @@ class V2GLibertyGlobals:
         )
         await self.__write_setting_to_ha(
             self.SETTING_CAR_CONSUMPTION_WH_PER_KM, consumption_wh_km, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_CAR_MIN_SOC_IN_PERCENT, min_soc, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_CAR_MAX_SOC_IN_PERCENT, max_soc, "user_input"
+        )
+        await self.__write_setting_to_ha(
+            self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
+            allowed_duration_above_max,
+            "user_input",
         )
 
         self.__store_setting("input_boolean.car_settings_initialised", True)
