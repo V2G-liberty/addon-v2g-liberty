@@ -111,10 +111,14 @@ export class AdministratorSettingsCard extends LitElement {
     }
 
     if (this._testNotificationState === 'waiting') {
+      const isAndroid = this._adminMobilePlatform?.state?.toLowerCase() === 'android';
       return html`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
         ${renderSpinner(this._hass)}
-        <div style="padding-left: 0.5em;">${tt('how-to-react-on-mobile-device')}</div></div>
+        <div style="padding-left: 0.5em;">
+          ${tt('how-to-react-on-mobile-device')}
+          ${isAndroid ? html`<br/><br/><em>${tt('android-alarm-permission-hint')}</em>` : ''}
+        </div></div>
       `;
     }
 
