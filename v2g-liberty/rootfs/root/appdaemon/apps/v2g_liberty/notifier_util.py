@@ -279,7 +279,7 @@ class Notifier:
             message=data["notificationMessage"],
             title=data["notificationTitle"],
             tag="test_notification",
-            critical=False,
+            critical=True,
             send_to_all=False,
             ttl=None,
             actions=user_actions,

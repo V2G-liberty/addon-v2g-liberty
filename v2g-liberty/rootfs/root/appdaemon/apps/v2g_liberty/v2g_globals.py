@@ -822,7 +822,13 @@ class V2GLibertyGlobals:
             "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}
         }
         if c.ADMIN_MOBILE_PLATFORM.lower() == "android":
-            c.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
+            c.PRIORITY_NOTIFICATION_CONFIG = {
+                "ttl": 0,
+                "priority": "high",
+                "importance": "max",
+                "channel": "alarm_stream",
+                "media_stream": "alarm_stream",
+            }
 
         self.__log("completed")
 

@@ -159,11 +159,12 @@
       "error": "Please select an option"
     },
     "test_notification": {
-      "send-test-notification": "Send a test notification",
+      "send-test-notification": "Send a test notification (with sound)",
       "notification-title": "Test notification",
-      "notification-message": "This is a test notification, please longpress me to see actions, then click 'Confirm'.",
+      "notification-message": "This is a critical test notification, please longpress me to see actions, then click 'Confirm'.",
       "notification-button-label": "Confirm",
-      "how-to-react-on-mobile-device": "A test notification has been sent to your mobile phone. Long press the notification and a button 'Confim' will show up. Please press that button.",
+      "how-to-react-on-mobile-device": "A critical test notification has been sent to your mobile phone. It should play a sound, even if your phone is on silent. Long press the notification and a button 'Confirm' will show up. Please press that button.",
+      "android-alarm-permission-hint": "If you only hear a short beep instead of a loud alarm sound, the Home Assistant app may need additional permissions. Go to Android Settings > Apps > Special app access > Alarms & reminders and enable access for the Home Assistant app. Menu names may vary between Android versions.",
       "test-notification-timeout": "The test timed out, Please edit the administrator configuration.",
       "test-notification-success": "The administrator setup is perfect! Notification received and well handeld."
     },
