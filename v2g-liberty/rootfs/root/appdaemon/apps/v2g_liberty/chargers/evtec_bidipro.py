@@ -451,7 +451,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             Any exception raised by ``_mb_client.read_registers`` or
             ``_process_number`` will propagate unless handled internally.
         """
-        if not self.is_car_connected:
+        if self._mb_client is None or not self.is_car_connected:
             return None
 
         # Battery capacity from ISO15118 is unreliable (e.g. VW ID.7 reports 10 kWh
