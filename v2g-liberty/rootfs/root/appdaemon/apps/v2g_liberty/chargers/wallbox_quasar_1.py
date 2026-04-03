@@ -1274,7 +1274,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         if has_error:
             if is_final_check:
-                await self._handle_un_recoverable_error(reason="charger reports error")
                 # TODO: check if it is wise to use this same event for both
                 # modbus communication lost and charger error
                 self._eb.emit_event(
