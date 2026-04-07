@@ -109,7 +109,7 @@ export const dataTableStyles = css`
     .subcard-charge    { grid-column: 1 / 6; }
     .subcard-discharge { grid-column: 6 / 11; }
 
-    @container (max-width: 700px) {
+    @container (max-width: 768px) {
       .totals-subcards-grid {
         grid-template-columns: 1fr;
       }
@@ -615,6 +615,89 @@ export const dataTableStyles = css`
 
     tbody td.num {
       text-align: right;
+    }
+
+    /* ── T45: compact mode + uitklapbare detail-rijen ───── */
+
+    table.compact .col-hide-compact {
+      display: none;
+    }
+
+    /* Compacte horizontale padding (16 px i.p.v. 24 px) */
+    table.compact thead th:first-child,
+    table.compact tbody td:first-child {
+      padding-left: 16px;
+    }
+    table.compact thead th:last-child,
+    table.compact tbody td:last-child {
+      padding-right: 16px;
+    }
+    table.compact thead th,
+    table.compact tbody td {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    /* Chevron-cel: blauwe tint, klikbaar */
+    .chevron-col {
+      width: 44px;
+      padding: 0 !important;
+    }
+    .chevron-cell {
+      width: 44px;
+      padding: 0 !important;
+      text-align: center;
+      cursor: pointer;
+      background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+      color: var(--primary-color);
+      transition: background 0.15s ease;
+      user-select: none;
+    }
+    .chevron-cell:hover {
+      background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+    }
+    .chevron-cell:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: -2px;
+    }
+    .chevron-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-block;
+      vertical-align: middle;
+      transition: transform 0.15s ease;
+    }
+    .chevron-cell.open .chevron-icon {
+      transform: rotate(180deg);
+    }
+
+    tbody tr.expanded > td {
+      border-bottom: none;
+    }
+
+    /* Uitklap-rij — uitlijnen op de netto-kolommen van de hoofdrij */
+    tr.row-detail > td {
+      background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+      border-bottom: none;
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+    tr.row-detail.row-detail-first > td {
+      padding-top: 10px;
+    }
+    tr.row-detail.row-detail-last > td {
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+    }
+    tr.row-detail .row-detail-label {
+      text-align: right;
+      font-weight: 600;
+      color: var(--secondary-text-color, #797979);
+      font-size: 12px;
+    }
+    tr.row-detail .chevron-spacer {
+      padding: 0 !important;
+      background: color-mix(in srgb, var(--primary-color) 4%, transparent);
     }
 
     .profit {

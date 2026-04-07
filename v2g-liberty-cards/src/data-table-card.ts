@@ -36,6 +36,8 @@ export class DataTableCard extends LitElement {
   @state() private _isLoading: boolean = false;
   @state() private _error: string | null = null;
   @state() private _narrowBar = false;
+  @state() private _isCompact = false;
+  @state() private _expandedRowKey: string | null = null;
   @state() private _granMenuOpen = false;
   @state() private _firstAvailable: string | null = null;
   @state() private _openTip: string | null = null;
@@ -79,7 +81,16 @@ export class DataTableCard extends LitElement {
     });
 
     const syncNarrow = () => {
-      this._narrowBar = this.offsetWidth <= 800;
+      // Match the @container (inline-size) measurement: content-box of :host,
+      // i.e. clientWidth minus left/right padding (12 px each).
+      const w = this.clientWidth - 24;
+      this._narrowBar = w <= 800;
+      // Compact applies only to hours / days+ — kwartieren keeps full layout.
+      const compact = w <= 768 && this._granularity !== 'quarter_hours';
+      if (compact !== this._isCompact) {
+        this._isCompact = compact;
+        if (!compact) this._expandedRowKey = null;
+      }
     };
 
     this._resizeObserver = new ResizeObserver(() => requestAnimationFrame(syncNarrow));
@@ -197,7 +208,16 @@ export class DataTableCard extends LitElement {
 
   // ── Navigation ────────────────────────────────────────────────
 
+  private _toggleRow(key: string) {
+    this._expandedRowKey = this._expandedRowKey === key ? null : key;
+  }
+
+  private _isExpanded(key: string): boolean {
+    return this._expandedRowKey === key;
+  }
+
   private _navigate(direction: number) {
+    this._expandedRowKey = null;
     const d = new Date(this._viewDate);
 
     switch (this._granularity) {
@@ -224,12 +244,16 @@ export class DataTableCard extends LitElement {
   }
 
   private _goToNow() {
+    this._expandedRowKey = null;
     this._viewDate = new Date();
     this._fetchData();
   }
 
   private _setGranularity(g: Granularity) {
+    this._expandedRowKey = null;
     this._granularity = g;
+    // Recompute compact: kwartieren is never compact, others depend on width.
+    this._isCompact = g !== 'quarter_hours' && (this.clientWidth - 24) <= 768;
     this._fetchData();
   }
 
@@ -245,6 +269,7 @@ export class DataTableCard extends LitElement {
   private _onDateChange(e: Event) {
     const input = e.target as HTMLInputElement;
     if (input.value) {
+      this._expandedRowKey = null;
       const parts = input.value.split('-');
       this._viewDate = new Date(
         parseInt(parts[0]),
@@ -986,9 +1011,65 @@ export class DataTableCard extends LitElement {
     `;
   }
 
-  private _renderHourTable(): TemplateResult {
+  private _renderChevronTh(): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    return html`<th class="chevron-col" rowspan="2"></th>`;
+  }
+
+  private _renderChevronTd(rowKey: string): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    const expanded = this._isExpanded(rowKey);
+    const label = expanded ? tp('row-details-hide') : tp('row-details-show');
     return html`
-      <table>
+      <td
+        class="chevron-cell ${expanded ? 'open' : ''}"
+        role="button"
+        tabindex="0"
+        aria-expanded="${expanded ? 'true' : 'false'}"
+        aria-label="${label}"
+        title="${label}"
+        @click=${(e: Event) => { e.stopPropagation(); this._toggleRow(rowKey); }}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this._toggleRow(rowKey);
+          }
+        }}
+      >
+        <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+        </svg>
+      </td>
+    `;
+  }
+
+  private _renderHourDetailRow(row: any): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    const key = row.period_start;
+    if (!this._isExpanded(key)) return nothing;
+    // In compact mode the hours table has these visible columns:
+    // 0 period, 1 status, 2 soc, 3 avg-price, 4 rate, 5 net-energy, 6 net-cost, 7 chevron
+    // Label spans the first 5; values align with cols 5 and 6; chevron col stays blank.
+    return html`
+      <tr class="row-detail row-detail-first">
+        <td colspan="5" class="row-detail-label">${tp('col.charge')}</td>
+        <td class="num">${this._fmtWh(row.charge_wh)}</td>
+        <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+      <tr class="row-detail row-detail-last">
+        <td colspan="5" class="row-detail-label">${tp('col.discharge')}</td>
+        <td class="num">${this._fmtWh(row.discharge_wh)}</td>
+        <td class="num profit">${this._fmtCurrency(row.discharge_revenue)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+    `;
+  }
+
+  private _renderHourTable(): TemplateResult {
+    const compact = this._isCompact;
+    return html`
+      <table class="${compact ? 'compact' : ''}">
         <thead class="grouped">
           <tr>
             <th>${tp('col.period')}</th>
@@ -996,9 +1077,10 @@ export class DataTableCard extends LitElement {
             <th class="num">${tp('col.soc')}</th>
             <th class="num">${tp('col.avg-price')}</th>
             <th class="indicator-col">${tp('col.rate')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="2">${tp('col.charge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="2">${tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
+            ${this._renderChevronTh()}
           </tr>
           <tr class="sub-header">
             <th></th>
@@ -1006,87 +1088,122 @@ export class DataTableCard extends LitElement {
             <th class="num">%</th>
             <th class="num">€¢/kWh</th>
             <th class="indicator-col"></th>
-            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
-            <th class="num">${tp('col.cost')}</th>
-            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
-            <th class="num">${tp('col.revenue')}</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (Wh)</th>
+            <th class="num col-hide-compact">${tp('col.cost')}</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (Wh)</th>
+            <th class="num col-hide-compact">${tp('col.revenue')}</th>
             <th class="num group-sep">${tp('col.energy')} (Wh)</th>
             <th class="num">${tp('col.cost')}</th>
           </tr>
         </thead>
         <tbody>
-          ${this._renderTbody(11, () => this._data.map(
-            (row) => html`
-              <tr class="${row.has_repaired ? 'repaired' : ''}">
-                <td>${this._fmtHour(row.period_start)}</td>
-                <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                <td class="num">${this._fmtNum(row.soc_pct, 1)}</td>
-                <td class="num">${this._fmtCents(row.avg_price)}</td>
-                <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                <td class="num group-sep">${this._fmtWh(row.charge_wh)}</td>
-                <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                <td class="num group-sep">${this._fmtWh(row.discharge_wh)}</td>
-                <td class="num profit">${this._fmtCurrency(row.discharge_revenue)}</td>
-                <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
-                <td class="num ${(row.charge_cost ?? 0) - (row.discharge_revenue ?? 0) < 0 ? 'profit' : ''}">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
-              </tr>
-            `
+          ${this._renderTbody(compact ? 8 : 11, () => this._data.flatMap(
+            (row) => [
+              html`
+                <tr class="${row.has_repaired ? 'repaired' : ''} ${this._isExpanded(row.period_start) ? 'expanded' : ''}">
+                  <td>${this._fmtHour(row.period_start)}</td>
+                  <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                  <td class="num">${this._fmtNum(row.soc_pct, 1)}</td>
+                  <td class="num">${this._fmtCents(row.avg_price)}</td>
+                  <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                  <td class="num group-sep col-hide-compact">${this._fmtWh(row.charge_wh)}</td>
+                  <td class="num col-hide-compact">${this._fmtCurrency(row.charge_cost)}</td>
+                  <td class="num group-sep col-hide-compact">${this._fmtWh(row.discharge_wh)}</td>
+                  <td class="num profit col-hide-compact">${this._fmtCurrency(row.discharge_revenue)}</td>
+                  <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
+                  <td class="num ${(row.charge_cost ?? 0) - (row.discharge_revenue ?? 0) < 0 ? 'profit' : ''}">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
+                  ${this._renderChevronTd(row.period_start)}
+                </tr>
+              `,
+              this._renderHourDetailRow(row),
+            ]
           ))}
         </tbody>
       </table>
     `;
   }
 
-  private _renderDayTable(): TemplateResult {
+  private _renderDayDetailRow(row: any, kwhDec: number, kgDec: number, curDec: number): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    const key = row.period_start;
+    if (!this._isExpanded(key)) return nothing;
+    // In compact mode the days table has these visible columns:
+    // 0 period, 1 availability, 2 net-energy, 3 net-cost, 4 net-co2, 5 chevron
+    // Label spans the first 2; values align with cols 2/3/4; chevron stays blank.
     return html`
-      <table>
+      <tr class="row-detail row-detail-first">
+        <td colspan="2" class="row-detail-label">${tp('col.charge')}</td>
+        <td class="num">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
+        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+        <td class="num">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+      <tr class="row-detail row-detail-last">
+        <td colspan="2" class="row-detail-label">${tp('col.discharge')}</td>
+        <td class="num">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
+        <td class="num profit">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+        <td class="num profit">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+    `;
+  }
+
+  private _renderDayTable(): TemplateResult {
+    const compact = this._isCompact;
+    return html`
+      <table class="${compact ? 'compact' : ''}">
         <thead class="grouped">
           <tr>
             <th>${tp('col.period')}</th>
             <th class="num"><span class="wide-title-wrapper">${tp('col.availability')}</span></th>
-            <th class="group-header group-sep" colspan="3">${tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="3">${tp('col.discharge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="3">${tp('col.charge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="3">${tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
             <th class="num"></th>
+            ${this._renderChevronTh()}
           </tr>
           <tr class="sub-header">
             <th></th>
             <th class="num">%
               ${this._renderInfoTip('avail-header', 'col.availability-tooltip')}
             </th>
-            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
-            <th class="num">${tp('col.cost')}</th>
-            <th class="num">CO₂ (kg)</th>
-            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
-            <th class="num">${tp('col.revenue')}</th>
-            <th class="num">CO₂ (kg)</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (kWh)</th>
+            <th class="num col-hide-compact">${tp('col.cost')}</th>
+            <th class="num col-hide-compact">CO₂ (kg)</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (kWh)</th>
+            <th class="num col-hide-compact">${tp('col.revenue')}</th>
+            <th class="num col-hide-compact">CO₂ (kg)</th>
             <th class="num group-sep">${tp('col.energy')} (kWh)</th>
             <th class="num">${tp('col.cost')}</th>
             <th class="num">CO₂ (kg)</th>
           </tr>
         </thead>
         <tbody>
-          ${this._renderTbody(11, () => {
+          ${this._renderTbody(compact ? 6 : 11, () => {
             const aggGran = ['weeks', 'months', 'years'].includes(this._granularity);
             const kwhDec = aggGran ? 0 : 2;
             const kgDec  = aggGran ? 0 : 1;
             const curDec = this._granularity === 'years' ? 0 : 2;
-            return this._data.map(
-              (row) => html`
-                <tr class="${row.has_repaired ? 'repaired' : ''}">
-                  <td>${this._fmtPeriod(row.period_start)}</td>
-                  <td class="num">${this._fmtNum(row.availability_pct, 0)}</td>
-                  <td class="num group-sep">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
-                  <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
-                  <td class="num">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
-                  <td class="num group-sep">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
-                  <td class="num profit">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
-                  <td class="num profit">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
-                  <td class="num group-sep">${this._fmtNum(row.net_kwh, kwhDec)}</td>
-                  <td class="num ${row.net_cost < 0 ? 'profit' : ''}">${this._fmtCurrency(row.net_cost, curDec)}</td>
-                  <td class="num ${row.co2_kg < 0 ? 'profit' : ''}">${this._fmtNum(row.co2_kg, kgDec)}</td>
-                </tr>
-              `
+            return this._data.flatMap(
+              (row) => [
+                html`
+                  <tr class="${row.has_repaired ? 'repaired' : ''} ${this._isExpanded(row.period_start) ? 'expanded' : ''}">
+                    <td>${this._fmtPeriod(row.period_start)}</td>
+                    <td class="num">${this._fmtNum(row.availability_pct, 0)}</td>
+                    <td class="num group-sep col-hide-compact">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
+                    <td class="num col-hide-compact">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+                    <td class="num col-hide-compact">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
+                    <td class="num group-sep col-hide-compact">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
+                    <td class="num profit col-hide-compact">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                    <td class="num profit col-hide-compact">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
+                    <td class="num group-sep">${this._fmtNum(row.net_kwh, kwhDec)}</td>
+                    <td class="num ${row.net_cost < 0 ? 'profit' : ''}">${this._fmtCurrency(row.net_cost, curDec)}</td>
+                    <td class="num ${row.co2_kg < 0 ? 'profit' : ''}">${this._fmtNum(row.co2_kg, kgDec)}</td>
+                    ${this._renderChevronTd(row.period_start)}
+                  </tr>
+                `,
+                this._renderDayDetailRow(row, kwhDec, kgDec, curDec),
+              ]
             );
           })}
         </tbody>

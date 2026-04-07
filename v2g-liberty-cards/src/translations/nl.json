@@ -78,6 +78,8 @@
       "savings-dyn-label": "t.o.v. standaard laden + dyn. contract",
       "savings-tooltip": "Dit is uw besparing t.o.v. standaard laden.\n\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage — zonder slim schema.\n\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\n • Vast: standaard laden kWh × maandelijkse gemiddelde contractprijzen (CBS).\n • Dynamisch: standaard laden kWh × dezelfde dynamische energieprijzen."
     },
+    "row-details-show": "Toon details",
+    "row-details-hide": "Verberg details",
     "estimated-note": "Deels gebaseerd op geschatte data",
     "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.",
     "overflow-reset-database": "Geschiedenis resetten",

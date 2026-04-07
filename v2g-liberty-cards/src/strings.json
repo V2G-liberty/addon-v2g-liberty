@@ -135,6 +135,8 @@
       "savings-dyn-label": "vs non-smart charging + dyn. contract",
       "savings-tooltip": "This is your savings compared to standard charging.\n\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage — without a smart schedule.\n\nThe cost of standard charging is calculated based on your charging history in two variants:\n • Fixed: standard charging kWh × monthly average contract prices (CBS).\n • Dynamic: standard charging kWh × the same dynamic energy prices."
     },
+    "row-details-show": "Show details",
+    "row-details-hide": "Hide details",
     "estimated-note": "Partly based on estimated data",
     "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.",
     "overflow-reset-database": "Reset history",
