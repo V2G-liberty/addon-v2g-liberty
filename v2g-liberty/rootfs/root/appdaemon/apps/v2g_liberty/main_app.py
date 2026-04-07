@@ -233,23 +233,6 @@ class V2Gliberty:
             source = "unknown"
         self.__log(f"Set next action called from source: {source}.")
 
-        # ── DIAGNOSTICS (remove after one test run) ────────────────────────
-        # Log the runtime type of the stored timer handle and a short caller
-        # stack so we can verify whether the previous run_in handle was ever
-        # a real handle (str) or an awaitable that was never awaited.
-        import inspect
-        import traceback
-
-        prev_handle = self.timer_handle_set_next_action
-        self.__log(
-            f"DIAG timer_handle type={type(prev_handle).__name__} "
-            f"value={prev_handle!r} "
-            f"is_coro={inspect.iscoroutine(prev_handle)}"
-        )
-        stack = "".join(traceback.format_stack(limit=8)[:-1])
-        self.__log(f"DIAG caller stack:\n{stack}")
-        # ── END DIAGNOSTICS ────────────────────────────────────────────────
-
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
         # AppDaemon 4 makes timer_running / cancel_timer / run_in async — they
         # must be awaited or they return un-awaited coroutines that never run,
