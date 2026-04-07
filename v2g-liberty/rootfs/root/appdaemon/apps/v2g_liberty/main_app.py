@@ -234,9 +234,15 @@ class V2Gliberty:
         self.__log(f"Set next action called from source: {source}.")
 
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
+        # AppDaemon 4 makes timer_running / cancel_timer / run_in async — they
+        # must be awaited or they return un-awaited coroutines that never run,
+        # causing handles to leak and cancels to silently fail. The previous
+        # implementation called them synchronously, which let stale timers
+        # accumulate and re-fire set_next_action repeatedly.
         if self.timer_handle_set_next_action:
-            self.__cancel_timer(self.timer_handle_set_next_action)
-        self.timer_handle_set_next_action = self.hass.run_in(
+            await self.__cancel_set_next_action_timer_async()
+            self.timer_handle_set_next_action = None
+        self.timer_handle_set_next_action = await self.hass.run_in(
             self.set_next_action,
             delay=self.call_next_action_at_least_every,
         )
@@ -1107,6 +1113,28 @@ class V2Gliberty:
         if self.hass.timer_running(timer_id):
             silent = True  # Does not really work
             self.hass.cancel_timer(timer_id, silent)
+
+    async def __cancel_set_next_action_timer_async(self):
+        """Async cancel for the set_next_action watchdog timer.
+
+        AppDaemon 4 returns coroutines from timer_running / cancel_timer that
+        must be awaited; the synchronous __cancel_timer above swallows them
+        and the cancel never happens. This async variant is used specifically
+        for the set_next_action watchdog because that one re-arms on every
+        call and is the most prone to leaking handles.
+        """
+        timer_id = self.timer_handle_set_next_action
+        if not timer_id:
+            return
+        try:
+            running = await self.hass.timer_running(timer_id)
+        except Exception:
+            running = False
+        if running:
+            try:
+                await self.hass.cancel_timer(timer_id, silent=True)
+            except Exception:
+                pass
 
     def __cancel_charging_timers(self):
         for h in self.scheduling_timer_handles:

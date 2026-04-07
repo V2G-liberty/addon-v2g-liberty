@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Fix set next action timer (#429)
 - 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
 - 🪲 BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
 
