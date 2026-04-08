@@ -2956,30 +2956,32 @@ var $4db9c280a88445d4$exports = {};
 $4db9c280a88445d4$exports = JSON.parse('{"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Uren","days":"Dagen","weeks":"Weken","months":"Maanden","years":"Jaren"},"now":"Nu","loading":"Data laden...","no-data":"Geen data voor deze periode","no-data-hint":"Eerste data beschikbaar:","error":"Kon geen data laden. Probeer het opnieuw.","error-timeout":"Data laden duurde te lang. Probeer het later opnieuw.","all-time":"Alles","page-title":"Slimme energie","card-title":"Laden","app-state":{"automatic":"Automatisch","charge":"Laden","discharge":"Ontladen","pause":"Pauze","max_boost":"Max boost","not_connected":"Niet verbonden","error":"Fout","unknown":"Onbekend","mixed":"andere staten"},"price-rating":{"very-low":"Zeer laag","low":"Laag","average":"Gemiddeld","high":"Hoog","very-high":"Zeer hoog"},"col":{"period":"Periode","status":"Status","soc":"SoC","consumption":"Inkoop","production":"Verkoop","avg-price":"Gem. prijs","rate":"Prijspeil","energy":"Energie","cost-revenue":"Netto kosten","charge":"Laden","charge-kwh":"Laden","charge-cost":"Laadkosten","discharge":"Ontladen","discharge-kwh":"Ontladen","discharge-revenue":"Ontlaadopbrengst","availability":"Beschikbaarheid","availability-tooltip":"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.","net":"Netto","net-cost":"Netto kosten","cost":"Kosten","revenue":"Opbrengst","emissions":"Emissies","avoided-emissions":"Vermeden","duration":"Duur"},"totals":{"card-title":"Totalen","period":"Periode","soc-range":"SoC bereik","avg-cons-price":"Inkoop (gem.)","avg-prod-price":"Verkoop (gem.)","avg-price":"Gem. prijs","net-avg-price":"Prijs","availability":"Beschikbaarheid","charge-duration":"Laadduur","discharge-duration":"Ontlaadduur","savings":"Besparingen","savings-label":"Besparing tov vast","savings-fixed-label":"t.o.v. standaard laden + vast contract","savings-dyn-label":"t.o.v. standaard laden + dyn. contract","savings-tooltip":"Dit is uw besparing t.o.v. standaard laden.\\n\\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage \u2014 zonder slim schema.\\n\\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\\n \u2022 Vast: standaard laden kWh \xd7 maandelijkse gemiddelde contractprijzen (CBS).\\n \u2022 Dynamisch: standaard laden kWh \xd7 dezelfde dynamische energieprijzen."},"row-details-show":"Toon details","row-details-hide":"Verberg details","estimated-note":"Deels gebaseerd op geschatte data","estimated-tooltip":"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.","overflow-reset-database":"Geschiedenis resetten","reset-dialog":{"header":"Geschiedenis resetten","reimport-label":"Geschiedenis opnieuw importeren","reimport-explanation":"Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.","full-label":"Volledige database reset","full-explanation":"Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.","duration-note":"De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.","full-warning":"Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.","confirm-prompt":"Typ \\"Yes\\" of \\"Ja\\" ter bevestiging:","confirm-placeholder":"Yes / Ja","confirm-button":"Doorgaan","error":"Reset mislukt. Probeer het opnieuw.","success":"Klaar. Historische data wordt opnieuw ge\xefmporteerd \u2014 de Data-pagina wordt geleidelijk gevuld.","close":"Sluiten"}}}');
 
 
-const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
-function $aa1795080f053cd4$var$initialize() {
-    const languages = {
-        en: $3b34ac5ccae6bad9$exports,
-        nl: $4db9c280a88445d4$exports
-    };
-    const lang = navigator.language.split('-')[0];
-    let polyglot = new $a7208d9fde1d2afd$exports({
-        phrases: $3b34ac5ccae6bad9$exports,
+const $aa1795080f053cd4$var$LANGUAGES = {
+    en: $3b34ac5ccae6bad9$exports,
+    nl: $4db9c280a88445d4$exports
+};
+// English fallback polyglot — used as the safety net for missing keys
+// in any other language.
+const $aa1795080f053cd4$var$fallback = new $a7208d9fde1d2afd$exports({
+    phrases: $3b34ac5ccae6bad9$exports,
+    allowMissing: true,
+    onMissingKey: ()=>null
+});
+let $aa1795080f053cd4$var$currentLang = 'en';
+let $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$fallback;
+function $aa1795080f053cd4$var$buildPolyglot(lang) {
+    if (lang === 'en' || !$aa1795080f053cd4$var$LANGUAGES[lang]) return $aa1795080f053cd4$var$fallback;
+    return new $a7208d9fde1d2afd$exports({
+        phrases: $aa1795080f053cd4$var$LANGUAGES[lang],
         allowMissing: true,
-        onMissingKey: (key)=>{
-            // console.error(`Cannot translate '${key}'`);
-            return null;
-        }
+        onMissingKey: (key, options)=>$aa1795080f053cd4$var$fallback.t(key, options)
     });
-    if (lang !== 'en' && languages[lang]) {
-        const fallback = polyglot;
-        polyglot = new $a7208d9fde1d2afd$exports({
-            phrases: languages[lang],
-            allowMissing: true,
-            onMissingKey: (key, options)=>fallback.t(key, options)
-        });
-    }
-    return polyglot;
+}
+function $aa1795080f053cd4$export$4b6bf64406ec64af(lang) {
+    const normalised = (lang ?? 'en').split('-')[0];
+    if (normalised === $aa1795080f053cd4$var$currentLang) return;
+    $aa1795080f053cd4$var$currentLang = normalised;
+    $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$buildPolyglot(normalised);
 }
 function $aa1795080f053cd4$export$625550452a3fa3ec(phrase, options) {
     return $aa1795080f053cd4$var$polyglot.t(phrase, options);
@@ -3956,6 +3958,7 @@ class $bdc495d85e37df85$export$29eee0da9bbd43dd extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._chargedKwh = hass.states[$755a87c9ee93218f$export$20d139f4f3aeb4ae];
         this._chargeCost = hass.states[$755a87c9ee93218f$export$909fe49ce6b9cee5];
         this._dischargedKwh = hass.states[$755a87c9ee93218f$export$5fb82d6848912fff];
@@ -14337,6 +14340,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     setConfig(_config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._checkUninitialisedEntities();
         // HA's runtime hass.themes has darkMode but the type doesn't include it
         const isDark = hass.themes?.darkMode ?? false;
@@ -15540,6 +15544,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._adminSettingsInitialised = hass.states[$755a87c9ee93218f$export$e912a4111e48f543];
         this._adminMobileName = hass.states[$755a87c9ee93218f$export$750f693c799177e2];
         this._adminMobilePlatform = hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
@@ -15655,6 +15660,7 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._usableCapacity = hass.states[$755a87c9ee93218f$export$511a96d8a8b167fa];
         this._roundtripEfficiency = hass.states[$755a87c9ee93218f$export$7c53730103b0e952];
         this._carEnergyConsumption = hass.states[$755a87c9ee93218f$export$a6bd64d0b150c939];
@@ -15764,6 +15770,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
     }
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._calendarSettingsInitialised = hass.states[$755a87c9ee93218f$export$327a7fa57ac6cc54];
         this._carCalendarSource = hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
         this._integrationCalendarEntityName = hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
@@ -15881,6 +15888,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._chargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
         this._chargerHost = hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89];
         this._chargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
@@ -16018,6 +16026,7 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
     }
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._electricityContractSettingsInitialised = hass.states[$755a87c9ee93218f$export$6803b8e9884353c8];
         this._electricityProvider = hass.states[$755a87c9ee93218f$export$6106300be9012ff7];
         this._energyPriceVat = hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
@@ -16131,6 +16140,7 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._optimisationMode = hass.states[$755a87c9ee93218f$export$29a786ee773985a];
         this._lowerChargeLimit = hass.states[$755a87c9ee93218f$export$a81a922cb2dc8458];
         this._upperChargeLimit = hass.states[$755a87c9ee93218f$export$e39cc2ab91dbbf48];
@@ -16223,6 +16233,7 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 
+
 class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     connectedCallback() {
         super.connectedCallback();
@@ -16235,6 +16246,7 @@ class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._checkUnInitialisedEntities();
     }
     _checkUnInitialisedEntities() {
@@ -16289,6 +16301,7 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
     }
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._scheduleSettingsInitialised = hass.states[$755a87c9ee93218f$export$bcc5761a4d7674a4];
         this._fmAccountUsername = hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
         this._fmUseOtherServer = hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];

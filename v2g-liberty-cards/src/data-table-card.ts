@@ -4,7 +4,7 @@ import { dataTableStyles } from './data-table-card.styles';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { callFunction } from './util/appdaemon';
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 import { showSettingsErrorAlertDialog, showResetDatabaseDialog } from './show-dialogs';
 import { hasUninitializedEntities } from './util/settings-error-alert';
 
@@ -50,6 +50,7 @@ export class DataTableCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._checkUninitialisedEntities();
     // HA's runtime hass.themes has darkMode but the type doesn't include it
     const isDark = (hass as any).themes?.darkMode ?? false;

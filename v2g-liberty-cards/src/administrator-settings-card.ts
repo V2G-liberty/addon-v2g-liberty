@@ -6,7 +6,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { callFunction } from './util/appdaemon';
 
 import { renderEntityBlock, renderButton, renderSpinner } from './util/render';
-import { partial, t } from './util/translate';
+import { partial, setLanguage, t } from './util/translate';
 import { styles } from './card.styles';
 import { showAdministratorSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -30,6 +30,7 @@ export class AdministratorSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._adminSettingsInitialised =
       hass.states[entityIds.adminSettingsInitialised];
     this._adminMobileName = hass.states[entityIds.adminMobileName];
