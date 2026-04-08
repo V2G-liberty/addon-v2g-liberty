@@ -1,6 +1,7 @@
 """Module to manage the communication with the FlexMeasures platform"""
 
 import asyncio
+import json
 import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
@@ -288,21 +289,16 @@ class FMClient(AsyncIOEventEmitter):
     async def discover_power_source_id(
         self,
         sensor_id: int,
-        user_id: int,
-        variance_threshold_kw: float = 0.05,
     ) -> int | None:
-        """Probe FM source_ids to find the one containing actual charger measurements.
+        """Discover the FM source_id for actual charger measurements.
 
-        The FM power sensor receives beliefs from two sources:
-        - The Seita scheduler: near-constant values (~0.005 kW), belief_time updated today.
-        - The user's charger reporter: widely varying values (real charge/discharge).
+        Uses the chart_data endpoint which returns per-entry source metadata,
+        allowing us to distinguish scheduler beliefs (type="scheduler") from
+        real charger measurements (type!="scheduler") in a single API call.
 
-        Probing starts at user_id and increments upward (upper bound: user_id + 500).
-        The first source_id whose returned values have a standard deviation above
-        variance_threshold_kw is returned as the measured source.
-
-        Returns None if no measured source is found within the search range, or if
-        the client is not initialised.
+        Scans backwards week-by-week (up to 6 months) until data is found.
+        Returns None if no measured source is found or the client is not
+        initialised.
         """
         if self.client is None:
             self.__log(
@@ -310,83 +306,111 @@ class FMClient(AsyncIOEventEmitter):
             )
             return None
 
-        # Find a reference week: scan back up to 6 months to find a week with data.
-        reference_duration = timedelta(days=7)
-        reference_start = None
+        self.client.ensure_session()
+
         today = get_local_now().replace(hour=0, minute=0, second=0, microsecond=0)
         for weeks_back in range(1, 27):  # up to ~6 months
-            candidate_start = today - timedelta(weeks=weeks_back)
+            week_start = today - timedelta(weeks=weeks_back)
+            week_end = week_start + timedelta(days=7)
+
+            url = self.client.build_url(
+                f"sensor/{sensor_id}/chart_data", path="/api/dev/"
+            )
+            headers = await self.client.get_headers(include_auth=True)
+            params = {
+                "event_starts_after": week_start.isoformat(),
+                "event_ends_before": week_end.isoformat(),
+            }
+
             try:
-                result = await self.client.get_sensor_data(
-                    sensor_id=sensor_id,
-                    start=candidate_start,
-                    duration=reference_duration,
-                    unit="kW",
-                    resolution="PT5M",
+                response = await self.client.session.get(
+                    url, headers=headers, params=params, ssl=self.client.ssl
                 )
-            except Exception:
-                continue
-            values = [v for v in (result or {}).get("values", []) if v is not None]
-            if values:
-                reference_start = candidate_start
+                if response.status != 200:
+                    self.__log(
+                        f"Source discovery: chart_data returned status {response.status} "
+                        f"for week {week_start.date()}, skipping."
+                    )
+                    continue
+                body = await response.text()
+                entries = json.loads(body)
+            except Exception as e:
                 self.__log(
-                    f"Source discovery: reference week is "
-                    f"{candidate_start.date()} -- {(candidate_start + reference_duration).date()}."
+                    f"Source discovery: error fetching chart_data for week "
+                    f"{week_start.date()}: {e}"
                 )
-                break
+                continue
 
-        if reference_start is None:
+            if not isinstance(entries, list) or not entries:
+                if entries:
+                    self.__log(
+                        f"Source discovery: unexpected response type "
+                        f"({type(entries).__name__}) for week {week_start.date()}, "
+                        f"skipping.",
+                        level="WARNING",
+                    )
+                continue
+
+            # Validate that entries have the expected source structure.
+            first = entries[0]
+            if not isinstance(first, dict) or "source" not in first:
+                self.__log(
+                    f"Source discovery: response format changed — entries lack "
+                    f"'source' field. First entry keys: {list(first.keys()) if isinstance(first, dict) else 'N/A'}.",
+                    level="WARNING",
+                )
+                return None
+
+            # Collect unique sources from the response.
+            sources_by_id: dict[int, dict] = {}
+            for entry in entries:
+                src = entry.get("source", {})
+                src_id = src.get("id")
+                if src_id is not None and src_id not in sources_by_id:
+                    sources_by_id[src_id] = src
+
             self.__log(
-                "Source discovery: no data found in the last 6 months, aborting.",
-                level="WARNING",
-            )
-            return None
-
-        # Probe source_ids starting from user_id.
-        upper_bound = user_id + 500
-        skipped_no_exist = []
-        skipped_no_data = []
-        skipped_low_variance = []
-
-        for source_id in range(user_id, upper_bound + 1):
-            if source_id > user_id:
-                await asyncio.sleep(1)
-            try:
-                result = await self.client.get_sensor_data(
-                    sensor_id=sensor_id,
-                    start=reference_start,
-                    duration=reference_duration,
-                    unit="kW",
-                    resolution="PT5M",
-                    source=source_id,
+                f"Source discovery: week {week_start.date()} -- {week_end.date()} "
+                f"has {len(entries)} entries from {len(sources_by_id)} source(s): "
+                + ", ".join(
+                    f"id={s['id']} name='{s.get('name')}' type='{s.get('type')}'"
+                    for s in sources_by_id.values()
                 )
-            except Exception:
-                # 422 = source_id does not exist in FM.
-                skipped_no_exist.append(source_id)
-                continue
-
-            values = [v for v in (result or {}).get("values", []) if v is not None]
-            if not values:
-                skipped_no_data.append(source_id)
-                continue
-
-            std = math.sqrt(
-                sum((v - sum(values) / len(values)) ** 2 for v in values) / len(values)
+                + "."
             )
-            if std > variance_threshold_kw:
+
+            # Filter out scheduler sources.
+            measured = {
+                sid: src
+                for sid, src in sources_by_id.items()
+                if src.get("type") != "scheduler"
+            }
+
+            if len(measured) == 1:
+                source_id = next(iter(measured))
                 self.__log(
                     f"Source discovery: found measured source_id={source_id} "
-                    f"(std={std:.4f} kW) after probing {source_id - user_id + 1} id(s)."
+                    f"(name='{measured[source_id].get('name')}')."
                 )
                 return source_id
-            skipped_low_variance.append(source_id)
+
+            if len(measured) > 1:
+                self.__log(
+                    f"Source discovery: multiple non-scheduler sources found: "
+                    f"{list(measured.keys())}. Cannot determine which is the "
+                    f"charger reporter, returning None.",
+                    level="WARNING",
+                )
+                return None
+
+            # Only scheduler sources found — try an earlier week.
+            self.__log(
+                f"Source discovery: week {week_start.date()} has only scheduler "
+                f"source(s), trying earlier week."
+            )
 
         self.__log(
-            f"Source discovery: no measured source found in range "
-            f"{user_id}..{upper_bound}. "
-            f"Not found: {skipped_no_exist}, "
-            f"no data: {skipped_no_data}, "
-            f"low variance: {skipped_low_variance}.",
+            "Source discovery: no measured source found in the last 6 months.",
             level="WARNING",
         )
         return None

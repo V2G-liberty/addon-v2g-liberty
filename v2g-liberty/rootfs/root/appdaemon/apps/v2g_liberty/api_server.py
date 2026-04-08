@@ -21,13 +21,37 @@ class ApiServer:
         self.__hass = hass
         self.__log = get_class_method_logger(hass.log)
         self.data_store = None
+        self.data_repairer = None
         self.__log("ApiServer created.")
 
     async def initialise(self):
         """Register REST endpoint and HA event listener."""
         self.__hass.register_endpoint(self.__handle_aggregated_data, "v2g_data")
         await self.__hass.listen_event(self.__handle_data_query_event, "v2g_data_query")
-        self.__log("API endpoint and event listener registered.")
+        await self.__hass.listen_event(
+            self.__handle_run_full_repair_event, "v2g_run_full_repair"
+        )
+        self.__log(
+            "API endpoint and event listeners registered "
+            "(v2g_data_query, v2g_run_full_repair)."
+        )
+
+    async def __handle_run_full_repair_event(self, event_name, data, kwargs):
+        """Trigger a full data repair on demand.
+
+        Fire from HA Developer Tools → Events with event type
+        'v2g_run_full_repair' (no data needed). Useful for testing without
+        having to do a full Re-import. Logs a warning if the repairer is
+        not wired up yet.
+        """
+        if self.data_repairer is None:
+            self.__log(
+                "v2g_run_full_repair received but data_repairer is not wired.",
+                level="WARNING",
+            )
+            return
+        self.__log("v2g_run_full_repair event received — starting full repair.")
+        await self.data_repairer.run_full_repair_async()
 
     async def __handle_aggregated_data(self, data, kwargs):
         """Handle requests for aggregated data.
@@ -82,8 +106,10 @@ class ApiServer:
                 return {"error": "Invalid timestamp format. Use ISO 8601."}, 400
 
             result = self.data_store.get_aggregated_data(start, end, granularity)
+            first_available = self.data_store.get_first_available()
             return {
                 "data": result,
+                "first_available": first_available,
                 "granularity": granularity,
                 "start": start,
                 "end": end,
@@ -141,9 +167,11 @@ class ApiServer:
                 return
 
             result = self.data_store.get_aggregated_data(start, end, granularity)
+            first_available = self.data_store.get_first_available()
             self.__hass.fire_event(
                 "v2g_data_query.result",
                 data=result,
+                first_available=first_available,
                 granularity=granularity,
                 start=start,
                 end=end,

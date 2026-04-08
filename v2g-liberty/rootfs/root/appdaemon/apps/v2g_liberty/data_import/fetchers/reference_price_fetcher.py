@@ -79,7 +79,7 @@ def fetch_reference_prices(
 
     if not raw_rows:
         log_fn(
-            f"CBS fetcher: no data returned for {start_month}–{end_month}.",
+            f"CBS fetcher: no data returned for {start_month} - {end_month}.",
             "WARNING",
         )
         return []
@@ -87,7 +87,7 @@ def fetch_reference_prices(
     result = _parse_rows(raw_rows, log_fn)
     log_fn(
         f"CBS fetcher: fetched {len(result)} reference price row(s) "
-        f"({start_month}–{end_month}).",
+        f"({start_month} - {end_month}).",
         "INFO",
     )
     return result

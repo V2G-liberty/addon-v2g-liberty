@@ -342,6 +342,7 @@ class V2GLibertyGlobals:
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
+        self.hass.listen_event(self.__reset_database, "reset_database")
 
         self.__log("Completed initializing V2GLibertyGlobals")
 
@@ -505,6 +506,35 @@ class V2GLibertyGlobals:
         self.__log("called")
         self.v2g_settings.reset()
         await self.restart_v2g_liberty()
+
+    async def __reset_database(self, event=None, data=None, kwargs=None):
+        """Reset database and/or re-import. Called from data page menu.
+
+        Event data 'mode':
+          'reimport' — delete import flag only, re-run historical import
+          'full'     — delete DB + import flag, re-create DB, re-run import
+        """
+        from .data_store import DataStore
+
+        mode = (data or {}).get("mode", "full")
+        self.__log(f"called with mode={mode}")
+
+        if mode == "full":
+            self.data_store.close()
+            deleted = DataStore.delete_database()
+            self.__log(f"Database {'deleted' if deleted else 'not found'}")
+            await self.data_store.initialise()
+
+        # Clear historical import flag so it re-runs
+        clear_import_flag()
+
+        # Re-run data repair and kick off historical import
+        if hasattr(self, "data_repairer") and self.data_repairer is not None:
+            await self.data_repairer.initialise()
+        await self.__try_historical_import()
+
+        self.hass.fire_event("reset_database.result", success=True)
+        self.__log(f"Reset ({mode}) complete, historical import started")
 
     async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
         self.__log("called")
@@ -962,11 +992,69 @@ class V2GLibertyGlobals:
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
         self.__set_fm_user_id(self.fm_client_app.user_id)
-        await self.__initialise_fm_power_source_id()
-
-        await self.__try_historical_import()
+        asyncio.ensure_future(self.__discover_source_id_and_import())
 
         self.__log("completed")
+
+    def __set_fm_user_id(self, user_id: int):
+        """Persist the FM user_id and reset account-derived values if it changed.
+
+        If the user_id differs from the stored one, the cached power source_id
+        and historical import flag are cleared so that discovery and re-import
+        run automatically for the new account.
+        """
+        old_user_id = self.v2g_settings.get_fm_user_id()
+        self.v2g_settings.store_fm_user_id(user_id)
+
+        if old_user_id is None or old_user_id == user_id:
+            return
+
+        self.__log(
+            f"FM user_id changed ({old_user_id} → {user_id}): "
+            "clearing power source_id and historical import flag."
+        )
+        self.v2g_settings.store_fm_power_source_id(None)
+        c.FM_ACCOUNT_POWER_SOURCE_ID = None
+        clear_import_flag()
+
+    async def __discover_source_id_and_import(self):
+        """Background task: discover source_id then attempt historical import."""
+        await self.__initialise_fm_power_source_id()
+        await self.__try_historical_import()
+
+    async def __initialise_fm_power_source_id(self):
+        """Load or discover the FM source_id for measured charger power data.
+
+        Loads a previously stored source_id from settings. If none is stored,
+        queries the FM chart_data endpoint to find the non-scheduler source.
+        The discovered id is persisted so subsequent startups skip discovery.
+        """
+        stored = self.v2g_settings.get_fm_power_source_id()
+        if stored is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = stored
+            self.__log(f"FM power source_id loaded from settings: {stored}.")
+            return
+
+        if not c.FM_ACCOUNT_POWER_SENSOR_ID:
+            self.__log(
+                "FM power source_id discovery skipped: power sensor ID not known.",
+                level="WARNING",
+            )
+            return
+
+        self.__log("FM power source_id not yet stored -- starting discovery.")
+        source_id = await self.fm_client_app.discover_power_source_id(
+            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+        )
+        if source_id is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
+            self.v2g_settings.store_fm_power_source_id(source_id)
+            self.__log(f"FM power source_id={source_id} discovered and stored.")
+        else:
+            self.__log(
+                "FM power source_id discovery failed: no matching source found.",
+                level="WARNING",
+            )
 
     def __set_fm_user_id(self, user_id: int):
         """Persist the FM user_id and reset account-derived values if it changed.
@@ -1072,9 +1160,10 @@ class V2GLibertyGlobals:
         on_import_complete = None
         if repairer is not None:
 
-            def on_import_complete():
-                summary = repairer.run_full_repair()
-                repairer.write_report(summary)
+            async def on_import_complete():
+                # run_full_repair_async off-loads the synchronous repair to an
+                # executor so the event loop stays responsive on large DBs.
+                await repairer.run_full_repair_async()
 
         asyncio.ensure_future(
             run_historical_import(

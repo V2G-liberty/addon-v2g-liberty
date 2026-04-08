@@ -129,7 +129,7 @@ async def test_skips_when_flag_file_exists(data_store, log_fn, tmp_path):
     flag = tmp_path / "fm_historical_import_done"
     flag.touch()
 
-    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+    with patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -143,7 +143,7 @@ async def test_aborts_when_no_fm_client(data_store, log_fn, tmp_path):
     """Import aborts cleanly when no FM client is provided."""
     flag = tmp_path / "fm_historical_import_done"
 
-    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+    with patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag):
         await run_historical_import(data_store, log_fn)
 
     count = data_store._DataStore__connection.execute(
@@ -162,7 +162,7 @@ async def test_aborts_when_power_source_id_unknown(data_store, log_fn, tmp_path)
     notify_messages = []
 
     fm_client = MagicMock()
-    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+    with patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag):
         await run_historical_import(
             data_store, log_fn, fm_client, on_notify=notify_messages.append
         )
@@ -184,7 +184,7 @@ async def test_runs_even_when_db_has_intervals(data_store, log_fn, tmp_path):
     fm_client = _make_fm_client(values=[])
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
@@ -206,7 +206,7 @@ async def test_stops_after_two_empty_months(data_store, log_fn, tmp_path):
     fm_client = _make_fm_client(values=[])
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
@@ -231,7 +231,7 @@ async def test_on_complete_called_after_import(data_store, log_fn, tmp_path):
     callback = MagicMock()
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
@@ -252,7 +252,7 @@ async def test_on_complete_not_called_when_skipped(data_store, log_fn, tmp_path)
     flag.write_text("already done")
     callback = MagicMock()
 
-    with patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag):
+    with patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag):
         await run_historical_import(data_store, log_fn, None, on_complete=callback)
 
     callback.assert_not_called()
@@ -853,7 +853,7 @@ async def test_pause_between_months(data_store, log_fn, tmp_path):
     fm_client = _make_fm_client(values=[])
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
@@ -885,7 +885,7 @@ async def test_stops_on_api_error_no_flag_file(data_store, log_fn, tmp_path):
     fm_client.get_sensor_data = AsyncMock(side_effect=Exception("connection refused"))
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
@@ -917,7 +917,7 @@ async def test_on_notify_called_on_success(data_store, log_fn, tmp_path):
     notify = MagicMock()
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
@@ -941,7 +941,7 @@ async def test_on_notify_called_on_api_error(data_store, log_fn, tmp_path):
     notify = MagicMock()
 
     with (
-        patch("apps.v2g_liberty.fm_historical_importer._IMPORT_DONE_FLAG", flag),
+        patch("apps.v2g_liberty.fm_historical_importer._REPORT_FILE", flag),
         patch("apps.v2g_liberty.fm_historical_importer.date") as mock_date,
         patch(
             "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",

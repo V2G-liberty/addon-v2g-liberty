@@ -4,7 +4,7 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderButton } from './util/render';
-import { t, partial } from './util/translate';
+import { t, partial, setLanguage } from './util/translate';
 import { styles } from './card.styles';
 import { elapsedTimeSince } from './util/time';
 import { showCarReservationCalendarSettingsDialog } from './show-dialogs';
@@ -35,6 +35,7 @@ export class CarReservationCalendarSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._calendarSettingsInitialised =
       hass.states[entityIds.calendarSettingsInitialised];
     this._carCalendarSource = hass.states[entityIds.carCalendarSource];

@@ -413,9 +413,13 @@ class DataMonitor:
             )
 
             # Persist interval data to local database
-            await self._write_interval_to_db(
+            timestamp = await self._write_interval_to_db(
                 energy_kwh, availability_pct, soc, app_state
             )
+
+            # Notify listeners (e.g. naive charging simulator).
+            if timestamp is not None:
+                self.event_bus.emit_event("interval_concluded", timestamp=timestamp)
 
             # Update homepage sensors with today's totals
             await self._emit_today_totals()
@@ -440,10 +444,13 @@ class DataMonitor:
         availability_pct: float,
         soc: Union[int, None],
         app_state: str,
-    ):
-        """Write a concluded interval to the local SQLite database."""
+    ) -> str | None:
+        """Write a concluded interval to the local SQLite database.
+
+        Returns the UTC timestamp of the written interval, or None on failure.
+        """
         if self.data_store is None:
-            return
+            return None
 
         # Timestamp = start of the interval that just concluded, in UTC.
         interval_end = time_round(get_local_now(), c.EVENT_RESOLUTION)
@@ -460,11 +467,13 @@ class DataMonitor:
                 soc_pct=float(soc) if soc is not None else None,
                 availability_pct=availability_pct,
             )
+            return timestamp
         except Exception as e:
             self.__log(
                 f"Failed to write interval to DB: {e}",
                 level="WARNING",
             )
+            return None
 
     async def _emit_today_totals(self):
         """Query today's aggregated data and emit an event for homepage sensors."""

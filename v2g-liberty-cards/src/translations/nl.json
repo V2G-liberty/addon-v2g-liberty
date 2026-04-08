@@ -11,9 +11,11 @@
     "now": "Nu",
     "loading": "Data laden...",
     "no-data": "Geen data voor deze periode",
+    "no-data-hint": "Eerste data beschikbaar:",
     "error": "Kon geen data laden. Probeer het opnieuw.",
     "error-timeout": "Data laden duurde te lang. Probeer het later opnieuw.",
     "all-time": "Alles",
+    "page-title": "Slimme energie",
     "card-title": "Laden",
     "app-state": {
       "automatic": "Automatisch",
@@ -49,24 +51,52 @@
       "discharge": "Ontladen",
       "discharge-kwh": "Ontladen",
       "discharge-revenue": "Ontlaadopbrengst",
-      "availability": "Beschikbaar",
+      "availability": "Beschikbaarheid",
       "availability-tooltip": "Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.",
       "net": "Netto",
       "net-cost": "Netto kosten",
       "cost": "Kosten",
       "revenue": "Opbrengst",
-      "emissions": "Uitstoot"
+      "emissions": "Emissies",
+      "avoided-emissions": "Vermeden",
+      "duration": "Duur"
     },
     "totals": {
       "card-title": "Totalen",
       "period": "Periode",
       "soc-range": "SoC bereik",
-      "avg-cons-price": "Gem. cons. prijs",
-      "avg-prod-price": "Gem. prod. prijs",
+      "avg-cons-price": "Inkoop (gem.)",
+      "avg-prod-price": "Verkoop (gem.)",
       "avg-price": "Gem. prijs",
-      "availability": "Beschikbaarheid"
+      "net-avg-price": "Prijs",
+      "availability": "Beschikbaarheid",
+      "charge-duration": "Laadduur",
+      "discharge-duration": "Ontlaadduur",
+      "savings": "Besparingen",
+      "savings-label": "Besparing tov vast",
+      "savings-fixed-label": "t.o.v. standaard laden + vast contract",
+      "savings-dyn-label": "t.o.v. standaard laden + dyn. contract",
+      "savings-tooltip": "Dit is uw besparing t.o.v. standaard laden.\n\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage — zonder slim schema.\n\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\n • Vast: standaard laden kWh × maandelijkse gemiddelde contractprijzen (CBS).\n • Dynamisch: standaard laden kWh × dezelfde dynamische energieprijzen."
     },
+    "row-details-show": "Toon details",
+    "row-details-hide": "Verberg details",
     "estimated-note": "Deels gebaseerd op geschatte data",
-    "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend."
+    "estimated-tooltip": "Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.",
+    "overflow-reset-database": "Geschiedenis resetten",
+    "reset-dialog": {
+      "header": "Geschiedenis resetten",
+      "reimport-label": "Geschiedenis opnieuw importeren",
+      "reimport-explanation": "Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.",
+      "full-label": "Volledige database reset",
+      "full-explanation": "Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.",
+      "duration-note": "De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.",
+      "full-warning": "Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.",
+      "confirm-prompt": "Typ \"Yes\" of \"Ja\" ter bevestiging:",
+      "confirm-placeholder": "Yes / Ja",
+      "confirm-button": "Doorgaan",
+      "error": "Reset mislukt. Probeer het opnieuw.",
+      "success": "Klaar. Historische data wordt opnieuw geïmporteerd — de Data-pagina wordt geleidelijk gevuld.",
+      "close": "Sluiten"
+    }
   }
 }

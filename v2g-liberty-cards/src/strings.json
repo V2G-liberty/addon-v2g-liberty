@@ -68,9 +68,11 @@
     "now": "Now",
     "loading": "Loading data...",
     "no-data": "No data for this period",
+    "no-data-hint": "First data available from:",
     "error": "Could not load data. Please try again.",
     "error-timeout": "Loading timed out. Please try again later.",
     "all-time": "All time",
+    "page-title": "Smart energy",
     "card-title": "Charging",
     "app-state": {
       "automatic": "Automatic",
@@ -112,19 +114,47 @@
       "net-cost": "Net cost",
       "cost": "Cost",
       "revenue": "Revenue",
-      "emissions": "Emissions"
+      "emissions": "Emissions",
+      "avoided-emissions": "Avoided",
+      "duration": "Duration"
     },
     "totals": {
       "card-title": "Totals",
       "period": "Period",
       "soc-range": "SoC range",
-      "avg-cons-price": "Avg. cons. price",
-      "avg-prod-price": "Avg. prod. price",
+      "avg-cons-price": "Buy price (avg.)",
+      "avg-prod-price": "Sell price (avg.)",
       "avg-price": "Avg. price",
-      "availability": "Availability"
+      "net-avg-price": "Avg. net price",
+      "availability": "Availability",
+      "charge-duration": "Charge duration",
+      "discharge-duration": "Discharge duration",
+      "savings": "Savings",
+      "savings-label": "Savings vs fixed",
+      "savings-fixed-label": "vs non-smart charging + fixed contract",
+      "savings-dyn-label": "vs non-smart charging + dyn. contract",
+      "savings-tooltip": "This is your savings compared to standard charging.\n\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage — without a smart schedule.\n\nThe cost of standard charging is calculated based on your charging history in two variants:\n • Fixed: standard charging kWh × monthly average contract prices (CBS).\n • Dynamic: standard charging kWh × the same dynamic energy prices."
     },
+    "row-details-show": "Show details",
+    "row-details-hide": "Hide details",
     "estimated-note": "Partly based on estimated data",
-    "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."
+    "estimated-tooltip": "Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.",
+    "overflow-reset-database": "Reset history",
+    "reset-dialog": {
+      "header": "Reset history",
+      "reimport-label": "Re-import history",
+      "reimport-explanation": "Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.",
+      "full-label": "Full database reset",
+      "full-explanation": "Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.",
+      "duration-note": "Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.",
+      "full-warning": "This will permanently delete all local charging data. This cannot be undone.",
+      "confirm-prompt": "Type \"Yes\" or \"Ja\" to confirm:",
+      "confirm-placeholder": "Yes / Ja",
+      "confirm-button": "Continue",
+      "error": "Reset failed. Please try again.",
+      "success": "Done. Historical data is being re-imported — the Data page will gradually fill up.",
+      "close": "Close"
+    }
   },
   "ping-card": {
     "error": "Connection with V2G Liberty lost, please restart the add-on.",

@@ -3,6 +3,7 @@ import { customElement } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { showSettingsErrorAlertDialog } from './show-dialogs';
 import { hasUninitializedEntities } from './util/settings-error-alert';
+import { setLanguage } from './util/translate';
 
 @customElement('v2g-liberty-settings-error-alert-card')
 export class SettingsErrorAlertCard extends LitElement {
@@ -35,6 +36,7 @@ export class SettingsErrorAlertCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._checkUnInitialisedEntities();
   }
 

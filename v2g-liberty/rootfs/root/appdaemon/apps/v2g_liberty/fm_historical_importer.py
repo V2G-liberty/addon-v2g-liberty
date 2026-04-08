@@ -189,7 +189,9 @@ async def run_historical_import(
 
     if on_complete is not None:
         log_fn("Historical import: triggering post-import review.")
-        on_complete()
+        result = on_complete()
+        if asyncio.iscoroutine(result):
+            await result
 
 
 async def _fetch_month_rows(

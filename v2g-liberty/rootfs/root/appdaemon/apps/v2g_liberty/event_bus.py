@@ -95,6 +95,20 @@ class EventBus(AsyncIOEventEmitter):
             - `discharge_kwh` (float): Total energy discharged today in kWh.
             - `discharge_revenue` (float): Total discharge revenue today in currency.
 
+    - `interval_concluded`:
+        - **Description**: Emitted after a 5-min interval has been written to
+          the database. Used by the naive charging simulator to update its
+          state in real-time.
+        - **Emitted by** data_monitor
+        - **Arguments**:
+            - `timestamp` (str): ISO 8601 UTC timestamp of the interval start.
+
+    - `repairer_complete`:
+        - **Description**: Emitted after the data repairer finishes a repair
+          run (full or incremental). Used to trigger batch naive charging
+          simulation over repaired/imported rows.
+        - **Emitted by** data_repairer
+
     """
 
     def __init__(self, hass: Hass):

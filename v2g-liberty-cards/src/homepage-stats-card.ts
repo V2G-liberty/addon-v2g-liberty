@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig, navigate } from 'custom-card-helpers';
 
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 import * as entityIds from './entity-ids';
 
 const tp = partial('homepage-stats');
@@ -21,6 +21,7 @@ export class HomepageStatsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._chargedKwh = hass.states[entityIds.chargedTodayKwh];
     this._chargeCost = hass.states[entityIds.chargeCostToday];
     this._dischargedKwh = hass.states[entityIds.dischargedTodayKwh];

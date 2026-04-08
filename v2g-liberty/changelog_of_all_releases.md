@@ -13,7 +13,7 @@ That file also contains possible changes that the next release might include.
 
 ### Added
 
-- 🚀 FEAT: Extend insights (#420, #423)
+- 🚀 FEAT: Extend insights (#420, #423, #430)
 
 ### Changed
 

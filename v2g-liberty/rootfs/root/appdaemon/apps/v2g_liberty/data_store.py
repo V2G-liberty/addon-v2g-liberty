@@ -9,7 +9,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 1
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -160,6 +160,106 @@ def _dominant_price_rating(ratings: list) -> str | None:
     return counter.most_common(1)[0][0]
 
 
+_DT_HOURS = 5 / 60  # 5-minute interval in hours
+
+
+def _calculate_savings(intervals: list[dict]) -> dict:
+    """Calculate savings vs naive charging for a set of intervals.
+
+    Returns a dict with savings_fixed_eur, savings_dynamic_eur, and
+    soc_depletion_correction_eur. Returns None values when insufficient
+    data is available (no naive_power_w or no prices).
+
+    Savings = naive_cost - algorithm_cost + soc_depletion_correction.
+    The SoC depletion correction compensates for any difference in
+    battery state between naive and real charging at the period boundaries.
+    """
+    from . import constants as c
+
+    # Collect per-interval costs for algorithm and naive scenarios.
+    algo_cost_total = 0.0
+    naive_cost_dynamic_total = 0.0
+    naive_cost_fixed_total = 0.0
+    has_naive = False
+    has_dynamic_price = False
+    has_fixed_price = False
+
+    for i in intervals:
+        energy = i["energy_kwh"]
+        naive_power = i["naive_power_w"]
+        cons_price = i["consumption_price_kwh"]
+        ref_price = i["ref_price_kwh"]
+
+        # Algorithm cost (actual energy × actual price).
+        if energy is not None and cons_price is not None:
+            if energy > 0:
+                algo_cost_total += energy * cons_price
+            elif energy < 0:
+                prod_price = i["production_price_kwh"]
+                if prod_price is not None:
+                    algo_cost_total -= abs(energy) * prod_price
+
+        if naive_power is None:
+            continue
+        has_naive = True
+
+        # Naive energy in kWh for this interval.
+        naive_kwh = (naive_power / 1000.0) * _DT_HOURS
+
+        # Naive cost on dynamic tariff.
+        if cons_price is not None:
+            naive_cost_dynamic_total += naive_kwh * cons_price
+            has_dynamic_price = True
+
+        # Naive cost on fixed (CBS) tariff.
+        if ref_price is not None:
+            naive_cost_fixed_total += naive_kwh * ref_price
+            has_fixed_price = True
+
+    if not has_naive:
+        return {
+            "savings_fixed_eur": None,
+            "savings_dynamic_eur": None,
+        }
+
+    # SoC depletion correction: compensate for difference in battery state.
+    # Uses first/last valid SoC values for both real and naive.
+    correction = 0.0
+    real_socs = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
+    naive_socs = [
+        i["naive_soc_pct"] for i in intervals if i["naive_soc_pct"] is not None
+    ]
+    if real_socs and naive_socs:
+        real_delta = real_socs[-1] - real_socs[0]
+        naive_delta = naive_socs[-1] - naive_socs[0]
+        soc_diff = naive_delta - real_delta
+        capacity = c.CAR_MAX_CAPACITY_IN_KWH
+        # Average consumption price for valuation.
+        cons_prices = [
+            i["consumption_price_kwh"]
+            for i in intervals
+            if i["consumption_price_kwh"] is not None
+        ]
+        avg_price = sum(cons_prices) / len(cons_prices) if cons_prices else 0.0
+        correction = (soc_diff / 100) * capacity * avg_price
+
+    savings_dynamic = (
+        round(naive_cost_dynamic_total - algo_cost_total + correction, 4)
+        if has_dynamic_price
+        else None
+    )
+    savings_fixed = (
+        round(naive_cost_fixed_total - algo_cost_total + correction, 4)
+        if has_fixed_price
+        else None
+    )
+
+    return {
+        "savings_fixed_eur": savings_fixed,
+        "savings_dynamic_eur": savings_dynamic,
+    }
+
+
 class DataStore:
     """Local SQLite database for interval, price, and reservation data.
 
@@ -177,14 +277,23 @@ class DataStore:
         self.__connection: sqlite3.Connection | None = None
         self.__log("DataStore initialised (no DB connection yet).")
 
+    @property
+    def is_available(self) -> bool:
+        """Whether the database connection is open and usable."""
+        return self.__connection is not None
+
     async def initialise(self):
         """Open database, set PRAGMAs, create tables, and check schema version."""
         self.__log("Initialising DataStore.")
-        self.__connection = sqlite3.connect(self.DB_PATH)
-        self.__connection.row_factory = sqlite3.Row
-        self.__set_pragmas()
-        self.__create_tables()
-        self.__check_schema_version()
+        try:
+            self.__connection = sqlite3.connect(self.DB_PATH)
+            self.__connection.row_factory = sqlite3.Row
+            self.__set_pragmas()
+            self.__create_tables()
+            self.__check_schema_version()
+        except Exception:
+            self.close()
+            raise
         self.__log("DataStore initialised successfully.")
 
     def __set_pragmas(self):
@@ -213,7 +322,9 @@ class DataStore:
                 app_state TEXT NOT NULL,
                 soc_pct REAL,
                 availability_pct REAL,
-                is_repaired INTEGER NOT NULL DEFAULT 0
+                is_repaired INTEGER NOT NULL DEFAULT 0,
+                naive_power_w REAL,
+                naive_soc_pct REAL
             )
         """)
 
@@ -285,7 +396,10 @@ class DataStore:
         else:
             current_version = row["version"]
             if current_version < CURRENT_SCHEMA_VERSION:
-                self.__run_migrations(current_version)
+                raise RuntimeError(
+                    f"Database schema version {current_version} is older than "
+                    f"expected {CURRENT_SCHEMA_VERSION}. A database reset is needed."
+                )
             elif current_version > CURRENT_SCHEMA_VERSION:
                 self.__log(
                     f"Database schema version {current_version} is newer than "
@@ -296,133 +410,6 @@ class DataStore:
                 self.__log(f"Database schema version {current_version} is up to date.")
 
         cursor.close()
-
-    def __run_migrations(self, from_version: int):
-        """Run sequential migrations from from_version to CURRENT_SCHEMA_VERSION."""
-        self.__log(
-            f"Migrating database from version {from_version} "
-            f"to {CURRENT_SCHEMA_VERSION}."
-        )
-
-        cursor = self.__connection.cursor()
-
-        if from_version < 2:
-            # V2: Remove power_kw column from interval_log.
-            # power_kw is always derivable from energy_kwh (power = energy × 12).
-            cursor.execute("ALTER TABLE interval_log DROP COLUMN power_kw")
-            self.__log("Migration v2: dropped power_kw column from interval_log.")
-
-        if from_version < 3:
-            # V3: Convert all timestamps from local timezone to UTC.
-            # DST fall-back creates duplicate UTC timestamps when local
-            # timestamps like 02:30+02:00 and 02:30+01:00 both exist.
-            self.__migrate_timestamps_to_utc(cursor)
-            self.__log("Migration v3: converted all timestamps to UTC.")
-
-        if from_version < 4:
-            # V4: Add reference_price_log table for CBS reference prices.
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reference_price_log (
-                    month TEXT PRIMARY KEY,
-                    delivery_price_eur_kwh REAL NOT NULL,
-                    energy_tax_eur_kwh REAL NOT NULL,
-                    total_price_eur_kwh REAL NOT NULL,
-                    source TEXT NOT NULL,
-                    fetched_at TEXT NOT NULL
-                )
-            """)
-            self.__log("Migration v4: created reference_price_log table.")
-
-        now = datetime.now(timezone.utc).isoformat()
-        cursor.execute(
-            "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
-            (CURRENT_SCHEMA_VERSION, now),
-        )
-        self.__connection.commit()
-        cursor.close()
-        self.__log(f"Database migrated to version {CURRENT_SCHEMA_VERSION}.")
-
-    def __migrate_timestamps_to_utc(self, cursor: sqlite3.Cursor):
-        """Convert all stored local-timezone timestamps to UTC.
-
-        Handles DST duplicates by keeping the first occurrence (the row
-        with the earlier UTC offset, i.e. the summer-time row).
-        """
-        tables_with_pk_timestamp = [
-            "interval_log",
-            "price_log",
-            "emission_log",
-        ]
-        for table in tables_with_pk_timestamp:
-            rows = cursor.execute(
-                f"SELECT timestamp FROM {table} ORDER BY timestamp"  # noqa: S608
-            ).fetchall()
-            if not rows:
-                continue
-
-            seen_utc = set()
-            duplicates = []
-            updates = []
-            for (ts_str,) in rows:
-                dt = datetime.fromisoformat(ts_str)
-                utc_str = dt.astimezone(timezone.utc).isoformat()
-                if utc_str in seen_utc:
-                    duplicates.append(ts_str)
-                else:
-                    seen_utc.add(utc_str)
-                    if utc_str != ts_str:
-                        updates.append((utc_str, ts_str))
-
-            for old_ts in duplicates:
-                cursor.execute(
-                    f"DELETE FROM {table} WHERE timestamp = ?",  # noqa: S608
-                    (old_ts,),
-                )
-
-            for new_ts, old_ts in updates:
-                cursor.execute(
-                    f"UPDATE {table} SET timestamp = ? "  # noqa: S608
-                    "WHERE timestamp = ?",
-                    (new_ts, old_ts),
-                )
-
-            self.__log(
-                f"  {table}: {len(updates)} timestamps converted, "
-                f"{len(duplicates)} DST duplicates removed."
-            )
-
-        # reservation_log has 3 timestamp columns, none are primary key.
-        res_rows = cursor.execute(
-            "SELECT rowid, timestamp, start_timestamp, end_timestamp "
-            "FROM reservation_log"
-        ).fetchall()
-        for row in res_rows:
-            rowid, ts, start_ts, end_ts = row
-            new_ts = datetime.fromisoformat(ts).astimezone(timezone.utc).isoformat()
-            new_start = (
-                datetime.fromisoformat(start_ts).astimezone(timezone.utc).isoformat()
-            )
-            new_end = (
-                datetime.fromisoformat(end_ts).astimezone(timezone.utc).isoformat()
-            )
-            if new_ts != ts or new_start != start_ts or new_end != end_ts:
-                cursor.execute(
-                    "UPDATE reservation_log SET timestamp = ?, "
-                    "start_timestamp = ?, end_timestamp = ? "
-                    "WHERE rowid = ?",
-                    (new_ts, new_start, new_end, rowid),
-                )
-
-        # fm_send_status: single-row table.
-        fm_row = cursor.execute("SELECT last_sent_up_to FROM fm_send_status").fetchone()
-        if fm_row:
-            old_ts = fm_row[0]
-            new_ts = datetime.fromisoformat(old_ts).astimezone(timezone.utc).isoformat()
-            if new_ts != old_ts:
-                cursor.execute(
-                    "UPDATE fm_send_status SET last_sent_up_to = ?",
-                    (new_ts,),
-                )
 
     @property
     def connection(self) -> sqlite3.Connection | None:
@@ -439,6 +426,8 @@ class DataStore:
         is_repaired: bool = False,
     ) -> None:
         """Insert a single interval row into interval_log."""
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO interval_log "
@@ -462,6 +451,8 @@ class DataStore:
         Rows pending review (is_repaired=2) from the historical importer
         are excluded so the UI doesn't show unreviewed data.
         """
+        if not self.is_available:
+            return False
         cursor = self.__connection.cursor()
         cursor.execute("SELECT 1 FROM interval_log WHERE is_repaired < 2 LIMIT 1")
         result = cursor.fetchone()
@@ -473,6 +464,8 @@ class DataStore:
 
         Returns the number of newly inserted rows.
         """
+        if not self.is_available:
+            return 0
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR IGNORE INTO interval_log "
@@ -497,6 +490,8 @@ class DataStore:
 
         Returns the number of rows deleted.
         """
+        if not self.is_available:
+            return 0
         cursor = self.__connection.cursor()
         cursor.execute("DELETE FROM interval_log WHERE app_state = 'unknown'")
         deleted = cursor.rowcount
@@ -517,6 +512,8 @@ class DataStore:
         When recalculate_ratings is True (default), recalculates price_rating
         for the affected 24h window (6h back, 18h forward).
         """
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR REPLACE INTO price_log "
@@ -562,6 +559,8 @@ class DataStore:
         Each row is a tuple: (timestamp, emission_intensity_kg_mwh).
         Uses INSERT OR REPLACE for UPSERT behaviour.
         """
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.executemany(
             "INSERT OR REPLACE INTO emission_log "
@@ -584,6 +583,8 @@ class DataStore:
         The total_price_eur_kwh is computed as the sum of the two components.
         Uses INSERT OR REPLACE for UPSERT behaviour.
         """
+        if not self.is_available:
+            return
         enriched = [
             (month, delivery, tax, round(delivery + tax, 6), source, fetched_at)
             for month, delivery, tax, source, fetched_at in rows
@@ -606,6 +607,8 @@ class DataStore:
         Falls back to the most recent known price if the requested month is
         not available. Returns None if no reference prices are stored at all.
         """
+        if not self.is_available:
+            return None
         cursor = self.__connection.cursor()
 
         # Exact match first.
@@ -636,6 +639,78 @@ class DataStore:
 
         return None
 
+    def update_naive_charging(
+        self,
+        rows: list[tuple[float, float, str]],
+    ) -> None:
+        """Update naive charging columns for existing interval_log rows.
+
+        Each row is a tuple: (naive_power_w, naive_soc_pct, timestamp).
+        Only updates rows that already exist (no insert).
+        """
+        if not self.is_available or not rows:
+            return
+        cursor = self.__connection.cursor()
+        cursor.executemany(
+            "UPDATE interval_log SET naive_power_w = ?, naive_soc_pct = ? "
+            "WHERE timestamp = ?",
+            rows,
+        )
+        self.__connection.commit()
+        updated = cursor.rowcount
+        cursor.close()
+        self.__log(f"Updated {updated} naive charging row(s).")
+
+    def get_last_naive_soc(self) -> float | None:
+        """Return the most recent naive_soc_pct value, or None if unavailable."""
+        if not self.is_available:
+            return None
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT naive_soc_pct FROM interval_log "
+            "WHERE naive_soc_pct IS NOT NULL "
+            "ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        return row["naive_soc_pct"] if row else None
+
+    def get_charge_power_factor(self, min_intervals: int = 100) -> float:
+        """Calculate the average charge power as a fraction of max charger power.
+
+        Analyses historical charging intervals (excluding low-power intervals
+        below 500W) to determine how much of the configured max charge power
+        is typically delivered. Returns 0.82 (typical default) if insufficient
+        data is available.
+
+        Used by the naive charging simulator for realistic power estimation.
+        """
+        if not self.is_available:
+            return 0.82
+        from . import constants as c
+
+        max_power = c.CHARGER_MAX_CHARGE_POWER
+        if max_power <= 0:
+            return 0.82
+
+        threshold_kwh = 500 / 12000  # 500W in kWh per 5-min interval
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) AS cnt, AVG(energy_kwh * 12 * 1000) AS avg_w "
+            "FROM interval_log "
+            "WHERE energy_kwh > ? AND is_repaired < 2",
+            (threshold_kwh,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+
+        if row["cnt"] < min_intervals or row["avg_w"] is None:
+            return 0.82
+
+        factor = row["avg_w"] / max_power
+        # Clamp to reasonable range (0.5 – 1.0).
+        return max(0.5, min(1.0, round(factor, 3)))
+
     def insert_reservation(
         self,
         timestamp: str,
@@ -644,6 +719,8 @@ class DataStore:
         target_soc_pct: float | None = None,
     ) -> None:
         """Insert a reservation snapshot into reservation_log."""
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT INTO reservation_log "
@@ -660,6 +737,8 @@ class DataStore:
         Returns (consumption_price_kwh, production_price_kwh, price_rating)
         or None if no price exists for the given timestamp.
         """
+        if not self.is_available:
+            return None
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT consumption_price_kwh, production_price_kwh, price_rating "
@@ -683,6 +762,8 @@ class DataStore:
         production_price_kwh, price_rating. Used for price_rating
         (re)calculation over a 24-hour window.
         """
+        if not self.is_available:
+            return pd.DataFrame()
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT timestamp, consumption_price_kwh, production_price_kwh, "
@@ -713,6 +794,8 @@ class DataStore:
 
         Returns the ISO 8601 timestamp, or None if no data has been sent yet.
         """
+        if not self.is_available:
+            return None
         cursor = self.__connection.cursor()
         cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
         row = cursor.fetchone()
@@ -726,6 +809,8 @@ class DataStore:
 
         Inserts a new row if none exists, otherwise updates the existing row.
         """
+        if not self.is_available:
+            return
         cursor = self.__connection.cursor()
         cursor.execute("SELECT COUNT(*) as cnt FROM fm_send_status")
         count = cursor.fetchone()["cnt"]
@@ -748,6 +833,8 @@ class DataStore:
         Returns a list of dicts with keys: timestamp, energy_kwh,
         soc_pct, availability_pct. Ordered by timestamp ascending.
         """
+        if not self.is_available:
+            return []
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT timestamp, energy_kwh, soc_pct, availability_pct "
@@ -784,6 +871,8 @@ class DataStore:
         Returns:
             List of dicts, one per period, ordered by period_start.
         """
+        if not self.is_available:
+            return []
         if granularity not in VALID_GRANULARITIES:
             raise ValueError(
                 f"Invalid granularity '{granularity}'. "
@@ -813,17 +902,41 @@ class DataStore:
 
         return results
 
+    def get_first_available(self) -> str | None:
+        """Return the period_start of the oldest row in interval_log.
+
+        Returns the earliest timestamp converted to local time, or None
+        if the table is empty. Rows with is_repaired >= 2 are excluded.
+        """
+        if not self.is_available:
+            return None
+        from . import constants as c
+
+        cursor = self.__connection.cursor()
+        cursor.execute("SELECT MIN(timestamp) FROM interval_log WHERE is_repaired < 2")
+        row = cursor.fetchone()
+        cursor.close()
+        if row is None or row[0] is None:
+            return None
+        return datetime.fromisoformat(row[0]).astimezone(c.TZ).isoformat()
+
     def __fetch_intervals_with_joins(self, start: str, end: str) -> list[dict]:
-        """Fetch intervals with joined price and emission data."""
+        """Fetch intervals with joined price, emission, and reference price data."""
         cursor = self.__connection.cursor()
         cursor.execute(
             "SELECT i.timestamp, i.energy_kwh, i.app_state, "
             "i.soc_pct, i.availability_pct, i.is_repaired, "
+            "i.naive_power_w, i.naive_soc_pct, "
             "p.consumption_price_kwh, p.production_price_kwh, p.price_rating, "
-            "e.emission_intensity_kg_mwh "
+            "e.emission_intensity_kg_mwh, "
+            "r.total_price_eur_kwh AS ref_price_kwh "
             "FROM interval_log i "
             "LEFT JOIN price_log p ON i.timestamp = p.timestamp "
             "LEFT JOIN emission_log e ON i.timestamp = e.timestamp "
+            "LEFT JOIN reference_price_log r ON r.month = ("
+            "  SELECT month FROM reference_price_log "
+            "  WHERE month <= strftime('%Y-%m', i.timestamp) "
+            "  ORDER BY month DESC LIMIT 1) "
             "WHERE i.timestamp >= ? AND i.timestamp < ? "
             "AND i.is_repaired < 2 "
             "ORDER BY i.timestamp",
@@ -882,6 +995,23 @@ class DataStore:
             and i["production_price_kwh"] is not None
         )
 
+        # CO2: energy_kwh × emission_intensity_kg_mwh / 1000 → kg
+        charge_co2_kg = sum(
+            i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        discharge_co2_kg = sum(
+            abs(i["energy_kwh"]) * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        co2_kg = charge_co2_kg - discharge_co2_kg
+
         return {
             "period_start": period_start,
             "app_state": _dominant_app_state(app_states),
@@ -896,7 +1026,11 @@ class DataStore:
             "energy_wh": energy_wh,
             "charge_cost": round(charge_cost, 4),
             "discharge_revenue": round(discharge_revenue, 4),
+            "charge_co2_kg": round(charge_co2_kg, 1),
+            "discharge_co2_kg": round(discharge_co2_kg, 1),
+            "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
+            **_calculate_savings(intervals),
         }
 
     @staticmethod
@@ -952,6 +1086,30 @@ class DataStore:
         soc_values = [i["soc_pct"] for i in intervals if i["soc_pct"] is not None]
         soc_pct = soc_values[-1] if soc_values else None
 
+        # CO2: energy_kwh × emission_intensity_kg_mwh / 1000 → kg
+        charge_co2_kg = sum(
+            i["energy_kwh"] * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] > 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        discharge_co2_kg = sum(
+            abs(i["energy_kwh"]) * i["emission_intensity_kg_mwh"] / 1000
+            for i in intervals
+            if i["energy_kwh"] is not None
+            and i["energy_kwh"] < 0
+            and i["emission_intensity_kg_mwh"] is not None
+        )
+        co2_kg = charge_co2_kg - discharge_co2_kg
+
+        charge_duration_min = sum(
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+        )
+        discharge_duration_min = sum(
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+        )
+
         return {
             "period_start": period_start,
             "app_state": _dominant_app_state(app_states),
@@ -959,10 +1117,16 @@ class DataStore:
             "price_rating": _dominant_price_rating(ratings),
             "charge_wh": round(charge_kwh * 1000),
             "charge_cost": round(charge_cost, 4),
+            "charge_co2_kg": round(charge_co2_kg, 1),
+            "charge_duration_min": charge_duration_min,
             "discharge_wh": round(discharge_kwh * 1000),
             "discharge_revenue": round(discharge_revenue, 4),
+            "discharge_co2_kg": round(discharge_co2_kg, 1),
+            "discharge_duration_min": discharge_duration_min,
             "soc_pct": soc_pct,
+            "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
+            **_calculate_savings(intervals),
         }
 
     @staticmethod
@@ -1029,6 +1193,13 @@ class DataStore:
         )
         co2_kg = charge_co2_kg - discharge_co2_kg
 
+        charge_duration_min = sum(
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] > 0
+        )
+        discharge_duration_min = sum(
+            5 for i in intervals if i["energy_kwh"] is not None and i["energy_kwh"] < 0
+        )
+
         return {
             "period_start": period_start,
             "availability_pct": (
@@ -1037,13 +1208,16 @@ class DataStore:
             "charge_kwh": round(charge_kwh, 2),
             "charge_cost": round(charge_cost, 4),
             "charge_co2_kg": round(charge_co2_kg, 1),
+            "charge_duration_min": charge_duration_min,
             "discharge_kwh": round(discharge_kwh, 2),
             "discharge_revenue": round(discharge_revenue, 4),
             "discharge_co2_kg": round(discharge_co2_kg, 1),
+            "discharge_duration_min": discharge_duration_min,
             "net_kwh": round(net_kwh, 2),
             "net_cost": round(net_cost, 4),
             "co2_kg": round(co2_kg, 1),
             "has_repaired": has_repaired,
+            **_calculate_savings(intervals),
         }
 
     def close(self):
@@ -1052,3 +1226,13 @@ class DataStore:
             self.__connection.close()
             self.__connection = None
             self.__log("Database connection closed.")
+
+    @staticmethod
+    def delete_database() -> bool:
+        """Delete the database file from disk. Returns True if deleted."""
+        import os
+
+        if os.path.exists(DataStore.DB_PATH):
+            os.remove(DataStore.DB_PATH)
+            return True
+        return False

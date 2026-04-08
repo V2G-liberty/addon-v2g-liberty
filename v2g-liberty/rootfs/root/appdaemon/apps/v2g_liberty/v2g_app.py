@@ -1,5 +1,6 @@
 """Main module for setting up the app."""
 
+import asyncio
 from datetime import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
@@ -18,6 +19,8 @@ from .data_store import DataStore
 from .fm_data_importer import FlexMeasuresDataImporter
 from .amber_price_data_manager import ManageAmberPriceData
 from .octopus_price_data_manager import ManageOctopusPriceData
+from .reference_price_manager import ReferencePriceManager
+from .naive_charging_simulator import NaiveChargingSimulator
 from .nissan_leaf_monitor import NissanLeafMonitor
 from .monitor_pause_at_reconnect import MonitorPauseAtReconnect
 
@@ -83,6 +86,9 @@ class V2GLibertyApp(Hass):
         fm_data_sender = FMDataSender(self)
         self._log_init_time("FMDataSender", start_module)
 
+        reference_price_manager = ReferencePriceManager(self)
+        naive_charging_simulator = NaiveChargingSimulator(self, event_bus=event_bus)
+
         start_module = datetime.now()
         nissan_leaf_monitor = NissanLeafMonitor(
             self, event_bus=event_bus, notifier=notifier
@@ -121,11 +127,14 @@ class V2GLibertyApp(Hass):
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
         data_repairer.data_store = data_store
+        data_repairer.event_bus = event_bus
         v2g_globals.data_repairer = data_repairer
+        naive_charging_simulator.data_store = data_store
         data_monitor.evse_client_app = modbus_evse_client
         data_monitor.reservations_client = reservations_client
         data_monitor.data_store = data_store
         api_server.data_store = data_store
+        api_server.data_repairer = data_repairer
         fm_data_sender.data_store = data_store
         fm_data_sender.fm_client_app = fm_client
         get_fm_data.data_store = data_store
@@ -138,6 +147,7 @@ class V2GLibertyApp(Hass):
         amber_price_data_manager.get_fm_data_module = get_fm_data
         octopus_price_data_manager.fm_client_app = fm_client
         octopus_price_data_manager.get_fm_data_module = get_fm_data
+        reference_price_manager.data_store = data_store
 
         start_module = datetime.now()
         await v2g_globals.initialize()
@@ -152,16 +162,47 @@ class V2GLibertyApp(Hass):
         self._log_init_time("notifier.initialize()", start_module)
 
         start_module = datetime.now()
-        await data_store.initialise()
+        try:
+            await data_store.initialise()
+        except Exception as e:
+            self.log(
+                f"Database initialisation failed: {e}. "
+                "Data features are disabled for this session.",
+                level="WARNING",
+            )
+            await self.call_service(
+                "persistent_notification/create",
+                title="V2G Liberty: data unavailable",
+                message=(
+                    "V2G Liberty could not access its stored data. "
+                    "The app is running, but charging history and statistics "
+                    "are temporarily unavailable.\n\n"
+                    "**What to do:**\n"
+                    "1. Open the V2G Liberty **Data** page\n"
+                    "2. Click the \u2261 menu (top right)\n"
+                    "3. Select **Reset history** \u2192 **Full database reset**\n\n"
+                    "This will rebuild the data store and re-import "
+                    "your charging history from FlexMeasures."
+                ),
+                notification_id="data_store_init_error",
+            )
         self._log_init_time("data_store.initialise()", start_module)
 
-        start_module = datetime.now()
-        await data_repairer.initialise()
-        self._log_init_time("data_repairer.initialise()", start_module)
-
+        # Register the API event listener BEFORE kicking off the data repairer.
+        # The repairer can take minutes on large/dirty databases, and previously
+        # blocked the rest of init — including the api_server listener — causing
+        # the data card to time out. By registering the listener first the UI
+        # stays responsive (showing whatever is already in the DB) while repair
+        # runs in the background.
         start_module = datetime.now()
         await api_server.initialise()
         self._log_init_time("api_server.initialise()", start_module)
+
+        # Run the startup data repair in the background so it never blocks
+        # the rest of init or the event loop.
+        start_module = datetime.now()
+        asyncio.create_task(data_repairer.initialise())
+        self._log_init_time("data_repairer.initialise() scheduled", start_module)
 
         start_module = datetime.now()
         await amber_price_data_manager.initialize()
@@ -170,6 +211,11 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await v2g_globals.kick_off_settings()
         self._log_init_time("v2g_globals.kick_off_settings()", start_module)
+
+        # Naive charging simulator must init after kick_off_settings so that
+        # constants (CHARGER_MAX_CHARGE_POWER, CAR_MAX_CAPACITY_IN_KWH etc.)
+        # have their runtime values instead of defaults.
+        await naive_charging_simulator.initialise()
 
         start_module = datetime.now()
         await get_fm_data.initialize(
@@ -189,6 +235,8 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await fm_data_sender.initialize()
         self._log_init_time("fm_data_sender()", start_module)
+
+        await reference_price_manager.initialise()
 
         start_module = datetime.now()
         await main_app.kick_off_v2g_liberty(v2g_args="initialise")

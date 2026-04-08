@@ -1,10 +1,11 @@
-import { css, html, LitElement, nothing, TemplateResult } from 'lit';
+import { html, LitElement, nothing, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators';
+import { dataTableStyles } from './data-table-card.styles';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { callFunction } from './util/appdaemon';
-import { partial } from './util/translate';
-import { showSettingsErrorAlertDialog } from './show-dialogs';
+import { partial, setLanguage } from './util/translate';
+import { showSettingsErrorAlertDialog, showResetDatabaseDialog } from './show-dialogs';
 import { hasUninitializedEntities } from './util/settings-error-alert';
 
 const tp = partial('data-table');
@@ -35,17 +36,25 @@ export class DataTableCard extends LitElement {
   @state() private _isLoading: boolean = false;
   @state() private _error: string | null = null;
   @state() private _narrowBar = false;
-  @state() private _narrowLayout = false;
+  @state() private _isCompact = false;
+  @state() private _expandedRowKey: string | null = null;
   @state() private _granMenuOpen = false;
-  @state() private _availTipTotals = false;
-  @state() private _availTipHeader = false;
-  @state() private _estimatedTip = false;
+  @state() private _firstAvailable: string | null = null;
+  @state() private _openTip: string | null = null;
+  @state() private _overflowMenuOpen = false;
+
+  private _resizeObserver?: ResizeObserver;
+  private _docClickHandler?: (e: MouseEvent) => void;
 
   setConfig(_config: LovelaceCardConfig) {}
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._checkUninitialisedEntities();
+    // HA's runtime hass.themes has darkMode but the type doesn't include it
+    const isDark = (hass as any).themes?.darkMode ?? false;
+    this.classList.toggle('dark', isDark);
   }
 
   private _checkUninitialisedEntities() {
@@ -54,52 +63,54 @@ export class DataTableCard extends LitElement {
     }
   }
 
-  connectedCallback() {
-    super.connectedCallback();
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
+    if (this._docClickHandler) document.removeEventListener('click', this._docClickHandler);
   }
 
   protected firstUpdated() {
     const container = this.shadowRoot?.querySelector('.table-container') as HTMLElement;
-    if (container) {
-      container.addEventListener('scroll', () => {
-        container.classList.toggle('scrolled', container.scrollTop > 0);
-      });
-    }
 
-    // Set table-container max-height from its actual viewport position rather than
-    // guessing HA's chrome height via CSS calc(). Measured values are always correct
-    // regardless of HA version, theme, view type or number of navigation bars.
-    const syncHeight = () => {
+    // Toggle enhanced thead shadow when the table header is sticking.
+    // :host is the scroll container; thead sticks relative to it.
+    this.addEventListener('scroll', () => {
       if (!container) return;
-      const top = container.getBoundingClientRect().top;
-      if (top <= 0) return; // Not yet positioned in DOM
-      // 40px = bar midpoint (bottom:12 + half of ~56px bar height) so the card
-      // visually extends halfway behind the floating island.
-      const h = Math.max(200, Math.floor(window.innerHeight - top - 40));
-      container.style.maxHeight = `${h}px`;
-    };
+      const hostTop = this.getBoundingClientRect().top;
+      const containerTop = container.getBoundingClientRect().top;
+      container.classList.toggle('scrolled', containerTop <= hostTop);
+    });
 
     const syncNarrow = () => {
-      this._narrowBar = this.offsetWidth <= 800;
-      this._narrowLayout = this.offsetWidth <= 1024;
+      // Match the @container (inline-size) measurement: content-box of :host,
+      // i.e. clientWidth minus left/right padding (12 px each).
+      const w = this.clientWidth - 24;
+      this._narrowBar = w <= 800;
+      // Compact applies only to hours / days+ — kwartieren keeps full layout.
+      const compact = w <= 768 && this._granularity !== 'quarter_hours';
+      if (compact !== this._isCompact) {
+        this._isCompact = compact;
+        if (!compact) this._expandedRowKey = null;
+      }
     };
 
-    const ro = new ResizeObserver(() => requestAnimationFrame(() => {
-      syncHeight();
-      syncNarrow();
-    }));
-    ro.observe(this);
-    window.addEventListener('resize', syncHeight);
+    this._resizeObserver = new ResizeObserver(() => requestAnimationFrame(syncNarrow));
+    this._resizeObserver.observe(this);
     requestAnimationFrame(syncNarrow); // initial check after layout
 
-    // Close granularity dropdown when clicking outside the shadow DOM
-    document.addEventListener('click', (e) => {
-      if (!this._granMenuOpen) return;
-      const menu = this.shadowRoot?.querySelector('.gran-menu');
-      if (menu && !(e.composedPath() as Node[]).includes(menu)) {
-        this._granMenuOpen = false;
+    // Close dropdowns when clicking outside the shadow DOM
+    this._docClickHandler = (e: MouseEvent) => {
+      const path = e.composedPath() as Node[];
+      if (this._granMenuOpen) {
+        const menu = this.shadowRoot?.querySelector('.gran-menu');
+        if (menu && !path.includes(menu)) this._granMenuOpen = false;
       }
-    });
+      if (this._overflowMenuOpen) {
+        const overflow = this.shadowRoot?.querySelector('.overflow-menu');
+        if (overflow && !path.includes(overflow)) this._overflowMenuOpen = false;
+      }
+    };
+    document.addEventListener('click', this._docClickHandler);
 
     this._fetchData();
   }
@@ -113,6 +124,7 @@ export class DataTableCard extends LitElement {
 
     this._isLoading = true;
     this._error = null;
+    this._data = [];
 
     try {
       const result = await callFunction(
@@ -128,6 +140,7 @@ export class DataTableCard extends LitElement {
       } else {
         this._data = (result.data || []).slice().reverse();
         this._error = null;
+        if (result.first_available) this._firstAvailable = result.first_available;
       }
     } catch (e) {
       const isTimeout = e instanceof Error && e.message.includes('timed out');
@@ -196,7 +209,16 @@ export class DataTableCard extends LitElement {
 
   // ── Navigation ────────────────────────────────────────────────
 
+  private _toggleRow(key: string) {
+    this._expandedRowKey = this._expandedRowKey === key ? null : key;
+  }
+
+  private _isExpanded(key: string): boolean {
+    return this._expandedRowKey === key;
+  }
+
   private _navigate(direction: number) {
+    this._expandedRowKey = null;
     const d = new Date(this._viewDate);
 
     switch (this._granularity) {
@@ -205,12 +227,15 @@ export class DataTableCard extends LitElement {
         d.setDate(d.getDate() + direction);
         break;
       case 'days':
+        d.setDate(1);
         d.setMonth(d.getMonth() + direction);
         break;
       case 'weeks':
+        d.setDate(1);
         d.setMonth(d.getMonth() + 3 * direction);
         break;
       case 'months':
+        d.setDate(1);
         d.setFullYear(d.getFullYear() + direction);
         break;
     }
@@ -220,12 +245,16 @@ export class DataTableCard extends LitElement {
   }
 
   private _goToNow() {
+    this._expandedRowKey = null;
     this._viewDate = new Date();
     this._fetchData();
   }
 
   private _setGranularity(g: Granularity) {
+    this._expandedRowKey = null;
     this._granularity = g;
+    // Recompute compact: kwartieren is never compact, others depend on width.
+    this._isCompact = g !== 'quarter_hours' && (this.clientWidth - 24) <= 768;
     this._fetchData();
   }
 
@@ -241,6 +270,7 @@ export class DataTableCard extends LitElement {
   private _onDateChange(e: Event) {
     const input = e.target as HTMLInputElement;
     if (input.value) {
+      this._expandedRowKey = null;
       const parts = input.value.split('-');
       this._viewDate = new Date(
         parseInt(parts[0]),
@@ -270,22 +300,13 @@ export class DataTableCard extends LitElement {
       case 'quarter_hours':
       case 'hours':
         return `${dd}-${mm}-${yyyy}`;
-      case 'days': {
-        const monthName = d.toLocaleDateString(undefined, { month: 'long' });
-        return `${monthName} ${yyyy}`;
-      }
+      case 'days':
+        return `${mm}-${yyyy}`;
       case 'weeks': {
         const qStart = Math.floor(d.getMonth() / 3) * 3;
-        const qEnd = qStart + 2;
-        const startMonth = new Date(yyyy, qStart, 1).toLocaleDateString(
-          undefined,
-          { month: 'short' }
-        );
-        const endMonth = new Date(yyyy, qEnd, 1).toLocaleDateString(
-          undefined,
-          { month: 'short' }
-        );
-        return `${startMonth} – ${endMonth} ${yyyy}`;
+        const qStartMM = String(qStart + 1).padStart(2, '0');
+        const qEndMM = String(qStart + 3).padStart(2, '0');
+        return `${qStartMM} – ${qEndMM} ${yyyy}`;
       }
       case 'months':
         return `${yyyy}`;
@@ -311,7 +332,8 @@ export class DataTableCard extends LitElement {
   private _fmtCurrency(value: number | null | undefined, decimals = 2): string {
     if (value === null || value === undefined) return '−';
     const currency = this._getCurrency();
-    const rounded = this._round(value, decimals);
+    const factor = Math.pow(10, decimals);
+    const rounded = Math.round((value + Number.EPSILON) * factor) / factor;
     try {
       return new Intl.NumberFormat(undefined, {
         style: 'currency',
@@ -332,9 +354,11 @@ export class DataTableCard extends LitElement {
     });
   }
 
-  private _fmtPct(value: number | null | undefined, decimals = 1): string {
+  private _fmtNum(value: number | null | undefined, decimals = 2): string {
     if (value === null || value === undefined) return '−';
-    return value.toLocaleString(undefined, {
+    const factor = Math.pow(10, decimals);
+    const rounded = Math.round((value + Number.EPSILON) * factor) / factor;
+    return rounded.toLocaleString(undefined, {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
@@ -345,26 +369,6 @@ export class DataTableCard extends LitElement {
     return Math.round(value).toString();
   }
 
-  private _round(value: number, decimals: number): number {
-    const factor = Math.pow(10, decimals);
-    return Math.round((value + Number.EPSILON) * factor) / factor;
-  }
-
-  private _fmtKwh(value: number | null | undefined, decimals = 2): string {
-    if (value === null || value === undefined) return '−';
-    return this._round(value, decimals).toLocaleString(undefined, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  }
-
-  private _fmtKg(value: number | null | undefined, decimals = 1): string {
-    if (value === null || value === undefined) return '−';
-    return this._round(value, decimals).toLocaleString(undefined, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  }
 
   private _fmtTime(isoStr: string): string {
     if (!isoStr) return '−';
@@ -432,6 +436,35 @@ export class DataTableCard extends LitElement {
       case 'years':
         return this._fmtYear(isoStr);
     }
+  }
+
+  private _fmtTitleDate(isoStr: string): string {
+    if (!isoStr) return '−';
+    switch (this._granularity) {
+      case 'months':
+        return this._fmtMonthYear(isoStr);
+      case 'years':
+        return this._fmtYear(isoStr);
+      case 'weeks':
+        return this._fmtWeek(isoStr);
+      default: {
+        const d = new Date(isoStr);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dd}-${mm}-${d.getFullYear()}`;
+      }
+    }
+  }
+
+  private _getPageTitle(): TemplateResult {
+    const base = tp('page-title');
+    if (!this._data?.length) return html`${base}`;
+    const first = this._data[this._data.length - 1];
+    const last = this._data[0];
+    const from = this._fmtTitleDate(first.period_start);
+    const to = this._fmtTitleDate(last.period_start);
+    const range = from === to ? from : `${from} – ${to}`;
+    return html`${base}: <span class="date-range">${range}</span>`;
   }
 
   private _renderAppState(state: string | null | undefined): TemplateResult {
@@ -540,6 +573,12 @@ export class DataTableCard extends LitElement {
         (s: number, r: any) => s + Math.max(0, -(r.energy_wh ?? 0)),
         0
       );
+      const chargeDurationMin = this._data.filter(
+        (r: any) => (r.energy_wh ?? 0) > 0
+      ).length * 15;
+      const dischargeDurationMin = this._data.filter(
+        (r: any) => (r.energy_wh ?? 0) < 0
+      ).length * 15;
       return {
         kind: 'quarter_hours' as const,
         first,
@@ -547,9 +586,16 @@ export class DataTableCard extends LitElement {
         avgCons: mean('consumption_price'),
         avgProd: mean('production_price'),
         chargeWh,
+        chargeDurationMin,
         dischargeWh,
+        dischargeDurationMin,
         chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
+        chargeCo2Kg: sum('charge_co2_kg'),
+        dischargeCo2Kg: sum('discharge_co2_kg'),
+        co2Kg: sum('co2_kg'),
+        savingsFixed: sum('savings_fixed_eur'),
+        savingsDyn: sum('savings_dynamic_eur'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
@@ -566,9 +612,16 @@ export class DataTableCard extends LitElement {
         socMax: socs.length ? Math.max(...socs) : null,
         avgPrice: mean('avg_price'),
         chargeWh: sum('charge_wh'),
-        chargeCost: sum('charge_cost'),
+        chargeDurationMin: sum('charge_duration_min'),
         dischargeWh: sum('discharge_wh'),
+        dischargeDurationMin: sum('discharge_duration_min'),
+        chargeCost: sum('charge_cost'),
         dischargeRev: sum('discharge_revenue'),
+        chargeCo2Kg: sum('charge_co2_kg'),
+        dischargeCo2Kg: sum('discharge_co2_kg'),
+        co2Kg: sum('co2_kg'),
+        savingsFixed: sum('savings_fixed_eur'),
+        savingsDyn: sum('savings_dynamic_eur'),
         hasRepaired: this._data.some((r: any) => r.has_repaired),
       };
     }
@@ -582,14 +635,54 @@ export class DataTableCard extends LitElement {
       chargeKwh: sum('charge_kwh'),
       chargeCost: sum('charge_cost'),
       chargeCo2Kg: sum('charge_co2_kg'),
+      chargeDurationMin: sum('charge_duration_min'),
       dischargeKwh: sum('discharge_kwh'),
       dischargeRev: sum('discharge_revenue'),
       dischargeCo2Kg: sum('discharge_co2_kg'),
+      dischargeDurationMin: sum('discharge_duration_min'),
       netKwh: sum('net_kwh'),
       netCost: sum('net_cost'),
       co2Kg: sum('co2_kg'),
+      savingsFixed: sum('savings_fixed_eur'),
+      savingsDyn: sum('savings_dynamic_eur'),
       hasRepaired: this._data.some((r: any) => r.has_repaired),
     };
+  }
+
+  private _noDataHint(): TemplateResult | typeof nothing {
+    if (!this._firstAvailable) return nothing;
+    const { end } = this._getViewWindow();
+    if (new Date(end) > new Date(this._firstAvailable)) return nothing;
+    const firstDate = new Date(this._firstAvailable).toLocaleDateString(
+      undefined,
+      { month: 'long', year: 'numeric' }
+    );
+    return html`<small>${tp('no-data-hint')} ${firstDate}</small>`;
+  }
+
+  // NOTE: ha-tooltip and ha-icon (HA design system) do not work reliably in custom
+  // card shadow DOM. ha-tooltip is absent from the DOM entirely; ha-icon in <th>
+  // elements appears in the DOM but produces no visual output. The custom SVG +
+  // click-toggle approach below is the correct solution for info icons in this card.
+  private _renderInfoTip(tipKey: string, tooltipKey: string): TemplateResult {
+    return html`
+      <span class="info-container">
+        <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+          @click=${() => { this._openTip = this._openTip === tipKey ? null : tipKey; }}>
+          <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+        </svg>
+        ${this._openTip === tipKey ? html`<span class="info-popup">${tp(tooltipKey)}</span>` : nothing}
+      </span>
+    `;
+  }
+
+  private _toggleOverflowMenu() {
+    this._overflowMenuOpen = !this._overflowMenuOpen;
+  }
+
+  private _onResetDatabase() {
+    this._overflowMenuOpen = false;
+    showResetDatabaseDialog(this);
   }
 
   private _renderEstimatedNote(hasRepaired: boolean): TemplateResult | typeof nothing {
@@ -597,29 +690,57 @@ export class DataTableCard extends LitElement {
     return html`
       <div class="estimated-note">
         ${tp('estimated-note')}
-        <span class="info-container">
-          <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-            @click=${() => { this._estimatedTip = !this._estimatedTip; }}>
-            <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
-          </svg>
-          ${this._estimatedTip ? html`<span class="info-popup">${tp('estimated-tooltip')}</span>` : nothing}
-        </span>
+        ${this._renderInfoTip('estimated', 'estimated-tooltip')}
       </div>
     `;
   }
 
-  private _fmtTotalsPeriod(first: any, last: any): string {
-    if (first === last) return this._fmtPeriod(first.period_start);
-    if (
-      this._granularity === 'quarter_hours' ||
-      this._granularity === 'hours'
-    ) {
-      const start = this._fmtPeriod(first.period_start);
-      const end = this._fmtPeriod(last.period_start);
-      const date = this._fmtDayDate(first.period_start);
-      return `${start} – ${end}, ${date}`;
+  private _fmtDurationVal(minutes: number | null | undefined): string {
+    if (minutes == null || minutes === 0) return '−';
+    if (this._granularity === 'quarter_hours') {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
-    return `${this._fmtPeriod(first.period_start)} – ${this._fmtPeriod(last.period_start)}`;
+    return `${Math.round(minutes / 60)}`;
+  }
+
+  private _renderMetric(
+    label: string | TemplateResult,
+    value: string,
+    unit: string,
+    profit = false,
+  ): TemplateResult {
+    return html`
+      <div class="metric">
+        <span class="metric-label">${label}</span>
+        <span class="metric-value ${profit ? 'profit' : ''}"
+          >${value} <span class="metric-unit">${unit}</span></span
+        >
+      </div>
+    `;
+  }
+
+  private _renderSavingsCard(savingsFixed: number | null, savingsDyn: number | null): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    const fixedStr = savingsFixed != null ? this._fmtNum(savingsFixed, 2) : '−';
+    const dynStr = savingsDyn != null ? this._fmtNum(savingsDyn, 2) : '−';
+    return html`
+      <div class="subcard subcard-savings">
+        <ha-icon class="savings-piggy" icon="mdi:piggy-bank-outline"></ha-icon>
+        <div class="savings-title-row">
+          <span class="subcard-title">${tt('savings')}</span>
+          ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
+        </div>
+        <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
+        <div class="subcard-hero">${cur}\u202F${fixedStr}</div>
+        <div class="savings-dyn">
+          <span class="savings-dyn-amount">${cur}\u202F${dynStr}</span>
+          <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
+        </div>
+      </div>
+    `;
   }
 
   private _renderTotals(): TemplateResult {
@@ -630,175 +751,224 @@ export class DataTableCard extends LitElement {
     }
     const t = this._computeTotals();
     if (!t) {
-      return html`<div class="center muted">${tp('no-data')}</div>`;
+      return html`<div class="center muted">
+        <div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div>
+      </div>`;
     }
 
-    const tt = (key: string) => tp(`totals.${key}`);
-    const period = this._fmtTotalsPeriod(t.first, t.last);
+    const hasRepaired =
+      this._data?.some((r: any) => r.has_repaired) ?? false;
 
     if (t.kind === 'quarter_hours') {
-      return html`
-        <div class="totals-layout">
-          <dl class="totals-dl">
-            <div class="totals-row">
-              <dt>${tt('period')}</dt>
-              <dd>${period}</dd>
-            </div>
-            <div class="totals-row">
-              <dt>${tt('avg-cons-price')}</dt>
-              <dd>${this._fmtCents(t.avgCons)} <span class="totals-unit">€¢/kWh</span></dd>
-            </div>
-            <div class="totals-row">
-              <dt>${tt('avg-prod-price')}</dt>
-              <dd>${this._fmtCents(t.avgProd)} <span class="totals-unit">€¢/kWh</span></dd>
-            </div>
-          </dl>
-          <table class="totals-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>${tp('col.energy')} (Wh)</th>
-              <th>${tp('col.cost')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${tp('col.charge')}</td>
-              <td>${this._fmtWh(t.chargeWh)}</td>
-              <td>${this._fmtCurrency(t.chargeCost)}</td>
-            </tr>
-            <tr>
-              <td>${tp('col.discharge')}</td>
-              <td>${this._fmtWh(t.dischargeWh)}</td>
-              <td>${this._fmtCurrency(t.dischargeRev)}</td>
-            </tr>
-            <tr class="totals-net">
-              <td>${tp('col.net')}</td>
-              <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
-              <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
-            </tr>
-          </tbody>
-        </table>
-        </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
-      `;
+      return this._renderTotalsSubcards_QH(t, hasRepaired);
     }
-
     if (t.kind === 'hours') {
-      return html`
-        <div class="totals-layout">
-          <dl class="totals-dl">
-            <div class="totals-row">
-              <dt>${tt('period')}</dt>
-              <dd>${period}</dd>
-            </div>
-            ${t.socMin != null
-              ? html`
-                  <div class="totals-row">
-                    <dt>${tt('soc-range')}</dt>
-                    <dd>
-                      ${this._fmtPct(t.socMin)}% – ${this._fmtPct(t.socMax)}%
-                    </dd>
-                  </div>
-                `
-              : nothing}
-            <div class="totals-row">
-              <dt>${tt('avg-price')}</dt>
-              <dd>${this._fmtCents(t.avgPrice)} <span class="totals-unit">€¢/kWh</span></dd>
-            </div>
-          </dl>
-          <table class="totals-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>${tp('col.energy')} (Wh)</th>
-                <th>${tp('col.cost')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${tp('col.charge')}</td>
-                <td>${this._fmtWh(t.chargeWh)}</td>
-                <td>${this._fmtCurrency(t.chargeCost)}</td>
-              </tr>
-              <tr>
-                <td>${tp('col.discharge')}</td>
-                <td>${this._fmtWh(t.dischargeWh)}</td>
-                <td>${this._fmtCurrency(t.dischargeRev)}</td>
-              </tr>
-              <tr class="totals-net">
-                <td>${tp('col.net')}</td>
-                <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
-                <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
-      `;
+      return this._renderTotalsSubcards_Hours(t, hasRepaired);
     }
+    return this._renderTotalsSubcards_Days(t, hasRepaired);
+  }
 
-    // days / weeks / months / years
-    const kwhDec = this._granularity === 'years' ? 0 : 2;
-    const kgDec  = this._granularity === 'years' ? 0 : 1;
+  private _renderTotalsSubcards_Days(
+    t: any,
+    hasRepaired: boolean,
+  ): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    const kwhDec = 0;
+    const kgDec = 0;
     const curDec = this._granularity === 'years' ? 0 : 2;
+
     return html`
-      <div class="totals-layout">
-        <dl class="totals-dl">
-          <div class="totals-row">
-            <dt>${tt('period')}</dt>
-            <dd>${period}</dd>
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${tp('col.net')}</span>
           </div>
-          <div class="totals-row">
-            <dt>
-              ${tt('availability')}
-              <span class="info-container">
-                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-                  @click=${() => { this._availTipTotals = !this._availTipTotals; }}>
-                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
-                </svg>
-                ${this._availTipTotals ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
-              </span>
-            </dt>
-            <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
+          <div class="subcard-hero">
+            ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
           </div>
-        </dl>
-        <table class="totals-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>${tp('col.energy')} (kWh)</th>
-              <th>${tp('col.cost')}</th>
-              <th>${tp('col.emissions')} (kg)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${tp('col.charge')}</td>
-              <td>${this._fmtKwh(t.chargeKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.chargeCost, curDec)}</td>
-              <td>${this._fmtKg(t.chargeCo2Kg, kgDec)}</td>
-            </tr>
-            <tr>
-              <td>${tp('col.discharge')}</td>
-              <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
-              <td>${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
-            </tr>
-            <tr class="totals-net">
-              <td>${tp('col.net')}</td>
-              <td>${this._fmtKwh(t.netKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.netCost, curDec)}</td>
-              <td>${this._fmtKg(t.co2Kg, kgDec)}</td>
-            </tr>
-          </tbody>
-        </table>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.netCost, curDec), cur, t.netCost < 0)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.co2Kg, kgDec), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric(
+              html`${tt('availability')} ${this._renderInfoTip('avail-totals', 'col.availability-tooltip')}`,
+              this._fmtNum(t.avgAvail, 0),
+              '%',
+            )}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtNum(t.chargeKwh, kwhDec), 'kWh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, curDec), cur)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, kgDec), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtNum(t.dischargeKwh, kwhDec), 'kWh')}
+            ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, curDec), cur, true)}
+            ${this._renderMetric(tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, kgDec), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
       </div>
-      ${this._renderEstimatedNote(t.hasRepaired)}
+    `;
+  }
+
+  private _renderTotalsSubcards_Hours(
+    t: any,
+    hasRepaired: boolean,
+  ): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    const netWh = t.chargeWh - t.dischargeWh;
+    const netCost = t.chargeCost - t.dischargeRev;
+
+    const netKwh = netWh / 1000;
+    return html`
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${tp('col.net')}</span>
+          </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric(tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderTotalsSubcards_QH(
+    t: any,
+    hasRepaired: boolean,
+  ): TemplateResult {
+    const cur = this._currencySymbol();
+    const tt = (key: string) => tp(`totals.${key}`);
+    const netWh = t.chargeWh - t.dischargeWh;
+    const netCost = t.chargeCost - t.dischargeRev;
+    const netKwh = netWh / 1000;
+
+    return html`
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${tp('col.net')}</span>
+          </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(netWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric(tt('avg-cons-price'), this._fmtCents(t.avgCons), `${cur}c/kWh`)}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric(tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric(tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
+            ${this._renderMetric(tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric(tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric(tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
+      </div>
     `;
   }
 
   // ── Table rendering per granularity ───────────────────────────
+
+  private _renderTbody(
+    colSpan: number,
+    renderRows: () => TemplateResult[]
+  ): TemplateResult {
+    if (this._isLoading) {
+      return html`<tr><td colspan="${colSpan}"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`;
+    }
+    if (this._data.length === 0) {
+      return html`<tr><td colspan="${colSpan}"><div class="center muted"><div class="no-data-msg">${tp('no-data')}${this._noDataHint()}</div></div></td></tr>`;
+    }
+    return html`${renderRows()}`;
+  }
 
   private _col(key: string, unit?: string): TemplateResult | string {
     if (unit) {
@@ -823,32 +993,84 @@ export class DataTableCard extends LitElement {
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading
-            ? html`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
-            : this._data.length === 0
-              ? html`<tr><td colspan="8"><div class="center muted">${tp('no-data')}</div></td></tr>`
-              : this._data.map(
-                  (row) => html`
-                    <tr class="${row.has_repaired ? 'repaired' : ''}">
-                      <td>${this._fmtTime(row.period_start)}</td>
-                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
-                      <td class="num">${this._fmtWh(row.energy_wh)}</td>
-                      <td class="num">${this._fmtCents(row.consumption_price)}</td>
-                      <td class="num">${this._fmtCents(row.production_price)}</td>
-                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                      <td class="num">${this._fmtCostRevenue(row)}</td>
-                    </tr>
-                  `
-                )}
+          ${this._renderTbody(8, () => this._data.map(
+            (row) => html`
+              <tr class="${row.has_repaired ? 'repaired' : ''}">
+                <td>${this._fmtTime(row.period_start)}</td>
+                <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                <td class="num">${this._fmtNum(row.soc_pct, 1)}</td>
+                <td class="num">${this._fmtWh(row.energy_wh)}</td>
+                <td class="num">${this._fmtCents(row.consumption_price)}</td>
+                <td class="num">${this._fmtCents(row.production_price)}</td>
+                <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                <td class="num">${this._fmtCostRevenue(row)}</td>
+              </tr>
+            `
+          ))}
         </tbody>
       </table>
     `;
   }
 
-  private _renderHourTable(): TemplateResult {
+  private _renderChevronTh(): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    return html`<th class="chevron-col" rowspan="2"></th>`;
+  }
+
+  private _renderChevronTd(rowKey: string): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    const expanded = this._isExpanded(rowKey);
+    const label = expanded ? tp('row-details-hide') : tp('row-details-show');
     return html`
-      <table>
+      <td
+        class="chevron-cell ${expanded ? 'open' : ''}"
+        role="button"
+        tabindex="0"
+        aria-expanded="${expanded ? 'true' : 'false'}"
+        aria-label="${label}"
+        title="${label}"
+        @click=${(e: Event) => { e.stopPropagation(); this._toggleRow(rowKey); }}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this._toggleRow(rowKey);
+          }
+        }}
+      >
+        <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+        </svg>
+      </td>
+    `;
+  }
+
+  private _renderHourDetailRow(row: any): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    const key = row.period_start;
+    if (!this._isExpanded(key)) return nothing;
+    // In compact mode the hours table has these visible columns:
+    // 0 period, 1 status, 2 soc, 3 avg-price, 4 rate, 5 net-energy, 6 net-cost, 7 chevron
+    // Label spans the first 5; values align with cols 5 and 6; chevron col stays blank.
+    return html`
+      <tr class="row-detail row-detail-first">
+        <td colspan="5" class="row-detail-label">${tp('col.charge')}</td>
+        <td class="num">${this._fmtWh(row.charge_wh)}</td>
+        <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+      <tr class="row-detail row-detail-last">
+        <td colspan="5" class="row-detail-label">${tp('col.discharge')}</td>
+        <td class="num">${this._fmtWh(row.discharge_wh)}</td>
+        <td class="num profit">${this._fmtCurrency(row.discharge_revenue)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+    `;
+  }
+
+  private _renderHourTable(): TemplateResult {
+    const compact = this._isCompact;
+    return html`
+      <table class="${compact ? 'compact' : ''}">
         <thead class="grouped">
           <tr>
             <th>${tp('col.period')}</th>
@@ -856,9 +1078,10 @@ export class DataTableCard extends LitElement {
             <th class="num">${tp('col.soc')}</th>
             <th class="num">${tp('col.avg-price')}</th>
             <th class="indicator-col">${tp('col.rate')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="2">${tp('col.charge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="2">${tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
+            ${this._renderChevronTh()}
           </tr>
           <tr class="sub-header">
             <th></th>
@@ -866,99 +1089,124 @@ export class DataTableCard extends LitElement {
             <th class="num">%</th>
             <th class="num">€¢/kWh</th>
             <th class="indicator-col"></th>
-            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
-            <th class="num">${tp('col.cost')}</th>
-            <th class="num group-sep">${tp('col.energy')} (Wh)</th>
-            <th class="num">${tp('col.revenue')}</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (Wh)</th>
+            <th class="num col-hide-compact">${tp('col.cost')}</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (Wh)</th>
+            <th class="num col-hide-compact">${tp('col.revenue')}</th>
             <th class="num group-sep">${tp('col.energy')} (Wh)</th>
             <th class="num">${tp('col.cost')}</th>
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading
-            ? html`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
-            : this._data.length === 0
-              ? html`<tr><td colspan="11"><div class="center muted">${tp('no-data')}</div></td></tr>`
-              : this._data.map(
-                  (row) => html`
-                    <tr class="${row.has_repaired ? 'repaired' : ''}">
-                      <td>${this._fmtHour(row.period_start)}</td>
-                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
-                      <td class="num">${this._fmtCents(row.avg_price)}</td>
-                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                      <td class="num group-sep">${this._fmtWh(row.charge_wh)}</td>
-                      <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                      <td class="num group-sep">${this._fmtWh(row.discharge_wh)}</td>
-                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
-                      <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
-                      <td class="num">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
-                    </tr>
-                  `
-                )}
+          ${this._renderTbody(compact ? 8 : 11, () => this._data.flatMap(
+            (row) => [
+              html`
+                <tr class="${row.has_repaired ? 'repaired' : ''} ${this._isExpanded(row.period_start) ? 'expanded' : ''}">
+                  <td>${this._fmtHour(row.period_start)}</td>
+                  <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                  <td class="num">${this._fmtNum(row.soc_pct, 1)}</td>
+                  <td class="num">${this._fmtCents(row.avg_price)}</td>
+                  <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                  <td class="num group-sep col-hide-compact">${this._fmtWh(row.charge_wh)}</td>
+                  <td class="num col-hide-compact">${this._fmtCurrency(row.charge_cost)}</td>
+                  <td class="num group-sep col-hide-compact">${this._fmtWh(row.discharge_wh)}</td>
+                  <td class="num profit col-hide-compact">${this._fmtCurrency(row.discharge_revenue)}</td>
+                  <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
+                  <td class="num ${(row.charge_cost ?? 0) - (row.discharge_revenue ?? 0) < 0 ? 'profit' : ''}">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
+                  ${this._renderChevronTd(row.period_start)}
+                </tr>
+              `,
+              this._renderHourDetailRow(row),
+            ]
+          ))}
         </tbody>
       </table>
     `;
   }
 
-  private _renderDayTable(): TemplateResult {
+  private _renderDayDetailRow(row: any, kwhDec: number, kgDec: number, curDec: number): TemplateResult | typeof nothing {
+    if (!this._isCompact) return nothing;
+    const key = row.period_start;
+    if (!this._isExpanded(key)) return nothing;
+    // In compact mode the days table has these visible columns:
+    // 0 period, 1 availability, 2 net-energy, 3 net-cost, 4 net-co2, 5 chevron
+    // Label spans the first 2; values align with cols 2/3/4; chevron stays blank.
     return html`
-      <table>
+      <tr class="row-detail row-detail-first">
+        <td colspan="2" class="row-detail-label">${tp('col.charge')}</td>
+        <td class="num">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
+        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+        <td class="num">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+      <tr class="row-detail row-detail-last">
+        <td colspan="2" class="row-detail-label">${tp('col.discharge')}</td>
+        <td class="num">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
+        <td class="num profit">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+        <td class="num profit">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+    `;
+  }
+
+  private _renderDayTable(): TemplateResult {
+    const compact = this._isCompact;
+    return html`
+      <table class="${compact ? 'compact' : ''}">
         <thead class="grouped">
           <tr>
             <th>${tp('col.period')}</th>
-            <th class="num">
-              ${tp('col.availability')}
-              <span class="info-container">
-                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-                  @click=${() => { this._availTipHeader = !this._availTipHeader; }}>
-                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
-                </svg>
-                ${this._availTipHeader ? html`<span class="info-popup">${tp('col.availability-tooltip')}</span>` : nothing}
-              </span>
-            </th>
-            <th class="group-header group-sep" colspan="2">${tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="2">${tp('col.discharge')}</th>
+            <th class="num"><span class="wide-title-wrapper">${tp('col.availability')}</span></th>
+            <th class="group-header group-sep col-hide-compact" colspan="3">${tp('col.charge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="3">${tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${tp('col.net')}</th>
-            <th class="num">${tp('col.emissions')}</th>
+            <th class="num"></th>
+            ${this._renderChevronTh()}
           </tr>
           <tr class="sub-header">
             <th></th>
-            <th class="num">%</th>
+            <th class="num">%
+              ${this._renderInfoTip('avail-header', 'col.availability-tooltip')}
+            </th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (kWh)</th>
+            <th class="num col-hide-compact">${tp('col.cost')}</th>
+            <th class="num col-hide-compact">CO₂ (kg)</th>
+            <th class="num group-sep col-hide-compact">${tp('col.energy')} (kWh)</th>
+            <th class="num col-hide-compact">${tp('col.revenue')}</th>
+            <th class="num col-hide-compact">CO₂ (kg)</th>
             <th class="num group-sep">${tp('col.energy')} (kWh)</th>
             <th class="num">${tp('col.cost')}</th>
-            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
-            <th class="num">${tp('col.revenue')}</th>
-            <th class="num group-sep">${tp('col.energy')} (kWh)</th>
-            <th class="num">${tp('col.cost')}</th>
-            <th class="num">kg CO₂</th>
+            <th class="num">CO₂ (kg)</th>
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading
-            ? html`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${tp('loading')}</div></td></tr>`
-            : this._data.length === 0
-              ? html`<tr><td colspan="9"><div class="center muted">${tp('no-data')}</div></td></tr>`
-              : (() => {
-                  const kwhDec = this._granularity === 'years' ? 0 : 2;
-                  const kgDec  = this._granularity === 'years' ? 0 : 1;
-                  const curDec = this._granularity === 'years' ? 0 : 2;
-                  return this._data.map(
-                    (row) => html`
-                      <tr class="${row.has_repaired ? 'repaired' : ''}">
-                        <td>${this._fmtPeriod(row.period_start)}</td>
-                        <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
-                        <td class="num group-sep">${this._fmtKwh(row.charge_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
-                        <td class="num group-sep">${this._fmtKwh(row.discharge_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
-                        <td class="num group-sep">${this._fmtKwh(row.net_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.net_cost, curDec)}</td>
-                        <td class="num">${this._fmtKg(row.co2_kg, kgDec)}</td>
-                      </tr>
-                    `
-                  );
-                })()}
+          ${this._renderTbody(compact ? 6 : 11, () => {
+            const aggGran = ['weeks', 'months', 'years'].includes(this._granularity);
+            const kwhDec = aggGran ? 0 : 2;
+            const kgDec  = aggGran ? 0 : 1;
+            const curDec = this._granularity === 'years' ? 0 : 2;
+            return this._data.flatMap(
+              (row) => [
+                html`
+                  <tr class="${row.has_repaired ? 'repaired' : ''} ${this._isExpanded(row.period_start) ? 'expanded' : ''}">
+                    <td>${this._fmtPeriod(row.period_start)}</td>
+                    <td class="num">${this._fmtNum(row.availability_pct, 0)}</td>
+                    <td class="num group-sep col-hide-compact">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
+                    <td class="num col-hide-compact">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+                    <td class="num col-hide-compact">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
+                    <td class="num group-sep col-hide-compact">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
+                    <td class="num profit col-hide-compact">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                    <td class="num profit col-hide-compact">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
+                    <td class="num group-sep">${this._fmtNum(row.net_kwh, kwhDec)}</td>
+                    <td class="num ${row.net_cost < 0 ? 'profit' : ''}">${this._fmtCurrency(row.net_cost, curDec)}</td>
+                    <td class="num ${row.co2_kg < 0 ? 'profit' : ''}">${this._fmtNum(row.co2_kg, kgDec)}</td>
+                    ${this._renderChevronTd(row.period_start)}
+                  </tr>
+                `,
+                this._renderDayDetailRow(row, kwhDec, kgDec, curDec),
+              ]
+            );
+          })}
         </tbody>
       </table>
     `;
@@ -979,22 +1227,32 @@ export class DataTableCard extends LitElement {
 
   render() {
     return html`
-      <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
-        <ha-card
-          .header=${`${tp('card-title')} — ${tp('granularity.' + this._granularity)}`}
-        >
-          <div class="table-container">
-            ${this._error
-              ? html`<div class="center error">${this._error}</div>`
-              : this._renderTable()}
-          </div>
-        </ha-card>
+      <div class="page-header">
+        <h1 class="page-title">${this._getPageTitle()}</h1>
+        <div class="overflow-menu">
+          <ha-icon-button
+            .path=${'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z'}
+            @click=${this._toggleOverflowMenu}
+          ></ha-icon-button>
+          ${this._overflowMenuOpen ? html`
+            <ul class="overflow-dropdown">
+              <li>
+                <button class="overflow-item" @click=${this._onResetDatabase}>
+                  ${tp('overflow-reset-database')}
+                </button>
+              </li>
+            </ul>
+          ` : nothing}
+        </div>
+      </div>
+      <div class="page-layout">
+        ${this._renderTotals()}
 
-        <ha-card .header=${tp('totals.card-title')}>
-          <div class="totals-card-content">
-            ${this._renderTotals()}
-          </div>
-        </ha-card>
+        <div class="table-container">
+          ${this._error
+            ? html`<div class="center error">${this._error}</div>`
+            : this._renderTable()}
+        </div>
       </div>
 
       <div class="floating-bar">
@@ -1081,558 +1339,7 @@ export class DataTableCard extends LitElement {
     `;
   }
 
-  // ── Styles ────────────────────────────────────────────────────
-
-  static styles = css`
-    :host {
-      display: block;
-      max-height: calc(100vh - var(--header-height, 56px));
-      overflow: hidden;
-      padding: 12px;
-      box-sizing: border-box;
-      container-type: inline-size;
-    }
-
-    /* ─- Page layout ──────────────────────────────── */
-
-    .page-layout {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 12px;
-    }
-
-    .page-layout ha-card {
-      --ha-card-border-radius: 12px;
-      --ha-card-border-width: 1px;
-      --ha-card-border-color: var(--divider-color, #e0e0e0);
-      overflow: hidden;
-    }
-
-    .page-layout > ha-card:last-child {
-      align-self: start;
-      position: sticky;
-      top: 0;
-    }
-
-    .totals-card-content {
-      padding: 0 24px 16px;
-    }
-
-    @container (max-width: 1024px) {
-      .page-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .page-layout > ha-card:last-child {
-        order: -1;
-        position: static;
-      }
-    }
-
-    .page-layout.narrow .totals-layout {
-      display: flex;
-      gap: 48px;
-      align-items: flex-start;
-    }
-
-    .page-layout.narrow .totals-layout .totals-dl {
-      flex: 1;
-      margin-bottom: 0;
-    }
-
-    .page-layout.narrow .totals-layout .totals-table {
-      flex: 1;
-    }
-
-    // .card-content {
-    //   max-width: 450px;
-    //   padding: 0 48px 16px;
-    // }
-
-    /* ── Floating bar ─────────────────────────────── */
-
-    .floating-bar {
-      position: fixed;
-      bottom: 12px;
-      left: var(--mdc-drawer-width, 0px);
-      right: 0;
-      display: flex;
-      justify-content: center;
-      z-index: 5;
-    }
-
-    .bar-content {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      background: var(--card-background-color, white);
-      border-radius: 12px;
-      padding: 4px 8px;
-      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.25);
-      min-height: 48px;
-    }
-
-    .bar-separator {
-      width: 1px;
-      height: 24px;
-      background: var(--divider-color, #e0e0e0);
-      margin: 0 4px;
-    }
-
-    .pill {
-      border: none;
-      border-radius: 18px;
-      padding: 6px 12px;
-      font-size: 13px;
-      background: transparent;
-      color: var(--primary-text-color);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .pill:hover {
-      background: var(--secondary-background-color, #f5f5f5);
-    }
-
-    .pill.active {
-      background: var(--primary-color);
-      color: var(--text-primary-color, #fff);
-    }
-
-    /* ── Granularity dropdown (narrow bar) ──────── */
-
-    .gran-menu {
-      position: relative;
-    }
-
-    .gran-trigger {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: var(--primary-color);
-      border: none;
-      border-radius: 20px;
-      padding: 6px 8px 6px 14px;
-      font-size: 13px;
-      font-family: inherit;
-      color: var(--text-primary-color, #fff);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .gran-trigger:hover {
-      opacity: 0.85;
-    }
-
-    .gran-dropdown {
-      position: absolute;
-      bottom: calc(100% + 6px);
-      right: 0;
-      background: var(--card-background-color, #fff);
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-      min-width: 140px;
-      z-index: 100;
-      list-style: none;
-      margin: 0;
-      padding: 4px 0;
-    }
-
-    .gran-item {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: none;
-      border: none;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-family: inherit;
-      color: var(--primary-text-color);
-      cursor: pointer;
-    }
-
-    .gran-item:hover {
-      background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
-    }
-
-    .gran-item.active {
-      color: var(--primary-color, #1976d2);
-      font-weight: 500;
-    }
-
-    .gran-dropdown li:first-child .gran-item {
-      border-radius: 12px 12px 0 0;
-    }
-
-    .gran-dropdown li:last-child .gran-item {
-      border-radius: 0 0 12px 12px;
-    }
-
-    .date-wrapper {
-      position: relative;
-      text-align: center;
-      cursor: pointer;
-      min-width: 130px;
-    }
-
-    .date-label {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--primary-text-color);
-    }
-
-    .date-input {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    /* ── Table ─────────────────────────────────────── */
-
-    .table-container {
-      /* Pre-JS fallback only — firstUpdated() sets maxHeight via ResizeObserver
-         based on the container's actual viewport position. */
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font-size: 13px;
-      font-variant-numeric: tabular-nums;
-      /* Whitespace below last row; works because border-collapse is separate */
-      padding-bottom: 48px;
-    }
-
-    thead {
-      position: sticky;
-      top: 0;
-      z-index: 3;
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
-      transition: box-shadow 0.2s ease;
-    }
-
-    .table-container.scrolled thead {
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0), 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    thead th {
-      text-align: left;
-      vertical-align: top;
-      padding: 8px 12px;
-      font-weight: 500;
-      font-size: 12px;
-      color: var(--primary-text-color);
-      background: var(--card-background-color, white);
-    }
-
-    thead th.group-sep {
-      border-left: 1px solid var(--divider-color, #e0e0e0);
-    }
-
-    thead th .unit {
-      display: block;
-      font-weight: 400;
-      font-size: 11px;
-      color: var(--secondary-text-color, #797979);
-    }
-
-    thead th.num {
-      text-align: right;
-    }
-
-    /* ── Grouped two-row header (hours/days view) ─────── */
-
-    .group-header {
-      text-align: left;
-      font-weight: 600;
-    }
-
-    thead.grouped tr.sub-header th {
-      font-size: 11px;
-      font-weight: 400;
-      color: var(--secondary-text-color, #797979);
-      padding-top: 4px;
-      padding-bottom: 4px;
-    }
-
-    tbody td.group-sep::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      width: 1px;
-      top: 20%;
-      bottom: 20%;
-      background: var(--divider-color, #e0e0e0);
-    }
-
-    tbody td.group-sep {
-      position: relative;
-    }
-
-    tbody td.group-sep::before {
-      top: 20%;
-      bottom: 20%;
-    }
-
-    tbody td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--divider-color, #e0e0e0);
-      white-space: nowrap;
-    }
-
-    thead th:first-child,
-    tbody td:first-child {
-      padding-left: 24px;
-    }
-
-    thead th:last-child,
-    tbody td:last-child {
-      padding-right: 24px;
-    }
-
-    tbody td.num {
-      text-align: right;
-    }
-
-    tbody tr:hover {
-      background: var(--table-row-alternative-background-color, #f9f9f9);
-    }
-
-    .center {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      padding: 24px 0;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2px solid var(--secondary-text-color);
-      border-top-color: var(--primary-color);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-
-    .muted {
-      color: var(--secondary-text-color);
-      font-size: 14px;
-    }
-
-    tr.repaired {
-      color: var(--secondary-text-color);
-    }
-
-    .estimated-note {
-      color: var(--secondary-text-color);
-      font-size: 12px;
-      margin-top: 8px;
-      font-style: italic;
-    }
-
-    .error {
-      color: var(--error-color, #db4437);
-      font-size: 14px;
-    }
-
-    /* ── Price indicator ───────────────────────────── */
-
-    .indicator-col,
-    .indicator-cell {
-      text-align: center;
-    }
-
-    .state-cell {
-      position: relative;
-      display: inline-block;
-    }
-
-    .state-plus {
-      position: absolute;
-      top: -2px;
-      right: -6px;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--primary-color);
-      line-height: 1;
-    }
-
-    /* ── Price sparkline track ─────────────────────── */
-
-    .price-track {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      width: 48px;
-      height: 20px;
-    }
-
-    .price-track::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      width: calc(var(--marker-left) - 7px);
-      top: 50%;
-      height: 1px;
-      background: var(--secondary-text-color);
-    }
-
-    .price-track::after {
-      content: '';
-      position: absolute;
-      left: calc(var(--marker-left) + 7px);
-      right: 0;
-      top: 50%;
-      height: 1px;
-      background: var(--secondary-text-color);
-    }
-
-    .price-marker {
-      position: absolute;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1;
-      transform: translateX(-50%);
-      color: var(--marker-color);
-      left: var(--marker-left);
-      z-index: 1;
-      user-select: none;
-    }
-
-    /* Light mode */
-    .price-track[data-level='very-low']  { --marker-left: 8%;  --marker-color: #90caf9; }
-    .price-track[data-level='low']       { --marker-left: 28%; --marker-color: #5c8dc9; }
-    .price-track[data-level='average']   { --marker-left: 50%; --marker-color: #7e57c2; }
-    .price-track[data-level='high']      { --marker-left: 72%; --marker-color: #6a1b9a; }
-    .price-track[data-level='very-high'] { --marker-left: 92%; --marker-color: #4a0072; }
-
-    @media (prefers-color-scheme: dark) {
-      .price-track[data-level='very-low']  { --marker-color: #37474f; }
-      .price-track[data-level='low']       { --marker-color: #5c6bc0; }
-      .price-track[data-level='average']   { --marker-color: #9575cd; }
-      .price-track[data-level='high']      { --marker-color: #ba68c8; }
-      .price-track[data-level='very-high'] { --marker-color: #e040fb; }
-    }
-
-    /* ── Totals card ───────────────────────────────── */
-
-    .totals-dl {
-      margin: 0 0 12px;
-      display: grid;
-      gap: 4px;
-    }
-
-    .totals-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-    }
-
-    .totals-row dt {
-      color: var(--secondary-text-color);
-      font-size: 0.85em;
-      flex-shrink: 0;
-    }
-
-    .totals-unit {
-      font-weight: 400;
-      color: var(--secondary-text-color);
-    }
-
-    .info-container {
-      position: relative;
-      display: inline-block;
-      vertical-align: middle;
-      margin-left: 2px;
-    }
-
-    .info-icon {
-      width: 14px;
-      height: 14px;
-      color: var(--primary-color);
-      cursor: pointer;
-      display: block;
-    }
-
-    .info-popup {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--primary-text-color);
-      color: var(--card-background-color);
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 400;
-      line-height: 1.4;
-      width: 200px;
-      white-space: normal;
-      z-index: 100;
-      cursor: default;
-    }
-
-    .totals-row dd {
-      margin: 0;
-      font-weight: 500;
-      text-align: right;
-    }
-
-    .totals-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9em;
-    }
-
-    .totals-table th {
-      text-align: right;
-      font-weight: normal;
-      color: var(--secondary-text-color);
-      padding: 2px 4px 4px;
-      border-bottom: 1px solid var(--divider-color);
-    }
-
-    .totals-table th:first-child {
-      text-align: left;
-      padding-left: 0;
-    }
-
-    .totals-table td {
-      padding: 3px 4px;
-      text-align: right;
-    }
-
-    .totals-table td:first-child {
-      text-align: left;
-      padding-left: 0;
-    }
-
-    .totals-table th:last-child,
-    .totals-table td:last-child {
-      padding-right: 0;
-    }
-
-    .totals-net td {
-      border-top: 1px solid var(--divider-color);
-      font-weight: 500;
-      padding-top: 4px;
-    }
-  `;
+  static styles = dataTableStyles;
 }
 
 declare global {
