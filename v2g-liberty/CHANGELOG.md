@@ -8,7 +8,7 @@
 
 ### Added
 
-- 🚀 FEAT: Extend insights (#420, #423)
+- 🚀 FEAT: Extend insights (#420, #423, #430)
 
 ### Changed
 
