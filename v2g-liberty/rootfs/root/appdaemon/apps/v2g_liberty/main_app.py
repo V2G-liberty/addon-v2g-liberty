@@ -231,7 +231,8 @@ class V2Gliberty:
             source = v2g_args
         else:
             source = "unknown"
-        self.__log(f"Set next action called from source: {source}.")
+        # Silenced to reduce log noise — re-enable when investigating call cadence.
+        # self.__log(f"Set next action called from source: {source}.")
 
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
         if self.timer_handle_set_next_action:
