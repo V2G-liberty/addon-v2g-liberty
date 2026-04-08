@@ -1,6 +1,6 @@
 """Unit test (pytest) for nissan_leaf_monitor module."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 from apps.v2g_liberty.nissan_leaf_monitor import NissanLeafMonitor
 
@@ -10,6 +10,7 @@ def mock_hass():
     """Mock Home Assistant API with a log method we can inspect."""
     hass = MagicMock()
     hass.log = MagicMock()
+    hass.run_in = AsyncMock()
     return hass
 
 
@@ -20,7 +21,9 @@ def mock_event_bus():
 
 @pytest.fixture
 def mock_notifier():
-    return MagicMock()
+    notifier = MagicMock()
+    notifier.notify_user = AsyncMock()
+    return notifier
 
 
 @pytest.fixture

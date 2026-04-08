@@ -21,8 +21,8 @@ def hass():
     mock_hass.log = MagicMock()
     mock_hass.set_state = AsyncMock()
     mock_hass.run_in = AsyncMock()
-    mock_hass.run_daily = MagicMock()
-    mock_hass.timer_running = MagicMock(return_value=False)
+    mock_hass.run_daily = AsyncMock()
+    mock_hass.timer_running = AsyncMock(return_value=False)
     mock_hass.cancel_timer = AsyncMock()
     return mock_hass
 
@@ -31,7 +31,7 @@ def hass():
 def notifier():
     """Create a mock Notifier instance."""
     mock_notifier = MagicMock(spec=Notifier)
-    mock_notifier.notify_user = MagicMock()
+    mock_notifier.notify_user = AsyncMock()
     mock_notifier.clear_notification = MagicMock()
     return mock_notifier
 

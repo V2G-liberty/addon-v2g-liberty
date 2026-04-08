@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.8.0 2026-03-??
+## 0.8.0 2026-04-09
 
 ### Fixed
 
@@ -17,6 +17,7 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- 🛠️ Refactor: centralise async timer API usage (#432)
 - ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
 
 ## 0.7.6 2026-03-09

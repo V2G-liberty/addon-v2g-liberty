@@ -12,6 +12,7 @@ from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now
+from .timer_utils import set_recurring_timer
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -209,11 +210,12 @@ class ReservationsClient(AsyncIOEventEmitter):
                 # Unfortunately the listener only get called when the first coming (or current)
                 # calendar item changes, not when other calendar items change. So we also set a
                 # polling timer.
-                self.__cancel_timer(self.poll_timer_id)
-                self.poll_timer_id = await self.hass.run_every(
+                self.poll_timer_id = await set_recurring_timer(
+                    self.hass,
+                    self.poll_timer_id,
                     self.__poll_calendar_integration,
-                    "now",
-                    self.POLLING_INTERVAL_SECONDS,
+                    start="now",
+                    interval=self.POLLING_INTERVAL_SECONDS,
                 )
                 await self.__set_caldav_connection_status(connected=True)
                 return "Successfully connected"
@@ -267,9 +269,12 @@ class ReservationsClient(AsyncIOEventEmitter):
             c.CAR_CALENDAR_NAME = ""
             return False
 
-        self.__cancel_timer(self.poll_timer_id)
-        self.poll_timer_id = await self.hass.run_every(
-            self.__poll_dav_calendar, "now", self.POLLING_INTERVAL_SECONDS
+        self.poll_timer_id = await set_recurring_timer(
+            self.hass,
+            self.poll_timer_id,
+            self.__poll_dav_calendar,
+            start="now",
+            interval=self.POLLING_INTERVAL_SECONDS,
         )
         self.__log(
             f"started polling_time {self.poll_timer_id} "
@@ -453,18 +458,6 @@ class ReservationsClient(AsyncIOEventEmitter):
         v2g_event = add_hash_id(v2g_event)
         v2g_event = self.__add_dismissed_status(v2g_event)
         return v2g_event
-
-    def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)
 
     def __parse_to_tz_dt(self, any_date_type: any):
         """
