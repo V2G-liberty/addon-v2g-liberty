@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
-import pytz
+from datetime import timezone
 from apps.v2g_liberty.data_import.validators.data_validator import DataValidator
 from apps.v2g_liberty.data_import.utils.datetime_utils import DatetimeUtils
 from apps.v2g_liberty.data_import import data_import_constants as fm_c
@@ -41,9 +41,9 @@ class TestValidatePriceFreshness:
 
     def test_price_freshness_valid(self, data_validator, mock_datetime_utils):
         """Test price freshness validation when data is up to date."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_price_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_price_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=timezone.utc)
 
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
 
@@ -59,9 +59,9 @@ class TestValidatePriceFreshness:
 
     def test_price_freshness_outdated(self, data_validator, mock_datetime_utils):
         """Test price freshness validation when data is outdated."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_price_dt = datetime(2026, 1, 29, 20, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_price_dt = datetime(2026, 1, 29, 20, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=timezone.utc)
 
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
 
@@ -79,7 +79,7 @@ class TestValidatePriceFreshness:
         self, data_validator, mock_datetime_utils
     ):
         """Test price freshness validation when latest_price_dt is None."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
 
         is_valid, error_msg = data_validator.validate_price_freshness(
             None, now, fm_c.GET_PRICES_TIME
@@ -94,8 +94,8 @@ class TestValidatePriceFreshness:
         self, data_validator, mock_datetime_utils
     ):
         """Test price freshness when latest_price_dt equals expected_dt."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=timezone.utc)
         latest_price_dt = expected_dt  # Exactly at expected
 
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
@@ -112,9 +112,9 @@ class TestValidatePriceFreshness:
         self, data_validator, mock_datetime_utils
     ):
         """Test price freshness with custom fetch start time."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_price_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_price_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=timezone.utc)
 
         mock_datetime_utils.calculate_expected_price_datetime.return_value = expected_dt
 
@@ -134,9 +134,9 @@ class TestValidateEmissionFreshness:
 
     def test_emission_freshness_valid(self, data_validator, mock_datetime_utils):
         """Test emission freshness validation when data is up to date."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_emission_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 45, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_emission_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 45, 0, tzinfo=timezone.utc)
 
         mock_datetime_utils.calculate_expected_emission_datetime.return_value = (
             expected_dt
@@ -154,9 +154,9 @@ class TestValidateEmissionFreshness:
 
     def test_emission_freshness_outdated(self, data_validator, mock_datetime_utils):
         """Test emission freshness validation when data is outdated."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_emission_dt = datetime(2026, 1, 29, 20, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 45, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_emission_dt = datetime(2026, 1, 29, 20, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 45, 0, tzinfo=timezone.utc)
 
         mock_datetime_utils.calculate_expected_emission_datetime.return_value = (
             expected_dt
@@ -176,7 +176,7 @@ class TestValidateEmissionFreshness:
         self, data_validator, mock_datetime_utils
     ):
         """Test emission freshness validation when latest_emission_dt is None."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
 
         is_valid, error_msg = data_validator.validate_emission_freshness(None, now, 15)
 
@@ -189,8 +189,8 @@ class TestValidateEmissionFreshness:
         self, data_validator, mock_datetime_utils
     ):
         """Test emission freshness when latest_emission_dt equals expected_dt."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 45, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 45, 0, tzinfo=timezone.utc)
         latest_emission_dt = expected_dt  # Exactly at expected
 
         mock_datetime_utils.calculate_expected_emission_datetime.return_value = (
@@ -211,9 +211,9 @@ class TestValidateEmissionFreshness:
         self, data_validator, mock_datetime_utils
     ):
         """Test emission freshness with custom resolution."""
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_emission_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
-        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_emission_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
+        expected_dt = datetime(2026, 1, 29, 22, 55, 0, tzinfo=timezone.utc)
 
         mock_datetime_utils.calculate_expected_emission_datetime.return_value = (
             expected_dt
@@ -237,9 +237,9 @@ class TestDataValidatorIntegration:
         """Test price validation with real DatetimeUtils instance."""
         validator = DataValidator()  # Uses real DatetimeUtils
 
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
         # Price that's definitely fresh (well into the future)
-        latest_price_dt = datetime(2026, 1, 30, 23, 0, 0, tzinfo=pytz.UTC)
+        latest_price_dt = datetime(2026, 1, 30, 23, 0, 0, tzinfo=timezone.utc)
 
         # This will use the real DatetimeUtils, but we need to mock the dependencies
         # For a true integration test, we'd need to mock is_local_now_between and time_ceil
@@ -251,9 +251,9 @@ class TestDataValidatorIntegration:
         """Test emission validation with real DatetimeUtils instance."""
         validator = DataValidator()  # Uses real DatetimeUtils
 
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
         # Emission that's definitely fresh (well into the future)
-        latest_emission_dt = datetime(2026, 1, 30, 23, 0, 0, tzinfo=pytz.UTC)
+        latest_emission_dt = datetime(2026, 1, 30, 23, 0, 0, tzinfo=timezone.utc)
 
         # Confirm validator works with real DatetimeUtils instance
         assert validator.datetime_utils is not None
@@ -263,15 +263,15 @@ class TestDataValidatorIntegration:
         """Test that price and emission validators don't interfere."""
         mock_utils = data_validator.datetime_utils
 
-        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=pytz.UTC)
-        latest_price_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
-        latest_emission_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=pytz.UTC)
+        now = datetime(2026, 1, 28, 15, 0, 0, tzinfo=timezone.utc)
+        latest_price_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
+        latest_emission_dt = datetime(2026, 1, 29, 23, 0, 0, tzinfo=timezone.utc)
 
         mock_utils.calculate_expected_price_datetime.return_value = datetime(
-            2026, 1, 29, 22, 55, 0, tzinfo=pytz.UTC
+            2026, 1, 29, 22, 55, 0, tzinfo=timezone.utc
         )
         mock_utils.calculate_expected_emission_datetime.return_value = datetime(
-            2026, 1, 29, 22, 45, 0, tzinfo=pytz.UTC
+            2026, 1, 29, 22, 45, 0, tzinfo=timezone.utc
         )
 
         # Validate prices

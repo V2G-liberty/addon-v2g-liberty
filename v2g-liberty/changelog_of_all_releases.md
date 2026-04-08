@@ -7,11 +7,17 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Fix set next action timer (#429)
+- 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
+- 🪲 BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
+
 ### Added
 
 - 🚀 FEAT: Extend insights (#420, #423, #430)
 
 ### Changed
+
+- ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
 
 ## 0.7.6 2026-03-09
 

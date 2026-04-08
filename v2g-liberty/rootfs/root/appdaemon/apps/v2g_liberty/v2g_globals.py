@@ -4,7 +4,7 @@ import asyncio
 import math
 from datetime import datetime, timedelta
 
-import pytz
+from zoneinfo import ZoneInfo
 
 from appdaemon.plugins.hass.hassapi import Hass
 
@@ -306,7 +306,7 @@ class V2GLibertyGlobals:
         self.__log("Initializing V2GLibertyGlobals")
         config = await self.hass.get_plugin_config()
         # Use the HA time_zone, and not the TZ from appdaemon.yaml that AD uses.
-        c.TZ = pytz.timezone(config["time_zone"])
+        c.TZ = ZoneInfo(config["time_zone"])
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
@@ -852,7 +852,13 @@ class V2GLibertyGlobals:
             "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}
         }
         if c.ADMIN_MOBILE_PLATFORM.lower() == "android":
-            c.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
+            c.PRIORITY_NOTIFICATION_CONFIG = {
+                "ttl": 0,
+                "priority": "high",
+                "importance": "max",
+                "channel": "alarm_stream",
+                "media_stream": "alarm_stream",
+            }
 
         self.__log("completed")
 
@@ -1039,6 +1045,71 @@ class V2GLibertyGlobals:
         self.__log("FM power source_id not yet stored -- starting discovery.")
         source_id = await self.fm_client_app.discover_power_source_id(
             sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+        )
+        if source_id is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
+            self.v2g_settings.store_fm_power_source_id(source_id)
+            self.__log(f"FM power source_id={source_id} discovered and stored.")
+        else:
+            self.__log(
+                "FM power source_id discovery failed: no matching source found.",
+                level="WARNING",
+            )
+
+    def __set_fm_user_id(self, user_id: int):
+        """Persist the FM user_id and reset account-derived values if it changed.
+
+        If the user_id differs from the stored one, the cached power source_id
+        and historical import flag are cleared so that discovery and re-import
+        run automatically for the new account.
+        """
+        old_user_id = self.v2g_settings.get_fm_user_id()
+        self.v2g_settings.store_fm_user_id(user_id)
+
+        if old_user_id is None or old_user_id == user_id:
+            return
+
+        self.__log(
+            f"FM user_id changed ({old_user_id} → {user_id}): "
+            "clearing power source_id and historical import flag."
+        )
+        self.v2g_settings.store_fm_power_source_id(None)
+        c.FM_ACCOUNT_POWER_SOURCE_ID = None
+        clear_import_flag()
+
+    async def __initialise_fm_power_source_id(self):
+        """Load or discover the FM source_id for measured charger power data.
+
+        Loads a previously stored source_id from settings. If none is stored,
+        probes FM to find the source_id whose power values show real charge/
+        discharge variance (as opposed to near-constant scheduler beliefs).
+        The discovered id is persisted so subsequent startups skip probing.
+        """
+        stored = self.v2g_settings.get_fm_power_source_id()
+        if stored is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = stored
+            self.__log(f"FM power source_id loaded from settings: {stored}.")
+            return
+
+        if not c.FM_ACCOUNT_POWER_SENSOR_ID:
+            self.__log(
+                "FM power source_id discovery skipped: power sensor ID not known.",
+                level="WARNING",
+            )
+            return
+
+        user_id = self.fm_client_app.user_id
+        if user_id is None:
+            self.__log(
+                "FM power source_id discovery skipped: FM user ID not known.",
+                level="WARNING",
+            )
+            return
+
+        self.__log("FM power source_id not yet stored -- starting discovery.")
+        source_id = await self.fm_client_app.discover_power_source_id(
+            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+            user_id=user_id,
         )
         if source_id is not None:
             c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
@@ -1438,12 +1509,12 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
         now = get_local_now()
     else:
         time_obj = datetime.strptime(now_time, "%H:%M:%S").time()
-        now = c.TZ.localize(datetime.combine(today_date, time_obj))
+        now = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
-    start_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    start_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
     time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
-    end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    end_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     if end_dt < start_dt:
         # self.__log(f"end_dt < start_dt ...")
