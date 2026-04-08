@@ -14,6 +14,8 @@ Runs at startup (full repair) and periodically (incremental).
 Repaired/added rows are marked with is_repaired=1 in interval_log.
 """
 
+import asyncio
+import sqlite3
 from datetime import timedelta
 
 import pandas as pd
@@ -76,9 +78,47 @@ class DataRepairer:
         self.__log = get_class_method_logger(hass.log)
 
     async def initialise(self):
-        """Run full repair at startup, then schedule periodic incremental runs."""
+        """Schedule periodic incremental repair runs.
+
+        The startup full repair is intentionally NOT run here. It is triggered
+        by the historical importer's on_complete callback (wired in
+        v2g_globals.py), so the full repair sees the complete imported data
+        instead of running on a partial DB. The incremental repair below keeps
+        the recent rows tidy between full passes.
+        """
+        # Schedule incremental repair every 6 hours.
+        six_hours_in_seconds = 6 * 60 * 60
+        await self.__hass.run_every(
+            self.run_incremental_repair, "now+3600", six_hours_in_seconds
+        )
+
+    async def run_full_repair_async(self) -> None:
+        """Run the full repair off the event loop and report the result.
+
+        Wraps the synchronous run_full_repair in run_in_executor so the event
+        loop stays responsive on large databases. Used by the historical
+        importer's on_complete callback (via a small adapter in v2g_globals).
+
+        Opens its OWN sqlite3 connection inside the executor thread. SQLite
+        forbids sharing a Connection across threads (and also we don't want
+        to fight the main thread for the shared cursor). The DB file itself
+        is safe for multiple connections — SQLite serialises writes through
+        its own file lock, so concurrent writes from data_monitor /
+        fm_data_importer simply wait their turn.
+        """
+        db_path = self.data_store.DB_PATH
+
+        def _run_with_own_connection() -> dict:
+            conn = sqlite3.connect(db_path, timeout=30)
+            conn.row_factory = sqlite3.Row
+            try:
+                return self.run_full_repair(conn=conn)
+            finally:
+                conn.close()
+
         try:
-            summary = self.run_full_repair()
+            loop = asyncio.get_running_loop()
+            summary = await loop.run_in_executor(None, _run_with_own_connection)
         except Exception as e:
             self.__log(
                 f"Data repair failed: {e}. Repair is disabled for this session.",
@@ -113,9 +153,9 @@ class DataRepairer:
 
         total = _total_repairs(summary)
         if total > 0:
-            self.__log(f"Startup repair complete: {_format_summary(summary)}")
+            self.__log(f"Full repair complete: {_format_summary(summary)}")
         else:
-            self.__log("Startup repair: no repairs needed.")
+            self.__log("Full repair: no repairs needed.")
         violations = summary.get("violations", {})
         if violations:
             self.__log(
@@ -125,15 +165,16 @@ class DataRepairer:
 
         self._emit_repairer_complete()
 
-        # Schedule incremental repair every 6 hours.
-        six_hours_in_seconds = 6 * 60 * 60
-        await self.__hass.run_every(
-            self.run_incremental_repair, "now+3600", six_hours_in_seconds
-        )
+    def run_full_repair(self, conn=None) -> dict:
+        """Repair entire interval_log from first to last record.
 
-    def run_full_repair(self) -> dict:
-        """Repair entire interval_log from first to last record."""
-        conn = self.data_store.connection
+        If ``conn`` is provided, that connection is used for all DB access
+        in this run (used by the executor-based async runner so the work
+        happens on a thread-local connection). Otherwise the shared
+        DataStore connection is used.
+        """
+        if conn is None:
+            conn = self.data_store.connection
         cursor = conn.cursor()
         cursor.execute(
             "SELECT MIN(timestamp) AS first_ts, MAX(timestamp) AS last_ts "
@@ -146,7 +187,7 @@ class DataRepairer:
             self.__log("No interval data to repair.")
             return _empty_summary()
 
-        return self._repair_range(row["first_ts"], row["last_ts"])
+        return self._repair_range(row["first_ts"], row["last_ts"], conn=conn)
 
     async def run_incremental_repair(self, _kwargs=None):
         """Repair the last PERIODIC_LOOKBACK_HOURS hours."""
@@ -209,15 +250,17 @@ class DataRepairer:
     # Core repair pipeline
     # ------------------------------------------------------------------
 
-    def _repair_range(self, start: str, end: str) -> dict:
+    def _repair_range(self, start: str, end: str, conn=None) -> dict:
         """Core repair logic for a time range. Returns summary stats."""
         summary = _empty_summary()
+        if conn is None:
+            conn = self.data_store.connection
 
         df = pd.read_sql_query(
             "SELECT timestamp, energy_kwh, app_state, soc_pct, "
             "availability_pct, is_repaired FROM interval_log "
             "WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp",
-            self.data_store.connection,
+            conn,
             params=(start, end),
         )
 
@@ -268,14 +311,14 @@ class DataRepairer:
         summary["app_state_inferred"] = app_state_inferred
 
         # Write repaired rows back to DB (timestamps remain in UTC).
-        written = self._write_repaired_rows(df)
+        written = self._write_repaired_rows(df, conn=conn)
         if written > 0:
             self.__log(f"Wrote {written} repaired rows to interval_log.")
 
         # Mark any remaining pending-review rows (is_repaired=2) as
         # reviewed (is_repaired=0).  These are imported rows that the
         # repairer inspected but did not need to modify.
-        reviewed = self._mark_pending_as_reviewed(start, end)
+        reviewed = self._mark_pending_as_reviewed(start, end, conn=conn)
         if reviewed > 0:
             self.__log(f"Marked {reviewed} imported rows as reviewed.")
 
@@ -1021,7 +1064,7 @@ class DataRepairer:
     # Write-back
     # ------------------------------------------------------------------
 
-    def _write_repaired_rows(self, df: pd.DataFrame) -> int:
+    def _write_repaired_rows(self, df: pd.DataFrame, conn=None) -> int:
         """Write repaired/new rows back to interval_log.
 
         Only writes rows where is_repaired=1.
@@ -1052,7 +1095,8 @@ class DataRepairer:
                 }
             )
 
-        conn = self.data_store.connection
+        if conn is None:
+            conn = self.data_store.connection
         cursor = conn.cursor()
         cursor.executemany(
             "INSERT OR REPLACE INTO interval_log "
@@ -1066,14 +1110,15 @@ class DataRepairer:
         cursor.close()
         return len(rows)
 
-    def _mark_pending_as_reviewed(self, start: str, end: str) -> int:
+    def _mark_pending_as_reviewed(self, start: str, end: str, conn=None) -> int:
         """Mark pending-review rows as reviewed (is_repaired 2 → 0).
 
         Called after the repair pipeline has processed a range.  Rows that
         were modified by the repairer already have is_repaired=1; the
         remaining is_repaired=2 rows were inspected but didn't need changes.
         """
-        conn = self.data_store.connection
+        if conn is None:
+            conn = self.data_store.connection
         cursor = conn.cursor()
         cursor.execute(
             "UPDATE interval_log SET is_repaired = 0 "

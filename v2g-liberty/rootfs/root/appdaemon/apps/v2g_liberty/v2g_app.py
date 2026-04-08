@@ -1,5 +1,6 @@
 """Main module for setting up the app."""
 
+import asyncio
 from datetime import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
@@ -133,6 +134,7 @@ class V2GLibertyApp(Hass):
         data_monitor.reservations_client = reservations_client
         data_monitor.data_store = data_store
         api_server.data_store = data_store
+        api_server.data_repairer = data_repairer
         fm_data_sender.data_store = data_store
         fm_data_sender.fm_client_app = fm_client
         get_fm_data.data_store = data_store
@@ -186,13 +188,21 @@ class V2GLibertyApp(Hass):
             )
         self._log_init_time("data_store.initialise()", start_module)
 
-        start_module = datetime.now()
-        await data_repairer.initialise()
-        self._log_init_time("data_repairer.initialise()", start_module)
-
+        # Register the API event listener BEFORE kicking off the data repairer.
+        # The repairer can take minutes on large/dirty databases, and previously
+        # blocked the rest of init — including the api_server listener — causing
+        # the data card to time out. By registering the listener first the UI
+        # stays responsive (showing whatever is already in the DB) while repair
+        # runs in the background.
         start_module = datetime.now()
         await api_server.initialise()
         self._log_init_time("api_server.initialise()", start_module)
+
+        # Run the startup data repair in the background so it never blocks
+        # the rest of init or the event loop.
+        start_module = datetime.now()
+        asyncio.create_task(data_repairer.initialise())
+        self._log_init_time("data_repairer.initialise() scheduled", start_module)
 
         start_module = datetime.now()
         await amber_price_data_manager.initialize()

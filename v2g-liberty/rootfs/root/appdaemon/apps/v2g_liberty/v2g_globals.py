@@ -1089,9 +1089,10 @@ class V2GLibertyGlobals:
         on_import_complete = None
         if repairer is not None:
 
-            def on_import_complete():
-                summary = repairer.run_full_repair()
-                repairer.write_report(summary)
+            async def on_import_complete():
+                # run_full_repair_async off-loads the synchronous repair to an
+                # executor so the event loop stays responsive on large DBs.
+                await repairer.run_full_repair_async()
 
         asyncio.ensure_future(
             run_historical_import(
