@@ -12,6 +12,7 @@ from .log_wrapper import get_class_method_logger
 from .notifier_util import Notifier
 from .v2g_globals import parse_to_int
 from .event_bus import EventBus
+from .timer_utils import cancel_timer_silent, set_oneshot_timer
 
 
 class ModbusEVSEclient(AsyncIOEventEmitter):
@@ -1156,7 +1157,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             pass  # log silenced — was "called while _am_i_active == False. Not blocking."
 
         self.__log(f"reason: {reason}")
-        self.__cancel_timer(self.poll_timer_handle)
+        await cancel_timer_silent(self.hass, self.poll_timer_handle)
         self.poll_timer_handle = None
         self.event_bus.emit_event("evse_polled", stop=True)
 
@@ -1456,7 +1457,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                     f"Starting check_error_state timer "
                     f"{self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s."
                 )
-                self.timer_id_check_error_state = self.hass.run_in(
+                self.timer_id_check_error_state = await set_oneshot_timer(
+                    self.hass,
+                    self.timer_id_check_error_state,
                     self.__handle_charger_error_state_change,
                     delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
                     new_charger_state=None,
@@ -1470,7 +1473,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         else:
             self.__log("Reset check_error_state timer, no error anymore.")
-            self.__cancel_timer(self.timer_id_check_error_state)
+            await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
             self.timer_id_check_error_state = None
 
     async def __handle_modbus_exception(self, source):
@@ -1501,7 +1504,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         # recoverable.
         if self.modbus_exception_counter == 0:
             self.__log(f"{source}: First modbus exception.")
-            self.timer_id_check_modus_exception_state = self.hass.run_in(
+            self.timer_id_check_modus_exception_state = await set_oneshot_timer(
+                self.hass,
+                self.timer_id_check_modus_exception_state,
                 self.__handle_un_recoverable_error,
                 delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
             )
@@ -1531,7 +1536,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.__log("There was an modbus exception, now solved.")
             await self.v2g_main_app.reset_charger_communication_fault()
         self.modbus_exception_counter = 0
-        self.__cancel_timer(self.timer_id_check_modus_exception_state)
+        await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
         self.timer_id_check_modus_exception_state = None
         await self.__update_charger_communication_state(can_communicate=True)
 
@@ -1558,8 +1563,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         # This method could be called from two timers. Make sure both are canceled so no double
         # notifications get sent.
-        self.__cancel_timer(self.timer_id_check_modus_exception_state)
-        self.__cancel_timer(self.timer_id_check_error_state)
+        await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
+        await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
 
         await self.__cancel_polling(reason="un_recoverable charger error")
         # The only exception to the rule that _am_i_active should only be set from set_(in)active().
@@ -1576,20 +1581,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         await self.__update_evse_entity(
             evse_entity=self.ENTITY_CAR_SOC, new_value="unavailable"
         )
-
-    def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if timer_id in [None, ""]:
-            return
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)
 
     def __get_2comp(self, number):
         """Util function to covert a modbus read value to in with two's complement values

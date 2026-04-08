@@ -17,7 +17,7 @@ def mock_hass():
     hass = MagicMock(spec=Hass)
     hass.log = MagicMock()
     hass.call_service = MagicMock()
-    hass.run_in = MagicMock()
+    hass.run_in = AsyncMock()
     hass.list_services = MagicMock(
         return_value=[
             {"service": "mobile_app_john"},
@@ -39,10 +39,11 @@ def notifier(mock_hass, event_bus):
     return notifier_instance
 
 
-def test_notify_user_to_admin(notifier, mock_hass):
+@pytest.mark.asyncio
+async def test_notify_user_to_admin(notifier, mock_hass):
     """Test notify_user sends notifications to the admin."""
     # notifier.recipients = ["john", "jane"]
-    notifier.notify_user(
+    await notifier.notify_user(
         message="Test message",
         title="Test Title",
         tag="test_tag",
@@ -58,10 +59,11 @@ def test_notify_user_to_admin(notifier, mock_hass):
     )
 
 
-def test_notify_user_to_all(notifier, mock_hass, monkeypatch):
+@pytest.mark.asyncio
+async def test_notify_user_to_all(notifier, mock_hass, monkeypatch):
     """Test notify_user sends notifications to all recipients."""
     monkeypatch.setattr("apps.v2g_liberty.constants.HA_NAME", "HomeAssistant")
-    notifier.notify_user(
+    await notifier.notify_user(
         message="Test message",
         title="Test Title",
         send_to_all=True,

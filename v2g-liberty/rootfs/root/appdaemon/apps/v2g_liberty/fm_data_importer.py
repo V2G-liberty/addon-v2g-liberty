@@ -17,6 +17,7 @@ from .main_app import ChartLine
 # Import refactored components
 from .data_import.utils.datetime_utils import DatetimeUtils
 from .data_import.validators.data_validator import DataValidator
+from .timer_utils import cancel_timer_silent, set_daily_timer
 from .data_import.processors.price_processor import PriceProcessor
 from .data_import.processors.emission_processor import EmissionProcessor
 from .data_import.fetchers.entsoe_fetcher import EntsoeFetcher
@@ -190,20 +191,28 @@ class FlexMeasuresDataImporter:
             )
 
         # Always cancel timers just to be sure
-        await self.__cancel_timer(self.timer_id_daily_kickoff_price_data)
-        await self.__cancel_timer(self.timer_id_daily_kickoff_emissions_data)
-        await self.__cancel_timer(self.timer_id_daily_check_is_data_up_to_date)
+        await cancel_timer_silent(self.hass, self.timer_id_daily_kickoff_price_data)
+        await cancel_timer_silent(self.hass, self.timer_id_daily_kickoff_emissions_data)
+        await cancel_timer_silent(
+            self.hass, self.timer_id_daily_check_is_data_up_to_date
+        )
 
         if is_price_epex_based():
             self.__log(
                 f"price update interval is daily based on EP: {c.ELECTRICITY_PROVIDER}."
             )
-            self.timer_id_daily_kickoff_price_data = await self.hass.run_daily(
-                self.daily_kickoff_price_data, start=self.GET_PRICES_TIME
+            self.timer_id_daily_kickoff_price_data = await set_daily_timer(
+                self.hass,
+                self.timer_id_daily_kickoff_price_data,
+                self.daily_kickoff_price_data,
+                start=self.GET_PRICES_TIME,
             )
 
-            self.timer_id_daily_check_is_data_up_to_date = await self.hass.run_daily(
-                self.__check_if_prices_are_up_to_date, start=self.CHECK_DATA_STATUS_TIME
+            self.timer_id_daily_check_is_data_up_to_date = await set_daily_timer(
+                self.hass,
+                self.timer_id_daily_check_is_data_up_to_date,
+                self.__check_if_prices_are_up_to_date,
+                start=self.CHECK_DATA_STATUS_TIME,
             )
 
             initial_delay_sec = 45
@@ -213,18 +222,6 @@ class FlexMeasuresDataImporter:
                 is_initial_call=True,
             )
         self.__log("completed.")
-
-    # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
-    async def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        :param timer_id: timer_handle to cancel
-        """
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            await self.hass.cancel_timer(timer_id, silent)
 
     async def daily_kickoff_price_data(self, *args):
         """
@@ -486,11 +483,11 @@ class FlexMeasuresDataImporter:
                 f"({price_type}), negative price: {first_negative_price['price']} "
                 f"at: {first_negative_price['time']}."
             )
-            self.__check_negative_price_notification(
+            await self.__check_negative_price_notification(
                 first_negative_price, price_type=price_type
             )
         else:
-            self.__check_negative_price_notification(
+            await self.__check_negative_price_notification(
                 "No negative prices", price_type=price_type
             )
 
@@ -642,7 +639,7 @@ class FlexMeasuresDataImporter:
         self.__log("Called")
         if not self.entsoe_data_is_up_to_date:
             self.__log("ENTSOE data not up to date, notifying user.")
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=(
                     "Electricity prices for tomorrow are not yet available. "
                     "Scheduling will continue based on existing data."
@@ -683,7 +680,7 @@ class FlexMeasuresDataImporter:
             if self._critical_price_notification_sent:
                 # Scenario E: push notification was sent — replace with confirmation.
                 self.notifier.clear_notification(tag="no_price_data")
-                self.notifier.notify_user(
+                await self.notifier.notify_user(
                     message=(
                         "Electricity prices for tomorrow have now been received. "
                         "Scheduling will resume as normal."
@@ -717,7 +714,7 @@ class FlexMeasuresDataImporter:
                 "ENTSOE data not up to date and outside retry window: "
                 "sending final notification."
             )
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=(
                     "Electricity prices for tomorrow have not been received. "
                     "V2G Liberty will automatically try again later today."
@@ -728,7 +725,9 @@ class FlexMeasuresDataImporter:
                 send_to_all=False,
             )
 
-    def __check_negative_price_notification(self, price_point: dict, price_type: str):
+    async def __check_negative_price_notification(
+        self, price_point: dict, price_type: str
+    ):
         """Method to check if the user needs to be notified about negative consumption
         and/or production prices in a combined message.
         Only used for daily price contracts. Business rules for more frequently updated prices
@@ -793,7 +792,7 @@ class FlexMeasuresDataImporter:
             self.notifier.clear_notification(tag="negative_energy_prices")
             self.__log("Clearing negative price notification")
         else:
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=msg,
                 title="Negative electricity price",
                 tag="negative_energy_prices",

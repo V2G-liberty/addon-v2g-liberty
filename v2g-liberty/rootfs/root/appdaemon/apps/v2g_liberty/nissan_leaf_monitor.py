@@ -76,14 +76,14 @@ class NissanLeafMonitor:
             )
             try:
                 relevant_duration = 24 * 60 * 60
-                self.notifier.notify_user(
+                await self.notifier.notify_user(
                     message=message, tag="soc_skipped", ttl=relevant_duration
                 )
                 # Stop listening (and possibly repeating the message) for a day.
                 self.event_bus.remove_event_listener(
                     "soc_change", self._handle_soc_change
                 )
-                self.hass.run_in(self._initialize, relevant_duration)
+                await self.hass.run_in(self._initialize, relevant_duration)
 
             except Exception as e:
                 self.__log(

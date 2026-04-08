@@ -8,6 +8,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import time_round, convert_to_duration_string
+from .timer_utils import set_recurring_timer
 
 
 class ManageAmberPriceData:
@@ -108,11 +109,9 @@ class ManageAmberPriceData:
         if initial:
             await self.__check_for_price_changes({"forced": True})
 
-        if self.hass.timer_running(self.poll_timer_handle):
-            silent = True  # Does not really work
-            await self.hass.cancel_timer(self.poll_timer_handle, silent)
-
-        self.poll_timer_handle = await self.hass.run_every(
+        self.poll_timer_handle = await set_recurring_timer(
+            self.hass,
+            self.poll_timer_handle,
             self.__check_for_price_changes,
             start="now+2",
             interval=self.POLLING_INTERVAL_SECONDS,
@@ -185,7 +184,7 @@ class ManageAmberPriceData:
             if res:
                 if self.get_fm_data_module is not None:
                     # FM needs process time for the just uploaded prices before they can be queried
-                    self.hass.run_in(
+                    await self.hass.run_in(
                         self.get_fm_data_module.get_prices_wrapper,
                         delay=45,
                         price_type="consumption",
@@ -290,7 +289,7 @@ class ManageAmberPriceData:
             if res:
                 if self.get_fm_data_module is not None:
                     # FM needs process time for the just uploaded prices before they can be queried
-                    self.hass.run_in(
+                    await self.hass.run_in(
                         self.get_fm_data_module.get_prices_wrapper,
                         delay=45,
                         price_type="production",

@@ -61,7 +61,7 @@ class Notifier:
     #                            PUBLIC METHODS                            #
     ########################################################################
 
-    def notify_user(
+    async def notify_user(
         self,
         message: str,
         title: Optional[str] = None,
@@ -164,7 +164,7 @@ class Notifier:
             # Remove the notification after a time-to-live.
             # A tag is required for clearing.
             # Critical notifications should never auto clear.
-            self.hass.run_in(
+            await self.hass.run_in(
                 self.clear_notification, delay=ttl, recipients=to_notify, tag=tag
             )
 
@@ -275,7 +275,7 @@ class Notifier:
                 "title": data["notificationButtonLabel"],
             },
         ]
-        self.notify_user(
+        await self.notify_user(
             message=data["notificationMessage"],
             title=data["notificationTitle"],
             tag="test_notification",

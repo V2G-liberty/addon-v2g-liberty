@@ -12,6 +12,7 @@ import asyncio
 from aiohttp import ClientTimeout, ClientError
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .timer_utils import set_daily_timer
 from .v2g_globals import (
     time_round,
     get_local_now,
@@ -170,10 +171,11 @@ class ManageOctopusPriceData:
 
         self.emission_region_slug = f"/fw48h/regionid/{region_index}"
 
-        if self.hass.timer_running(self.daily_timer_id):
-            await self.hass.cancel_timer(self.daily_timer_id, silent=True)
-        self.daily_timer_id = self.hass.run_daily(
-            self.__daily_kickoff_prices_emissions, start=self.FIRST_TRY_TIME_GET_DATA
+        self.daily_timer_id = await set_daily_timer(
+            self.hass,
+            self.daily_timer_id,
+            self.__daily_kickoff_prices_emissions,
+            start=self.FIRST_TRY_TIME_GET_DATA,
         )
 
         # Always kickoff at startup, delay to give globals the time to get all settings right first.
@@ -264,7 +266,7 @@ class ManageOctopusPriceData:
         if res:
             if self.get_fm_data_module is not None:
                 # FM needs processing time for the just uploaded prices before they can be queried
-                self.hass.run_in(
+                await self.hass.run_in(
                     self.get_fm_data_module.get_prices_wrapper,
                     delay=45,
                     price_type="consumption",
@@ -340,7 +342,7 @@ class ManageOctopusPriceData:
         if res:
             if self.get_fm_data_module is not None:
                 # FM needs processing time for the just uploaded prices before they can be queried
-                self.hass.run_in(
+                await self.hass.run_in(
                     self.get_fm_data_module.get_prices_wrapper,
                     delay=45,
                     price_type="production",

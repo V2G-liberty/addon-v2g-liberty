@@ -19,9 +19,9 @@ class MonitorPauseAtReconnect:
     hass: Hass = None
     event_bus: EventBus = None
     notifier: Notifier = None
-    NOTIFICATION_TAG:str = "switch_to_automatic_or_not"
-    ACTION_KEEP_CURRENT:str = "keep_current"
-    ACTION_TO_AUTOMATIC:str = "automatic"
+    NOTIFICATION_TAG: str = "switch_to_automatic_or_not"
+    ACTION_KEEP_CURRENT: str = "keep_current"
+    ACTION_TO_AUTOMATIC: str = "automatic"
 
     def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
@@ -30,23 +30,25 @@ class MonitorPauseAtReconnect:
 
         self.__log = get_class_method_logger(hass.log)
 
-        self.event_bus.add_event_listener("is_car_connected", self._handle_connected_state_change)
+        self.event_bus.add_event_listener(
+            "is_car_connected", self._handle_connected_state_change
+        )
 
         self.__log("Completed MonitorPauseAtReconnect")
 
-    async def _handle_chosen_charge_mode(self, user_action:str):
+    async def _handle_chosen_charge_mode(self, user_action: str):
         self.__log(f"user_action: '{user_action}'.")
 
         # Clear notification from other users phone
         self.notifier.clear_notification(tag=self.NOTIFICATION_TAG)
 
         if user_action == self.ACTION_TO_AUTOMATIC:
-             # The main app reacts to this via HA event
-             await self.hass.turn_on("input_boolean.chargemodeautomatic")
-             self.__log("By user request the charge_mode is set to 'Automatic'.")
+            # The main app reacts to this via HA event
+            await self.hass.turn_on("input_boolean.chargemodeautomatic")
+            self.__log("By user request the charge_mode is set to 'Automatic'.")
         elif user_action == self.ACTION_KEEP_CURRENT:
             #  Do nothing
-             self.__log("By user request the charge_mode is unchanged.")
+            self.__log("By user request the charge_mode is unchanged.")
         else:
             self.__log(f"Unknown user_action: '{user_action}'.", level="WARNING")
 
@@ -74,18 +76,18 @@ class MonitorPauseAtReconnect:
             },
             {
                 "action": self.ACTION_TO_AUTOMATIC,
-                "title": "Switch to automatic charging"
+                "title": "Switch to automatic charging",
             },
         ]
 
-        self.notifier.notify_user(
+        await self.notifier.notify_user(
             message=f"Would you like to set it to 'Automatic'?",
             title=f"Car connected, the app is set to '{charge_mode}'",
             tag=self.NOTIFICATION_TAG,
             send_to_all=True,
-            ttl=30*60,
+            ttl=30 * 60,
             actions=user_actions,
-            callback=self._handle_chosen_charge_mode
+            callback=self._handle_chosen_charge_mode,
         )
 
         self.__log(
