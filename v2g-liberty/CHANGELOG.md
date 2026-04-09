@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Fix charge power deviation log flooding (#436)
 - 🪲 BUG: Improve test notification with sound feedback buttons (#434)
 - 🪲 BUG: Fix set next action timer (#429)
 - 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
