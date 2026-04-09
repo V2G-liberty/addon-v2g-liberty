@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Fix charge power deviation log flooding (#436)
 - 🪲 BUG: Improve test notification with sound feedback buttons (#434)
 - 🪲 BUG: Fix set next action timer (#429)
 - 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
@@ -15,6 +16,7 @@
 
 ### Changed
 
+- 🛠️ Refactor: Reduce event bus slow listener log noise (#437)
 - 🛠️ Refactor: centralise async timer API usage (#432)
 - ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
 
