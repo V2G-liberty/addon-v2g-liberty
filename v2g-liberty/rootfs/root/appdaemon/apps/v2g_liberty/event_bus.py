@@ -156,9 +156,12 @@ class EventBus(AsyncIOEventEmitter):
                                 level="WARNING",
                             )
                         elapsed_ms = (time.perf_counter() - start) * 1000
-                        if elapsed_ms > 200:
+                        if elapsed_ms > 500:
+                            listener_name = getattr(
+                                listener, "__qualname__", str(listener)
+                            )
                             self.__log(
-                                f"Async listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
+                                f"Slow async listener {listener_name} for '{event}' took {elapsed_ms:.0f} ms"
                             )
 
                     asyncio.create_task(run_async_listener())
