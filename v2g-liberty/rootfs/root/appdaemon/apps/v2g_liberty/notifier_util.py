@@ -61,7 +61,7 @@ class Notifier:
     #                            PUBLIC METHODS                            #
     ########################################################################
 
-    def notify_user(
+    async def notify_user(
         self,
         message: str,
         title: Optional[str] = None,
@@ -164,7 +164,7 @@ class Notifier:
             # Remove the notification after a time-to-live.
             # A tag is required for clearing.
             # Critical notifications should never auto clear.
-            self.hass.run_in(
+            await self.hass.run_in(
                 self.clear_notification, delay=ttl, recipients=to_notify, tag=tag
             )
 
@@ -264,22 +264,29 @@ class Notifier:
                     level="WARNING",
                 )
 
-    async def _cb_test_notification(self, *args):
-        self.hass.fire_event("send_test_notification.result")
-        self.__log("test_notification_confirmation")
+    async def _cb_test_notification(self, user_action, *args):
+        loud_alarm = user_action == "test_notification_loud_alarm"
+        self.__log(
+            f"test notification action: '{user_action}', loud_alarm={loud_alarm}."
+        )
+        self.hass.fire_event("send_test_notification.result", loud_alarm=loud_alarm)
 
     async def _send_test_notification(self, event, data, kwargs):
         user_actions = [
             {
-                "action": "test_notification_confirmation",
-                "title": data["notificationButtonLabel"],
+                "action": "test_notification_loud_alarm",
+                "title": data["notificationLoudAlarmLabel"],
+            },
+            {
+                "action": "test_notification_soft_or_no_sound",
+                "title": data["notificationSoftOrNoSoundLabel"],
             },
         ]
-        self.notify_user(
+        await self.notify_user(
             message=data["notificationMessage"],
             title=data["notificationTitle"],
             tag="test_notification",
-            critical=False,
+            critical=True,
             send_to_all=False,
             ttl=None,
             actions=user_actions,

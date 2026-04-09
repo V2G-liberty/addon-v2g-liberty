@@ -35,7 +35,7 @@ def ha_ui_manager(hass, event_bus):
 async def test_initialization(ha_ui_manager, event_bus):
     assert ha_ui_manager.hass is not None
     assert ha_ui_manager.event_bus is not None
-    assert event_bus.add_event_listener.call_count == 8
+    assert event_bus.add_event_listener.call_count == 9
 
 
 @pytest.mark.asyncio
@@ -109,3 +109,39 @@ async def test_handle_charger_state_change(ha_ui_manager, hass):
     assert calls[0][1]["state"] == 2
     assert calls[1][0][0] == "sensor.charger_state_text"
     assert calls[1][1]["state"] == "Charging"
+
+
+@pytest.mark.asyncio
+async def test_update_today_energy_sensors(ha_ui_manager, hass):
+    await ha_ui_manager._update_today_energy_sensors(
+        charge_kwh=5.5,
+        charge_cost=1.23,
+        discharge_kwh=3.2,
+        discharge_revenue=0.89,
+    )
+    calls = hass.set_state.await_args_list
+    assert len(calls) == 4
+    assert calls[0][0][0] == "sensor.v2g_liberty_charged_today_kwh"
+    assert calls[0][1]["state"] == 5.5
+    assert calls[1][0][0] == "sensor.v2g_liberty_charge_cost_today"
+    assert calls[1][1]["state"] == 1.23
+    assert calls[2][0][0] == "sensor.v2g_liberty_discharged_today_kwh"
+    assert calls[2][1]["state"] == 3.2
+    assert calls[3][0][0] == "sensor.v2g_liberty_discharge_revenue_today"
+    assert calls[3][1]["state"] == 0.89
+
+
+@pytest.mark.asyncio
+async def test_update_today_energy_sensors_with_zeros(ha_ui_manager, hass):
+    await ha_ui_manager._update_today_energy_sensors(
+        charge_kwh=0.0,
+        charge_cost=0.0,
+        discharge_kwh=0.0,
+        discharge_revenue=0.0,
+    )
+    calls = hass.set_state.await_args_list
+    assert len(calls) == 4
+    assert calls[0][1]["state"] == 0.0
+    assert calls[1][1]["state"] == 0.0
+    assert calls[2][1]["state"] == 0.0
+    assert calls[3][1]["state"] == 0.0

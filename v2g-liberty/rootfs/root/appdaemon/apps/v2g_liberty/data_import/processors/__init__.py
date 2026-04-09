@@ -2,6 +2,5 @@
 
 from .price_processor import PriceProcessor
 from .emission_processor import EmissionProcessor
-from .energy_processor import EnergyProcessor, EnergyStats
 
-__all__ = ["PriceProcessor", "EmissionProcessor", "EnergyProcessor", "EnergyStats"]
+__all__ = ["PriceProcessor", "EmissionProcessor"]

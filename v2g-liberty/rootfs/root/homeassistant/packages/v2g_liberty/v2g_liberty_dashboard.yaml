@@ -8,6 +8,12 @@ views:
     max_columns: 3
     sections: !include main_view.yaml
 
+  - type: panel
+    path: data
+    title: Data
+    icon: mdi:chart-box
+    cards: !include data_view.yaml
+
   - type: sections
     dense_section_placement: true
     path: settings

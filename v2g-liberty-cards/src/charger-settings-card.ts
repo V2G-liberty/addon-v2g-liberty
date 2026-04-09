@@ -4,7 +4,7 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { styles } from './card.styles';
 import { showChargerSettingsDialog } from './show-dialogs';
@@ -37,6 +37,7 @@ export class ChargerSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._chargerSettingsInitialised =
       hass.states[entityIds.chargerSettingsInitialised];
     this._chargerHost = hass.states[entityIds.chargerHostname];

@@ -4,7 +4,10 @@ import os
 
 class SettingsManager:
     settings: dict = {}
-    settings_file_path = "/data/v2g_liberty_settings.json"
+
+    _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
+    _FM_USER_ID_KEY = "fm_user_id"
+    _FM_POWER_SOURCE_ID_KEY = "fm_power_source_id"
 
     def __init__(self, log):
         self.__log = log
@@ -15,11 +18,11 @@ class SettingsManager:
         self.__log("called")
 
         self.settings = {}
-        if not os.path.exists(self.settings_file_path):
+        if not os.path.exists(self._SETTINGS_FILE_PATH):
             self.__log("no settings file found", level="WARNING")
         else:
             try:
-                with open(self.settings_file_path, "r", encoding="utf-8") as read_file:
+                with open(self._SETTINGS_FILE_PATH, "r", encoding="utf-8") as read_file:
                     settings = json.load(read_file)
                     if isinstance(settings, dict):
                         self.settings = self.__upgrade(settings)
@@ -178,10 +181,10 @@ class SettingsManager:
         # Write to a temporary file first, then atomically replace.
         # This prevents an empty settings file if the process is killed
         # during write (e.g. system reboot, HA restart, power loss).
-        tmp_path = self.settings_file_path + ".tmp"
+        tmp_path = self._SETTINGS_FILE_PATH + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as write_file:
             json.dump(self.settings, write_file, indent=2)
-        os.replace(tmp_path, self.settings_file_path)
+        os.replace(tmp_path, self._SETTINGS_FILE_PATH)
 
     def reset(self):
         self.settings = {}
@@ -189,3 +192,31 @@ class SettingsManager:
 
     def get(self, entity_id):
         return self.settings.get(entity_id, None)
+
+    # ── Internal (non-HA) values ──────────────────────────────────────────────
+    # These are technical values with no corresponding HA input entity.
+    # Keys use a plain string (no "input_*." prefix) to distinguish them.
+
+    def store_fm_power_source_id(self, source_id: int | None) -> None:
+        self.store_setting(self._FM_POWER_SOURCE_ID_KEY, source_id)
+
+    def get_fm_power_source_id(self) -> int | None:
+        value = self.settings.get(self._FM_POWER_SOURCE_ID_KEY)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def store_fm_user_id(self, user_id: int | None) -> None:
+        self.store_setting(self._FM_USER_ID_KEY, user_id)
+
+    def get_fm_user_id(self) -> int | None:
+        value = self.settings.get(self._FM_USER_ID_KEY)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None

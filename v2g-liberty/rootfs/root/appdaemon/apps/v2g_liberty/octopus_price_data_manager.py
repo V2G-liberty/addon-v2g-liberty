@@ -2,7 +2,9 @@
 carbon intensity data from /api.carbonintensity.org.uk/."""
 
 from datetime import datetime, timedelta, timezone
-import pytz
+
+import pandas as pd
+from zoneinfo import ZoneInfo
 import json
 import isodate
 import aiohttp
@@ -10,6 +12,7 @@ import asyncio
 from aiohttp import ClientTimeout, ClientError
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .timer_utils import set_daily_timer
 from .v2g_globals import (
     time_round,
     get_local_now,
@@ -35,6 +38,10 @@ class ManageOctopusPriceData:
 
     fm_client_app: object = None
     get_fm_data_module: object = None
+    # For persisting prices to local SQLite database
+    data_store = None
+    _latest_import_results = None
+    _latest_export_results = None
 
     # Octopus price urls:
     # https://api.octopus.energy/v1/products/AGILE-24-04-03/electricity-tariffs/
@@ -49,7 +56,7 @@ class ManageOctopusPriceData:
     emission_region_slug: str = ""
 
     # This module is specific to Octopus UK, all times will be UK times
-    UK_TZ = pytz.timezone("Europe/London")
+    UK_TZ = ZoneInfo("Europe/London")
 
     # Octopus publishes price data around 16:00, add a little slack.
     FIRST_TRY_TIME_GET_DATA: str = "16:15:14"
@@ -164,10 +171,11 @@ class ManageOctopusPriceData:
 
         self.emission_region_slug = f"/fw48h/regionid/{region_index}"
 
-        if self.hass.timer_running(self.daily_timer_id):
-            await self.hass.cancel_timer(self.daily_timer_id, silent=True)
-        self.daily_timer_id = self.hass.run_daily(
-            self.__daily_kickoff_prices_emissions, start=self.FIRST_TRY_TIME_GET_DATA
+        self.daily_timer_id = await set_daily_timer(
+            self.hass,
+            self.daily_timer_id,
+            self.__daily_kickoff_prices_emissions,
+            start=self.FIRST_TRY_TIME_GET_DATA,
         )
 
         # Always kickoff at startup, delay to give globals the time to get all settings right first.
@@ -180,6 +188,17 @@ class ManageOctopusPriceData:
         await self.__get_octopus_import_prices()
         await self.__get_octopus_export_prices()
         await self.__get_gb_region_emissions()
+
+        # Persist prices to local DB (upsampled to 5-min resolution)
+        if self._latest_import_results and self._latest_export_results:
+            try:
+                self._persist_prices_to_db()
+            except Exception as e:
+                self.__log(
+                    f"Failed to persist Octopus prices to DB: {e}",
+                    level="WARNING",
+                )
+
         self.__log("completed")
 
     async def __get_octopus_import_prices(self, *args):
@@ -213,6 +232,9 @@ class ManageOctopusPriceData:
             )
             return
 
+        # Store raw results for DB persistence
+        self._latest_import_results = list(prices)
+
         start = self._parse_to_rounded_uk_datetime(prices[-1][self.START_LABEL])
         end = self._parse_to_rounded_uk_datetime(prices[0][self.END_LABEL])
         duration = int(float(((end - start).total_seconds() / 60)))
@@ -244,7 +266,7 @@ class ManageOctopusPriceData:
         if res:
             if self.get_fm_data_module is not None:
                 # FM needs processing time for the just uploaded prices before they can be queried
-                self.hass.run_in(
+                await self.hass.run_in(
                     self.get_fm_data_module.get_prices_wrapper,
                     delay=45,
                     price_type="consumption",
@@ -284,6 +306,9 @@ class ManageOctopusPriceData:
             )
             return
 
+        # Store raw results for DB persistence
+        self._latest_export_results = list(prices)
+
         start = self._parse_to_rounded_uk_datetime(prices[-1][self.START_LABEL])
         end = self._parse_to_rounded_uk_datetime(prices[0][self.END_LABEL])
         duration = int(float(((end - start).total_seconds() / 60)))
@@ -317,7 +342,7 @@ class ManageOctopusPriceData:
         if res:
             if self.get_fm_data_module is not None:
                 # FM needs processing time for the just uploaded prices before they can be queried
-                self.hass.run_in(
+                await self.hass.run_in(
                     self.get_fm_data_module.get_prices_wrapper,
                     delay=45,
                     price_type="production",
@@ -432,6 +457,83 @@ class ManageOctopusPriceData:
             self.__log(f"Client error: {e} on url: {url}.", level="WARNING")
         except Exception as e:
             self.__log(f"Unexpected error: {e} on url: {url}.", level="WARNING")
+
+    def _persist_prices_to_db(self):
+        """Persist Octopus prices to local SQLite database.
+
+        Combines import (consumption) and export (production) results,
+        upsamples from 30-min to 5-min intervals, and writes to price_log
+        via DataStore.upsert_prices().
+
+        Octopus value_inc_vat is in pence/kWh — converted to GBP/kWh for storage.
+        """
+        if self.data_store is None:
+            self.__log(
+                "DataStore not available, skipping price persistence.",
+                level="WARNING",
+            )
+            return
+
+        resolution = c.PRICE_RESOLUTION_MINUTES
+
+        # Build dicts from API results: {timestamp: GBP/kWh}
+        cons_data = {}
+        for item in self._latest_import_results:
+            dt = self._parse_to_rounded_uk_datetime(item[self.START_LABEL])
+            cons_data[dt] = float(item[self.PRICE_LABEL]) / 100  # pence → GBP
+
+        prod_data = {}
+        for item in self._latest_export_results:
+            dt = self._parse_to_rounded_uk_datetime(item[self.START_LABEL])
+            prod_data[dt] = float(item[self.PRICE_LABEL]) / 100  # pence → GBP
+
+        if not cons_data or not prod_data:
+            self.__log("No valid Octopus price data to persist.")
+            return
+
+        # Combine into DataFrame, keep only timestamps with both prices
+        cons_series = pd.Series(cons_data, name="consumption_price_kwh")
+        prod_series = pd.Series(prod_data, name="production_price_kwh")
+        prices_df = pd.concat([cons_series, prod_series], axis=1, sort=True).dropna()
+
+        if prices_df.empty:
+            return
+
+        # Upsample to 5-min resolution using reindex + forward-fill
+        n_subintervals = resolution // 5
+        full_index = pd.date_range(
+            start=prices_df.index.min(),
+            end=prices_df.index.max() + timedelta(minutes=resolution - 5),
+            freq="5min",
+        )
+        prices_5min = prices_df.reindex(
+            full_index, method="ffill", limit=n_subintervals - 1
+        ).dropna()
+
+        if prices_5min.empty:
+            return
+
+        prices_5min = prices_5min.round(6)
+
+        # Build row tuples for upsert_prices()
+        # Octopus value_inc_vat already includes VAT, converted to GBP/kWh
+        rows = list(
+            zip(
+                (ts.tz_convert(timezone.utc).isoformat() for ts in prices_5min.index),
+                prices_5min["consumption_price_kwh"],
+                prices_5min["production_price_kwh"],
+                [None] * len(prices_5min),
+            )
+        )
+
+        if rows:
+            # Octopus has no forecast → definitive transition; recalculate ratings
+            self.data_store.upsert_prices(rows)
+            self.__log(f"Persisted {len(rows)} Octopus price rows to local DB.")
+
+        # Clean up temporary storage
+        self._latest_import_results = None
+        self._latest_export_results = None
 
     def get_octopus_rates_url_params(self):
         """Get octopus specific rates url params:

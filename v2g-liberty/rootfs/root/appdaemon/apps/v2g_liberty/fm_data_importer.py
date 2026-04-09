@@ -1,7 +1,8 @@
 """Module for importing price and usage data from FlexMeasures."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
+import pandas as pd
 from appdaemon.plugins.hass.hassapi import Hass
 from .v2g_globals import (
     get_local_now,
@@ -16,21 +17,19 @@ from .main_app import ChartLine
 # Import refactored components
 from .data_import.utils.datetime_utils import DatetimeUtils
 from .data_import.validators.data_validator import DataValidator
+from .timer_utils import cancel_timer_silent, set_daily_timer
 from .data_import.processors.price_processor import PriceProcessor
 from .data_import.processors.emission_processor import EmissionProcessor
-from .data_import.processors.energy_processor import EnergyProcessor
 from .data_import.fetchers.entsoe_fetcher import EntsoeFetcher
 from .data_import.fetchers.price_fetcher import PriceFetcher
 from .data_import.fetchers.emission_fetcher import EmissionFetcher
-from .data_import.fetchers.energy_fetcher import EnergyFetcher
-from .data_import.fetchers.cost_fetcher import CostFetcher
 from .data_import import data_import_constants as fm_constants
 
 
 class FlexMeasuresDataImporter:
     """
-    Get prices, emissions and cost data for display in the UI. Only the consumption prices
-    and not the production (aka feed_in) prices are retrieved (and displayed).
+    Get prices and emissions data for display in the UI. Both consumption and production
+    prices are retrieved.
 
     Price/emissions data fetched daily when:
     For providers with contracts based on a (EPEX) day-ahead market this should be fetched daily
@@ -46,9 +45,6 @@ class FlexMeasuresDataImporter:
     change in the data is detected (after it has been sent to FM successfully).
 
     The retrieved data is written to the HA entities for HA to render the data in the UI chart.
-
-    The cost data is, independent of price_type of provider contract, fetched daily in the early
-    morning.
     """
 
     # CONSTANTS and variables
@@ -74,17 +70,13 @@ class FlexMeasuresDataImporter:
     timer_id_daily_kickoff_emissions_data: str = ""
     timer_id_daily_check_is_data_up_to_date: str = ""
 
-    # Emissions /kwh in the last 7 days to now. Populated by a call to FM.
-    # Used for:
-    # + Intermediate storage to fill an entity for displaying the data in the graph
-    # + Calculation of the emission (savings) in the last 7 days.
-    emission_intensities: dict
-
     # For sending notifications to the user.
     v2g_main_app: object = None
     # For getting data from FM server
     _fm_client_app: object = None
     notifier: Notifier = None
+    # For persisting prices to local SQLite database
+    data_store = None
 
     @property
     def fm_client_app(self):
@@ -107,9 +99,6 @@ class FlexMeasuresDataImporter:
         self.hass = hass
         self.notifier = notifier
         self.__log = get_class_method_logger(hass.log)
-        self.hass.run_daily(self.daily_kickoff_charging_data, start="01:15:00")
-
-        self.emission_intensities = {}
 
         # These are variables are used to decide what message to send to the user and can have the
         # following values:
@@ -119,6 +108,10 @@ class FlexMeasuresDataImporter:
         self.first_future_negative_consumption_price_point = None
         self.first_future_negative_production_price_point = None
         self._critical_price_notification_sent = False
+
+        # Temporary storage for raw price results, used by _persist_epex_prices_to_db()
+        self._latest_raw_consumption_result = None
+        self._latest_raw_production_result = None
 
         # Initialise refactored components
         self._initialise_components()
@@ -138,25 +131,18 @@ class FlexMeasuresDataImporter:
         self.emission_processor = EmissionProcessor(
             event_resolution_minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
         )
-        self.energy_processor = EnergyProcessor(
-            event_resolution_minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
-        )
 
         # Fetchers (fm_client_app will be set later via property setter)
         # These are initialised with None and updated when fm_client_app is set
         self.entsoe_fetcher = None
         self.price_fetcher = None
         self.emission_fetcher = None
-        self.energy_fetcher = None
-        self.cost_fetcher = None
 
     def _initialise_fetchers(self):
         """Initialise fetcher components when fm_client_app becomes available."""
         self.entsoe_fetcher = EntsoeFetcher(self.hass, self._fm_client_app)
         self.price_fetcher = PriceFetcher(self.hass, self._fm_client_app)
         self.emission_fetcher = EmissionFetcher(self.hass, self._fm_client_app)
-        self.energy_fetcher = EnergyFetcher(self.hass, self._fm_client_app)
-        self.cost_fetcher = CostFetcher(self.hass, self._fm_client_app)
         self.__log("Fetcher components initialised.")
 
     async def initialize(
@@ -205,20 +191,28 @@ class FlexMeasuresDataImporter:
             )
 
         # Always cancel timers just to be sure
-        await self.__cancel_timer(self.timer_id_daily_kickoff_price_data)
-        await self.__cancel_timer(self.timer_id_daily_kickoff_emissions_data)
-        await self.__cancel_timer(self.timer_id_daily_check_is_data_up_to_date)
+        await cancel_timer_silent(self.hass, self.timer_id_daily_kickoff_price_data)
+        await cancel_timer_silent(self.hass, self.timer_id_daily_kickoff_emissions_data)
+        await cancel_timer_silent(
+            self.hass, self.timer_id_daily_check_is_data_up_to_date
+        )
 
         if is_price_epex_based():
             self.__log(
                 f"price update interval is daily based on EP: {c.ELECTRICITY_PROVIDER}."
             )
-            self.timer_id_daily_kickoff_price_data = await self.hass.run_daily(
-                self.daily_kickoff_price_data, start=self.GET_PRICES_TIME
+            self.timer_id_daily_kickoff_price_data = await set_daily_timer(
+                self.hass,
+                self.timer_id_daily_kickoff_price_data,
+                self.daily_kickoff_price_data,
+                start=self.GET_PRICES_TIME,
             )
 
-            self.timer_id_daily_check_is_data_up_to_date = await self.hass.run_daily(
-                self.__check_if_prices_are_up_to_date, start=self.CHECK_DATA_STATUS_TIME
+            self.timer_id_daily_check_is_data_up_to_date = await set_daily_timer(
+                self.hass,
+                self.timer_id_daily_check_is_data_up_to_date,
+                self.__check_if_prices_are_up_to_date,
+                start=self.CHECK_DATA_STATUS_TIME,
             )
 
             initial_delay_sec = 45
@@ -227,22 +221,7 @@ class FlexMeasuresDataImporter:
                 delay=initial_delay_sec,
                 is_initial_call=True,
             )
-            await self.hass.run_in(
-                self.daily_kickoff_charging_data, delay=initial_delay_sec
-            )
         self.__log("completed.")
-
-    # TODO: Consolidate. Copied function from v2g_liberty module also in globals..
-    async def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        :param timer_id: timer_handle to cancel
-        """
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            await self.hass.cancel_timer(timer_id, silent)
 
     async def daily_kickoff_price_data(self, *args):
         """
@@ -311,6 +290,17 @@ class FlexMeasuresDataImporter:
         production_ok = await self.get_prices(
             price_type="production", entsoe_latest_dt=entsoe_latest_dt
         )
+
+        # Persist combined prices to local DB (upsampled to 5-min resolution)
+        if consumption_ok and production_ok:
+            try:
+                self._persist_epex_prices_to_db()
+            except Exception as e:
+                self.__log(
+                    f"Failed to persist EPEX prices to DB: {e}",
+                    level="WARNING",
+                )
+
         await self.get_emission_intensities(entsoe_latest_dt=entsoe_latest_dt)
 
         prices_ok = consumption_ok and production_ok
@@ -333,150 +323,6 @@ class FlexMeasuresDataImporter:
                 )
 
         self.__log("completed")
-
-    async def daily_kickoff_charging_data(self, *args):
-        """This sets off the daily routine to check for charging cost."""
-        self.__log("Called")
-        await self.get_charging_cost()
-        await self.get_charged_energy()
-
-    async def get_charging_cost(self, *args, **kwargs):
-        """Communicate with FM server and check the results.
-
-        Request charging costs of last 7 days from the server.
-        Make costs total costs of this period available in HA by setting them in sensor.
-        ToDo: Split cost in charging and dis-charging per day
-        """
-        self.__log("Called")
-
-        # Use CostFetcher to retrieve data
-        if self.cost_fetcher is None:
-            self.__log("CostFetcher not initialised (fm_client_app not set yet).")
-            return False
-
-        now = get_local_now()
-        result = await self.cost_fetcher.fetch_costs(now)
-
-        if result is None:
-            self.__log(
-                "CostFetcher returned None, aborting.",
-                level="WARNING",
-            )
-            return False
-
-        # Process the cost data
-        costs = result["costs"]
-        start = result["start"]
-        resolution = timedelta(days=1)
-
-        total_charging_cost_last_7_days = 0.0
-        charging_cost_points = []
-
-        for i, charging_cost in enumerate(costs):
-            if charging_cost is None:
-                continue
-            self.__log(f"cost: '{charging_cost}'.")
-            data_point = {
-                "time": (start + i * resolution).isoformat(),
-                "cost": round(float(charging_cost), 2),
-            }
-            total_charging_cost_last_7_days += data_point["cost"]
-            charging_cost_points.append(data_point)
-
-        if len(charging_cost_points) == 0:
-            self.__log("No charging cost data available")
-
-        total_charging_cost_last_7_days = round(total_charging_cost_last_7_days, 2)
-        self.__log(
-            f"Cost data: {charging_cost_points}, total costs: {total_charging_cost_last_7_days}"
-        )
-
-        await self.hass.set_state(
-            entity_id="sensor.total_charging_cost_last_7_days",
-            state=total_charging_cost_last_7_days,
-        )
-
-    async def get_charged_energy(self, *args, **kwargs):
-        """Communicate with FM server and check the results.
-
-        Request charging volumes of last 7 days from the server.
-        ToDo: make this period a setting for the user.
-        Make totals of charging and dis-charging per day and over the period.
-        """
-        self.__log("Called.")
-
-        # Use EnergyFetcher to retrieve data
-        if self.energy_fetcher is None:
-            self.__log("EnergyFetcher not initialised (fm_client_app not set yet).")
-            return False
-
-        now = get_local_now()
-        result = await self.energy_fetcher.fetch_power_data(now)
-
-        if result is None:
-            self.__log(
-                "EnergyFetcher returned None, aborting.",
-                level="WARNING",
-            )
-            return False
-
-        # Use EnergyProcessor to calculate statistics
-        power_values = result["power_values"]
-        start = result["start"]
-
-        self.__log(
-            f"Power data received: {len(power_values)} values starting from {start}."
-        )
-
-        stats = self.energy_processor.calculate_energy_stats(
-            power_values=power_values,
-            start=start,
-            emission_cache=self.emission_intensities,
-        )
-
-        # Update all sensors with calculated statistics
-        await self.hass.set_state(
-            entity_id="sensor.total_discharged_energy_last_7_days",
-            state=stats.total_discharged_energy_kwh,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_charged_energy_last_7_days",
-            state=stats.total_charged_energy_kwh,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.net_energy_last_7_days",
-            state=stats.net_energy_kwh,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_saved_emissions_last_7_days",
-            state=stats.total_saved_emissions_kg,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_emissions_last_7_days",
-            state=stats.total_emissions_kg,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.net_emissions_last_7_days",
-            state=stats.net_emissions_kg,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_discharge_time_last_7_days",
-            state=stats.total_discharge_time,
-        )
-        await self.hass.set_state(
-            entity_id="sensor.total_charge_time_last_7_days",
-            state=stats.total_charge_time,
-        )
-
-        self.__log(
-            f"stats: \n"
-            f"    total_discharged_energy: '{stats.total_discharged_energy_kwh}' kWh\n"
-            f"    total_charged_energy: '{stats.total_charged_energy_kwh}' kWh\n"
-            f"    total_saved_emissions: '{stats.total_saved_emissions_kg}' kg\n"
-            f"    total_emissions: '{stats.total_emissions_kg}' kg\n"
-            f"    total discharge time: '{stats.total_discharge_time}'\n"
-            f"    total charge time: '{stats.total_charge_time}'"
-        )
 
     async def get_emission_intensities(
         self, *args, entsoe_latest_dt: datetime = None, **kwargs
@@ -531,9 +377,13 @@ class FlexMeasuresDataImporter:
             )
         )
 
-        # Update the emission_intensities cache for use by get_charged_energy()
-        self.emission_intensities.clear()
-        self.emission_intensities.update(emission_cache)
+        # Persist emission data to local database
+        if self.data_store is not None and emission_cache:
+            rows = [
+                (ts.astimezone(timezone.utc).isoformat(), intensity)
+                for ts, intensity in emission_cache.items()
+            ]
+            self.data_store.upsert_emissions(rows)
 
         # Convert EFP datetime to ISO string for JSON serialisation
         end_of_fixed_prices_iso = (
@@ -594,6 +444,12 @@ class FlexMeasuresDataImporter:
             self.__log(f"({price_type}): fetch_prices returned None.")
             return False
 
+        # Store raw result for later DB persistence by _persist_epex_prices_to_db()
+        if price_type == "consumption":
+            self._latest_raw_consumption_result = result
+        else:
+            self._latest_raw_production_result = result
+
         # Use entsoe_latest_dt from parameter (from EntsoeFetcher) for EFP boundary
         # entsoe_latest_dt is the START of the last data block
         # We need the END of that block for the visual split, so add one resolution period
@@ -627,11 +483,11 @@ class FlexMeasuresDataImporter:
                 f"({price_type}), negative price: {first_negative_price['price']} "
                 f"at: {first_negative_price['time']}."
             )
-            self.__check_negative_price_notification(
+            await self.__check_negative_price_notification(
                 first_negative_price, price_type=price_type
             )
         else:
-            self.__check_negative_price_notification(
+            await self.__check_negative_price_notification(
                 "No negative prices", price_type=price_type
             )
 
@@ -648,6 +504,98 @@ class FlexMeasuresDataImporter:
 
         self.__log(f"{price_type} prices successfully retrieved.")
         return True
+
+    def _persist_epex_prices_to_db(self):
+        """Persist fetched EPEX prices to local SQLite database.
+
+        Combines consumption and production raw prices, upsamples from
+        PRICE_RESOLUTION_MINUTES to 5-min intervals using pandas reindex,
+        and writes to price_log via DataStore.upsert_prices().
+
+        VAT and markup are only applied when configured (nl_generic provider);
+        other providers already include these in their FM prices.
+        """
+        if self.data_store is None:
+            self.__log(
+                "DataStore not available, skipping price persistence.",
+                level="WARNING",
+            )
+            return
+
+        cons_result = self._latest_raw_consumption_result
+        prod_result = self._latest_raw_production_result
+
+        if cons_result is None or prod_result is None:
+            self.__log("Missing consumption or production data for DB persistence.")
+            return
+
+        resolution = c.PRICE_RESOLUTION_MINUTES
+
+        # Build Series from raw FM results (prices in cents/kWh)
+        cons_data = {}
+        for i, price in enumerate(cons_result["prices"]):
+            if price is not None:
+                dt = cons_result["start"] + timedelta(minutes=i * resolution)
+                cons_data[dt] = price
+
+        prod_data = {}
+        for i, price in enumerate(prod_result["prices"]):
+            if price is not None:
+                dt = prod_result["start"] + timedelta(minutes=i * resolution)
+                prod_data[dt] = price
+
+        if not cons_data or not prod_data:
+            self.__log("No valid price data to persist.")
+            return
+
+        # Combine into DataFrame, keep only timestamps with both prices
+        cons_series = pd.Series(cons_data, name="consumption_price_kwh")
+        prod_series = pd.Series(prod_data, name="production_price_kwh")
+        prices_df = pd.concat([cons_series, prod_series], axis=1, sort=True).dropna()
+
+        if prices_df.empty:
+            return
+
+        # Upsample to 5-min resolution using reindex + forward-fill
+        n_subintervals = resolution // 5
+        full_index = pd.date_range(
+            start=prices_df.index.min(),
+            end=prices_df.index.max() + timedelta(minutes=resolution - 5),
+            freq="5min",
+        )
+        prices_5min = prices_df.reindex(
+            full_index, method="ffill", limit=n_subintervals - 1
+        ).dropna()
+
+        if prices_5min.empty:
+            return
+
+        # Convert cents/kWh to EUR/kWh
+        if self.markup_per_kwh != 0 or self.vat_factor != 1:
+            # nl_generic provider: apply markup and VAT
+            prices_5min = (prices_5min + self.markup_per_kwh) * self.vat_factor / 100
+        else:
+            prices_5min = prices_5min / 100
+
+        prices_5min = prices_5min.round(6)
+
+        # Build row tuples for upsert_prices()
+        rows = list(
+            zip(
+                (ts.tz_convert(timezone.utc).isoformat() for ts in prices_5min.index),
+                prices_5min["consumption_price_kwh"],
+                prices_5min["production_price_kwh"],
+                [None] * len(prices_5min),
+            )
+        )
+
+        if rows:
+            self.data_store.upsert_prices(rows)
+            self.__log(f"Persisted {len(rows)} EPEX price rows to local DB.")
+
+        # Clean up temporary storage
+        self._latest_raw_consumption_result = None
+        self._latest_raw_production_result = None
 
     async def get_prices_wrapper(self, *args):
         """Wrapper for get_prices to be used as a callback with hass.run_in().
@@ -691,7 +639,7 @@ class FlexMeasuresDataImporter:
         self.__log("Called")
         if not self.entsoe_data_is_up_to_date:
             self.__log("ENTSOE data not up to date, notifying user.")
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=(
                     "Electricity prices for tomorrow are not yet available. "
                     "Scheduling will continue based on existing data."
@@ -732,7 +680,7 @@ class FlexMeasuresDataImporter:
             if self._critical_price_notification_sent:
                 # Scenario E: push notification was sent — replace with confirmation.
                 self.notifier.clear_notification(tag="no_price_data")
-                self.notifier.notify_user(
+                await self.notifier.notify_user(
                     message=(
                         "Electricity prices for tomorrow have now been received. "
                         "Scheduling will resume as normal."
@@ -766,7 +714,7 @@ class FlexMeasuresDataImporter:
                 "ENTSOE data not up to date and outside retry window: "
                 "sending final notification."
             )
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=(
                     "Electricity prices for tomorrow have not been received. "
                     "V2G Liberty will automatically try again later today."
@@ -777,7 +725,9 @@ class FlexMeasuresDataImporter:
                 send_to_all=False,
             )
 
-    def __check_negative_price_notification(self, price_point: dict, price_type: str):
+    async def __check_negative_price_notification(
+        self, price_point: dict, price_type: str
+    ):
         """Method to check if the user needs to be notified about negative consumption
         and/or production prices in a combined message.
         Only used for daily price contracts. Business rules for more frequently updated prices
@@ -842,7 +792,7 @@ class FlexMeasuresDataImporter:
             self.notifier.clear_notification(tag="negative_energy_prices")
             self.__log("Clearing negative price notification")
         else:
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=msg,
                 title="Negative electricity price",
                 tag="negative_energy_prices",

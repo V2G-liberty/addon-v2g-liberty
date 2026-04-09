@@ -4,7 +4,7 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow, renderButton } from './util/render';
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 import { styles } from './card.styles';
 import { showElectricityContractSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -32,6 +32,7 @@ export class ElectricityContractSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._electricityContractSettingsInitialised =
       hass.states[entityIds.electricityContractSettingsInitialised];
     this._electricityProvider = hass.states[entityIds.electricityContract];

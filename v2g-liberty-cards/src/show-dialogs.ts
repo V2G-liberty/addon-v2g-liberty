@@ -9,11 +9,22 @@ import { tagName as editInputNumberDialogTag } from './edit-inputnumer-dialog';
 import { tagName as editInputSelectDialogTag } from './edit-inputselect-dialog';
 
 import { tagName as showSettingsErrorAlertDialogTag } from './settings-error-alert-dialog';
+import { tagName as resetDatabaseDialogTag } from './reset-database-dialog';
 
 
 import { t, partial } from './util/translate';
 
 const tp = partial('settings.dialogs');
+
+// --- Reset Database ---
+
+export const showResetDatabaseDialog = (element: HTMLElement): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: resetDatabaseDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams: {},
+  });
+};
 
 // --- Show Settings Error Alert ---
 

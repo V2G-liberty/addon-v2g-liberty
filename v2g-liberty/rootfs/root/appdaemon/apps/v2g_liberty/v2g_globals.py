@@ -1,11 +1,14 @@
 """Module to initialise settings and CONSTANTS"""
 
+import asyncio
 import math
 from datetime import datetime, timedelta
-import pytz
+
+from zoneinfo import ZoneInfo
 
 from appdaemon.plugins.hass.hassapi import Hass
 
+from .fm_historical_importer import clear_import_flag, run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
@@ -16,7 +19,6 @@ class V2GLibertyGlobals:
     """Class to initialise settings and CONSTANTS"""
 
     v2g_settings: SettingsManager
-    settings_file_path = "/data/v2g_liberty_settings.json"
     v2g_main_app: object
     evse_client_app: object
     fm_client_app: object
@@ -304,7 +306,7 @@ class V2GLibertyGlobals:
         self.__log("Initializing V2GLibertyGlobals")
         config = await self.hass.get_plugin_config()
         # Use the HA time_zone, and not the TZ from appdaemon.yaml that AD uses.
-        c.TZ = pytz.timezone(config["time_zone"])
+        c.TZ = ZoneInfo(config["time_zone"])
         # It is recommended to always use the utility function get_local_now() from this module and
         # not use self.get_now() as this depends on AppDaemon OS timezone,
         # and that we have not been able to set from this code.
@@ -340,6 +342,7 @@ class V2GLibertyGlobals:
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
+        self.hass.listen_event(self.__reset_database, "reset_database")
 
         self.__log("Completed initializing V2GLibertyGlobals")
 
@@ -418,6 +421,7 @@ class V2GLibertyGlobals:
         self.hass.fire_event("save_charger_settings.result")
 
         await self.__initialise_charger_settings()
+        await self.__try_historical_import()
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
@@ -502,6 +506,35 @@ class V2GLibertyGlobals:
         self.__log("called")
         self.v2g_settings.reset()
         await self.restart_v2g_liberty()
+
+    async def __reset_database(self, event=None, data=None, kwargs=None):
+        """Reset database and/or re-import. Called from data page menu.
+
+        Event data 'mode':
+          'reimport' — delete import flag only, re-run historical import
+          'full'     — delete DB + import flag, re-create DB, re-run import
+        """
+        from .data_store import DataStore
+
+        mode = (data or {}).get("mode", "full")
+        self.__log(f"called with mode={mode}")
+
+        if mode == "full":
+            self.data_store.close()
+            deleted = DataStore.delete_database()
+            self.__log(f"Database {'deleted' if deleted else 'not found'}")
+            await self.data_store.initialise()
+
+        # Clear historical import flag so it re-runs
+        clear_import_flag()
+
+        # Re-run data repair and kick off historical import
+        if hasattr(self, "data_repairer") and self.data_repairer is not None:
+            await self.data_repairer.initialise()
+        await self.__try_historical_import()
+
+        self.hass.fire_event("reset_database.result", success=True)
+        self.__log(f"Reset ({mode}) complete, historical import started")
 
     async def restart_v2g_liberty(self, event=None, data=None, kwargs=None):
         self.__log("called")
@@ -819,7 +852,13 @@ class V2GLibertyGlobals:
             "push": {"sound": {"critical": 1, "name": "default", "volume": 0.9}}
         }
         if c.ADMIN_MOBILE_PLATFORM.lower() == "android":
-            c.PRIORITY_NOTIFICATION_CONFIG = {"ttl": 0, "priority": "high"}
+            c.PRIORITY_NOTIFICATION_CONFIG = {
+                "ttl": 0,
+                "priority": "high",
+                "importance": "max",
+                "channel": "alarm_stream",
+                "media_stream": "alarm_stream",
+            }
 
         self.__log("completed")
 
@@ -914,6 +953,9 @@ class V2GLibertyGlobals:
             setting_object=self.SCHEDULE_SETTINGS_INITIALISED
         )
         if not is_initialised:
+            self.hass.log(
+                "Historical import: skipping, FM client settings not yet configured."
+            )
             return
 
         c.FM_ACCOUNT_USERNAME = await self.__process_setting(
@@ -949,8 +991,145 @@ class V2GLibertyGlobals:
         sensors = await self.fm_client_app.get_fm_sensors_by_asset_name(c.FM_ASSET_NAME)
         await self.__process_fm_sensors(sensors)
         await self.__set_fm_optimisation_context()
+        self.__set_fm_user_id(self.fm_client_app.user_id)
+        asyncio.ensure_future(self.__discover_source_id_and_import())
 
         self.__log("completed")
+
+    def __set_fm_user_id(self, user_id: int):
+        """Persist the FM user_id and reset account-derived values if it changed.
+
+        If the user_id differs from the stored one, the cached power source_id
+        and historical import flag are cleared so that discovery and re-import
+        run automatically for the new account.
+        """
+        old_user_id = self.v2g_settings.get_fm_user_id()
+        self.v2g_settings.store_fm_user_id(user_id)
+
+        if old_user_id is None or old_user_id == user_id:
+            return
+
+        self.__log(
+            f"FM user_id changed ({old_user_id} → {user_id}): "
+            "clearing power source_id and historical import flag."
+        )
+        self.v2g_settings.store_fm_power_source_id(None)
+        c.FM_ACCOUNT_POWER_SOURCE_ID = None
+        clear_import_flag()
+
+    async def __discover_source_id_and_import(self):
+        """Background task: discover source_id then attempt historical import."""
+        await self.__initialise_fm_power_source_id()
+        await self.__try_historical_import()
+
+    async def __initialise_fm_power_source_id(self):
+        """Load or discover the FM source_id for measured charger power data.
+
+        Loads a previously stored source_id from settings. If none is stored,
+        queries the FM chart_data endpoint to find the non-scheduler source.
+        The discovered id is persisted so subsequent startups skip discovery.
+        """
+        stored = self.v2g_settings.get_fm_power_source_id()
+        if stored is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = stored
+            self.__log(f"FM power source_id loaded from settings: {stored}.")
+            return
+
+        if not c.FM_ACCOUNT_POWER_SENSOR_ID:
+            self.__log(
+                "FM power source_id discovery skipped: power sensor ID not known.",
+                level="WARNING",
+            )
+            return
+
+        self.__log("FM power source_id not yet stored -- starting discovery.")
+        source_id = await self.fm_client_app.discover_power_source_id(
+            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
+        )
+        if source_id is not None:
+            c.FM_ACCOUNT_POWER_SOURCE_ID = source_id
+            self.v2g_settings.store_fm_power_source_id(source_id)
+            self.__log(f"FM power source_id={source_id} discovered and stored.")
+        else:
+            self.__log(
+                "FM power source_id discovery failed: no matching source found.",
+                level="WARNING",
+            )
+
+    def __set_fm_user_id(self, user_id: int):
+        """Persist the FM user_id and reset account-derived values if it changed.
+
+        If the user_id differs from the stored one, the cached power source_id
+        and historical import flag are cleared so that discovery and re-import
+        run automatically for the new account.
+        """
+        old_user_id = self.v2g_settings.get_fm_user_id()
+        self.v2g_settings.store_fm_user_id(user_id)
+
+        if old_user_id is None or old_user_id == user_id:
+            return
+
+        self.__log(
+            f"FM user_id changed ({old_user_id} → {user_id}): "
+            "clearing power source_id and historical import flag."
+        )
+        self.v2g_settings.store_fm_power_source_id(None)
+        c.FM_ACCOUNT_POWER_SOURCE_ID = None
+        clear_import_flag()
+
+    async def __try_historical_import(self):
+        """Attempt to start the historical import if all required settings are ready.
+
+        Checks that both schedule and charger settings have been initialised
+        before starting the import. The import itself is idempotent: if the
+        flag file already exists, nothing happens (checked in run_historical_import).
+
+        Note: car battery capacity (general settings) does not have its own
+        initialised boolean. Assess later whether a guard for this is needed.
+        """
+        schedule_ready = await self.__process_setting(
+            setting_object=self.SCHEDULE_SETTINGS_INITIALISED
+        )
+        charger_ready = await self.__process_setting(
+            setting_object=self.CHARGER_SETTINGS_INITIALISED
+        )
+        if not schedule_ready or not charger_ready:
+            self.__log(
+                "Historical import: deferred -- not all settings configured yet "
+                f"(schedule={schedule_ready}, charger={charger_ready})."
+            )
+            return
+
+        # Use a plain closure rather than self.__log to avoid log_wrapper's
+        # frame inspection (which requires a 'self' in the caller's locals).
+        def _hist_log(msg, level="INFO"):
+            self.hass.log(msg, level=level)
+
+        def _hist_notify(message):
+            self.notifier.post_sticky_memo(
+                title="Historical import",
+                message=message,
+                memo_id="notification_historical_import",
+            )
+
+        repairer = getattr(self, "data_repairer", None)
+        on_import_complete = None
+        if repairer is not None:
+
+            async def on_import_complete():
+                # run_full_repair_async off-loads the synchronous repair to an
+                # executor so the event loop stays responsive on large DBs.
+                await repairer.run_full_repair_async()
+
+        asyncio.ensure_future(
+            run_historical_import(
+                self.data_store,
+                _hist_log,
+                self.fm_client_app.client,
+                on_complete=on_import_complete,
+                on_notify=_hist_notify,
+            )
+        )
 
     async def __process_fm_sensors(self, sensors):
         self.__log("called")
@@ -1286,12 +1465,12 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
         now = get_local_now()
     else:
         time_obj = datetime.strptime(now_time, "%H:%M:%S").time()
-        now = c.TZ.localize(datetime.combine(today_date, time_obj))
+        now = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
-    start_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    start_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
     time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
-    end_dt = c.TZ.localize(datetime.combine(today_date, time_obj))
+    end_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     if end_dt < start_dt:
         # self.__log(f"end_dt < start_dt ...")
@@ -1318,5 +1497,5 @@ def parse_to_int(number_string, default_value: int):
     """
     try:
         return int(float(number_string))
-    except:
+    except (TypeError, ValueError):
         return default_value

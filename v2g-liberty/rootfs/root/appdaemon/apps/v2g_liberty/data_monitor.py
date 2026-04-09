@@ -1,34 +1,28 @@
-"""Module to collect and formats data to send it to FlexMeasures"""
+"""Module to collect and monitor charge data at regular intervals."""
 
-from datetime import datetime, timedelta
-import math
-from typing import List, Union
+from datetime import datetime, timedelta, timezone
+from typing import Union
 
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .v2g_globals import get_local_now, time_round, time_ceil
+from .v2g_globals import get_local_now, time_ceil, time_round
 from .event_bus import EventBus
-
-
-# TODO:
-# Start times of Posting data sometimes seem incorrect, it is recommended to research them.
 
 
 class DataMonitor:
     """
-    This class monitors data changes, collects this data and formats in the right way.
-    It sends results to FM hourly for intervals @ resolution, eg. 1/12th of an hour:
+    This class monitors data changes and collects charge metrics at regular intervals.
+
+    It tracks:
     + Average charge power in kW
     + Availability of car and charger for automatic charging (% of time)
     + SoC of the car battery
 
     Power changes occur at irregular intervals (readings): usually about 15 seconds apart but
     sometimes hours. We derive a time series of readings with a regular interval (that is, with a
-    fixed period): we chose 5 minutes. We send the time series to FlexMeasures in batches,
-    periodically: we chose every 1 hour (with re-tries if needed).
-    As sending the data might fail the data is only cleared after it has successfully been sent.
+    fixed period): we chose 5 minutes.
 
     "Visual representation":
     Power changes:         |  |  |    || |                        |   | |  |   |  |
@@ -48,11 +42,25 @@ class DataMonitor:
     # CONSTANTS
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
 
-    # Data for separate is sent in separate calls.
-    # As a call might fail we keep track of when the data (times-) series has started
-    hourly_power_readings_since: datetime
-    hourly_availability_readings_since: datetime
-    hourly_soc_readings_since: datetime
+    # App state priority: lower number = higher priority
+    STATE_PRIORITY = {
+        "error": 1,
+        "not_connected": 2,
+        "max_boost": 3,
+        "charge": 4,
+        "discharge": 4,
+        "pause": 4,
+        "automatic": 4,
+        "unknown": 5,
+    }
+
+    # Mapping from HA charge_mode to app_state
+    CHARGE_MODE_TO_APP_STATE = {
+        "Max boost now": "charge",
+        "Max discharge now": "discharge",
+        "Stop": "pause",
+        "Automatic": "automatic",
+    }
 
     # Variables to help calculate average power over the last readings_resolution minutes
     current_power_since: datetime
@@ -65,22 +73,27 @@ class DataMonitor:
     # the average power in the fixed interval
     period_power_x_duration: int = 0
 
-    # Holds the averaged power readings until successfully sent to backend.
-    power_readings: List[float] = []
-
     # Total seconds that charger and car have been available in the current hour.
     current_availability: bool
     availability_duration_in_current_interval: int = 0
     un_availability_duration_in_current_interval: int = 0
     current_availability_since: datetime
-    availability_readings: List[float] = []
 
     # State of Charge (SoC) of connected car battery. If not connected set to None.
-    soc_readings: List[Union[int, None]] = []
     connected_car_soc: Union[int, None] = None
 
-    fm_client_app: object = None
+    # App state tracking variables
+    _current_charger_state: Union[int, None] = None
+    _current_charge_mode: str = ""
+    _current_app_state: str = "unknown"
+    _current_app_state_since: datetime
+    _app_state_durations: dict
+
     evse_client_app: object = None
+    # For persisting interval data to local SQLite database
+    data_store = None
+    # For subscribing to calendar_change events
+    reservations_client = None
     hass: Hass = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
@@ -89,72 +102,84 @@ class DataMonitor:
         self.event_bus = event_bus
 
     async def initialize(self):
-        self.__log("Initializing DataMonitor.")
+        self.__log("Initialising DataMonitor.")
 
         local_now = get_local_now()
 
-        # Availability related
+        # State initialisation — must come before availability check
+        self.connected_car_soc = None
+        self._current_charger_state = None
+        charge_mode = await self.hass.get_state("input_select.charge_mode")
+        self._current_charge_mode = (
+            charge_mode if charge_mode not in self.EMPTY_STATES else ""
+        )
+        self._app_state_durations = {}
+        self._current_app_state = self._derive_app_state()
+        self._current_app_state_since = local_now
+
+        # Power related initialisation
+        self.current_power_since = local_now
+        self.power_period_duration = 0
+        self.period_power_x_duration = 0
+        self.current_power = 0
+
+        # Availability — after state is initialised
         self.availability_duration_in_current_interval = 0
         self.un_availability_duration_in_current_interval = 0
-        self.availability_readings = []
         self.current_availability = await self.__is_available()
         self.current_availability_since = local_now
         await self.__record_availability(True)
 
+        # Event listeners
         self.event_bus.add_event_listener(
             "charger_state_change", self._handle_charger_state_change
         )
-
         await self.hass.listen_state(
             self.__handle_charge_mode_change,
             "input_select.charge_mode",
             attribute="all",
         )
-
-        # Power related initialisation
-        # power = 0
-        self.current_power_since = local_now
-        self.power_period_duration = 0
-        self.period_power_x_duration = 0
-        self.power_readings = []
-        self.current_power = 0
         self.event_bus.add_event_listener(
             "charge_power_change", self._process_power_change
         )
-
-        # SoC related
-        self.connected_car_soc = None
-        self.soc_readings = []
         self.event_bus.add_event_listener("soc_change", self._process_soc_change)
 
+        # Reservation logging
+        if self.reservations_client is not None:
+            self.reservations_client.add_listener(
+                "calendar_change", self._handle_calendar_change
+            )
+
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
-        self.hourly_power_readings_since = runtime
-        self.hourly_availability_readings_since = runtime
-        self.hourly_soc_readings_since = runtime
         await self.hass.run_every(
             self.__conclude_interval, runtime, c.FM_EVENT_RESOLUTION_IN_MINUTES * 60
         )
 
-        resolution = timedelta(minutes=60)
-        runtime = time_ceil(runtime, resolution)
-        await self.hass.run_hourly(self.__try_send_data, runtime)
-        self.__log("Completed initializing DataMonitor")
+        self.__log("Completed initialising DataMonitor")
 
     async def _process_soc_change(self, new_soc: int, old_soc: int):
         if new_soc in self.EMPTY_STATES:
             # Sometimes the charger returns "Unknown" or "Undefined" or "Unavailable"
             self.connected_car_soc = None
+            self._update_app_state()
             return
 
         if isinstance(new_soc, int):
             self.connected_car_soc = new_soc
         else:
             self.connected_car_soc = None
+            self._update_app_state()
             return
+        self._update_app_state()
         await self.__record_availability()
 
     async def __handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
-        """Handle changes in charger (car) state (eg automatic or not)"""
+        """Handle changes in charge mode (eg automatic, stop, etc.)"""
+        # Track charge_mode for app_state derivation
+        new_state = new.get("state", "") if isinstance(new, dict) else str(new)
+        if new_state not in self.EMPTY_STATES:
+            self._current_charge_mode = new_state
+            self._update_app_state()
         await self.__record_availability()
 
     async def _handle_charger_state_change(
@@ -164,6 +189,11 @@ class DataMonitor:
         Ignore states with string "unavailable", this is not a value related to the availability
         that is recorded here.
         """
+        # Track charger state for app_state derivation
+        if new_charger_state not in self.EMPTY_STATES:
+            self._current_charger_state = new_charger_state
+            self._update_app_state()
+
         if (
             old_charger_state in self.EMPTY_STATES
             or new_charger_state in self.EMPTY_STATES
@@ -172,6 +202,42 @@ class DataMonitor:
             # availability of charger/car.
             return
         await self.__record_availability()
+
+    async def _handle_calendar_change(self, v2g_events=None, v2g_args=None):
+        """Write reservation snapshots to the local database.
+
+        Called when the calendar changes. Each active (non-dismissed) reservation
+        is logged as a snapshot in reservation_log.
+        """
+        if self.data_store is None or v2g_events is None:
+            return
+
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        for event in v2g_events:
+            if event == "un-initiated":
+                continue
+            if event.get("dismissed"):
+                continue
+
+            start = time_round(event["start"], c.EVENT_RESOLUTION)
+            end = time_round(event["end"], c.EVENT_RESOLUTION)
+            target_soc_pct = event.get("target_soc_percent")
+
+            try:
+                self.data_store.insert_reservation(
+                    timestamp=timestamp,
+                    start_timestamp=start.astimezone(timezone.utc).isoformat(),
+                    end_timestamp=end.astimezone(timezone.utc).isoformat(),
+                    target_soc_pct=(
+                        float(target_soc_pct) if target_soc_pct is not None else None
+                    ),
+                )
+            except Exception as e:
+                self.__log(
+                    f"Failed to write reservation to DB: {e}",
+                    level="WARNING",
+                )
 
     async def __record_availability(self, conclude_interval=False):
         """Record (non_)availability durations of time in current interval.
@@ -197,7 +263,97 @@ class DataMonitor:
 
             self.current_availability_since = local_now
 
-    async def _process_power_change(self, new_power):
+    def _derive_app_state(self) -> str:
+        """Derive app_state from charger_state, charge_mode and SoC.
+
+        Priority: error (1) > not_connected (2) > max_boost (3) > charge_mode-based (4).
+        """
+        # Priority 1: error
+        if (
+            self._current_charger_state is not None
+            and self.evse_client_app is not None
+            and self._current_charger_state in self.evse_client_app.ERROR_STATES
+        ):
+            return "error"
+
+        # Priority 2: not_connected
+        if (
+            self._current_charger_state is not None
+            and self.evse_client_app is not None
+            and self._current_charger_state in self.evse_client_app.DISCONNECTED_STATES
+        ):
+            return "not_connected"
+
+        # Priority 3: max_boost (SoC below minimum, independent of charge_mode)
+        if (
+            isinstance(self.connected_car_soc, int)
+            and self.connected_car_soc < c.CAR_MIN_SOC_IN_PERCENT
+        ):
+            return "max_boost"
+
+        # Priority 4: from charge_mode
+        return self.CHARGE_MODE_TO_APP_STATE.get(self._current_charge_mode, "unknown")
+
+    def _update_app_state(self):
+        """Recalculate app_state and track duration of previous state."""
+        new_state = self._derive_app_state()
+        if new_state == self._current_app_state:
+            return
+
+        local_now = get_local_now()
+        duration_ms = int(
+            (local_now - self._current_app_state_since).total_seconds() * 1000
+        )
+        self._app_state_durations[self._current_app_state] = (
+            self._app_state_durations.get(self._current_app_state, 0) + duration_ms
+        )
+        self._current_app_state = new_state
+        self._current_app_state_since = local_now
+
+    def _conclude_app_state(self) -> str:
+        """Close current state, pick winner for this interval, and reset.
+
+        Winner: highest priority state that occurred. If multiple states
+        share the same priority, the one with the longest duration wins.
+        """
+        # Close out the current state
+        local_now = get_local_now()
+        duration_ms = int(
+            (local_now - self._current_app_state_since).total_seconds() * 1000
+        )
+        self._app_state_durations[self._current_app_state] = (
+            self._app_state_durations.get(self._current_app_state, 0) + duration_ms
+        )
+
+        # Pick winner
+        winner = self._pick_winning_state()
+
+        # Reset for next interval
+        self._app_state_durations = {}
+        self._current_app_state_since = local_now
+
+        return winner
+
+    def _pick_winning_state(self) -> str:
+        """Pick the winning app_state from tracked durations.
+
+        Highest priority (lowest number) wins. Among equal priority,
+        the state with the longest duration wins.
+        """
+        if not self._app_state_durations:
+            return "unknown"
+
+        min_prio = min(
+            self.STATE_PRIORITY.get(s, 99) for s in self._app_state_durations
+        )
+        candidates = {
+            s: d
+            for s, d in self._app_state_durations.items()
+            if self.STATE_PRIORITY.get(s, 99) == min_prio
+        }
+        return max(candidates, key=candidates.get)
+
+    async def _process_power_change(self, new_power: int):
         """Keep track of updated power changes within a regular interval."""
         if not isinstance(new_power, (int, float)):
             return
@@ -215,6 +371,7 @@ class DataMonitor:
 
         await self._process_power_change(self.current_power)
         await self.__record_availability(True)
+        app_state = self._conclude_app_state()
 
         # At initialise there might be an incomplete period,
         # duration must be not more than 5% smaller than readings_resolution * 60
@@ -224,20 +381,17 @@ class DataMonitor:
         )
         if total_interval_duration > (c.FM_EVENT_RESOLUTION_IN_MINUTES * 60 * 0.95):
             # Power related processing
-            # Initiate with fallback value
-            average_period_power = self.period_power_x_duration
+            average_power_kw = 0.0
             # If duration = 0 it is assumed it can be skipped. Also prevent division by zero.
             if self.power_period_duration != 0:
-                # Calculate average power and convert from Watt to MegaWatt
-                average_period_power = round(
-                    (self.period_power_x_duration / self.power_period_duration)
-                    / 1000000,
-                    5,
+                # Calculate average power and convert from Watt to kilowatt
+                average_power_kw = round(
+                    self.period_power_x_duration / self.power_period_duration / 1000,
+                    3,
                 )
-                self.power_readings.append(average_period_power)
 
             # Availability related processing
-            percentile_availability = round(
+            availability_pct = round(
                 100
                 * (
                     self.availability_duration_in_current_interval
@@ -245,14 +399,30 @@ class DataMonitor:
                 ),
                 2,
             )
-            if percentile_availability > 100.00:
+            if availability_pct > 100.00:
                 # Prevent reading > 100% (due to rounding)
-                percentile_availability = 100.00
-            self.availability_readings.append(percentile_availability)
+                availability_pct = 100.00
 
             # SoC does not change very quickly, so we just read it at conclude time and do not do
             # any calculation.
-            self.soc_readings.append(self.connected_car_soc)
+            soc = self.connected_car_soc
+
+            # Calculate energy from average power and interval duration
+            energy_kwh = round(
+                average_power_kw * c.FM_EVENT_RESOLUTION_IN_MINUTES / 60, 6
+            )
+
+            # Persist interval data to local database
+            timestamp = await self._write_interval_to_db(
+                energy_kwh, availability_pct, soc, app_state
+            )
+
+            # Notify listeners (e.g. naive charging simulator).
+            if timestamp is not None:
+                self.event_bus.emit_event("interval_concluded", timestamp=timestamp)
+
+            # Update homepage sensors with today's totals
+            await self._emit_today_totals()
 
         else:
             self.__log(
@@ -268,100 +438,93 @@ class DataMonitor:
         self.availability_duration_in_current_interval = 0
         self.un_availability_duration_in_current_interval = 0
 
-    async def __try_send_data(self, *args):
-        """Central function for sending all readings to FM.
-        Called every hour
-        Reset reading list/variables if sending was successful"""
-        self.__log("Trying to send data")
+    async def _write_interval_to_db(
+        self,
+        energy_kwh: float,
+        availability_pct: float,
+        soc: Union[int, None],
+        app_state: str,
+    ) -> str | None:
+        """Write a concluded interval to the local SQLite database.
 
-        start_from = time_round(get_local_now(), c.EVENT_RESOLUTION)
-        res = await self.__post_power_data()
-        if res is True:
-            self.__log("Power data successfully sent.")
-            self.hourly_power_readings_since = start_from
-            self.power_readings.clear()
+        Returns the UTC timestamp of the written interval, or None on failure.
+        """
+        if self.data_store is None:
+            return None
 
-        res = await self.__post_availability_data()
-        if res is True:
-            self.__log("Availability data successfully sent.")
-            self.hourly_availability_readings_since = start_from
-            self.availability_readings.clear()
-
-        res = await self.__post_soc_data()
-        if res is True:
-            self.__log("SoC data successfully sent")
-            self.hourly_soc_readings_since = start_from
-            self.soc_readings.clear()
-
-        return
-
-    async def __post_soc_data(self, *args, **kwargs):
-        """Try to Post SoC readings to FM.
-        Return false if un-successful"""
-        # If self.soc_readings is empty there is nothing to send.
-        if len(self.soc_readings) == 0:
-            self.__log("List of soc readings is 0 length..", level="WARNING")
-            return False
-
-        str_duration = len_to_iso_duration(len(self.soc_readings))
-
-        res = await self.fm_client_app.post_measurements(
-            sensor_id=c.FM_ACCOUNT_SOC_SENSOR_ID,
-            values=self.soc_readings,
-            start=self.hourly_soc_readings_since.isoformat(),
-            duration=str_duration,
-            uom="%",
+        # Timestamp = start of the interval that just concluded, in UTC.
+        interval_end = time_round(get_local_now(), c.EVENT_RESOLUTION)
+        interval_start = interval_end - timedelta(
+            minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
         )
-        return res
+        timestamp = interval_start.astimezone(timezone.utc).isoformat()
 
-    async def __post_availability_data(self, *args, **kwargs):
-        """Try to Post Availability readings to FM.
-        Return false if un-successful"""
-        # If self.availability_readings is empty there is nothing to send.
-        if len(self.availability_readings) == 0:
-            self.__log("List of availability readings is 0 length..", level="WARNING")
-            return False
+        try:
+            self.data_store.insert_interval(
+                timestamp=timestamp,
+                energy_kwh=energy_kwh,
+                app_state=app_state,
+                soc_pct=float(soc) if soc is not None else None,
+                availability_pct=availability_pct,
+            )
+            return timestamp
+        except Exception as e:
+            self.__log(
+                f"Failed to write interval to DB: {e}",
+                level="WARNING",
+            )
+            return None
 
-        str_duration = len_to_iso_duration(len(self.availability_readings))
+    async def _emit_today_totals(self):
+        """Query today's aggregated data and emit an event for homepage sensors."""
+        if self.data_store is None:
+            return
 
-        res = await self.fm_client_app.post_measurements(
-            sensor_id=c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID,
-            values=self.availability_readings,
-            start=self.hourly_availability_readings_since.isoformat(),
-            duration=str_duration,
-            uom="%",
+        now = get_local_now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+
+        try:
+            result = self.data_store.get_aggregated_data(
+                start=today_start.astimezone(timezone.utc).isoformat(),
+                end=today_end.astimezone(timezone.utc).isoformat(),
+                granularity="days",
+            )
+        except Exception as e:
+            self.__log(
+                f"Failed to query today's totals: {e}",
+                level="WARNING",
+            )
+            return
+
+        if result:
+            day = result[0]
+            charge_kwh = day["charge_kwh"]
+            charge_cost = day["charge_cost"]
+            discharge_kwh = day["discharge_kwh"]
+            discharge_revenue = day["discharge_revenue"]
+        else:
+            charge_kwh = 0.0
+            charge_cost = 0.0
+            discharge_kwh = 0.0
+            discharge_revenue = 0.0
+
+        self.event_bus.emit_event(
+            "today_energy_update",
+            charge_kwh=charge_kwh,
+            charge_cost=charge_cost,
+            discharge_kwh=discharge_kwh,
+            discharge_revenue=discharge_revenue,
         )
-        return res
-
-    async def __post_power_data(self, *args, **kwargs):
-        """Try to Post power readings to FM.
-        Return false if un-successful"""
-        # If self.power_readings is empty there is nothing to send.
-        if len(self.power_readings) == 0:
-            self.__log("List of power readings is 0 length..", level="WARNING")
-            return False
-
-        str_duration = len_to_iso_duration(len(self.power_readings))
-
-        res = await self.fm_client_app.post_measurements(
-            sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
-            values=self.power_readings,
-            start=self.hourly_power_readings_since.isoformat(),
-            duration=str_duration,
-            uom="MW",
-        )
-        return res
 
     async def __is_available(self):
         """Check if car and charger are available for automatic charging."""
         # TODO:
         # How to take an upcoming calendar item in to account?
-        charge_mode = await self.hass.get_state("input_select.charge_mode")
-        # Forced charging in progress if SoC is below the minimum SoC setting
         is_evse_and_car_available = (
             self.evse_client_app.is_available_for_automated_charging()
         )
-        if is_evse_and_car_available and charge_mode == "Automatic":
+        if is_evse_and_car_available and self._current_charge_mode == "Automatic":
             if self.connected_car_soc in self.EMPTY_STATES:
                 # SoC is unknown. Rare after previous check. Unknown would normally mean,
                 # disconnected or error.
@@ -371,11 +534,3 @@ class DataMonitor:
             else:
                 return self.connected_car_soc >= c.CAR_MIN_SOC_IN_PERCENT
         return False
-
-
-def len_to_iso_duration(nr_of_intervals: int) -> str:
-    duration = nr_of_intervals * c.FM_EVENT_RESOLUTION_IN_MINUTES
-    hours = math.floor(duration / 60)
-    minutes = duration - hours * 60
-    str_duration = f"PT{hours}H{minutes}M"
-    return str_duration

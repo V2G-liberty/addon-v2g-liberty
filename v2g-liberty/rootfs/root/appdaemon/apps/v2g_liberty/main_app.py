@@ -13,6 +13,7 @@ from .event_bus import EventBus
 from .v2g_globals import time_round, he, get_local_now, parse_to_int
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .timer_utils import cancel_timer_silent, set_oneshot_timer
 
 
 class ChartLine(enum.Enum):
@@ -231,12 +232,13 @@ class V2Gliberty:
             source = v2g_args
         else:
             source = "unknown"
-        self.__log(f"Set next action called from source: {source}.")
+        # Silenced to reduce log noise — re-enable when investigating call cadence.
+        # self.__log(f"Set next action called from source: {source}.")
 
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
-        if self.timer_handle_set_next_action:
-            self.__cancel_timer(self.timer_handle_set_next_action)
-        self.timer_handle_set_next_action = self.hass.run_in(
+        self.timer_handle_set_next_action = await set_oneshot_timer(
+            self.hass,
+            self.timer_handle_set_next_action,
             self.set_next_action,
             delay=self.call_next_action_at_least_every,
         )
@@ -289,7 +291,7 @@ class V2Gliberty:
                 self.__log(
                     f"Start Boost charge: SoC '{soc}%' < minimum '{c.CAR_MIN_SOC_IN_PERCENT}%'."
                 )
-                self.__cancel_charging_timers()
+                await self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
                 self.in_boost_to_reach_min_soc = True
 
@@ -328,7 +330,7 @@ class V2Gliberty:
                     f"is reached.\nThis is expected around "
                     f"{expected_min_soc_time.strftime(c.DATE_TIME_FORMAT)}."
                 )
-                self.notifier.notify_user(
+                await self.notifier.notify_user(
                     message=message,
                     title="Car battery is too low",
                     tag="battery_too_low",
@@ -533,7 +535,9 @@ class V2Gliberty:
 
                 # Set a timer for the start of the first reservation
                 if is_first_reservation:
-                    self.__cancel_timer(self.timer_id_first_reservation_start)
+                    await cancel_timer_silent(
+                        self.hass, self.timer_id_first_reservation_start
+                    )
                     run_at = target_start
                     now = get_local_now()
                     if target_start < now:
@@ -547,7 +551,9 @@ class V2Gliberty:
                     )
                     # Assumed is that the end will never be in the past as teh v2g_event then will
                     # not be in the list of v2g_events (any more).
-                    self.__cancel_timer(self.timer_id_first_reservation_end)
+                    await cancel_timer_silent(
+                        self.hass, self.timer_id_first_reservation_end
+                    )
                     self.timer_id_first_reservation_end = await self.hass.run_at(
                         callback=self.__handle_first_reservation_end,
                         start=target_end,
@@ -643,14 +649,14 @@ class V2Gliberty:
         self.notifier.clear_notification(tag="unreachable_target")
 
         # Cancel current scheduling timers
-        self.__cancel_charging_timers()
+        await self.__cancel_charging_timers()
         await self.__clear_all_soc_chart_lines()
 
         # Setting charge_mode set to automatic (was Max boost Now) as car is disconnected.
         charge_mode = await self.hass.get_state("input_select.charge_mode", None)
         if charge_mode == "Max boost now" or charge_mode == "Max discharge now":
             await self.__set_charge_mode_in_ui("Automatic")
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=f"Charge mode set from '{charge_mode}' to 'Automatic' as car is disconnected.",
                 title=None,
                 tag="charge_mode_change",
@@ -730,7 +736,7 @@ class V2Gliberty:
 
         ttl = round((ve_end - get_local_now()).total_seconds(), 0)
         self.__log(f"Notifying user for {ttl} sec.:\n'{message}'")
-        self.notifier.notify_user(
+        await self.notifier.notify_user(
             message=message,
             tag="unreachable_target",
             send_to_all=True,
@@ -788,7 +794,7 @@ class V2Gliberty:
         )
         # Do not send a critical warning if car was not connected.
         critical = was_car_connected
-        self.notifier.notify_user(
+        await self.notifier.notify_user(
             message=message,
             title=title,
             tag="charger_modbus_crashed",
@@ -890,7 +896,7 @@ class V2Gliberty:
 
         if old_state == "Automatic":
             self.__log("Cancel scheduled charging (timers).")
-            self.__cancel_charging_timers()
+            await self.__cancel_charging_timers()
             await self.__reset_no_new_schedule()
 
         if (
@@ -939,7 +945,7 @@ class V2Gliberty:
                 f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
             )
             self.__log(f"{message=}")
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=message,
                 tag="battery_max_soc_reached",
                 send_to_all=True,
@@ -960,7 +966,7 @@ class V2Gliberty:
 
         await self.evse_client_app.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
-        self.notifier.notify_user(
+        await self.notifier.notify_user(
             message="Charger is disconnected",
             tag="charger_disconnected",
             send_to_all=True,
@@ -1017,11 +1023,8 @@ class V2Gliberty:
         """
 
         if reset:
-            if self.hass.timer_running(self.notification_timer_handle):
-                res = await self.hass.cancel_timer(self.notification_timer_handle)
-                self.__log(
-                    f"__notify_no_new_schedule, notification timer cancelled: {res}."
-                )
+            await cancel_timer_silent(self.hass, self.notification_timer_handle)
+            self.notification_timer_handle = None
             self.no_schedule_notification_is_planned = False
             self.notifier.clear_notification(tag="no_new_schedule")
             await self.hass.set_state(
@@ -1041,8 +1044,11 @@ class V2Gliberty:
             )
             if not self.no_schedule_notification_is_planned:
                 # Plan a notification in case the error situation remains for more than an hour
-                self.notification_timer_handle = self.hass.run_in(
-                    self.__no_new_schedule_notification, delay=60 * 60
+                self.notification_timer_handle = await set_oneshot_timer(
+                    self.hass,
+                    self.notification_timer_handle,
+                    self.__no_new_schedule_notification,
+                    delay=60 * 60,
                 )
                 self.no_schedule_notification_is_planned = True
         else:
@@ -1063,7 +1069,7 @@ class V2Gliberty:
                     "If you've set charging via the chargers app, "
                     "consider to end that and use automatic charging again."
                 )
-                self.notifier.notify_user(
+                await self.notifier.notify_user(
                     message=message,
                     title=title,
                     tag="no_new_schedule",
@@ -1073,7 +1079,7 @@ class V2Gliberty:
                 )
             self.no_schedule_notification_is_planned = False
 
-    def __no_new_schedule_notification(self, v2g_args=None):
+    async def __no_new_schedule_notification(self, v2g_args=None):
         # Work-around to have this in a separate function (without arguments) and not inline in
         # handle_no_new_schedule. This is needed because self.hass.run_in() with kwargs does not
         # really work well and results in this app crashing.
@@ -1083,7 +1089,7 @@ class V2Gliberty:
             " automatically in an hour or so.\nIf the schedule does not fit your needs, consider "
             "charging manually via the chargers app."
         )
-        self.notifier.notify_user(
+        await self.notifier.notify_user(
             message=message,
             title=title,
             tag="no_new_schedule",
@@ -1096,34 +1102,20 @@ class V2Gliberty:
     #                PRIVATE FUNCTIONS FOR TIMERS                        #
     ######################################################################
 
-    def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)
-
-    def __cancel_charging_timers(self):
+    async def __cancel_charging_timers(self):
+        count = len(self.scheduling_timer_handles)
         for h in self.scheduling_timer_handles:
-            self.__cancel_timer(h)
+            await cancel_timer_silent(self.hass, h)
         self.scheduling_timer_handles = []
-        self.__log(
-            f"Canceled all {len(self.scheduling_timer_handles)} charging timers."
-        )
+        self.__log(f"Canceled all {count} charging timers.")
 
-    def __reset_charging_timers(self, handles):
+    async def __reset_charging_timers(self, handles):
         self.__log(
             f"__reset_charging_timers: cancel current and set {len(handles)} new charging timers."
         )
         # We need to be sure no new timers are added unless the old are removed
-        self.__cancel_charging_timers()
+        await self.__cancel_charging_timers()
         self.scheduling_timer_handles = handles
-        # self.__log("finished __reset_charging_timers")
 
     ######################################################################
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
@@ -1230,7 +1222,7 @@ class V2Gliberty:
                         "source": str_source,
                     }
                 )
-        self.__reset_charging_timers(handles)  # This also cancels previous timers
+        await self.__reset_charging_timers(handles)  # This also cancels previous timers
 
         exp_soc_values = list(
             accumulate(
@@ -1314,7 +1306,7 @@ class V2Gliberty:
 
         # As the calendar has changed we assume the first event has changed. So, the current timer
         # needs to be cancelled and possibly replaced by a new one.
-        self.__cancel_timer(self.timer_id_event_wait_to_disconnect)
+        await cancel_timer_silent(self.hass, self.timer_id_event_wait_to_disconnect)
         run_at = get_local_now() + self.MAX_EVENT_WAIT_TO_DISCONNECT
         if run_at > v2g_event["end"]:
             # This is rare but can be the case if a calendar item is added whereby the start is in
@@ -1381,7 +1373,7 @@ class V2Gliberty:
                     "title": "Keep reservation",
                 },
             ]
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message=message,
                 title="Keep reservation for scheduling?",
                 tag="dismiss_event_or_not",
@@ -1425,7 +1417,7 @@ class V2Gliberty:
             self.__log(
                 "__remind_user_to_connect_after_event, car not connected, notifying users."
             )
-            self.notifier.notify_user(
+            await self.notifier.notify_user(
                 message="The car is not connected while it was expected to have returned after a reservation. ",
                 tag="reminder_to_connect",
                 send_to_all=True,

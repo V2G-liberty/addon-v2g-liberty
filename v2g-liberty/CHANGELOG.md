@@ -1,40 +1,22 @@
 # What's changed?
 
-## 0.7.6 2026-03-09
+## 0.8.0 2026-04-09
 
 ### Fixed
 
-- 🪲 BUG: Fix settings cards dialogs broken in HA 2026.3 due to dialog API migration (#411, #412)
-- 🪲 BUG: Fix schedule request flooding when previous request is lost (#410)
-- 🪲 BUG: Fix crash on partial Modbus response (#409)
-- 🪲 BUG: Unavailable charge power not handled (#408)
-- 🪲 BUG: Gap in chartlines between fixed and forecast (#403)
-- 🪲 BUG: Fixed failing "no prices" notification (#402)
+- 🪲 BUG: Improve test notification with sound feedback buttons (#434)
+- 🪲 BUG: Fix set next action timer (#429)
+- 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
+- 🪲 BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
 
 ### Added
 
-- 🚀 FEAT: Log ha version at startup to FM (#418)
+- 🚀 FEAT: Extend insights (#420, #423, #430)
 
 ### Changed
 
-- 🛠️ Refactoring: Made storing settings more robust (#406)
-
-&nbsp;
-
----
-
-### [Unreleased]
-
-The next release might include:
-
-#### Adding
-
-- Detailed usage statistics
-- Support for uni-directional charging
-
-#### Changing
-
-- ?
+- 🛠️ Refactor: centralise async timer API usage (#432)
+- ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
 
 #### Removing
 

@@ -21,8 +21,8 @@ def hass():
     mock_hass.log = MagicMock()
     mock_hass.set_state = AsyncMock()
     mock_hass.run_in = AsyncMock()
-    mock_hass.run_daily = MagicMock()
-    mock_hass.timer_running = MagicMock(return_value=False)
+    mock_hass.run_daily = AsyncMock()
+    mock_hass.timer_running = AsyncMock(return_value=False)
     mock_hass.cancel_timer = AsyncMock()
     return mock_hass
 
@@ -31,7 +31,7 @@ def hass():
 def notifier():
     """Create a mock Notifier instance."""
     mock_notifier = MagicMock(spec=Notifier)
-    mock_notifier.notify_user = MagicMock()
+    mock_notifier.notify_user = AsyncMock()
     mock_notifier.clear_notification = MagicMock()
     return mock_notifier
 
@@ -68,109 +68,6 @@ def fixed_now():
     return datetime(2026, 1, 28, 15, 0, 0, tzinfo=ZoneInfo("Europe/Amsterdam"))
 
 
-class TestGetChargingCostIntegration:
-    """Integration tests for get_charging_cost method."""
-
-    @pytest.mark.asyncio
-    async def test_get_charging_cost_success(
-        self, data_importer, fm_client, hass, fixed_now
-    ):
-        """Test successful charging cost retrieval."""
-        # Setup mock response
-        fm_client.get_sensor_data.return_value = {
-            "values": [1.50, 2.00, None, 1.75, 2.25, 1.00, 0.50],
-            "start": "2026-01-21T00:00:00+01:00",
-            "duration": "P7D",
-        }
-
-        with patch(
-            "apps.v2g_liberty.fm_data_importer.get_local_now", return_value=fixed_now
-        ):
-            await data_importer.get_charging_cost()
-
-        # Verify sensor was updated with correct total
-        expected_total = round(1.50 + 2.00 + 1.75 + 2.25 + 1.00 + 0.50, 2)
-        hass.set_state.assert_called_with(
-            entity_id="sensor.total_charging_cost_last_7_days",
-            state=expected_total,
-        )
-
-    @pytest.mark.asyncio
-    async def test_get_charging_cost_no_client(self, data_importer, hass):
-        """Test charging cost when client is not available."""
-        data_importer._fm_client_app = None
-        data_importer.cost_fetcher = None
-
-        result = await data_importer.get_charging_cost()
-
-        assert result is False
-        hass.set_state.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_get_charging_cost_fetch_failure(
-        self, data_importer, fm_client, hass, fixed_now
-    ):
-        """Test charging cost when fetch returns None."""
-        fm_client.get_sensor_data.return_value = None
-
-        with patch(
-            "apps.v2g_liberty.fm_data_importer.get_local_now", return_value=fixed_now
-        ):
-            result = await data_importer.get_charging_cost()
-
-        assert result is False
-
-
-class TestGetChargedEnergyIntegration:
-    """Integration tests for get_charged_energy method."""
-
-    @pytest.mark.asyncio
-    async def test_get_charged_energy_success(
-        self, data_importer, fm_client, hass, fixed_now
-    ):
-        """Test successful charged energy retrieval."""
-        # Setup mock response with power values in MW
-        # 5 minute resolution over 7 days = 2016 values
-        # Simplified: just a few values for testing
-        power_values = [0.001, 0.002, -0.001, None, 0.001]  # MW values
-
-        fm_client.get_sensor_data.return_value = {
-            "values": power_values,
-            "start": "2026-01-21T00:00:00+01:00",
-            "duration": "P7D",
-            "unit": "MW",
-        }
-
-        # Setup emission cache
-        start = datetime(2026, 1, 21, 0, 0, 0, tzinfo=ZoneInfo("Europe/Amsterdam"))
-        data_importer.emission_intensities = {
-            start: 400.0,
-            start + timedelta(minutes=5): 410.0,
-            start + timedelta(minutes=10): 420.0,
-            start + timedelta(minutes=15): 430.0,
-            start + timedelta(minutes=20): 440.0,
-        }
-
-        with patch(
-            "apps.v2g_liberty.fm_data_importer.get_local_now", return_value=fixed_now
-        ):
-            await data_importer.get_charged_energy()
-
-        # Verify sensors were updated (8 set_state calls expected)
-        assert hass.set_state.call_count == 8
-
-    @pytest.mark.asyncio
-    async def test_get_charged_energy_no_client(self, data_importer, hass):
-        """Test charged energy when client is not available."""
-        data_importer._fm_client_app = None
-        data_importer.energy_fetcher = None
-
-        result = await data_importer.get_charged_energy()
-
-        assert result is False
-        hass.set_state.assert_not_called()
-
-
 class TestGetEmissionIntensitiesIntegration:
     """Integration tests for get_emission_intensities method."""
 
@@ -197,8 +94,9 @@ class TestGetEmissionIntensitiesIntegration:
         assert result is True
         v2g_main_app.set_records_in_chart.assert_called_once()
 
-        # Verify emission_intensities cache was populated
-        assert len(data_importer.emission_intensities) > 0
+        # Verify chart was updated with emission data
+        call_args = v2g_main_app.set_records_in_chart.call_args
+        assert call_args is not None
 
     @pytest.mark.asyncio
     async def test_get_emission_intensities_no_client(
@@ -326,7 +224,6 @@ class TestComponentInitialisation:
         # Verify processors are initialised
         assert data_importer.price_processor is not None
         assert data_importer.emission_processor is not None
-        assert data_importer.energy_processor is not None
 
         # Verify validators and utilities are initialised
         assert data_importer.datetime_utils is not None
@@ -336,8 +233,6 @@ class TestComponentInitialisation:
         assert data_importer.entsoe_fetcher is not None
         assert data_importer.price_fetcher is not None
         assert data_importer.emission_fetcher is not None
-        assert data_importer.energy_fetcher is not None
-        assert data_importer.cost_fetcher is not None
 
     def test_fetchers_not_initialised_without_client(self, hass, notifier):
         """Test that fetchers are None when fm_client_app is not set."""
@@ -347,8 +242,6 @@ class TestComponentInitialisation:
         assert importer.entsoe_fetcher is None
         assert importer.price_fetcher is None
         assert importer.emission_fetcher is None
-        assert importer.energy_fetcher is None
-        assert importer.cost_fetcher is None
 
     def test_fetchers_initialised_when_client_set(self, hass, notifier, fm_client):
         """Test that fetchers are initialised when fm_client_app is set."""
@@ -364,8 +257,6 @@ class TestComponentInitialisation:
         assert importer.entsoe_fetcher is not None
         assert importer.price_fetcher is not None
         assert importer.emission_fetcher is not None
-        assert importer.energy_fetcher is not None
-        assert importer.cost_fetcher is not None
 
 
 class TestCheckIfPricesAreUpToDate:

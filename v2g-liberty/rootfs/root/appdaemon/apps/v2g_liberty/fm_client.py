@@ -1,6 +1,7 @@
 """Module to manage the communication with the FlexMeasures platform"""
 
 import asyncio
+import json
 import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
@@ -55,6 +56,7 @@ class FMClient(AsyncIOEventEmitter):
     # Should be FlexMeasuresClient but (early) import statement gives errors..
     client = None
     _asset_id: int = None
+    user_id: int | None = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
@@ -127,7 +129,7 @@ class FMClient(AsyncIOEventEmitter):
 
         self.__log("successfully connect to flexmeasures")
         try:
-            assets = await client.get_assets()
+            assets = await client.get_assets(parse_json_fields=True)
             await self.set_fm_connection_status(connected=True)
             return assets
         except Exception as e:
@@ -212,6 +214,14 @@ class FMClient(AsyncIOEventEmitter):
                 level="WARNING",
             )
 
+        try:
+            user = await self.client.get_user()
+            self.user_id = user.get("id")
+            self.__log(f"FM user id: {self.user_id}.")
+        except Exception as e:
+            self.__log(f"Could not retrieve FM user id: {e}.", level="WARNING")
+            self.user_id = None
+
         return "Successfully connected"
 
     async def set_asset_attributes(self, attributes: dict):
@@ -256,7 +266,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
     async def __get_asset_id_by_name(self, asset_name: str):
-        assets = await self.client.get_assets()
+        assets = await self.client.get_assets(parse_json_fields=True)
         for asset in assets:
             if asset["name"] == asset_name:
                 return asset["id"]
@@ -269,12 +279,141 @@ class FMClient(AsyncIOEventEmitter):
                 level="WARNING",
             )
             return []
-        assets = await self.client.get_assets()
+        assets = await self.client.get_assets(parse_json_fields=True)
         for asset in assets:
             if asset["name"] == asset_name:
                 sensors = [sensor for sensor in asset["sensors"]]
                 return sensors
         return []
+
+    async def discover_power_source_id(
+        self,
+        sensor_id: int,
+    ) -> int | None:
+        """Discover the FM source_id for actual charger measurements.
+
+        Uses the chart_data endpoint which returns per-entry source metadata,
+        allowing us to distinguish scheduler beliefs (type="scheduler") from
+        real charger measurements (type!="scheduler") in a single API call.
+
+        Scans backwards week-by-week (up to 6 months) until data is found.
+        Returns None if no measured source is found or the client is not
+        initialised.
+        """
+        if self.client is None:
+            self.__log(
+                "Abort source_id discovery, client not initialised.", level="WARNING"
+            )
+            return None
+
+        self.client.ensure_session()
+
+        today = get_local_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        for weeks_back in range(1, 27):  # up to ~6 months
+            week_start = today - timedelta(weeks=weeks_back)
+            week_end = week_start + timedelta(days=7)
+
+            url = self.client.build_url(
+                f"sensor/{sensor_id}/chart_data", path="/api/dev/"
+            )
+            headers = await self.client.get_headers(include_auth=True)
+            params = {
+                "event_starts_after": week_start.isoformat(),
+                "event_ends_before": week_end.isoformat(),
+            }
+
+            try:
+                response = await self.client.session.get(
+                    url, headers=headers, params=params, ssl=self.client.ssl
+                )
+                if response.status != 200:
+                    self.__log(
+                        f"Source discovery: chart_data returned status {response.status} "
+                        f"for week {week_start.date()}, skipping."
+                    )
+                    continue
+                body = await response.text()
+                entries = json.loads(body)
+            except Exception as e:
+                self.__log(
+                    f"Source discovery: error fetching chart_data for week "
+                    f"{week_start.date()}: {e}"
+                )
+                continue
+
+            if not isinstance(entries, list) or not entries:
+                if entries:
+                    self.__log(
+                        f"Source discovery: unexpected response type "
+                        f"({type(entries).__name__}) for week {week_start.date()}, "
+                        f"skipping.",
+                        level="WARNING",
+                    )
+                continue
+
+            # Validate that entries have the expected source structure.
+            first = entries[0]
+            if not isinstance(first, dict) or "source" not in first:
+                self.__log(
+                    f"Source discovery: response format changed — entries lack "
+                    f"'source' field. First entry keys: {list(first.keys()) if isinstance(first, dict) else 'N/A'}.",
+                    level="WARNING",
+                )
+                return None
+
+            # Collect unique sources from the response.
+            sources_by_id: dict[int, dict] = {}
+            for entry in entries:
+                src = entry.get("source", {})
+                src_id = src.get("id")
+                if src_id is not None and src_id not in sources_by_id:
+                    sources_by_id[src_id] = src
+
+            self.__log(
+                f"Source discovery: week {week_start.date()} -- {week_end.date()} "
+                f"has {len(entries)} entries from {len(sources_by_id)} source(s): "
+                + ", ".join(
+                    f"id={s['id']} name='{s.get('name')}' type='{s.get('type')}'"
+                    for s in sources_by_id.values()
+                )
+                + "."
+            )
+
+            # Filter out scheduler sources.
+            measured = {
+                sid: src
+                for sid, src in sources_by_id.items()
+                if src.get("type") != "scheduler"
+            }
+
+            if len(measured) == 1:
+                source_id = next(iter(measured))
+                self.__log(
+                    f"Source discovery: found measured source_id={source_id} "
+                    f"(name='{measured[source_id].get('name')}')."
+                )
+                return source_id
+
+            if len(measured) > 1:
+                self.__log(
+                    f"Source discovery: multiple non-scheduler sources found: "
+                    f"{list(measured.keys())}. Cannot determine which is the "
+                    f"charger reporter, returning None.",
+                    level="WARNING",
+                )
+                return None
+
+            # Only scheduler sources found — try an earlier week.
+            self.__log(
+                f"Source discovery: week {week_start.date()} has only scheduler "
+                f"source(s), trying earlier week."
+            )
+
+        self.__log(
+            "Source discovery: no measured source found in the last 6 months.",
+            level="WARNING",
+        )
+        return None
 
     async def get_sensor_data(
         self,

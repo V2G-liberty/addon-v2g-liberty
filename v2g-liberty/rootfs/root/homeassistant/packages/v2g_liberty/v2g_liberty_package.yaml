@@ -286,57 +286,6 @@ template:
         unit_of_measurement: km
         state: "{{ None }}" # Dummy
 
-      # Used for stats in UI.
-      - default_entity_id: sensor.total_charging_cost_last_7_days
-        name: Total charging costs last 7 days
-        device_class: monetary
-        unit_of_measurement: €
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.total_charged_energy_last_7_days
-        name: Total charged energy last 7 days
-        device_class: energy_storage
-        unit_of_measurement: kWh
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.total_discharged_energy_last_7_days
-        name: Total discharged energy last 7 days
-        device_class: energy_storage
-        unit_of_measurement: kWh
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.net_energy_last_7_days
-        name: Total net energy last 7 days
-        device_class: energy_storage
-        unit_of_measurement: kWh
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.total_saved_emissions_last_7_days
-        name: Total saved emissions last 7 days
-        device_class: weight
-        unit_of_measurement: kg # CO2 that is...
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.total_emissions_last_7_days
-        name: Total emissions last 7 days
-        device_class: weight
-        unit_of_measurement: kg # CO2 that is...
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.net_emissions_last_7_days
-        name: Net emissions last 7 days
-        device_class: weight
-        unit_of_measurement: kg # CO2 that is...
-        state: "{{ None }}" # Dummy
-
-      - default_entity_id: sensor.total_discharge_time_last_7_days
-        name: Total discharge time in last 7 days
-        state: ""
-
-      - default_entity_id: sensor.total_charge_time_last_7_days
-        name: Total charge time in last 7 days
-        state: ""
-
       - default_entity_id: sensor.calendar_account_connection_status
         name: Calendar account connection status
         state: ""

@@ -1,0 +1,7 @@
+###############################
+#          Data tab           #
+###############################
+# To be included in the v2g_liberty_dashboard.yaml
+# View type: panel (single full-width card)
+
+- type: custom:v2g-liberty-data-table-card

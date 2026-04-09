@@ -6,7 +6,7 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { callFunction } from './util/appdaemon';
 
 import { renderEntityBlock, renderButton, renderSpinner } from './util/render';
-import { partial, t } from './util/translate';
+import { partial, setLanguage, t } from './util/translate';
 import { styles } from './card.styles';
 import { showAdministratorSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -15,7 +15,7 @@ const tp = partial('settings.administrator');
 const tc = partial('settings.common');
 const tt = partial('settings.test_notification');
 
-type TestNotificationState = 'idle' | 'waiting' | 'timeout' | 'success';
+type TestNotificationState = 'idle' | 'waiting' | 'timeout' | 'success' | 'sound-issue';
 
 @customElement('v2g-liberty-administrator-settings-card')
 export class AdministratorSettingsCard extends LitElement {
@@ -30,6 +30,7 @@ export class AdministratorSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._adminSettingsInitialised =
       hass.states[entityIds.adminSettingsInitialised];
     this._adminMobileName = hass.states[entityIds.adminMobileName];
@@ -55,7 +56,8 @@ export class AdministratorSettingsCard extends LitElement {
     const args = {
       notificationTitle: tt('notification-title'),
       notificationMessage: tt('notification-message'),
-      notificationButtonLabel: tt('notification-button-label'),
+      notificationLoudAlarmLabel: tt('notification-loud-alarm-label'),
+      notificationSoftOrNoSoundLabel: tt('notification-soft-or-no-sound-label'),
     };
 
     try {
@@ -65,7 +67,7 @@ export class AdministratorSettingsCard extends LitElement {
         args,
         2 * 60 * 1000,
       );
-      this._testNotificationState = 'success';
+      this._testNotificationState = result.loud_alarm ? 'success' : 'sound-issue';
     } catch (err) {
       this._testNotificationState = 'timeout';
     }
@@ -114,7 +116,9 @@ export class AdministratorSettingsCard extends LitElement {
       return html`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
         ${renderSpinner(this._hass)}
-        <div style="padding-left: 0.5em;">${tt('how-to-react-on-mobile-device')}</div></div>
+        <div style="padding-left: 0.5em;">
+          ${tt('how-to-react-on-mobile-device')}
+        </div></div>
       `;
     }
 
@@ -127,6 +131,16 @@ export class AdministratorSettingsCard extends LitElement {
     if (this._testNotificationState === 'success') {
       return html`
         <ha-alert alert-type="success">${tt('test-notification-success')}</ha-alert>
+      `;
+    }
+
+    if (this._testNotificationState === 'sound-issue') {
+      const isAndroid = this._adminMobilePlatform?.state?.toLowerCase() === 'android';
+      const hint = isAndroid ? tt('sound-issue-android') : tt('sound-issue-ios');
+      return html`
+        <ha-alert alert-type="warning">
+          <ha-markdown breaks .content=${hint}></ha-markdown>
+        </ha-alert>
       `;
     }
   }
