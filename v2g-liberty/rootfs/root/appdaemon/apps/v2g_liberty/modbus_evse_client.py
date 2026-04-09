@@ -168,6 +168,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     # Holds the last known requested charge power that was set in the
     # charger register CHARGER_SET_CHARGE_POWER_REGISTER. Used for deviation comparison.
     requested_charge_power: int = 0
+    _is_power_deviating: bool = False
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400
@@ -634,11 +635,18 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.__log(f"Charge power is not a number: '{new_power}', treating as 0W.")
             new_power = 0
         self.event_bus.emit_event("charge_power_change", new_power=new_power)
-        if abs(new_power - self.requested_charge_power) > 500:
+        is_deviating = abs(new_power - self.requested_charge_power) > 500
+        if is_deviating and not self._is_power_deviating:
             self.__log(
-                f"Actual charge power ({new_power}W) deviates strongly from "
+                f"Actual charge power ({new_power}W) deviates > 500W from "
                 f"requested ({self.requested_charge_power}W)."
             )
+        elif not is_deviating and self._is_power_deviating:
+            self.__log(
+                f"Charge power deviation resolved, actual: {new_power}W, "
+                f"requested: {self.requested_charge_power}W."
+            )
+        self._is_power_deviating = is_deviating
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
