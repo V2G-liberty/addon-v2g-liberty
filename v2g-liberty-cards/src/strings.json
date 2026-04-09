@@ -191,12 +191,14 @@
     "test_notification": {
       "send-test-notification": "Send a test notification (with sound)",
       "notification-title": "Test notification",
-      "notification-message": "This is a critical test notification, please longpress me to see actions, then click 'Confirm'.",
-      "notification-button-label": "Confirm",
-      "how-to-react-on-mobile-device": "A critical test notification has been sent to your mobile phone. It should play a sound, even if your phone is on silent. Long press the notification and a button 'Confirm' will show up. Please press that button.",
-      "android-alarm-permission-hint": "If you only hear a short beep instead of a loud alarm sound, the Home Assistant app may need additional permissions. Go to Android Settings > Apps > Special app access > Alarms & reminders and enable access for the Home Assistant app. Menu names may vary between Android versions.",
-      "test-notification-timeout": "The test timed out, Please edit the administrator configuration.",
-      "test-notification-success": "The administrator setup is perfect! Notification received and well handeld."
+      "notification-message": "Did you hear a loud alarm sound? Long press this notification to see the buttons.",
+      "notification-loud-alarm-label": "Loud alarm sound",
+      "notification-soft-or-no-sound-label": "Soft beep / no sound",
+      "how-to-react-on-mobile-device": "A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.",
+      "sound-issue-android": "The notification was received, but without the expected alarm sound.\n\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\n\nAfter changing this setting, try the test again.",
+      "sound-issue-ios": "The notification was received, but without the expected alarm sound.\n\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\n\nAfter changing this setting, try the test again.",
+      "test-notification-timeout": "The test timed out. Please check the administrator configuration.",
+      "test-notification-success": "The administrator setup is perfect! Notification received with alarm sound."
     },
     "car": {
       "header": "Car",
