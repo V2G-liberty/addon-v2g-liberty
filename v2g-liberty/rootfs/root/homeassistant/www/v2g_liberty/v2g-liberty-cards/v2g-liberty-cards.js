@@ -13754,6 +13754,7 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        this._isInitialised = hass.states[$755a87c9ee93218f$export$d2234deac8a139c6]?.state === 'on';
         this._carName = hass.states[$755a87c9ee93218f$export$11c78071a320f036];
         this._usableCapacity = hass.states[$755a87c9ee93218f$export$511a96d8a8b167fa];
         this._roundtripEfficiency = hass.states[$755a87c9ee93218f$export$7c53730103b0e952];
@@ -13765,9 +13766,8 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
         this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
     }
     render() {
-        const isInitialised = this._hass.states[$755a87c9ee93218f$export$d2234deac8a139c6]?.state === 'on';
-        const header = isInitialised ? this._carName.state : $5d8785103791dbcd$var$tp('header');
-        const content = isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
+        const header = this._isInitialised ? this._carName.state : $5d8785103791dbcd$var$tp('header');
+        const content = this._isInitialised ? this._renderInitialisedContent() : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
     _renderUninitialisedContent() {
@@ -13810,6 +13810,9 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     `;
     }
 }
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_isInitialised", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_carName", void 0);

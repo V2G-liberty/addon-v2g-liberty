@@ -14,6 +14,7 @@ const tc = partial('settings.common');
 
 @customElement('v2g-liberty-car-settings-card')
 class CarSettingsCard extends LitElement {
+  @state() private _isInitialised: boolean;
   @state() private _carName: HassEntity;
   @state() private _usableCapacity: HassEntity;
   @state() private _roundtripEfficiency: HassEntity;
@@ -27,6 +28,7 @@ class CarSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    this._isInitialised = hass.states[entityIds.carSettingsInitialised]?.state === 'on';
     this._carName = hass.states[entityIds.carName];
     this._usableCapacity = hass.states[entityIds.usableCapacity];
     this._roundtripEfficiency = hass.states[entityIds.roundtripEfficiency];
@@ -38,11 +40,9 @@ class CarSettingsCard extends LitElement {
   static styles = styles;
 
   render() {
-    const isInitialised = this._hass.states[entityIds.carSettingsInitialised]?.state === 'on';
+    const header = this._isInitialised ? this._carName.state : tp('header');
 
-    const header = isInitialised ? this._carName.state : tp('header');
-
-    const content = isInitialised
+    const content = this._isInitialised
       ? this._renderInitialisedContent()
       : this._renderUninitialisedContent();
 
