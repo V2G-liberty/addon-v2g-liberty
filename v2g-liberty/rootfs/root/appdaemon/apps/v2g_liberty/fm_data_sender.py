@@ -40,10 +40,10 @@ class FMDataSender:
                     "no historical data will be sent."
                 )
 
-        await self.hass.run_daily(self._daily_send, start="03:00:00")
-        self.__log("Completed initialising FMDataSender, scheduled daily at 03:00.")
+        await self.hass.run_every(self._send_unsent_data, "now", 60 * 60)
+        self.__log("Completed initialising FMDataSender, scheduled every hour.")
 
-    async def _daily_send(self, *args):
+    async def _send_unsent_data(self, *args):
         """Send all unsent interval data to FlexMeasures."""
         if self.fm_client_app is None:
             self.__log("FM client not available, skipping daily send.")
@@ -55,7 +55,14 @@ class FMDataSender:
 
         last_sent = self.data_store.get_fm_last_sent()
         if last_sent is None:
-            self.__log("No last_sent_up_to set, skipping.", level="WARNING")
+            # This should not happen as initialize() sets the initial value.
+            # Recover by setting to now so subsequent runs can proceed.
+            now = datetime.now(timezone.utc).isoformat()
+            self.data_store.set_fm_last_sent(now)
+            self.__log(
+                "No last_sent_up_to set, recovered by setting to now.",
+                level="WARNING",
+            )
             return
 
         intervals = self.data_store.get_intervals_since(last_sent)

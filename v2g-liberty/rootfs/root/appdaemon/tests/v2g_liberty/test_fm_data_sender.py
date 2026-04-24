@@ -4,10 +4,11 @@ Tests cover:
 - Grouping contiguous intervals into blocks
 - Power kW → MW conversion
 - None values passed through correctly
-- Daily send: success path with post_measurements calls + last_sent updated
-- Daily send: FM failure → last_sent not advanced
-- Daily send: no fm_client_app → skip
-- Daily send: no unsent data → skip
+- Send: success path with post_measurements calls + last_sent updated
+- Send: FM failure → last_sent not advanced
+- Send: no fm_client_app → skip
+- Send: no unsent data → skip
+- Send: recovery when last_sent_up_to is None
 - DataStore: get_fm_last_sent / set_fm_last_sent roundtrip
 - DataStore: get_intervals_since filters correctly
 """
@@ -42,7 +43,7 @@ def _set_constants():
 def hass():
     mock_hass = AsyncMock(spec=Hass)
     mock_hass.log = MagicMock()
-    mock_hass.run_daily = AsyncMock()
+    mock_hass.run_every = AsyncMock()
     return mock_hass
 
 
@@ -258,29 +259,36 @@ class TestSendBlock:
 
 
 # ──────────────────────────────────────────────────────────
-# _daily_send
+# _send_unsent_data
 # ──────────────────────────────────────────────────────────
 
 
-class TestDailySend:
+class TestSendUnsentData:
     @pytest.mark.asyncio
     async def test_skip_when_no_fm_client(self, sender):
         sender.fm_client_app = None
-        await sender._daily_send()
+        await sender._send_unsent_data()
         # Should not interact with data_store at all
         sender.data_store.get_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skip_when_no_data_store(self, sender):
         sender.data_store = None
-        await sender._daily_send()
+        await sender._send_unsent_data()
         # Should not crash
+
+    @pytest.mark.asyncio
+    async def test_recovers_when_last_sent_is_none(self, sender, data_store):
+        data_store.get_fm_last_sent.return_value = None
+        await sender._send_unsent_data()
+        # Should recover by setting last_sent to now
+        data_store.set_fm_last_sent.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_skip_when_no_unsent_data(self, sender, data_store):
         data_store.get_fm_last_sent.return_value = _ts(10, 0)
         data_store.get_intervals_since.return_value = []
-        await sender._daily_send()
+        await sender._send_unsent_data()
         data_store.set_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
@@ -290,7 +298,7 @@ class TestDailySend:
             _make_interval(_ts(10, 0)),
             _make_interval(_ts(10, 5)),
         ]
-        await sender._daily_send()
+        await sender._send_unsent_data()
 
         data_store.set_fm_last_sent.assert_called_once_with(_ts(10, 5))
         assert fm_client.post_measurements.call_count == 3
@@ -305,7 +313,7 @@ class TestDailySend:
         ]
         fm_client.post_measurements = AsyncMock(return_value=False)
 
-        await sender._daily_send()
+        await sender._send_unsent_data()
         data_store.set_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
@@ -318,7 +326,7 @@ class TestDailySend:
             # gap
             _make_interval(_ts(10, 15)),
         ]
-        await sender._daily_send()
+        await sender._send_unsent_data()
 
         # 2 blocks × 3 calls = 6
         assert fm_client.post_measurements.call_count == 6
@@ -340,7 +348,7 @@ class TestDailySend:
         # First block succeeds (3 calls), second block fails on power
         fm_client.post_measurements = AsyncMock(side_effect=[True, True, True, False])
 
-        await sender._daily_send()
+        await sender._send_unsent_data()
 
         # last_sent updated only for first block
         data_store.set_fm_last_sent.assert_called_once_with(_ts(10, 0))
@@ -368,13 +376,11 @@ class TestInitialize:
         data_store.set_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_schedules_daily_task(self, sender, hass):
+    async def test_schedules_hourly_task(self, sender, hass):
         await sender.initialize()
-        hass.run_daily.assert_called_once()
-        call_args = hass.run_daily.call_args
-        assert call_args.kwargs.get("start") == "03:00:00" or (
-            len(call_args.args) >= 2 and call_args.args[1] == "03:00:00"
-        )
+        hass.run_every.assert_called_once()
+        call_args = hass.run_every.call_args
+        assert call_args.args[2] == 3600  # interval in seconds
 
 
 # ──────────────────────────────────────────────────────────

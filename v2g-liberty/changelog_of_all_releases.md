@@ -13,9 +13,9 @@ That file also contains possible changes that the next release might include.
 
 - 🚀 FEAT: Pass SoC sensor ID in flex-model (#440)
 
-### Chaged
+### Changed
 
--
+- 🛠️ Refactor: Increase FM data send frequency from daily to hourly (#441)
 
 
 
