@@ -765,11 +765,11 @@ class FMClient(AsyncIOEventEmitter):
                             "end": erw,
                         }
                     )
-                self.__log(
-                    f"soc_minima processed - "
-                    f"first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}."
-                )
             # -- End for soc_minimum in soc_minima --
+            self.__log(
+                f"soc_minima processed - "
+                f"first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}."
+            )
         # -- End if targets not None --
 
         # Range where schedule should only discharge. This when the SoC is above the max (80%).
@@ -913,6 +913,7 @@ class FMClient(AsyncIOEventEmitter):
             "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
+            "state-of-charge": {"sensor": c.FM_ACCOUNT_SOC_SENSOR_ID},
         }
 
         flex_model_str = str(flex_model)

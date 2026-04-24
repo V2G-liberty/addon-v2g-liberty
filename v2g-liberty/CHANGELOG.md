@@ -1,24 +1,18 @@
 # What's changed?
 
-## 0.8.0 2026-04-09
+## 0.8.1 2026-045-??
 
 ### Fixed
 
-- 🪲 BUG: Fix charge power deviation log flooding (#436)
-- 🪲 BUG: Improve test notification with sound feedback buttons (#434)
-- 🪲 BUG: Fix set next action timer (#429)
-- 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
-- 🪲 BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
+-
 
 ### Added
 
-- 🚀 FEAT: Extend insights (#420, #423, #430)
+- 🚀 FEAT: Pass SoC sensor ID in flex-model (#440)
 
-### Changed
+### Chaged
 
-- 🛠️ Refactor: Reduce event bus slow listener log noise (#437)
-- 🛠️ Refactor: centralise async timer API usage (#432)
-- ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
+-
 
 #### Removing
 
