@@ -673,40 +673,22 @@ async def test_union_of_timestamps_fills_missing_with_none(log_fn):
     creates rows for the union of all timestamps. Where a sensor has
     no value for a given timestamp, its field is set to None.
     """
-    start = "2024-11-01T00:00:00+00:00"
-
+    # Build result dicts directly instead of calling _fetch_sensor_events
+    # (which contains real asyncio.sleep calls that slow down tests).
+    base = "2024-11-01T00:"
+    tz = "+00:00"
     # Power: 2 values (00:00 and 00:05).
-    power_client = _make_fm_client(values=[0.005, 0.003], start=start)
+    power_result = {
+        f"{base}00:00{tz}": 0.005,
+        f"{base}05:00{tz}": 0.003,
+    }
     # SoC: 5 values (00:00 through 00:20).
-    soc_client = _make_fm_client(values=[50.0, 51.0, 52.0, 53.0, 54.0], start=start)
-    # Availability: 5 values.
-    avail_client = _make_fm_client(values=[100.0] * 5, start=start)
-
-    # Patch _fetch_sensor_events to return different data per sensor_id.
-    power_result = await _fetch_sensor_events(
-        power_client,
-        _POWER_ID,
-        "MW",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-    )
-    soc_result = await _fetch_sensor_events(
-        soc_client,
-        _SOC_ID,
-        "%",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-    )
-    avail_result = await _fetch_sensor_events(
-        avail_client,
-        _AVAIL_ID,
-        "%",
-        datetime(2024, 11, 1, tzinfo=timezone.utc),
-        datetime(2024, 12, 1, tzinfo=timezone.utc),
-        log_fn,
-    )
+    soc_result = {
+        f"{base}{m:02d}:00{tz}": v
+        for m, v in zip(range(0, 25, 5), [50.0, 51.0, 52.0, 53.0, 54.0])
+    }
+    # Availability: 5 values (00:00 through 00:20).
+    avail_result = {f"{base}{m:02d}:00{tz}": 100.0 for m in range(0, 25, 5)}
 
     async def mock_fetch(fm_client, sensor_id, unit, start_dt, end_dt, log, **kwargs):
         if sensor_id == _POWER_ID:
@@ -718,8 +700,14 @@ async def test_union_of_timestamps_fills_missing_with_none(log_fn):
     month_start = datetime(2024, 11, 1, tzinfo=timezone.utc)
     month_end = datetime(2024, 12, 1, tzinfo=timezone.utc)
 
-    with patch(
-        "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+    with (
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+        ),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
     ):
         rows = await _fetch_month_rows(MagicMock(), month_start, month_end, log_fn)
 
@@ -761,8 +749,14 @@ async def test_month_with_only_soc_data_produces_rows_with_none_energy(log_fn):
     month_start = datetime(2024, 11, 1, tzinfo=timezone.utc)
     month_end = datetime(2024, 12, 1, tzinfo=timezone.utc)
 
-    with patch(
-        "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+    with (
+        patch(
+            "apps.v2g_liberty.fm_historical_importer._fetch_sensor_events", mock_fetch
+        ),
+        patch(
+            "apps.v2g_liberty.fm_historical_importer.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
     ):
         rows = await _fetch_month_rows(MagicMock(), month_start, month_end, log_fn)
 
