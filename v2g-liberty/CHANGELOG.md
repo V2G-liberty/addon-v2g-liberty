@@ -10,9 +10,10 @@
 
 - 🚀 FEAT: Pass SoC sensor ID in flex-model (#440)
 
-### Chaged
+### Changed
 
--
+- 🛠️ Refactor: Increase FM data send frequency from daily to hourly (#441)
+
 
 #### Removing
 
