@@ -193,6 +193,25 @@ class SettingsManager:
     def get(self, entity_id):
         return self.settings.get(entity_id, None)
 
+    def get_object(self, key: str) -> dict | None:
+        """Retrieve a structured object from settings by key.
+
+        Returns the dict if found, or None if the key is not present
+        or the value is not a dict.
+        """
+        value = self.settings.get(key, None)
+        if isinstance(value, dict):
+            return value
+        return None
+
+    def store_object(self, key: str, data: dict):
+        """Store a structured object in settings.
+
+        Overwrites any existing value for the given key.
+        """
+        self.settings[key] = data
+        self.__write_to_file()
+
     # ── Internal (non-HA) values ──────────────────────────────────────────────
     # These are technical values with no corresponding HA input entity.
     # Keys use a plain string (no "input_*." prefix) to distinguish them.
