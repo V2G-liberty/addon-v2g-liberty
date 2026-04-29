@@ -78,6 +78,27 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       // Ignore — start fresh
     }
 
+    // Auto-detect from available HA entities (only if not already configured)
+    if (!this._phases) {
+      try {
+        const detected = await callFunction(this.hass, 'detect_grid_entities');
+        if (detected.phases) {
+          this._phases = detected.phases;
+        }
+        if (detected.capacity_per_phase) {
+          this._capacityPerPhase = String(detected.capacity_per_phase);
+        }
+        if (detected.consumption_entities?.length > 0) {
+          this._consumptionEntities = detected.consumption_entities;
+        }
+        if (detected.production_entities?.length > 0) {
+          this._productionEntities = detected.production_entities;
+        }
+      } catch (e) {
+        // Auto-detect failed, no problem — user fills in manually
+      }
+    }
+
     this._buildSensorEntityList();
     await this.updateComplete;
   }
