@@ -190,6 +190,12 @@ entities in the next step, and we will verify that they are reporting data.
           ? html`<div class="error">Please select the number of phases.</div>`
           : nothing
         }
+        <details class="hint">
+          <summary>Not sure?</summary>
+          <p>Check your smart meter integration in Home Assistant. Look for separate
+          L1, L2, and L3 sensors — if you have them, you have 3 phases. If you only
+          see L1, you have 1 phase.</p>
+        </details>
       </div>
 
       <div style="margin-top: 16px;">
@@ -206,6 +212,13 @@ entities in the next step, and we will verify that they are reporting data.
           test-id="capacity-per-phase"
         ></ha-textfield>
         ${this._renderCapacityError()}
+        <details class="hint">
+          <summary>Where to find this</summary>
+          <p>You can find this on your energy contract, or in your smart meter
+          integration in Home Assistant. Look for a sensor with "fuse" or "threshold"
+          in the name. Common values are 25A or 35A.</p>
+          <p>Please enter the actual value — do not enter a lower value as a safety margin.</p>
+        </details>
       </div>
 
       ${renderButton(
@@ -605,6 +618,19 @@ entities in the next step, and we will verify that they are reporting data.
         color: var(--error-color);
         font-size: 0.875em;
         margin-top: 4px;
+      }
+      details.hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      details.hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      details.hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
       }
     `,
   ];
