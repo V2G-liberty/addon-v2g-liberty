@@ -31,15 +31,27 @@ class GridPvEmulator(hass.Hass):
         "state_class": "measurement",
     }
 
+    _PAUSE_ENTITY = "input_boolean.emulator_paused"
+
     def initialize(self):
         self._update_interval = int(self.args.get("update_interval", 10))
         self._pv_panels = self.args.get("pv_panels", [])
         self._base_load = self.args.get("base_load", {"l1": 800, "l2": 600, "l3": 400})
 
+        # Create a toggle in HA to pause/resume the emulator
+        self.set_state(
+            self._PAUSE_ENTITY,
+            state="off",
+            attributes={"friendly_name": "Pause grid/PV emulator"},
+        )
+
         self.run_every(self._update_sensors, "now", self._update_interval)
         self.log("Grid & PV emulator started")
 
     def _update_sensors(self, kwargs):
+        if self.get_state(self._PAUSE_ENTITY) == "on":
+            return
+
         now = datetime.now()
 
         # Calculate components
