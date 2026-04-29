@@ -344,6 +344,8 @@ class V2GLibertyGlobals:
         self.hass.listen_event(
             self.__get_grid_connection_settings, "get_grid_connection_settings"
         )
+        self.hass.listen_event(self.__save_charger_phase, "save_charger_phase")
+        self.hass.listen_event(self.__get_charger_phase, "get_charger_phase")
 
         self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
@@ -371,6 +373,7 @@ class V2GLibertyGlobals:
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
         self.__initialise_grid_connection_settings()
+        self.__initialise_charger_phase_settings()
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -573,6 +576,65 @@ class V2GLibertyGlobals:
         if grid_data is None:
             grid_data = dict(self._GRID_CONNECTION_DEFAULTS)
         self.hass.fire_event("get_grid_connection_settings.result", **grid_data)
+
+    # ── Charger phase setting (entity-free, JSON-based) ────────────────
+
+    def __initialise_charger_phase_settings(self):
+        """Load charger phase setting from JSON and set constant."""
+        self.__log("called")
+        data = self.v2g_settings.get_object("charger_phase")
+        if data is None:
+            c.CHARGER_CONNECTED_TO_PHASE = None
+            return
+        c.CHARGER_CONNECTED_TO_PHASE = data.get("connected_to_phase", None)
+        self.__log(f"Charger connected to phase: {c.CHARGER_CONNECTED_TO_PHASE}")
+
+    async def __save_charger_phase(self, event, data, kwargs):
+        """Handle save_charger_phase event from UI."""
+        phase = data.get("connected_to_phase")
+        if phase not in (1, 2, 3):
+            self.hass.fire_event(
+                "save_charger_phase.result",
+                error="connected_to_phase must be 1, 2, or 3",
+            )
+            return
+
+        self.v2g_settings.store_object("charger_phase", {"connected_to_phase": phase})
+        self.__initialise_charger_phase_settings()
+
+        self.hass.fire_event("save_charger_phase.result")
+
+    def charger_phase_is_required(self) -> bool:
+        """Return True if the charger phase must be configured.
+
+        This is the case when the grid connection is set to 3 phases.
+        """
+        return c.GRID_PHASES == 3
+
+    def charger_phase_is_valid(self) -> bool:
+        """Return True if the charger phase config is valid.
+
+        Valid means: either not required (1-phase grid or grid not configured),
+        or required and a phase has been chosen.
+        """
+        if not self.charger_phase_is_required():
+            return True
+        return c.CHARGER_CONNECTED_TO_PHASE in (1, 2, 3)
+
+    async def __get_charger_phase(self, event, data, kwargs):
+        """Handle get_charger_phase event from UI.
+
+        Response includes whether the field is required and whether
+        the current config is valid, so the UI can show warnings.
+        """
+        data = self.v2g_settings.get_object("charger_phase")
+        phase = data.get("connected_to_phase") if data else None
+        self.hass.fire_event(
+            "get_charger_phase.result",
+            connected_to_phase=phase,
+            required=self.charger_phase_is_required(),
+            valid=self.charger_phase_is_valid(),
+        )
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
         self.__log("called")
