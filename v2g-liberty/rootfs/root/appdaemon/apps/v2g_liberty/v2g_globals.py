@@ -339,6 +339,13 @@ class V2GLibertyGlobals:
         )
 
         self.hass.listen_event(
+            self.__save_grid_connection_settings, "save_grid_connection_settings"
+        )
+        self.hass.listen_event(
+            self.__get_grid_connection_settings, "get_grid_connection_settings"
+        )
+
+        self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
@@ -363,6 +370,7 @@ class V2GLibertyGlobals:
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
+        self.__initialise_grid_connection_settings()
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -484,6 +492,87 @@ class V2GLibertyGlobals:
             await self.__set_fm_optimisation_context()
         await self.__initialise_general_settings()
         await self.v2g_main_app.kick_off_v2g_liberty()
+
+    # ── Grid connection settings (entity-free, JSON-based) ─────────────
+
+    _GRID_CONNECTION_DEFAULTS = {
+        "phases": 3,
+        "capacity_per_phase": 25,
+        "consumption_entities": [],
+        "production_entities": [],
+    }
+
+    def __initialise_grid_connection_settings(self):
+        """Load grid connection settings from JSON and set constants."""
+        self.__log("called")
+        data = self.v2g_settings.get_object("grid_connection")
+        if data is None:
+            self.__log("Grid connection not configured")
+            c.GRID_PHASES = self._GRID_CONNECTION_DEFAULTS["phases"]
+            c.GRID_CAPACITY_PER_PHASE = self._GRID_CONNECTION_DEFAULTS[
+                "capacity_per_phase"
+            ]
+            c.GRID_CONSUMPTION_ENTITIES = []
+            c.GRID_PRODUCTION_ENTITIES = []
+            return
+
+        c.GRID_PHASES = data.get("phases", self._GRID_CONNECTION_DEFAULTS["phases"])
+        c.GRID_CAPACITY_PER_PHASE = data.get(
+            "capacity_per_phase",
+            self._GRID_CONNECTION_DEFAULTS["capacity_per_phase"],
+        )
+        c.GRID_CONSUMPTION_ENTITIES = data.get("consumption_entities", [])
+        c.GRID_PRODUCTION_ENTITIES = data.get("production_entities", [])
+        self.__log(
+            f"Grid connection: {c.GRID_PHASES} phase(s), "
+            f"{c.GRID_CAPACITY_PER_PHASE}A, "
+            f"{len(c.GRID_CONSUMPTION_ENTITIES)} consumption entities"
+        )
+
+    async def __save_grid_connection_settings(self, event, data, kwargs):
+        """Handle save_grid_connection_settings event from UI."""
+        phases = data.get("phases")
+        capacity = data.get("capacity_per_phase")
+        consumption = data.get("consumption_entities", [])
+        production = data.get("production_entities", [])
+
+        # Validate
+        if phases not in (1, 3):
+            self.hass.fire_event(
+                "save_grid_connection_settings.result",
+                error="phases must be 1 or 3",
+            )
+            return
+        if not isinstance(capacity, (int, float)) or capacity <= 0:
+            self.hass.fire_event(
+                "save_grid_connection_settings.result",
+                error="capacity_per_phase must be a positive number",
+            )
+            return
+        if len(consumption) != phases or len(production) != phases:
+            self.hass.fire_event(
+                "save_grid_connection_settings.result",
+                error=f"Expected {phases} entity/entities per list",
+            )
+            return
+
+        grid_data = {
+            "phases": phases,
+            "capacity_per_phase": capacity,
+            "consumption_entities": consumption,
+            "production_entities": production,
+        }
+        self.v2g_settings.store_object("grid_connection", grid_data)
+        self.__initialise_grid_connection_settings()
+
+        self.hass.fire_event("save_grid_connection_settings.result")
+
+    async def __get_grid_connection_settings(self, event, data, kwargs):
+        """Handle get_grid_connection_settings event from UI."""
+        grid_data = self.v2g_settings.get_object("grid_connection")
+        if grid_data is None:
+            grid_data = dict(self._GRID_CONNECTION_DEFAULTS)
+        self.hass.fire_event("get_grid_connection_settings.result", **grid_data)
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
         self.__log("called")

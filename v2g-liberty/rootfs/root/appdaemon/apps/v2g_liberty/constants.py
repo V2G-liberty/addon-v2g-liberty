@@ -214,6 +214,14 @@ CHARGER_MAX_DISCHARGE_POWER: int = 1380
 # FSC: Used in fm_client, v2g_liberty, keep here.
 CAR_MAX_CAPACITY_IN_KWH: int = 24
 
+# GRID CONNECTION CONSTANTS
+# These are set from grid connection settings (JSON, no HA entities).
+# Empty lists mean grid monitoring is not configured.
+GRID_PHASES: int = 3
+GRID_CAPACITY_PER_PHASE: int = 25
+GRID_CONSUMPTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
+GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
+
 # CALENDAR CONSTANTS
 # FSC: Used in reservations_client only, move there.
 CALENDAR_ACCOUNT_INIT_URL: str = ""
