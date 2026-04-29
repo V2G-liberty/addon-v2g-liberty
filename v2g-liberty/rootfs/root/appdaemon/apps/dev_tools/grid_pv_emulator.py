@@ -54,11 +54,11 @@ class GridPvEmulator(hass.Hass):
             net = total_consumption - pv_on_phase
 
             if net > 0:
-                grid_consumption = round(net, 1)
+                grid_consumption = round(net)
                 grid_production = 0
             else:
                 grid_consumption = 0
-                grid_production = round(abs(net), 1)
+                grid_production = round(abs(net))
 
             self._set_sensor(
                 f"sensor.emulated_grid_consumption_l{phase}",
@@ -76,7 +76,7 @@ class GridPvEmulator(hass.Hass):
         for i, power in enumerate(pv_totals, start=1):
             self._set_sensor(
                 f"sensor.emulated_pv_power_{i}",
-                round(power, 1),
+                round(power),
                 f"Emulated PV Power {i}",
             )
 
