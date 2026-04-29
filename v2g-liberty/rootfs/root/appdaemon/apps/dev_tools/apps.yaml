@@ -6,12 +6,13 @@ grid_pv_emulator:
   class: GridPvEmulator
   update_interval: 10
   pv_panels:
-    - peak_wp: 5000
+    - peak_wp: 3200
       phases: 1
       connected_to_phase: 1
-    - peak_wp: 3200
-      phases: 3
+    - peak_wp: 3600
+      phases: 1
+      connected_to_phase: 2
   base_load:
-    l1: 800
-    l2: 600
-    l3: 400
+    l1: 300
+    l2: 300
+    l3: 300
