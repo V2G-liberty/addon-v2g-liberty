@@ -602,6 +602,12 @@ class V2GLibertyGlobals:
         """Auto-detect grid connection settings from available HA entities."""
         self.__log("called")
         states = await self.hass.get_state()
+        sensor_count = sum(1 for k in states if k.startswith("sensor."))
+        emulated_count = sum(1 for k in states if "emulated" in k)
+        self.__log(
+            f"Scanning {len(states)} entities "
+            f"({sensor_count} sensors, {emulated_count} emulated)"
+        )
         result = detect_grid_entities(states)
         self.__log(f"Detection result: {result}")
         self.hass.fire_event("detect_grid_entities.result", **result)

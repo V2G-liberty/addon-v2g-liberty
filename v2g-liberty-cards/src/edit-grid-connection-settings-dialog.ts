@@ -39,6 +39,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   @state() private _validationResults: EntityTestResult = {};
   @state() private _validationDone: boolean = false;
 
+  // Auto-detection state
+  @state() private _autoDetected: boolean = false;
+
   // Form validation state
   @state() private _triedContinueStep2: boolean = false;
   @state() private _triedContinueStep3: boolean = false;
@@ -57,6 +60,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._capacityPerPhase = '';
     this._consumptionEntities = [];
     this._productionEntities = [];
+    this._autoDetected = false;
     this._validationRunning = false;
     this._validationResults = {};
     this._validationDone = false;
@@ -82,6 +86,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     if (!this._phases) {
       try {
         const detected = await callFunction(this.hass, 'detect_grid_entities');
+        if (detected.phases || detected.capacity_per_phase
+            || detected.consumption_entities?.length > 0) {
+          this._autoDetected = true;
+        }
         if (detected.phases) {
           this._phases = detected.phases;
         }
@@ -193,6 +201,13 @@ entities in the next step, and we will verify that they are reporting data.
 
   private _renderPhasesAndCapacity() {
     return html`
+      ${this._autoDetected
+        ? html`<ha-alert alert-type="info">
+            Values have been pre-filled based on your available sensors.
+            Please verify and adjust if needed.
+          </ha-alert>`
+        : nothing
+      }
       <div>
         <p><strong>How many phases does your grid connection have?</strong></p>
         ${renderSelectOptionWithLabel(
@@ -298,6 +313,13 @@ entities in the next step, and we will verify that they are reporting data.
     const allSelected = this._getAllSelectedEntities();
 
     return html`
+      ${this._autoDetected
+        ? html`<ha-alert alert-type="info">
+            Sensors have been pre-filled based on detected patterns.
+            Please verify the selection is correct.
+          </ha-alert>`
+        : nothing
+      }
       <div>
         <p><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
         ${Array.from({ length: count }, (_, i) => this._renderEntityDropdown(

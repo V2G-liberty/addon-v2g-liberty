@@ -16,3 +16,4 @@ grid_pv_emulator:
     l1: 300
     l2: 300
     l3: 300
+  fuse_threshold: 25

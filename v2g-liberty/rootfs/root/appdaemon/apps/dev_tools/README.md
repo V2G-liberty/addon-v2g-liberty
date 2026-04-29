@@ -24,6 +24,7 @@ All values are in whole watts, matching real smart meter (P1/DSMR) behaviour.
 | `sensor.emulated_grid_consumption_l1..l3` | Grid consumption per phase (W) |
 | `sensor.emulated_grid_production_l1..l3` | Grid feed-in per phase (W) |
 | `sensor.emulated_pv_power_1..n` | PV inverter power per panel (W) |
+| `sensor.emulated_fuse_threshold_l1` | Fuse threshold / connection capacity (A) |
 | `input_boolean.emulator_paused` | Toggle to pause/resume the emulator |
 
 Entities are created on-the-fly via `set_state()` — no HA configuration needed. They appear in Developer Tools → States after the first update cycle (~10 sec after start).
@@ -48,6 +49,7 @@ grid_pv_emulator:
     l1: 300                   # base household load per phase (W)
     l2: 300
     l3: 300
+  fuse_threshold: 25          # capacity per phase in ampere
 ```
 
 ### Pausing the emulator

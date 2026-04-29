@@ -45,6 +45,18 @@ class GridPvEmulator(hass.Hass):
             attributes={"friendly_name": "Pause grid/PV emulator"},
         )
 
+        # Create a fuse threshold entity (DSMR OBIS 1-0:31.4.0)
+        fuse_threshold = self.args.get("fuse_threshold", 25)
+        self.set_state(
+            "sensor.emulated_fuse_threshold_l1",
+            state=fuse_threshold,
+            attributes={
+                "unit_of_measurement": "A",
+                "device_class": "current",
+                "friendly_name": "Emulated Fuse Threshold L1",
+            },
+        )
+
         self.run_every(self._update_sensors, "now", self._update_interval)
         self.log("Grid & PV emulator started")
 
