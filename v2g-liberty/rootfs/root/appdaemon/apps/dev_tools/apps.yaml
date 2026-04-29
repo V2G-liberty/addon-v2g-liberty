@@ -1,0 +1,17 @@
+---
+# Dev-only: grid & PV sensor emulator.
+# This app is excluded in production via exclude_dirs in appdaemon.yaml.
+grid_pv_emulator:
+  module: dev_tools.grid_pv_emulator
+  class: GridPvEmulator
+  update_interval: 10
+  pv_panels:
+    - peak_wp: 5000
+      phases: 1
+      connected_to_phase: 1
+    - peak_wp: 3200
+      phases: 3
+  base_load:
+    l1: 800
+    l2: 600
+    l3: 400
