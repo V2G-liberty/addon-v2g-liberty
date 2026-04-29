@@ -16,7 +16,7 @@ Results are stored via the provided save callback and reported via HA events.
 import asyncio
 from datetime import datetime
 
-from . import constants as c
+from .. import constants as c
 
 
 class ChargerPhaseDetector:

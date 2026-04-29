@@ -3,8 +3,9 @@
 from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
-from apps.v2g_liberty import charger_phase_detector, constants as c
-from apps.v2g_liberty.charger_phase_detector import ChargerPhaseDetector
+from apps.v2g_liberty.grid_connection import charger_phase_detector
+from apps.v2g_liberty.grid_connection.charger_phase_detector import ChargerPhaseDetector
+from apps.v2g_liberty import constants as c
 
 
 @pytest.fixture(autouse=True)

@@ -12,7 +12,8 @@ from .fm_historical_importer import clear_import_flag, run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .charger_phase_detector import ChargerPhaseDetector
+from .grid_connection.charger_phase_detector import ChargerPhaseDetector
+from .grid_connection.grid_entity_detector import detect_grid_entities
 from .settings_manager import SettingsManager
 
 
@@ -348,6 +349,7 @@ class V2GLibertyGlobals:
         self.hass.listen_event(self.__save_charger_phase, "save_charger_phase")
         self.hass.listen_event(self.__get_charger_phase, "get_charger_phase")
         self.hass.listen_event(self.__test_grid_entities, "test_grid_entities")
+        self.hass.listen_event(self.__detect_grid_entities, "detect_grid_entities")
         self.hass.listen_event(self.__detect_charger_phase, "detect_charger_phase")
 
         self.hass.listen_event(
@@ -595,6 +597,14 @@ class V2GLibertyGlobals:
         if grid_data is None:
             grid_data = dict(self._GRID_CONNECTION_DEFAULTS)
         self.hass.fire_event("get_grid_connection_settings.result", **grid_data)
+
+    async def __detect_grid_entities(self, event, data, kwargs):
+        """Auto-detect grid connection settings from available HA entities."""
+        self.__log("called")
+        states = await self.hass.get_state()
+        result = detect_grid_entities(states)
+        self.__log(f"Detection result: {result}")
+        self.hass.fire_event("detect_grid_entities.result", **result)
 
     # ── Charger phase setting (entity-free, JSON-based) ────────────────
 

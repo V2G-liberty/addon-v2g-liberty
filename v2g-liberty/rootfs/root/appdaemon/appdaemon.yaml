@@ -20,6 +20,7 @@ appdaemon:
     - data_import
     - dev_tools
     - evs
+    - grid_connection
     - util
     - utils
 
