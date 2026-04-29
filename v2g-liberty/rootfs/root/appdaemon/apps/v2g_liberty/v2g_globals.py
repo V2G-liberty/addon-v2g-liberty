@@ -562,6 +562,14 @@ class V2GLibertyGlobals:
             )
             return
 
+        # Check if phases or entities changed (triggers charger phase re-detect)
+        old = self.v2g_settings.get_object("grid_connection") or {}
+        phases_changed = old.get("phases") != phases
+        entities_changed = (
+            old.get("consumption_entities") != consumption
+            or old.get("production_entities") != production
+        )
+
         grid_data = {
             "phases": phases,
             "capacity_per_phase": capacity,
@@ -570,6 +578,14 @@ class V2GLibertyGlobals:
         }
         self.v2g_settings.store_object("grid_connection", grid_data)
         self.__initialise_grid_connection_settings()
+
+        if phases_changed or entities_changed:
+            self.v2g_settings.store_object(
+                "charger_phase",
+                {"connected_to_phase": None, "detected_at": None},
+            )
+            self.__initialise_charger_phase_settings()
+            self.__log("Cleared charger phase (grid phases or entities changed)")
 
         self.hass.fire_event("save_grid_connection_settings.result")
 

@@ -144,8 +144,9 @@ class TestSaveGridConnectionSettings:
             "event", data, {}
         )
 
-        settings_manager_mock.store_object.assert_called_once_with(
-            "grid_connection", data
+        # grid_connection stored + charger_phase cleared (new config, no previous)
+        assert settings_manager_mock.store_object.call_args_list[0] == (
+            ("grid_connection", data),
         )
         hass_mock.fire_event.assert_called_with("save_grid_connection_settings.result")
         assert c.GRID_PHASES == 1
@@ -166,7 +167,10 @@ class TestSaveGridConnectionSettings:
             "event", data, {}
         )
 
-        settings_manager_mock.store_object.assert_called_once()
+        # grid_connection stored (+ charger_phase cleared since no previous config)
+        assert settings_manager_mock.store_object.call_args_list[0] == (
+            ("grid_connection", data),
+        )
         assert c.GRID_PHASES == 3
 
     @pytest.mark.asyncio
@@ -234,6 +238,107 @@ class TestSaveGridConnectionSettings:
             "save_grid_connection_settings.result",
             error="Expected 3 entity/entities per list",
         )
+
+
+class TestSaveGridClearsChargerPhase:
+    @pytest.mark.asyncio
+    async def test_clears_phase_when_phases_change(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Changing from 1 to 3 phases clears charger connected_to_phase."""
+        # Pre-existing 1-phase config with detected charger phase
+        settings_manager_mock.store_object(
+            "grid_connection",
+            {
+                "phases": 1,
+                "capacity_per_phase": 25,
+                "consumption_entities": ["sensor.l1"],
+                "production_entities": ["sensor.p1"],
+            },
+        )
+        settings_manager_mock.store_object(
+            "charger_phase", {"connected_to_phase": 1, "detected_at": "2026-04-29"}
+        )
+        globals_instance._V2GLibertyGlobals__initialise_charger_phase_settings()
+        assert c.CHARGER_CONNECTED_TO_PHASE == 1
+
+        # Save with 3 phases
+        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+            "event",
+            {
+                "phases": 3,
+                "capacity_per_phase": 25,
+                "consumption_entities": ["sensor.l1", "sensor.l2", "sensor.l3"],
+                "production_entities": ["sensor.p1", "sensor.p2", "sensor.p3"],
+            },
+            {},
+        )
+
+        assert c.CHARGER_CONNECTED_TO_PHASE is None
+
+    @pytest.mark.asyncio
+    async def test_clears_phase_when_entities_change(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Changing consumption entities clears charger connected_to_phase."""
+        settings_manager_mock.store_object(
+            "grid_connection",
+            {
+                "phases": 3,
+                "capacity_per_phase": 25,
+                "consumption_entities": ["sensor.old1", "sensor.old2", "sensor.old3"],
+                "production_entities": ["sensor.p1", "sensor.p2", "sensor.p3"],
+            },
+        )
+        settings_manager_mock.store_object(
+            "charger_phase", {"connected_to_phase": 2, "detected_at": "2026-04-29"}
+        )
+        globals_instance._V2GLibertyGlobals__initialise_charger_phase_settings()
+
+        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+            "event",
+            {
+                "phases": 3,
+                "capacity_per_phase": 25,
+                "consumption_entities": ["sensor.new1", "sensor.new2", "sensor.new3"],
+                "production_entities": ["sensor.p1", "sensor.p2", "sensor.p3"],
+            },
+            {},
+        )
+
+        assert c.CHARGER_CONNECTED_TO_PHASE is None
+
+    @pytest.mark.asyncio
+    async def test_keeps_phase_when_only_capacity_changes(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Changing only capacity_per_phase does NOT clear charger phase."""
+        settings_manager_mock.store_object(
+            "grid_connection",
+            {
+                "phases": 3,
+                "capacity_per_phase": 25,
+                "consumption_entities": ["sensor.l1", "sensor.l2", "sensor.l3"],
+                "production_entities": ["sensor.p1", "sensor.p2", "sensor.p3"],
+            },
+        )
+        settings_manager_mock.store_object(
+            "charger_phase", {"connected_to_phase": 2, "detected_at": "2026-04-29"}
+        )
+        globals_instance._V2GLibertyGlobals__initialise_charger_phase_settings()
+
+        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+            "event",
+            {
+                "phases": 3,
+                "capacity_per_phase": 35,  # only this changed
+                "consumption_entities": ["sensor.l1", "sensor.l2", "sensor.l3"],
+                "production_entities": ["sensor.p1", "sensor.p2", "sensor.p3"],
+            },
+            {},
+        )
+
+        assert c.CHARGER_CONNECTED_TO_PHASE == 2
 
 
 class TestGetGridConnectionSettings:
