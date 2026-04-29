@@ -346,6 +346,7 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.__save_charger_phase, "save_charger_phase")
         self.hass.listen_event(self.__get_charger_phase, "get_charger_phase")
+        self.hass.listen_event(self.__test_grid_entities, "test_grid_entities")
 
         self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
@@ -634,6 +635,107 @@ class V2GLibertyGlobals:
             connected_to_phase=phase,
             required=self.charger_phase_is_required(),
             valid=self.charger_phase_is_valid(),
+        )
+
+    # ── Grid entity validation ─────────────────────────────────────────
+
+    _GRID_ENTITY_TEST_TIMEOUT = 30  # seconds
+
+    async def __test_grid_entities(self, event, data, kwargs):
+        """Test whether configured grid entities are emitting state changes.
+
+        Triggered from the grid connection settings dialog.
+        Sends progress events per entity as they respond, and a final
+        result event after all entities respond or the timeout expires.
+        """
+        self.__log("called")
+
+        entities = data.get("consumption_entities", []) + data.get(
+            "production_entities", []
+        )
+        if not entities:
+            self.hass.fire_event(
+                "test_grid_entities.result",
+                success=False,
+                error="No entities to test",
+                results={},
+            )
+            return
+
+        # Shared mutable state for callbacks
+        state = {
+            "pending": set(entities),
+            "results": {e: False for e in entities},
+            "listeners": [],
+            "timeout_handle": None,
+            "finished": False,
+        }
+
+        def on_state_change(entity, attribute, old, new, cb_kwargs):
+            """Called when an entity emits a state change."""
+            if state["finished"] or entity not in state["pending"]:
+                return
+            # Ignore non-numeric or unavailable states
+            if new in (None, "", "unknown", "unavailable"):
+                return
+            try:
+                float(new)
+            except (TypeError, ValueError):
+                return
+
+            state["pending"].discard(entity)
+            state["results"][entity] = True
+            self.hass.fire_event(
+                "test_grid_entities.progress",
+                entity=entity,
+                status="ok",
+            )
+            if not state["pending"]:
+                self._finish_grid_entity_test(state)
+
+        for entity in entities:
+            handle = self.hass.listen_state(on_state_change, entity)
+            state["listeners"].append(handle)
+
+        state["timeout_handle"] = self.hass.run_in(
+            self._grid_entity_test_timeout,
+            self._GRID_ENTITY_TEST_TIMEOUT,
+            state=state,
+        )
+
+    def _grid_entity_test_timeout(self, kwargs):
+        """Called when the grid entity test times out."""
+        self._finish_grid_entity_test(kwargs["state"])
+
+    def _finish_grid_entity_test(self, state):
+        """Clean up listeners and fire the result event.
+
+        Safe to call multiple times — only the first call has effect.
+        """
+        if state["finished"]:
+            return
+        state["finished"] = True
+
+        for handle in state["listeners"]:
+            try:
+                self.hass.cancel_listen_state(handle)
+            except Exception:
+                pass
+        if state["timeout_handle"] is not None:
+            try:
+                self.hass.cancel_timer(state["timeout_handle"])
+            except Exception:
+                pass
+
+        results = state["results"]
+        all_ok = all(results.values())
+        failed = [e for e, ok in results.items() if not ok]
+        self.__log(f"Grid entity test finished: all_ok={all_ok}, failed={failed}")
+        self.hass.fire_event(
+            "test_grid_entities.result",
+            success=all_ok,
+            results=results,
+            failed=failed,
         )
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):

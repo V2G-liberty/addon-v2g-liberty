@@ -32,6 +32,10 @@ def settings_manager_mock():
 def hass_mock():
     mock = Mock()
     mock.fire_event = Mock()
+    mock.listen_state = Mock(return_value="listen_handle")
+    mock.run_in = Mock(return_value="timer_handle")
+    mock.cancel_listen_state = Mock()
+    mock.cancel_timer = Mock()
     return mock
 
 
@@ -467,3 +471,177 @@ class TestGetChargerPhase:
             required=False,
             valid=True,
         )
+
+
+# ── Grid entity validation tests ─────────────────────────────────────
+
+
+class TestTestGridEntities:
+    @pytest.mark.asyncio
+    async def test_no_entities_returns_error(self, globals_instance, hass_mock):
+        """Empty entity lists return an error immediately."""
+        await globals_instance._V2GLibertyGlobals__test_grid_entities(
+            "event", {"consumption_entities": [], "production_entities": []}, {}
+        )
+
+        hass_mock.fire_event.assert_called_with(
+            "test_grid_entities.result",
+            success=False,
+            error="No entities to test",
+            results={},
+        )
+        hass_mock.listen_state.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_registers_listeners_and_timeout(self, globals_instance, hass_mock):
+        """Listeners are registered for all entities, plus a timeout."""
+        data = {
+            "consumption_entities": ["sensor.cons_l1"],
+            "production_entities": ["sensor.prod_l1"],
+        }
+
+        await globals_instance._V2GLibertyGlobals__test_grid_entities("event", data, {})
+
+        assert hass_mock.listen_state.call_count == 2
+        hass_mock.run_in.assert_called_once()
+        # Timeout should be 30 seconds
+        timeout_seconds = hass_mock.run_in.call_args[0][1]
+        assert timeout_seconds == 30
+
+    @pytest.mark.asyncio
+    async def test_all_entities_respond_finishes_early(
+        self, globals_instance, hass_mock
+    ):
+        """When all entities respond, the test finishes before timeout."""
+        # Capture the listen_state callbacks
+        callbacks = {}
+
+        def fake_listen_state(callback, entity):
+            callbacks[entity] = callback
+            return f"handle_{entity}"
+
+        hass_mock.listen_state = Mock(side_effect=fake_listen_state)
+
+        data = {
+            "consumption_entities": ["sensor.cons_l1"],
+            "production_entities": ["sensor.prod_l1"],
+        }
+
+        await globals_instance._V2GLibertyGlobals__test_grid_entities("event", data, {})
+
+        # Simulate both entities responding with numeric values
+        callbacks["sensor.cons_l1"]("sensor.cons_l1", "state", "0", "850", {})
+        callbacks["sensor.prod_l1"]("sensor.prod_l1", "state", "0", "120", {})
+
+        # Should have fired progress events + result
+        fire_calls = [call.args[0] for call in hass_mock.fire_event.call_args_list]
+        assert "test_grid_entities.progress" in fire_calls
+        assert "test_grid_entities.result" in fire_calls
+
+        # Result should be success
+        result_call = [
+            call
+            for call in hass_mock.fire_event.call_args_list
+            if call.args[0] == "test_grid_entities.result"
+        ][0]
+        assert result_call.kwargs["success"] is True
+        assert result_call.kwargs["failed"] == []
+
+    @pytest.mark.asyncio
+    async def test_timeout_reports_failed_entities(self, globals_instance, hass_mock):
+        """When timeout fires, unresponsive entities are reported as failed."""
+        callbacks = {}
+
+        def fake_listen_state(callback, entity):
+            callbacks[entity] = callback
+            return f"handle_{entity}"
+
+        hass_mock.listen_state = Mock(side_effect=fake_listen_state)
+
+        data = {
+            "consumption_entities": ["sensor.cons_l1", "sensor.cons_l2"],
+            "production_entities": [],
+        }
+
+        await globals_instance._V2GLibertyGlobals__test_grid_entities("event", data, {})
+
+        # Only one entity responds
+        callbacks["sensor.cons_l1"]("sensor.cons_l1", "state", "0", "850", {})
+
+        # Simulate timeout firing
+        timeout_callback = hass_mock.run_in.call_args[0][0]
+        timeout_kwargs = hass_mock.run_in.call_args[1]
+        timeout_callback(timeout_kwargs)
+
+        # Result should report cons_l2 as failed
+        result_call = [
+            call
+            for call in hass_mock.fire_event.call_args_list
+            if call.args[0] == "test_grid_entities.result"
+        ][0]
+        assert result_call.kwargs["success"] is False
+        assert "sensor.cons_l2" in result_call.kwargs["failed"]
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_numeric_state(self, globals_instance, hass_mock):
+        """Non-numeric state values (unknown, unavailable) are ignored."""
+        callbacks = {}
+
+        def fake_listen_state(callback, entity):
+            callbacks[entity] = callback
+            return f"handle_{entity}"
+
+        hass_mock.listen_state = Mock(side_effect=fake_listen_state)
+
+        data = {
+            "consumption_entities": ["sensor.cons_l1"],
+            "production_entities": [],
+        }
+
+        await globals_instance._V2GLibertyGlobals__test_grid_entities("event", data, {})
+
+        # Send non-numeric values — should be ignored
+        callbacks["sensor.cons_l1"]("sensor.cons_l1", "state", "0", "unknown", {})
+        callbacks["sensor.cons_l1"]("sensor.cons_l1", "state", "0", "unavailable", {})
+
+        # No progress event should have been fired
+        progress_calls = [
+            call
+            for call in hass_mock.fire_event.call_args_list
+            if call.args[0] == "test_grid_entities.progress"
+        ]
+        assert len(progress_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_finish_only_fires_once(self, globals_instance, hass_mock):
+        """The result event is only fired once, even if timeout fires after completion."""
+        callbacks = {}
+
+        def fake_listen_state(callback, entity):
+            callbacks[entity] = callback
+            return f"handle_{entity}"
+
+        hass_mock.listen_state = Mock(side_effect=fake_listen_state)
+
+        data = {
+            "consumption_entities": ["sensor.cons_l1"],
+            "production_entities": [],
+        }
+
+        await globals_instance._V2GLibertyGlobals__test_grid_entities("event", data, {})
+
+        # Entity responds → finishes early
+        callbacks["sensor.cons_l1"]("sensor.cons_l1", "state", "0", "850", {})
+
+        # Simulate timeout also firing (race condition)
+        timeout_callback = hass_mock.run_in.call_args[0][0]
+        timeout_kwargs = hass_mock.run_in.call_args[1]
+        timeout_callback(timeout_kwargs)
+
+        # Result should only have been fired once
+        result_calls = [
+            call
+            for call in hass_mock.fire_event.call_args_list
+            if call.args[0] == "test_grid_entities.result"
+        ]
+        assert len(result_calls) == 1
