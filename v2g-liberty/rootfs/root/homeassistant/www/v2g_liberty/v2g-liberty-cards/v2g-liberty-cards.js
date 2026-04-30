@@ -13931,6 +13931,569 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 
 
 
+const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
+class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog() {
+        super.showDialog();
+        this._step = "intro";
+        this._phases = null;
+        this._capacityPerPhase = '';
+        this._consumptionEntities = [];
+        this._productionEntities = [];
+        this._entityStatus = {};
+        this._cleanupEntityListeners();
+        this._autoDetected = false;
+        this._triedContinueStep2 = false;
+        this._triedSave = false;
+        this._saving = false;
+        this._saveError = '';
+        this._saveConfirmed = false;
+        // Load existing settings if configured
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            if (data.consumption_entities?.length > 0) {
+                this._phases = data.phases;
+                this._capacityPerPhase = String(data.capacity_per_phase ?? '');
+                this._consumptionEntities = data.consumption_entities;
+                this._productionEntities = data.production_entities;
+            }
+        } catch (e) {
+        // Ignore — start fresh
+        }
+        // Auto-detect from available HA entities (only if not already configured)
+        if (!this._phases) try {
+            const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
+            if (detected.phases || detected.capacity_per_phase || detected.consumption_entities?.length > 0) this._autoDetected = true;
+            if (detected.phases) this._phases = detected.phases;
+            if (detected.capacity_per_phase) this._capacityPerPhase = String(detected.capacity_per_phase);
+            if (detected.consumption_entities?.length > 0) this._consumptionEntities = detected.consumption_entities;
+            if (detected.production_entities?.length > 0) this._productionEntities = detected.production_entities;
+        } catch (e) {
+        // Auto-detect failed, no problem — user fills in manually
+        }
+        this._buildSensorEntityList();
+        await this.updateComplete;
+    }
+    closeDialog() {
+        this._cleanupEntityListeners();
+        super.closeDialog();
+    }
+    _cleanupEntityListeners() {
+        for (const unsub of Object.values(this._entityListeners))try {
+            if (typeof unsub === 'function') unsub();
+        } catch (e) {}
+        this._entityListeners = {};
+    }
+    _buildSensorEntityList() {
+        const states = this.hass.states;
+        this._sensorEntities = [];
+        for (const entityId of Object.keys(states)){
+            if (!entityId.startsWith('sensor.')) continue;
+            const stateObj = states[entityId];
+            const deviceClass = stateObj.attributes.device_class ?? '';
+            const unit = stateObj.attributes.unit_of_measurement ?? '';
+            const isPower = deviceClass === 'power' || [
+                'W',
+                'kW',
+                'MW'
+            ].includes(unit);
+            const name = stateObj.attributes.friendly_name || entityId;
+            this._sensorEntities.push({
+                id: entityId,
+                name: name,
+                isPower: isPower
+            });
+        }
+        // Sort: power sensors first, then alphabetically
+        this._sensorEntities.sort((a, b)=>{
+            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = 'Grid connection';
+        let content;
+        switch(this._step){
+            case "intro":
+                content = this._renderIntro();
+                break;
+            case "phases_and_capacity":
+                content = this._renderPhasesAndCapacity();
+                break;
+            case "entities":
+                content = this._renderEntities();
+                break;
+        }
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
+      >
+        ${content}
+      </ha-dialog>
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    _renderIntro() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>By monitoring your grid connection, the system learns your household energy
+      patterns. Over time, this leads to <strong>better predictions</strong> and
+      <strong>smarter schedules</strong> that fit your specific situation.</p>
+
+      <p><strong>For Dutch users:</strong> this is a valuable preparation for the
+      end of "saldering" (net metering). Once net metering ends, a grid connection
+      configuration will be required.</p>
+
+      <div class="requirements-box">
+        <div class="requirements-header">What you need*</div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Smart meter</strong><br/>
+            Capable of reporting power usage per phase in real-time.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>P1 cable</strong><br/>
+            A USB P1 port cable or similar to connect the meter.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Home Assistant integration</strong><br/>
+            A functional integration that exposes meter data as sensor entities.
+          </div>
+        </div>
+        <div class="requirements-footer">
+          * Typical setup. Other setups are possible, as long as usage and production
+          can be read from HA sensors.
+        </div>
+      </div>
+
+      <p><strong>Important:</strong> Make sure your smart meter integration is fully
+      installed and working in Home Assistant before continuing. You will need to
+      select the sensor entities in the next step, and we will verify that they are
+      reporting data.</p>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "phases_and_capacity";
+        }, true)}
+    `;
+    }
+    // ── Step 2: Phases and Capacity ─────────────────────────────────────
+    _renderPhasesAndCapacity() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._autoDetected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="info">
+            Values have been pre-filled based on your available sensors.
+            Please verify and adjust if needed.
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      <div>
+        <p><strong>How many phases does your grid connection have?</strong></p>
+        ${(0, $4dbea3927e6cdc74$export$4554bf7c8c968942)('1', '1 phase', this._phases === 1, ()=>{
+            this._phases = 1;
+        }, 'phases')}
+        ${(0, $4dbea3927e6cdc74$export$4554bf7c8c968942)('3', '3 phases', this._phases === 3, ()=>{
+            this._phases = 3;
+        }, 'phases')}
+        ${this._triedContinueStep2 && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <details class="hint">
+          <summary>Not sure?</summary>
+          <p>Check your smart meter integration in Home Assistant. Look for separate
+          L1, L2, and L3 sensors — if you have them, you have 3 phases. If you only
+          see L1, you have 1 phase.</p>
+        </details>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <p><strong>Capacity per phase (ampere)</strong></p>
+        <ha-textfield
+          type="number"
+          inputmode="numeric"
+          .value=${this._capacityPerPhase}
+          @change=${(e)=>{
+            this._capacityPerPhase = e.target.value;
+        }}
+          min="6"
+          max="80"
+          suffix="A"
+          style="width: 120px;"
+          test-id="capacity-per-phase"
+        ></ha-textfield>
+        ${this._renderCapacityError()}
+        <details class="hint">
+          <summary>Where to find this</summary>
+          <p>You can find this on your energy contract, or in your smart meter
+          integration in Home Assistant. Look for a sensor with "fuse" or "threshold"
+          in the name. Common values are 25A or 35A.</p>
+          <p>Please enter the actual value — do not enter a lower value as a safety margin.</p>
+        </details>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueStep2 = false;
+            this._step = "intro";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToEntities(), true)}
+    `;
+    }
+    _isCapacityValid() {
+        if (this._capacityPerPhase === '') return false;
+        const cap = parseFloat(this._capacityPerPhase);
+        return !isNaN(cap) && Number.isInteger(cap) && cap >= 6 && cap <= 80;
+    }
+    _renderCapacityError() {
+        if (this._capacityPerPhase === '' && this._triedContinueStep2) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter the capacity.</div>`;
+        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Must be a whole number between 6 and 80.</div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _continueToEntities() {
+        this._triedContinueStep2 = true;
+        if (this._phases === null) return;
+        if (!this._isCapacityValid()) return;
+        // Initialise entity arrays to correct length if needed
+        const count = this._phases;
+        if (this._consumptionEntities.length !== count) this._consumptionEntities = new Array(count).fill('');
+        if (this._productionEntities.length !== count) this._productionEntities = new Array(count).fill('');
+        this._triedSave = false;
+        this._saveConfirmed = false;
+        this._step = "entities";
+        // Start listening for already-selected entities
+        for (const entityId of [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ])if (entityId) this._startListeningEntity(entityId);
+    }
+    // ── Step 3: Entity Selection (with inline validation) ───────────────
+    _renderEntities() {
+        const count = this._phases ?? 1;
+        const allSelected = this._getAllSelectedEntities();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._autoDetected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="info">
+            Sensors have been pre-filled based on detected patterns.
+            Please verify the selection is correct.
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      <div>
+        <p><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
+        ${Array.from({
+            length: count
+        }, (_, i)=>this._renderEntityDropdown(`Consumption phase ${i + 1} (L${i + 1})`, this._consumptionEntities[i] ?? '', (val)=>{
+                const old = this._consumptionEntities[i];
+                if (old) this._stopListeningEntity(old);
+                const copy = [
+                    ...this._consumptionEntities
+                ];
+                copy[i] = val;
+                this._consumptionEntities = copy;
+                if (val) this._startListeningEntity(val);
+            }, allSelected))}
+      </div>
+
+      <div style="margin-top: 16px;">
+        <p><strong>Production sensors</strong> (power fed back to the grid)</p>
+        ${Array.from({
+            length: count
+        }, (_, i)=>this._renderEntityDropdown(`Production phase ${i + 1} (L${i + 1})`, this._productionEntities[i] ?? '', (val)=>{
+                const old = this._productionEntities[i];
+                if (old) this._stopListeningEntity(old);
+                const copy = [
+                    ...this._productionEntities
+                ];
+                copy[i] = val;
+                this._productionEntities = copy;
+                if (val) this._startListeningEntity(val);
+            }, allSelected))}
+      </div>
+
+      ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderSaveWarning()}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._cleanupEntityListeners();
+            this._triedSave = false;
+            this._step = "phases_and_capacity";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._saving ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save'))}
+    `;
+    }
+    _renderEntityDropdown(label, selected, onChange, allSelected) {
+        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
+        const status = selected ? this._entityStatus[selected] : undefined;
+        const statusIcon = selected ? status === true ? "\u2705" : "\u23F3" : '';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="margin: 8px 0;">
+        <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select
+            .value=${selected}
+            @change=${(e)=>onChange(e.target.value)}
+            style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
+          >
+            <option value="">Select a sensor...</option>
+            ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
+              ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+            <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
+              ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>
+          </select>
+          <span style="font-size: 1.2em; width: 24px; text-align: center;">${statusIcon}</span>
+        </div>
+      </div>
+    `;
+    }
+    _startListeningEntity(entityId) {
+        if (this._entityListeners[entityId]) return; // already listening
+        this._entityStatus = {
+            ...this._entityStatus,
+            [entityId]: undefined
+        }; // pending
+        // Subscribe to state changes for this entity
+        const unsub = this.hass.connection.subscribeEvents((event)=>{
+            const data = event.data;
+            if (data.entity_id !== entityId) return;
+            const newState = data.new_state?.state;
+            if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
+            // Numeric check
+            if (isNaN(parseFloat(newState))) return;
+            this._entityStatus = {
+                ...this._entityStatus,
+                [entityId]: true
+            };
+        }, 'state_changed');
+        unsub.then((unsubFn)=>{
+            this._entityListeners[entityId] = unsubFn;
+        });
+    }
+    _stopListeningEntity(entityId) {
+        const unsub = this._entityListeners[entityId];
+        if (unsub) {
+            try {
+                if (typeof unsub === 'function') unsub();
+            } catch (e) {}
+            delete this._entityListeners[entityId];
+        }
+        const copy = {
+            ...this._entityStatus
+        };
+        delete copy[entityId];
+        this._entityStatus = copy;
+    }
+    _getAllSelectedEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return new Set(all);
+    }
+    _hasDuplicateEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return new Set(all).size !== all.length;
+    }
+    _hasEmptyEntities() {
+        const count = this._phases ?? 1;
+        return this._consumptionEntities.filter((e)=>e !== '').length < count || this._productionEntities.filter((e)=>e !== '').length < count;
+    }
+    _hasPendingEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return all.some((e)=>this._entityStatus[e] !== true);
+    }
+    _renderEntityErrors() {
+        const errors = [];
+        if (this._hasEmptyEntities()) errors.push('Please select a sensor for each field.');
+        if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
+        if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
+    }
+    _renderSaveWarning() {
+        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (!this._hasPendingEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title="Some sensors have not responded yet">
+        This could mean the entity ID is incorrect, or the sensor is not reporting
+        data at this time. For production sensors, this can be normal if there is
+        currently no or little solar production — the meter may report 0 continuously,
+        which does not generate a state change.
+      </ha-alert>
+    `;
+    }
+    // ── Save ────────────────────────────────────────────────────────────
+    async _handleSave() {
+        this._triedSave = true;
+        // Block if empty or duplicate
+        if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
+        // If some entities still pending and not yet confirmed
+        if (this._hasPendingEntities() && !this._saveConfirmed) {
+            this._saveConfirmed = true; // next click will be "Save anyway"
+            return;
+        }
+        await this._save();
+    }
+    async _save() {
+        this._saving = true;
+        this._saveError = '';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_grid_connection_settings', {
+                phases: this._phases,
+                capacity_per_phase: parseInt(this._capacityPerPhase, 10),
+                consumption_entities: this._consumptionEntities,
+                production_entities: this._productionEntities
+            });
+            if (result.error) {
+                this._saveError = result.error;
+                this._saving = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._saveError = 'Failed to save settings. Please try again.';
+            this._saving = false;
+        }
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .error {
+        color: var(--error-color);
+        font-size: 0.875em;
+        margin-top: 4px;
+      }
+      details.hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      details.hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      details.hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+      }
+      .requirements-box {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        background: var(--card-background-color);
+      }
+      .requirements-header {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .requirement-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .requirement-icon {
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        border-radius: 50%;
+        padding: 8px;
+        flex-shrink: 0;
+        --mdc-icon-size: 24px;
+      }
+      .requirement-item div {
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+      .requirements-footer {
+        margin-top: 12px;
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+        font-style: italic;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Inline entity validation state (per entity: true=ok, undefined=pending)
+        this._entityStatus = {}, this._entityListeners = {}, // Auto-detection state
+        this._autoDetected = false, // Form validation state
+        this._triedContinueStep2 = false, this._triedSave = false, // Saving state
+        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Available sensor entities for dropdowns
+        this._sensorEntities = [];
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_step", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_capacityPerPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_consumptionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueStep2", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saving", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveConfirmed", void 0);
+$c39c194e2cc8bd35$export$7bc40f611da49691 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($c39c194e2cc8bd35$export$45e0b80f1e500bd4)
+], $c39c194e2cc8bd35$export$7bc40f611da49691);
+
+
+
+
+
+
+
+
+
 
 
 const $fe3d519835c26128$var$REQUIRED_ENTITY_IDS = [
@@ -14257,6 +14820,13 @@ const $de105ef1fecb85b1$export$ebe2794f5ddc465 = (element, dialogParams)=>{
 const $de105ef1fecb85b1$export$b220f18fecfa2078 = (element)=>{
     (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
         dialogTag: (0, $056feaf1842f603f$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$dc47fab9d3063d57 = (element)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $c39c194e2cc8bd35$export$45e0b80f1e500bd4),
         dialogImport: ()=>Promise.resolve(),
         dialogParams: {}
     });
@@ -16390,6 +16960,123 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
 $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-schedule-settings-card')
 ], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa);
+
+
+
+
+
+
+
+
+
+class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(config) {}
+    set hass(hass) {
+        const firstSet = !this._hass;
+        this._hass = hass;
+        if (firstSet) this._loadSettings();
+    }
+    async _loadSettings() {
+        this._loading = true;
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_grid_connection_settings');
+            this._phases = data.phases ?? null;
+            this._capacityPerPhase = data.capacity_per_phase ?? null;
+            this._consumptionEntities = data.consumption_entities ?? [];
+            this._productionEntities = data.production_entities ?? [];
+            this._isConfigured = this._consumptionEntities.length > 0;
+        } catch (e) {
+            console.error('Failed to load grid connection settings', e);
+            this._isConfigured = false;
+        }
+        this._loading = false;
+    }
+    render() {
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">
+        <div class="card-content">
+          <ha-circular-progress indeterminate></ha-circular-progress>
+        </div>
+      </ha-card>`;
+        const content = this._isConfigured ? this._renderConfiguredContent() : this._renderEmptyContent();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">${content}</ha-card>`;
+    }
+    _renderEmptyContent() {
+        const editCallback = ()=>this._openDialog();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <p>Not yet configured. This is optional.</p>
+        <p>Track your household energy usage to improve charging schedules over time.</p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, 'Set up')}
+      </div>
+    `;
+    }
+    _renderConfiguredContent() {
+        const editCallback = ()=>this._openDialog();
+        const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <p>${phaseLabel}, ${this._capacityPerPhase}A per phase</p>
+        <div class="entity-list">
+          <p><strong>Consumption</strong></p>
+          ${this._consumptionEntities.map((e, i)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="entity-id">L${i + 1}: ${e}</p>`)}
+          <p><strong>Production</strong></p>
+          ${this._productionEntities.map((e, i)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="entity-id">L${i + 1}: ${e}</p>`)}
+        </div>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+      </div>
+    `;
+    }
+    _openDialog() {
+        (0, $de105ef1fecb85b1$export$dc47fab9d3063d57)(this);
+        // Reload settings when dialog closes
+        this.addEventListener('dialog-closed', ()=>this._loadSettings(), {
+            once: true
+        });
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .entity-id {
+        font-family: var(--code-font-family, monospace);
+        font-size: 0.9em;
+        margin: 2px 0;
+      }
+      .entity-list {
+        margin-top: 8px;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._loading = true;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_isConfigured", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_capacityPerPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_consumptionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loading", void 0);
+$fcb07f75f9ef44be$export$fc44a86842da187a = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-grid-connection-settings-card')
+], $fcb07f75f9ef44be$export$fc44a86842da187a);
 
 
 
