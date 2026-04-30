@@ -494,7 +494,7 @@ entities in the next step, and we will verify that they are reporting data.
           const icon = result === true
             ? '✅'
             : result === false
-              ? '❌'
+              ? '❓'
               : '⏳';
           return html`
             <div style="padding: 4px 0; font-family: var(--code-font-family, monospace); font-size: 0.875em;">
@@ -519,7 +519,10 @@ entities in the next step, and we will verify that they are reporting data.
     return html`
       <ha-alert alert-type="warning">
         Some sensors did not respond within 30 seconds.
-        This could mean the entity ID is incorrect, or the sensor is not reporting data at this time.
+        This could mean the entity ID is incorrect, or the sensor is not reporting
+        data at this time. For production sensors, this can be normal if there is
+        currently no or little solar production — the meter may report 0 continuously,
+        which does not generate a state change.
       </ha-alert>
     `;
   }
