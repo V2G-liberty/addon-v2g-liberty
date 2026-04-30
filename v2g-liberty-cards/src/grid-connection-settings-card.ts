@@ -1,12 +1,15 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { HassEvent } from 'home-assistant-js-websocket';
 
 import { renderButton } from './util/render';
+import { partial } from './util/translate';
 import { styles } from './card.styles';
 import { callFunction } from './util/appdaemon';
 import { showGridConnectionSettingsDialog } from './show-dialogs';
+
+const tc = partial('settings.common');
 
 @customElement('v2g-liberty-grid-connection-settings-card')
 export class GridConnectionSettingsCard extends LitElement {
@@ -81,11 +84,11 @@ export class GridConnectionSettingsCard extends LitElement {
     const editCallback = () => this._openDialog();
     return html`
       <div class="card-content">
-        <p>Not yet configured. This is optional.</p>
+        <ha-alert alert-type="info">Not yet configured. This is optional but recommended.</ha-alert>
         <p>Track your household energy usage to improve charging schedules over time.</p>
       </div>
       <div class="card-actions">
-        ${renderButton(this._hass, editCallback, true, 'Set up')}
+        ${renderButton(this._hass, editCallback, true, tc('configure'))}
       </div>
     `;
   }
@@ -93,19 +96,11 @@ export class GridConnectionSettingsCard extends LitElement {
   private _renderConfiguredContent() {
     const editCallback = () => this._openDialog();
     const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
+    const sensorCount = this._consumptionEntities.length + this._productionEntities.length;
     return html`
       <div class="card-content">
         <p>${phaseLabel}, ${this._capacityPerPhase}A per phase</p>
-        <div class="entity-list">
-          <p><strong>Consumption</strong></p>
-          ${this._consumptionEntities.map(
-            (e, i) => html`<p class="entity-id">L${i + 1}: ${e}</p>`
-          )}
-          <p><strong>Production</strong></p>
-          ${this._productionEntities.map(
-            (e, i) => html`<p class="entity-id">L${i + 1}: ${e}</p>`
-          )}
-        </div>
+        <p>Monitoring active on ${sensorCount} sensors.</p>
       </div>
       <div class="card-actions">
         ${renderButton(
@@ -122,17 +117,5 @@ export class GridConnectionSettingsCard extends LitElement {
     showGridConnectionSettingsDialog(this);
   }
 
-  static styles = [
-    styles,
-    css`
-      .entity-id {
-        font-family: var(--code-font-family, monospace);
-        font-size: 0.9em;
-        margin: 2px 0;
-      }
-      .entity-list {
-        margin-top: 8px;
-      }
-    `,
-  ];
+  static styles = [styles];
 }
