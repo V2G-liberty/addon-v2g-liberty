@@ -32,6 +32,7 @@ class GridPvEmulator(hass.Hass):
     }
 
     _PAUSE_ENTITY = "input_boolean.emulator_paused"
+    _cycle: int = 0  # Alternating offset to ensure state changes
 
     def initialize(self):
         self._update_interval = int(self.args.get("update_interval", 10))
@@ -65,6 +66,10 @@ class GridPvEmulator(hass.Hass):
             return
 
         now = datetime.now()
+        # Alternating +1/-1 offset ensures state always changes,
+        # even when the rounded value would be identical.
+        self._cycle = 1 - self._cycle
+        offset = self._cycle  # 0 or 1
 
         # Calculate components
         base = self._calculate_base_load(now)
@@ -78,11 +83,11 @@ class GridPvEmulator(hass.Hass):
             net = total_consumption - pv_on_phase
 
             if net > 0:
-                grid_consumption = round(net)
-                grid_production = 0
+                grid_consumption = round(net) + offset
+                grid_production = offset
             else:
-                grid_consumption = 0
-                grid_production = round(abs(net))
+                grid_consumption = offset
+                grid_production = round(abs(net)) + offset
 
             self._set_sensor(
                 f"sensor.emulated_grid_consumption_l{phase}",
