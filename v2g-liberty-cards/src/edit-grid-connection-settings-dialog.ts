@@ -7,7 +7,6 @@ import {
   renderButton,
   renderDialogHeader,
   renderSpinner,
-  renderSelectOptionWithLabel,
   isNewHaDialogAPI,
 } from './util/render';
 import { styles } from './card.styles';
@@ -205,7 +204,8 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
           <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
           <div>
             <strong>Home Assistant integration</strong><br/>
-            A functional integration that exposes meter data as sensor entities.
+            A functional integration that exposes meter data as sensor entities
+            (e.g. a DSMR integration).
           </div>
         </div>
         <div class="requirements-footer">
@@ -214,10 +214,6 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         </div>
       </div>
 
-      <p><strong>Important:</strong> Make sure your smart meter integration is fully
-      installed and working in Home Assistant before continuing. You will need to
-      select the sensor entities in the next step, and we will verify that they are
-      reporting data.</p>
       ${renderButton(
         this.hass,
         () => { this._step = Step.PhasesAndCapacity; },
@@ -230,27 +226,49 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   private _renderPhasesAndCapacity() {
     return html`
-      ${this._autoDetected
-        ? html`<ha-alert alert-type="info">
-            Values have been pre-filled based on your available sensors.
-            Please verify and adjust if needed.
-          </ha-alert>`
-        : nothing
-      }
       <div>
-        <p><strong>How many phases does your grid connection have?</strong></p>
-        ${renderSelectOptionWithLabel(
-          '1', '1 phase',
-          this._phases === 1,
-          () => { this._phases = 1; },
-          'phases'
-        )}
-        ${renderSelectOptionWithLabel(
-          '3', '3 phases',
-          this._phases === 3,
-          () => { this._phases = 3; },
-          'phases'
-        )}
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <p style="margin: 0;"><strong>How many phases does your grid connection have?</strong></p>
+          ${this._autoDetected && this._phases !== null
+            ? html`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>`
+            : nothing
+          }
+        </div>
+        <div class="phase-cards">
+          <div
+            class="phase-card ${this._phases === 1 ? 'selected' : ''}"
+            @click=${() => { this._phases = 1; }}
+          >
+            <ha-radio
+              .checked=${this._phases === 1}
+              name="phases"
+              value="1"
+              @change=${() => { this._phases = 1; }}
+            ></ha-radio>
+            <div>
+              <strong>1 phase</strong><br/>
+              <span class="phase-subtitle">Small apartment connection</span>
+            </div>
+          </div>
+          <div
+            class="phase-card ${this._phases === 3 ? 'selected' : ''}"
+            @click=${() => { this._phases = 3; }}
+          >
+            <ha-radio
+              .checked=${this._phases === 3}
+              name="phases"
+              value="3"
+              @change=${() => { this._phases = 3; }}
+            ></ha-radio>
+            <div>
+              <strong>3 phases</strong><br/>
+              <span class="phase-subtitle">Standard connection</span>
+            </div>
+          </div>
+        </div>
         ${this._triedContinueStep2 && this._phases === null
           ? html`<div class="error">Please select the number of phases.</div>`
           : nothing
@@ -264,7 +282,16 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       </div>
 
       <div style="margin-top: 16px;">
-        <p><strong>Capacity per phase (ampere)</strong></p>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <p style="margin: 0;"><strong>Capacity per phase (ampere)</strong></p>
+          ${this._autoDetected && this._capacityPerPhase !== ''
+            ? html`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>`
+            : nothing
+          }
+        </div>
         <ha-textfield
           type="number"
           inputmode="numeric"
@@ -273,7 +300,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
           min="6"
           max="80"
           suffix="A"
-          style="width: 120px;"
+          style="width: 120px; --mdc-text-field-text-align: right;"
           test-id="capacity-per-phase"
         ></ha-textfield>
         ${this._renderCapacityError()}
@@ -352,15 +379,18 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     const allSelected = this._getAllSelectedEntities();
 
     return html`
-      ${this._autoDetected
-        ? html`<ha-alert alert-type="info">
-            Sensors have been pre-filled based on detected patterns.
-            Please verify the selection is correct.
-          </ha-alert>`
-        : nothing
-      }
       <div>
-        <p><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
+          ${this._autoDetected && this._consumptionEntities.some(e => e !== '')
+            ? html`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>`
+            : nothing
+          }
+          <span class="column-header">Active</span>
+        </div>
         ${Array.from({ length: count }, (_, i) => this._renderEntityDropdown(
           `Consumption phase ${i + 1} (L${i + 1})`,
           this._consumptionEntities[i] ?? '',
@@ -376,8 +406,18 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         ))}
       </div>
 
-      <div style="margin-top: 16px;">
-        <p><strong>Production sensors</strong> (power fed back to the grid)</p>
+      <div style="margin-top: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Production sensors</strong> (power fed back to the grid)</p>
+          ${this._autoDetected && this._productionEntities.some(e => e !== '')
+            ? html`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>`
+            : nothing
+          }
+          <span class="column-header">Active</span>
+        </div>
         ${Array.from({ length: count }, (_, i) => this._renderEntityDropdown(
           `Production phase ${i + 1} (L${i + 1})`,
           this._productionEntities[i] ?? '',
@@ -426,8 +466,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     const hasPowerGroup = this._sensorEntities.some(e => e.isPower);
     const status = selected ? this._entityStatus[selected] : undefined;
     const statusIcon = selected
-      ? (status === true ? '✅' : '⏳')
-      : '';
+      ? (status === true
+          ? html`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>`
+          : html`<ha-spinner size="small"></ha-spinner>`)
+      : nothing;
 
     return html`
       <div style="margin: 8px 0;">
@@ -462,7 +504,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
                 `)}
             </optgroup>
           </select>
-          <span style="font-size: 1.2em; width: 24px; text-align: center;">${statusIcon}</span>
+          <span style="width: 28px; text-align: center; display: flex; align-items: center; justify-content: center;">${statusIcon}</span>
         </div>
       </div>
     `;
@@ -631,6 +673,55 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       details.hint p {
         margin: 4px 0 0 0;
         line-height: 1.4;
+      }
+      .phase-cards {
+        display: flex;
+        gap: 12px;
+      }
+      .phase-card {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .phase-card:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-card.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .phase-subtitle {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .column-header {
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .auto-detected-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: #2e7d32;
+        background: #e8f5e9;
+        padding: 2px 8px;
+        border-radius: 12px;
+        white-space: nowrap;
       }
       .requirements-box {
         border: 1px solid var(--divider-color);

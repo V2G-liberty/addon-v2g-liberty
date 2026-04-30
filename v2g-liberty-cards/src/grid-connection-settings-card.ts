@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
+import { HassEvent } from 'home-assistant-js-websocket';
 
 import { renderButton } from './util/render';
 import { styles } from './card.styles';
@@ -17,6 +18,7 @@ export class GridConnectionSettingsCard extends LitElement {
   @state() private _loading: boolean = true;
 
   private _hass: HomeAssistant;
+  private _unsubscribe: (() => void) | null = null;
 
   setConfig(config: LovelaceCardConfig) {}
 
@@ -25,6 +27,22 @@ export class GridConnectionSettingsCard extends LitElement {
     this._hass = hass;
     if (firstSet) {
       this._loadSettings();
+      this._subscribeToSaveEvents();
+    }
+  }
+
+  private async _subscribeToSaveEvents() {
+    this._unsubscribe = await this._hass.connection.subscribeEvents<HassEvent>(
+      () => this._loadSettings(),
+      'save_grid_connection_settings.result'
+    );
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._unsubscribe) {
+      this._unsubscribe();
+      this._unsubscribe = null;
     }
   }
 
@@ -102,12 +120,6 @@ export class GridConnectionSettingsCard extends LitElement {
 
   private _openDialog() {
     showGridConnectionSettingsDialog(this);
-    // Reload settings when dialog closes
-    this.addEventListener(
-      'dialog-closed',
-      () => this._loadSettings(),
-      { once: true }
-    );
   }
 
   static styles = [
