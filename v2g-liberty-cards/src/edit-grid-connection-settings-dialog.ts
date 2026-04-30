@@ -177,24 +177,47 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   private _renderIntro() {
     return html`
-      <ha-markdown breaks .content=${`
-**Why set up your grid connection?**
+      <p>By monitoring your grid connection, the system learns your household energy
+      patterns. Over time, this leads to <strong>better predictions</strong> and
+      <strong>smarter schedules</strong> that fit your specific situation.</p>
 
-V2G Liberty currently optimises your charging schedule based on energy prices
-and your calendar. By also monitoring your grid connection, the system learns
-your household energy patterns.
+      <p><strong>For Dutch users:</strong> this is a valuable preparation for the
+      end of "saldering" (net metering). Once net metering ends, a grid connection
+      configuration will be required.</p>
 
-Over time, this leads to **better predictions** and **smarter schedules** that
-fit your specific situation.
+      <div class="requirements-box">
+        <div class="requirements-header">What you need*</div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Smart meter</strong><br/>
+            Capable of reporting power usage per phase in real-time.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>P1 cable</strong><br/>
+            A USB P1 port cable or similar to connect the meter.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Home Assistant integration</strong><br/>
+            A functional integration that exposes meter data as sensor entities.
+          </div>
+        </div>
+        <div class="requirements-footer">
+          * Typical setup. Other setups are possible, as long as usage and production
+          can be read from HA sensors.
+        </div>
+      </div>
 
-**What you need:**
-- A smart meter that reports power per phase (consumption and production separately)
-- A Home Assistant integration for your smart meter that exposes these as sensor entities
-
-**Important:** Make sure your smart meter integration is fully installed and
-working in Home Assistant before continuing. You will need to select the sensor
-entities in the next step, and we will verify that they are reporting data.
-      `}></ha-markdown>
+      <p><strong>Important:</strong> Make sure your smart meter integration is fully
+      installed and working in Home Assistant before continuing. You will need to
+      select the sensor entities in the next step, and we will verify that they are
+      reporting data.</p>
       ${renderButton(
         this.hass,
         () => { this._step = Step.PhasesAndCapacity; },
@@ -608,6 +631,45 @@ entities in the next step, and we will verify that they are reporting data.
       details.hint p {
         margin: 4px 0 0 0;
         line-height: 1.4;
+      }
+      .requirements-box {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        background: var(--card-background-color);
+      }
+      .requirements-header {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .requirement-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .requirement-icon {
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        border-radius: 50%;
+        padding: 8px;
+        flex-shrink: 0;
+        --mdc-icon-size: 24px;
+      }
+      .requirement-item div {
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+      .requirements-footer {
+        margin-top: 12px;
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+        font-style: italic;
       }
     `,
   ];
