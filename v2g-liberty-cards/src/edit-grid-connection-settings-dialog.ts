@@ -19,11 +19,6 @@ const enum Step {
   Intro = 'intro',
   PhasesAndCapacity = 'phases_and_capacity',
   Entities = 'entities',
-  Validation = 'validation',
-}
-
-interface EntityTestResult {
-  [entityId: string]: boolean;
 }
 
 @customElement(tagName)
@@ -34,21 +29,21 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   @state() private _consumptionEntities: string[] = [];
   @state() private _productionEntities: string[] = [];
 
-  // Entity validation state
-  @state() private _validationRunning: boolean = false;
-  @state() private _validationResults: EntityTestResult = {};
-  @state() private _validationDone: boolean = false;
+  // Inline entity validation state (per entity: true=ok, undefined=pending)
+  @state() private _entityStatus: { [entityId: string]: boolean | undefined } = {};
+  private _entityListeners: { [entityId: string]: any } = {};
 
   // Auto-detection state
   @state() private _autoDetected: boolean = false;
 
   // Form validation state
   @state() private _triedContinueStep2: boolean = false;
-  @state() private _triedContinueStep3: boolean = false;
+  @state() private _triedSave: boolean = false;
 
   // Saving state
   @state() private _saving: boolean = false;
   @state() private _saveError: string = '';
+  @state() private _saveConfirmed: boolean = false;
 
   // Available sensor entities for dropdowns
   private _sensorEntities: { id: string; name: string; isPower: boolean }[] = [];
@@ -60,14 +55,14 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._capacityPerPhase = '';
     this._consumptionEntities = [];
     this._productionEntities = [];
+    this._entityStatus = {};
+    this._cleanupEntityListeners();
     this._autoDetected = false;
-    this._validationRunning = false;
-    this._validationResults = {};
-    this._validationDone = false;
     this._triedContinueStep2 = false;
-    this._triedContinueStep3 = false;
+    this._triedSave = false;
     this._saving = false;
     this._saveError = '';
+    this._saveConfirmed = false;
 
     // Load existing settings if configured
     try {
@@ -111,6 +106,20 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     await this.updateComplete;
   }
 
+  public closeDialog(): void {
+    this._cleanupEntityListeners();
+    super.closeDialog();
+  }
+
+  private _cleanupEntityListeners() {
+    for (const unsub of Object.values(this._entityListeners)) {
+      try {
+        if (typeof unsub === 'function') unsub();
+      } catch (e) { /* ignore */ }
+    }
+    this._entityListeners = {};
+  }
+
   private _buildSensorEntityList() {
     const states = this.hass.states;
     this._sensorEntities = [];
@@ -149,9 +158,6 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         break;
       case Step.Entities:
         content = this._renderEntities();
-        break;
-      case Step.Validation:
-        content = this._renderValidation();
         break;
     }
 
@@ -303,10 +309,20 @@ entities in the next step, and we will verify that they are reporting data.
     if (this._productionEntities.length !== count) {
       this._productionEntities = new Array(count).fill('');
     }
+
+    this._triedSave = false;
+    this._saveConfirmed = false;
     this._step = Step.Entities;
+
+    // Start listening for already-selected entities
+    for (const entityId of [...this._consumptionEntities, ...this._productionEntities]) {
+      if (entityId) {
+        this._startListeningEntity(entityId);
+      }
+    }
   }
 
-  // ── Step 3: Entity Selection ────────────────────────────────────────
+  // ── Step 3: Entity Selection (with inline validation) ───────────────
 
   private _renderEntities() {
     const count = this._phases ?? 1;
@@ -323,12 +339,15 @@ entities in the next step, and we will verify that they are reporting data.
       <div>
         <p><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
         ${Array.from({ length: count }, (_, i) => this._renderEntityDropdown(
-          `Consumption L${i + 1}`,
+          `Consumption phase ${i + 1} (L${i + 1})`,
           this._consumptionEntities[i] ?? '',
           (val) => {
+            const old = this._consumptionEntities[i];
+            if (old) this._stopListeningEntity(old);
             const copy = [...this._consumptionEntities];
             copy[i] = val;
             this._consumptionEntities = copy;
+            if (val) this._startListeningEntity(val);
           },
           allSelected
         ))}
@@ -337,35 +356,41 @@ entities in the next step, and we will verify that they are reporting data.
       <div style="margin-top: 16px;">
         <p><strong>Production sensors</strong> (power fed back to the grid)</p>
         ${Array.from({ length: count }, (_, i) => this._renderEntityDropdown(
-          `Production L${i + 1}`,
+          `Production phase ${i + 1} (L${i + 1})`,
           this._productionEntities[i] ?? '',
           (val) => {
+            const old = this._productionEntities[i];
+            if (old) this._stopListeningEntity(old);
             const copy = [...this._productionEntities];
             copy[i] = val;
             this._productionEntities = copy;
+            if (val) this._startListeningEntity(val);
           },
           allSelected
         ))}
       </div>
 
-      ${this._triedContinueStep3 ? this._renderEntityErrors() : nothing}
+      ${this._triedSave ? this._renderEntityErrors() : nothing}
+      ${this._renderSaveWarning()}
 
       ${renderButton(
         this.hass,
-        () => { this._triedContinueStep3 = false; this._step = Step.PhasesAndCapacity; },
+        () => { this._cleanupEntityListeners(); this._triedSave = false; this._step = Step.PhasesAndCapacity; },
         false,
         this.hass.localize('ui.common.back'),
         false,
         'back',
         true
       )}
-      ${renderButton(
-        this.hass,
-        () => this._continueToValidation(),
-        true,
-        undefined,
-        false
-      )}
+      ${this._saving
+        ? renderSpinner(this.hass)
+        : renderButton(
+            this.hass,
+            () => this._handleSave(),
+            true,
+            this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save')
+          )
+      }
     `;
   }
 
@@ -376,40 +401,83 @@ entities in the next step, and we will verify that they are reporting data.
     allSelected: Set<string>
   ) {
     const hasPowerGroup = this._sensorEntities.some(e => e.isPower);
+    const status = selected ? this._entityStatus[selected] : undefined;
+    const statusIcon = selected
+      ? (status === true ? '✅' : '⏳')
+      : '';
+
     return html`
       <div style="margin: 8px 0;">
         <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
-        <select
-          .value=${selected}
-          @change=${(e) => onChange(e.target.value)}
-          style="width: 100%; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
-        >
-          <option value="">Select a sensor...</option>
-          ${hasPowerGroup ? html`<optgroup label="Power sensors">
-            ${this._sensorEntities
-              .filter(e => e.isPower)
-              .map(e => html`
-                <option
-                  value=${e.id}
-                  ?selected=${e.id === selected}
-                  ?disabled=${e.id !== selected && allSelected.has(e.id)}
-                >${e.name} (${e.id})</option>
-              `)}
-          </optgroup>` : nothing}
-          <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
-            ${this._sensorEntities
-              .filter(e => !e.isPower)
-              .map(e => html`
-                <option
-                  value=${e.id}
-                  ?selected=${e.id === selected}
-                  ?disabled=${e.id !== selected && allSelected.has(e.id)}
-                >${e.name} (${e.id})</option>
-              `)}
-          </optgroup>
-        </select>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select
+            .value=${selected}
+            @change=${(e) => onChange(e.target.value)}
+            style="flex: 1; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
+          >
+            <option value="">Select a sensor...</option>
+            ${hasPowerGroup ? html`<optgroup label="Power sensors">
+              ${this._sensorEntities
+                .filter(e => e.isPower)
+                .map(e => html`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>` : nothing}
+            <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
+              ${this._sensorEntities
+                .filter(e => !e.isPower)
+                .map(e => html`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>
+          </select>
+          <span style="font-size: 1.2em; width: 24px; text-align: center;">${statusIcon}</span>
+        </div>
       </div>
     `;
+  }
+
+  private _startListeningEntity(entityId: string) {
+    if (this._entityListeners[entityId]) return; // already listening
+    this._entityStatus = { ...this._entityStatus, [entityId]: undefined }; // pending
+
+    // Subscribe to state changes for this entity
+    const unsub = this.hass.connection.subscribeEvents<HassEvent>(
+      (event: HassEvent) => {
+        const data = event.data as any;
+        if (data.entity_id !== entityId) return;
+        const newState = data.new_state?.state;
+        if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
+        // Numeric check
+        if (isNaN(parseFloat(newState))) return;
+        this._entityStatus = { ...this._entityStatus, [entityId]: true };
+      },
+      'state_changed'
+    );
+    unsub.then(unsubFn => {
+      this._entityListeners[entityId] = unsubFn;
+    });
+  }
+
+  private _stopListeningEntity(entityId: string) {
+    const unsub = this._entityListeners[entityId];
+    if (unsub) {
+      try {
+        if (typeof unsub === 'function') unsub();
+      } catch (e) { /* ignore */ }
+      delete this._entityListeners[entityId];
+    }
+    const copy = { ...this._entityStatus };
+    delete copy[entityId];
+    this._entityStatus = copy;
   }
 
   private _getAllSelectedEntities(): Set<string> {
@@ -428,21 +496,20 @@ entities in the next step, and we will verify that they are reporting data.
     return new Set(all).size !== all.length;
   }
 
-  private _allEntitiesFilled(): boolean {
-    const count = this._phases ?? 1;
-    return (
-      this._consumptionEntities.filter(e => e !== '').length === count &&
-      this._productionEntities.filter(e => e !== '').length === count &&
-      !this._hasDuplicateEntities()
-    );
-  }
-
   private _hasEmptyEntities(): boolean {
     const count = this._phases ?? 1;
     return (
       this._consumptionEntities.filter(e => e !== '').length < count ||
       this._productionEntities.filter(e => e !== '').length < count
     );
+  }
+
+  private _hasPendingEntities(): boolean {
+    const all = [
+      ...this._consumptionEntities,
+      ...this._productionEntities,
+    ].filter(e => e !== '');
+    return all.some(e => this._entityStatus[e] !== true);
   }
 
   private _renderEntityErrors() {
@@ -459,66 +526,14 @@ entities in the next step, and we will verify that they are reporting data.
     )}`;
   }
 
-  private _continueToValidation() {
-    this._triedContinueStep3 = true;
-    if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
-    this._validationResults = {};
-    this._validationDone = false;
-    this._step = Step.Validation;
-    this._runEntityValidation();
-  }
-
-  // ── Step 4: Entity Validation ───────────────────────────────────────
-
-  private _renderValidation() {
-    const allEntities = [
-      ...this._consumptionEntities,
-      ...this._productionEntities,
-    ];
-
-    return html`
-      ${this._validationDone
-        ? this._renderValidationResult()
-        : html`
-          <p>Verifying that your sensors are reporting data...</p>
-          <p style="font-size: 0.875em; color: var(--secondary-text-color);">
-            <strong>Tip:</strong> To make sure there is activity on your grid connection,
-            try turning on an appliance like a kettle or oven.
-          </p>
-        `
-      }
-
-      <div style="margin: 16px 0;">
-        ${allEntities.map(entity => {
-          const result = this._validationResults[entity];
-          const icon = result === true
-            ? '✅'
-            : result === false
-              ? '❓'
-              : '⏳';
-          return html`
-            <div style="padding: 4px 0; font-family: var(--code-font-family, monospace); font-size: 0.875em;">
-              ${icon} ${entity}
-            </div>
-          `;
-        })}
-      </div>
-
-      ${this._validationDone
-        ? this._renderValidationButtons()
-        : renderSpinner(this.hass)
-      }
-    `;
-  }
-
-  private _renderValidationResult() {
-    const allOk = Object.values(this._validationResults).every(v => v === true);
-    if (allOk) {
-      return html`<ha-alert alert-type="success">All sensors are working correctly.</ha-alert>`;
+  private _renderSaveWarning() {
+    if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) {
+      return nothing;
     }
+    if (!this._hasPendingEntities()) return nothing;
+
     return html`
-      <ha-alert alert-type="warning">
-        Some sensors did not respond within 30 seconds.
+      <ha-alert alert-type="warning" title="Some sensors have not responded yet">
         This could mean the entity ID is incorrect, or the sensor is not reporting
         data at this time. For production sensors, this can be normal if there is
         currently no or little solar production — the meter may report 0 continuously,
@@ -527,106 +542,22 @@ entities in the next step, and we will verify that they are reporting data.
     `;
   }
 
-  private _renderValidationButtons() {
-    const allOk = Object.values(this._validationResults).every(v => v === true);
-    if (allOk) {
-      return html`
-        ${this._saving ? renderSpinner(this.hass) : html`
-          ${this._saveError ? html`<ha-alert alert-type="error">${this._saveError}</ha-alert>` : nothing}
-          ${renderButton(this.hass, () => this._save(), true, this.hass.localize('ui.common.save'))}
-        `}
-      `;
-    }
-    return html`
-      ${renderButton(
-        this.hass,
-        () => { this._step = Step.Entities; },
-        false,
-        'Back to edit',
-        false,
-        'back',
-        true
-      )}
-      ${this._saving ? renderSpinner(this.hass) : html`
-        ${this._saveError ? html`<ha-alert alert-type="error">${this._saveError}</ha-alert>` : nothing}
-        ${renderButton(this.hass, () => this._save(), true, 'Save anyway')}
-      `}
-    `;
-  }
-
-  private async _runEntityValidation() {
-    this._validationRunning = true;
-
-    // Initialise all as undefined (pending)
-    const allEntities = [
-      ...this._consumptionEntities,
-      ...this._productionEntities,
-    ];
-    for (const e of allEntities) {
-      this._validationResults[e] = undefined;
-    }
-    this._validationResults = { ...this._validationResults };
-
-    // Subscribe to progress events
-    const unsubProgress = await this.hass.connection.subscribeEvents<HassEvent>(
-      (event: HassEvent) => {
-        const entity = event.data.entity;
-        if (entity && entity in this._validationResults) {
-          this._validationResults = {
-            ...this._validationResults,
-            [entity]: true,
-          };
-        }
-      },
-      'test_grid_entities.progress'
-    );
-
-    try {
-      const result = await callFunction(
-        this.hass,
-        'test_grid_entities',
-        {
-          consumption_entities: this._consumptionEntities,
-          production_entities: this._productionEntities,
-        },
-        35 * 1000
-      );
-
-      // Mark failed entities
-      const failed: string[] = result.failed ?? [];
-      for (const entity of failed) {
-        this._validationResults = {
-          ...this._validationResults,
-          [entity]: false,
-        };
-      }
-      // Mark any remaining undefined as success (in case progress events were missed)
-      for (const entity of allEntities) {
-        if (this._validationResults[entity] === undefined) {
-          this._validationResults = {
-            ...this._validationResults,
-            [entity]: result.success ?? false,
-          };
-        }
-      }
-    } catch (e) {
-      // Timeout or error — mark all pending as failed
-      for (const entity of allEntities) {
-        if (this._validationResults[entity] === undefined) {
-          this._validationResults = {
-            ...this._validationResults,
-            [entity]: false,
-          };
-        }
-      }
-    } finally {
-      unsubProgress();
-      this._validationRunning = false;
-      this._validationDone = true;
-    }
-  }
-
   // ── Save ────────────────────────────────────────────────────────────
+
+  private async _handleSave() {
+    this._triedSave = true;
+
+    // Block if empty or duplicate
+    if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
+
+    // If some entities still pending and not yet confirmed
+    if (this._hasPendingEntities() && !this._saveConfirmed) {
+      this._saveConfirmed = true; // next click will be "Save anyway"
+      return;
+    }
+
+    await this._save();
+  }
 
   private async _save() {
     this._saving = true;
