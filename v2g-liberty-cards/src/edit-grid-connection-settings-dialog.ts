@@ -413,7 +413,7 @@ entities in the next step, and we will verify that they are reporting data.
           <select
             .value=${selected}
             @change=${(e) => onChange(e.target.value)}
-            style="flex: 1; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
+            style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
           >
             <option value="">Select a sensor...</option>
             ${hasPowerGroup ? html`<optgroup label="Power sensors">
