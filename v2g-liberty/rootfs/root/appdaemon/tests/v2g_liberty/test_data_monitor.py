@@ -31,6 +31,7 @@ TEST_NOW = datetime(2026, 2, 22, 12, 0, 0, tzinfo=TEST_TZ)
 def _set_constants():
     """Set runtime constants that are normally initialised by V2GLibertyGlobals."""
     c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+    c.TZ = TEST_TZ
 
 
 @pytest.fixture
@@ -724,3 +725,123 @@ class TestEmitTodayTotals:
         await monitor._emit_today_totals()
 
         event_bus.emit_event.assert_not_called()
+
+
+# =====================================================================
+# Grid monitoring tests
+# =====================================================================
+
+
+class TestGridMonitoringSetup:
+    @pytest.mark.asyncio
+    async def test_no_setup_when_not_configured(self, monitor, hass):
+        """Grid listeners not registered when GRID_CONSUMPTION_ENTITIES is empty."""
+        c.GRID_CONSUMPTION_ENTITIES = []
+        c.GRID_PRODUCTION_ENTITIES = []
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        assert monitor._grid_consumption_trackers == {}
+        assert monitor._grid_production_trackers == {}
+
+    @pytest.mark.asyncio
+    async def test_setup_creates_trackers_and_listeners(self, monitor, hass):
+        """Grid listeners registered for each configured entity."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = [
+            "sensor.cons_l1",
+            "sensor.cons_l2",
+            "sensor.cons_l3",
+        ]
+        c.GRID_PRODUCTION_ENTITIES = [
+            "sensor.prod_l1",
+            "sensor.prod_l2",
+            "sensor.prod_l3",
+        ]
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        assert len(monitor._grid_consumption_trackers) == 3
+        assert len(monitor._grid_production_trackers) == 3
+        # 6 listen_state calls for grid (3 consumption + 3 production)
+        # Plus any from fixture setup
+        grid_listen_calls = [
+            call
+            for call in hass.listen_state.call_args_list
+            if any("cons_l" in str(arg) or "prod_l" in str(arg) for arg in call.args)
+        ]
+        assert len(grid_listen_calls) == 6
+
+
+class TestGridConsumptionHandler:
+    @pytest.mark.asyncio
+    async def test_handles_numeric_state_change(self, monitor):
+        """Consumption handler updates the correct phase tracker."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "1500", {"phase": 1}
+        )
+
+        tracker = monitor._grid_consumption_trackers[1]
+        assert tracker._current_power == 1500.0
+
+    @pytest.mark.asyncio
+    async def test_ignores_unknown_state(self, monitor):
+        """Unknown/unavailable states are ignored."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "unknown", {"phase": 1}
+        )
+
+        tracker = monitor._grid_consumption_trackers[1]
+        assert tracker._current_power == 0.0  # unchanged from reset default
+
+
+class TestConcludeGridInterval:
+    def test_conclude_stores_to_database(self, monitor, data_store):
+        """Grid conclude writes avg power per phase to data store."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1"]
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+
+        from apps.v2g_liberty.grid_connection.power_tracker import PowerTracker
+
+        t0 = TEST_NOW
+        t1 = t0 + timedelta(minutes=5)
+
+        cons_tracker = PowerTracker()
+        cons_tracker.update(1500.0, t0)
+        monitor._grid_consumption_trackers[1] = cons_tracker
+
+        prod_tracker = PowerTracker()
+        prod_tracker.update(0.0, t0)
+        monitor._grid_production_trackers[1] = prod_tracker
+
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", t1)
+
+        data_store.insert_grid_interval.assert_called_once_with(
+            "2026-02-22T12:05:00+01:00", 1, 1500.0, 0.0
+        )
+
+    def test_conclude_skips_when_no_trackers(self, monitor, data_store):
+        """No trackers → no database writes."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
+
+        data_store.insert_grid_interval.assert_not_called()
