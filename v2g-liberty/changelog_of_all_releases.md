@@ -3,11 +3,11 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.8.1 2026-045-??
+## 0.8.1 2026-05-??
 
 ### Fixed
 
--
+- 🪲 BUG: Fix ping card toast not showing after mwc-snackbar to ha-toast migration (#443)
 
 ### Added
 
