@@ -862,3 +862,75 @@ class TestGetReferencePrice:
         await data_store.initialise()
         self._insert(data_store, "2026-06")
         assert data_store.get_reference_price("2026-01") is None
+
+
+class TestGridIntervalLog:
+    @pytest.mark.asyncio
+    async def test_insert_and_retrieve(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.5, 0.0)
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 2, 0.8, 0.1)
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 3, 0.3, 0.0)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 3
+        assert rows[0]["phase"] == 1
+        assert rows[0]["consumption_kw"] == 1.5
+        assert rows[0]["production_kw"] == 0.0
+        assert rows[1]["phase"] == 2
+        assert rows[2]["phase"] == 3
+
+    @pytest.mark.asyncio
+    async def test_retrieve_filters_by_timestamp(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.0, 0.0)
+        data_store.insert_grid_interval("2026-05-01T12:05:00+02:00", 1, 2.0, 0.0)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T12:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["consumption_kw"] == 2.0
+
+    @pytest.mark.asyncio
+    async def test_upsert_overwrites(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.0, 0.0)
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 9.9, 0.5)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["consumption_kw"] == 9.9
+        assert rows[0]["production_kw"] == 0.5
+
+    @pytest.mark.asyncio
+    async def test_retrieve_empty(self, data_store):
+        await data_store.initialise()
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T12:00:00+02:00")
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_none_values(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, None, None)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["consumption_kw"] is None
+        assert rows[0]["production_kw"] is None
+
+
+class TestSchemaMigration:
+    @pytest.mark.asyncio
+    async def test_schema_version_is_current(self, data_store):
+        await data_store.initialise()
+
+        cursor = data_store.connection.cursor()
+        cursor.execute(
+            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        assert row["version"] == CURRENT_SCHEMA_VERSION

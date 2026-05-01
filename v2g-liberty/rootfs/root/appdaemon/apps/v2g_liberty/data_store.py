@@ -9,7 +9,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -370,6 +370,16 @@ class DataStore:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS grid_interval_log (
+                timestamp TEXT NOT NULL,
+                phase INTEGER NOT NULL,
+                consumption_kw REAL,
+                production_kw REAL,
+                PRIMARY KEY (timestamp, phase)
+            )
+        """)
+
         self.__connection.commit()
         cursor.close()
         self.__log("All tables created/verified.")
@@ -396,10 +406,7 @@ class DataStore:
         else:
             current_version = row["version"]
             if current_version < CURRENT_SCHEMA_VERSION:
-                raise RuntimeError(
-                    f"Database schema version {current_version} is older than "
-                    f"expected {CURRENT_SCHEMA_VERSION}. A database reset is needed."
-                )
+                self.__migrate(current_version, cursor)
             elif current_version > CURRENT_SCHEMA_VERSION:
                 self.__log(
                     f"Database schema version {current_version} is newer than "
@@ -408,6 +415,34 @@ class DataStore:
                 )
             else:
                 self.__log(f"Database schema version {current_version} is up to date.")
+
+    def __migrate(self, from_version: int, cursor):
+        """Run schema migrations from from_version to CURRENT_SCHEMA_VERSION."""
+        self.__log(
+            f"Migrating database from version {from_version} to {CURRENT_SCHEMA_VERSION}."
+        )
+
+        if from_version < 2:
+            # v2: add grid_interval_log table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS grid_interval_log (
+                    timestamp TEXT NOT NULL,
+                    phase INTEGER NOT NULL,
+                    consumption_kw REAL,
+                    production_kw REAL,
+                    PRIMARY KEY (timestamp, phase)
+                )
+            """)
+            self.__log("Migration v1→v2: created grid_interval_log table.")
+
+        # Update schema version
+        now = datetime.now(timezone.utc).isoformat()
+        cursor.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+            (CURRENT_SCHEMA_VERSION, now),
+        )
+        self.__connection.commit()
+        self.__log(f"Database migrated to version {CURRENT_SCHEMA_VERSION}.")
 
         cursor.close()
 
@@ -841,6 +876,48 @@ class DataStore:
             "FROM interval_log "
             "WHERE timestamp > ? AND is_repaired < 2 "
             "ORDER BY timestamp",
+            (since,),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
+
+    # ── Grid interval log ─────────────────────────────────────────────
+
+    def insert_grid_interval(
+        self,
+        timestamp: str,
+        phase: int,
+        consumption_kw: float | None,
+        production_kw: float | None,
+    ):
+        """Insert a grid monitoring interval for a single phase."""
+        if not self.is_available:
+            return
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO grid_interval_log "
+            "(timestamp, phase, consumption_kw, production_kw) "
+            "VALUES (?, ?, ?, ?)",
+            (timestamp, phase, consumption_kw, production_kw),
+        )
+        self.__connection.commit()
+        cursor.close()
+
+    def get_grid_intervals_since(self, since: str) -> list[dict]:
+        """Retrieve grid_interval_log rows after the given timestamp.
+
+        Returns a list of dicts with keys: timestamp, phase,
+        consumption_kw, production_kw. Ordered by timestamp, phase.
+        """
+        if not self.is_available:
+            return []
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT timestamp, phase, consumption_kw, production_kw "
+            "FROM grid_interval_log "
+            "WHERE timestamp > ? "
+            "ORDER BY timestamp, phase",
             (since,),
         )
         rows = cursor.fetchall()
