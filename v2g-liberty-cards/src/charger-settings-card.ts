@@ -160,7 +160,7 @@ export class ChargerSettingsCard extends LitElement {
 
     if (this._connectedToPhase === null) {
       if (this._phaseRequired) {
-        return html`<ha-alert alert-type="warning">Charger phase not configured.</ha-alert>`;
+        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
       }
       return nothing;
     }

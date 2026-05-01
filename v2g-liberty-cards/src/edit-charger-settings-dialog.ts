@@ -75,7 +75,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // Load grid and charger phase info
     try {
       const gridData = await callFunction(this.hass, 'get_grid_connection_settings');
-      this._gridPhases = gridData.phases ?? null;
+      this._gridPhases = gridData.configured ? (gridData.phases ?? null) : null;
     } catch (e) {
       this._gridPhases = null;
     }
@@ -333,7 +333,12 @@ class EditChargerSettingsDialog extends DialogBase {
         : {}),
     };
     const result = await callFunction(this.hass, 'save_charger_settings', args);
-    this._showPhaseStep = true;
+    // Only show phase step if grid connection is configured
+    if (this._gridPhases !== null) {
+      this._showPhaseStep = true;
+    } else {
+      this.closeDialog();
+    }
   }
 
   // ── Phase Step ──────────────────────────────────────────────────────

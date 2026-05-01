@@ -596,6 +596,9 @@ class V2GLibertyGlobals:
         grid_data = self.v2g_settings.get_object("grid_connection")
         if grid_data is None:
             grid_data = dict(self._GRID_CONNECTION_DEFAULTS)
+            grid_data["configured"] = False
+        else:
+            grid_data["configured"] = True
         self.hass.fire_event("get_grid_connection_settings.result", **grid_data)
 
     async def __detect_grid_entities(self, event, data, kwargs):
@@ -639,12 +642,19 @@ class V2GLibertyGlobals:
 
         self.hass.fire_event("save_charger_phase.result")
 
+    # TODO: Should charger_settings_initialised be set to False when
+    # charger_phase_is_valid() returns False? This would block charging
+    # until the phase is configured, which may be too aggressive. A milder
+    # approach could be a separate warning without blocking the charger.
+    # Decide before implementing.
+
     def charger_phase_is_required(self) -> bool:
         """Return True if the charger phase must be configured.
 
-        This is the case when the grid connection is set to 3 phases.
+        This is the case when the grid connection is configured AND set to 3 phases.
+        If the grid connection is not configured, the phase is not required.
         """
-        return c.GRID_PHASES == 3
+        return c.GRID_PHASES == 3 and len(c.GRID_CONSUMPTION_ENTITIES) > 0
 
     def charger_phase_is_valid(self) -> bool:
         """Return True if the charger phase config is valid.

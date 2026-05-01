@@ -364,6 +364,7 @@ class TestGetGridConnectionSettings:
             "get_grid_connection_settings.result",
             phases=1,
             capacity_per_phase=40,
+            configured=True,
             consumption_entities=["sensor.l1"],
             production_entities=["sensor.p1"],
         )
@@ -385,6 +386,7 @@ class TestGetGridConnectionSettings:
             capacity_per_phase=25,
             consumption_entities=[],
             production_entities=[],
+            configured=False,
         )
 
 
