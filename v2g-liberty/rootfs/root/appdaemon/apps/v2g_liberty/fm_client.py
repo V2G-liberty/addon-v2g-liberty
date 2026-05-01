@@ -57,6 +57,8 @@ class FMClient(AsyncIOEventEmitter):
     client = None
     _asset_id: int = None
     user_id: int | None = None
+    _cached_account_id: int | None = None
+    _cached_asset_types: dict[str, int] = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
@@ -264,6 +266,122 @@ class FMClient(AsyncIOEventEmitter):
             f"Failed to write attributes after {max_attempts} attempts, aborting.",
             level="WARNING",
         )
+
+    # ── Generic asset/sensor provisioning ────────────────────────────────
+
+    async def _get_account_id(self) -> int:
+        """Get the FM account ID for the logged-in user. Cached after first call."""
+        if self._cached_account_id is None:
+            account = await self.client.get_account()
+            self._cached_account_id = account["id"]
+        return self._cached_account_id
+
+    async def _get_generic_asset_type_id(self, type_name: str) -> int:
+        """Get the FM generic_asset_type_id for the given type name.
+
+        Raises ValueError if the type is not found.
+        """
+        if self._cached_asset_types is None:
+            self._cached_asset_types = {}
+        if type_name in self._cached_asset_types:
+            return self._cached_asset_types[type_name]
+
+        types = await self.client.get_asset_types()
+        for t in types:
+            self._cached_asset_types[t["name"]] = t["id"]
+
+        if type_name not in self._cached_asset_types:
+            raise ValueError(f"Unknown generic_asset_type: '{type_name}'")
+        return self._cached_asset_types[type_name]
+
+    async def ensure_asset(
+        self,
+        name: str,
+        generic_asset_type: str,
+        parent_asset_id: int | None = None,
+        attributes: dict | None = None,
+    ) -> int:
+        """Find asset by name, create if not exists, update attributes if exists.
+
+        Returns the asset ID.
+        """
+        if self.client is None:
+            raise RuntimeError("FM client not initialised")
+
+        # Search existing assets
+        existing = await self.client.get_assets(parse_json_fields=True)
+        match = next((a for a in existing if a["name"] == name), None)
+
+        if match:
+            asset_id = match["id"]
+            if attributes:
+                await self.client.update_asset(asset_id, {"attributes": attributes})
+                self.__log(f"Updated attributes for asset '{name}' (id={asset_id})")
+            else:
+                self.__log(f"Found existing asset '{name}' (id={asset_id})")
+            return asset_id
+
+        # Create new asset
+        type_id = await self._get_generic_asset_type_id(generic_asset_type)
+        account_id = await self._get_account_id()
+
+        # Re-use lat/lon from the existing charger asset
+        latitude = 52.0
+        longitude = 4.0
+        if self._asset_id is not None:
+            try:
+                charger_asset = await self.client.get_asset(self._asset_id)
+                latitude = charger_asset.get("latitude", latitude)
+                longitude = charger_asset.get("longitude", longitude)
+            except Exception:
+                pass
+
+        result = await self.client.add_asset(
+            name=name,
+            account_id=account_id,
+            latitude=latitude,
+            longitude=longitude,
+            generic_asset_type_id=type_id,
+            parent_asset_id=parent_asset_id,
+            attributes=attributes,
+        )
+        asset_id = result["id"]
+        self.__log(f"Created asset '{name}' (id={asset_id})")
+        return asset_id
+
+    async def ensure_sensor(
+        self,
+        name: str,
+        unit: str,
+        asset_id: int,
+        event_resolution: str = "PT5M",
+    ) -> int:
+        """Find sensor by name within asset, create if not exists.
+
+        Returns the sensor ID.
+        """
+        if self.client is None:
+            raise RuntimeError("FM client not initialised")
+
+        sensors = await self.client.get_sensors(asset_id=asset_id)
+        match = next((s for s in sensors if s["name"] == name), None)
+
+        if match:
+            self.__log(f"Found existing sensor '{name}' (id={match['id']})")
+            return match["id"]
+
+        result = await self.client.add_sensor(
+            name=name,
+            event_resolution=event_resolution,
+            unit=unit,
+            generic_asset_id=asset_id,
+            timezone="Europe/Amsterdam",
+        )
+        sensor_id = result["id"]
+        self.__log(f"Created sensor '{name}' (id={sensor_id}) on asset {asset_id}")
+        return sensor_id
+
+    # ── Existing helpers ───────────────────────────────────────────────
 
     async def __get_asset_id_by_name(self, asset_name: str):
         assets = await self.client.get_assets(parse_json_fields=True)
