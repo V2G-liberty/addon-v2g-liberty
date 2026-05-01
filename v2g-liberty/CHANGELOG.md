@@ -1,10 +1,10 @@
 # What's changed?
 
-## 0.8.1 2026-045-??
+## 0.8.1 2026-05-??
 
 ### Fixed
 
--
+- 🪲 BUG: Fix ping card toast not showing after mwc-snackbar to ha-toast migration (#443)
 
 ### Added
 
