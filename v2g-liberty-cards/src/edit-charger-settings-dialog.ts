@@ -1,5 +1,6 @@
 import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
+import { HassEvent } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
 import {
@@ -47,6 +48,10 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _selectedPhase: number | number[] | null = null;
   @state() private _triedSavePhase: boolean = false;
   @state() private _savingPhase: boolean = false;
+  @state() private _detecting: boolean = false;
+  @state() private _detectStep: string = '';
+  @state() private _detectError: string = '';
+  @state() private _detectSuccess: string = '';
 
   @query(`[test-id='${entityIds.chargerHostname}']`) private _chargerHostField;
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
@@ -71,6 +76,10 @@ class EditChargerSettingsDialog extends DialogBase {
     this._showPhaseStep = false;
     this._triedSavePhase = false;
     this._savingPhase = false;
+    this._detecting = false;
+    this._detectStep = '';
+    this._detectError = '';
+    this._detectSuccess = '';
 
     // Load grid and charger phase info
     try {
@@ -396,7 +405,7 @@ class EditChargerSettingsDialog extends DialogBase {
               value="${phase}"
               @change=${() => { this._selectedPhase = phase; }}
             ></ha-radio>
-            <strong>Phase ${phase} (L${phase})</strong>
+            <span><strong>Phase ${phase}</strong> (L${phase})</span>
           </div>
         `)}
       </div>
@@ -411,6 +420,8 @@ class EditChargerSettingsDialog extends DialogBase {
         <p>Check the label on your fuse box, or use the automatic detection below.</p>
       </details>
 
+      ${this._renderAutoDetect()}
+
       ${this._renderPhaseBackButton()}
       ${this._savingPhase
         ? renderSpinner(this.hass)
@@ -422,6 +433,109 @@ class EditChargerSettingsDialog extends DialogBase {
           )
       }
     `;
+  }
+
+  private _renderAutoDetect() {
+    if (this._detecting) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <ha-spinner size="small"></ha-spinner>
+            <span>${this._detectStep || 'Starting...'}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this._detectSuccess) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <ha-alert alert-type="success">${this._detectSuccess}</ha-alert>
+        </div>
+      `;
+    }
+
+    if (this._detectError) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="margin-bottom: 12px;">
+            <ha-alert alert-type="warning">${this._detectError}</ha-alert>
+          </div>
+          ${renderButton(
+            this.hass,
+            () => this._startDetection(),
+            false,
+            'Retry',
+          )}
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="auto-detect-box">
+        <p><strong>Automatic phase detection</strong></p>
+        <p style="font-size: 0.875em; color: var(--secondary-text-color);">
+          Optionally, the phase can be detected automatically. This briefly
+          charges (and discharges for bidirectional chargers) while monitoring
+          the grid sensors. The charge mode will be temporarily set to Stop
+          during detection. Make sure your car is connected.
+        </p>
+        ${renderButton(
+          this.hass,
+          () => this._startDetection(),
+          false,
+          'Start detection',
+        )}
+      </div>
+    `;
+  }
+
+  private async _startDetection() {
+    this._detecting = true;
+    this._detectStep = '';
+    this._detectError = '';
+    this._detectSuccess = '';
+
+    // Subscribe to progress events
+    const unsub = await this.hass.connection.subscribeEvents<HassEvent>(
+      (event: HassEvent) => {
+        const step = event.data.step;
+        if (step === 'baseline') this._detectStep = 'Measuring baseline...';
+        else if (step === 'charge_test') this._detectStep = 'Charge test...';
+        else if (step === 'discharge_test') this._detectStep = 'Discharge test...';
+      },
+      'charger_phase_detection.progress'
+    );
+
+    try {
+      const result = await callFunction(
+        this.hass,
+        'detect_charger_phase',
+        {},
+        180 * 1000 // 3 min timeout
+      );
+
+      if (result.success) {
+        this._selectedPhase = result.connected_to_phase;
+        this._detectError = '';
+        const phase = result.connected_to_phase;
+        const label = Array.isArray(phase)
+          ? phase.map(p => `L${p}`).join(', ')
+          : `L${phase}`;
+        this._detectSuccess = `Detected: Phase ${label}`;
+      } else {
+        this._detectSuccess = '';
+        this._detectError = result.error || 'Detection failed. You can select the phase manually.';
+      }
+    } catch (e) {
+      this._detectError = 'Detection timed out. You can select the phase manually.';
+    } finally {
+      unsub();
+      this._detecting = false;
+    }
   }
 
   private _renderPhaseBackButton() {
@@ -472,10 +586,11 @@ class EditChargerSettingsDialog extends DialogBase {
         margin: 12px 0;
       }
       .phase-option {
+        flex: 1;
         display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 12px 16px;
+        gap: 2px;
+        padding: 12px 12px 12px 4px;
         border: 1px solid var(--divider-color);
         border-radius: 12px;
         cursor: pointer;
@@ -501,6 +616,16 @@ class EditChargerSettingsDialog extends DialogBase {
       .hint p {
         margin: 4px 0 0 0;
         line-height: 1.4;
+      }
+      .auto-detect-box {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--card-background-color);
+      }
+      .auto-detect-box p:first-child {
+        margin-top: 0;
       }
 
       // All of these don't seem to reach the hr element...

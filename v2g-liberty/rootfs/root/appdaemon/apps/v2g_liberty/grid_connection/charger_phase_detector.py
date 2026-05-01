@@ -59,19 +59,40 @@ class ChargerPhaseDetector:
 
         # Check preconditions
         if not await self._evse.is_car_connected():
-            return self._failure("No car connected")
+            return self._failure(
+                "No car connected. Please connect your car to the charger "
+                "before starting the detection."
+            )
 
         if len(self._grid_entities) != 3:
             return self._failure(
                 f"Expected 3 grid consumption entities, got {len(self._grid_entities)}"
             )
 
+        # Pause charging: remember current charge_mode and set to "Stop"
+        original_charge_mode = await self._hass.get_state("input_select.charge_mode")
+        self._log(f"Pausing charge_mode (was: {original_charge_mode})")
+        await self._hass.call_service(
+            "input_select/select_option",
+            entity_id="input_select.charge_mode",
+            option="Stop",
+        )
+        # Give the system time to stop any active charging
+        await asyncio.sleep(5)
+        # Re-activate EVSE client so detection can control the charger
+        # (charge_mode "Stop" deactivates it)
+        await self._evse.set_active()
+
         try:
             # Step 1: Baseline (instant snapshot via get_state)
             self._fire_progress("baseline")
-            baseline = self._read_grid_entities()
+            baseline = await self._read_grid_entities()
             if baseline is None:
-                return self._failure("Could not read grid entities for baseline")
+                return self._failure(
+                    "Could not read grid consumption sensors. "
+                    "Please check that your grid connection is configured "
+                    "and the sensors are available in Home Assistant."
+                )
 
             # Step 2: Charge test (poll until clear result or timeout)
             self._fire_progress("charge_test")
@@ -82,7 +103,10 @@ class ChargerPhaseDetector:
             await self._evse.stop_charging()
 
             if charge_delta is None:
-                return self._failure("Charge test timed out without a clear result")
+                return self._failure(
+                    "Charge test timed out without a clear result. "
+                    "Make sure your car is connected and the charger is working."
+                )
 
             # Step 3: Discharge test (bidi only, poll until clear or timeout)
             discharge_delta = None
@@ -97,7 +121,8 @@ class ChargerPhaseDetector:
 
                 if discharge_delta is None:
                     return self._failure(
-                        "Discharge test timed out without a clear result"
+                        "Discharge test timed out without a clear result. "
+                        "Make sure your car is connected and the charger is working."
                     )
 
             # Step 4: Determine result
@@ -111,6 +136,22 @@ class ChargerPhaseDetector:
             except Exception:
                 pass
             return self._failure(f"Detection failed: {e}")
+
+        finally:
+            # Always restore original charge_mode and EVSE state
+            self._log(f"Restoring charge_mode to: {original_charge_mode}")
+            try:
+                await self._evse.stop_charging()
+                restored_mode = original_charge_mode or "Automatic"
+                await self._hass.call_service(
+                    "input_select/select_option",
+                    entity_id="input_select.charge_mode",
+                    option=restored_mode,
+                )
+                if restored_mode == "Stop":
+                    await self._evse.set_inactive()
+            except Exception:
+                self._log("Failed to restore charge_mode", level="WARNING")
 
     async def _poll_until_clear(
         self, baseline: dict[int, float]
@@ -130,7 +171,7 @@ class ChargerPhaseDetector:
             await asyncio.sleep(self._POLL_INTERVAL)
             elapsed += self._POLL_INTERVAL
 
-            readings = self._read_grid_entities()
+            readings = await self._read_grid_entities()
             if readings is None:
                 continue  # skip bad reading, try again
 
@@ -156,14 +197,14 @@ class ChargerPhaseDetector:
         )
         return None
 
-    def _read_grid_entities(self) -> dict[int, float] | None:
+    async def _read_grid_entities(self) -> dict[int, float] | None:
         """Read current values from all grid consumption entities.
 
         Returns dict {1: watts, 2: watts, 3: watts} or None if any read fails.
         """
         readings = {}
         for i, entity_id in enumerate(self._grid_entities, start=1):
-            state = self._hass.get_state(entity_id)
+            state = await self._hass.get_state(entity_id)
             if state in (None, "", "unknown", "unavailable"):
                 self._log(
                     f"Grid entity {entity_id} returned '{state}'",
