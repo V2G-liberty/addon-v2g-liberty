@@ -374,11 +374,13 @@ class V2GLibertyGlobals:
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
         await self.__initialise_general_settings()
+        # Grid connection must be initialised before FM client, because
+        # FM provisioning needs GRID_CONSUMPTION_ENTITIES to be set.
+        self.__initialise_grid_connection_settings()
+        self.__initialise_charger_phase_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
-        self.__initialise_grid_connection_settings()
-        self.__initialise_charger_phase_settings()
 
     ######################################################################
     #                    CALLBACK METHODS FROM UI                        #
@@ -614,6 +616,76 @@ class V2GLibertyGlobals:
         result = detect_grid_entities(states)
         self.__log(f"Detection result: {result}")
         self.hass.fire_event("detect_grid_entities.result", **result)
+
+    # ── FM grid asset provisioning ────────────────────────────────────
+
+    _FM_ASSET_NAME_PREFIX = "[TEST] "  # TODO: remove prefix before production
+
+    async def __provision_grid_assets(self):
+        """Create FM assets and sensors for grid connection.
+
+        Idempotent: on restart, existing assets/sensors are found by name.
+        Skipped if grid connection is not configured.
+        """
+        if not c.GRID_CONSUMPTION_ENTITIES:
+            self.__log("Grid connection not configured, skipping FM provisioning")
+            return
+
+        if self.fm_client_app.client is None:
+            self.__log(
+                "FM client not connected, skipping grid provisioning",
+                level="WARNING",
+            )
+            return
+
+        try:
+            # Main Connection asset
+            c.FM_MAIN_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
+                name=f"{self._FM_ASSET_NAME_PREFIX}Main Connection",
+                generic_asset_type="building",
+                attributes={
+                    "phases": c.GRID_PHASES,
+                    "capacity_per_phase": c.GRID_CAPACITY_PER_PHASE,
+                },
+            )
+
+            # Grid sensors per phase
+            for phase in range(1, c.GRID_PHASES + 1):
+                c.FM_GRID_CONSUMPTION_SENSOR_IDS[
+                    phase
+                ] = await self.fm_client_app.ensure_sensor(
+                    name=f"Grid Consumption L{phase}",
+                    unit="kW",
+                    asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                )
+                c.FM_GRID_PRODUCTION_SENSOR_IDS[
+                    phase
+                ] = await self.fm_client_app.ensure_sensor(
+                    name=f"Grid Production L{phase}",
+                    unit="kW",
+                    asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                )
+
+            # EMS Status sensor
+            c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+                name="EMS Status",
+                unit="dimensionless",
+                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            )
+
+            self.__log(
+                f"Grid FM provisioning complete: "
+                f"asset={c.FM_MAIN_CONNECTION_ASSET_ID}, "
+                f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
+                f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
+                f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}"
+            )
+        except Exception as e:
+            self.__log(
+                f"Grid FM provisioning failed: {e}. "
+                f"Grid data will not be sent to FlexMeasures.",
+                level="WARNING",
+            )
 
     # ── Charger phase setting (entity-free, JSON-based) ────────────────
 
@@ -1326,6 +1398,9 @@ class V2GLibertyGlobals:
         await self.__set_fm_optimisation_context()
         self.__set_fm_user_id(self.fm_client_app.user_id)
         asyncio.ensure_future(self.__discover_source_id_and_import())
+
+        # Provision grid assets/sensors in FM (if grid connection is configured)
+        await self.__provision_grid_assets()
 
         self.__log("completed")
 

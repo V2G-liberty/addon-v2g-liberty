@@ -227,6 +227,13 @@ GRID_CAPACITY_PER_PHASE: int = 25
 GRID_CONSUMPTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
 GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
 
+# FM asset/sensor IDs for grid monitoring.
+# Set at runtime by __provision_grid_assets() in v2g_globals.
+FM_MAIN_CONNECTION_ASSET_ID: int | None = None
+FM_GRID_CONSUMPTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
+FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
+FM_EMS_STATUS_SENSOR_ID: int | None = None
+
 # CALENDAR CONSTANTS
 # FSC: Used in reservations_client only, move there.
 CALENDAR_ACCOUNT_INIT_URL: str = ""
