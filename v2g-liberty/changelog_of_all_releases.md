@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Fix orphaned schedule timers overriding charge mode changes (#444)
 - 🪲 BUG: Fix ping card toast not showing after mwc-snackbar to ha-toast migration (#443)
 
 ### Added
