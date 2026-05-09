@@ -1109,14 +1109,6 @@ class V2Gliberty:
         self.scheduling_timer_handles = []
         self.__log(f"Canceled all {count} charging timers.")
 
-    async def __reset_charging_timers(self, handles):
-        self.__log(
-            f"__reset_charging_timers: cancel current and set {len(handles)} new charging timers."
-        )
-        # We need to be sure no new timers are added unless the old are removed
-        await self.__cancel_charging_timers()
-        self.scheduling_timer_handles = handles
-
     ######################################################################
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
     ######################################################################
@@ -1194,6 +1186,9 @@ class V2Gliberty:
 
         self.__log("valid schedule")
 
+        # Cancel previous timers before creating new ones to prevent orphaned timers
+        await self.__cancel_charging_timers()
+
         # Create new scheduling timers, to send a control signal for each value
         handles = []
         now = get_local_now()
@@ -1222,7 +1217,7 @@ class V2Gliberty:
                         "source": str_source,
                     }
                 )
-        await self.__reset_charging_timers(handles)  # This also cancels previous timers
+        self.scheduling_timer_handles = handles
 
         exp_soc_values = list(
             accumulate(
