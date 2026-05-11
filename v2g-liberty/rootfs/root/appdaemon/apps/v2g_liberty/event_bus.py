@@ -147,21 +147,12 @@ class EventBus(AsyncIOEventEmitter):
                 if inspect.iscoroutinefunction(listener):
                     # Async listener wrapper
                     async def run_async_listener(listener=listener):
-                        start = time.perf_counter()
                         try:
                             await listener(*args, **kwargs)
                         except Exception as e:
                             self.__log(
                                 f"Error in async listener {listener} for '{event}': {e}",
                                 level="WARNING",
-                            )
-                        elapsed_ms = (time.perf_counter() - start) * 1000
-                        if elapsed_ms > 500:
-                            listener_name = getattr(
-                                listener, "__qualname__", str(listener)
-                            )
-                            self.__log(
-                                f"Slow async listener {listener_name} for '{event}' took {elapsed_ms:.0f} ms"
                             )
 
                     asyncio.create_task(run_async_listener())
