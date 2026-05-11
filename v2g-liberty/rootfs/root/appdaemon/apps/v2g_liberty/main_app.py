@@ -3,7 +3,7 @@
 import enum
 from itertools import accumulate
 import math
-from typing import AsyncGenerator, List, Optional
+from typing import List, Optional
 from datetime import datetime, timedelta
 import isodate
 from appdaemon.plugins.hass.hassapi import Hass
@@ -13,7 +13,7 @@ from .event_bus import EventBus
 from .v2g_globals import time_round, he, get_local_now, parse_to_int
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .timer_utils import cancel_timer_silent, set_oneshot_timer
+from .timer_utils import cancel_timer_silent, set_at_timer, set_oneshot_timer
 
 
 class ChartLine(enum.Enum):
@@ -72,7 +72,7 @@ class V2Gliberty:
     # Utility variables for preventing a frozen app. Call set_next_action at least every x seconds
     timer_handle_set_next_action: object = None
     call_next_action_at_least_every: int = 15 * 60
-    scheduling_timer_handles: List[AsyncGenerator]
+    scheduling_timer_handles: List[str]
 
     # This is a target datetime at which the SoC that is above the max_soc must return back to or
     # below this value. It is dependent on the user setting for allowed duration above max soc.
@@ -535,26 +535,24 @@ class V2Gliberty:
 
                 # Set a timer for the start of the first reservation
                 if is_first_reservation:
-                    await cancel_timer_silent(
-                        self.hass, self.timer_id_first_reservation_start
-                    )
                     run_at = target_start
                     now = get_local_now()
                     if target_start < now:
                         # A last minute added event, handle immediately, give some slack for
                         # processing time.
                         run_at = now + timedelta(seconds=5)
-                    self.timer_id_first_reservation_start = await self.hass.run_at(
+                    self.timer_id_first_reservation_start = await set_at_timer(
+                        self.hass,
+                        self.timer_id_first_reservation_start,
                         callback=self.__handle_first_reservation_start,
                         start=run_at,
                         v2g_event=car_reservation,
                     )
                     # Assumed is that the end will never be in the past as teh v2g_event then will
                     # not be in the list of v2g_events (any more).
-                    await cancel_timer_silent(
-                        self.hass, self.timer_id_first_reservation_end
-                    )
-                    self.timer_id_first_reservation_end = await self.hass.run_at(
+                    self.timer_id_first_reservation_end = await set_at_timer(
+                        self.hass,
+                        self.timer_id_first_reservation_end,
                         callback=self.__handle_first_reservation_end,
                         start=target_end,
                     )
@@ -1055,13 +1053,17 @@ class V2Gliberty:
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="off"
             )
-            canceled_before_run = await self.hass.cancel_timer(
-                self.notification_timer_handle, True
-            )
-            self.__log(
-                f"notification timer cancelled before run: {canceled_before_run}."
-            )
-            if self.no_schedule_notification_is_planned and not canceled_before_run:
+            timer_was_running = False
+            if self.notification_timer_handle:
+                try:
+                    timer_was_running = await self.hass.timer_running(
+                        self.notification_timer_handle
+                    )
+                except Exception:  # pylint: disable=broad-exception-caught
+                    timer_was_running = False
+            await cancel_timer_silent(self.hass, self.notification_timer_handle)
+            self.__log(f"notification timer cancelled before run: {timer_was_running}.")
+            if self.no_schedule_notification_is_planned and not timer_was_running:
                 # Only send this message if "no_schedule_notification" was actually sent
                 title = "Schedules available again"
                 message = (

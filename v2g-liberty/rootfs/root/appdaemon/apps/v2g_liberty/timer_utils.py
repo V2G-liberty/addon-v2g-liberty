@@ -67,6 +67,33 @@ async def set_oneshot_timer(
     return await hass.run_in(callback, delay=delay, **kwargs)
 
 
+async def set_at_timer(
+    hass,
+    current_handle: Optional[str],
+    callback: Callable[..., Awaitable[Any]],
+    start: Any,
+    **kwargs: Any,
+) -> str:
+    """Schedule a timer at a specific datetime, cancelling any previous handle first.
+
+    Returns the new (real) timer handle. Use this instead of the
+    ``if handle: cancel; handle = run_at(...)`` pattern so the timer
+    bookkeeping cannot leak coroutines.
+
+    Args:
+        hass: AppDaemon Hass instance with the async timer API.
+        current_handle: Existing timer handle to cancel first, or ``None``
+            / empty string on the first call.
+        callback: Async callable that AppDaemon will invoke at ``start``.
+        start: A ``datetime`` (or anything ``hass.run_at`` accepts) for
+            when the timer should fire.
+        **kwargs: Forwarded to ``hass.run_at`` (and ultimately to the
+            callback as keyword arguments).
+    """
+    await cancel_timer_silent(hass, current_handle)
+    return await hass.run_at(callback, start=start, **kwargs)
+
+
 async def set_recurring_timer(
     hass,
     current_handle: Optional[str],
