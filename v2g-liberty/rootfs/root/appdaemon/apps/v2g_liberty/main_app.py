@@ -50,6 +50,10 @@ class V2Gliberty:
     RESERVATION_ACTION_DISMISS: str = "dismiss"
     RESERVATION_ACTION_KEEP: str = "keep"
     EMPTY_STATES = [None, "unknown", "unavailable", ""]
+    # Minimum SoC change (in %-points) since the last schedule refresh
+    # to trigger a new one. Smaller changes are ignored; the 15-min
+    # watchdog timer ensures set_next_action still runs periodically.
+    SIGNIFICANT_SOC_CHANGE: int = 2
 
     # timer_id's for reminders at start/end of the first/current event.
     timer_id_first_reservation_start: str = ""
@@ -124,6 +128,7 @@ class V2Gliberty:
         ########## TESTDATA ############
 
         self.in_boost_to_reach_min_soc = False
+        self.soc_at_last_schedule_refresh = None
         self.timer_handle_set_next_action = ""
 
         # Avoid comparison with None
@@ -932,7 +937,29 @@ class V2Gliberty:
     async def __handle_soc_change(self, new_soc: int, old_soc: int):
         """Function to handle updates in the car SoC"""
         self.__log(f"new_soc: {new_soc}%, old_soc: {old_soc}%.")
-        await self.set_next_action(v2g_args="__handle_soc_change")
+
+        if (
+            # First run or force_emit: no reference yet, always refresh.
+            self.soc_at_last_schedule_refresh is None
+            # Non-numeric values (e.g. "unavailable"): always refresh.
+            or not isinstance(new_soc, (int, float))
+            or not isinstance(self.soc_at_last_schedule_refresh, (int, float))
+            # Significant change since last refresh.
+            or abs(new_soc - self.soc_at_last_schedule_refresh)
+            >= self.SIGNIFICANT_SOC_CHANGE
+        ):
+            self.__log(
+                f"Significant SoC change (from: {self.soc_at_last_schedule_refresh} to: {new_soc}), "
+                f"refreshing schedule."
+            )
+            self.soc_at_last_schedule_refresh = new_soc
+            await self.set_next_action(v2g_args="significant_soc_change")
+        else:
+            self.__log(
+                f"SoC change since last schedule refresh "
+                f"below threshold ({self.SIGNIFICANT_SOC_CHANGE}%), "
+                f"skipping schedule refresh."
+            )
 
         if (
             await self.evse_client_app.is_charging()
