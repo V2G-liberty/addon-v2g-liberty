@@ -32,7 +32,7 @@ class NissanLeafMonitor:
         self.notifier = notifier
         self.event_bus = event_bus
 
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="nissan_leaf_monitor")
 
         self._initialize()
 

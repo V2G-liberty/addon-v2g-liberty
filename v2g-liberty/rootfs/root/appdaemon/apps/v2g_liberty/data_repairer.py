@@ -75,7 +75,7 @@ class DataRepairer:
 
     def __init__(self, hass: Hass):
         self.__hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="data_repairer")
 
     async def initialise(self):
         """Schedule periodic incremental repair runs.

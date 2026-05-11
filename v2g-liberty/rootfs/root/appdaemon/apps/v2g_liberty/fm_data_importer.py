@@ -1,5 +1,6 @@
 """Module for importing price and usage data from FlexMeasures."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -98,7 +99,7 @@ class FlexMeasuresDataImporter:
     def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="fm_data_importer")
 
         # These are variables are used to decide what message to send to the user and can have the
         # following values:
@@ -291,10 +292,13 @@ class FlexMeasuresDataImporter:
             price_type="production", entsoe_latest_dt=entsoe_latest_dt
         )
 
-        # Persist combined prices to local DB (upsampled to 5-min resolution)
+        # Persist combined prices to local DB (upsampled to 5-min resolution).
+        # Runs in executor to avoid blocking the event loop with synchronous
+        # SQLite writes and pandas processing.
         if consumption_ok and production_ok:
             try:
-                self._persist_epex_prices_to_db()
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, self._persist_epex_prices_to_db)
             except Exception as e:
                 self.__log(
                     f"Failed to persist EPEX prices to DB: {e}",

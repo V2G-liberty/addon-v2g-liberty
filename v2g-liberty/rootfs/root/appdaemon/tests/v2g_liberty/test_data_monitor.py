@@ -597,27 +597,19 @@ class TestHandleCalendarChange:
     @pytest.mark.asyncio
     @patch("apps.v2g_liberty.data_monitor.get_local_now", return_value=TEST_NOW)
     async def test_handles_db_exception_gracefully(
-        self, mock_now, monitor, data_store, hass
+        self, mock_now, monitor, data_store, hass, caplog
     ):
         """DB exception should be caught and logged as WARNING."""
+        import logging
+
         data_store.insert_reservation.side_effect = Exception("DB locked")
         event = self._make_event()
 
         # Should not raise
-        await monitor._handle_calendar_change(v2g_events=[event])
+        with caplog.at_level(logging.WARNING):
+            await monitor._handle_calendar_change(v2g_events=[event])
 
-        # Check that a warning was logged (log_wrapper passes msg= and level= as kwargs)
-        warning_logged = False
-        for call in hass.log.call_args_list:
-            kwargs = call.kwargs or {}
-            msg = kwargs.get("msg", "")
-            if (
-                "Failed to write reservation" in msg
-                and kwargs.get("level") == "WARNING"
-            ):
-                warning_logged = True
-                break
-        assert warning_logged
+        assert "Failed to write reservation" in caplog.text
 
 
 # =====================================================================

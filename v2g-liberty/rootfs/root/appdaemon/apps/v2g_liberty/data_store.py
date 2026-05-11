@@ -273,7 +273,7 @@ class DataStore:
     DB_PATH = "/data/v2g_liberty_data.db"
 
     def __init__(self, hass: Hass):
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="data_store")
         self.__connection: sqlite3.Connection | None = None
         self.__log("DataStore initialised (no DB connection yet).")
 
