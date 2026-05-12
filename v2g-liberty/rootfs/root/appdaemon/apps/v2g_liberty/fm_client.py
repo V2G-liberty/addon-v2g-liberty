@@ -376,7 +376,7 @@ class FMClient(AsyncIOEventEmitter):
             event_resolution=event_resolution,
             unit=unit,
             generic_asset_id=asset_id,
-            timezone="Europe/Amsterdam",
+            timezone=str(c.TZ),
             attributes=attributes,
         )
         sensor_id = result["id"]
