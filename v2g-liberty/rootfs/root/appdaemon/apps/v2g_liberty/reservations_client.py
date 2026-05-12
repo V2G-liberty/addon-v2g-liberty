@@ -330,7 +330,7 @@ class ReservationsClient(AsyncIOEventEmitter):
         Ideally the listener would trigger for any change in any future calendar item, then polling
         would not be necessary.
         """
-        self.__log("Called")
+        self.__log("Called", level="DEBUG")
 
         now = get_local_now()
         start = now.isoformat()

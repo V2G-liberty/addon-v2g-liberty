@@ -659,7 +659,7 @@ class DataStore:
         self.__connection.commit()
         updated = cursor.rowcount
         cursor.close()
-        self.__log(f"Updated {updated} naive charging row(s).")
+        self.__log(f"Updated {updated} naive charging row(s).", level="DEBUG")
 
     def get_last_naive_soc(self) -> float | None:
         """Return the most recent naive_soc_pct value, or None if unavailable."""

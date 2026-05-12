@@ -845,7 +845,7 @@ class V2Gliberty:
             await self.hass.set_state(
                 entity, state=new_state, attributes=clear_line_records
             )
-            self.__log(f"chart_line_name '{chart_line_name}' cleared.")
+            self.__log(f"chart_line_name '{chart_line_name}' cleared.", level="DEBUG")
         else:
             # Handle both list format (legacy) and dict format (with optional metadata)
             if isinstance(records, dict) and "records" in records:
@@ -873,7 +873,9 @@ class V2Gliberty:
                     await self.hass.set_state(
                         entity, state=new_state, attributes=clear_line_records
                     )
-                    self.__log(f"chart_line_name '{chart_line}' cleared.")
+                    self.__log(
+                        f"chart_line_name '{chart_line}' cleared.", level="DEBUG"
+                    )
 
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
@@ -1279,7 +1281,7 @@ class V2Gliberty:
         charge_power = kwargs.get("charge_power", None)
         charge_power_in_watt = parse_to_int(charge_power, None)
         if charge_power_in_watt is None:
-            self.__log("invalid charge_power: None")
+            self.__log("invalid charge_power: None", level="WARNING")
             return
         source = kwargs.get("source", "unknown source")
         self.__log(f"Charger power {charge_power_in_watt}W requested by {source}.")

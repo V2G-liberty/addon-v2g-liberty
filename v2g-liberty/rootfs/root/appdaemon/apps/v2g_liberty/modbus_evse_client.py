@@ -486,7 +486,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             is_connected
             and await self.__get_charger_state() not in self.DISCONNECTED_STATES
         )
-        self.__log(f"called, returning: {is_connected}")
+        self.__log(f"is_connected: {is_connected}", level="DEBUG")
         return is_connected
 
     async def is_charging(self) -> bool:
@@ -722,7 +722,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         Returns:
             nothing
         """
-        self.__log(f"Called with action '{action}', reason: '{reason}'.")
+        self.__log(f"Called with action '{action}', reason: '{reason}'.", level="DEBUG")
 
         if not self._am_i_active:
             self.__log("Called while inactive, not blocking.", level="DEBUG")
@@ -753,7 +753,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         await self.__modbus_write(
             address=self.SET_ACTION_REGISTER, value=action_value, source=txt
         )
-        self.__log(f"{txt}{reason}")
+        self.__log(f"{txt}{reason}", level="DEBUG")
         return
 
     async def __is_charging_or_discharging(self) -> bool:
@@ -1055,7 +1055,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             source (str, optional):
               For logging purposes.
         """
-        self.__log(f"called from {source}, power {charge_power}.")
+        self.__log(f"called from {source}, power {charge_power}.", level="DEBUG")
         if not self._am_i_active:
             self.__log("Called while inactive, not blocking.", level="DEBUG")
 
@@ -1092,7 +1092,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         if self.requested_charge_power == charge_power:
             self.__log(
                 f"New-charge-power-setting from {source=} is same as "
-                f"current-charge-power-setting: {charge_power} W. Not writing to charger."
+                f"current-charge-power-setting: {charge_power} W. Not writing to charger.",
+                level="DEBUG",
             )
             return
 
@@ -1104,7 +1105,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self.requested_charge_power = charge_power
 
         if not res:
-            self.__log(f"Failed to set charge power to {charge_power} Watt.")
+            self.__log(
+                f"Failed to set charge power to {charge_power} Watt.", level="WARNING"
+            )
             # If negative value result in false, check if grid code is set correct in charger.
         return
 
@@ -1539,7 +1542,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         To be called every time there has been a successful modbus read/write.
         :return: Nothing
         """
-        self.__log("called", level="DEBUG")
         if self.modbus_exception_counter == 1:
             self.__log("There was an modbus exception, now solved.")
             await self.v2g_main_app.reset_charger_communication_fault()
