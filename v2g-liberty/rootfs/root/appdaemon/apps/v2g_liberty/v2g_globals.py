@@ -591,6 +591,10 @@ class V2GLibertyGlobals:
             self.__initialise_charger_phase_settings()
             self.__log("Cleared charger phase (grid phases or entities changed)")
 
+        # Trigger FM provisioning if FM is already connected
+        if self.fm_client_app.client is not None:
+            await self.__provision_grid_assets()
+
         self.hass.fire_event("save_grid_connection_settings.result")
 
     async def __get_grid_connection_settings(self, event, data, kwargs):
@@ -648,6 +652,17 @@ class V2GLibertyGlobals:
                     "capacity_per_phase": c.GRID_CAPACITY_PER_PHASE,
                 },
             )
+
+            # Re-parent charger asset under Main Connection
+            if self.fm_client_app._asset_id is not None:
+                await self.fm_client_app.client.update_asset(
+                    self.fm_client_app._asset_id,
+                    {"parent_asset_id": c.FM_MAIN_CONNECTION_ASSET_ID},
+                )
+                self.__log(
+                    f"Set charger asset {self.fm_client_app._asset_id} "
+                    f"as child of Main Connection {c.FM_MAIN_CONNECTION_ASSET_ID}"
+                )
 
             # Grid sensors per phase
             for phase in range(1, c.GRID_PHASES + 1):

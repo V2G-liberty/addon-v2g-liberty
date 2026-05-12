@@ -1,6 +1,6 @@
 """Unit tests for grid connection and charger phase settings in V2GLibertyGlobals."""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import pytest
 
 from apps.v2g_liberty import constants as c
@@ -40,13 +40,22 @@ def hass_mock():
 
 
 @pytest.fixture
-def globals_instance(log_mock, settings_manager_mock, hass_mock):
+def fm_client_mock():
+    """Mock FM client app — defaults to not connected (client=None)."""
+    mock = MagicMock()
+    mock.client = None
+    return mock
+
+
+@pytest.fixture
+def globals_instance(log_mock, settings_manager_mock, hass_mock, fm_client_mock):
     """Create a V2GLibertyGlobals instance with mocked dependencies."""
     instance = object.__new__(V2GLibertyGlobals)
     # Use the name-mangled attribute for the private __log method
     instance._V2GLibertyGlobals__log = log_mock
     instance.v2g_settings = settings_manager_mock
     instance.hass = hass_mock
+    instance.fm_client_app = fm_client_mock
     return instance
 
 
