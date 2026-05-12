@@ -232,6 +232,7 @@ GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter valu
 FM_MAIN_CONNECTION_ASSET_ID: int | None = None
 FM_GRID_CONSUMPTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
+FM_AGGREGATE_POWER_SENSOR_ID: int | None = None
 FM_EMS_STATUS_SENSOR_ID: int | None = None
 
 # CALENDAR CONSTANTS

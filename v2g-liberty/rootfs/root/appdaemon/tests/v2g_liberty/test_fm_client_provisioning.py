@@ -226,6 +226,35 @@ class TestEnsureSensor:
         fm_client_mock.add_sensor.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_creates_with_attributes(self, fm, fm_client_mock):
+        """Sensor attributes are passed to add_sensor."""
+        fm_client_mock.get_sensors.return_value = []
+
+        await fm.ensure_sensor(
+            name="Grid Consumption L1",
+            unit="kW",
+            asset_id=55,
+            attributes={"consumption_is_positive": True},
+        )
+
+        call_kwargs = fm_client_mock.add_sensor.call_args.kwargs
+        assert call_kwargs["attributes"] == {"consumption_is_positive": True}
+
+    @pytest.mark.asyncio
+    async def test_creates_without_attributes(self, fm, fm_client_mock):
+        """Without attributes, None is passed to add_sensor."""
+        fm_client_mock.get_sensors.return_value = []
+
+        await fm.ensure_sensor(
+            name="Grid Production L1",
+            unit="kW",
+            asset_id=55,
+        )
+
+        call_kwargs = fm_client_mock.add_sensor.call_args.kwargs
+        assert call_kwargs["attributes"] is None
+
+    @pytest.mark.asyncio
     async def test_raises_when_client_not_initialised(self, fm):
         """Raises RuntimeError when client is None."""
         fm.client = None

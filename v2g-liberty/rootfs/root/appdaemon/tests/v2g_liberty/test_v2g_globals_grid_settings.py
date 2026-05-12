@@ -1,6 +1,6 @@
 """Unit tests for grid connection and charger phase settings in V2GLibertyGlobals."""
 
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from apps.v2g_liberty import constants as c
@@ -756,8 +756,221 @@ class TestTestGridEntities:
 
         # Result should only have been fired once
         result_calls = [
-            call
-            for call in hass_mock.fire_event.call_args_list
-            if call.args[0] == "test_grid_entities.result"
+            c_
+            for c_ in hass_mock.fire_event.call_args_list
+            if c_.args[0] == "test_grid_entities.result"
         ]
         assert len(result_calls) == 1
+
+
+# ── FM grid asset provisioning tests ─────────────────────────────────
+
+
+@pytest.fixture
+def fm_client_connected():
+    """Mock FM client app that is connected with async methods."""
+    mock = MagicMock()
+    mock.client = MagicMock()  # Not None → FM is connected
+    mock._asset_id = 99  # Existing charger asset
+    mock.ensure_asset = AsyncMock(return_value=500)
+    mock.ensure_sensor = AsyncMock(side_effect=lambda **kw: hash(kw["name"]) % 10000)
+    mock.client.update_asset = AsyncMock()
+    return mock
+
+
+@pytest.fixture
+def globals_with_fm(log_mock, settings_manager_mock, hass_mock, fm_client_connected):
+    """V2GLibertyGlobals instance with a connected FM client."""
+    instance = object.__new__(V2GLibertyGlobals)
+    instance._V2GLibertyGlobals__log = log_mock
+    instance.v2g_settings = settings_manager_mock
+    instance.hass = hass_mock
+    instance.fm_client_app = fm_client_connected
+    return instance
+
+
+class TestProvisionGridAssets:
+    """Tests for __provision_grid_assets() — task 16."""
+
+    @pytest.mark.asyncio
+    async def test_skips_when_grid_not_configured(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """Provisioning is skipped when no grid entities are configured."""
+        c.GRID_CONSUMPTION_ENTITIES = []
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        fm_client_connected.ensure_asset.assert_not_called()
+        fm_client_connected.ensure_sensor.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_when_fm_not_connected(self, globals_instance):
+        """Provisioning is skipped when FM client is not connected."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        # globals_instance has fm_client_app.client = None
+
+        await globals_instance._V2GLibertyGlobals__provision_grid_assets()
+
+        globals_instance.fm_client_app.ensure_asset.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_full_provisioning_3_phase(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """Full 3-phase provisioning creates asset + 7 sensors."""
+        c.GRID_PHASES = 3
+        c.GRID_CAPACITY_PER_PHASE = 25
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        # Main Connection asset created
+        fm_client_connected.ensure_asset.assert_called_once()
+        asset_call = fm_client_connected.ensure_asset.call_args
+        assert "Main Connection" in asset_call.kwargs["name"]
+        assert asset_call.kwargs["attributes"]["phases"] == 3
+
+        assert c.FM_MAIN_CONNECTION_ASSET_ID == 500
+
+        # 6 grid sensors + 1 Aggregate Power + 1 EMS Status = 8 ensure_sensor calls
+        assert fm_client_connected.ensure_sensor.call_count == 8
+
+        # Check grid sensor IDs are set for all 3 phases
+        assert len(c.FM_GRID_CONSUMPTION_SENSOR_IDS) == 3
+        assert len(c.FM_GRID_PRODUCTION_SENSOR_IDS) == 3
+        assert c.FM_AGGREGATE_POWER_SENSOR_ID is not None
+        assert c.FM_EMS_STATUS_SENSOR_ID is not None
+
+    @pytest.mark.asyncio
+    async def test_full_provisioning_1_phase(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """1-phase provisioning creates asset + 3 sensors."""
+        c.GRID_PHASES = 1
+        c.GRID_CAPACITY_PER_PHASE = 40
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        # 2 grid sensors + 1 Aggregate Power + 1 EMS Status = 4
+        assert fm_client_connected.ensure_sensor.call_count == 4
+        assert len(c.FM_GRID_CONSUMPTION_SENSOR_IDS) == 1
+        assert len(c.FM_GRID_PRODUCTION_SENSOR_IDS) == 1
+
+    @pytest.mark.asyncio
+    async def test_consumption_sensors_have_attribute(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """Consumption sensors are created with consumption_is_positive attribute."""
+        c.GRID_PHASES = 1
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        # Find consumption and production ensure_sensor calls
+        calls = fm_client_connected.ensure_sensor.call_args_list
+        cons_call = next(c_ for c_ in calls if "Consumption" in c_.kwargs["name"])
+        prod_call = next(c_ for c_ in calls if "Production" in c_.kwargs["name"])
+
+        assert cons_call.kwargs["attributes"] == {"consumption_is_positive": True}
+        assert prod_call.kwargs.get("attributes") is None
+
+    @pytest.mark.asyncio
+    async def test_exception_does_not_crash(
+        self, globals_with_fm, fm_client_connected, log_mock
+    ):
+        """Provisioning failure is logged but does not raise."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.GRID_PHASES = 1
+        fm_client_connected.ensure_asset.side_effect = Exception("FM down")
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        # Should have logged warning, not crashed
+        log_mock.assert_called()
+        assert "failed" in str(log_mock.call_args).lower()
+
+
+class TestChargerReparent:
+    """Tests for charger asset re-parenting — task 15."""
+
+    @pytest.mark.asyncio
+    async def test_reparents_charger_asset(self, globals_with_fm, fm_client_connected):
+        """Charger asset is set as child of Main Connection."""
+        c.GRID_PHASES = 1
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        fm_client_connected._asset_id = 99
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        fm_client_connected.client.update_asset.assert_called_once_with(
+            99, {"parent_asset_id": 500}
+        )
+
+    @pytest.mark.asyncio
+    async def test_skips_reparent_when_no_charger_asset(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """No reparent call when charger asset ID is not known."""
+        c.GRID_PHASES = 1
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        fm_client_connected._asset_id = None
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        fm_client_connected.client.update_asset.assert_not_called()
+
+
+class TestProvisioningTriggerOnSave:
+    """Tests for provisioning trigger from save handler — task 17."""
+
+    @pytest.mark.asyncio
+    async def test_triggers_provisioning_when_fm_connected(
+        self, globals_with_fm, settings_manager_mock, hass_mock, fm_client_connected
+    ):
+        """Saving grid settings triggers provisioning when FM is connected."""
+        data = {
+            "phases": 1,
+            "capacity_per_phase": 25,
+            "consumption_entities": ["sensor.l1"],
+            "production_entities": ["sensor.p1"],
+        }
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", data, {}
+        )
+
+        # Provisioning was triggered (ensure_asset called)
+        fm_client_connected.ensure_asset.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_no_provisioning_when_fm_not_connected(
+        self, globals_instance, settings_manager_mock, hass_mock, fm_client_mock
+    ):
+        """Saving grid settings does NOT trigger provisioning when FM is not connected."""
+        data = {
+            "phases": 1,
+            "capacity_per_phase": 25,
+            "consumption_entities": ["sensor.l1"],
+            "production_entities": ["sensor.p1"],
+        }
+
+        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", data, {}
+        )
+
+        # fm_client_mock.client is None → no provisioning
+        fm_client_mock.ensure_asset.assert_not_called()

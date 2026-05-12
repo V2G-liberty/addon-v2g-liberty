@@ -672,6 +672,7 @@ class V2GLibertyGlobals:
                     name=f"Grid Consumption L{phase}",
                     unit="kW",
                     asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                    attributes={"consumption_is_positive": True},
                 )
                 c.FM_GRID_PRODUCTION_SENSOR_IDS[
                     phase
@@ -680,6 +681,13 @@ class V2GLibertyGlobals:
                     unit="kW",
                     asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
                 )
+
+            # Aggregate Power sensor (written by FM scheduler, not by V2G Liberty)
+            c.FM_AGGREGATE_POWER_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+                name="Aggregate Power",
+                unit="kW",
+                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            )
 
             # EMS Status sensor
             c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
@@ -693,6 +701,7 @@ class V2GLibertyGlobals:
                 f"asset={c.FM_MAIN_CONNECTION_ASSET_ID}, "
                 f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
                 f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
+                f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
                 f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}"
             )
         except Exception as e:

@@ -355,6 +355,7 @@ class FMClient(AsyncIOEventEmitter):
         unit: str,
         asset_id: int,
         event_resolution: str = "PT5M",
+        attributes: dict | None = None,
     ) -> int:
         """Find sensor by name within asset, create if not exists.
 
@@ -376,6 +377,7 @@ class FMClient(AsyncIOEventEmitter):
             unit=unit,
             generic_asset_id=asset_id,
             timezone="Europe/Amsterdam",
+            attributes=attributes,
         )
         sensor_id = result["id"]
         self.__log(f"Created sensor '{name}' (id={sensor_id}) on asset {asset_id}")
