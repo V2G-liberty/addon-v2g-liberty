@@ -355,6 +355,7 @@ class DataStore:
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS fm_send_status (
+                data_type TEXT PRIMARY KEY,
                 last_sent_up_to TEXT NOT NULL
             )
         """)
@@ -423,7 +424,7 @@ class DataStore:
         )
 
         if from_version < 2:
-            # v2: add grid_interval_log table
+            # v2: add grid_interval_log table + rebuild fm_send_status with data_type
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS grid_interval_log (
                     timestamp TEXT NOT NULL,
@@ -433,7 +434,28 @@ class DataStore:
                     PRIMARY KEY (timestamp, phase)
                 )
             """)
-            self.__log("Migration v1→v2: created grid_interval_log table.")
+
+            # Migrate fm_send_status: add data_type column, preserve charger data
+            cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
+            existing = cursor.fetchone()
+            cursor.execute("DROP TABLE fm_send_status")
+            cursor.execute("""
+                CREATE TABLE fm_send_status (
+                    data_type TEXT PRIMARY KEY,
+                    last_sent_up_to TEXT NOT NULL
+                )
+            """)
+            if existing:
+                cursor.execute(
+                    "INSERT INTO fm_send_status (data_type, last_sent_up_to) "
+                    "VALUES (?, ?)",
+                    ("charger", existing["last_sent_up_to"]),
+                )
+
+            self.__log(
+                "Migration v1→v2: created grid_interval_log, "
+                "rebuilt fm_send_status with data_type column."
+            )
 
         # Update schema version
         now = datetime.now(timezone.utc).isoformat()
@@ -824,41 +846,44 @@ class DataStore:
             [dict(row) for row in rows],
         )
 
-    def get_fm_last_sent(self) -> str | None:
+    def get_fm_last_sent(self, data_type: str = "charger") -> str | None:
         """Get the timestamp up to which data has been sent to FlexMeasures.
+
+        Args:
+            data_type: One of "charger", "grid", "pv".
 
         Returns the ISO 8601 timestamp, or None if no data has been sent yet.
         """
         if not self.is_available:
             return None
         cursor = self.__connection.cursor()
-        cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
+        cursor.execute(
+            "SELECT last_sent_up_to FROM fm_send_status WHERE data_type = ?",
+            (data_type,),
+        )
         row = cursor.fetchone()
         cursor.close()
         if row is None:
             return None
         return row["last_sent_up_to"]
 
-    def set_fm_last_sent(self, timestamp: str) -> None:
+    def set_fm_last_sent(self, timestamp: str, data_type: str = "charger") -> None:
         """Update the timestamp up to which data has been sent to FlexMeasures.
 
-        Inserts a new row if none exists, otherwise updates the existing row.
+        Uses INSERT OR REPLACE for atomic upsert.
+
+        Args:
+            timestamp: ISO 8601 timestamp.
+            data_type: One of "charger", "grid", "pv".
         """
         if not self.is_available:
             return
         cursor = self.__connection.cursor()
-        cursor.execute("SELECT COUNT(*) as cnt FROM fm_send_status")
-        count = cursor.fetchone()["cnt"]
-        if count == 0:
-            cursor.execute(
-                "INSERT INTO fm_send_status (last_sent_up_to) VALUES (?)",
-                (timestamp,),
-            )
-        else:
-            cursor.execute(
-                "UPDATE fm_send_status SET last_sent_up_to = ?",
-                (timestamp,),
-            )
+        cursor.execute(
+            "INSERT OR REPLACE INTO fm_send_status (data_type, last_sent_up_to) "
+            "VALUES (?, ?)",
+            (data_type, timestamp),
+        )
         self.__connection.commit()
         cursor.close()
 

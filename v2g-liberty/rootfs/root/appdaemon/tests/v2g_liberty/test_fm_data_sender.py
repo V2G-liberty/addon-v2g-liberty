@@ -419,6 +419,75 @@ class TestDataStoreFmSendStatus:
         assert real_data_store.get_fm_last_sent() == _ts(12, 0)
 
     @pytest.mark.asyncio
+    async def test_independent_data_types(self, real_data_store):
+        """Each data_type has its own independent last_sent timestamp."""
+        await real_data_store.initialise()
+        real_data_store.set_fm_last_sent(_ts(10, 0), data_type="charger")
+        real_data_store.set_fm_last_sent(_ts(11, 0), data_type="grid")
+        real_data_store.set_fm_last_sent(_ts(12, 0), data_type="pv")
+
+        assert real_data_store.get_fm_last_sent("charger") == _ts(10, 0)
+        assert real_data_store.get_fm_last_sent("grid") == _ts(11, 0)
+        assert real_data_store.get_fm_last_sent("pv") == _ts(12, 0)
+
+    @pytest.mark.asyncio
+    async def test_unknown_data_type_returns_none(self, real_data_store):
+        """Querying a data_type that was never set returns None."""
+        await real_data_store.initialise()
+        real_data_store.set_fm_last_sent(_ts(10, 0), data_type="charger")
+        assert real_data_store.get_fm_last_sent("grid") is None
+
+    @pytest.mark.asyncio
+    async def test_update_one_type_does_not_affect_others(self, real_data_store):
+        """Updating one data_type does not change others."""
+        await real_data_store.initialise()
+        real_data_store.set_fm_last_sent(_ts(10, 0), data_type="charger")
+        real_data_store.set_fm_last_sent(_ts(10, 0), data_type="grid")
+
+        real_data_store.set_fm_last_sent(_ts(12, 0), data_type="charger")
+
+        assert real_data_store.get_fm_last_sent("charger") == _ts(12, 0)
+        assert real_data_store.get_fm_last_sent("grid") == _ts(10, 0)
+
+    @pytest.mark.asyncio
+    async def test_schema_migration_v1_to_v2(self, tmp_path):
+        """Migrating from v1 preserves existing charger send status."""
+        import sqlite3
+
+        db_path = str(tmp_path / "migrate_test.db")
+
+        # Create a v1 database manually (old fm_send_status without data_type)
+        con = sqlite3.connect(db_path)
+        con.execute(
+            "CREATE TABLE schema_version "
+            "(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)"
+        )
+        con.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01')"
+        )
+        con.execute("CREATE TABLE fm_send_status (last_sent_up_to TEXT NOT NULL)")
+        con.execute(
+            "INSERT INTO fm_send_status (last_sent_up_to) VALUES (?)",
+            (_ts(9, 30),),
+        )
+        con.commit()
+        con.close()
+
+        # Now open with DataStore — should migrate to v2
+        from apps.v2g_liberty.data_store import DataStore
+
+        mock_hass = AsyncMock(spec=Hass)
+        store = DataStore(mock_hass)
+        store.DB_PATH = db_path
+        await store.initialise()
+
+        # Charger data should be preserved
+        assert store.get_fm_last_sent("charger") == _ts(9, 30)
+        # Grid and PV should be None (not yet set)
+        assert store.get_fm_last_sent("grid") is None
+        assert store.get_fm_last_sent("pv") is None
+
+    @pytest.mark.asyncio
     async def test_get_intervals_since_returns_matching_rows(self, real_data_store):
         await real_data_store.initialise()
         real_data_store.insert_interval(
