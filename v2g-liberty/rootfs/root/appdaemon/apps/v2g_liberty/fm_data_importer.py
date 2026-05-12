@@ -1,6 +1,5 @@
 """Module for importing price and usage data from FlexMeasures."""
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -293,12 +292,9 @@ class FlexMeasuresDataImporter:
         )
 
         # Persist combined prices to local DB (upsampled to 5-min resolution).
-        # Runs in executor to avoid blocking the event loop with synchronous
-        # SQLite writes and pandas processing.
         if consumption_ok and production_ok:
             try:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, self._persist_epex_prices_to_db)
+                self._persist_epex_prices_to_db()
             except Exception as e:
                 self.__log(
                     f"Failed to persist EPEX prices to DB: {e}",
