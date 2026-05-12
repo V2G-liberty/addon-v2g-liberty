@@ -28,6 +28,7 @@ def fm_client_mock():
     mock.update_asset = AsyncMock(return_value={})
     mock.get_sensors = AsyncMock(return_value=[])
     mock.add_sensor = AsyncMock(return_value={"id": 200, "status": 201})
+    mock.update_sensor = AsyncMock(return_value={})
     mock.get_asset_types = AsyncMock(
         return_value=[
             {"id": 1, "name": "building"},
@@ -224,6 +225,41 @@ class TestEnsureSensor:
 
         assert sensor_id == 77
         fm_client_mock.add_sensor.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_updates_attributes_on_existing(self, fm, fm_client_mock):
+        """Attributes are updated when sensor already exists."""
+        fm_client_mock.get_sensors.return_value = [
+            {"id": 77, "name": "Grid Consumption L1"}
+        ]
+
+        sensor_id = await fm.ensure_sensor(
+            name="Grid Consumption L1",
+            unit="kW",
+            asset_id=55,
+            attributes={"consumption_is_positive": True},
+        )
+
+        assert sensor_id == 77
+        fm_client_mock.add_sensor.assert_not_called()
+        fm_client_mock.update_sensor.assert_called_once_with(
+            77, {"attributes": {"consumption_is_positive": True}}
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_update_without_attributes(self, fm, fm_client_mock):
+        """No update_sensor call when no attributes provided on existing sensor."""
+        fm_client_mock.get_sensors.return_value = [
+            {"id": 77, "name": "Grid Consumption L1"}
+        ]
+
+        await fm.ensure_sensor(
+            name="Grid Consumption L1",
+            unit="kW",
+            asset_id=55,
+        )
+
+        fm_client_mock.update_sensor.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_creates_with_attributes(self, fm, fm_client_mock):

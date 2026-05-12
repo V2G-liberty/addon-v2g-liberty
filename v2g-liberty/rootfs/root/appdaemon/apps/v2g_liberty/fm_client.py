@@ -368,8 +368,13 @@ class FMClient(AsyncIOEventEmitter):
         match = next((s for s in sensors if s["name"] == name), None)
 
         if match:
-            self.__log(f"Found existing sensor '{name}' (id={match['id']})")
-            return match["id"]
+            sensor_id = match["id"]
+            if attributes:
+                await self.client.update_sensor(sensor_id, {"attributes": attributes})
+                self.__log(f"Updated attributes for sensor '{name}' (id={sensor_id})")
+            else:
+                self.__log(f"Found existing sensor '{name}' (id={sensor_id})")
+            return sensor_id
 
         result = await self.client.add_sensor(
             name=name,
