@@ -42,7 +42,7 @@ class EntsoeFetcher(BaseFetcher):
             fm_client_app: FlexMeasures client for API calls
         """
         super().__init__(hass, fm_client_app)
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="entsoe_fetcher")
 
     async def fetch_latest_dt(self, now: datetime) -> Optional[datetime]:
         """

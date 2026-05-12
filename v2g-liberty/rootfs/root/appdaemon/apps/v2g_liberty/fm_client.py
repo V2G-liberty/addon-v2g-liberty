@@ -61,7 +61,7 @@ class FMClient(AsyncIOEventEmitter):
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="fm_client")
 
         self.event_bus = event_bus
 

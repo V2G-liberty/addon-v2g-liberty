@@ -14,6 +14,7 @@
 
 ### Changed
 
+- 🛠️ Refactor: Migrate to python logging (#448)
 - 🛠️ Refactor: make AppDaemon timer-API usage consistently async in main_app (#445)
 - 🛠️ Refactor: Increase FM data send frequency from daily to hourly (#441)
 

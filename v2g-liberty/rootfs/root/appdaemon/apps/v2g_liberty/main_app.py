@@ -109,7 +109,7 @@ class V2Gliberty:
         self.hass = hass
         self.notifier = notifier
         self.event_bus = event_bus
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="main_app")
 
     async def initialize(self):
         self.__log("Initializing V2Gliberty")
@@ -232,13 +232,7 @@ class V2Gliberty:
         - New prices have been detected (Amber only)
         - Every 15 minutes if none of the above
         """
-        # Only for debugging:
-        if v2g_args is not None:
-            source = v2g_args
-        else:
-            source = "unknown"
-        # Silenced to reduce log noise — re-enable when investigating call cadence.
-        # self.__log(f"Set next action called from source: {source}.")
+        self.__log(f"Set next action called from source: {v2g_args}.", level="DEBUG")
 
         # Make sure this function gets called every x minutes to prevent a "frozen" app.
         self.timer_handle_set_next_action = await set_oneshot_timer(
@@ -708,7 +702,9 @@ class V2Gliberty:
             return
 
         half_time_ve = ve_start + (ve_end - ve_start) / 2
-        # self.__log(f"Half-time-ve: {half_time_ve.strftime(time_format)}.")
+        self.__log(
+            f"Half-time-ve: {half_time_ve.strftime(time_format)}.", level="DEBUG"
+        )
         if get_local_now() > half_time_ve:
             # This can be the case if:
             # + a calendar item is added with a start-time in the past.
@@ -849,7 +845,7 @@ class V2Gliberty:
             await self.hass.set_state(
                 entity, state=new_state, attributes=clear_line_records
             )
-            self.__log(f"chart_line_name '{chart_line_name}' cleared.")
+            self.__log(f"chart_line_name '{chart_line_name}' cleared.", level="DEBUG")
         else:
             # Handle both list format (legacy) and dict format (with optional metadata)
             if isinstance(records, dict) and "records" in records:
@@ -877,7 +873,9 @@ class V2Gliberty:
                     await self.hass.set_state(
                         entity, state=new_state, attributes=clear_line_records
                     )
-                    self.__log(f"chart_line_name '{chart_line}' cleared.")
+                    self.__log(
+                        f"chart_line_name '{chart_line}' cleared.", level="DEBUG"
+                    )
 
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
@@ -1283,7 +1281,7 @@ class V2Gliberty:
         charge_power = kwargs.get("charge_power", None)
         charge_power_in_watt = parse_to_int(charge_power, None)
         if charge_power_in_watt is None:
-            self.__log("invalid charge_power: None")
+            self.__log("invalid charge_power: None", level="WARNING")
             return
         source = kwargs.get("source", "unknown source")
         self.__log(f"Charger power {charge_power_in_watt}W requested by {source}.")

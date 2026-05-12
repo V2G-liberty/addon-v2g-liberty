@@ -28,9 +28,9 @@ appdaemon:
 
 logs:
   main_log:
-    filename: /config/logs/appdaemon_main.log
+    filename: /config/logs/v2g_liberty_main.log
   error_log:
-    filename: /config/logs/appdaemon_error.log
+    filename: /config/logs/v2g_liberty_error.log
 
 http:
   url: http://127.0.0.1:5050

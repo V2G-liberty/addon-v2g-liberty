@@ -28,7 +28,7 @@ class Notifier:
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="notifier_util")
 
         self.event_bus = event_bus
         # not used yet

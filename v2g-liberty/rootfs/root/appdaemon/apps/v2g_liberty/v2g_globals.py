@@ -1,6 +1,7 @@
 """Module to initialise settings and CONSTANTS"""
 
 import asyncio
+import logging
 import math
 from datetime import datetime, timedelta
 
@@ -294,7 +295,7 @@ class V2GLibertyGlobals:
     def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="v2g_globals")
         self.v2g_settings = SettingsManager(log=self.__log)
 
         # VAT/markup settings for data import (only used for nl_generic provider)
@@ -1473,7 +1474,7 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
     end_dt = datetime.combine(today_date, time_obj, tzinfo=c.TZ)
 
     if end_dt < start_dt:
-        # self.__log(f"end_dt < start_dt ...")
+        logging.getLogger("AppDaemon.v2g-app.v2g_globals").debug("end_dt < start_dt")
         # Start and end time backwards, so it spans midnight.
         # Let's start by assuming end_dt is wrong and should be tomorrow.
         # This will be true if we are currently after start_dt
