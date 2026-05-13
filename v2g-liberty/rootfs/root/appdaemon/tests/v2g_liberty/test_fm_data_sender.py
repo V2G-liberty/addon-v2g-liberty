@@ -37,6 +37,8 @@ def _set_constants():
     c.FM_ACCOUNT_POWER_SENSOR_ID = 101
     c.FM_ACCOUNT_SOC_SENSOR_ID = 102
     c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID = 103
+    c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+    c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
 
 
 @pytest.fixture
@@ -57,9 +59,20 @@ def fm_client():
 @pytest.fixture
 def data_store():
     mock_store = MagicMock()
-    mock_store.get_fm_last_sent = MagicMock(return_value=None)
-    mock_store.set_fm_last_sent = MagicMock()
+    # Default: charger has a timestamp, grid returns None (not configured)
+    _last_sent = {}
+
+    def fake_get(data_type="charger"):
+        return _last_sent.get(data_type)
+
+    def fake_set(timestamp, data_type="charger"):
+        _last_sent[data_type] = timestamp
+
+    mock_store.get_fm_last_sent = MagicMock(side_effect=fake_get)
+    mock_store.set_fm_last_sent = MagicMock(side_effect=fake_set)
     mock_store.get_intervals_since = MagicMock(return_value=[])
+    mock_store.get_grid_intervals_since = MagicMock(return_value=[])
+    mock_store._last_sent = _last_sent
     return mock_store
 
 
@@ -99,7 +112,15 @@ class TestLenToIsoDuration:
         assert _len_to_iso_duration(12) == "PT1H0M"
 
     def test_288_intervals_full_day(self):
-        assert _len_to_iso_duration(288) == "PT24H0M"
+        assert _len_to_iso_duration(288) == "P1DT0H0M"
+
+    def test_large_block_uses_day_notation(self):
+        # 5313 intervals = 442h45m = 18d10h45m
+        assert _len_to_iso_duration(5313) == "P18DT10H45M"
+
+    def test_over_one_day_with_remainder(self):
+        # 300 intervals = 25h = 1d1h
+        assert _len_to_iso_duration(300) == "P1DT1H0M"
 
     def test_15_intervals(self):
         # 15 × 5 = 75 min = 1h15m
@@ -131,6 +152,22 @@ class TestGroupContiguousBlocks:
         assert len(blocks) == 1
         assert len(blocks[0]) == 3
 
+    def test_splits_at_max_block_size(self, sender):
+        """Contiguous block is split at MAX_BLOCK_SIZE (288 = 24h)."""
+        # Create 300 contiguous intervals (exceeds 288)
+        intervals = [
+            _make_interval(
+                datetime(2026, 2, 22, 0, 0, 0, tzinfo=TEST_TZ)
+                .__add__(timedelta(minutes=5 * i))
+                .isoformat()
+            )
+            for i in range(300)
+        ]
+        blocks = sender._group_contiguous_blocks(intervals)
+        assert len(blocks) == 2
+        assert len(blocks[0]) == 288
+        assert len(blocks[1]) == 12
+
     def test_gap_creates_two_blocks(self, sender):
         intervals = [
             _make_interval(_ts(10, 0)),
@@ -158,7 +195,7 @@ class TestGroupContiguousBlocks:
 
 
 # ──────────────────────────────────────────────────────────
-# _send_block
+# _send_charger_block
 # ──────────────────────────────────────────────────────────
 
 
@@ -173,7 +210,7 @@ class TestSendBlock:
                 _ts(10, 5), energy_kwh=0.25, soc_pct=61.0, availability_pct=90.0
             ),
         ]
-        result = await sender._send_block(block)
+        result = await sender._send_charger_block(block)
         assert result is True
         assert fm_client.post_measurements.call_count == 3
 
@@ -181,7 +218,7 @@ class TestSendBlock:
     async def test_power_converted_to_mw(self, sender, fm_client):
         # energy_kwh=0.417 → power_kw = 0.417 × 12 = 5.004 → MW = 0.005004
         block = [_make_interval(_ts(10, 0), energy_kwh=0.417)]
-        await sender._send_block(block)
+        await sender._send_charger_block(block)
 
         # First call is power
         power_call = fm_client.post_measurements.call_args_list[0]
@@ -192,7 +229,7 @@ class TestSendBlock:
     @pytest.mark.asyncio
     async def test_none_power_passed_through(self, sender, fm_client):
         block = [_make_interval(_ts(10, 0), energy_kwh=None)]
-        await sender._send_block(block)
+        await sender._send_charger_block(block)
 
         power_call = fm_client.post_measurements.call_args_list[0]
         assert power_call.kwargs["values"] == [None]
@@ -200,7 +237,7 @@ class TestSendBlock:
     @pytest.mark.asyncio
     async def test_none_soc_passed_through(self, sender, fm_client):
         block = [_make_interval(_ts(10, 0), soc_pct=None)]
-        await sender._send_block(block)
+        await sender._send_charger_block(block)
 
         soc_call = fm_client.post_measurements.call_args_list[1]
         assert soc_call.kwargs["values"] == [None]
@@ -208,7 +245,7 @@ class TestSendBlock:
     @pytest.mark.asyncio
     async def test_correct_sensor_ids(self, sender, fm_client):
         block = [_make_interval(_ts(10, 0))]
-        await sender._send_block(block)
+        await sender._send_charger_block(block)
 
         calls = fm_client.post_measurements.call_args_list
         assert calls[0].kwargs["sensor_id"] == 101  # power
@@ -222,7 +259,7 @@ class TestSendBlock:
             _make_interval(_ts(10, 5)),
             _make_interval(_ts(10, 10)),
         ]
-        await sender._send_block(block)
+        await sender._send_charger_block(block)
 
         call = fm_client.post_measurements.call_args_list[0]
         assert call.kwargs["start"] == _ts(10, 0)
@@ -232,7 +269,7 @@ class TestSendBlock:
     async def test_power_failure_returns_false(self, sender, fm_client):
         fm_client.post_measurements = AsyncMock(return_value=False)
         block = [_make_interval(_ts(10, 0))]
-        result = await sender._send_block(block)
+        result = await sender._send_charger_block(block)
         assert result is False
         # Only one call made (power failed, didn't attempt soc/availability)
         assert fm_client.post_measurements.call_count == 1
@@ -243,7 +280,7 @@ class TestSendBlock:
             side_effect=[True, False]  # power ok, soc fails
         )
         block = [_make_interval(_ts(10, 0))]
-        result = await sender._send_block(block)
+        result = await sender._send_charger_block(block)
         assert result is False
         assert fm_client.post_measurements.call_count == 2
 
@@ -253,7 +290,7 @@ class TestSendBlock:
             side_effect=[True, True, False]  # power ok, soc ok, availability fails
         )
         block = [_make_interval(_ts(10, 0))]
-        result = await sender._send_block(block)
+        result = await sender._send_charger_block(block)
         assert result is False
         assert fm_client.post_measurements.call_count == 3
 
@@ -279,67 +316,65 @@ class TestSendUnsentData:
 
     @pytest.mark.asyncio
     async def test_recovers_when_last_sent_is_none(self, sender, data_store):
-        data_store.get_fm_last_sent.return_value = None
-        await sender._send_unsent_data()
-        # Should recover by setting last_sent to now
+        # charger has no last_sent → should recover
+        await sender._send_charger_data()
         data_store.set_fm_last_sent.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_skip_when_no_unsent_data(self, sender, data_store):
-        data_store.get_fm_last_sent.return_value = _ts(10, 0)
+        data_store._last_sent["charger"] = _ts(10, 0)
         data_store.get_intervals_since.return_value = []
-        await sender._send_unsent_data()
+        await sender._send_charger_data()
+        # set_fm_last_sent should not be called (no data to advance)
         data_store.set_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_success_updates_last_sent(self, sender, data_store, fm_client):
-        data_store.get_fm_last_sent.return_value = _ts(9, 55)
+        data_store._last_sent["charger"] = _ts(9, 55)
         data_store.get_intervals_since.return_value = [
             _make_interval(_ts(10, 0)),
             _make_interval(_ts(10, 5)),
         ]
-        await sender._send_unsent_data()
+        await sender._send_charger_data()
 
-        data_store.set_fm_last_sent.assert_called_once_with(_ts(10, 5))
+        data_store.set_fm_last_sent.assert_called_with(_ts(10, 5), "charger")
         assert fm_client.post_measurements.call_count == 3
 
     @pytest.mark.asyncio
     async def test_failure_does_not_update_last_sent(
         self, sender, data_store, fm_client
     ):
-        data_store.get_fm_last_sent.return_value = _ts(9, 55)
+        data_store._last_sent["charger"] = _ts(9, 55)
         data_store.get_intervals_since.return_value = [
             _make_interval(_ts(10, 0)),
         ]
         fm_client.post_measurements = AsyncMock(return_value=False)
 
-        await sender._send_unsent_data()
-        data_store.set_fm_last_sent.assert_not_called()
+        await sender._send_charger_data()
+        # Only the recovery call in _send_unsent_data, not advancement
+        assert data_store._last_sent["charger"] == _ts(9, 55)
 
     @pytest.mark.asyncio
     async def test_multiple_blocks_sent_sequentially(
         self, sender, data_store, fm_client
     ):
-        data_store.get_fm_last_sent.return_value = _ts(9, 55)
+        data_store._last_sent["charger"] = _ts(9, 55)
         data_store.get_intervals_since.return_value = [
             _make_interval(_ts(10, 0)),
             # gap
             _make_interval(_ts(10, 15)),
         ]
-        await sender._send_unsent_data()
+        await sender._send_charger_data()
 
         # 2 blocks × 3 calls = 6
         assert fm_client.post_measurements.call_count == 6
-        # last_sent updated twice (once per block)
-        assert data_store.set_fm_last_sent.call_count == 2
-        # Last call sets to end of second block
-        data_store.set_fm_last_sent.assert_called_with(_ts(10, 15))
+        assert data_store._last_sent["charger"] == _ts(10, 15)
 
     @pytest.mark.asyncio
     async def test_second_block_failure_stops_processing(
         self, sender, data_store, fm_client
     ):
-        data_store.get_fm_last_sent.return_value = _ts(9, 55)
+        data_store._last_sent["charger"] = _ts(9, 55)
         data_store.get_intervals_since.return_value = [
             _make_interval(_ts(10, 0)),
             # gap
@@ -348,10 +383,10 @@ class TestSendUnsentData:
         # First block succeeds (3 calls), second block fails on power
         fm_client.post_measurements = AsyncMock(side_effect=[True, True, True, False])
 
-        await sender._send_unsent_data()
+        await sender._send_charger_data()
 
-        # last_sent updated only for first block
-        data_store.set_fm_last_sent.assert_called_once_with(_ts(10, 0))
+        # last_sent advanced only for first block
+        assert data_store._last_sent["charger"] == _ts(10, 0)
 
 
 # ──────────────────────────────────────────────────────────
@@ -361,16 +396,17 @@ class TestSendUnsentData:
 
 class TestInitialize:
     @pytest.mark.asyncio
-    async def test_first_start_sets_last_sent_to_now(self, sender, data_store):
-        data_store.get_fm_last_sent.return_value = None
+    async def test_first_start_sets_last_sent_for_all_types(self, sender, data_store):
+        # Both charger and grid have no last_sent → both should be set
         await sender.initialize()
 
-        # Code uses datetime.now(timezone.utc), just verify set_fm_last_sent was called
-        data_store.set_fm_last_sent.assert_called_once()
+        # set_fm_last_sent called for charger and grid
+        assert data_store.set_fm_last_sent.call_count == 2
 
     @pytest.mark.asyncio
     async def test_existing_last_sent_not_overwritten(self, sender, data_store):
-        data_store.get_fm_last_sent.return_value = _ts(10, 0)
+        data_store._last_sent["charger"] = _ts(10, 0)
+        data_store._last_sent["grid"] = _ts(10, 0)
         await sender.initialize()
 
         data_store.set_fm_last_sent.assert_not_called()
@@ -381,6 +417,105 @@ class TestInitialize:
         hass.run_every.assert_called_once()
         call_args = hass.run_every.call_args
         assert call_args.args[2] == 3600  # interval in seconds
+
+
+# ──────────────────────────────────────────────────────────
+# Grid data sending
+# ──────────────────────────────────────────────────────────
+
+
+def _make_grid_row(ts_str, phase, consumption_kw=1.0, production_kw=0.0):
+    """Helper to create a grid_interval_log row dict."""
+    return {
+        "timestamp": ts_str,
+        "phase": phase,
+        "consumption_kw": consumption_kw,
+        "production_kw": production_kw,
+    }
+
+
+class TestSendGridData:
+    @pytest.mark.asyncio
+    async def test_skips_when_grid_not_configured(self, sender, data_store):
+        """No grid sending when FM_GRID_CONSUMPTION_SENSOR_IDS is empty."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        await sender._send_grid_data()
+        data_store.get_grid_intervals_since.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_1_phase_grid_data(self, sender, data_store, fm_client):
+        """1-phase grid: 2 post_measurements calls (1 cons + 1 prod)."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502}
+        data_store._last_sent["grid"] = _ts(9, 55)
+        data_store.get_grid_intervals_since.return_value = [
+            _make_grid_row(_ts(10, 0), 1, 2.5, 0.1),
+            _make_grid_row(_ts(10, 5), 1, 2.3, 0.2),
+        ]
+
+        await sender._send_grid_data()
+
+        assert fm_client.post_measurements.call_count == 2
+        # Consumption call
+        cons_call = fm_client.post_measurements.call_args_list[0]
+        assert cons_call.kwargs["sensor_id"] == 501
+        assert cons_call.kwargs["values"] == [2.5, 2.3]
+        assert cons_call.kwargs["uom"] == "kW"
+        # Production call
+        prod_call = fm_client.post_measurements.call_args_list[1]
+        assert prod_call.kwargs["sensor_id"] == 502
+        assert prod_call.kwargs["values"] == [0.1, 0.2]
+
+    @pytest.mark.asyncio
+    async def test_sends_3_phase_grid_data(self, sender, data_store, fm_client):
+        """3-phase grid: 6 post_measurements calls (3 cons + 3 prod)."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501, 2: 503, 3: 505}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502, 2: 504, 3: 506}
+        data_store._last_sent["grid"] = _ts(9, 55)
+        data_store.get_grid_intervals_since.return_value = [
+            _make_grid_row(_ts(10, 0), 1, 2.5, 0.1),
+            _make_grid_row(_ts(10, 0), 2, 1.8, 0.0),
+            _make_grid_row(_ts(10, 0), 3, 0.9, 0.5),
+        ]
+
+        await sender._send_grid_data()
+
+        # 3 consumption + 3 production = 6
+        assert fm_client.post_measurements.call_count == 6
+        assert data_store._last_sent["grid"] == _ts(10, 0)
+
+    @pytest.mark.asyncio
+    async def test_grid_failure_does_not_advance(self, sender, data_store, fm_client):
+        """Failed grid post does not advance last_sent."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502}
+        data_store._last_sent["grid"] = _ts(9, 55)
+        data_store.get_grid_intervals_since.return_value = [
+            _make_grid_row(_ts(10, 0), 1, 2.5, 0.1),
+        ]
+        fm_client.post_measurements = AsyncMock(return_value=False)
+
+        await sender._send_grid_data()
+
+        assert data_store._last_sent["grid"] == _ts(9, 55)
+
+    @pytest.mark.asyncio
+    async def test_grid_gap_creates_two_blocks(self, sender, data_store, fm_client):
+        """Gap in timestamps creates two separate blocks."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502}
+        data_store._last_sent["grid"] = _ts(9, 55)
+        data_store.get_grid_intervals_since.return_value = [
+            _make_grid_row(_ts(10, 0), 1, 2.5, 0.1),
+            # gap: 10:05 missing
+            _make_grid_row(_ts(10, 10), 1, 2.3, 0.2),
+        ]
+
+        await sender._send_grid_data()
+
+        # 2 blocks × 2 calls (1 cons + 1 prod) = 4
+        assert fm_client.post_measurements.call_count == 4
+        assert data_store._last_sent["grid"] == _ts(10, 10)
 
 
 # ──────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 """Module for daily batch export of interval data to FlexMeasures."""
 
-import math
 from datetime import datetime, timedelta, timezone
 
 from appdaemon.plugins.hass.hassapi import Hass
@@ -26,75 +25,129 @@ class FMDataSender:
         self.__log = get_class_method_logger(hass.log)
 
     async def initialize(self):
-        """Initialise send status and schedule daily export."""
+        """Initialise send status and schedule hourly export."""
         self.__log("Initialising FMDataSender.")
 
         # Ensure fm_send_status has an initial value on first start
         if self.data_store is not None:
-            last_sent = self.data_store.get_fm_last_sent()
-            if last_sent is None:
-                now = datetime.now(timezone.utc).isoformat()
-                self.data_store.set_fm_last_sent(now)
-                self.__log(
-                    "First start: set last_sent_up_to to now, "
-                    "no historical data will be sent."
-                )
+            for data_type in ("charger", "grid"):
+                last_sent = self.data_store.get_fm_last_sent(data_type)
+                if last_sent is None:
+                    now = datetime.now(timezone.utc).isoformat()
+                    self.data_store.set_fm_last_sent(now, data_type)
+                    self.__log(
+                        f"First start ({data_type}): set last_sent_up_to to now."
+                    )
 
-        await self.hass.run_every(self._send_unsent_data, "now", 60 * 60)
+        first_run = datetime.now(timezone.utc) + timedelta(seconds=15)
+        await self.hass.run_every(self._send_unsent_data, first_run, 60 * 60)
         self.__log("Completed initialising FMDataSender, scheduled every hour.")
 
     async def _send_unsent_data(self, *args):
-        """Send all unsent interval data to FlexMeasures."""
+        """Send all unsent interval data to FlexMeasures.
+
+        Charger and grid data are sent independently — a failure in one
+        does not block the other.
+        """
         if self.fm_client_app is None:
-            self.__log("FM client not available, skipping daily send.")
+            self.__log("FM client not available, skipping send.")
             return
 
         if self.data_store is None:
-            self.__log("DataStore not available, skipping daily send.")
+            self.__log("DataStore not available, skipping send.")
             return
 
-        last_sent = self.data_store.get_fm_last_sent()
+        await self._send_charger_data()
+        await self._send_grid_data()
+
+    async def _send_charger_data(self):
+        """Send unsent charger interval data (power, SoC, availability)."""
+        last_sent = self.data_store.get_fm_last_sent("charger")
         if last_sent is None:
-            # This should not happen as initialize() sets the initial value.
-            # Recover by setting to now so subsequent runs can proceed.
             now = datetime.now(timezone.utc).isoformat()
-            self.data_store.set_fm_last_sent(now)
+            self.data_store.set_fm_last_sent(now, "charger")
             self.__log(
-                "No last_sent_up_to set, recovered by setting to now.",
+                "Charger: no last_sent_up_to, recovered by setting to now.",
                 level="WARNING",
             )
             return
 
         intervals = self.data_store.get_intervals_since(last_sent)
         if not intervals:
-            self.__log("No unsent intervals, nothing to send.")
+            self.__log("Charger: no unsent intervals.")
             return
 
-        self.__log(f"Found {len(intervals)} unsent interval(s) to send to FM.")
-
+        self.__log(f"Charger: {len(intervals)} unsent interval(s).")
         blocks = self._group_contiguous_blocks(intervals)
-        self.__log(f"Grouped into {len(blocks)} contiguous block(s).")
 
         for block in blocks:
-            success = await self._send_block(block)
+            success = await self._send_charger_block(block)
             if success:
                 last_timestamp = block[-1]["timestamp"]
-                self.data_store.set_fm_last_sent(last_timestamp)
-                self.__log(
-                    f"Block sent successfully, advanced last_sent to {last_timestamp}."
-                )
+                self.data_store.set_fm_last_sent(last_timestamp, "charger")
+                self.__log(f"Charger: block sent, advanced to {last_timestamp}.")
             else:
                 self.__log(
-                    "Block send failed, stopping. Will retry next run.",
+                    "Charger: block failed, will retry next run.",
                     level="WARNING",
                 )
-                # Stop processing further blocks — next run will pick up from here
                 break
+
+    async def _send_grid_data(self):
+        """Send unsent grid interval data (consumption + production per phase)."""
+        if not c.FM_GRID_CONSUMPTION_SENSOR_IDS:
+            return
+
+        last_sent = self.data_store.get_fm_last_sent("grid")
+        if last_sent is None:
+            now = datetime.now(timezone.utc).isoformat()
+            self.data_store.set_fm_last_sent(now, "grid")
+            self.__log(
+                "Grid: no last_sent_up_to, recovered by setting to now.",
+                level="WARNING",
+            )
+            return
+
+        intervals = self.data_store.get_grid_intervals_since(last_sent)
+        if not intervals:
+            self.__log("Grid: no unsent intervals.")
+            return
+
+        self.__log(f"Grid: {len(intervals)} unsent row(s).")
+
+        # Group by timestamp, then group timestamps into contiguous blocks
+        by_timestamp = self._group_grid_by_timestamp(intervals)
+        timestamps = sorted(by_timestamp.keys())
+        blocks = self._group_contiguous_timestamps(timestamps)
+
+        for block_timestamps in blocks:
+            try:
+                success = await self._send_grid_block(block_timestamps, by_timestamp)
+            except Exception as e:
+                self.__log(
+                    f"Grid: block send raised exception: {e}",
+                    level="WARNING",
+                )
+                break
+            if success:
+                last_ts = block_timestamps[-1]
+                self.data_store.set_fm_last_sent(last_ts, "grid")
+                self.__log(f"Grid: block sent, advanced to {last_ts}.")
+            else:
+                self.__log(
+                    "Grid: block failed, will retry next run.",
+                    level="WARNING",
+                )
+                break
+
+    # Max 288 intervals per block = 24 hours at 5-min resolution.
+    MAX_BLOCK_SIZE = 288
 
     def _group_contiguous_blocks(self, intervals: list[dict]) -> list[list[dict]]:
         """Group intervals into contiguous blocks of 5-minute timestamps.
 
-        A gap (missing interval) starts a new block.
+        A gap (missing interval) starts a new block. Blocks are also split
+        at MAX_BLOCK_SIZE to keep FM API payloads manageable.
         """
         if not intervals:
             return []
@@ -109,7 +162,7 @@ class FMDataSender:
                 minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES
             )
 
-            if curr_ts == expected_next:
+            if curr_ts == expected_next and len(current_block) < self.MAX_BLOCK_SIZE:
                 current_block.append(intervals[i])
             else:
                 blocks.append(current_block)
@@ -118,8 +171,8 @@ class FMDataSender:
         blocks.append(current_block)
         return blocks
 
-    async def _send_block(self, block: list[dict]) -> bool:
-        """Send a contiguous block of intervals to FlexMeasures.
+    async def _send_charger_block(self, block: list[dict]) -> bool:
+        """Send a contiguous block of charger intervals to FlexMeasures.
 
         Posts power (MW), SoC (%), and availability (%) as three separate
         measurements. Returns True only if all three succeed.
@@ -175,10 +228,113 @@ class FMDataSender:
 
         return True
 
+    @staticmethod
+    def _group_grid_by_timestamp(intervals: list[dict]) -> dict[str, dict[int, dict]]:
+        """Group grid interval rows by timestamp.
+
+        Returns {timestamp: {phase: {consumption_kw, production_kw}}}.
+        """
+        by_timestamp: dict[str, dict[int, dict]] = {}
+        for row in intervals:
+            ts = row["timestamp"]
+            if ts not in by_timestamp:
+                by_timestamp[ts] = {}
+            by_timestamp[ts][row["phase"]] = {
+                "consumption_kw": row["consumption_kw"],
+                "production_kw": row["production_kw"],
+            }
+        return by_timestamp
+
+    def _group_contiguous_timestamps(self, timestamps: list[str]) -> list[list[str]]:
+        """Group sorted timestamp strings into contiguous 5-minute blocks.
+
+        Also splits at MAX_BLOCK_SIZE.
+        """
+        if not timestamps:
+            return []
+
+        blocks = []
+        current_block = [timestamps[0]]
+
+        for i in range(1, len(timestamps)):
+            prev_ts = datetime.fromisoformat(timestamps[i - 1])
+            curr_ts = datetime.fromisoformat(timestamps[i])
+            expected = prev_ts + timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+
+            if curr_ts == expected and len(current_block) < self.MAX_BLOCK_SIZE:
+                current_block.append(timestamps[i])
+            else:
+                blocks.append(current_block)
+                current_block = [timestamps[i]]
+
+        blocks.append(current_block)
+        return blocks
+
+    async def _send_grid_block(
+        self,
+        timestamps: list[str],
+        by_timestamp: dict[str, dict[int, dict]],
+    ) -> bool:
+        """Send a contiguous block of grid data to FlexMeasures.
+
+        Posts consumption and production per phase. Returns True only if
+        all posts succeed.
+        """
+        start = timestamps[0]
+        duration = _len_to_iso_duration(len(timestamps))
+
+        for phase, sensor_id in c.FM_GRID_CONSUMPTION_SENSOR_IDS.items():
+            values = [
+                by_timestamp[ts].get(phase, {}).get("consumption_kw")
+                for ts in timestamps
+            ]
+            ok = await self.fm_client_app.post_measurements(
+                sensor_id=sensor_id,
+                values=values,
+                start=start,
+                duration=duration,
+                uom="kW",
+            )
+            if not ok:
+                self.__log(
+                    f"Grid: failed to send consumption L{phase}.",
+                    level="WARNING",
+                )
+                return False
+
+        for phase, sensor_id in c.FM_GRID_PRODUCTION_SENSOR_IDS.items():
+            values = [
+                by_timestamp[ts].get(phase, {}).get("production_kw")
+                for ts in timestamps
+            ]
+            ok = await self.fm_client_app.post_measurements(
+                sensor_id=sensor_id,
+                values=values,
+                start=start,
+                duration=duration,
+                uom="kW",
+            )
+            if not ok:
+                self.__log(
+                    f"Grid: failed to send production L{phase}.",
+                    level="WARNING",
+                )
+                return False
+
+        return True
+
 
 def _len_to_iso_duration(nr_of_intervals: int) -> str:
-    """Convert number of 5-minute intervals to ISO 8601 duration string."""
+    """Convert number of 5-minute intervals to ISO 8601 duration string.
+
+    Uses full P{d}DT{h}H{m}M format when days are needed, otherwise PT{h}H{m}M.
+    """
     total_minutes = nr_of_intervals * c.FM_EVENT_RESOLUTION_IN_MINUTES
-    hours = math.floor(total_minutes / 60)
-    minutes = total_minutes - hours * 60
+    days = total_minutes // (24 * 60)
+    remaining = total_minutes - days * 24 * 60
+    hours = remaining // 60
+    minutes = remaining % 60
+
+    if days > 0:
+        return f"P{days}DT{hours}H{minutes}M"
     return f"PT{hours}H{minutes}M"

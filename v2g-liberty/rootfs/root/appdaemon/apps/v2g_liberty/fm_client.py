@@ -614,7 +614,12 @@ class FMClient(AsyncIOEventEmitter):
         Returns:
             bool: weather or not sending was successful
         """
-        self.__log("post_measurements called.")
+        self.__log(
+            f"post_measurements called for sensor_id: {sensor_id}, "
+            f"start: {start}, duration: {duration}, unit: {uom}, "
+            f"nr_values: {len(values)}.",
+            level="DEBUG",
+        )
 
         if self.client is None:
             self.__log(
