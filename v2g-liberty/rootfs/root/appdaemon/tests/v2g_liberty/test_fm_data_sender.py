@@ -37,6 +37,7 @@ def _set_constants():
     c.FM_ACCOUNT_POWER_SENSOR_ID = 101
     c.FM_ACCOUNT_SOC_SENSOR_ID = 102
     c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID = 103
+    c.FM_EMS_STATUS_SENSOR_ID = 104
     c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
     c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
 
@@ -84,13 +85,20 @@ def sender(hass, fm_client, data_store):
     return s
 
 
-def _make_interval(ts_str, energy_kwh=0.125, soc_pct=50.0, availability_pct=100.0):
+def _make_interval(
+    ts_str,
+    energy_kwh=0.125,
+    soc_pct=50.0,
+    availability_pct=100.0,
+    app_state="automatic",
+):
     """Helper to create an interval dict."""
     return {
         "timestamp": ts_str,
         "energy_kwh": energy_kwh,
         "soc_pct": soc_pct,
         "availability_pct": availability_pct,
+        "app_state": app_state,
     }
 
 
@@ -212,7 +220,7 @@ class TestSendBlock:
         ]
         result = await sender._send_charger_block(block)
         assert result is True
-        assert fm_client.post_measurements.call_count == 3
+        assert fm_client.post_measurements.call_count == 4
 
     @pytest.mark.asyncio
     async def test_power_converted_to_mw(self, sender, fm_client):
@@ -296,6 +304,47 @@ class TestSendBlock:
 
 
 # ──────────────────────────────────────────────────────────
+# EMS status in _send_charger_block
+# ──────────────────────────────────────────────────────────
+
+
+class TestEmsStatus:
+    @pytest.mark.asyncio
+    async def test_ems_status_sent_with_charger_block(self, sender, fm_client):
+        """EMS status is posted as 4th measurement in charger block."""
+        block = [
+            _make_interval(_ts(10, 0), app_state="charge"),
+            _make_interval(_ts(10, 5), app_state="discharge"),
+        ]
+        await sender._send_charger_block(block)
+
+        # 4th call is EMS status
+        ems_call = fm_client.post_measurements.call_args_list[3]
+        assert ems_call.kwargs["sensor_id"] == 104
+        assert ems_call.kwargs["values"] == [4, 5]  # charge=4, discharge=5
+        assert ems_call.kwargs["uom"] == "dimensionless"
+
+    @pytest.mark.asyncio
+    async def test_ems_status_skipped_when_sensor_not_set(self, sender, fm_client):
+        """EMS status is skipped when FM_EMS_STATUS_SENSOR_ID is not set."""
+        c.FM_EMS_STATUS_SENSOR_ID = None
+        block = [_make_interval(_ts(10, 0))]
+        await sender._send_charger_block(block)
+
+        # Only 3 calls: power, soc, availability (no EMS)
+        assert fm_client.post_measurements.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_unknown_app_state_encoded_as_zero(self, sender, fm_client):
+        """Unknown app_state values are encoded as 0."""
+        block = [_make_interval(_ts(10, 0), app_state="some_future_state")]
+        await sender._send_charger_block(block)
+
+        ems_call = fm_client.post_measurements.call_args_list[3]
+        assert ems_call.kwargs["values"] == [0]
+
+
+# ──────────────────────────────────────────────────────────
 # _send_unsent_data
 # ──────────────────────────────────────────────────────────
 
@@ -338,7 +387,7 @@ class TestSendUnsentData:
         await sender._send_charger_data()
 
         data_store.set_fm_last_sent.assert_called_with(_ts(10, 5), "charger")
-        assert fm_client.post_measurements.call_count == 3
+        assert fm_client.post_measurements.call_count == 4
 
     @pytest.mark.asyncio
     async def test_failure_does_not_update_last_sent(
@@ -367,7 +416,7 @@ class TestSendUnsentData:
         await sender._send_charger_data()
 
         # 2 blocks × 3 calls = 6
-        assert fm_client.post_measurements.call_count == 6
+        assert fm_client.post_measurements.call_count == 8
         assert data_store._last_sent["charger"] == _ts(10, 15)
 
     @pytest.mark.asyncio
@@ -380,8 +429,10 @@ class TestSendUnsentData:
             # gap
             _make_interval(_ts(10, 15)),
         ]
-        # First block succeeds (3 calls), second block fails on power
-        fm_client.post_measurements = AsyncMock(side_effect=[True, True, True, False])
+        # First block succeeds (4 calls), second block fails on power
+        fm_client.post_measurements = AsyncMock(
+            side_effect=[True, True, True, True, False]
+        )
 
         await sender._send_charger_data()
 
@@ -690,6 +741,7 @@ class TestDataStoreFmSendStatus:
             "energy_kwh",
             "soc_pct",
             "availability_pct",
+            "app_state",
         }
 
     @pytest.mark.asyncio

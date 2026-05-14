@@ -891,13 +891,13 @@ class DataStore:
         """Retrieve interval_log rows after the given timestamp.
 
         Returns a list of dicts with keys: timestamp, energy_kwh,
-        soc_pct, availability_pct. Ordered by timestamp ascending.
+        soc_pct, availability_pct, app_state. Ordered by timestamp ascending.
         """
         if not self.is_available:
             return []
         cursor = self.__connection.cursor()
         cursor.execute(
-            "SELECT timestamp, energy_kwh, soc_pct, availability_pct "
+            "SELECT timestamp, energy_kwh, soc_pct, availability_pct, app_state "
             "FROM interval_log "
             "WHERE timestamp > ? AND is_repaired < 2 "
             "ORDER BY timestamp",

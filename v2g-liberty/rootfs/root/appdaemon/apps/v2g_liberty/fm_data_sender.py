@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
+from .data_store import _APP_STATE_PRIORITY
 from .log_wrapper import get_class_method_logger
 
 
@@ -225,6 +226,22 @@ class FMDataSender:
         if not availability_ok:
             self.__log("Failed to send availability data.", level="WARNING")
             return False
+
+        # EMS Status: encode app_state strings as integers
+        if c.FM_EMS_STATUS_SENSOR_ID:
+            ems_values = [
+                _APP_STATE_PRIORITY.get(row.get("app_state"), 0) for row in block
+            ]
+            ems_ok = await self.fm_client_app.post_measurements(
+                sensor_id=c.FM_EMS_STATUS_SENSOR_ID,
+                values=ems_values,
+                start=start,
+                duration=duration,
+                uom="dimensionless",
+            )
+            if not ems_ok:
+                self.__log("Failed to send EMS status data.", level="WARNING")
+                return False
 
         return True
 
