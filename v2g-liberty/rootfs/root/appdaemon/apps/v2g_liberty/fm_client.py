@@ -594,28 +594,28 @@ class FMClient(AsyncIOEventEmitter):
 
         return res
 
-    async def post_measurements(
+    async def post_sensor_data(
         self,
         sensor_id: int,
         values: list[float],
-        start: datetime,
+        start: str,
         duration: str,
         uom: str,
     ) -> bool:
-        """General function to post data to FM.
+        """Post sensor data to FlexMeasures.
 
         Args:
-            sensor_id (str): FM sensor id that the measurements get posted to
-            values (list): list of values to send
-            start (datetime): start date-time of first value
-            duration (str): duration for which the values are relevant in iso format e.g. PT8H45M
-            uom (str): unit of measure, eg MW, EUR/kWh, etc.
+            sensor_id: FM sensor id to post to.
+            values: List of values to send.
+            start: ISO 8601 start timestamp.
+            duration: ISO 8601 duration string.
+            uom: Unit of measure (e.g. kW, MW, %).
 
         Returns:
-            bool: weather or not sending was successful
+            True if sending was successful, False otherwise.
         """
         self.__log(
-            f"post_measurements called for sensor_id: {sensor_id}, "
+            f"post_sensor_data called for sensor_id: {sensor_id}, "
             f"start: {start}, duration: {duration}, unit: {uom}, "
             f"nr_values: {len(values)}.",
             level="DEBUG",
@@ -623,19 +623,19 @@ class FMClient(AsyncIOEventEmitter):
 
         if self.client is None:
             self.__log(
-                "Abort posting measurements, client not initialised (yet).",
+                "Abort posting sensor data, client not initialised (yet).",
                 level="WARNING",
             )
             return False
 
         if len(values) == 0:
             self.__log(
-                f"value list 0 length, not sending data to sensor_id '{sensor_id}'."
+                f"Value list empty, not sending data to sensor_id '{sensor_id}'."
             )
             return False
 
         try:
-            await self.client.post_measurements(
+            await self.client.post_sensor_data(
                 sensor_id=sensor_id,
                 values=values,
                 start=start,
@@ -643,10 +643,10 @@ class FMClient(AsyncIOEventEmitter):
                 unit=uom,
             )
         except Exception as e:
-            # ContentTypeError, ValueError, timeout??:
             self.__log(
-                f"failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
-                f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'.",
+                f"failed | sensor_id: '{sensor_id}', values: '{values}', "
+                f"start: '{start}', duration: '{duration}', unit: '{uom}', "
+                f"fm_client returned exception: '{e}'.",
                 level="WARNING",
             )
             await self.set_fm_connection_status(connected=False)

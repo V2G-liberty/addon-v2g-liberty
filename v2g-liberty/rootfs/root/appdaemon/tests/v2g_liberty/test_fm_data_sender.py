@@ -4,7 +4,7 @@ Tests cover:
 - Grouping contiguous intervals into blocks
 - Power kW → MW conversion
 - None values passed through correctly
-- Send: success path with post_measurements calls + last_sent updated
+- Send: success path with post_sensor_data calls + last_sent updated
 - Send: FM failure → last_sent not advanced
 - Send: no fm_client_app → skip
 - Send: no unsent data → skip
@@ -53,7 +53,7 @@ def hass():
 @pytest.fixture
 def fm_client():
     mock_client = AsyncMock()
-    mock_client.post_measurements = AsyncMock(return_value=True)
+    mock_client.post_sensor_data = AsyncMock(return_value=True)
     return mock_client
 
 
@@ -220,7 +220,7 @@ class TestSendBlock:
         ]
         result = await sender._send_charger_block(block)
         assert result is True
-        assert fm_client.post_measurements.call_count == 4
+        assert fm_client.post_sensor_data.call_count == 4
 
     @pytest.mark.asyncio
     async def test_power_converted_to_mw(self, sender, fm_client):
@@ -229,7 +229,7 @@ class TestSendBlock:
         await sender._send_charger_block(block)
 
         # First call is power
-        power_call = fm_client.post_measurements.call_args_list[0]
+        power_call = fm_client.post_sensor_data.call_args_list[0]
         power_values = power_call.kwargs["values"]
         # 0.417 × 60 / (5 × 1000) = 0.005004
         assert power_values == [round(0.417 * 60 / (5 * 1000), 5)]
@@ -239,7 +239,7 @@ class TestSendBlock:
         block = [_make_interval(_ts(10, 0), energy_kwh=None)]
         await sender._send_charger_block(block)
 
-        power_call = fm_client.post_measurements.call_args_list[0]
+        power_call = fm_client.post_sensor_data.call_args_list[0]
         assert power_call.kwargs["values"] == [None]
 
     @pytest.mark.asyncio
@@ -247,7 +247,7 @@ class TestSendBlock:
         block = [_make_interval(_ts(10, 0), soc_pct=None)]
         await sender._send_charger_block(block)
 
-        soc_call = fm_client.post_measurements.call_args_list[1]
+        soc_call = fm_client.post_sensor_data.call_args_list[1]
         assert soc_call.kwargs["values"] == [None]
 
     @pytest.mark.asyncio
@@ -255,7 +255,7 @@ class TestSendBlock:
         block = [_make_interval(_ts(10, 0))]
         await sender._send_charger_block(block)
 
-        calls = fm_client.post_measurements.call_args_list
+        calls = fm_client.post_sensor_data.call_args_list
         assert calls[0].kwargs["sensor_id"] == 101  # power
         assert calls[1].kwargs["sensor_id"] == 102  # soc
         assert calls[2].kwargs["sensor_id"] == 103  # availability
@@ -269,38 +269,38 @@ class TestSendBlock:
         ]
         await sender._send_charger_block(block)
 
-        call = fm_client.post_measurements.call_args_list[0]
+        call = fm_client.post_sensor_data.call_args_list[0]
         assert call.kwargs["start"] == _ts(10, 0)
         assert call.kwargs["duration"] == "PT0H15M"
 
     @pytest.mark.asyncio
     async def test_power_failure_returns_false(self, sender, fm_client):
-        fm_client.post_measurements = AsyncMock(return_value=False)
+        fm_client.post_sensor_data = AsyncMock(return_value=False)
         block = [_make_interval(_ts(10, 0))]
         result = await sender._send_charger_block(block)
         assert result is False
         # Only one call made (power failed, didn't attempt soc/availability)
-        assert fm_client.post_measurements.call_count == 1
+        assert fm_client.post_sensor_data.call_count == 1
 
     @pytest.mark.asyncio
     async def test_soc_failure_returns_false(self, sender, fm_client):
-        fm_client.post_measurements = AsyncMock(
+        fm_client.post_sensor_data = AsyncMock(
             side_effect=[True, False]  # power ok, soc fails
         )
         block = [_make_interval(_ts(10, 0))]
         result = await sender._send_charger_block(block)
         assert result is False
-        assert fm_client.post_measurements.call_count == 2
+        assert fm_client.post_sensor_data.call_count == 2
 
     @pytest.mark.asyncio
     async def test_availability_failure_returns_false(self, sender, fm_client):
-        fm_client.post_measurements = AsyncMock(
+        fm_client.post_sensor_data = AsyncMock(
             side_effect=[True, True, False]  # power ok, soc ok, availability fails
         )
         block = [_make_interval(_ts(10, 0))]
         result = await sender._send_charger_block(block)
         assert result is False
-        assert fm_client.post_measurements.call_count == 3
+        assert fm_client.post_sensor_data.call_count == 3
 
 
 # ──────────────────────────────────────────────────────────
@@ -319,7 +319,7 @@ class TestEmsStatus:
         await sender._send_charger_block(block)
 
         # 4th call is EMS status
-        ems_call = fm_client.post_measurements.call_args_list[3]
+        ems_call = fm_client.post_sensor_data.call_args_list[3]
         assert ems_call.kwargs["sensor_id"] == 104
         assert ems_call.kwargs["values"] == [4, 5]  # charge=4, discharge=5
         assert ems_call.kwargs["uom"] == "dimensionless"
@@ -332,7 +332,7 @@ class TestEmsStatus:
         await sender._send_charger_block(block)
 
         # Only 3 calls: power, soc, availability (no EMS)
-        assert fm_client.post_measurements.call_count == 3
+        assert fm_client.post_sensor_data.call_count == 3
 
     @pytest.mark.asyncio
     async def test_unknown_app_state_encoded_as_zero(self, sender, fm_client):
@@ -340,7 +340,7 @@ class TestEmsStatus:
         block = [_make_interval(_ts(10, 0), app_state="some_future_state")]
         await sender._send_charger_block(block)
 
-        ems_call = fm_client.post_measurements.call_args_list[3]
+        ems_call = fm_client.post_sensor_data.call_args_list[3]
         assert ems_call.kwargs["values"] == [0]
 
 
@@ -387,7 +387,7 @@ class TestSendUnsentData:
         await sender._send_charger_data()
 
         data_store.set_fm_last_sent.assert_called_with(_ts(10, 5), "charger")
-        assert fm_client.post_measurements.call_count == 4
+        assert fm_client.post_sensor_data.call_count == 4
 
     @pytest.mark.asyncio
     async def test_failure_does_not_update_last_sent(
@@ -397,7 +397,7 @@ class TestSendUnsentData:
         data_store.get_intervals_since.return_value = [
             _make_interval(_ts(10, 0)),
         ]
-        fm_client.post_measurements = AsyncMock(return_value=False)
+        fm_client.post_sensor_data = AsyncMock(return_value=False)
 
         await sender._send_charger_data()
         # Only the recovery call in _send_unsent_data, not advancement
@@ -416,7 +416,7 @@ class TestSendUnsentData:
         await sender._send_charger_data()
 
         # 2 blocks × 3 calls = 6
-        assert fm_client.post_measurements.call_count == 8
+        assert fm_client.post_sensor_data.call_count == 8
         assert data_store._last_sent["charger"] == _ts(10, 15)
 
     @pytest.mark.asyncio
@@ -430,7 +430,7 @@ class TestSendUnsentData:
             _make_interval(_ts(10, 15)),
         ]
         # First block succeeds (4 calls), second block fails on power
-        fm_client.post_measurements = AsyncMock(
+        fm_client.post_sensor_data = AsyncMock(
             side_effect=[True, True, True, True, False]
         )
 
@@ -495,7 +495,7 @@ class TestSendGridData:
 
     @pytest.mark.asyncio
     async def test_sends_1_phase_grid_data(self, sender, data_store, fm_client):
-        """1-phase grid: 2 post_measurements calls (1 cons + 1 prod)."""
+        """1-phase grid: 2 post_sensor_data calls (1 cons + 1 prod)."""
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502}
         data_store._last_sent["grid"] = _ts(9, 55)
@@ -506,20 +506,20 @@ class TestSendGridData:
 
         await sender._send_grid_data()
 
-        assert fm_client.post_measurements.call_count == 2
+        assert fm_client.post_sensor_data.call_count == 2
         # Consumption call
-        cons_call = fm_client.post_measurements.call_args_list[0]
+        cons_call = fm_client.post_sensor_data.call_args_list[0]
         assert cons_call.kwargs["sensor_id"] == 501
         assert cons_call.kwargs["values"] == [2.5, 2.3]
         assert cons_call.kwargs["uom"] == "kW"
         # Production call
-        prod_call = fm_client.post_measurements.call_args_list[1]
+        prod_call = fm_client.post_sensor_data.call_args_list[1]
         assert prod_call.kwargs["sensor_id"] == 502
         assert prod_call.kwargs["values"] == [0.1, 0.2]
 
     @pytest.mark.asyncio
     async def test_sends_3_phase_grid_data(self, sender, data_store, fm_client):
-        """3-phase grid: 6 post_measurements calls (3 cons + 3 prod)."""
+        """3-phase grid: 6 post_sensor_data calls (3 cons + 3 prod)."""
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501, 2: 503, 3: 505}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502, 2: 504, 3: 506}
         data_store._last_sent["grid"] = _ts(9, 55)
@@ -532,7 +532,7 @@ class TestSendGridData:
         await sender._send_grid_data()
 
         # 3 consumption + 3 production = 6
-        assert fm_client.post_measurements.call_count == 6
+        assert fm_client.post_sensor_data.call_count == 6
         assert data_store._last_sent["grid"] == _ts(10, 0)
 
     @pytest.mark.asyncio
@@ -544,7 +544,7 @@ class TestSendGridData:
         data_store.get_grid_intervals_since.return_value = [
             _make_grid_row(_ts(10, 0), 1, 2.5, 0.1),
         ]
-        fm_client.post_measurements = AsyncMock(return_value=False)
+        fm_client.post_sensor_data = AsyncMock(return_value=False)
 
         await sender._send_grid_data()
 
@@ -565,7 +565,7 @@ class TestSendGridData:
         await sender._send_grid_data()
 
         # 2 blocks × 2 calls (1 cons + 1 prod) = 4
-        assert fm_client.post_measurements.call_count == 4
+        assert fm_client.post_sensor_data.call_count == 4
         assert data_store._last_sent["grid"] == _ts(10, 10)
 
 

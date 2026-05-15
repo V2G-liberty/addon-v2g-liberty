@@ -194,7 +194,7 @@ class FMDataSender:
         soc_values = [row["soc_pct"] for row in block]
         availability_values = [row["availability_pct"] for row in block]
 
-        power_ok = await self.fm_client_app.post_measurements(
+        power_ok = await self.fm_client_app.post_sensor_data(
             sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID,
             values=power_values,
             start=start,
@@ -205,7 +205,7 @@ class FMDataSender:
             self.__log("Failed to send power data.", level="WARNING")
             return False
 
-        soc_ok = await self.fm_client_app.post_measurements(
+        soc_ok = await self.fm_client_app.post_sensor_data(
             sensor_id=c.FM_ACCOUNT_SOC_SENSOR_ID,
             values=soc_values,
             start=start,
@@ -216,7 +216,7 @@ class FMDataSender:
             self.__log("Failed to send SoC data.", level="WARNING")
             return False
 
-        availability_ok = await self.fm_client_app.post_measurements(
+        availability_ok = await self.fm_client_app.post_sensor_data(
             sensor_id=c.FM_ACCOUNT_AVAILABILITY_SENSOR_ID,
             values=availability_values,
             start=start,
@@ -232,7 +232,7 @@ class FMDataSender:
             ems_values = [
                 _APP_STATE_PRIORITY.get(row.get("app_state"), 0) for row in block
             ]
-            ems_ok = await self.fm_client_app.post_measurements(
+            ems_ok = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_EMS_STATUS_SENSOR_ID,
                 values=ems_values,
                 start=start,
@@ -305,7 +305,7 @@ class FMDataSender:
                 by_timestamp[ts].get(phase, {}).get("consumption_kw")
                 for ts in timestamps
             ]
-            ok = await self.fm_client_app.post_measurements(
+            ok = await self.fm_client_app.post_sensor_data(
                 sensor_id=sensor_id,
                 values=values,
                 start=start,
@@ -324,7 +324,7 @@ class FMDataSender:
                 by_timestamp[ts].get(phase, {}).get("production_kw")
                 for ts in timestamps
             ]
-            ok = await self.fm_client_app.post_measurements(
+            ok = await self.fm_client_app.post_sensor_data(
                 sensor_id=sensor_id,
                 values=values,
                 start=start,
