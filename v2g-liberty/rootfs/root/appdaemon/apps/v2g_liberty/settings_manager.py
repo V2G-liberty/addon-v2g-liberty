@@ -193,19 +193,22 @@ class SettingsManager:
     def get(self, entity_id):
         return self.settings.get(entity_id, None)
 
-    def get_object(self, key: str) -> dict | None:
-        """Retrieve a structured object from settings by key.
+    def get_object(
+        self, key: str, default: dict | list | None = None
+    ) -> dict | list | None:
+        """Retrieve a structured object (dict or list) from settings by key.
 
-        Returns the dict if found, or None if the key is not present
-        or the value is not a dict.
+        Returns the stored value if it is a dict or list. Falls back to
+        ``default`` when the key is missing or the stored value is of any
+        other type.
         """
         value = self.settings.get(key, None)
-        if isinstance(value, dict):
+        if isinstance(value, (dict, list)):
             return value
-        return None
+        return default
 
-    def store_object(self, key: str, data: dict):
-        """Store a structured object in settings.
+    def store_object(self, key: str, data: dict | list):
+        """Store a structured object (dict or list) in settings.
 
         Overwrites any existing value for the given key.
         """

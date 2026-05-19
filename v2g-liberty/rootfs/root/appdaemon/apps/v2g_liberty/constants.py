@@ -235,6 +235,13 @@ FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_AGGREGATE_POWER_SENSOR_ID: int | None = None
 FM_EMS_STATUS_SENSOR_ID: int | None = None
 
+# SOLAR PANEL CONSTANTS
+# Set from solar panel settings (JSON, no HA entities). Each entry is a
+# dict with keys: id, name, phases, connected_to_phase, peak_power_wp,
+# curtailable, power_entity_id, curtail_entity_id, fm_asset_id,
+# fm_sensor_id. Empty list means no PV monitoring is configured.
+SOLAR_PANELS: list[dict] = []
+
 # CALENDAR CONSTANTS
 # FSC: Used in reservations_client only, move there.
 CALENDAR_ACCOUNT_INIT_URL: str = ""

@@ -378,6 +378,9 @@ class V2GLibertyGlobals:
         # FM provisioning needs GRID_CONSUMPTION_ENTITIES to be set.
         self.__initialise_grid_connection_settings()
         self.__initialise_charger_phase_settings()
+        # Solar panels must be loaded before FM client too, because PV
+        # provisioning will need SOLAR_PANELS to be set.
+        self.__initialise_solar_panel_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
@@ -511,6 +514,23 @@ class V2GLibertyGlobals:
         "consumption_entities": [],
         "production_entities": [],
     }
+
+    def __initialise_solar_panel_settings(self):
+        """Load solar panel settings from JSON and set constants.
+
+        Solar panels are stored as a list of dicts under the
+        ``solar_panels`` key in the settings JSON. An empty list means
+        no PV monitoring is configured.
+        """
+        self.__log("called")
+        panels = self.v2g_settings.get_object("solar_panels", default=[])
+        if not isinstance(panels, list):
+            self.__log(
+                f"solar_panels has invalid type {type(panels).__name__}, ignoring"
+            )
+            panels = []
+        c.SOLAR_PANELS = panels
+        self.__log(f"Solar panels: {len(panels)} configured")
 
     def __initialise_grid_connection_settings(self):
         """Load grid connection settings from JSON and set constants."""
