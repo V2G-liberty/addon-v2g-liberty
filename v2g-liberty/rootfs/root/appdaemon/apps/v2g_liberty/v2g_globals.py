@@ -351,6 +351,9 @@ class V2GLibertyGlobals:
         self.hass.listen_event(self.__test_grid_entities, "test_grid_entities")
         self.hass.listen_event(self.__detect_grid_entities, "detect_grid_entities")
         self.hass.listen_event(self.__detect_charger_phase, "detect_charger_phase")
+        self.hass.listen_event(self.__get_solar_panels, "get_solar_panels")
+        self.hass.listen_event(self.__save_solar_panel, "save_solar_panel")
+        self.hass.listen_event(self.__delete_solar_panel, "delete_solar_panel")
 
         self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
@@ -626,6 +629,179 @@ class V2GLibertyGlobals:
         else:
             grid_data["configured"] = True
         self.hass.fire_event("get_grid_connection_settings.result", **grid_data)
+
+    # ── Solar panel CRUD ──────────────────────────────────────────────
+
+    def __load_solar_panels_list(self) -> list[dict]:
+        """Read the solar panels list from settings, normalised to a list."""
+        panels = self.v2g_settings.get_object("solar_panels", default=[])
+        return panels if isinstance(panels, list) else []
+
+    def __next_solar_panel_id(self, panels: list[dict]) -> str:
+        """Return the next free `sp_<n>` id (max n + 1, never reuses)."""
+        max_n = 0
+        for p in panels:
+            pid = p.get("id", "")
+            if isinstance(pid, str) and pid.startswith("sp_"):
+                try:
+                    n = int(pid[3:])
+                    if n > max_n:
+                        max_n = n
+                except ValueError:
+                    pass
+        return f"sp_{max_n + 1}"
+
+    def __validate_solar_panel(self, panel: dict) -> str | None:
+        """Validate a solar panel payload.
+
+        Returns ``None`` if the panel is valid, or an error message string
+        suitable for the ``save_solar_panel.result`` response.
+
+        Rules:
+        - ``name`` must be a non-empty string.
+        - ``power_entity_id`` must be a non-empty string (HA entity id).
+        - ``phases`` must be 1 or 3 and may not exceed ``GRID_PHASES``.
+        - ``connected_to_phase`` (1, 2, or 3) is required when a 1-phase
+          panel is installed on a 3-phase grid.
+        - ``curtail_entity_id`` is required when ``curtailable`` is True.
+        """
+        name = panel.get("name")
+        if not isinstance(name, str) or not name.strip():
+            return "Name must be a non-empty string"
+
+        power_entity_id = panel.get("power_entity_id")
+        if not isinstance(power_entity_id, str) or not power_entity_id.strip():
+            return "power_entity_id is required"
+
+        phases = panel.get("phases")
+        if phases not in (1, 3):
+            return "phases must be 1 or 3"
+        if phases > c.GRID_PHASES:
+            return f"phases ({phases}) cannot exceed grid phases ({c.GRID_PHASES})"
+
+        if phases == 1 and c.GRID_PHASES == 3:
+            connected_to_phase = panel.get("connected_to_phase")
+            if connected_to_phase not in (1, 2, 3):
+                return (
+                    "connected_to_phase (1, 2, or 3) is required for a "
+                    "1-phase panel on a 3-phase grid"
+                )
+
+        if panel.get("curtailable") is True:
+            curtail_entity_id = panel.get("curtail_entity_id")
+            if not isinstance(curtail_entity_id, str) or not curtail_entity_id.strip():
+                return "curtail_entity_id is required when curtailable is True"
+
+        return None
+
+    async def __get_solar_panels(self, event, data, kwargs):
+        """Handle ``get_solar_panels`` HA event.
+
+        **Emitted by:** cards (UI) to fetch the current list.
+
+        **Request payload:** none.
+
+        **Response event:** ``get_solar_panels.result``
+            - ``solar_panels`` (list[dict]): the current configured panels.
+        """
+        panels = self.__load_solar_panels_list()
+        self.hass.fire_event("get_solar_panels.result", solar_panels=panels)
+
+    async def __save_solar_panel(self, event, data, kwargs):
+        """Handle ``save_solar_panel`` HA event (insert or update).
+
+        **Emitted by:** cards (UI) when the user adds or edits a panel.
+
+        **Request payload:** panel fields. When ``id`` is absent the
+        payload is treated as a new panel and an ``sp_<n>`` id is
+        generated. When ``id`` is present the existing panel is updated
+        (merge semantics: missing keys retain their stored value).
+
+        Fields (see ``__validate_solar_panel`` for rules):
+            - ``name`` (str, required)
+            - ``power_entity_id`` (str, required)
+            - ``phases`` (1 or 3, required; ≤ ``GRID_PHASES``)
+            - ``connected_to_phase`` (1, 2, or 3; required when 1-phase
+              panel on 3-phase grid)
+            - ``peak_power_wp`` (number, optional)
+            - ``curtailable`` (bool, optional)
+            - ``curtail_entity_id`` (str, required when curtailable)
+
+        **Response event:** ``save_solar_panel.result``
+            - ``solar_panels`` (list[dict]): updated full list on success.
+            - ``error`` (str): error message when validation or id lookup
+              fails. Mutually exclusive with ``solar_panels``.
+        """
+        incoming = dict(data)
+        panel_id = incoming.get("id")
+        panels = self.__load_solar_panels_list()
+
+        if panel_id:
+            updated_index = None
+            for i, p in enumerate(panels):
+                if p.get("id") == panel_id:
+                    updated_index = i
+                    merged = {**p, **incoming}
+                    break
+            if updated_index is None:
+                self.hass.fire_event(
+                    "save_solar_panel.result",
+                    error=f"Solar panel '{panel_id}' not found",
+                )
+                return
+            error = self.__validate_solar_panel(merged)
+            if error:
+                self.hass.fire_event("save_solar_panel.result", error=error)
+                return
+            panels[updated_index] = merged
+        else:
+            error = self.__validate_solar_panel(incoming)
+            if error:
+                self.hass.fire_event("save_solar_panel.result", error=error)
+                return
+            incoming["id"] = self.__next_solar_panel_id(panels)
+            panels.append(incoming)
+
+        self.v2g_settings.store_object("solar_panels", panels)
+        self.__initialise_solar_panel_settings()
+        self.hass.fire_event("save_solar_panel.result", solar_panels=c.SOLAR_PANELS)
+
+    async def __delete_solar_panel(self, event, data, kwargs):
+        """Handle ``delete_solar_panel`` HA event.
+
+        **Emitted by:** cards (UI) when the user removes a panel.
+
+        **Request payload:**
+            - ``id`` (str, required): the panel id to delete.
+
+        **Response event:** ``delete_solar_panel.result``
+            - ``solar_panels`` (list[dict]): updated full list on success.
+            - ``error`` (str): error message when ``id`` is missing or no
+              panel with that id exists. Mutually exclusive with
+              ``solar_panels``.
+
+        FM asset/sensor cleanup on delete is intentionally out of scope
+        here (see plan Fase 2 task 12).
+        """
+        panel_id = data.get("id")
+        if not panel_id:
+            self.hass.fire_event(
+                "delete_solar_panel.result", error="Missing 'id' field"
+            )
+            return
+
+        panels = self.__load_solar_panels_list()
+        new_panels = [p for p in panels if p.get("id") != panel_id]
+        if len(new_panels) == len(panels):
+            self.hass.fire_event(
+                "delete_solar_panel.result",
+                error=f"Solar panel '{panel_id}' not found",
+            )
+            return
+
+        self.v2g_settings.store_object("solar_panels", new_panels)
+        self.__initialise_solar_panel_settings()
+        self.hass.fire_event("delete_solar_panel.result", solar_panels=c.SOLAR_PANELS)
 
     async def __detect_grid_entities(self, event, data, kwargs):
         """Auto-detect grid connection settings from available HA entities."""
