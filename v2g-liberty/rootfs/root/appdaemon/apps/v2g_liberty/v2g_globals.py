@@ -660,6 +660,7 @@ class V2GLibertyGlobals:
         Rules:
         - ``name`` must be a non-empty string.
         - ``power_entity_id`` must be a non-empty string (HA entity id).
+        - ``peak_power_wp`` must be a whole number between 500 and 15000.
         - ``phases`` must be 1 or 3 and may not exceed ``GRID_PHASES``.
         - ``connected_to_phase`` (1, 2, or 3) is required when a 1-phase
           panel is installed on a 3-phase grid.
@@ -672,6 +673,17 @@ class V2GLibertyGlobals:
         power_entity_id = panel.get("power_entity_id")
         if not isinstance(power_entity_id, str) or not power_entity_id.strip():
             return "power_entity_id is required"
+
+        peak_power_wp = panel.get("peak_power_wp")
+        # bool is a subclass of int, so reject it explicitly.
+        if (
+            not isinstance(peak_power_wp, (int, float))
+            or isinstance(peak_power_wp, bool)
+            or peak_power_wp != int(peak_power_wp)
+            or peak_power_wp < 500
+            or peak_power_wp > 15000
+        ):
+            return "peak_power_wp must be a whole number between 500 and 15000"
 
         phases = panel.get("phases")
         if phases not in (1, 3):

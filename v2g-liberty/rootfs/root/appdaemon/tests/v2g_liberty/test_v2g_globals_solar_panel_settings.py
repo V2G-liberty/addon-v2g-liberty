@@ -379,6 +379,95 @@ class TestSolarPanelValidation:
         )
 
     @pytest.mark.asyncio
+    async def test_missing_peak_power_wp_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        c.GRID_PHASES = 1
+        payload = _valid_panel_payload()
+        payload.pop("peak_power_wp")
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", payload, {}
+        )
+        settings_manager_mock.store_object.assert_not_called()
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result",
+            error="peak_power_wp must be a whole number between 500 and 15000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_peak_power_wp_below_range_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(peak_power_wp=400), {}
+        )
+        settings_manager_mock.store_object.assert_not_called()
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result",
+            error="peak_power_wp must be a whole number between 500 and 15000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_peak_power_wp_above_range_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(peak_power_wp=20000), {}
+        )
+        settings_manager_mock.store_object.assert_not_called()
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result",
+            error="peak_power_wp must be a whole number between 500 and 15000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_peak_power_wp_non_integer_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Floats with a fractional part are rejected; integer-valued floats (e.g. 4000.0) pass."""
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(peak_power_wp=4000.5), {}
+        )
+        settings_manager_mock.store_object.assert_not_called()
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result",
+            error="peak_power_wp must be a whole number between 500 and 15000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_peak_power_wp_string_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(peak_power_wp="4000"), {}
+        )
+        settings_manager_mock.store_object.assert_not_called()
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result",
+            error="peak_power_wp must be a whole number between 500 and 15000",
+        )
+
+    @pytest.mark.asyncio
+    async def test_peak_power_wp_boundary_values_accepted(
+        self, globals_instance, settings_manager_mock
+    ):
+        """Both edges of the range (500, 15000) are valid."""
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(peak_power_wp=500), {}
+        )
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(name="North", peak_power_wp=15000), {}
+        )
+        # Both saved successfully.
+        assert settings_manager_mock.store_object.call_count == 2
+
+    @pytest.mark.asyncio
     async def test_missing_power_entity_rejected(
         self, globals_instance, settings_manager_mock, hass_mock
     ):
