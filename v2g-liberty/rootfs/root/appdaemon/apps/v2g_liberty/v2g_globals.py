@@ -834,11 +834,15 @@ class V2GLibertyGlobals:
             "peak_power_wp": panel.get("peak_power_wp"),
             "connected_to_phase": panel.get("connected_to_phase"),
         }
+        # Pass the stored fm_asset_id so a rename updates the existing FM
+        # asset in place (preserving identity + history) instead of creating
+        # a new one and orphaning the old.
         asset_id = await self.fm_client_app.ensure_asset(
             name=f"{self._FM_ASSET_NAME_PREFIX}{panel['name']}",
             generic_asset_type="solar",
             parent_asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
             attributes=asset_attributes,
+            asset_id=panel.get("fm_asset_id"),
         )
         panel["fm_asset_id"] = asset_id
 

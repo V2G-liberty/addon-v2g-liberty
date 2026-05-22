@@ -663,6 +663,7 @@ class TestSolarPanelFMProvisioningCalls:
             generic_asset_type="solar",
             parent_asset_id=_FM_MAIN_CONNECTION_ID,
             attributes={"peak_power_wp": 4000, "connected_to_phase": None},
+            asset_id=None,
         )
 
     @pytest.mark.asyncio
@@ -698,11 +699,11 @@ class TestSolarPanelFMProvisioningCalls:
     async def test_update_existing_panel_uses_same_asset_name(
         self, globals_instance, fm_client_mock
     ):
-        """Update without renaming → ensure_asset called twice with the same name.
+        """Update without renaming → second call passes the stored asset_id.
 
-        The real ``ensure_asset`` matches by name; same name on retry/update
-        means the existing FM asset is reused (no duplicate). The mock
-        cannot enforce this but we assert the idempotency *key* (name).
+        First save creates the FM asset (asset_id=None → create path).
+        Second save (without renaming) passes the asset_id from the first
+        save, so FM updates the existing asset in place.
         """
         c.GRID_PHASES = 1
         await globals_instance._V2GLibertyGlobals__save_solar_panel(
@@ -713,9 +714,45 @@ class TestSolarPanelFMProvisioningCalls:
         )
 
         assert fm_client_mock.ensure_asset.call_count == 2
-        first = fm_client_mock.ensure_asset.call_args_list[0].kwargs["name"]
-        second = fm_client_mock.ensure_asset.call_args_list[1].kwargs["name"]
-        assert first == second == "[TEST] South"
+        first_call = fm_client_mock.ensure_asset.call_args_list[0].kwargs
+        second_call = fm_client_mock.ensure_asset.call_args_list[1].kwargs
+        # First call creates; second updates the same asset by id.
+        assert first_call["asset_id"] is None
+        assert second_call["asset_id"] == _FM_ASSET_ID
+        assert first_call["name"] == second_call["name"] == "[TEST] South"
+
+    @pytest.mark.asyncio
+    async def test_rename_preserves_fm_asset_identity(
+        self, globals_instance, fm_client_mock, settings_manager_mock
+    ):
+        """Renaming a panel updates the existing FM asset in place.
+
+        The second ensure_asset call receives the original asset_id and the
+        new name — so the FM asset is renamed, not duplicated. The locally
+        stored fm_asset_id stays the same across the rename.
+        """
+        c.GRID_PHASES = 1
+        # First save creates the FM asset.
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(name="South"), {}
+        )
+        first_stored = settings_manager_mock.store_object.call_args_list[-1][0][1]
+        assert first_stored[0]["fm_asset_id"] == _FM_ASSET_ID
+
+        # Rename: same id, different name.
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", {"id": "sp_1", "name": "South Roof"}, {}
+        )
+
+        assert fm_client_mock.ensure_asset.call_count == 2
+        rename_call = fm_client_mock.ensure_asset.call_args_list[1].kwargs
+        assert rename_call["name"] == "[TEST] South Roof"
+        assert rename_call["asset_id"] == _FM_ASSET_ID  # update by id, not by name
+
+        renamed_stored = settings_manager_mock.store_object.call_args_list[-1][0][1]
+        # fm_asset_id is preserved (no orphan created).
+        assert renamed_stored[0]["fm_asset_id"] == _FM_ASSET_ID
+        assert renamed_stored[0]["name"] == "South Roof"
 
 
 # ── Taak 17: FM provisioning hook — blocking paths ────────────────────

@@ -300,26 +300,46 @@ class FMClient(AsyncIOEventEmitter):
         generic_asset_type: str,
         parent_asset_id: int | None = None,
         attributes: dict | None = None,
+        asset_id: int | None = None,
     ) -> int:
         """Find asset by name, create if not exists, update attributes if exists.
+
+        When ``asset_id`` is provided, that asset is updated by id instead of
+        looked up by name — this preserves identity across renames (the
+        existing FM asset gets the new name and attributes; no orphan is
+        created). When omitted, the original behaviour applies: match by
+        name → reuse, or create new.
 
         Returns the asset ID.
         """
         if self.client is None:
             raise RuntimeError("FM client not initialised")
 
+        # Update-by-id path: rename / update an existing asset without doing a
+        # name-based lookup. Used when the caller already knows the asset ID.
+        if asset_id is not None:
+            payload: dict = {"name": name}
+            if attributes:
+                payload["attributes"] = attributes
+            await self.client.update_asset(asset_id, payload)
+            self.__log(
+                f"Updated asset id={asset_id} → name='{name}'"
+                f"{', attributes set' if attributes else ''}"
+            )
+            return asset_id
+
         # Search existing assets
         existing = await self.client.get_assets(parse_json_fields=True)
         match = next((a for a in existing if a["name"] == name), None)
 
         if match:
-            asset_id = match["id"]
+            existing_id = match["id"]
             if attributes:
-                await self.client.update_asset(asset_id, {"attributes": attributes})
-                self.__log(f"Updated attributes for asset '{name}' (id={asset_id})")
+                await self.client.update_asset(existing_id, {"attributes": attributes})
+                self.__log(f"Updated attributes for asset '{name}' (id={existing_id})")
             else:
-                self.__log(f"Found existing asset '{name}' (id={asset_id})")
-            return asset_id
+                self.__log(f"Found existing asset '{name}' (id={existing_id})")
+            return existing_id
 
         # Create new asset
         type_id = await self._get_generic_asset_type_id(generic_asset_type)
