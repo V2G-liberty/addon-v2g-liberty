@@ -34,6 +34,9 @@
     - type: custom:v2g-liberty-grid-connection-settings-card
       layout_options:
         grid_columns: full
+    - type: custom:v2g-liberty-solar-panels-settings-card
+      layout_options:
+        grid_columns: full
     - type: entities
       entities:
         - type: button
