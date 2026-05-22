@@ -8,11 +8,17 @@ Covers Fase 2 tasks 13-16 of the grid/PV monitoring plan:
       curtailable/curtail_entity_id)
 """
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
 from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.v2g_globals import V2GLibertyGlobals
+
+# Sentinel values returned by the happy-path fm_client mock; tests that
+# care about the full saved record assert these in fm_asset_id / fm_sensor_id.
+_FM_ASSET_ID = 101
+_FM_SENSOR_ID = 201
+_FM_MAIN_CONNECTION_ID = 100
 
 
 @pytest.fixture
@@ -49,8 +55,15 @@ def hass_mock():
 
 @pytest.fixture
 def fm_client_mock():
+    """Happy-path FM client: connected, ensure_* return sentinel ids.
+
+    Tests that need to exercise FM failure paths can override ``client``,
+    or set ``ensure_asset`` / ``ensure_sensor`` to raise.
+    """
     mock = MagicMock()
-    mock.client = None
+    mock.client = Mock()  # truthy → "connected"
+    mock.ensure_asset = AsyncMock(return_value=_FM_ASSET_ID)
+    mock.ensure_sensor = AsyncMock(return_value=_FM_SENSOR_ID)
     return mock
 
 
@@ -66,10 +79,12 @@ def globals_instance(log_mock, settings_manager_mock, hass_mock, fm_client_mock)
 
 @pytest.fixture(autouse=True)
 def reset_solar_panels_constant():
-    """Reset c.SOLAR_PANELS around each test to avoid module-state leakage."""
+    """Reset module-level FM/SOLAR state around each test."""
     c.SOLAR_PANELS = []
+    c.FM_MAIN_CONNECTION_ASSET_ID = _FM_MAIN_CONNECTION_ID
     yield
     c.SOLAR_PANELS = []
+    c.FM_MAIN_CONNECTION_ASSET_ID = None
 
 
 def _valid_panel_payload(**overrides):
@@ -141,7 +156,12 @@ class TestSaveSolarPanelInsert:
             "event", payload, {}
         )
 
-        expected = {**payload, "id": "sp_1"}
+        expected = {
+            **payload,
+            "id": "sp_1",
+            "fm_asset_id": _FM_ASSET_ID,
+            "fm_sensor_id": _FM_SENSOR_ID,
+        }
         assert settings_manager_mock.store_object.call_args_list[-1] == (
             ("solar_panels", [expected]),
         )
@@ -526,4 +546,252 @@ class TestSolarPanelValidation:
         assert settings_manager_mock.store_object.call_count == 1
         hass_mock.fire_event.assert_called_with(
             "save_solar_panel.result", error="Name must be a non-empty string"
+        )
+
+
+# ── Taak 17: FM provisioning hook — happy-path call args ──────────────
+
+
+class TestSolarPanelFMProvisioningCalls:
+    """The save handler invokes ensure_asset / ensure_sensor with the
+    correct arguments per the design (asset under Main Connection, sensor
+    named ``Power`` in kW), and reuses the same asset name on update so
+    the FM side stays idempotent.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ensure_asset_called_with_correct_arguments(
+        self, globals_instance, fm_client_mock
+    ):
+        """Asset name carries the prefix; type, parent and attributes match."""
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(name="South"), {}
+        )
+
+        fm_client_mock.ensure_asset.assert_called_once_with(
+            name="[TEST] South",
+            generic_asset_type="solar",
+            parent_asset_id=_FM_MAIN_CONNECTION_ID,
+            attributes={"peak_power_wp": 4000, "connected_to_phase": None},
+        )
+
+    @pytest.mark.asyncio
+    async def test_ensure_sensor_called_with_correct_arguments(
+        self, globals_instance, fm_client_mock
+    ):
+        """Sensor sits on the panel asset, named ``Power``, unit kW."""
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(), {}
+        )
+
+        fm_client_mock.ensure_sensor.assert_called_once_with(
+            name="Power",
+            unit="kW",
+            asset_id=_FM_ASSET_ID,
+        )
+
+    @pytest.mark.asyncio
+    async def test_connected_to_phase_attribute_propagates_to_fm(
+        self, globals_instance, fm_client_mock
+    ):
+        """1-phase panel on a 3-phase grid: connected_to_phase ends up in attributes."""
+        c.GRID_PHASES = 3
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(phases=1, connected_to_phase=2), {}
+        )
+
+        attributes = fm_client_mock.ensure_asset.call_args.kwargs["attributes"]
+        assert attributes["connected_to_phase"] == 2
+
+    @pytest.mark.asyncio
+    async def test_update_existing_panel_uses_same_asset_name(
+        self, globals_instance, fm_client_mock
+    ):
+        """Update without renaming → ensure_asset called twice with the same name.
+
+        The real ``ensure_asset`` matches by name; same name on retry/update
+        means the existing FM asset is reused (no duplicate). The mock
+        cannot enforce this but we assert the idempotency *key* (name).
+        """
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(name="South"), {}
+        )
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", {"id": "sp_1", "peak_power_wp": 5500}, {}
+        )
+
+        assert fm_client_mock.ensure_asset.call_count == 2
+        first = fm_client_mock.ensure_asset.call_args_list[0].kwargs["name"]
+        second = fm_client_mock.ensure_asset.call_args_list[1].kwargs["name"]
+        assert first == second == "[TEST] South"
+
+
+# ── Taak 17: FM provisioning hook — blocking paths ────────────────────
+
+
+class TestSolarPanelFMProvisioningBlocking:
+    """FM-side failures block local persistence and surface as fm_error.
+
+    The retry/partial-failure sensor case lives in
+    :class:`TestSolarPanelFMProvisioningRetry` (taak 11a).
+    """
+
+    @pytest.mark.asyncio
+    async def test_fm_not_connected_returns_fm_error(
+        self, globals_instance, fm_client_mock, settings_manager_mock, hass_mock
+    ):
+        """client is None → fm_error, no FM calls attempted, no persist."""
+        c.GRID_PHASES = 1
+        fm_client_mock.client = None
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(), {}
+        )
+
+        fm_client_mock.ensure_asset.assert_not_called()
+        fm_client_mock.ensure_sensor.assert_not_called()
+        settings_manager_mock.store_object.assert_not_called()
+        assert c.SOLAR_PANELS == []
+
+        call = hass_mock.fire_event.call_args
+        assert call.args[0] == "save_solar_panel.result"
+        assert "FlexMeasures is not connected" in call.kwargs["fm_error"]
+
+    @pytest.mark.asyncio
+    async def test_main_connection_missing_returns_fm_error(
+        self, globals_instance, fm_client_mock, settings_manager_mock, hass_mock
+    ):
+        """Grid not yet provisioned → fm_error, no FM calls, no persist."""
+        c.GRID_PHASES = 1
+        c.FM_MAIN_CONNECTION_ASSET_ID = None  # override autouse default
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(), {}
+        )
+
+        fm_client_mock.ensure_asset.assert_not_called()
+        fm_client_mock.ensure_sensor.assert_not_called()
+        settings_manager_mock.store_object.assert_not_called()
+        assert c.SOLAR_PANELS == []
+
+        call = hass_mock.fire_event.call_args
+        assert call.args[0] == "save_solar_panel.result"
+        assert "Grid connection" in call.kwargs["fm_error"]
+
+    @pytest.mark.asyncio
+    async def test_ensure_asset_exception_returns_fm_error(
+        self, globals_instance, fm_client_mock, settings_manager_mock, hass_mock
+    ):
+        """ensure_asset raises → fm_error; ensure_sensor short-circuited; no persist."""
+        c.GRID_PHASES = 1
+        fm_client_mock.ensure_asset = AsyncMock(
+            side_effect=RuntimeError("Asset service unavailable")
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(), {}
+        )
+
+        assert fm_client_mock.ensure_asset.call_count == 1
+        fm_client_mock.ensure_sensor.assert_not_called()
+        settings_manager_mock.store_object.assert_not_called()
+        assert c.SOLAR_PANELS == []
+
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result", fm_error="Asset service unavailable"
+        )
+
+
+# ── Taak 11a: partial FM failure + idempotent retry ───────────────────
+
+
+class TestSolarPanelFMProvisioningRetry:
+    """Edge case 11a — partial FM failure followed by a clean retry.
+
+    ``ensure_asset`` succeeds, ``ensure_sensor`` fails: blocking
+    semantics (10c) keep the panel out of the local settings. The
+    follow-up Retry uses the same payload; ``ensure_asset`` is
+    idempotent (matches by name) so no duplicate asset is created and
+    ``ensure_sensor`` is retried until it succeeds.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ensure_sensor_failure_blocks_local_save(
+        self, globals_instance, fm_client_mock, settings_manager_mock, hass_mock
+    ):
+        """ensure_sensor exception → fm_error, no persist, no constants update."""
+        c.GRID_PHASES = 1
+        fm_client_mock.ensure_sensor = AsyncMock(
+            side_effect=RuntimeError("Sensor service unavailable")
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(), {}
+        )
+
+        # Both FM calls were attempted; ensure_asset succeeded.
+        assert fm_client_mock.ensure_asset.call_count == 1
+        assert fm_client_mock.ensure_sensor.call_count == 1
+        # Local registration is blocked.
+        settings_manager_mock.store_object.assert_not_called()
+        assert c.SOLAR_PANELS == []
+        # Response carries fm_error (not error, not solar_panels).
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result", fm_error="Sensor service unavailable"
+        )
+
+    @pytest.mark.asyncio
+    async def test_retry_after_partial_failure_succeeds_without_duplicates(
+        self, globals_instance, fm_client_mock, settings_manager_mock, hass_mock
+    ):
+        """First save fails on ensure_sensor; identical second save succeeds.
+
+        Verifies that ensure_asset on retry uses the same ``name`` (the
+        idempotency key) and that the panel is persisted with both FM
+        ids once ensure_sensor succeeds.
+        """
+        c.GRID_PHASES = 1
+        # First call to ensure_sensor raises; second call returns the sensor id.
+        fm_client_mock.ensure_sensor = AsyncMock(
+            side_effect=[RuntimeError("Sensor service unavailable"), _FM_SENSOR_ID]
+        )
+        payload = _valid_panel_payload()
+
+        # First attempt: blocked.
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", payload, {}
+        )
+        settings_manager_mock.store_object.assert_not_called()
+        assert c.SOLAR_PANELS == []
+
+        # Retry with the exact same payload (what the UI Retry button does).
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", payload, {}
+        )
+
+        # Both FM calls attempted twice; second sensor call returned the id.
+        assert fm_client_mock.ensure_asset.call_count == 2
+        assert fm_client_mock.ensure_sensor.call_count == 2
+
+        # ensure_asset was invoked with the same name on both attempts —
+        # this is what makes the FM side idempotent in the real client.
+        first_call_name = fm_client_mock.ensure_asset.call_args_list[0].kwargs["name"]
+        second_call_name = fm_client_mock.ensure_asset.call_args_list[1].kwargs["name"]
+        assert first_call_name == second_call_name
+
+        expected_panel = {
+            **payload,
+            "id": "sp_1",
+            "fm_asset_id": _FM_ASSET_ID,
+            "fm_sensor_id": _FM_SENSOR_ID,
+        }
+        settings_manager_mock.store_object.assert_called_once_with(
+            "solar_panels", [expected_panel]
+        )
+        assert c.SOLAR_PANELS == [expected_panel]
+        hass_mock.fire_event.assert_called_with(
+            "save_solar_panel.result", solar_panels=[expected_panel]
         )

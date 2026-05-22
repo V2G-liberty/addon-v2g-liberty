@@ -727,44 +727,120 @@ class V2GLibertyGlobals:
             - ``curtailable`` (bool, optional)
             - ``curtail_entity_id`` (str, required when curtailable)
 
-        **Response event:** ``save_solar_panel.result``
-            - ``solar_panels`` (list[dict]): updated full list on success.
-            - ``error`` (str): error message when validation or id lookup
-              fails. Mutually exclusive with ``solar_panels``.
+        **Response event:** ``save_solar_panel.result`` (mutually exclusive
+        payload variants)
+            - ``solar_panels`` (list[dict]): updated full list on success;
+              the saved panel includes ``fm_asset_id`` and ``fm_sensor_id``
+              from FM provisioning.
+            - ``error`` (str): validation or id-lookup failure. Nothing
+              was persisted.
+            - ``fm_error`` (str): FM provisioning failed (client not
+              connected, missing parent asset, or exception from
+              ``ensure_asset`` / ``ensure_sensor``). Nothing was
+              persisted. The UI is expected to keep form values and
+              offer Retry; ``ensure_*`` is idempotent so a Retry is safe.
         """
         incoming = dict(data)
         panel_id = incoming.get("id")
         panels = self.__load_solar_panels_list()
 
         if panel_id:
-            updated_index = None
-            for i, p in enumerate(panels):
-                if p.get("id") == panel_id:
-                    updated_index = i
-                    merged = {**p, **incoming}
-                    break
+            updated_index = next(
+                (i for i, p in enumerate(panels) if p.get("id") == panel_id),
+                None,
+            )
             if updated_index is None:
                 self.hass.fire_event(
                     "save_solar_panel.result",
                     error=f"Solar panel '{panel_id}' not found",
                 )
                 return
-            error = self.__validate_solar_panel(merged)
+            candidate = {**panels[updated_index], **incoming}
+            error = self.__validate_solar_panel(candidate)
             if error:
                 self.hass.fire_event("save_solar_panel.result", error=error)
                 return
-            panels[updated_index] = merged
         else:
             error = self.__validate_solar_panel(incoming)
             if error:
                 self.hass.fire_event("save_solar_panel.result", error=error)
                 return
             incoming["id"] = self.__next_solar_panel_id(panels)
-            panels.append(incoming)
+            candidate = incoming
+
+        # FM provisioning must succeed before the panel is persisted locally.
+        # An exception here (FM disconnected, missing parent asset, error
+        # in ensure_*) is reported as fm_error so the UI can show the
+        # message and offer Retry. Idempotent ensure_* calls keep a Retry
+        # safe even if ensure_asset already succeeded on a previous try.
+        try:
+            await self.__provision_solar_panel_assets(candidate)
+        except Exception as e:
+            self.__log(
+                f"Solar panel FM provisioning failed for "
+                f"'{candidate.get('name')}': {e}",
+                level="WARNING",
+            )
+            self.hass.fire_event("save_solar_panel.result", fm_error=str(e))
+            return
+
+        if panel_id:
+            panels[updated_index] = candidate
+        else:
+            panels.append(candidate)
 
         self.v2g_settings.store_object("solar_panels", panels)
         self.__initialise_solar_panel_settings()
         self.hass.fire_event("save_solar_panel.result", solar_panels=c.SOLAR_PANELS)
+
+    async def __provision_solar_panel_assets(self, panel: dict) -> None:
+        """Ensure an FM asset + power sensor exist for ``panel``.
+
+        Mutates ``panel`` in place to add ``fm_asset_id`` and
+        ``fm_sensor_id``. Idempotent: existing FM asset/sensor (matched
+        by name) are reused.
+
+        Raises ``RuntimeError`` with a user-facing message when FM is
+        not available (client disconnected, Main Connection asset
+        missing). Underlying ``ensure_*`` exceptions propagate unchanged.
+        The caller is expected to convert any exception into an
+        ``fm_error`` response so the UI can show the message and offer
+        Retry.
+        """
+        if self.fm_client_app.client is None:
+            raise RuntimeError(
+                "FlexMeasures is not connected. "
+                "Configure FlexMeasures access and try again."
+            )
+        if c.FM_MAIN_CONNECTION_ASSET_ID is None:
+            raise RuntimeError(
+                "Grid connection has not been registered with FlexMeasures. "
+                "Save the grid connection first."
+            )
+
+        asset_attributes = {
+            "peak_power_wp": panel.get("peak_power_wp"),
+            "connected_to_phase": panel.get("connected_to_phase"),
+        }
+        asset_id = await self.fm_client_app.ensure_asset(
+            name=f"{self._FM_ASSET_NAME_PREFIX}{panel['name']}",
+            generic_asset_type="solar",
+            parent_asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            attributes=asset_attributes,
+        )
+        panel["fm_asset_id"] = asset_id
+
+        sensor_id = await self.fm_client_app.ensure_sensor(
+            name="Power",
+            unit="kW",
+            asset_id=asset_id,
+        )
+        panel["fm_sensor_id"] = sensor_id
+
+        self.__log(
+            f"Solar panel FM provisioning complete for '{panel['name']}': "
+            f"asset={asset_id}, sensor={sensor_id}"
+        )
 
     async def __delete_solar_panel(self, event, data, kwargs):
         """Handle ``delete_solar_panel`` HA event.
@@ -780,8 +856,9 @@ class V2GLibertyGlobals:
               panel with that id exists. Mutually exclusive with
               ``solar_panels``.
 
-        FM asset/sensor cleanup on delete is intentionally out of scope
-        here (see plan Fase 2 task 12).
+        Any provisioned FM asset/sensor for the deleted panel is left in
+        place; a warning is logged so the orphaned resources can be
+        cleaned up manually if desired.
         """
         panel_id = data.get("id")
         if not panel_id:
@@ -791,13 +868,24 @@ class V2GLibertyGlobals:
             return
 
         panels = self.__load_solar_panels_list()
-        new_panels = [p for p in panels if p.get("id") != panel_id]
-        if len(new_panels) == len(panels):
+        deleted = next((p for p in panels if p.get("id") == panel_id), None)
+        if deleted is None:
             self.hass.fire_event(
                 "delete_solar_panel.result",
                 error=f"Solar panel '{panel_id}' not found",
             )
             return
+        new_panels = [p for p in panels if p.get("id") != panel_id]
+
+        fm_asset_id = deleted.get("fm_asset_id")
+        fm_sensor_id = deleted.get("fm_sensor_id")
+        if fm_asset_id is not None or fm_sensor_id is not None:
+            self.__log(
+                f"Solar panel '{deleted.get('name')}' (id={panel_id}) removed "
+                f"locally; FM asset {fm_asset_id} and sensor {fm_sensor_id} "
+                f"are left in place and must be cleaned up manually.",
+                level="WARNING",
+            )
 
         self.v2g_settings.store_object("solar_panels", new_panels)
         self.__initialise_solar_panel_settings()
