@@ -1,5 +1,5 @@
 import { mdiPencil, mdiSolarPower } from '@mdi/js';
-import { html, LitElement, nothing } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { HassEvent } from 'home-assistant-js-websocket';
@@ -101,8 +101,8 @@ export class SolarPanelsSettingsCard extends LitElement {
           >No solar panels configured. This is optional.</ha-alert
         >
         <p>
-          Prepare for the end of net metering and enable automatic curtailment
-          during negative energy prices.
+          Prepare for the end of net metering by letting V2G Liberty learn your
+          solar generation patterns.
         </p>
       </div>
       <div class="card-actions">
@@ -139,18 +139,12 @@ export class SolarPanelsSettingsCard extends LitElement {
       panel.phases === 1 && panel.connected_to_phase
         ? `${phases} (L${panel.connected_to_phase})`
         : phases;
-    const curtailable = panel.curtailable
-      ? html`&nbsp;<ha-icon
-            icon="mdi:flash-off-outline"
-            title="Curtailable"
-          ></ha-icon>`
-      : nothing;
     const summary = [wp, phaseInfo].filter(Boolean).join(', ');
     return html`
       <ha-settings-row>
         <span slot="heading">
           <ha-svg-icon .path=${mdiSolarPower}></ha-svg-icon>&nbsp; &nbsp;
-          ${panel.name}${curtailable}
+          ${panel.name}
         </span>
         <div class="value">${summary}</div>
         <ha-icon-button
