@@ -7,6 +7,7 @@ import { HassEvent } from 'home-assistant-js-websocket';
 import { renderButton } from './util/render';
 import { styles } from './card.styles';
 import { callFunction } from './util/appdaemon';
+import { showSolarPanelDialog } from './show-dialogs';
 
 interface SolarPanel {
   id: string;
@@ -157,12 +158,7 @@ export class SolarPanelsSettingsCard extends LitElement {
   }
 
   private _openDialog(panel?: SolarPanel) {
-    // TODO (plan tasks 22-28): wire up to showSolarPanelDialog once the
-    // add/edit dialog component is implemented.
-    console.warn(
-      'Solar panel add/edit dialog not yet implemented',
-      panel ?? '(new panel)'
-    );
+    showSolarPanelDialog(this, panel ? { panel } : {});
   }
 
   static styles = [styles];
