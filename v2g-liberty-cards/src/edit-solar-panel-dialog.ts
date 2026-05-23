@@ -552,13 +552,37 @@ export class EditSolarPanelDialog extends DialogBase {
     ) {
       return nothing;
     }
+    const currentState = this.hass.states[this._powerEntityId]?.state ?? '(none)';
     return html`
       <ha-alert
         alert-type="warning"
-        title="Sensor has not responded yet"
+        title="Sensor has not reported a usable value yet"
       >
-        This could mean the entity ID is incorrect, or the sensor is not
-        reporting data right now (e.g. no solar production at this moment).
+        <p style="margin: 0 0 8px 0;">
+          The selected sensor
+          <code>${this._powerEntityId}</code> is currently reporting
+          <strong>${currentState}</strong>, and has not sent a usable
+          numeric value since this dialog was opened.
+        </p>
+        <p style="margin: 0 0 8px 0;">Likely causes:</p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">
+          <li>The entity ID is wrong or the integration is broken.</li>
+          <li>
+            The sensor is reporting <code>unknown</code> or
+            <code>unavailable</code> — usually fixed by reloading the
+            integration in Home Assistant.
+          </li>
+          <li>
+            The sensor genuinely hasn't reported anything yet (rare,
+            but possible right after a fresh install).
+          </li>
+        </ul>
+        <p style="margin: 0;">
+          Clicking <strong>Save anyway</strong> will save with the
+          current configuration. V2G Liberty will start collecting data
+          as soon as the sensor reports a numeric value; until then no
+          PV data will be sent to FlexMeasures for this panel.
+        </p>
       </ha-alert>
     `;
   }
@@ -640,22 +664,26 @@ export class EditSolarPanelDialog extends DialogBase {
 
   private _startListeningEntity(entityId: string) {
     if (this._entityListeners[entityId]) return;
-    this._entityStatus = { ...this._entityStatus, [entityId]: undefined };
 
+    // Initial state check: if the entity already has a valid numeric value
+    // right now (including 0 — a working sensor reporting no production
+    // counts as healthy), mark as ✓ immediately. Avoids a forever-spinner
+    // for sensors that report continuously without firing state_changed.
+    const initiallyValid = this._isStateValid(
+      this.hass.states[entityId]?.state
+    );
+    this._entityStatus = {
+      ...this._entityStatus,
+      [entityId]: initiallyValid ? true : undefined,
+    };
+
+    // Still listen — the sensor may transition from
+    // unknown/unavailable to a valid value during the dialog session.
     const unsub = this.hass.connection.subscribeEvents<HassEvent>(
       (event: HassEvent) => {
         const data = event.data as any;
         if (data.entity_id !== entityId) return;
-        const newState = data.new_state?.state;
-        if (
-          newState == null ||
-          newState === '' ||
-          newState === 'unknown' ||
-          newState === 'unavailable'
-        ) {
-          return;
-        }
-        if (isNaN(parseFloat(newState))) return;
+        if (!this._isStateValid(data.new_state?.state)) return;
         this._entityStatus = { ...this._entityStatus, [entityId]: true };
       },
       'state_changed'
@@ -663,6 +691,13 @@ export class EditSolarPanelDialog extends DialogBase {
     unsub.then((unsubFn) => {
       this._entityListeners[entityId] = unsubFn;
     });
+  }
+
+  private _isStateValid(state: string | undefined | null): boolean {
+    if (state == null || state === '' || state === 'unknown' || state === 'unavailable') {
+      return false;
+    }
+    return !isNaN(parseFloat(state));
   }
 
   private _stopListeningEntity(entityId: string) {
