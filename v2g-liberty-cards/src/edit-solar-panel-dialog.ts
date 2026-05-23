@@ -51,6 +51,11 @@ export class EditSolarPanelDialog extends DialogBase {
   // Grid context (from get_grid_connection_settings)
   @state() private _gridPhases: number | null = null;
 
+  // Normalised names of *other* solar panels — populated at dialog open
+  // and used for the inline duplicate-name check on step 2. Empty when
+  // editing the only panel, or before the panel list has been fetched.
+  @state() private _otherPanelNames: Set<string> = new Set();
+
   // Inline entity validation
   @state() private _entityStatus: { [entityId: string]: boolean | undefined } = {};
   private _entityListeners: { [entityId: string]: any } = {};
@@ -113,6 +118,23 @@ export class EditSolarPanelDialog extends DialogBase {
       this._powerEntityId = params.panel.power_entity_id ?? '';
       this._curtailablePreserved = params.panel.curtailable;
       this._curtailEntityIdPreserved = params.panel.curtail_entity_id;
+    }
+
+    // Load names of other panels for the inline uniqueness check on step 2.
+    // The backend remains the source of truth (its check is the safety net),
+    // but inline feedback is friendlier than discovering the clash only on
+    // Save. On failure we leave the set empty — backend will still reject.
+    try {
+      const data = await callFunction(this.hass, 'get_solar_panels');
+      const panels = (data.solar_panels ?? []) as { id: string; name: string }[];
+      this._otherPanelNames = new Set(
+        panels
+          .filter((p) => p.id !== this._editingId)
+          .map((p) => (p.name ?? '').trim().toLowerCase())
+          .filter((n) => n !== '')
+      );
+    } catch (e) {
+      this._otherPanelNames = new Set();
     }
 
     this._buildSensorEntityList();
@@ -250,9 +272,7 @@ export class EditSolarPanelDialog extends DialogBase {
           }}
           placeholder="e.g. South roof"
         ></ha-textfield>
-        ${this._triedContinueBasic && this._name.trim() === ''
-          ? html`<div class="error">Please enter a name.</div>`
-          : nothing}
+        ${this._renderNameError()}
       </div>
 
       <div style="margin-top: 16px;">
@@ -368,6 +388,26 @@ export class EditSolarPanelDialog extends DialogBase {
     return Number.isInteger(v) && v >= 500 && v <= 15000;
   }
 
+  private _isNameDuplicate(): boolean {
+    const norm = this._name.trim().toLowerCase();
+    return norm !== '' && this._otherPanelNames.has(norm);
+  }
+
+  private _renderNameError() {
+    if (this._name.trim() === '') {
+      return this._triedContinueBasic
+        ? html`<div class="error">Please enter a name.</div>`
+        : nothing;
+    }
+    if (this._isNameDuplicate()) {
+      return html`<div class="error">
+        A solar panel named '${this._name.trim()}' already exists. Please
+        choose a different name.
+      </div>`;
+    }
+    return nothing;
+  }
+
   private _renderWpError() {
     if (this._peakPowerWp.trim() === '') {
       return this._triedContinueBasic
@@ -385,6 +425,7 @@ export class EditSolarPanelDialog extends DialogBase {
   private _continueFromBasic() {
     this._triedContinueBasic = true;
     if (this._name.trim() === '') return;
+    if (this._isNameDuplicate()) return;
     if (!this._isWpValid()) return;
     if (this._phases === null) return;
     this._step = Step.PowerEntity;
