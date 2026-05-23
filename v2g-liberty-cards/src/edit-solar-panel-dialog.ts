@@ -76,6 +76,11 @@ export class EditSolarPanelDialog extends DialogBase {
   @state() private _saveError: string = '';
   @state() private _saveConfirmed: boolean = false;
 
+  // Delete state (edit-mode only)
+  @state() private _deleting: boolean = false;
+  @state() private _deleteConfirmed: boolean = false;
+  @state() private _deleteError: string = '';
+
   // Sensor entity list (built once per open)
   private _sensorEntities: { id: string; name: string; isPower: boolean }[] = [];
 
@@ -102,6 +107,9 @@ export class EditSolarPanelDialog extends DialogBase {
     this._saving = false;
     this._saveError = '';
     this._saveConfirmed = false;
+    this._deleting = false;
+    this._deleteConfirmed = false;
+    this._deleteError = '';
 
     // Load grid context (needed to limit phases dropdown + decide step 4)
     try {
@@ -357,6 +365,86 @@ export class EditSolarPanelDialog extends DialogBase {
           : nothing}
       </div>
 
+      ${this._deleteConfirmed ? this._renderDeleteConfirmationAlert() : nothing}
+      ${this._renderStep2Footer()}
+    `;
+  }
+
+  private _renderDeleteConfirmationAlert() {
+    return html`
+      <ha-alert
+        alert-type="warning"
+        title="Delete this panel?"
+        style="margin-top: 32px;"
+      >
+        Local registration of
+        <strong>${this._name.trim() || '(unnamed)'}</strong>
+        will be removed. The asset in FlexMeasures is left in place (an
+        administrator can clean it up if needed); historical data stays
+        available there under the same id.
+        ${this._deleteError
+          ? html`<p class="error" style="margin-top:8px;">
+              ${this._deleteError}
+            </p>`
+          : nothing}
+      </ha-alert>
+    `;
+  }
+
+  private _renderStep2Footer() {
+    if (this._deleting) {
+      return renderSpinner(this.hass);
+    }
+    if (this._deleteConfirmed) {
+      // Confirmation flow takes over the footer — Cancel cancels the
+      // delete (not the dialog), Yes deletes (red, destructive variant).
+      const slot = isNewHaDialogAPI(this.hass) ? 'footer' : 'primaryAction';
+      return html`
+        ${renderButton(
+          this.hass,
+          () => {
+            this._deleteConfirmed = false;
+            this._deleteError = '';
+          },
+          false,
+          this.hass.localize('ui.common.cancel'),
+          false,
+          'cancel-delete'
+        )}
+        <ha-button
+          @click=${() => this._handleDelete()}
+          slot=${slot}
+          appearance="filled"
+          variant="danger"
+          test-id="confirm-delete"
+          size="small"
+          style="width: auto;"
+        >
+          Yes, delete
+        </ha-button>
+      `;
+    }
+    // Normal edit-mode footer: Delete… on the left, Cancel + Continue on
+    // the right. The trailing ellipsis on the Delete label signals that
+    // a confirmation step follows.
+    const slot = isNewHaDialogAPI(this.hass) ? 'footer' : 'secondaryAction';
+    return html`
+      ${this._editingId
+        ? html`<ha-button
+            @click=${() => {
+              this._deleteConfirmed = true;
+              this._deleteError = '';
+            }}
+            slot=${slot}
+            appearance="outlined"
+            variant="secondary"
+            test-id="delete"
+            size="small"
+            style="width: auto; margin-right: auto;"
+          >
+            Delete this panel…
+          </ha-button>`
+        : nothing}
       ${this._editingId
         ? renderButton(
             this.hass,
@@ -380,6 +468,26 @@ export class EditSolarPanelDialog extends DialogBase {
           )}
       ${renderButton(this.hass, () => this._continueFromBasic(), true)}
     `;
+  }
+
+  private async _handleDelete() {
+    if (!this._editingId) return;
+    this._deleting = true;
+    this._deleteError = '';
+    try {
+      const result = await callFunction(this.hass, 'delete_solar_panel', {
+        id: this._editingId,
+      });
+      if (result.error) {
+        this._deleteError = result.error;
+        this._deleting = false;
+        return;
+      }
+      this.closeDialog();
+    } catch (e) {
+      this._deleteError = 'Failed to delete the solar panel. Please try again.';
+      this._deleting = false;
+    }
   }
 
   private _allowedPhaseOptions(): number[] {
@@ -791,8 +899,9 @@ export class EditSolarPanelDialog extends DialogBase {
     try {
       const result = await callFunction(this.hass, 'save_solar_panel', payload);
       if (result.fm_error) {
-        // TODO (plan task 26b): replace with a Retry banner that keeps form
-        // values and re-submits the same payload.
+        // FM-side rejection. Lit preserves the form state, ensure_* is
+        // idempotent on retry, so clicking Save again resends the same
+        // payload and recovers cleanly once FM is available.
         this._saveError = `FlexMeasures error: ${result.fm_error}`;
         this._saving = false;
         return;
