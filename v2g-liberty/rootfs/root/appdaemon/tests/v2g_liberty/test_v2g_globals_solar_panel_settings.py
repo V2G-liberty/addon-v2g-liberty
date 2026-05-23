@@ -222,6 +222,96 @@ class TestSaveSolarPanelInsert:
         assert new_list[-1]["id"] == "sp_3"
 
     @pytest.mark.asyncio
+    async def test_duplicate_name_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """A new panel cannot reuse the name of an existing one."""
+        c.GRID_PHASES = 1
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "peak_power_wp": 4000,
+                }
+            ],
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(name="South"), {}
+        )
+
+        # Only the setup store call — the duplicate was not saved.
+        assert settings_manager_mock.store_object.call_count == 1
+        call = hass_mock.fire_event.call_args
+        assert "already exists" in call.kwargs["error"]
+        assert "South" in call.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_rename_to_another_panels_name_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Updating a panel to take another panel's name is blocked."""
+        c.GRID_PHASES = 1
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "peak_power_wp": 4000,
+                },
+                {
+                    "id": "sp_2",
+                    "name": "North",
+                    "phases": 1,
+                    "power_entity_id": "sensor.n",
+                    "peak_power_wp": 4000,
+                },
+            ],
+        )
+
+        # Try to rename sp_2 (North) to South — collides with sp_1.
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", {"id": "sp_2", "name": "South"}, {}
+        )
+
+        # Only the setup store call.
+        assert settings_manager_mock.store_object.call_count == 1
+        assert "already exists" in hass_mock.fire_event.call_args.kwargs["error"]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_name_check_is_case_insensitive(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """'South' and 'south' / ' SOUTH ' are treated as the same name."""
+        c.GRID_PHASES = 1
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "peak_power_wp": 4000,
+                }
+            ],
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(name=" south "), {}
+        )
+
+        assert settings_manager_mock.store_object.call_count == 1
+        assert "already exists" in hass_mock.fire_event.call_args.kwargs["error"]
+
+    @pytest.mark.asyncio
     async def test_unknown_fields_are_ignored(
         self, globals_instance, settings_manager_mock
     ):

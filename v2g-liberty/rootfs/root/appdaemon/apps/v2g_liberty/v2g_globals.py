@@ -801,6 +801,23 @@ class V2GLibertyGlobals:
             incoming["id"] = self.__next_solar_panel_id(panels)
             candidate = incoming
 
+        # Cross-panel uniqueness check: name must not clash with another
+        # panel. Case-insensitive + trimmed so "South" / " south " collide,
+        # which matches how users usually think about labels.
+        candidate_name_norm = candidate["name"].strip().casefold()
+        for p in panels:
+            if p.get("id") == candidate.get("id"):
+                continue  # skip self on update
+            if (p.get("name") or "").strip().casefold() == candidate_name_norm:
+                self.hass.fire_event(
+                    "save_solar_panel.result",
+                    error=(
+                        f"A solar panel named '{candidate['name'].strip()}' "
+                        "already exists. Please choose a different name."
+                    ),
+                )
+                return
+
         # FM provisioning must succeed before the panel is persisted locally.
         # An exception here (FM disconnected, missing parent asset, error
         # in ensure_*) is reported as fm_error so the UI can show the
