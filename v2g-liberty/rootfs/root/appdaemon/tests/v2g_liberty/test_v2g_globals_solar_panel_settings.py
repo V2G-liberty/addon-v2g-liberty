@@ -312,6 +312,69 @@ class TestSaveSolarPanelInsert:
         assert "already exists" in hass_mock.fire_event.call_args.kwargs["error"]
 
     @pytest.mark.asyncio
+    async def test_duplicate_power_entity_id_rejected(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Two panels cannot share the same power_entity_id sensor."""
+        c.GRID_PHASES = 1
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.shared_pv",
+                    "peak_power_wp": 4000,
+                }
+            ],
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event",
+            _valid_panel_payload(
+                name="North", power_entity_id="sensor.shared_pv"
+            ),
+            {},
+        )
+
+        assert settings_manager_mock.store_object.call_count == 1
+        err = hass_mock.fire_event.call_args.kwargs["error"]
+        assert "sensor.shared_pv" in err
+        assert "South" in err  # mentions the panel already using it
+
+    @pytest.mark.asyncio
+    async def test_rename_keeps_own_power_entity_id(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """Updating a panel without changing its power_entity_id passes
+        cleanly — the self-exclusion in the uniqueness check must work for
+        the sensor field too, not just the name.
+        """
+        c.GRID_PHASES = 1
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "peak_power_wp": 4000,
+                }
+            ],
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", {"id": "sp_1", "peak_power_wp": 4500}, {}
+        )
+
+        # Saved (setup + update), no error fired.
+        assert settings_manager_mock.store_object.call_count == 2
+        last_call = hass_mock.fire_event.call_args
+        assert "error" not in last_call.kwargs
+
+    @pytest.mark.asyncio
     async def test_unknown_fields_are_ignored(
         self, globals_instance, settings_manager_mock
     ):
@@ -575,7 +638,13 @@ class TestSolarPanelValidation:
             "event", _valid_panel_payload(peak_power_wp=500), {}
         )
         await globals_instance._V2GLibertyGlobals__save_solar_panel(
-            "event", _valid_panel_payload(name="North", peak_power_wp=15000), {}
+            "event",
+            _valid_panel_payload(
+                name="North",
+                peak_power_wp=15000,
+                power_entity_id="sensor.pv_north_power",
+            ),
+            {},
         )
         # Both saved successfully.
         assert settings_manager_mock.store_object.call_count == 2

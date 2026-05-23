@@ -801,10 +801,13 @@ class V2GLibertyGlobals:
             incoming["id"] = self.__next_solar_panel_id(panels)
             candidate = incoming
 
-        # Cross-panel uniqueness check: name must not clash with another
-        # panel. Case-insensitive + trimmed so "South" / " south " collide,
-        # which matches how users usually think about labels.
+        # Cross-panel uniqueness checks: a panel must not clash with
+        # another on either name (display label) or power_entity_id (the
+        # physical sensor). Two panels sharing the same sensor would feed
+        # FM the same readings under two asset identities, corrupting the
+        # forecasts for both.
         candidate_name_norm = candidate["name"].strip().casefold()
+        candidate_power_entity = candidate["power_entity_id"]
         for p in panels:
             if p.get("id") == candidate.get("id"):
                 continue  # skip self on update
@@ -814,6 +817,16 @@ class V2GLibertyGlobals:
                     error=(
                         f"A solar panel named '{candidate['name'].strip()}' "
                         "already exists. Please choose a different name."
+                    ),
+                )
+                return
+            if p.get("power_entity_id") == candidate_power_entity:
+                self.hass.fire_event(
+                    "save_solar_panel.result",
+                    error=(
+                        f"The sensor '{candidate_power_entity}' is already used "
+                        f"by solar panel '{p.get('name')}'. Each panel must "
+                        "have its own power sensor."
                     ),
                 )
                 return

@@ -56,6 +56,11 @@ export class EditSolarPanelDialog extends DialogBase {
   // editing the only panel, or before the panel list has been fetched.
   @state() private _otherPanelNames: Set<string> = new Set();
 
+  // Power entity ids already claimed by other panels — used to disable
+  // those entries in the step-3 dropdown so the same sensor can never be
+  // chosen for two panels.
+  @state() private _otherPanelEntities: Set<string> = new Set();
+
   // Inline entity validation
   @state() private _entityStatus: { [entityId: string]: boolean | undefined } = {};
   private _entityListeners: { [entityId: string]: any } = {};
@@ -120,21 +125,30 @@ export class EditSolarPanelDialog extends DialogBase {
       this._curtailEntityIdPreserved = params.panel.curtail_entity_id;
     }
 
-    // Load names of other panels for the inline uniqueness check on step 2.
-    // The backend remains the source of truth (its check is the safety net),
-    // but inline feedback is friendlier than discovering the clash only on
-    // Save. On failure we leave the set empty — backend will still reject.
+    // Load other panels' names + power entity ids for the inline
+    // uniqueness checks (name on step 2, sensor on step 3). The backend
+    // remains the source of truth (its checks are the safety net), but
+    // inline feedback is friendlier than discovering the clash only on
+    // Save. On failure we leave the sets empty — backend will still reject.
     try {
       const data = await callFunction(this.hass, 'get_solar_panels');
-      const panels = (data.solar_panels ?? []) as { id: string; name: string }[];
+      const panels = (data.solar_panels ?? []) as {
+        id: string;
+        name: string;
+        power_entity_id?: string;
+      }[];
+      const others = panels.filter((p) => p.id !== this._editingId);
       this._otherPanelNames = new Set(
-        panels
-          .filter((p) => p.id !== this._editingId)
+        others
           .map((p) => (p.name ?? '').trim().toLowerCase())
           .filter((n) => n !== '')
       );
+      this._otherPanelEntities = new Set(
+        others.map((p) => p.power_entity_id ?? '').filter((e) => e !== '')
+      );
     } catch (e) {
       this._otherPanelNames = new Set();
+      this._otherPanelEntities = new Set();
     }
 
     this._buildSensorEntityList();
@@ -466,31 +480,13 @@ export class EditSolarPanelDialog extends DialogBase {
             ? html`<optgroup label="Power sensors">
                 ${this._sensorEntities
                   .filter((e) => e.isPower)
-                  .map(
-                    (e) => html`
-                      <option
-                        value=${e.id}
-                        ?selected=${e.id === this._powerEntityId}
-                      >
-                        ${e.name} (${e.id})
-                      </option>
-                    `
-                  )}
+                  .map((e) => this._renderSensorOption(e))}
               </optgroup>`
             : nothing}
           <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
             ${this._sensorEntities
               .filter((e) => !e.isPower)
-              .map(
-                (e) => html`
-                  <option
-                    value=${e.id}
-                    ?selected=${e.id === this._powerEntityId}
-                  >
-                    ${e.name} (${e.id})
-                  </option>
-                `
-              )}
+              .map((e) => this._renderSensorOption(e))}
           </optgroup>
         </select>
         <span
@@ -535,6 +531,27 @@ export class EditSolarPanelDialog extends DialogBase {
       );
     }
     return this._renderSaveButton(() => this._continueFromEntity());
+  }
+
+  private _renderSensorOption(e: { id: string; name: string }) {
+    // Disable entities already claimed by another panel (mirrors the
+    // grid-dialog pattern). The currently selected entity is never
+    // disabled even if it's somehow in the set, so the dropdown stays
+    // self-consistent.
+    const isUsedByOther =
+      this._otherPanelEntities.has(e.id) && e.id !== this._powerEntityId;
+    const label = isUsedByOther
+      ? `${e.name} (${e.id}) — used by another panel`
+      : `${e.name} (${e.id})`;
+    return html`
+      <option
+        value=${e.id}
+        ?selected=${e.id === this._powerEntityId}
+        ?disabled=${isUsedByOther}
+      >
+        ${label}
+      </option>
+    `;
   }
 
   private _selectPowerEntity(entityId: string) {
