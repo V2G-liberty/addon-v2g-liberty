@@ -28,6 +28,7 @@ const enum Step {
   Basic = 'basic',
   PowerEntity = 'power_entity',
   ConnectedToPhase = 'connected_to_phase',
+  GridNotConfigured = 'grid_not_configured',
 }
 
 @customElement(tagName)
@@ -111,13 +112,18 @@ export class EditSolarPanelDialog extends DialogBase {
     this._deleteConfirmed = false;
     this._deleteError = '';
 
-    // Load grid context (needed to limit phases dropdown + decide step 4)
+    // Load grid context (needed to limit phases dropdown + decide step 4).
+    // If the grid is not configured, take over the dialog immediately with
+    // a blocking explanation (plan task 29): solar panel config depends on
+    // grid phases, so there's nothing useful the user can do here yet.
     try {
       const grid = await callFunction(this.hass, 'get_grid_connection_settings');
       this._gridPhases = grid.phases ?? null;
+      if (grid.configured !== true) {
+        this._step = Step.GridNotConfigured;
+      }
     } catch (e) {
-      // No grid configured — dialog can still open; backend will reject the
-      // save if needed. Guard for missing grid is plan task 29.
+      this._step = Step.GridNotConfigured;
     }
 
     // Pre-fill on edit
@@ -220,6 +226,9 @@ export class EditSolarPanelDialog extends DialogBase {
       case Step.ConnectedToPhase:
         content = this._renderConnectedToPhase();
         break;
+      case Step.GridNotConfigured:
+        content = this._renderGridNotConfigured();
+        break;
     }
 
     return html`
@@ -231,6 +240,31 @@ export class EditSolarPanelDialog extends DialogBase {
       >
         ${content}
       </ha-dialog>
+    `;
+  }
+
+  // ── Step 1: Introduction ────────────────────────────────────────────
+
+  // ── Guard step: grid connection not configured ──────────────────────
+
+  private _renderGridNotConfigured() {
+    return html`
+      <ha-alert
+        alert-type="error"
+        title="Grid connection not configured"
+      >
+        Solar panel settings depend on your grid connection (number of
+        phases, capacity). Please configure the grid connection first via
+        its settings card, then come back here to add your panels.
+      </ha-alert>
+      ${renderButton(
+        this.hass,
+        () => this.closeDialog(),
+        true,
+        this.hass.localize('ui.common.close'),
+        false,
+        'close'
+      )}
     `;
   }
 
