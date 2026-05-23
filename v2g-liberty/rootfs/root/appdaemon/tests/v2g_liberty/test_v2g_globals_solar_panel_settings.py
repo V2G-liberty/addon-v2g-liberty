@@ -221,6 +221,29 @@ class TestSaveSolarPanelInsert:
         new_list = settings_manager_mock.store_object.call_args_list[-1][0][1]
         assert new_list[-1]["id"] == "sp_3"
 
+    @pytest.mark.asyncio
+    async def test_unknown_fields_are_ignored(
+        self, globals_instance, settings_manager_mock
+    ):
+        """AppDaemon attaches a ``metadata`` key (time_fired, origin, context)
+        to event data. That — and any other unexpected key — must not leak
+        into the persisted panel dict.
+        """
+        c.GRID_PHASES = 1
+        payload = _valid_panel_payload()
+        payload["metadata"] = {"time_fired": "2026-01-01T00:00:00Z", "origin": "REMOTE"}
+        payload["random_other_key"] = "garbage"
+
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", payload, {}
+        )
+
+        stored = settings_manager_mock.store_object.call_args_list[-1][0][1]
+        assert "metadata" not in stored[0]
+        assert "random_other_key" not in stored[0]
+        # Real fields preserved.
+        assert stored[0]["peak_power_wp"] == 4000
+
 
 # ── Taak 13: save_solar_panel — update ────────────────────────────────
 

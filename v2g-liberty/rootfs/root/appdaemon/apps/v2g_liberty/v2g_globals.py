@@ -632,6 +632,25 @@ class V2GLibertyGlobals:
 
     # ── Solar panel CRUD ──────────────────────────────────────────────
 
+    # Fields accepted from the save_solar_panel event payload. AppDaemon's
+    # HA plugin attaches a "metadata" key (time_fired, origin, context) to
+    # event data; whitelisting prevents that — and any other unknown keys —
+    # from leaking into the persisted panel dict.
+    _PANEL_FIELDS = frozenset(
+        {
+            "id",
+            "name",
+            "phases",
+            "connected_to_phase",
+            "peak_power_wp",
+            "power_entity_id",
+            "curtailable",
+            "curtail_entity_id",
+            "fm_asset_id",
+            "fm_sensor_id",
+        }
+    )
+
     def __load_solar_panels_list(self) -> list[dict]:
         """Read the solar panels list from settings, normalised to a list."""
         panels = self.v2g_settings.get_object("solar_panels", default=[])
@@ -752,7 +771,9 @@ class V2GLibertyGlobals:
               persisted. The UI is expected to keep form values and
               offer Retry; ``ensure_*`` is idempotent so a Retry is safe.
         """
-        incoming = dict(data)
+        # Whitelist known fields; ignore HA event metadata and any other
+        # unexpected keys (see _PANEL_FIELDS docstring).
+        incoming = {k: v for k, v in data.items() if k in self._PANEL_FIELDS}
         panel_id = incoming.get("id")
         panels = self.__load_solar_panels_list()
 
