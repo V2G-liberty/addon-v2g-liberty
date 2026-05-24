@@ -1,4 +1,4 @@
-import { mdiPencil, mdiSolarPower } from '@mdi/js';
+import { mdiAlertCircle, mdiPencil, mdiSolarPower } from '@mdi/js';
 import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
@@ -20,6 +20,9 @@ interface SolarPanel {
   curtail_entity_id?: string;
   fm_asset_id?: number;
   fm_sensor_id?: number;
+  // Server-computed: non-null when the panel no longer matches the current
+  // grid configuration (e.g. phases > grid_phases after a grid change).
+  inconsistency_reason?: string | null;
 }
 
 @customElement('v2g-liberty-solar-panels-settings-card')
@@ -30,6 +33,10 @@ export class SolarPanelsSettingsCard extends LitElement {
   private _hass: HomeAssistant;
   private _unsubscribeSave: (() => void) | null = null;
   private _unsubscribeDelete: (() => void) | null = null;
+  // Inconsistency_reason depends on grid phases, so also refresh on grid
+  // save events — otherwise the alert icon would only appear after a
+  // manual page reload.
+  private _unsubscribeGridSave: (() => void) | null = null;
 
   setConfig(config: LovelaceCardConfig) {}
 
@@ -53,6 +60,11 @@ export class SolarPanelsSettingsCard extends LitElement {
         () => this._loadPanels(),
         'delete_solar_panel.result'
       );
+    this._unsubscribeGridSave =
+      await this._hass.connection.subscribeEvents<HassEvent>(
+        () => this._loadPanels(),
+        'save_grid_connection_settings.result'
+      );
   }
 
   disconnectedCallback() {
@@ -64,6 +76,10 @@ export class SolarPanelsSettingsCard extends LitElement {
     if (this._unsubscribeDelete) {
       this._unsubscribeDelete();
       this._unsubscribeDelete = null;
+    }
+    if (this._unsubscribeGridSave) {
+      this._unsubscribeGridSave();
+      this._unsubscribeGridSave = null;
     }
   }
 
@@ -141,11 +157,20 @@ export class SolarPanelsSettingsCard extends LitElement {
         ? `${phases} (L${panel.connected_to_phase})`
         : phases;
     const summary = [wp, phaseInfo].filter(Boolean).join(', ');
+    // Use the alert icon as the leading icon when inconsistent — that way
+    // a long panel name can't push the warning off-screen, and the row
+    // catches the eye at a glance.
+    const leadingIcon = panel.inconsistency_reason
+      ? html`<ha-svg-icon
+          .path=${mdiAlertCircle}
+          title=${panel.inconsistency_reason}
+          style="color: var(--error-color);"
+        ></ha-svg-icon>`
+      : html`<ha-svg-icon .path=${mdiSolarPower}></ha-svg-icon>`;
     return html`
       <ha-settings-row>
         <span slot="heading">
-          <ha-svg-icon .path=${mdiSolarPower}></ha-svg-icon>&nbsp; &nbsp;
-          ${panel.name}
+          ${leadingIcon}&nbsp; &nbsp; ${panel.name}
         </span>
         <div class="value">${summary}</div>
         <ha-icon-button
