@@ -923,6 +923,65 @@ class TestGridIntervalLog:
         assert rows[0]["production_kw"] is None
 
 
+class TestPvIntervalLog:
+    @pytest.mark.asyncio
+    async def test_insert_and_retrieve(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 2.4)
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_2", 1.1)
+        data_store.insert_pv_interval("2026-05-01T12:05:00+02:00", "sp_1", 2.6)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 3
+        assert rows[0] == {
+            "timestamp": "2026-05-01T12:00:00+02:00",
+            "panel_id": "sp_1",
+            "power_kw": 2.4,
+        }
+        assert rows[1]["panel_id"] == "sp_2"
+        assert rows[2]["timestamp"] == "2026-05-01T12:05:00+02:00"
+
+    @pytest.mark.asyncio
+    async def test_retrieve_filters_by_timestamp(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 1.0)
+        data_store.insert_pv_interval("2026-05-01T12:05:00+02:00", "sp_1", 2.0)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T12:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["power_kw"] == 2.0
+
+    @pytest.mark.asyncio
+    async def test_upsert_overwrites(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 1.0)
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 9.9)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["power_kw"] == 9.9
+
+    @pytest.mark.asyncio
+    async def test_retrieve_empty(self, data_store):
+        await data_store.initialise()
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T12:00:00+02:00")
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_none_power(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", None)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["power_kw"] is None
+
+
 class TestSchemaMigration:
     @pytest.mark.asyncio
     async def test_schema_version_is_current(self, data_store):
