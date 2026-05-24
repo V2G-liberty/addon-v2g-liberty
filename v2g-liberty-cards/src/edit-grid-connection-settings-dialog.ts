@@ -38,11 +38,27 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   // Form validation state
   @state() private _triedContinueStep2: boolean = false;
   @state() private _triedSave: boolean = false;
+  // Set on the first Continue click of step 2 when the new phases would
+  // make existing solar panels inconsistent. While true, the Continue
+  // button reads "Continue anyway" and the warning is visible. Reset
+  // whenever the user changes the phase selection so a different choice
+  // requires its own acknowledgement.
+  @state() private _phaseChangeConfirmed: boolean = false;
 
   // Saving state
   @state() private _saving: boolean = false;
   @state() private _saveError: string = '';
   @state() private _saveConfirmed: boolean = false;
+
+  // Existing solar panels (loaded at open) so the dialog can warn the user
+  // when a phases change would leave one or more panels inconsistent with
+  // the new grid configuration. The dialog never auto-fixes panels — see
+  // plan task 30a.
+  @state() private _existingSolarPanels: {
+    name: string;
+    phases: number;
+    connected_to_phase?: number;
+  }[] = [];
 
   // Available sensor entities for dropdowns
   private _sensorEntities: { id: string; name: string; isPower: boolean }[] = [];
@@ -59,6 +75,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._autoDetected = false;
     this._triedContinueStep2 = false;
     this._triedSave = false;
+    this._phaseChangeConfirmed = false;
     this._saving = false;
     this._saveError = '';
     this._saveConfirmed = false;
@@ -102,6 +119,21 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     }
 
     this._buildSensorEntityList();
+
+    // Load existing solar panels so we can warn the user when their new
+    // phases choice would invalidate any of them (plan task 30a). Failure
+    // is non-fatal — we just won't warn.
+    try {
+      const sp = await callFunction(this.hass, 'get_solar_panels');
+      this._existingSolarPanels = (sp.solar_panels ?? []) as {
+        name: string;
+        phases: number;
+        connected_to_phase?: number;
+      }[];
+    } catch (e) {
+      this._existingSolarPanels = [];
+    }
+
     await this.updateComplete;
   }
 
@@ -240,13 +272,13 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         <div class="phase-cards">
           <div
             class="phase-card ${this._phases === 1 ? 'selected' : ''}"
-            @click=${() => { this._phases = 1; }}
+            @click=${() => { this._selectPhases(1); }}
           >
             <ha-radio
               .checked=${this._phases === 1}
               name="phases"
               value="1"
-              @change=${() => { this._phases = 1; }}
+              @change=${() => { this._selectPhases(1); }}
             ></ha-radio>
             <div>
               <strong>1 phase</strong><br/>
@@ -255,13 +287,13 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
           </div>
           <div
             class="phase-card ${this._phases === 3 ? 'selected' : ''}"
-            @click=${() => { this._phases = 3; }}
+            @click=${() => { this._selectPhases(3); }}
           >
             <ha-radio
               .checked=${this._phases === 3}
               name="phases"
               value="3"
-              @change=${() => { this._phases = 3; }}
+              @change=${() => { this._selectPhases(3); }}
             ></ha-radio>
             <div>
               <strong>3 phases</strong><br/>
@@ -322,12 +354,25 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         'back',
         true
       )}
+      ${this._renderSolarPanelWarning()}
       ${renderButton(
         this.hass,
         () => this._continueToEntities(),
-        true
+        true,
+        this._phaseChangeConfirmed
+          ? 'Continue anyway'
+          : this.hass.localize('ui.common.continue')
       )}
     `;
+  }
+
+  private _selectPhases(phases: 1 | 3) {
+    // Any change in the phase choice invalidates a previous
+    // "Continue anyway" acknowledgement — re-warn for the new selection.
+    if (this._phases !== phases) {
+      this._phaseChangeConfirmed = false;
+    }
+    this._phases = phases;
   }
 
   private _isCapacityValid(): boolean {
@@ -350,6 +395,18 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._triedContinueStep2 = true;
     if (this._phases === null) return;
     if (!this._isCapacityValid()) return;
+
+    // Soft warning: would the new phase choice make existing solar panels
+    // inconsistent? First Continue click reveals the warning; the second
+    // (now "Continue anyway") actually moves to the next step. Nothing on
+    // the panels is changed — they get flagged on the solar panels card.
+    if (
+      this._panelsThatWillBecomeInconsistent().length > 0 &&
+      !this._phaseChangeConfirmed
+    ) {
+      this._phaseChangeConfirmed = true;
+      return;
+    }
 
     // Initialise entity arrays to correct length if needed
     const count = this._phases;
@@ -603,6 +660,55 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         data at this time. For production sensors, this can be normal if there is
         currently no or little solar production — the meter may report 0 continuously,
         which does not generate a state change.
+      </ha-alert>
+    `;
+  }
+
+  // ── Solar panel consistency warning (plan task 30a) ─────────────────
+
+  private _panelsThatWillBecomeInconsistent(): string[] {
+    if (this._phases === null) return [];
+    const newPhases = this._phases;
+    return this._existingSolarPanels
+      .filter((p) => {
+        if (typeof p.phases !== 'number') return true; // unknown counts as broken
+        if (p.phases > newPhases) return true;
+        if (
+          p.phases === 1 &&
+          newPhases === 3 &&
+          p.connected_to_phase !== 1 &&
+          p.connected_to_phase !== 2 &&
+          p.connected_to_phase !== 3
+        ) {
+          return true;
+        }
+        return false;
+      })
+      .map((p) => p.name ?? '(unnamed)');
+  }
+
+  private _renderSolarPanelWarning() {
+    if (!this._phaseChangeConfirmed) return nothing;
+    const affected = this._panelsThatWillBecomeInconsistent();
+    if (affected.length === 0) return nothing;
+    const list = affected.map((n) => html`<li>${n}</li>`);
+    return html`
+      <ha-alert
+        alert-type="warning"
+        title="This change will break ${affected.length === 1
+          ? 'a solar panel'
+          : 'solar panels'}"
+        style="margin-top: 16px;"
+      >
+        <p style="margin: 0 0 8px 0;">
+          The new phase count no longer matches the configuration of:
+        </p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">${list}</ul>
+        <p style="margin: 0;">
+          Continue anyway is allowed — the affected panel(s) will be flagged
+          on the solar panels card so you can edit them afterwards. Nothing
+          on the panels is changed automatically.
+        </p>
       </ha-alert>
     `;
   }
