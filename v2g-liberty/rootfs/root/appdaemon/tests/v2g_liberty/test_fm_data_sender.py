@@ -448,16 +448,16 @@ class TestSendUnsentData:
 class TestInitialize:
     @pytest.mark.asyncio
     async def test_first_start_sets_last_sent_for_all_types(self, sender, data_store):
-        # Both charger and grid have no last_sent → both should be set
+        # charger, grid and pv all have no last_sent → all three should be set
         await sender.initialize()
 
-        # set_fm_last_sent called for charger and grid
-        assert data_store.set_fm_last_sent.call_count == 2
+        assert data_store.set_fm_last_sent.call_count == 3
 
     @pytest.mark.asyncio
     async def test_existing_last_sent_not_overwritten(self, sender, data_store):
         data_store._last_sent["charger"] = _ts(10, 0)
         data_store._last_sent["grid"] = _ts(10, 0)
+        data_store._last_sent["pv"] = _ts(10, 0)
         await sender.initialize()
 
         data_store.set_fm_last_sent.assert_not_called()

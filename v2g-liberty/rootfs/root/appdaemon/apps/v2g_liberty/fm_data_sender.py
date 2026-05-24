@@ -31,7 +31,7 @@ class FMDataSender:
 
         # Ensure fm_send_status has an initial value on first start
         if self.data_store is not None:
-            for data_type in ("charger", "grid"):
+            for data_type in ("charger", "grid", "pv"):
                 last_sent = self.data_store.get_fm_last_sent(data_type)
                 if last_sent is None:
                     now = datetime.now(timezone.utc).isoformat()
@@ -60,6 +60,7 @@ class FMDataSender:
 
         await self._send_charger_data()
         await self._send_grid_data()
+        await self._send_pv_data()
 
     async def _send_charger_data(self):
         """Send unsent charger interval data (power, SoC, availability)."""
@@ -137,6 +138,60 @@ class FMDataSender:
             else:
                 self.__log(
                     "Grid: block failed, will retry next run.",
+                    level="WARNING",
+                )
+                break
+
+    async def _send_pv_data(self):
+        """Send unsent PV interval data (power per panel) to FlexMeasures."""
+        # Bail early when nothing useful can be sent.
+        panels_with_sensor = [p for p in c.SOLAR_PANELS if p.get("fm_sensor_id")]
+        if not panels_with_sensor:
+            return
+
+        last_sent = self.data_store.get_fm_last_sent("pv")
+        if last_sent is None:
+            now = datetime.now(timezone.utc).isoformat()
+            self.data_store.set_fm_last_sent(now, "pv")
+            self.__log(
+                "PV: no last_sent_up_to, recovered by setting to now.",
+                level="WARNING",
+            )
+            return
+
+        intervals = self.data_store.get_pv_intervals_since(last_sent)
+        if not intervals:
+            self.__log("PV: no unsent intervals.")
+            return
+
+        self.__log(f"PV: {len(intervals)} unsent row(s).")
+
+        # Group by timestamp first, then group timestamps into contiguous blocks.
+        by_timestamp = self._group_pv_by_timestamp(intervals)
+        timestamps = sorted(by_timestamp.keys())
+        blocks = self._group_contiguous_timestamps(timestamps)
+
+        # Map panel_id → fm_sensor_id for quick lookup.
+        panel_sensors = {p["id"]: p["fm_sensor_id"] for p in panels_with_sensor}
+
+        for block_timestamps in blocks:
+            try:
+                success = await self._send_pv_block(
+                    block_timestamps, by_timestamp, panel_sensors
+                )
+            except Exception as e:
+                self.__log(
+                    f"PV: block send raised exception: {e}",
+                    level="WARNING",
+                )
+                break
+            if success:
+                last_ts = block_timestamps[-1]
+                self.data_store.set_fm_last_sent(last_ts, "pv")
+                self.__log(f"PV: block sent, advanced to {last_ts}.")
+            else:
+                self.__log(
+                    "PV: block failed, will retry next run.",
                     level="WARNING",
                 )
                 break
@@ -262,6 +317,22 @@ class FMDataSender:
             }
         return by_timestamp
 
+    @staticmethod
+    def _group_pv_by_timestamp(
+        intervals: list[dict],
+    ) -> dict[str, dict[str, float | None]]:
+        """Group PV interval rows by timestamp.
+
+        Returns {timestamp: {panel_id: power_kw}}.
+        """
+        by_timestamp: dict[str, dict[str, float | None]] = {}
+        for row in intervals:
+            ts = row["timestamp"]
+            if ts not in by_timestamp:
+                by_timestamp[ts] = {}
+            by_timestamp[ts][row["panel_id"]] = row["power_kw"]
+        return by_timestamp
+
     def _group_contiguous_timestamps(self, timestamps: list[str]) -> list[list[str]]:
         """Group sorted timestamp strings into contiguous 5-minute blocks.
 
@@ -334,6 +405,38 @@ class FMDataSender:
             if not ok:
                 self.__log(
                     f"Grid: failed to send production L{phase}.",
+                    level="WARNING",
+                )
+                return False
+
+        return True
+
+    async def _send_pv_block(
+        self,
+        timestamps: list[str],
+        by_timestamp: dict[str, dict[str, float | None]],
+        panel_sensors: dict[str, int],
+    ) -> bool:
+        """Send a contiguous block of PV data to FlexMeasures.
+
+        Posts power per panel to the panel's own fm_sensor_id. Returns
+        True only if all posts succeed.
+        """
+        start = timestamps[0]
+        duration = _len_to_iso_duration(len(timestamps))
+
+        for panel_id, sensor_id in panel_sensors.items():
+            values = [by_timestamp[ts].get(panel_id) for ts in timestamps]
+            ok = await self.fm_client_app.post_sensor_data(
+                sensor_id=sensor_id,
+                values=values,
+                start=start,
+                duration=duration,
+                uom="kW",
+            )
+            if not ok:
+                self.__log(
+                    f"PV: failed to send power for panel {panel_id}.",
                     level="WARNING",
                 )
                 return False
