@@ -725,6 +725,30 @@ class V2GLibertyGlobals:
 
         return None
 
+    def __solar_panel_inconsistency_reason(self, panel: dict) -> str | None:
+        """Check whether ``panel`` still fits the current grid configuration.
+
+        Returns ``None`` if the panel is consistent, or a user-facing string
+        explaining what's wrong. Inconsistency typically appears when the
+        user changes the grid phase count after panels have been saved
+        (plan task 30) — nothing is auto-fixed; the UI marks affected
+        panels so the user can correct them via the edit dialog.
+        """
+        phases = panel.get("phases")
+        if not isinstance(phases, int) or phases > c.GRID_PHASES:
+            return (
+                f"Panel is configured for {phases}-phase but the grid is now "
+                f"{c.GRID_PHASES}-phase. Edit the panel to update its phases."
+            )
+        if phases == 1 and c.GRID_PHASES == 3:
+            connected = panel.get("connected_to_phase")
+            if connected not in (1, 2, 3):
+                return (
+                    "1-phase panel on a 3-phase grid needs a connected_to_phase "
+                    "value (L1, L2 or L3). Edit the panel to set it."
+                )
+        return None
+
     async def __get_solar_panels(self, event, data, kwargs):
         """Handle ``get_solar_panels`` HA event.
 
@@ -734,9 +758,16 @@ class V2GLibertyGlobals:
 
         **Response event:** ``get_solar_panels.result``
             - ``solar_panels`` (list[dict]): the current configured panels.
+              Each panel dict is annotated with an extra ``inconsistency_reason``
+              field (``str | null``) so the card can flag panels whose
+              configuration no longer matches the current grid setup.
         """
         panels = self.__load_solar_panels_list()
-        self.hass.fire_event("get_solar_panels.result", solar_panels=panels)
+        annotated = [
+            {**p, "inconsistency_reason": self.__solar_panel_inconsistency_reason(p)}
+            for p in panels
+        ]
+        self.hass.fire_event("get_solar_panels.result", solar_panels=annotated)
 
     async def __save_solar_panel(self, event, data, kwargs):
         """Handle ``save_solar_panel`` HA event (insert or update).

@@ -116,6 +116,7 @@ class TestGetSolarPanels:
     async def test_returns_configured_panels(
         self, globals_instance, settings_manager_mock, hass_mock
     ):
+        c.GRID_PHASES = 1
         panels = [
             {
                 "id": "sp_1",
@@ -136,9 +137,99 @@ class TestGetSolarPanels:
 
         await globals_instance._V2GLibertyGlobals__get_solar_panels("event", {}, {})
 
+        # Each panel is annotated with an inconsistency_reason field; here
+        # both panels fit a 1-phase grid so the reason is None.
+        expected = [{**p, "inconsistency_reason": None} for p in panels]
         hass_mock.fire_event.assert_called_once_with(
-            "get_solar_panels.result", solar_panels=panels
+            "get_solar_panels.result", solar_panels=expected
         )
+
+    @pytest.mark.asyncio
+    async def test_phases_greater_than_grid_flagged(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """3-phase panel on a now-1-phase grid is flagged inconsistent."""
+        c.GRID_PHASES = 1
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "Roof",
+                    "phases": 3,
+                    "power_entity_id": "sensor.r",
+                    "peak_power_wp": 4000,
+                }
+            ],
+        )
+        hass_mock.fire_event.reset_mock()
+
+        await globals_instance._V2GLibertyGlobals__get_solar_panels("event", {}, {})
+
+        sent = hass_mock.fire_event.call_args.kwargs["solar_panels"][0]
+        assert sent["inconsistency_reason"] is not None
+        assert "3-phase" in sent["inconsistency_reason"]
+        assert "1-phase" in sent["inconsistency_reason"]
+
+    @pytest.mark.asyncio
+    async def test_missing_connected_to_phase_on_3phase_grid_flagged(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """1-phase panel on 3-phase grid without connected_to_phase is flagged."""
+        c.GRID_PHASES = 3
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "Side",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "peak_power_wp": 4000,
+                    # connected_to_phase absent — typical after grid was 1-phase
+                }
+            ],
+        )
+        hass_mock.fire_event.reset_mock()
+
+        await globals_instance._V2GLibertyGlobals__get_solar_panels("event", {}, {})
+
+        sent = hass_mock.fire_event.call_args.kwargs["solar_panels"][0]
+        assert sent["inconsistency_reason"] is not None
+        assert "connected_to_phase" in sent["inconsistency_reason"]
+
+    @pytest.mark.asyncio
+    async def test_consistent_panels_not_flagged(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """All-fitting panels have inconsistency_reason=None."""
+        c.GRID_PHASES = 3
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "Side",
+                    "phases": 1,
+                    "connected_to_phase": 2,
+                    "power_entity_id": "sensor.s",
+                    "peak_power_wp": 4000,
+                },
+                {
+                    "id": "sp_2",
+                    "name": "Roof",
+                    "phases": 3,
+                    "power_entity_id": "sensor.r",
+                    "peak_power_wp": 5000,
+                },
+            ],
+        )
+        hass_mock.fire_event.reset_mock()
+
+        await globals_instance._V2GLibertyGlobals__get_solar_panels("event", {}, {})
+
+        for sent in hass_mock.fire_event.call_args.kwargs["solar_panels"]:
+            assert sent["inconsistency_reason"] is None
 
 
 # ── Taak 13: save_solar_panel — insert ────────────────────────────────
