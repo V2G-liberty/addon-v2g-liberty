@@ -73,6 +73,7 @@ def data_store():
     mock_store.set_fm_last_sent = MagicMock(side_effect=fake_set)
     mock_store.get_intervals_since = MagicMock(return_value=[])
     mock_store.get_grid_intervals_since = MagicMock(return_value=[])
+    mock_store.get_pv_intervals_since = MagicMock(return_value=[])
     mock_store._last_sent = _last_sent
     return mock_store
 
@@ -627,6 +628,130 @@ class TestSendGridData:
         # 2 blocks × 2 calls (1 cons + 1 prod) = 4
         assert fm_client.post_sensor_data.call_count == 4
         assert data_store._last_sent["grid"] == _ts(10, 10)
+
+
+# ──────────────────────────────────────────────────────────
+# PV data sending (plan Fase 6 task 19)
+# ──────────────────────────────────────────────────────────
+
+
+def _make_pv_row(ts_str, panel_id, power_kw=2.5):
+    """Helper to create a pv_interval_log row dict."""
+    return {
+        "timestamp": ts_str,
+        "panel_id": panel_id,
+        "power_kw": power_kw,
+    }
+
+
+_PV_PANEL_1 = {"id": "sp_1", "fm_sensor_id": 601}
+_PV_PANEL_2 = {"id": "sp_2", "fm_sensor_id": 602}
+
+
+class TestSendPvData:
+    @pytest.mark.asyncio
+    async def test_skips_when_no_panels_with_sensor(self, sender, data_store):
+        """SOLAR_PANELS empty (or no fm_sensor_id) → early return, no DB read."""
+        c.SOLAR_PANELS = []
+        await sender._send_pv_data()
+        data_store.get_pv_intervals_since.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_recovers_when_last_sent_is_none(self, sender, data_store):
+        """First start: last_sent missing → set to now, no posts."""
+        c.SOLAR_PANELS = [_PV_PANEL_1]
+        # _last_sent["pv"] not set → get returns None
+        await sender._send_pv_data()
+        # Called once with current timestamp + "pv"
+        last_call = data_store.set_fm_last_sent.call_args
+        assert last_call.args[1] == "pv"
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_unsent_data(self, sender, data_store, fm_client):
+        """No rows in pv_interval_log after last_sent → nothing to post."""
+        c.SOLAR_PANELS = [_PV_PANEL_1]
+        data_store._last_sent["pv"] = _ts(10, 0)
+        data_store.get_pv_intervals_since.return_value = []
+
+        await sender._send_pv_data()
+
+        fm_client.post_sensor_data.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_single_panel_data(self, sender, data_store, fm_client):
+        """1 panel, 2 intervals → 1 post with both values to that panel's sensor."""
+        c.SOLAR_PANELS = [_PV_PANEL_1]
+        data_store._last_sent["pv"] = _ts(9, 55)
+        data_store.get_pv_intervals_since.return_value = [
+            _make_pv_row(_ts(10, 0), "sp_1", 2.5),
+            _make_pv_row(_ts(10, 5), "sp_1", 2.7),
+        ]
+
+        await sender._send_pv_data()
+
+        assert fm_client.post_sensor_data.call_count == 1
+        call = fm_client.post_sensor_data.call_args
+        assert call.kwargs["sensor_id"] == 601
+        assert call.kwargs["values"] == [2.5, 2.7]
+        assert call.kwargs["uom"] == "kW"
+        assert data_store._last_sent["pv"] == _ts(10, 5)
+
+    @pytest.mark.asyncio
+    async def test_sends_multiple_panels(self, sender, data_store, fm_client):
+        """2 panels × 2 intervals → 2 posts (1 per panel) to distinct sensors."""
+        c.SOLAR_PANELS = [_PV_PANEL_1, _PV_PANEL_2]
+        data_store._last_sent["pv"] = _ts(9, 55)
+        data_store.get_pv_intervals_since.return_value = [
+            _make_pv_row(_ts(10, 0), "sp_1", 2.5),
+            _make_pv_row(_ts(10, 0), "sp_2", 3.1),
+            _make_pv_row(_ts(10, 5), "sp_1", 2.7),
+            _make_pv_row(_ts(10, 5), "sp_2", 3.3),
+        ]
+
+        await sender._send_pv_data()
+
+        assert fm_client.post_sensor_data.call_count == 2
+        sensor_ids = {
+            call.kwargs["sensor_id"]
+            for call in fm_client.post_sensor_data.call_args_list
+        }
+        assert sensor_ids == {601, 602}
+        assert data_store._last_sent["pv"] == _ts(10, 5)
+
+    @pytest.mark.asyncio
+    async def test_failure_does_not_advance_last_sent(
+        self, sender, data_store, fm_client
+    ):
+        """post_sensor_data → False: last_sent stays where it was for retry."""
+        c.SOLAR_PANELS = [_PV_PANEL_1]
+        data_store._last_sent["pv"] = _ts(9, 55)
+        data_store.get_pv_intervals_since.return_value = [
+            _make_pv_row(_ts(10, 0), "sp_1", 2.5),
+        ]
+        fm_client.post_sensor_data = AsyncMock(return_value=False)
+
+        await sender._send_pv_data()
+
+        assert data_store._last_sent["pv"] == _ts(9, 55)
+
+    @pytest.mark.asyncio
+    async def test_gap_creates_two_blocks(self, sender, data_store, fm_client):
+        """Time gap between intervals → split into separate blocks; last_sent
+        advances per successful block.
+        """
+        c.SOLAR_PANELS = [_PV_PANEL_1]
+        data_store._last_sent["pv"] = _ts(9, 55)
+        data_store.get_pv_intervals_since.return_value = [
+            _make_pv_row(_ts(10, 0), "sp_1", 2.5),
+            # gap: 10:05 missing
+            _make_pv_row(_ts(10, 10), "sp_1", 2.7),
+        ]
+
+        await sender._send_pv_data()
+
+        # 2 blocks × 1 post each = 2
+        assert fm_client.post_sensor_data.call_count == 2
+        assert data_store._last_sent["pv"] == _ts(10, 10)
 
 
 # ──────────────────────────────────────────────────────────
