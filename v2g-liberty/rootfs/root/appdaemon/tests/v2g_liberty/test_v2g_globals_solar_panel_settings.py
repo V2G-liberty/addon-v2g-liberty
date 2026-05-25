@@ -1016,7 +1016,7 @@ class TestSolarPanelFMProvisioningCalls:
         )
 
         fm_client_mock.ensure_asset.assert_called_once_with(
-            name="[TEST] South",
+            name="South",
             generic_asset_type="solar",
             parent_asset_id=_FM_MAIN_CONNECTION_ID,
             attributes={
@@ -1083,7 +1083,7 @@ class TestSolarPanelFMProvisioningCalls:
         # First call creates; second updates the same asset by id.
         assert first_call["asset_id"] is None
         assert second_call["asset_id"] == _FM_ASSET_ID
-        assert first_call["name"] == second_call["name"] == "[TEST] South"
+        assert first_call["name"] == second_call["name"] == "South"
 
     @pytest.mark.asyncio
     async def test_rename_preserves_fm_asset_identity(
@@ -1110,7 +1110,7 @@ class TestSolarPanelFMProvisioningCalls:
 
         assert fm_client_mock.ensure_asset.call_count == 2
         rename_call = fm_client_mock.ensure_asset.call_args_list[1].kwargs
-        assert rename_call["name"] == "[TEST] South Roof"
+        assert rename_call["name"] == "South Roof"
         assert rename_call["asset_id"] == _FM_ASSET_ID  # update by id, not by name
 
         renamed_stored = settings_manager_mock.store_object.call_args_list[-1][0][1]

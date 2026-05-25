@@ -924,7 +924,7 @@ class V2GLibertyGlobals:
         # asset in place (preserving identity + history) instead of creating
         # a new one and orphaning the old.
         asset_id = await self.fm_client_app.ensure_asset(
-            name=f"{self._FM_ASSET_NAME_PREFIX}{panel['name']}",
+            name=panel["name"],
             generic_asset_type="solar",
             parent_asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
             attributes=asset_attributes,
@@ -1023,8 +1023,6 @@ class V2GLibertyGlobals:
 
     # ── FM grid asset provisioning ────────────────────────────────────
 
-    _FM_ASSET_NAME_PREFIX = "[TEST] "  # TODO: remove prefix before production
-
     async def __provision_grid_assets(self):
         """Create FM assets and sensors for grid connection.
 
@@ -1045,7 +1043,7 @@ class V2GLibertyGlobals:
         try:
             # Main Connection asset
             c.FM_MAIN_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
-                name=f"{self._FM_ASSET_NAME_PREFIX}Main Connection",
+                name="Main Connection",
                 generic_asset_type="building",
                 attributes={
                     "phases": c.GRID_PHASES,
