@@ -14,7 +14,7 @@ Tests cover:
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from appdaemon.plugins.hass.hassapi import Hass
@@ -438,6 +438,66 @@ class TestSendUnsentData:
 
         # last_sent advanced only for first block
         assert data_store._last_sent["charger"] == _ts(10, 0)
+
+
+# ──────────────────────────────────────────────────────────
+# Independent error isolation across the three send types
+# (plan Fase 6 task 20)
+# ──────────────────────────────────────────────────────────
+
+
+class TestSendTypeIsolation:
+    """An unexpected exception in one send-type should never block the
+    others. _send_unsent_data wraps each call in try/except so charger,
+    grid and pv each get an independent shot at posting their data.
+    """
+
+    @pytest.mark.asyncio
+    async def test_charger_crash_does_not_block_grid_and_pv(self, sender):
+        sender._send_charger_data = AsyncMock(side_effect=RuntimeError("boom"))
+        sender._send_grid_data = AsyncMock()
+        sender._send_pv_data = AsyncMock()
+
+        await sender._send_unsent_data()
+
+        sender._send_grid_data.assert_awaited_once()
+        sender._send_pv_data.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_grid_crash_does_not_block_pv(self, sender):
+        sender._send_charger_data = AsyncMock()
+        sender._send_grid_data = AsyncMock(side_effect=RuntimeError("boom"))
+        sender._send_pv_data = AsyncMock()
+
+        await sender._send_unsent_data()
+
+        sender._send_charger_data.assert_awaited_once()
+        sender._send_pv_data.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_pv_crash_does_not_propagate(self, sender):
+        sender._send_charger_data = AsyncMock()
+        sender._send_grid_data = AsyncMock()
+        sender._send_pv_data = AsyncMock(side_effect=RuntimeError("boom"))
+
+        # Should not raise — that would crash the AppDaemon run_every loop.
+        await sender._send_unsent_data()
+
+        sender._send_charger_data.assert_awaited_once()
+        sender._send_grid_data.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_all_three_crash_each_logged_no_propagation(self, sender, hass):
+        sender._send_charger_data = AsyncMock(side_effect=RuntimeError("c"))
+        sender._send_grid_data = AsyncMock(side_effect=RuntimeError("g"))
+        sender._send_pv_data = AsyncMock(side_effect=RuntimeError("p"))
+
+        await sender._send_unsent_data()  # must not raise
+
+        # All three were attempted.
+        sender._send_charger_data.assert_awaited_once()
+        sender._send_grid_data.assert_awaited_once()
+        sender._send_pv_data.assert_awaited_once()
 
 
 # ──────────────────────────────────────────────────────────

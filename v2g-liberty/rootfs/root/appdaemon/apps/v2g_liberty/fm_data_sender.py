@@ -47,8 +47,11 @@ class FMDataSender:
     async def _send_unsent_data(self, *args):
         """Send all unsent interval data to FlexMeasures.
 
-        Charger and grid data are sent independently — a failure in one
-        does not block the other.
+        Each data type (charger, grid, pv) is sent independently — an
+        unexpected failure in one does not block the others. The per-type
+        methods already handle their own block-level errors; this wrapper
+        catches any escaping exception (data corruption, sudden FM client
+        change, etc.) and logs it so the loop continues.
         """
         if self.fm_client_app is None:
             self.__log("FM client not available, skipping send.")
@@ -58,9 +61,18 @@ class FMDataSender:
             self.__log("DataStore not available, skipping send.")
             return
 
-        await self._send_charger_data()
-        await self._send_grid_data()
-        await self._send_pv_data()
+        for data_type, send_method in (
+            ("charger", self._send_charger_data),
+            ("grid", self._send_grid_data),
+            ("pv", self._send_pv_data),
+        ):
+            try:
+                await send_method()
+            except Exception as e:
+                self.__log(
+                    f"{data_type}: send raised unexpected exception: {e}",
+                    level="WARNING",
+                )
 
     async def _send_charger_data(self):
         """Send unsent charger interval data (power, SoC, availability)."""
@@ -83,7 +95,14 @@ class FMDataSender:
         blocks = self._group_contiguous_blocks(intervals)
 
         for block in blocks:
-            success = await self._send_charger_block(block)
+            try:
+                success = await self._send_charger_block(block)
+            except Exception as e:
+                self.__log(
+                    f"Charger: block send raised exception: {e}",
+                    level="WARNING",
+                )
+                break
             if success:
                 last_timestamp = block[-1]["timestamp"]
                 self.data_store.set_fm_last_sent(last_timestamp, "charger")
