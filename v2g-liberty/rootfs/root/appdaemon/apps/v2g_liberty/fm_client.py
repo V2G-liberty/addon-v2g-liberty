@@ -369,6 +369,27 @@ class FMClient(AsyncIOEventEmitter):
         self.__log(f"Created asset '{name}' (id={asset_id})")
         return asset_id
 
+    async def mark_asset_deleted(self, asset_id: int, deleted_at_iso: str) -> None:
+        """Mark an FM asset as locally deleted by V2G Liberty.
+
+        Sets the ``v2g_liberty_deleted_at`` attribute to the given ISO
+        timestamp so admins browsing FM can spot abandoned assets, and
+        so future tooling can filter out non-active assets when
+        rebuilding local state from FM. The asset and its sensors are
+        left in place — clean-up is an admin action.
+
+        Raises if FM is not connected; the caller is expected to use
+        this best-effort (catch and log) so a local delete never blocks
+        on FM availability.
+        """
+        if self.client is None:
+            raise RuntimeError("FM client not initialised")
+        await self.client.update_asset(
+            asset_id,
+            {"attributes": {"v2g_liberty_deleted_at": deleted_at_iso}},
+        )
+        self.__log(f"Marked asset id={asset_id} as locally deleted at {deleted_at_iso}")
+
     async def ensure_sensor(
         self,
         name: str,

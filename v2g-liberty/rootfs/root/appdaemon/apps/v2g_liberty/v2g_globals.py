@@ -2,7 +2,7 @@
 
 import asyncio
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from zoneinfo import ZoneInfo
 
@@ -915,6 +915,10 @@ class V2GLibertyGlobals:
         asset_attributes = {
             "peak_power_wp": panel.get("peak_power_wp"),
             "connected_to_phase": panel.get("connected_to_phase"),
+            # Re-asserting the asset is active. Clears the deletion
+            # marker set by mark_asset_deleted if this is a re-add of a
+            # panel that was previously locally deleted.
+            "v2g_liberty_deleted_at": None,
         }
         # Pass the stored fm_asset_id so a rename updates the existing FM
         # asset in place (preserving identity + history) instead of creating
@@ -984,6 +988,20 @@ class V2GLibertyGlobals:
                 f"are left in place and must be cleaned up manually.",
                 level="WARNING",
             )
+
+        # Best-effort: mark the FM asset as locally deleted so admins
+        # browsing FM can spot abandoned assets and future "rebuild from
+        # FM" tooling can filter them out. FM unreachable → log + carry
+        # on; the local delete must not depend on FM availability.
+        if fm_asset_id is not None and self.fm_client_app.client is not None:
+            try:
+                deleted_at = datetime.now(timezone.utc).isoformat()
+                await self.fm_client_app.mark_asset_deleted(fm_asset_id, deleted_at)
+            except Exception as e:
+                self.__log(
+                    f"Could not mark FM asset {fm_asset_id} as deleted: {e}",
+                    level="WARNING",
+                )
 
         self.v2g_settings.store_object("solar_panels", new_panels)
         self.__initialise_solar_panel_settings()

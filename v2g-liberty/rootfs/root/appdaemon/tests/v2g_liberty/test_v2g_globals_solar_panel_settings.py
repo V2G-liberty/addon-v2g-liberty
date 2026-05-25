@@ -64,6 +64,7 @@ def fm_client_mock():
     mock.client = Mock()  # truthy → "connected"
     mock.ensure_asset = AsyncMock(return_value=_FM_ASSET_ID)
     mock.ensure_sensor = AsyncMock(return_value=_FM_SENSOR_ID)
+    mock.mark_asset_deleted = AsyncMock(return_value=None)
     return mock
 
 
@@ -423,9 +424,7 @@ class TestSaveSolarPanelInsert:
 
         await globals_instance._V2GLibertyGlobals__save_solar_panel(
             "event",
-            _valid_panel_payload(
-                name="North", power_entity_id="sensor.shared_pv"
-            ),
+            _valid_panel_payload(name="North", power_entity_id="sensor.shared_pv"),
             {},
         )
 
@@ -609,6 +608,91 @@ class TestDeleteSolarPanel:
         assert settings_manager_mock.store_object.call_count == 1
         hass_mock.fire_event.assert_called_with(
             "delete_solar_panel.result", error="Solar panel 'sp_99' not found"
+        )
+
+    @pytest.mark.asyncio
+    async def test_delete_marks_fm_asset_when_connected(
+        self, globals_instance, settings_manager_mock, fm_client_mock
+    ):
+        """Delete with FM connected → mark_asset_deleted called with stored id."""
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "fm_asset_id": 777,
+                }
+            ],
+        )
+
+        await globals_instance._V2GLibertyGlobals__delete_solar_panel(
+            "event", {"id": "sp_1"}, {}
+        )
+
+        fm_client_mock.mark_asset_deleted.assert_awaited_once()
+        called_id = fm_client_mock.mark_asset_deleted.call_args.args[0]
+        assert called_id == 777
+        # Second arg is an ISO timestamp string — just sanity-check shape.
+        called_ts = fm_client_mock.mark_asset_deleted.call_args.args[1]
+        assert isinstance(called_ts, str) and "T" in called_ts
+
+    @pytest.mark.asyncio
+    async def test_delete_without_fm_asset_id_skips_mark(
+        self, globals_instance, settings_manager_mock, fm_client_mock
+    ):
+        """Panel that was never FM-provisioned → no mark_asset_deleted call."""
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    # no fm_asset_id
+                }
+            ],
+        )
+
+        await globals_instance._V2GLibertyGlobals__delete_solar_panel(
+            "event", {"id": "sp_1"}, {}
+        )
+
+        fm_client_mock.mark_asset_deleted.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_marks_fm_failure_does_not_block_local_delete(
+        self, globals_instance, settings_manager_mock, hass_mock, fm_client_mock
+    ):
+        """FM call raises → local delete still succeeds, success event fires."""
+        settings_manager_mock.store_object(
+            "solar_panels",
+            [
+                {
+                    "id": "sp_1",
+                    "name": "South",
+                    "phases": 1,
+                    "power_entity_id": "sensor.s",
+                    "fm_asset_id": 777,
+                }
+            ],
+        )
+        fm_client_mock.mark_asset_deleted = AsyncMock(
+            side_effect=RuntimeError("FM down")
+        )
+
+        await globals_instance._V2GLibertyGlobals__delete_solar_panel(
+            "event", {"id": "sp_1"}, {}
+        )
+
+        # Local persist happened (setup call + delete-side store)
+        assert settings_manager_mock.store_object.call_count == 2
+        # Success event fired despite FM failure
+        hass_mock.fire_event.assert_called_with(
+            "delete_solar_panel.result", solar_panels=[]
         )
 
 
@@ -935,7 +1019,14 @@ class TestSolarPanelFMProvisioningCalls:
             name="[TEST] South",
             generic_asset_type="solar",
             parent_asset_id=_FM_MAIN_CONNECTION_ID,
-            attributes={"peak_power_wp": 4000, "connected_to_phase": None},
+            attributes={
+                "peak_power_wp": 4000,
+                "connected_to_phase": None,
+                # Every save re-asserts the asset is active, clearing
+                # the v2g_liberty_deleted_at marker from any prior
+                # delete (see __delete_solar_panel).
+                "v2g_liberty_deleted_at": None,
+            },
             asset_id=None,
         )
 
