@@ -908,7 +908,7 @@ class TestChargerReparent:
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
-        fm_client_connected._asset_id = 99
+        fm_client_connected._charger_asset_id = 99
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
@@ -925,7 +925,7 @@ class TestChargerReparent:
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
-        fm_client_connected._asset_id = None
+        fm_client_connected._charger_asset_id = None
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 

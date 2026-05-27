@@ -1052,13 +1052,13 @@ class V2GLibertyGlobals:
             )
 
             # Re-parent charger asset under Main Connection
-            if self.fm_client_app._asset_id is not None:
+            if self.fm_client_app._charger_asset_id is not None:
                 await self.fm_client_app.client.update_asset(
-                    self.fm_client_app._asset_id,
+                    self.fm_client_app._charger_asset_id,
                     {"parent_asset_id": c.FM_MAIN_CONNECTION_ASSET_ID},
                 )
                 self.__log(
-                    f"Set charger asset {self.fm_client_app._asset_id} "
+                    f"Set charger asset {self.fm_client_app._charger_asset_id} "
                     f"as child of Main Connection {c.FM_MAIN_CONNECTION_ASSET_ID}"
                 )
 

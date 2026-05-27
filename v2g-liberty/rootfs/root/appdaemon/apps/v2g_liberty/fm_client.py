@@ -55,7 +55,12 @@ class FMClient(AsyncIOEventEmitter):
 
     # Should be FlexMeasuresClient but (early) import statement gives errors..
     client = None
-    _asset_id: int = None
+    # ID of the user's *charger* asset in FlexMeasures, resolved at FM
+    # client init by name (c.FM_ASSET_NAME). Kept as a single-asset
+    # reference for backward compat — see TODO in todo.md for the full
+    # rename of c.FM_ASSET_NAME → c.FM_CHARGER_ASSET_NAME, which is
+    # deferred because it touches the on-disk settings + HA YAML.
+    _charger_asset_id: int = None
     user_id: int | None = None
     _cached_account_id: int | None = None
     _cached_asset_types: dict[str, int] = None
@@ -209,8 +214,8 @@ class FMClient(AsyncIOEventEmitter):
         # both success and failure cases, so this method only returns the result string.
         await self.set_fm_connection_status(connected=True)
 
-        self._asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
-        if self._asset_id is None:
+        self._charger_asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
+        if self._charger_asset_id is None:
             self.__log(
                 f"Could not find asset '{c.FM_ASSET_NAME}' in FlexMeasures.",
                 level="WARNING",
@@ -226,8 +231,13 @@ class FMClient(AsyncIOEventEmitter):
 
         return "Successfully connected"
 
-    async def set_asset_attributes(self, attributes: dict):
-        """Write attributes to the FM asset, with retry mechanism.
+    async def set_asset_attributes(self, attributes: dict, asset_id: int | None = None):
+        """Write attributes to an FM asset, with retry mechanism.
+
+        ``asset_id`` defaults to ``self._charger_asset_id`` (the charger asset),
+        which preserves the original single-asset behaviour. Pass an
+        explicit ``asset_id`` to target another asset (e.g. the Main
+        Connection asset for V2G Liberty / HA version attributes).
 
         All attributes are sent in a single PATCH call to avoid
         overwriting previously set attributes.
@@ -237,7 +247,8 @@ class FMClient(AsyncIOEventEmitter):
                 "Client not initialised, cannot write attributes.", level="WARNING"
             )
             return
-        if self._asset_id is None:
+        target_id = asset_id if asset_id is not None else self._charger_asset_id
+        if target_id is None:
             self.__log("Asset ID not known, cannot write attributes.", level="WARNING")
             return
         if not attributes:
@@ -250,8 +261,8 @@ class FMClient(AsyncIOEventEmitter):
         delay = 15
         for attempt in range(max_attempts):
             try:
-                await self.client.update_asset(self._asset_id, asset_attributes)
-                self.__log(f"Wrote attributes to FM asset: {attributes}")
+                await self.client.update_asset(target_id, asset_attributes)
+                self.__log(f"Wrote attributes to FM asset id={target_id}: {attributes}")
                 return
             except Exception as e:
                 self.__log(
@@ -348,9 +359,9 @@ class FMClient(AsyncIOEventEmitter):
         # Re-use lat/lon from the existing charger asset
         latitude = 52.0
         longitude = 4.0
-        if self._asset_id is not None:
+        if self._charger_asset_id is not None:
             try:
-                charger_asset = await self.client.get_asset(self._asset_id)
+                charger_asset = await self.client.get_asset(self._charger_asset_id)
                 latitude = charger_asset.get("latitude", latitude)
                 longitude = charger_asset.get("longitude", longitude)
             except Exception:

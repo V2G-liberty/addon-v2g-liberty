@@ -45,7 +45,7 @@ def fm(hass_mock, event_bus_mock, fm_client_mock):
     with patch("apps.v2g_liberty.fm_client.isodate"):
         client = FMClient(hass_mock, event_bus_mock)
     client.client = fm_client_mock
-    client._asset_id = 99  # existing charger asset
+    client._charger_asset_id = 99  # existing charger asset
     return client
 
 
@@ -297,3 +297,32 @@ class TestEnsureSensor:
 
         with pytest.raises(RuntimeError, match="not initialised"):
             await fm.ensure_sensor(name="test", unit="kW", asset_id=1)
+
+
+class TestSetAssetAttributes:
+    @pytest.mark.asyncio
+    async def test_writes_to_explicit_asset_id(self, fm, fm_client_mock):
+        """Explicit asset_id targets that asset, not the charger."""
+        await fm.set_asset_attributes({"v2g-liberty-version": "1.2.3"}, asset_id=171)
+
+        fm_client_mock.update_asset.assert_called_once_with(
+            171, {"attributes": {"v2g-liberty-version": "1.2.3"}}
+        )
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_charger_asset_id(self, fm, fm_client_mock):
+        """When asset_id is None, falls back to self._charger_asset_id."""
+        await fm.set_asset_attributes({"v2g-liberty-version": None})
+
+        fm_client_mock.update_asset.assert_called_once_with(
+            99, {"attributes": {"v2g-liberty-version": None}}
+        )
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_target_available(self, fm, fm_client_mock):
+        """No update call and no raise when both asset_id and charger id are None."""
+        fm._charger_asset_id = None
+
+        await fm.set_asset_attributes({"v2g-liberty-version": "1.2.3"})
+
+        fm_client_mock.update_asset.assert_not_called()

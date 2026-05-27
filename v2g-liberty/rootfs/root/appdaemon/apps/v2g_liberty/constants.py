@@ -148,7 +148,11 @@ DEFAULT_UTILITY_CONTEXTS = {
 FM_ACCOUNT_USERNAME: str = ""
 FM_ACCOUNT_PASSWORD: str = ""
 
-# Name of the FM asset that is managed, e.g. "John's Quasar"
+# Name of the user's *charger* asset in FlexMeasures (e.g. "John's Quasar").
+# Historically called just FM_ASSET_NAME — predates the multi-asset model
+# (Main Connection / solar panels). A rename to FM_CHARGER_ASSET_NAME is
+# tracked in todo.md; deferred because it touches the on-disk settings
+# JSON, the HA input_text entity (`fm_asset`) and the cards UI.
 FM_ASSET_NAME: str = ""
 
 # Sensor entity for sending and id for retrieving data to/from FM
