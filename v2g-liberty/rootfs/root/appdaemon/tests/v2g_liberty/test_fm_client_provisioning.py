@@ -326,3 +326,55 @@ class TestSetAssetAttributes:
         await fm.set_asset_attributes({"v2g-liberty-version": "1.2.3"})
 
         fm_client_mock.update_asset.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_merges_into_existing_attributes(self, fm, fm_client_mock):
+        """New keys are merged into the existing attributes — FM replaces the
+        whole attributes object on a PATCH, so we read-modify-write."""
+        fm_client_mock.get_asset.return_value = {
+            "attributes": {"phases": 3, "capacity_per_phase": 25}
+        }
+
+        await fm.set_asset_attributes({"v2g-liberty-version": "1.2.3"}, asset_id=171)
+
+        fm_client_mock.get_asset.assert_called_once_with(171, parse_json_fields=True)
+        fm_client_mock.update_asset.assert_called_once_with(
+            171,
+            {
+                "attributes": {
+                    "phases": 3,
+                    "capacity_per_phase": 25,
+                    "v2g-liberty-version": "1.2.3",
+                }
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_sequential_writes_preserve_both_sets(self, fm, fm_client_mock):
+        """Two separate writers on the same asset keep both attribute sets —
+        a version write must not clobber grid phases/capacity (and vice versa)."""
+        state = {"attributes": {}}
+
+        async def fake_get_asset(asset_id, parse_json_fields=None):
+            return {"attributes": dict(state["attributes"])}
+
+        async def fake_update_asset(asset_id, updates):
+            if "attributes" in updates:
+                state["attributes"] = updates["attributes"]
+            return {}
+
+        fm_client_mock.get_asset.side_effect = fake_get_asset
+        fm_client_mock.update_asset.side_effect = fake_update_asset
+
+        # Writer 1: grid provisioning sets phases/capacity.
+        await fm.set_asset_attributes(
+            {"phases": 3, "capacity_per_phase": 25}, asset_id=171
+        )
+        # Writer 2: version attributes on the same asset.
+        await fm.set_asset_attributes({"v2g-liberty-version": "1.2.3"}, asset_id=171)
+
+        assert state["attributes"] == {
+            "phases": 3,
+            "capacity_per_phase": 25,
+            "v2g-liberty-version": "1.2.3",
+        }

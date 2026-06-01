@@ -239,8 +239,12 @@ class FMClient(AsyncIOEventEmitter):
         explicit ``asset_id`` to target another asset (e.g. the Main
         Connection asset for V2G Liberty / HA version attributes).
 
-        All attributes are sent in a single PATCH call to avoid
-        overwriting previously set attributes.
+        Read-modify-write: FlexMeasures *replaces* the whole ``attributes``
+        object on a PATCH (confirmed against staging), so the current
+        attributes are fetched and the new keys are merged in before writing.
+        This prevents separate writers — e.g. grid phases/capacity
+        provisioning vs. version attributes on the Main Connection — from
+        clobbering each other's keys.
         """
         if self.client is None:
             self.__log(
@@ -255,13 +259,16 @@ class FMClient(AsyncIOEventEmitter):
             self.__log("No attributes to write, abort.", level="WARNING")
             return
 
-        asset_attributes = {"attributes": attributes}
-
         max_attempts = 5
         delay = 15
         for attempt in range(max_attempts):
             try:
-                await self.client.update_asset(target_id, asset_attributes)
+                # Merge into the existing attributes: a PATCH replaces the
+                # whole attributes object on the FM side.
+                current = await self.client.get_asset(target_id, parse_json_fields=True)
+                existing = current.get("attributes") or {}
+                merged = {**existing, **attributes}
+                await self.client.update_asset(target_id, {"attributes": merged})
                 self.__log(f"Wrote attributes to FM asset id={target_id}: {attributes}")
                 return
             except Exception as e:
