@@ -897,6 +897,37 @@ class TestProvisionGridAssets:
         log_mock.assert_called()
         assert "failed" in str(log_mock.call_args).lower()
 
+    @pytest.mark.asyncio
+    async def test_main_connection_sensors_to_show(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """All provisioned grid sensors are written to the Main Connection's
+        top-level sensors_to_show field (not as an attribute)."""
+        c.GRID_PHASES = 3
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        sts_calls = [
+            call_
+            for call_ in fm_client_connected.client.update_asset.call_args_list
+            if "sensors_to_show" in call_.args[1]
+        ]
+        assert len(sts_calls) == 1
+        asset_id_arg, payload = sts_calls[0].args
+        assert asset_id_arg == c.FM_MAIN_CONNECTION_ASSET_ID
+
+        expected = []
+        for phase in range(1, 4):
+            expected.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
+            expected.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
+        expected += [c.FM_AGGREGATE_POWER_SENSOR_ID, c.FM_EMS_STATUS_SENSOR_ID]
+        assert payload["sensors_to_show"] == expected
+        # sensors_to_show is a top-level field, never inside attributes
+        assert "attributes" not in payload
+
 
 class TestChargerReparent:
     """Tests for charger asset re-parenting — task 15."""
@@ -912,7 +943,7 @@ class TestChargerReparent:
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
-        fm_client_connected.client.update_asset.assert_called_once_with(
+        fm_client_connected.client.update_asset.assert_any_call(
             99, {"parent_asset_id": 500}
         )
 
@@ -929,7 +960,14 @@ class TestChargerReparent:
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
-        fm_client_connected.client.update_asset.assert_not_called()
+        # No reparent call when the charger asset id is unknown; the only
+        # update_asset call is the sensors_to_show write on Main Connection.
+        reparent_calls = [
+            call_
+            for call_ in fm_client_connected.client.update_asset.call_args_list
+            if "parent_asset_id" in call_.args[1]
+        ]
+        assert reparent_calls == []
 
 
 class TestProvisioningTriggerOnSave:

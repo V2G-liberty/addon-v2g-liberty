@@ -939,9 +939,17 @@ class V2GLibertyGlobals:
         )
         panel["fm_sensor_id"] = sensor_id
 
+        # Show the power sensor on the PV asset's FM page (top-level field,
+        # leaves the asset attributes untouched).
+        await self.fm_client_app.client.update_asset(
+            asset_id,
+            {"sensors_to_show": [sensor_id]},
+        )
+
         self.__log(
             f"Solar panel FM provisioning complete for '{panel['name']}': "
-            f"asset={asset_id}, sensor={sensor_id}"
+            f"asset={asset_id}, sensor={sensor_id}, "
+            f"sensors_to_show=[{sensor_id}]"
         )
 
     async def __delete_solar_panel(self, event, data, kwargs):
@@ -1094,13 +1102,28 @@ class V2GLibertyGlobals:
                 asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
             )
 
+            # Show all provisioned grid sensors on the Main Connection's FM
+            # page. sensors_to_show is a top-level asset field (not an
+            # attribute), so phases/capacity stay untouched.
+            sensors_to_show = []
+            for phase in range(1, c.GRID_PHASES + 1):
+                sensors_to_show.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
+                sensors_to_show.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
+            sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
+            sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
+            await self.fm_client_app.client.update_asset(
+                c.FM_MAIN_CONNECTION_ASSET_ID,
+                {"sensors_to_show": sensors_to_show},
+            )
+
             self.__log(
                 f"Grid FM provisioning complete: "
                 f"asset={c.FM_MAIN_CONNECTION_ASSET_ID}, "
                 f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
                 f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
                 f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
-                f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}"
+                f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
+                f"sensors_to_show={sensors_to_show}"
             )
         except Exception as e:
             self.__log(

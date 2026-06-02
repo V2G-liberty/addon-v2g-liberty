@@ -62,6 +62,7 @@ def fm_client_mock():
     """
     mock = MagicMock()
     mock.client = Mock()  # truthy → "connected"
+    mock.client.update_asset = AsyncMock()
     mock.ensure_asset = AsyncMock(return_value=_FM_ASSET_ID)
     mock.ensure_sensor = AsyncMock(return_value=_FM_SENSOR_ID)
     mock.mark_asset_deleted = AsyncMock(return_value=None)
@@ -1044,6 +1045,21 @@ class TestSolarPanelFMProvisioningCalls:
             name="Power",
             unit="kW",
             asset_id=_FM_ASSET_ID,
+        )
+
+    @pytest.mark.asyncio
+    async def test_sensors_to_show_set_on_panel_asset(
+        self, globals_instance, fm_client_mock
+    ):
+        """The panel's Power sensor is written to the asset's top-level
+        sensors_to_show field (not as an attribute)."""
+        c.GRID_PHASES = 1
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(), {}
+        )
+
+        fm_client_mock.client.update_asset.assert_called_once_with(
+            _FM_ASSET_ID, {"sensors_to_show": [_FM_SENSOR_ID]}
         )
 
     @pytest.mark.asyncio

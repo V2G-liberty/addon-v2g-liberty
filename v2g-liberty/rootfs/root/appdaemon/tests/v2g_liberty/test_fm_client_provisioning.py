@@ -136,6 +136,41 @@ class TestEnsureAsset:
         )
 
     @pytest.mark.asyncio
+    async def test_merges_attributes_on_existing(self, fm, fm_client_mock):
+        """Existing attributes are preserved (merged) — a PATCH replaces the
+        whole attributes object, so a phases/capacity write must not wipe the
+        version attributes already on the Main Connection."""
+        fm_client_mock.get_assets.return_value = [
+            {
+                "id": 55,
+                "name": "Main Connection",
+                "sensors": [],
+                "attributes": {
+                    "v2g-liberty-version": "1.2.3",
+                    "home-assistant-version": "2026.4.1",
+                },
+            }
+        ]
+
+        await fm.ensure_asset(
+            name="Main Connection",
+            generic_asset_type="building",
+            attributes={"phases": 3, "capacity_per_phase": 25},
+        )
+
+        fm_client_mock.update_asset.assert_called_once_with(
+            55,
+            {
+                "attributes": {
+                    "v2g-liberty-version": "1.2.3",
+                    "home-assistant-version": "2026.4.1",
+                    "phases": 3,
+                    "capacity_per_phase": 25,
+                }
+            },
+        )
+
+    @pytest.mark.asyncio
     async def test_no_update_without_attributes(self, fm, fm_client_mock):
         """No update_asset call when no attributes provided."""
         fm_client_mock.get_assets.return_value = [

@@ -353,7 +353,11 @@ class FMClient(AsyncIOEventEmitter):
         if match:
             existing_id = match["id"]
             if attributes:
-                await self.client.update_asset(existing_id, {"attributes": attributes})
+                # Merge into the existing attributes: a PATCH replaces the whole
+                # attributes object on the FM side, so writing only the new keys
+                # would wipe others (e.g. version attributes on Main Connection).
+                merged = {**(match.get("attributes") or {}), **attributes}
+                await self.client.update_asset(existing_id, {"attributes": merged})
                 self.__log(f"Updated attributes for asset '{name}' (id={existing_id})")
             else:
                 self.__log(f"Found existing asset '{name}' (id={existing_id})")
