@@ -10,3 +10,6 @@ import './electricity-contract-settings-card';
 import './optimisation-settings-card';
 import './settings-error-alert-card';
 import './schedule-settings-card';
+import './grid-connection-settings-card';
+import './solar-panels-settings-card';
+import './edit-solar-panel-dialog';

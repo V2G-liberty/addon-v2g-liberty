@@ -3,28 +3,38 @@ import * as Polyglot from 'node-polyglot';
 import * as en from '../strings.json';
 import * as nl from '../translations/nl.json';
 
-const polyglot = initialize();
+const LANGUAGES: Record<string, any> = { en, nl };
 
-function initialize(): Polyglot {
-  const languages = { en, nl };
-  const lang = navigator.language.split('-')[0];
-  let polyglot = new Polyglot({
-    phrases: en,
+// English fallback polyglot — used as the safety net for missing keys
+// in any other language.
+const fallback = new Polyglot({
+  phrases: en,
+  allowMissing: true,
+  onMissingKey: () => null,
+});
+
+let currentLang = 'en';
+let polyglot: Polyglot = fallback;
+
+function buildPolyglot(lang: string): Polyglot {
+  if (lang === 'en' || !LANGUAGES[lang]) return fallback;
+  return new Polyglot({
+    phrases: LANGUAGES[lang],
     allowMissing: true,
-    onMissingKey: key => {
-      // console.error(`Cannot translate '${key}'`);
-      return null;
-    },
+    onMissingKey: (key, options) => fallback.t(key, options),
   });
-  if (lang !== 'en' && languages[lang]) {
-    const fallback = polyglot;
-    polyglot = new Polyglot({
-      phrases: languages[lang],
-      allowMissing: true,
-      onMissingKey: (key, options) => fallback.t(key, options),
-    });
-  }
-  return polyglot;
+}
+
+/**
+ * Set the active UI language. Cards should call this from their `set hass()`
+ * with `hass.locale?.language ?? hass.language ?? 'en'` so the cards follow
+ * the user's Home Assistant language preference instead of the browser locale.
+ */
+export function setLanguage(lang: string | null | undefined): void {
+  const normalised = (lang ?? 'en').split('-')[0];
+  if (normalised === currentLang) return;
+  currentLang = normalised;
+  polyglot = buildPolyglot(normalised);
 }
 
 export function t(

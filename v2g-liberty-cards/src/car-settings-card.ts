@@ -4,7 +4,7 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityRow } from './util/render';
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 import { styles } from './card.styles';
 import {
   showCarBatteryUsableCapacityDialog,
@@ -27,6 +27,7 @@ class CarSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._usableCapacity = hass.states[entityIds.usableCapacity];
     this._roundtripEfficiency = hass.states[entityIds.roundtripEfficiency];
     this._carEnergyConsumption = hass.states[entityIds.carEnergyConsumption];

@@ -8,6 +8,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import time_round, convert_to_duration_string
+from .timer_utils import set_recurring_timer
 
 
 class ManageAmberPriceData:
@@ -63,7 +64,7 @@ class ManageAmberPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="amber_price_data_manager")
 
     async def initialize(self):
         self.__log("ManageAmberPriceData.")
@@ -108,11 +109,9 @@ class ManageAmberPriceData:
         if initial:
             await self.__check_for_price_changes({"forced": True})
 
-        if self.hass.timer_running(self.poll_timer_handle):
-            silent = True  # Does not really work
-            await self.hass.cancel_timer(self.poll_timer_handle, silent)
-
-        self.poll_timer_handle = await self.hass.run_every(
+        self.poll_timer_handle = await set_recurring_timer(
+            self.hass,
+            self.poll_timer_handle,
             self.__check_for_price_changes,
             start="now+2",
             interval=self.POLLING_INTERVAL_SECONDS,
@@ -169,7 +168,7 @@ class ManageAmberPriceData:
             uom = f"{self.CURRENCY}/MWh"
 
             if self.fm_client_app is not None:
-                res = await self.fm_client_app.post_measurements(
+                res = await self.fm_client_app.post_sensor_data(
                     sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
                     values=consumption_prices,
                     start=start_cpf,
@@ -178,14 +177,14 @@ class ManageAmberPriceData:
                 )
             else:
                 self.__log(
-                    "1 Could not call post_measurements on fm_client_app as it is None."
+                    "1 Could not call post_sensor_data on fm_client_app as it is None."
                 )
                 res = False
 
             if res:
                 if self.get_fm_data_module is not None:
                     # FM needs process time for the just uploaded prices before they can be queried
-                    self.hass.run_in(
+                    await self.hass.run_in(
                         self.get_fm_data_module.get_prices_wrapper,
                         delay=45,
                         price_type="consumption",
@@ -218,7 +217,7 @@ class ManageAmberPriceData:
             self.last_emissions = list(emissions)
 
             if self.fm_client_app is not None:
-                res = await self.fm_client_app.post_measurements(
+                res = await self.fm_client_app.post_sensor_data(
                     sensor_id=c.FM_EMISSIONS_SENSOR_ID,
                     values=emissions,
                     start=start_cpf,
@@ -227,7 +226,7 @@ class ManageAmberPriceData:
                 )
             else:
                 self.__log(
-                    "1 Could not call post_measurements on fm_client_app as it is None."
+                    "1 Could not call post_sensor_data on fm_client_app as it is None."
                 )
                 res = False
 
@@ -274,7 +273,7 @@ class ManageAmberPriceData:
             uom = f"{self.CURRENCY}/MWh"
 
             if self.fm_client_app is not None:
-                res = await self.fm_client_app.post_measurements(
+                res = await self.fm_client_app.post_sensor_data(
                     sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
                     values=production_prices,
                     start=start_ppf,
@@ -283,14 +282,14 @@ class ManageAmberPriceData:
                 )
             else:
                 self.__log(
-                    "2 Could not call post_measurements on fm_client_app as it is None."
+                    "2 Could not call post_sensor_data on fm_client_app as it is None."
                 )
                 res = False
 
             if res:
                 if self.get_fm_data_module is not None:
                     # FM needs process time for the just uploaded prices before they can be queried
-                    self.hass.run_in(
+                    await self.hass.run_in(
                         self.get_fm_data_module.get_prices_wrapper,
                         delay=45,
                         price_type="production",

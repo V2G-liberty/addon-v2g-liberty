@@ -12,6 +12,7 @@ import asyncio
 from aiohttp import ClientTimeout, ClientError
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .timer_utils import set_daily_timer
 from .v2g_globals import (
     time_round,
     get_local_now,
@@ -89,7 +90,7 @@ class ManageOctopusPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="octopus_price_data_manager")
 
     async def initialize(self):
         self.__log("Initializing")
@@ -170,10 +171,11 @@ class ManageOctopusPriceData:
 
         self.emission_region_slug = f"/fw48h/regionid/{region_index}"
 
-        if self.hass.timer_running(self.daily_timer_id):
-            await self.hass.cancel_timer(self.daily_timer_id, silent=True)
-        self.daily_timer_id = self.hass.run_daily(
-            self.__daily_kickoff_prices_emissions, start=self.FIRST_TRY_TIME_GET_DATA
+        self.daily_timer_id = await set_daily_timer(
+            self.hass,
+            self.daily_timer_id,
+            self.__daily_kickoff_prices_emissions,
+            start=self.FIRST_TRY_TIME_GET_DATA,
         )
 
         # Always kickoff at startup, delay to give globals the time to get all settings right first.
@@ -245,9 +247,9 @@ class ManageOctopusPriceData:
         consumption_prices = [
             convert_price(price[self.PRICE_LABEL]) for price in reversed(prices)
         ]
-        # self.__log(f"start: {start}, end: {end}, prices: {prices}.")
+        self.__log(f"start: {start}, end: {end}, prices: {prices}.", level="DEBUG")
         if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
+            res = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
                 values=consumption_prices,
                 start=start,
@@ -256,7 +258,7 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                "Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_sensor_data on fm_client_app as it is None."
             )
             res = False
 
@@ -264,7 +266,7 @@ class ManageOctopusPriceData:
         if res:
             if self.get_fm_data_module is not None:
                 # FM needs processing time for the just uploaded prices before they can be queried
-                self.hass.run_in(
+                await self.hass.run_in(
                     self.get_fm_data_module.get_prices_wrapper,
                     delay=45,
                     price_type="consumption",
@@ -320,10 +322,10 @@ class ManageOctopusPriceData:
         production_prices = [
             convert_price(price[self.PRICE_LABEL]) for price in reversed(prices)
         ]
-        # self.__log(f"start: {start}, end: {end}, prices: {prices}.")
+        self.__log(f"start: {start}, end: {end}, prices: {prices}.", level="DEBUG")
 
         if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
+            res = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
                 values=production_prices,
                 start=start,
@@ -332,7 +334,7 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                "Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_sensor_data on fm_client_app as it is None."
             )
             res = False
 
@@ -340,7 +342,7 @@ class ManageOctopusPriceData:
         if res:
             if self.get_fm_data_module is not None:
                 # FM needs processing time for the just uploaded prices before they can be queried
-                self.hass.run_in(
+                await self.hass.run_in(
                     self.get_fm_data_module.get_prices_wrapper,
                     delay=45,
                     price_type="production",
@@ -397,7 +399,7 @@ class ManageOctopusPriceData:
         # self.EMISSIONS_UOM = "%"
 
         if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
+            res = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_EMISSIONS_SENSOR_ID,
                 values=emission_intensities,
                 start=start,
@@ -406,7 +408,7 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                "Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_sensor_data on fm_client_app as it is None."
             )
             res = False
 

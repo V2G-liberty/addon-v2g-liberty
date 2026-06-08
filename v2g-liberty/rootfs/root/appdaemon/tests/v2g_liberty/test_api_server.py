@@ -64,8 +64,14 @@ class TestInitialisation:
         await api_server.initialise()
         hass.register_endpoint.assert_called_once()
         assert hass.register_endpoint.call_args[0][1] == "v2g_data"
-        hass.listen_event.assert_called_once()
-        assert hass.listen_event.call_args[0][1] == "v2g_data_query"
+        # Three event listeners: data query, on-demand repair, debug logging.
+        assert hass.listen_event.call_count == 3
+        registered_events = {call.args[1] for call in hass.listen_event.call_args_list}
+        assert registered_events == {
+            "v2g_data_query",
+            "v2g_run_full_repair",
+            "v2g_enable_debug_logging",
+        }
 
     @pytest.mark.asyncio
     async def test_valid_granularities_constant(self):

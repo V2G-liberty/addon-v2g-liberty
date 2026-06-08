@@ -1,5 +1,6 @@
 """Unit test (pytest) for event_bus module."""
 
+import logging
 from unittest.mock import AsyncMock, patch
 import pytest
 from apps.v2g_liberty.event_bus import EventBus
@@ -12,15 +13,6 @@ from appdaemon.plugins.hass.hassapi import Hass
 # W0719 - Catching Exception is safe in event wrapper testing
 
 
-def get_log_message(log_call):
-    """Extract the log message from the call arguments."""
-    if log_call and log_call.args:
-        return log_call.args[0]
-    elif log_call and log_call.kwargs:
-        return log_call.kwargs.get("msg", "")
-    return ""
-
-
 @pytest.fixture
 def hass():
     return AsyncMock(spec=Hass)
@@ -31,11 +23,11 @@ def event_bus(hass):
     return EventBus(hass)
 
 
-def test_initialization(event_bus, hass):
-    assert event_bus.hass == hass
-    log_call = hass.log.call_args
-    assert "EventBus initialized successfully." in get_log_message(log_call)
-    assert log_call.kwargs.get("level") == "INFO"
+def test_initialization(hass, caplog):
+    with caplog.at_level(logging.INFO):
+        bus = EventBus(hass)
+    assert bus.hass == hass
+    assert "EventBus initialized successfully." in caplog.text
 
 
 def test_add_event_listener_and_emit_event(event_bus):
@@ -51,17 +43,15 @@ def test_add_event_listener_and_emit_event(event_bus):
     assert called[0] == (("arg1",), {"key": "value"})
 
 
-def test_add_event_listener_duplicate_warning(event_bus, hass):
+def test_add_event_listener_duplicate_warning(event_bus, hass, caplog):
     def mock_listener(*_args, **_kwargs):
         pass
 
-    event_bus.add_event_listener("test_event", mock_listener)
-    event_bus.add_event_listener("test_event", mock_listener)
+    with caplog.at_level(logging.WARNING):
+        event_bus.add_event_listener("test_event", mock_listener)
+        event_bus.add_event_listener("test_event", mock_listener)
 
-    log_call = hass.log.call_args
-    log_message = get_log_message(log_call)
-    assert "already registered" in log_message
-    assert log_call.kwargs.get("level") == "WARNING"
+    assert "already registered" in caplog.text
 
 
 def test_remove_event_listener(event_bus):
@@ -77,66 +67,55 @@ def test_remove_event_listener(event_bus):
     assert "called" not in called
 
 
-def test_remove_event_listener_not_found(event_bus, hass):
+def test_remove_event_listener_not_found(event_bus, hass, caplog):
     def mock_listener(*_args, **_kwargs):
         pass
 
-    event_bus.remove_event_listener("test_event", mock_listener)
-    log_call = hass.log.call_args
-    assert "not found" in get_log_message(log_call)
-    assert log_call.kwargs.get("level") == "WARNING"
+    with caplog.at_level(logging.WARNING):
+        event_bus.remove_event_listener("test_event", mock_listener)
+
+    assert "not found" in caplog.text
 
 
-def test_emit_event_no_listeners_logs_warning(event_bus, hass):
-    event_bus.emit_event("no_listener_event", 1, test="x")
-    log_call = hass.log.call_args
-    assert "has no listeners" in get_log_message(log_call)
-    assert log_call.kwargs.get("level") == "WARNING"
+def test_emit_event_no_listeners_logs_warning(event_bus, hass, caplog):
+    with caplog.at_level(logging.WARNING):
+        event_bus.emit_event("no_listener_event", 1, test="x")
+
+    assert "has no listeners" in caplog.text
 
 
-def test_emit_event_with_exception(event_bus, hass):
+def test_emit_event_with_exception(event_bus, hass, caplog):
     def mock_listener(*args, **kwargs):
         raise Exception("Oops!")
 
     event_bus.add_event_listener("err_event", mock_listener)
-    event_bus.emit_event("err_event", 1)
 
-    log_call = hass.log.call_args
-    log_msg = get_log_message(log_call)
+    with caplog.at_level(logging.WARNING):
+        event_bus.emit_event("err_event", 1)
 
-    # ✅ Only check key parts
-    assert "err_event" in log_msg
-    assert "Oops!" in log_msg
-    assert "Error" in log_msg
-
-    assert log_call.kwargs.get("level") == "WARNING"
+    assert "err_event" in caplog.text
+    assert "Oops!" in caplog.text
 
 
-def test_add_event_listener_with_exception(event_bus, hass):
+def test_add_event_listener_with_exception(event_bus, hass, caplog):
     def mock_listener(*_args, **_kwargs):
         pass
 
-    with patch.object(event_bus, "listeners", side_effect=Exception("Boom!")):
-        event_bus.add_event_listener("faulty_add", mock_listener)
+    with caplog.at_level(logging.WARNING):
+        with patch.object(event_bus, "listeners", side_effect=Exception("Boom!")):
+            event_bus.add_event_listener("faulty_add", mock_listener)
 
-    log_call = hass.log.call_args
-    assert (
-        "Error while adding listener to event 'faulty_add': Boom!"
-        in get_log_message(log_call)
-    )
-    assert log_call.kwargs.get("level") == "WARNING"
+    assert "Error while adding listener to event 'faulty_add': Boom!" in caplog.text
 
 
-def test_remove_event_listener_with_exception(event_bus, hass):
+def test_remove_event_listener_with_exception(event_bus, hass, caplog):
     def mock_listener(*_args, **_kwargs):
         pass
 
-    with patch.object(event_bus, "listeners", side_effect=Exception("Boom!")):
-        event_bus.remove_event_listener("faulty_remove", mock_listener)
+    with caplog.at_level(logging.WARNING):
+        with patch.object(event_bus, "listeners", side_effect=Exception("Boom!")):
+            event_bus.remove_event_listener("faulty_remove", mock_listener)
 
-    log_call = hass.log.call_args
     assert (
-        "Error while removing listener from event 'faulty_remove': Boom!"
-        in get_log_message(log_call)
+        "Error while removing listener from event 'faulty_remove': Boom!" in caplog.text
     )
-    assert log_call.kwargs.get("level") == "WARNING"

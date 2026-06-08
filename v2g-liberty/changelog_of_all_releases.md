@@ -3,19 +3,45 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.8.0 2026-03-??
+## 0.8.1 2026-06-??
 
 ### Fixed
 
+- 🪲 BUG: Reduce excessive FM schedule requests on SoC changes (#446)
+- 🪲 BUG: Fix orphaned schedule timers overriding charge mode changes (#444)
+- 🪲 BUG: Fix ping card toast not showing after mwc-snackbar to ha-toast migration (#443)
+
+### Added
+
+- 🚀 FEAT: Pass SoC sensor ID in flex-model (#440)
+- 🚀 FEAT: grid pv monitoring (#450)
+
+### Changed
+
+- 🛠️ Refactor: Migrate to python logging (#448)
+- 🛠️ Refactor: make AppDaemon timer-API usage consistently async in main_app (#445)
+- 🛠️ Refactor: Increase FM data send frequency from daily to hourly (#441)
+
+
+
+## 0.8.0 2026-04-09
+
+### Fixed
+
+- 🪲 BUG: Fix charge power deviation log flooding (#436)
+- 🪲 BUG: Improve test notification with sound feedback buttons (#434)
+- 🪲 BUG: Fix set next action timer (#429)
 - 🪲 BUG: Fix Android critical notifications not playing alarm sound (#426)
 - 🪲 BUG: Fix DST-related flatline prices by migrating from pytz to zoneinfo (#425)
 
 ### Added
 
-- 🚀 FEAT: Extend insights (#420, #423)
+- 🚀 FEAT: Extend insights (#420, #423, #430)
 
 ### Changed
 
+- 🛠️ Refactor: Reduce event bus slow listener log noise (#437)
+- 🛠️ Refactor: centralise async timer API usage (#432)
 - ⬆️ Bump flexmeasures-client from 0.7.0 to 0.8.1 (#422)
 
 ## 0.7.6 2026-03-09

@@ -4,7 +4,7 @@ import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityRow } from './util/render';
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 import { styles } from './card.styles';
 import {
   showOptimisationModeDialog,
@@ -30,6 +30,7 @@ class OptimisationSettingsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
     this._optimisationMode = hass.states[entityIds.optimisationMode];
     this._lowerChargeLimit = hass.states[entityIds.lowerChargeLimit];
     this._upperChargeLimit = hass.states[entityIds.upperChargeLimit];

@@ -172,12 +172,15 @@ class SettingsManager:
             entity_id (str): setting name = the full entity_id from HA
             setting_value: the value to set.
         """
-        # self.__log(f"__store_setting, entity_id: '{entity_id}' to value '{value}'.")
+        self.__log(
+            f"__store_setting, entity_id: '{entity_id}' to value '{value}'.",
+            level="DEBUG",
+        )
         self.settings[entity_id] = value
         self.__write_to_file()
 
     def __write_to_file(self):
-        # self.__log(f"__write_to_file, settings: '{self.settings}'.")
+        self.__log(f"__write_to_file, settings: '{self.settings}'.", level="DEBUG")
         # Write to a temporary file first, then atomically replace.
         # This prevents an empty settings file if the process is killed
         # during write (e.g. system reboot, HA restart, power loss).
@@ -192,6 +195,28 @@ class SettingsManager:
 
     def get(self, entity_id):
         return self.settings.get(entity_id, None)
+
+    def get_object(
+        self, key: str, default: dict | list | None = None
+    ) -> dict | list | None:
+        """Retrieve a structured object (dict or list) from settings by key.
+
+        Returns the stored value if it is a dict or list. Falls back to
+        ``default`` when the key is missing or the stored value is of any
+        other type.
+        """
+        value = self.settings.get(key, None)
+        if isinstance(value, (dict, list)):
+            return value
+        return default
+
+    def store_object(self, key: str, data: dict | list):
+        """Store a structured object (dict or list) in settings.
+
+        Overwrites any existing value for the given key.
+        """
+        self.settings[key] = data
+        self.__write_to_file()
 
     # ── Internal (non-HA) values ──────────────────────────────────────────────
     # These are technical values with no corresponding HA input entity.

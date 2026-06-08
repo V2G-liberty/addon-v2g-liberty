@@ -12,6 +12,7 @@ from .log_wrapper import get_class_method_logger
 from .notifier_util import Notifier
 from .v2g_globals import parse_to_int
 from .event_bus import EventBus
+from .timer_utils import cancel_timer_silent, set_oneshot_timer
 
 
 class ModbusEVSEclient(AsyncIOEventEmitter):
@@ -167,6 +168,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     # Holds the last known requested charge power that was set in the
     # charger register CHARGER_SET_CHARGE_POWER_REGISTER. Used for deviation comparison.
     requested_charge_power: int = 0
+    _is_power_deviating: bool = False
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400
@@ -254,7 +256,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         """
         super().__init__()
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="modbus_evse_client")
 
         self.event_bus = event_bus
 
@@ -477,27 +479,27 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
     async def is_car_connected(self) -> bool:
         """Indicates if currently a car is connected to the charger."""
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         is_connected = self.client is not None
         is_connected = (
             is_connected
             and await self.__get_charger_state() not in self.DISCONNECTED_STATES
         )
-        self.__log(f"called, returning: {is_connected}")
+        self.__log(f"is_connected: {is_connected}", level="DEBUG")
         return is_connected
 
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         return await self.__get_charger_state() == self.CHARGING_STATE
 
     async def is_discharging(self) -> bool:
         """Indicates if currently the connected car is discharging (not charging)"""
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         return await self.__get_charger_state() == self.DISCHARGING_STATE
 
@@ -571,7 +573,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         """
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         if take_or_give_control == "take":
             await self.__modbus_write(
@@ -633,18 +635,25 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             self.__log(f"Charge power is not a number: '{new_power}', treating as 0W.")
             new_power = 0
         self.event_bus.emit_event("charge_power_change", new_power=new_power)
-        if abs(new_power - self.requested_charge_power) > 500:
+        is_deviating = abs(new_power - self.requested_charge_power) > 500
+        if is_deviating and not self._is_power_deviating:
             self.__log(
-                f"Actual charge power ({new_power}W) deviates strongly from "
+                f"Actual charge power ({new_power}W) deviates > 500W from "
                 f"requested ({self.requested_charge_power}W)."
             )
+        elif not is_deviating and self._is_power_deviating:
+            self.__log(
+                f"Charge power deviation resolved, actual: {new_power}W, "
+                f"requested: {self.requested_charge_power}W."
+            )
+        self._is_power_deviating = is_deviating
 
     async def __handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
     ):
         self.__log(f"called {new_charger_state=}, {old_charger_state=}.")
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         if (
             new_charger_state in self.ERROR_STATES
@@ -713,10 +722,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         Returns:
             nothing
         """
-        self.__log(f"Called with action '{action}', reason: '{reason}'.")
+        self.__log(f"Called with action '{action}', reason: '{reason}'.", level="DEBUG")
 
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         action_value = ""
 
@@ -744,12 +753,12 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         await self.__modbus_write(
             address=self.SET_ACTION_REGISTER, value=action_value, source=txt
         )
-        self.__log(f"{txt}{reason}")
+        self.__log(f"{txt}{reason}", level="DEBUG")
         return
 
     async def __is_charging_or_discharging(self) -> bool:
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         state = await self.__get_charger_state()
         if state is None:
@@ -775,7 +784,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         If the car is disconnected the charger returns 0 representing "unavailable".
         """
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         if not await self.is_car_connected():
             self.__log("no car connected, returning SoC = 'unavailable'")
@@ -867,7 +876,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
     async def __get_charger_state(self) -> int:
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         charger_state = self.ENTITY_CHARGER_STATE["current_value"]
         if charger_state is None:
@@ -879,7 +888,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
     async def __get_charge_power(self) -> int:
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         state = self.ENTITY_CHARGER_CURRENT_POWER["current_value"]
         if state is None:
@@ -1046,9 +1055,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             source (str, optional):
               For logging purposes.
         """
-        self.__log(f"called from {source}, power {charge_power}.")
+        self.__log(f"called from {source}, power {charge_power}.", level="DEBUG")
         if not self._am_i_active:
-            self.__log("called while _am_i_active is false, not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         # Make sure that discharging does not occur below minimum SoC.
         if not skip_min_soc_check and charge_power < 0:
@@ -1083,7 +1092,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         if self.requested_charge_power == charge_power:
             self.__log(
                 f"New-charge-power-setting from {source=} is same as "
-                f"current-charge-power-setting: {charge_power} W. Not writing to charger."
+                f"current-charge-power-setting: {charge_power} W. Not writing to charger.",
+                level="DEBUG",
             )
             return
 
@@ -1095,7 +1105,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         self.requested_charge_power = charge_power
 
         if not res:
-            self.__log(f"Failed to set charge power to {charge_power} Watt.")
+            self.__log(
+                f"Failed to set charge power to {charge_power} Watt.", level="WARNING"
+            )
             # If negative value result in false, check if grid code is set correct in charger.
         return
 
@@ -1111,7 +1123,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         When Charge mode is off, is handled by handle_charge_mode
         """
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         if self.try_get_new_soc_in_process:
             # At the end of the process of (forcefully) getting a soc this method is called (again).
@@ -1153,10 +1165,10 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
             reason (str, optional): For debugging only
         """
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         self.__log(f"reason: {reason}")
-        self.__cancel_timer(self.poll_timer_handle)
+        await cancel_timer_silent(self.hass, self.poll_timer_handle)
         self.poll_timer_handle = None
         self.event_bus.emit_event("evse_polled", stop=True)
 
@@ -1219,7 +1231,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         :return: the read value
         """
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         # Times in seconds
         total_time = 0
@@ -1306,7 +1318,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         """
 
         if not self._am_i_active:
-            self.__log("called while _am_i_active == False. Not blocking.")
+            self.__log("Called while inactive, not blocking.", level="DEBUG")
 
         if value < 0:
             # Modbus cannot handle negative values directly.
@@ -1456,7 +1468,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
                     f"Starting check_error_state timer "
                     f"{self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s."
                 )
-                self.timer_id_check_error_state = self.hass.run_in(
+                self.timer_id_check_error_state = await set_oneshot_timer(
+                    self.hass,
+                    self.timer_id_check_error_state,
                     self.__handle_charger_error_state_change,
                     delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
                     new_charger_state=None,
@@ -1470,7 +1484,7 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         else:
             self.__log("Reset check_error_state timer, no error anymore.")
-            self.__cancel_timer(self.timer_id_check_error_state)
+            await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
             self.timer_id_check_error_state = None
 
     async def __handle_modbus_exception(self, source):
@@ -1501,7 +1515,9 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         # recoverable.
         if self.modbus_exception_counter == 0:
             self.__log(f"{source}: First modbus exception.")
-            self.timer_id_check_modus_exception_state = self.hass.run_in(
+            self.timer_id_check_modus_exception_state = await set_oneshot_timer(
+                self.hass,
+                self.timer_id_check_modus_exception_state,
                 self.__handle_un_recoverable_error,
                 delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
             )
@@ -1526,12 +1542,11 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         To be called every time there has been a successful modbus read/write.
         :return: Nothing
         """
-        # self.__log("called")
         if self.modbus_exception_counter == 1:
             self.__log("There was an modbus exception, now solved.")
             await self.v2g_main_app.reset_charger_communication_fault()
         self.modbus_exception_counter = 0
-        self.__cancel_timer(self.timer_id_check_modus_exception_state)
+        await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
         self.timer_id_check_modus_exception_state = None
         await self.__update_charger_communication_state(can_communicate=True)
 
@@ -1558,8 +1573,8 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
 
         # This method could be called from two timers. Make sure both are canceled so no double
         # notifications get sent.
-        self.__cancel_timer(self.timer_id_check_modus_exception_state)
-        self.__cancel_timer(self.timer_id_check_error_state)
+        await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
+        await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
 
         await self.__cancel_polling(reason="un_recoverable charger error")
         # The only exception to the rule that _am_i_active should only be set from set_(in)active().
@@ -1576,20 +1591,6 @@ class ModbusEVSEclient(AsyncIOEventEmitter):
         await self.__update_evse_entity(
             evse_entity=self.ENTITY_CAR_SOC, new_value="unavailable"
         )
-
-    def __cancel_timer(self, timer_id: str):
-        """Utility function to silently cancel a timer.
-        Born because the "silent" flag in cancel_timer does not work and the
-        logs get flooded with useless warnings.
-
-        Args:
-            timer_id: timer_handle to cancel
-        """
-        if timer_id in [None, ""]:
-            return
-        if self.hass.timer_running(timer_id):
-            silent = True  # Does not really work
-            self.hass.cancel_timer(timer_id, silent)
 
     def __get_2comp(self, number):
         """Util function to covert a modbus read value to in with two's complement values

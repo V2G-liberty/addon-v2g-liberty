@@ -95,12 +95,26 @@ class EventBus(AsyncIOEventEmitter):
             - `discharge_kwh` (float): Total energy discharged today in kWh.
             - `discharge_revenue` (float): Total discharge revenue today in currency.
 
+    - `interval_concluded`:
+        - **Description**: Emitted after a 5-min interval has been written to
+          the database. Used by the naive charging simulator to update its
+          state in real-time.
+        - **Emitted by** data_monitor
+        - **Arguments**:
+            - `timestamp` (str): ISO 8601 UTC timestamp of the interval start.
+
+    - `repairer_complete`:
+        - **Description**: Emitted after the data repairer finishes a repair
+          run (full or incremental). Used to trigger batch naive charging
+          simulation over repaired/imported rows.
+        - **Emitted by** data_repairer
+
     """
 
     def __init__(self, hass: Hass):
         super().__init__()
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="event_bus")
         self.__log("EventBus initialized successfully.")
 
     def emit_event(self, event, *args, **kwargs):
@@ -133,18 +147,12 @@ class EventBus(AsyncIOEventEmitter):
                 if inspect.iscoroutinefunction(listener):
                     # Async listener wrapper
                     async def run_async_listener(listener=listener):
-                        start = time.perf_counter()
                         try:
                             await listener(*args, **kwargs)
                         except Exception as e:
                             self.__log(
                                 f"Error in async listener {listener} for '{event}': {e}",
                                 level="WARNING",
-                            )
-                        elapsed_ms = (time.perf_counter() - start) * 1000
-                        if elapsed_ms > 200:
-                            self.__log(
-                                f"Async listener {listener} for '{event}' took {elapsed_ms:.2f} ms"
                             )
 
                     asyncio.create_task(run_async_listener())

@@ -2949,37 +2949,39 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Avg. cons. price","avg-prod-price":"Avg. prod. price","avg-price":"Avg. price","availability":"Availability"},"estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown."},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification","notification-title":"Test notification","notification-message":"This is a test notification, please longpress me to see actions, then click \'Confirm\'.","notification-button-label":"Confirm","how-to-react-on-mobile-device":"A test notification has been sent to your mobile phone. Long press the notification and a button \'Confim\' will show up. Please press that button.","test-notification-timeout":"The test timed out, Please edit the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received and well handeld."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
-$4db9c280a88445d4$exports = JSON.parse("{\"data-table\":{\"granularity\":{\"quarter_hours\":\"15 min\",\"hours\":\"Uren\",\"days\":\"Dagen\",\"weeks\":\"Weken\",\"months\":\"Maanden\",\"years\":\"Jaren\"},\"now\":\"Nu\",\"loading\":\"Data laden...\",\"no-data\":\"Geen data voor deze periode\",\"error\":\"Kon geen data laden. Probeer het opnieuw.\",\"error-timeout\":\"Data laden duurde te lang. Probeer het later opnieuw.\",\"all-time\":\"Alles\",\"card-title\":\"Laden\",\"app-state\":{\"automatic\":\"Automatisch\",\"charge\":\"Laden\",\"discharge\":\"Ontladen\",\"pause\":\"Pauze\",\"max_boost\":\"Max boost\",\"not_connected\":\"Niet verbonden\",\"error\":\"Fout\",\"unknown\":\"Onbekend\",\"mixed\":\"andere staten\"},\"price-rating\":{\"very-low\":\"Zeer laag\",\"low\":\"Laag\",\"average\":\"Gemiddeld\",\"high\":\"Hoog\",\"very-high\":\"Zeer hoog\"},\"col\":{\"period\":\"Periode\",\"status\":\"Status\",\"soc\":\"SoC\",\"consumption\":\"Inkoop\",\"production\":\"Verkoop\",\"avg-price\":\"Gem. prijs\",\"rate\":\"Prijspeil\",\"energy\":\"Energie\",\"cost-revenue\":\"Netto kosten\",\"charge\":\"Laden\",\"charge-kwh\":\"Laden\",\"charge-cost\":\"Laadkosten\",\"discharge\":\"Ontladen\",\"discharge-kwh\":\"Ontladen\",\"discharge-revenue\":\"Ontlaadopbrengst\",\"availability\":\"Beschikbaar\",\"availability-tooltip\":\"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.\",\"net\":\"Netto\",\"net-cost\":\"Netto kosten\",\"cost\":\"Kosten\",\"revenue\":\"Opbrengst\",\"emissions\":\"Uitstoot\"},\"totals\":{\"card-title\":\"Totalen\",\"period\":\"Periode\",\"soc-range\":\"SoC bereik\",\"avg-cons-price\":\"Gem. cons. prijs\",\"avg-prod-price\":\"Gem. prod. prijs\",\"avg-price\":\"Gem. prijs\",\"availability\":\"Beschikbaarheid\"},\"estimated-note\":\"Deels gebaseerd op geschatte data\",\"estimated-tooltip\":\"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.\"}}");
+$4db9c280a88445d4$exports = JSON.parse('{"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Uren","days":"Dagen","weeks":"Weken","months":"Maanden","years":"Jaren"},"now":"Nu","loading":"Data laden...","no-data":"Geen data voor deze periode","no-data-hint":"Eerste data beschikbaar:","error":"Kon geen data laden. Probeer het opnieuw.","error-timeout":"Data laden duurde te lang. Probeer het later opnieuw.","all-time":"Alles","page-title":"Slimme energie","card-title":"Laden","app-state":{"automatic":"Automatisch","charge":"Laden","discharge":"Ontladen","pause":"Pauze","max_boost":"Max boost","not_connected":"Niet verbonden","error":"Fout","unknown":"Onbekend","mixed":"andere staten"},"price-rating":{"very-low":"Zeer laag","low":"Laag","average":"Gemiddeld","high":"Hoog","very-high":"Zeer hoog"},"col":{"period":"Periode","status":"Status","soc":"SoC","consumption":"Inkoop","production":"Verkoop","avg-price":"Gem. prijs","rate":"Prijspeil","energy":"Energie","cost-revenue":"Netto kosten","charge":"Laden","charge-kwh":"Laden","charge-cost":"Laadkosten","discharge":"Ontladen","discharge-kwh":"Ontladen","discharge-revenue":"Ontlaadopbrengst","availability":"Beschikbaarheid","availability-tooltip":"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.","net":"Netto","net-cost":"Netto kosten","cost":"Kosten","revenue":"Opbrengst","emissions":"Emissies","avoided-emissions":"Vermeden","duration":"Duur"},"totals":{"card-title":"Totalen","period":"Periode","soc-range":"SoC bereik","avg-cons-price":"Inkoop (gem.)","avg-prod-price":"Verkoop (gem.)","avg-price":"Gem. prijs","net-avg-price":"Prijs","availability":"Beschikbaarheid","charge-duration":"Laadduur","discharge-duration":"Ontlaadduur","savings":"Besparingen","savings-label":"Besparing tov vast","savings-fixed-label":"t.o.v. standaard laden + vast contract","savings-dyn-label":"t.o.v. standaard laden + dyn. contract","savings-tooltip":"Dit is uw besparing t.o.v. standaard laden.\\n\\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage \u2014 zonder slim schema.\\n\\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\\n \u2022 Vast: standaard laden kWh \xd7 maandelijkse gemiddelde contractprijzen (CBS).\\n \u2022 Dynamisch: standaard laden kWh \xd7 dezelfde dynamische energieprijzen."},"row-details-show":"Toon details","row-details-hide":"Verberg details","estimated-note":"Deels gebaseerd op geschatte data","estimated-tooltip":"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.","overflow-reset-database":"Geschiedenis resetten","reset-dialog":{"header":"Geschiedenis resetten","reimport-label":"Geschiedenis opnieuw importeren","reimport-explanation":"Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.","full-label":"Volledige database reset","full-explanation":"Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.","duration-note":"De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.","full-warning":"Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.","confirm-prompt":"Typ \\"Yes\\" of \\"Ja\\" ter bevestiging:","confirm-placeholder":"Yes / Ja","confirm-button":"Doorgaan","error":"Reset mislukt. Probeer het opnieuw.","success":"Klaar. Historische data wordt opnieuw ge\xefmporteerd \u2014 de Data-pagina wordt geleidelijk gevuld.","close":"Sluiten"}}}');
 
 
-const $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$initialize();
-function $aa1795080f053cd4$var$initialize() {
-    const languages = {
-        en: $3b34ac5ccae6bad9$exports,
-        nl: $4db9c280a88445d4$exports
-    };
-    const lang = navigator.language.split('-')[0];
-    let polyglot = new $a7208d9fde1d2afd$exports({
-        phrases: $3b34ac5ccae6bad9$exports,
+const $aa1795080f053cd4$var$LANGUAGES = {
+    en: $3b34ac5ccae6bad9$exports,
+    nl: $4db9c280a88445d4$exports
+};
+// English fallback polyglot — used as the safety net for missing keys
+// in any other language.
+const $aa1795080f053cd4$var$fallback = new $a7208d9fde1d2afd$exports({
+    phrases: $3b34ac5ccae6bad9$exports,
+    allowMissing: true,
+    onMissingKey: ()=>null
+});
+let $aa1795080f053cd4$var$currentLang = 'en';
+let $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$fallback;
+function $aa1795080f053cd4$var$buildPolyglot(lang) {
+    if (lang === 'en' || !$aa1795080f053cd4$var$LANGUAGES[lang]) return $aa1795080f053cd4$var$fallback;
+    return new $a7208d9fde1d2afd$exports({
+        phrases: $aa1795080f053cd4$var$LANGUAGES[lang],
         allowMissing: true,
-        onMissingKey: (key)=>{
-            // console.error(`Cannot translate '${key}'`);
-            return null;
-        }
+        onMissingKey: (key, options)=>$aa1795080f053cd4$var$fallback.t(key, options)
     });
-    if (lang !== 'en' && languages[lang]) {
-        const fallback = polyglot;
-        polyglot = new $a7208d9fde1d2afd$exports({
-            phrases: languages[lang],
-            allowMissing: true,
-            onMissingKey: (key, options)=>fallback.t(key, options)
-        });
-    }
-    return polyglot;
+}
+function $aa1795080f053cd4$export$4b6bf64406ec64af(lang) {
+    const normalised = (lang ?? 'en').split('-')[0];
+    if (normalised === $aa1795080f053cd4$var$currentLang) return;
+    $aa1795080f053cd4$var$currentLang = normalised;
+    $aa1795080f053cd4$var$polyglot = $aa1795080f053cd4$var$buildPolyglot(normalised);
 }
 function $aa1795080f053cd4$export$625550452a3fa3ec(phrase, options) {
     return $aa1795080f053cd4$var$polyglot.t(phrase, options);
@@ -2992,6 +2994,13 @@ const $aa1795080f053cd4$export$2c618a4308a30424 = $aa1795080f053cd4$export$e4594
 
 const $c5d85a824175067e$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('ping-card');
 class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    set hass(hass) {
+        this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
+    }
+    get hass() {
+        return this._hass;
+    }
     setConfig(config) {
         this._config = {
             ...this.defaultConfig,
@@ -3012,34 +3021,38 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         this._isResponding = true;
         this._timeout = setTimeout(()=>this._ping(), 1000);
     }
+    get _toast() {
+        return this.renderRoot?.querySelector('ha-toast') ?? null;
+    }
     async _ping() {
         try {
             await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'ping', {}, this._config.ping_timeout);
             this._isResponding = true;
-            this._isSnackbarOpen = false;
             this._isRestarting = false;
+            this._toast?.hide('dismiss');
             if (this._connected) this._timeout = setTimeout(()=>this._ping(), this._config.interval);
         } catch (_) {
-            // If the ping fails, show the snackbar (again)
+            // If the ping fails, show the toast (again)
             this._isResponding = false;
-            this._isSnackbarOpen = true;
-            // Increase ping interval if not responding
-            if (this._connected) this._timeout = setTimeout(()=>this._ping(), 100);
+            if (this._connected) {
+                await this.updateComplete;
+                this._showToast();
+                this._timeout = setTimeout(()=>this._ping(), 100);
+            }
         }
+    }
+    _showToast() {
+        const toast = this._toast;
+        if (!toast) return;
+        toast.labelText = this._isRestarting ? $c5d85a824175067e$var$tp('restarting') : $c5d85a824175067e$var$tp('error');
+        toast.show();
     }
     _stopPinging() {
         clearTimeout(this._timeout);
     }
     render() {
-        const _onSnackbarClose = ()=>this._isSnackbarOpen = false;
         return this._isResponding ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <ha-toast
-            ?open=${this._isSnackbarOpen}
-            labelText=${this._isRestarting ? $c5d85a824175067e$var$tp('restarting') : $c5d85a824175067e$var$tp('error')}
-            timeoutMs="-1"  <!-- Persistent until closed -->
-            persistent
-            @closed=${_onSnackbarClose}
-          >
+          <ha-toast .timeoutMs=${-1}>
             ${!this._isRestarting ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${$c5d85a824175067e$var$tp('restart')}</ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
           </ha-toast>
         `;
@@ -3048,9 +3061,9 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         this._isRestarting = false;
     }
     async _restart(event) {
-        event.stopPropagation(); // Prevent the click closing the snackbar
-        this._isSnackbarOpen = true; // Ensure the snackbar stays open during restart
+        event.stopPropagation();
         this._isRestarting = true;
+        this._showToast();
         // After the restart assume that ultimately after a timeout the restart
         // should be finished and if not show an error again if pinging fails.
         setTimeout(()=>this._resetIsRestarting(), this._config.interval * 2);
@@ -3063,7 +3076,7 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         });
     }
     constructor(...args){
-        super(...args), this._isResponding = true, this._isSnackbarOpen = false, this._isRestarting = false, // Timings in milliseconds
+        super(...args), this._isResponding = true, this._isRestarting = false, // Timings in milliseconds
         this.defaultConfig = {
             ping_timeout: 5000,
             interval: 15000
@@ -3073,9 +3086,6 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isResponding", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isSnackbarOpen", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isRestarting", void 0);
@@ -3956,6 +3966,7 @@ class $bdc495d85e37df85$export$29eee0da9bbd43dd extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._chargedKwh = hass.states[$755a87c9ee93218f$export$20d139f4f3aeb4ae];
         this._chargeCost = hass.states[$755a87c9ee93218f$export$909fe49ce6b9cee5];
         this._dischargedKwh = hass.states[$755a87c9ee93218f$export$5fb82d6848912fff];
@@ -4047,6 +4058,918 @@ $bdc495d85e37df85$export$29eee0da9bbd43dd = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
+
+
+const $0d210c97196ebd06$export$65361f0ecd1811fa = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+    :host {
+      display: block;
+      max-height: calc(100vh - var(--header-height, 56px));
+      overflow-y: auto;
+      padding: 12px;
+      box-sizing: border-box;
+      container-type: inline-size;
+      --v2g-profit-colour: #66A802;
+
+      /* Data-inzicht colour palette */
+      --di-green-100: #70B603;
+      --di-green-92: #66A802;
+      --di-green-84: #5E9903;
+      --di-green-tint-80: #8DC556;
+      --di-green-68: #4C7B02;
+      --di-slate-100: #002E4E;
+      --di-slate-80: #345470;
+      --di-slate-60: #637C92;
+      --di-slate-40: #95A6B5;
+      --di-slate-20: #C9D2DA;
+      --di-teal-100: #60B9B6;
+      --di-teal-tint-20: #E8F5F4;
+      --di-teal-dark-1: #346A68;
+      --di-teal-dark-2: #0E2424;
+      --di-bg: #FFF8F5;
+      --di-netto-bg: var(--di-teal-tint-20);
+      --di-netto-border: var(--di-teal-100);
+    }
+
+    /* ─- Page header ──────────────────────────────── */
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px 0 24px 0;
+    }
+
+    .page-title {
+      margin: 0 0 0 24px;
+      font-size: var(--ha-card-header-font-size, 1.5rem);
+      font-weight: 500;
+      line-height: 1.2;
+      color: var(--ha-card-header-color, var(--primary-text-color));
+    }
+
+    .page-title .date-range {
+      color: var(--di-teal-100);
+    }
+
+    /* ─- Overflow menu ─────────────────────────────── */
+
+    .overflow-menu {
+      position: relative;
+      margin-right: 8px;
+    }
+
+    .overflow-dropdown {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      z-index: 100;
+      min-width: 180px;
+      background: var(--card-background-color, #fff);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+    }
+
+    .overflow-item {
+      display: block;
+      width: 100%;
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--primary-text-color);
+    }
+    .overflow-item:hover {
+      background: var(--secondary-background-color);
+    }
+
+    /* ─- Page layout ──────────────────────────────── */
+
+    .page-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ── Sub-cards grid ──────────────────────────── */
+
+    .totals-subcards-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 12px;
+    }
+
+    .subcard-netto     { grid-column: 1 / 8; }
+    .subcard-savings   { grid-column: 8 / 11; }
+    .subcard-charge    { grid-column: 1 / 6; }
+    .subcard-discharge { grid-column: 6 / 11; }
+
+    @container (max-width: 768px) {
+      .totals-subcards-grid {
+        grid-template-columns: 1fr;
+      }
+      .subcard-netto, .subcard-savings,
+      .subcard-charge, .subcard-discharge {
+        grid-column: 1 / -1;
+      }
+    }
+
+    /* ── Base sub-card ───────────────────────────── */
+
+    .subcard {
+      border-radius: 12px;
+      border: 1px solid var(--divider-color, #e0e0e0);
+      padding: 20px 24px;
+      background: var(--card-background-color, #fff);
+      position: relative;
+    }
+
+    /* ── NETTO card — teal tinted background ─────── */
+
+    .subcard-netto {
+      background: var(--di-netto-bg);
+      border-color: var(--di-netto-border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .subcard-netto .metric-grid {
+      margin-top: auto;
+      padding-top: 16px;
+    }
+
+    /* ── Sub-card header ─────────────────────────── */
+
+    .subcard-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .subcard-header ha-icon {
+      --mdc-icon-size: 24px;
+      color: var(--di-slate-60);
+    }
+
+    .subcard-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--di-slate-60);
+    }
+
+    /* ── Hero value (Netto card — days+ only) ────── */
+
+    .subcard-hero {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--primary-text-color);
+      margin-bottom: 16px;
+    }
+
+    .subcard-hero .hero-unit {
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+
+    /* ── Metric grid (4 columns, single row) ─────── */
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px 16px;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--di-slate-40);
+      white-space: nowrap;
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      white-space: nowrap;
+    }
+
+    .metric-value .metric-unit {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--secondary-text-color);
+    }
+
+    .metric-grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* ── Savings card — green gradient ───────────── */
+
+    .subcard-savings {
+      background: linear-gradient(160deg, var(--di-green-100) 0%, var(--di-green-68) 100%);
+      border-color: var(--di-green-92);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .subcard-savings .savings-piggy {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      --mdc-icon-size: 32px;
+      color: var(--di-teal-tint-20);
+    }
+
+    .subcard-savings .savings-title-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      /* Keep clear of the piggy icon */
+      margin-right: 40px;
+      min-width: 0;
+    }
+
+    .subcard-savings .subcard-title {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--di-slate-100);
+      text-transform: none;
+      line-height: 1.1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .subcard-savings .savings-title-row .info-icon {
+      flex-shrink: 0;
+      color: var(--di-teal-tint-20);
+    }
+
+    .subcard-savings .savings-sublabel {
+      font-size: 13px;
+      color: var(--di-bg);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 40px;
+    }
+
+    .subcard-savings .subcard-hero {
+      color: var(--di-bg);
+      font-size: 48px;
+      font-weight: normal;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .subcard-savings .savings-dyn {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .subcard-savings .savings-dyn-amount {
+      font-size: 18px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .subcard-savings .savings-dyn-label {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    /* ── Floating bar ─────────────────────────────── */
+
+    .floating-bar {
+      position: fixed;
+      bottom: 12px;
+      left: var(--mdc-drawer-width, 0px);
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 5;
+    }
+
+    .bar-content {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--card-background-color, white);
+      border-radius: 12px;
+      padding: 4px 8px;
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.25);
+      min-height: 48px;
+    }
+
+    .bar-separator {
+      width: 1px;
+      height: 24px;
+      background: var(--divider-color, #e0e0e0);
+      margin: 0 4px;
+    }
+
+    .pill {
+      border: none;
+      border-radius: 18px;
+      padding: 6px 12px;
+      font-size: 13px;
+      background: transparent;
+      color: var(--primary-text-color);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .pill:hover {
+      background: var(--secondary-background-color, #f5f5f5);
+    }
+
+    .pill.active {
+      background: var(--primary-color);
+      color: var(--text-primary-color, #fff);
+    }
+
+    /* ── Granularity dropdown (narrow bar) ──────── */
+
+    .gran-menu {
+      position: relative;
+    }
+
+    .gran-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--primary-color);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 8px 6px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary-color, #fff);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .gran-trigger:hover {
+      opacity: 0.85;
+    }
+
+    .gran-dropdown {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      right: 0;
+      background: var(--card-background-color, #fff);
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+      min-width: 140px;
+      z-index: 100;
+      list-style: none;
+      margin: 0;
+      padding: 4px 0;
+    }
+
+    .gran-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--primary-text-color);
+      cursor: pointer;
+    }
+
+    .gran-item:hover {
+      background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+    }
+
+    .gran-item.active {
+      color: var(--primary-color, #1976d2);
+      font-weight: 500;
+    }
+
+    .gran-dropdown li:first-child .gran-item {
+      border-radius: 12px 12px 0 0;
+    }
+
+    .gran-dropdown li:last-child .gran-item {
+      border-radius: 0 0 12px 12px;
+    }
+
+    .date-wrapper {
+      position: relative;
+      text-align: center;
+      cursor: pointer;
+      min-width: 130px;
+    }
+
+    .date-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+    }
+
+    .date-input {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* ── Table ─────────────────────────────────────── */
+
+    .table-container {
+      /* No own scroll — :host is the scroll container */
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      /* Whitespace below last row; works because border-collapse is separate */
+      padding-bottom: 48px;
+    }
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .table-container.scrolled thead {
+      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0),
+                  0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    thead th {
+      text-align: left;
+      vertical-align: top;
+      padding: 8px 12px;
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--primary-text-color);
+      background: var(--card-background-color, white);
+    }
+
+    thead th.group-sep {
+      position: relative;
+    }
+
+    /* Single-row thead: gap at top and bottom */
+    thead:not(.grouped) th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 20%;
+      bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    /* Grouped thead first row: gap only at top, line continues into sub-header */
+    thead.grouped tr:first-child th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 30%;
+      bottom: 0;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    /* Grouped thead sub-header row: gap only at bottom, continues from first row */
+    thead.grouped tr.sub-header th.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 0;
+      bottom: 30%;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    thead th .unit {
+      display: block;
+      font-weight: 400;
+      font-size: 11px;
+      color: var(--secondary-text-color, #797979);
+    }
+
+    thead th.num {
+      text-align: right;
+    }
+
+    .wide-title-wrapper {
+      display: block;
+      width: 55px;
+      min-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Grouped two-row header (hours/days view) ─────── */
+
+    .group-header {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    thead.grouped tr.sub-header th {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--secondary-text-color, #797979);
+      padding-top: 4px;
+      padding-bottom: 4px;
+    }
+
+    tbody td.group-sep::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: 1px;
+      top: 20%;
+      bottom: 20%;
+      background: var(--divider-color, #e0e0e0);
+    }
+
+    tbody td.group-sep {
+      position: relative;
+    }
+
+    tbody td.group-sep::before {
+      top: 20%;
+      bottom: 20%;
+    }
+
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+      white-space: nowrap;
+    }
+
+    /* Border around the table header: top, left, right */
+    thead tr:first-child th {
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+    }
+    thead tr:first-child th:first-child {
+      border-top-left-radius: 8px;
+    }
+    thead tr:first-child th:last-child {
+      border-top-right-radius: 8px;
+    }
+    thead th:first-child {
+      border-left: 1px solid var(--divider-color, #e0e0e0);
+    }
+    thead th:last-child {
+      border-right: 1px solid var(--divider-color, #e0e0e0);
+    }
+
+    thead th:first-child,
+    tbody td:first-child {
+      padding-left: 24px;
+    }
+
+    thead th:last-child,
+    tbody td:last-child {
+      padding-right: 24px;
+    }
+
+    tbody td.num {
+      text-align: right;
+    }
+
+    /* ── T45: compact mode + uitklapbare detail-rijen ───── */
+
+    table.compact .col-hide-compact {
+      display: none;
+    }
+
+    /* Compacte horizontale padding (16 px i.p.v. 24 px) */
+    table.compact thead th:first-child,
+    table.compact tbody td:first-child {
+      padding-left: 16px;
+    }
+    table.compact thead th:last-child,
+    table.compact tbody td:last-child {
+      padding-right: 16px;
+    }
+    table.compact thead th,
+    table.compact tbody td {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    /* Chevron-cel: blauwe tint, klikbaar */
+    .chevron-col {
+      width: 44px;
+      padding: 0 !important;
+    }
+    .chevron-cell {
+      width: 44px;
+      padding: 0 !important;
+      text-align: center;
+      cursor: pointer;
+      background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+      color: var(--primary-color);
+      transition: background 0.15s ease;
+      user-select: none;
+    }
+    .chevron-cell:hover {
+      background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+    }
+    .chevron-cell:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: -2px;
+    }
+    .chevron-icon {
+      width: 22px;
+      height: 22px;
+      display: inline-block;
+      vertical-align: middle;
+      transition: transform 0.15s ease;
+    }
+    .chevron-cell.open .chevron-icon {
+      transform: rotate(180deg);
+    }
+
+    tbody tr.expanded > td {
+      border-bottom: none;
+    }
+
+    /* Uitklap-rij — uitlijnen op de netto-kolommen van de hoofdrij */
+    tr.row-detail > td {
+      background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+      border-bottom: none;
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+    tr.row-detail.row-detail-first > td {
+      padding-top: 10px;
+    }
+    tr.row-detail.row-detail-last > td {
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+    }
+    tr.row-detail .row-detail-label {
+      text-align: right;
+      font-weight: 600;
+      color: var(--secondary-text-color, #797979);
+      font-size: 12px;
+    }
+    tr.row-detail .chevron-spacer {
+      padding: 0 !important;
+      background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+    }
+
+    .profit {
+      color: var(--v2g-profit-colour);
+    }
+
+    tbody tr:hover {
+      background: var(--table-row-alternative-background-color, #f9f9f9);
+    }
+
+    .center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 24px 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--secondary-text-color);
+      border-top-color: var(--primary-color);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    .muted {
+      color: var(--secondary-text-color);
+      font-size: 14px;
+    }
+
+    .no-data-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    tr.repaired {
+      color: var(--secondary-text-color);
+    }
+
+    .estimated-note {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      color: var(--secondary-text-color);
+      font-size: 12px;
+      margin: 0;
+      font-style: italic;
+      text-align: right;
+    }
+
+    .error {
+      color: var(--error-color, #db4437);
+      font-size: 14px;
+    }
+
+    /* ── Price indicator ───────────────────────────── */
+
+    .indicator-col,
+    .indicator-cell {
+      text-align: center;
+    }
+
+    .state-cell {
+      position: relative;
+      display: inline-block;
+    }
+
+    .state-plus {
+      position: absolute;
+      top: -2px;
+      right: -6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--primary-color);
+      line-height: 1;
+    }
+
+    /* ── Price sparkline track ─────────────────────── */
+
+    .price-track {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 48px;
+      height: 20px;
+    }
+
+    .price-track::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      width: calc(var(--marker-left) - 7px);
+      top: 50%;
+      height: 1px;
+      background: var(--secondary-text-color);
+    }
+
+    .price-track::after {
+      content: '';
+      position: absolute;
+      left: calc(var(--marker-left) + 7px);
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: var(--secondary-text-color);
+    }
+
+    .price-marker {
+      position: absolute;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      transform: translateX(-50%);
+      color: var(--marker-color);
+      left: var(--marker-left);
+      z-index: 1;
+      user-select: none;
+    }
+
+    /* Light mode */
+    .price-track[data-level='very-low']  { --marker-left: 8%;  --marker-color: #90caf9; }
+    .price-track[data-level='low']       { --marker-left: 28%; --marker-color: #5c8dc9; }
+    .price-track[data-level='average']   { --marker-left: 50%; --marker-color: #7e57c2; }
+    .price-track[data-level='high']      { --marker-left: 72%; --marker-color: #6a1b9a; }
+    .price-track[data-level='very-high'] { --marker-left: 92%; --marker-color: #4a0072; }
+
+    /* Dark mode: detected via hass.themes.darkMode → .dark class on host */
+    :host(.dark) {
+      --v2g-profit-colour: #8DC556;
+      --di-netto-bg: var(--di-teal-dark-2);
+      --di-netto-border: var(--di-teal-dark-1);
+    }
+
+    :host(.dark) .price-track[data-level='very-low']  { --marker-color: #37474f; }
+    :host(.dark) .price-track[data-level='low']       { --marker-color: #5c6bc0; }
+    :host(.dark) .price-track[data-level='average']   { --marker-color: #9575cd; }
+    :host(.dark) .price-track[data-level='high']      { --marker-color: #ba68c8; }
+    :host(.dark) .price-track[data-level='very-high'] { --marker-color: #e040fb; }
+
+    /* ── Totals card ───────────────────────────────── */
+
+    .info-container {
+      position: relative;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    .info-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--primary-color);
+      cursor: pointer;
+      display: block;
+    }
+
+    .info-popup {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: left;
+      text-transform: none;
+      letter-spacing: normal;
+      background: var(--primary-text-color);
+      color: var(--card-background-color);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+      width: 280px;
+      white-space: pre-line;
+      z-index: 100;
+      cursor: default;
+    }
+
+    .info-popup::before {
+      content: '';
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-bottom-color: var(--primary-text-color);
+      pointer-events: none;
+    }
+
+    .estimated-note .info-popup {
+      left: auto;
+      right: 0;
+      transform: none;
+    }
+
+    .estimated-note .info-popup::before {
+      left: auto;
+      right: 10px;
+      transform: none;
+    }
+
+`;
 
 
 
@@ -12228,13 +13151,33 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         this._useReducedMaxPower = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2].state;
         this._quasarLoadBalancerLimit = this.hass.states[$755a87c9ee93218f$export$f48daca8eb58f881].state;
         this._hasTriedToConnect = false;
+        this._showPhaseStep = false;
+        this._triedSavePhase = false;
+        this._savingPhase = false;
+        this._detecting = false;
+        this._detectStep = '';
+        this._detectError = '';
+        this._detectSuccess = '';
+        // Load grid and charger phase info
+        try {
+            const gridData = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            this._gridPhases = gridData.configured ? gridData.phases ?? null : null;
+        } catch (e) {
+            this._gridPhases = null;
+        }
+        try {
+            const phaseData = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_charger_phase');
+            this._selectedPhase = phaseData.connected_to_phase ?? null;
+        } catch (e) {
+            this._selectedPhase = null;
+        }
         await this.updateComplete;
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $4163850e13316b31$var$tp('header');
         const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
-        const content = this._hasTriedToConnect && this._isConnected() ? this._renderChargerDetails() : this._renderConnectionDetails();
+        const content = this._showPhaseStep ? this._renderPhaseStep() : this._hasTriedToConnect && this._isConnected() ? this._renderChargerDetails() : this._renderConnectionDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
@@ -12312,7 +13255,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingReducedMaxPower, useReducedMaxPowerState, (evt)=>this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.continue'), false, 'continue')}
     `;
     }
     _renderReducedMaxPower() {
@@ -12370,7 +13313,174 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             } : {}
         };
         const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_settings', args);
-        this.closeDialog();
+        // Only show phase step if grid connection is configured
+        if (this._gridPhases !== null) this._showPhaseStep = true;
+        else this.closeDialog();
+    }
+    // ── Phase Step ──────────────────────────────────────────────────────
+    _renderPhaseStep() {
+        const gridPhases = this._gridPhases;
+        const chargerPhases = this._chargerPhases;
+        // Scenario: 1-phase grid + 3-phase charger → error
+        if (gridPhases === 1 && chargerPhases === 3) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <ha-alert alert-type="error">
+          Your 3-phase charger requires a 3-phase grid connection.
+          Please check your grid connection settings or charger type.
+        </ha-alert>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, this.hass.localize('ui.common.close'))}
+      `;
+        // Scenario: 1-phase grid + 1-phase charger → informational
+        if (gridPhases === 1 || gridPhases === null) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <p>Your charger is connected to the only available phase (L1).</p>
+        ${this._renderPhaseBackButton()}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._savePhase(1), true, this.hass.localize('ui.common.save'))}
+      `;
+        // Scenario: 3-phase grid + 3-phase charger → informational
+        if (chargerPhases === 3) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <p>Your 3-phase charger is connected to all three phases.</p>
+        ${this._renderPhaseBackButton()}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._savePhase([
+                1,
+                2,
+                3
+            ]), true, this.hass.localize('ui.common.save'))}
+      `;
+        // Scenario: 3-phase grid + 1-phase charger → manual selection
+        return this._renderPhaseSelection();
+    }
+    _renderPhaseSelection() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p><strong>Which phase is your charger connected to?</strong></p>
+
+      <div class="phase-options">
+        ${[
+            1,
+            2,
+            3
+        ].map((phase)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <div
+            class="phase-option ${this._selectedPhase === phase ? 'selected' : ''}"
+            @click=${()=>{
+                this._selectedPhase = phase;
+            }}
+          >
+            <ha-radio
+              .checked=${this._selectedPhase === phase}
+              name="charger-phase"
+              value="${phase}"
+              @change=${()=>{
+                this._selectedPhase = phase;
+            }}
+            ></ha-radio>
+            <span><strong>Phase ${phase}</strong> (L${phase})</span>
+          </div>
+        `)}
+      </div>
+
+      ${this._triedSavePhase && this._selectedPhase === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="invalid">Please select which phase your charger is connected to.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      <details class="hint">
+        <summary>Not sure?</summary>
+        <p>Check the label on your fuse box, or use the automatic detection below.</p>
+      </details>
+
+      ${this._renderAutoDetect()}
+
+      ${this._renderPhaseBackButton()}
+      ${this._savingPhase ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSavePhase(), true, this.hass.localize('ui.common.save'))}
+    `;
+    }
+    _renderAutoDetect() {
+        if (this._detecting) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <ha-spinner size="small"></ha-spinner>
+            <span>${this._detectStep || 'Starting...'}</span>
+          </div>
+        </div>
+      `;
+        if (this._detectSuccess) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <ha-alert alert-type="success">${this._detectSuccess}</ha-alert>
+        </div>
+      `;
+        if (this._detectError) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="margin-bottom: 12px;">
+            <ha-alert alert-type="warning">${this._detectError}</ha-alert>
+          </div>
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._startDetection(), false, 'Retry')}
+        </div>
+      `;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="auto-detect-box">
+        <p><strong>Automatic phase detection</strong></p>
+        <p style="font-size: 0.875em; color: var(--secondary-text-color);">
+          Optionally, the phase can be detected automatically. This briefly
+          charges (and discharges for bidirectional chargers) while monitoring
+          the grid sensors. The charge mode will be temporarily set to Stop
+          during detection. Make sure your car is connected.
+        </p>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._startDetection(), false, 'Start detection')}
+      </div>
+    `;
+    }
+    async _startDetection() {
+        this._detecting = true;
+        this._detectStep = '';
+        this._detectError = '';
+        this._detectSuccess = '';
+        // Subscribe to progress events
+        const unsub = await this.hass.connection.subscribeEvents((event)=>{
+            const step = event.data.step;
+            if (step === 'baseline') this._detectStep = 'Measuring baseline...';
+            else if (step === 'charge_test') this._detectStep = 'Charge test...';
+            else if (step === 'discharge_test') this._detectStep = 'Discharge test...';
+        }, 'charger_phase_detection.progress');
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_charger_phase', {}, 180000 // 3 min timeout
+            );
+            if (result.success) {
+                this._selectedPhase = result.connected_to_phase;
+                this._detectError = '';
+                const phase = result.connected_to_phase;
+                const label = Array.isArray(phase) ? phase.map((p)=>`L${p}`).join(', ') : `L${phase}`;
+                this._detectSuccess = `Detected: Phase ${label}`;
+            } else {
+                this._detectSuccess = '';
+                this._detectError = result.error || 'Detection failed. You can select the phase manually.';
+            }
+        } catch (e) {
+            this._detectError = 'Detection timed out. You can select the phase manually.';
+        } finally{
+            unsub();
+            this._detecting = false;
+        }
+    }
+    _renderPhaseBackButton() {
+        return (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._showPhaseStep = false;
+            this._triedSavePhase = false;
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true);
+    }
+    _handleSavePhase() {
+        this._triedSavePhase = true;
+        if (this._selectedPhase === null) return;
+        this._savePhase(this._selectedPhase);
+    }
+    async _savePhase(phase) {
+        this._savingPhase = true;
+        try {
+            await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_phase', {
+                connected_to_phase: phase
+            });
+            this.closeDialog();
+        } catch (e) {
+            this._savingPhase = false;
+        }
     }
     static{
         this.styles = [
@@ -12382,6 +13492,53 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 
       .name {
         font-weight: bold;
+      }
+      .phase-options {
+        display: flex;
+        gap: 12px;
+        margin: 12px 0;
+      }
+      .phase-option {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 12px 12px 12px 4px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .phase-option:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-option.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      .hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      .hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+      }
+      .auto-detect-box {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--card-background-color);
+      }
+      .auto-detect-box p:first-child {
+        margin-top: 0;
       }
 
       // All of these don't seem to reach the hr element...
@@ -12399,6 +13556,11 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 
     `
         ];
+    }
+    constructor(...args){
+        super(...args), // Phase step state
+        this._showPhaseStep = false, this._gridPhases = null, this._chargerPhases = 1 // TODO: derive from charger type in branch 359
+        , this._selectedPhase = null, this._triedSavePhase = false, this._savingPhase = false, this._detecting = false, this._detectStep = '', this._detectError = '', this._detectSuccess = '';
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -12425,6 +13587,36 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_quasarLoadBalancerLimit", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_showPhaseStep", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_gridPhases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerPhases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_selectedPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_triedSavePhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_savingPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detecting", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detectStep", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detectError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detectSuccess", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $02a1f3a787c54a30$export$2fa187e846a241c4)(`[test-id='${$755a87c9ee93218f$export$bb6b29d6e8205d89}']`)
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerHostField", void 0);
@@ -13016,6 +14208,1612 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 
 
 
+const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
+class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog() {
+        super.showDialog();
+        this._step = "intro";
+        this._phases = null;
+        this._capacityPerPhase = '';
+        this._consumptionEntities = [];
+        this._productionEntities = [];
+        this._entityStatus = {};
+        this._cleanupEntityListeners();
+        this._autoDetected = false;
+        this._triedContinueStep2 = false;
+        this._triedSave = false;
+        this._phaseChangeConfirmed = false;
+        this._saving = false;
+        this._saveError = '';
+        this._saveConfirmed = false;
+        // Load existing settings if configured
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            if (data.consumption_entities?.length > 0) {
+                this._phases = data.phases;
+                this._capacityPerPhase = String(data.capacity_per_phase ?? '');
+                this._consumptionEntities = data.consumption_entities;
+                this._productionEntities = data.production_entities;
+            }
+        } catch (e) {
+        // Ignore — start fresh
+        }
+        // Auto-detect from available HA entities (only if not already configured)
+        if (!this._phases) try {
+            const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
+            if (detected.phases || detected.capacity_per_phase || detected.consumption_entities?.length > 0) this._autoDetected = true;
+            if (detected.phases) this._phases = detected.phases;
+            if (detected.capacity_per_phase) this._capacityPerPhase = String(detected.capacity_per_phase);
+            if (detected.consumption_entities?.length > 0) this._consumptionEntities = detected.consumption_entities;
+            if (detected.production_entities?.length > 0) this._productionEntities = detected.production_entities;
+        } catch (e) {
+        // Auto-detect failed, no problem — user fills in manually
+        }
+        this._buildSensorEntityList();
+        // Load existing solar panels so we can warn the user when their new
+        // phases choice would invalidate any of them (plan task 30a). Failure
+        // is non-fatal — we just won't warn.
+        try {
+            const sp = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_solar_panels');
+            this._existingSolarPanels = sp.solar_panels ?? [];
+        } catch (e) {
+            this._existingSolarPanels = [];
+        }
+        await this.updateComplete;
+    }
+    closeDialog() {
+        this._cleanupEntityListeners();
+        super.closeDialog();
+    }
+    _cleanupEntityListeners() {
+        for (const unsub of Object.values(this._entityListeners))try {
+            if (typeof unsub === 'function') unsub();
+        } catch (e) {}
+        this._entityListeners = {};
+    }
+    _buildSensorEntityList() {
+        const states = this.hass.states;
+        this._sensorEntities = [];
+        for (const entityId of Object.keys(states)){
+            if (!entityId.startsWith('sensor.')) continue;
+            const stateObj = states[entityId];
+            const deviceClass = stateObj.attributes.device_class ?? '';
+            const unit = stateObj.attributes.unit_of_measurement ?? '';
+            const isPower = deviceClass === 'power' || [
+                'W',
+                'kW',
+                'MW'
+            ].includes(unit);
+            const name = stateObj.attributes.friendly_name || entityId;
+            this._sensorEntities.push({
+                id: entityId,
+                name: name,
+                isPower: isPower
+            });
+        }
+        // Sort: power sensors first, then alphabetically
+        this._sensorEntities.sort((a, b)=>{
+            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = 'Grid connection';
+        let content;
+        switch(this._step){
+            case "intro":
+                content = this._renderIntro();
+                break;
+            case "phases_and_capacity":
+                content = this._renderPhasesAndCapacity();
+                break;
+            case "entities":
+                content = this._renderEntities();
+                break;
+        }
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
+      >
+        ${content}
+      </ha-dialog>
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    _renderIntro() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>By monitoring your grid connection, the system learns your household energy
+      patterns. Over time, this leads to <strong>better predictions</strong> and
+      <strong>smarter schedules</strong> that fit your specific situation.</p>
+
+      <p><strong>For Dutch users:</strong> this is a valuable preparation for the
+      end of "saldering" (net metering). Once net metering ends, a grid connection
+      configuration will be required.</p>
+
+      <div class="requirements-box">
+        <div class="requirements-header">What you need*</div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Smart meter</strong><br/>
+            Capable of reporting power usage per phase in real-time.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>P1 cable</strong><br/>
+            A USB P1 port cable or similar to connect the meter.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Home Assistant integration</strong><br/>
+            A functional integration that exposes meter data as sensor entities
+            (e.g. a DSMR integration).
+          </div>
+        </div>
+        <div class="requirements-footer">
+          * Typical setup. Other setups are possible, as long as usage and production
+          can be read from HA sensors.
+        </div>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "phases_and_capacity";
+        }, true)}
+    `;
+    }
+    // ── Step 2: Phases and Capacity ─────────────────────────────────────
+    _renderPhasesAndCapacity() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <p style="margin: 0;"><strong>How many phases does your grid connection have?</strong></p>
+          ${this._autoDetected && this._phases !== null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        <div class="phase-cards">
+          <div
+            class="phase-card ${this._phases === 1 ? 'selected' : ''}"
+            @click=${()=>{
+            this._selectPhases(1);
+        }}
+          >
+            <ha-radio
+              .checked=${this._phases === 1}
+              name="phases"
+              value="1"
+              @change=${()=>{
+            this._selectPhases(1);
+        }}
+            ></ha-radio>
+            <div>
+              <strong>1 phase</strong><br/>
+              <span class="phase-subtitle">Small apartment connection</span>
+            </div>
+          </div>
+          <div
+            class="phase-card ${this._phases === 3 ? 'selected' : ''}"
+            @click=${()=>{
+            this._selectPhases(3);
+        }}
+          >
+            <ha-radio
+              .checked=${this._phases === 3}
+              name="phases"
+              value="3"
+              @change=${()=>{
+            this._selectPhases(3);
+        }}
+            ></ha-radio>
+            <div>
+              <strong>3 phases</strong><br/>
+              <span class="phase-subtitle">Standard connection</span>
+            </div>
+          </div>
+        </div>
+        ${this._triedContinueStep2 && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <details class="hint">
+          <summary>Not sure?</summary>
+          <p>Check your smart meter integration in Home Assistant. Look for separate
+          L1, L2, and L3 sensors — if you have them, you have 3 phases. If you only
+          see L1, you have 1 phase.</p>
+        </details>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <p style="margin: 0;"><strong>Capacity per phase (ampere)</strong></p>
+          ${this._autoDetected && this._capacityPerPhase !== '' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        <ha-textfield
+          type="number"
+          inputmode="numeric"
+          .value=${this._capacityPerPhase}
+          @change=${(e)=>{
+            this._capacityPerPhase = e.target.value;
+        }}
+          min="6"
+          max="80"
+          suffix="A"
+          style="width: 120px; --mdc-text-field-text-align: right;"
+          test-id="capacity-per-phase"
+        ></ha-textfield>
+        ${this._renderCapacityError()}
+        <details class="hint">
+          <summary>Where to find this</summary>
+          <p>You can find this on your energy contract, or in your smart meter
+          integration in Home Assistant. Look for a sensor with "fuse" or "threshold"
+          in the name. Common values are 25A or 35A.</p>
+          <p>Please enter the actual value — do not enter a lower value as a safety margin.</p>
+        </details>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueStep2 = false;
+            this._step = "intro";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._renderSolarPanelWarning()}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToEntities(), true, this._phaseChangeConfirmed ? 'Continue anyway' : this.hass.localize('ui.common.continue'))}
+    `;
+    }
+    _selectPhases(phases) {
+        // Any change in the phase choice invalidates a previous
+        // "Continue anyway" acknowledgement — re-warn for the new selection.
+        if (this._phases !== phases) this._phaseChangeConfirmed = false;
+        this._phases = phases;
+    }
+    _isCapacityValid() {
+        if (this._capacityPerPhase === '') return false;
+        const cap = parseFloat(this._capacityPerPhase);
+        return !isNaN(cap) && Number.isInteger(cap) && cap >= 6 && cap <= 80;
+    }
+    _renderCapacityError() {
+        if (this._capacityPerPhase === '' && this._triedContinueStep2) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter the capacity.</div>`;
+        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Must be a whole number between 6 and 80.</div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _continueToEntities() {
+        this._triedContinueStep2 = true;
+        if (this._phases === null) return;
+        if (!this._isCapacityValid()) return;
+        // Soft warning: would the new phase choice make existing solar panels
+        // inconsistent? First Continue click reveals the warning; the second
+        // (now "Continue anyway") actually moves to the next step. Nothing on
+        // the panels is changed — they get flagged on the solar panels card.
+        if (this._panelsThatWillBecomeInconsistent().length > 0 && !this._phaseChangeConfirmed) {
+            this._phaseChangeConfirmed = true;
+            return;
+        }
+        // Initialise entity arrays to correct length if needed
+        const count = this._phases;
+        if (this._consumptionEntities.length !== count) this._consumptionEntities = new Array(count).fill('');
+        if (this._productionEntities.length !== count) this._productionEntities = new Array(count).fill('');
+        this._triedSave = false;
+        this._saveConfirmed = false;
+        this._step = "entities";
+        // Start listening for already-selected entities
+        for (const entityId of [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ])if (entityId) this._startListeningEntity(entityId);
+    }
+    // ── Step 3: Entity Selection (with inline validation) ───────────────
+    _renderEntities() {
+        const count = this._phases ?? 1;
+        const allSelected = this._getAllSelectedEntities();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
+          ${this._autoDetected && this._consumptionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          <span class="column-header">Active</span>
+        </div>
+        ${Array.from({
+            length: count
+        }, (_, i)=>this._renderEntityDropdown(`Consumption phase ${i + 1} (L${i + 1})`, this._consumptionEntities[i] ?? '', (val)=>{
+                const old = this._consumptionEntities[i];
+                if (old) this._stopListeningEntity(old);
+                const copy = [
+                    ...this._consumptionEntities
+                ];
+                copy[i] = val;
+                this._consumptionEntities = copy;
+                if (val) this._startListeningEntity(val);
+            }, allSelected))}
+      </div>
+
+      <div style="margin-top: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Production sensors</strong> (power fed back to the grid)</p>
+          ${this._autoDetected && this._productionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          <span class="column-header">Active</span>
+        </div>
+        ${Array.from({
+            length: count
+        }, (_, i)=>this._renderEntityDropdown(`Production phase ${i + 1} (L${i + 1})`, this._productionEntities[i] ?? '', (val)=>{
+                const old = this._productionEntities[i];
+                if (old) this._stopListeningEntity(old);
+                const copy = [
+                    ...this._productionEntities
+                ];
+                copy[i] = val;
+                this._productionEntities = copy;
+                if (val) this._startListeningEntity(val);
+            }, allSelected))}
+      </div>
+
+      ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderSaveWarning()}
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error save-error" role="alert">${this._saveError}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._cleanupEntityListeners();
+            this._triedSave = false;
+            this._step = "phases_and_capacity";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._saving ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save'))}
+    `;
+    }
+    _renderEntityDropdown(label, selected, onChange, allSelected) {
+        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
+        const status = selected ? this._entityStatus[selected] : undefined;
+        const statusIcon = selected ? status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="margin: 8px 0;">
+        <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select
+            .value=${selected}
+            @change=${(e)=>onChange(e.target.value)}
+            style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
+          >
+            <option value="">Select a sensor...</option>
+            ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
+              ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+            <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
+              ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>
+          </select>
+          <span style="width: 28px; text-align: center; display: flex; align-items: center; justify-content: center;">${statusIcon}</span>
+        </div>
+      </div>
+    `;
+    }
+    _startListeningEntity(entityId) {
+        if (this._entityListeners[entityId]) return; // already listening
+        this._entityStatus = {
+            ...this._entityStatus,
+            [entityId]: undefined
+        }; // pending
+        // Subscribe to state changes for this entity
+        const unsub = this.hass.connection.subscribeEvents((event)=>{
+            const data = event.data;
+            if (data.entity_id !== entityId) return;
+            const newState = data.new_state?.state;
+            if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
+            // Numeric check
+            if (isNaN(parseFloat(newState))) return;
+            this._entityStatus = {
+                ...this._entityStatus,
+                [entityId]: true
+            };
+        }, 'state_changed');
+        unsub.then((unsubFn)=>{
+            this._entityListeners[entityId] = unsubFn;
+        });
+    }
+    _stopListeningEntity(entityId) {
+        const unsub = this._entityListeners[entityId];
+        if (unsub) {
+            try {
+                if (typeof unsub === 'function') unsub();
+            } catch (e) {}
+            delete this._entityListeners[entityId];
+        }
+        const copy = {
+            ...this._entityStatus
+        };
+        delete copy[entityId];
+        this._entityStatus = copy;
+    }
+    _getAllSelectedEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return new Set(all);
+    }
+    _hasDuplicateEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return new Set(all).size !== all.length;
+    }
+    _hasEmptyEntities() {
+        const count = this._phases ?? 1;
+        return this._consumptionEntities.filter((e)=>e !== '').length < count || this._productionEntities.filter((e)=>e !== '').length < count;
+    }
+    _hasPendingEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return all.some((e)=>this._entityStatus[e] !== true);
+    }
+    _renderEntityErrors() {
+        const errors = [];
+        if (this._hasEmptyEntities()) errors.push('Please select a sensor for each field.');
+        if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
+        if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
+    }
+    _renderSaveWarning() {
+        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (!this._hasPendingEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title="Some sensors have not responded yet">
+        This could mean the entity ID is incorrect, or the sensor is not reporting
+        data at this time. For production sensors, this can be normal if there is
+        currently no or little solar production — the meter may report 0 continuously,
+        which does not generate a state change.
+      </ha-alert>
+    `;
+    }
+    // ── Solar panel consistency warning (plan task 30a) ─────────────────
+    _panelsThatWillBecomeInconsistent() {
+        if (this._phases === null) return [];
+        const newPhases = this._phases;
+        return this._existingSolarPanels.filter((p)=>{
+            if (typeof p.phases !== 'number') return true; // unknown counts as broken
+            if (p.phases > newPhases) return true;
+            if (p.phases === 1 && newPhases === 3 && p.connected_to_phase !== 1 && p.connected_to_phase !== 2 && p.connected_to_phase !== 3) return true;
+            return false;
+        }).map((p)=>p.name ?? '(unnamed)');
+    }
+    _renderSolarPanelWarning() {
+        if (!this._phaseChangeConfirmed) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const affected = this._panelsThatWillBecomeInconsistent();
+        if (affected.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const list = affected.map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${n}</li>`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="warning"
+        title="This change will break ${affected.length === 1 ? 'a solar panel' : 'solar panels'}"
+        style="margin-top: 16px;"
+      >
+        <p style="margin: 0 0 8px 0;">
+          The new phase count no longer matches the configuration of:
+        </p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">${list}</ul>
+        <p style="margin: 0;">
+          Continue anyway is allowed — the affected panel(s) will be flagged
+          on the solar panels card so you can edit them afterwards. Nothing
+          on the panels is changed automatically.
+        </p>
+      </ha-alert>
+    `;
+    }
+    // ── Save ────────────────────────────────────────────────────────────
+    async _handleSave() {
+        this._triedSave = true;
+        // Block if empty or duplicate
+        if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
+        // If some entities still pending and not yet confirmed
+        if (this._hasPendingEntities() && !this._saveConfirmed) {
+            this._saveConfirmed = true; // next click will be "Save anyway"
+            return;
+        }
+        await this._save();
+    }
+    async _save() {
+        this._saving = true;
+        this._saveError = '';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_grid_connection_settings', {
+                phases: this._phases,
+                capacity_per_phase: parseInt(this._capacityPerPhase, 10),
+                consumption_entities: this._consumptionEntities,
+                production_entities: this._productionEntities
+            });
+            if (result.fm_error) {
+                // FM-side rejection (provisioning failed). Lit preserves the form
+                // state; ensure_* is idempotent so clicking Save again resends the
+                // same payload and recovers cleanly once FM is available. Back/Cancel
+                // closes without saving.
+                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                this._saving = false;
+                this._saveConfirmed = false;
+                return;
+            }
+            if (result.error) {
+                this._saveError = result.error;
+                this._saving = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._saveError = 'Failed to save settings. Please try again.';
+            this._saving = false;
+        }
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .error {
+        color: var(--error-color);
+        font-size: 0.875em;
+        margin-top: 4px;
+      }
+      .save-error {
+        margin-top: 12px;
+        font-weight: 500;
+      }
+      details.hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      details.hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      details.hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+      }
+      .phase-cards {
+        display: flex;
+        gap: 12px;
+      }
+      .phase-card {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .phase-card:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-card.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .phase-subtitle {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .column-header {
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .auto-detected-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: #2e7d32;
+        background: #e8f5e9;
+        padding: 2px 8px;
+        border-radius: 12px;
+        white-space: nowrap;
+      }
+      .requirements-box {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        background: var(--card-background-color);
+      }
+      .requirements-header {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .requirement-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .requirement-icon {
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        border-radius: 50%;
+        padding: 8px;
+        flex-shrink: 0;
+        --mdc-icon-size: 24px;
+      }
+      .requirement-item div {
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+      .requirements-footer {
+        margin-top: 12px;
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+        font-style: italic;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Inline entity validation state (per entity: true=ok, undefined=pending)
+        this._entityStatus = {}, this._entityListeners = {}, // Auto-detection state
+        this._autoDetected = false, // Form validation state
+        this._triedContinueStep2 = false, this._triedSave = false, // Set on the first Continue click of step 2 when the new phases would
+        // make existing solar panels inconsistent. While true, the Continue
+        // button reads "Continue anyway" and the warning is visible. Reset
+        // whenever the user changes the phase selection so a different choice
+        // requires its own acknowledgement.
+        this._phaseChangeConfirmed = false, // Saving state
+        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Existing solar panels (loaded at open) so the dialog can warn the user
+        // when a phases change would leave one or more panels inconsistent with
+        // the new grid configuration. The dialog never auto-fixes panels — see
+        // plan task 30a.
+        this._existingSolarPanels = [], // Available sensor entities for dropdowns
+        this._sensorEntities = [];
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_step", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_capacityPerPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_consumptionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueStep2", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phaseChangeConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saving", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_existingSolarPanels", void 0);
+$c39c194e2cc8bd35$export$7bc40f611da49691 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($c39c194e2cc8bd35$export$45e0b80f1e500bd4)
+], $c39c194e2cc8bd35$export$7bc40f611da49691);
+
+
+
+
+
+
+
+
+
+const $69c2d5e8861124e5$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-solar-panel-dialog';
+class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog(params = {}) {
+        super.showDialog();
+        // Reset — skip the intro page when editing an existing panel.
+        this._step = params.panel ? "basic" : "intro";
+        this._editingId = null;
+        this._name = '';
+        this._peakPowerWp = '';
+        this._phases = null;
+        this._connectedToPhase = null;
+        this._powerEntityId = '';
+        this._curtailablePreserved = undefined;
+        this._curtailEntityIdPreserved = undefined;
+        this._gridPhases = null;
+        this._entityStatus = {};
+        this._cleanupEntityListeners();
+        this._triedContinueBasic = false;
+        this._triedSave = false;
+        this._triedContinueEntity = false;
+        this._triedContinuePhase = false;
+        this._saving = false;
+        this._saveError = '';
+        this._saveConfirmed = false;
+        this._deleting = false;
+        this._deleteConfirmed = false;
+        this._deleteError = '';
+        // Load grid context (needed to limit phases dropdown + decide step 4).
+        // If the grid is not configured, take over the dialog immediately with
+        // a blocking explanation (plan task 29): solar panel config depends on
+        // grid phases, so there's nothing useful the user can do here yet.
+        try {
+            const grid = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            this._gridPhases = grid.phases ?? null;
+            if (grid.configured !== true) this._step = "grid_not_configured";
+        } catch (e) {
+            this._step = "grid_not_configured";
+        }
+        // Pre-fill on edit
+        if (params.panel) {
+            this._editingId = params.panel.id;
+            this._name = params.panel.name ?? '';
+            this._peakPowerWp = params.panel.peak_power_wp != null ? String(params.panel.peak_power_wp) : '';
+            this._phases = params.panel.phases;
+            this._connectedToPhase = params.panel.connected_to_phase ?? null;
+            this._powerEntityId = params.panel.power_entity_id ?? '';
+            this._curtailablePreserved = params.panel.curtailable;
+            this._curtailEntityIdPreserved = params.panel.curtail_entity_id;
+        }
+        // Load other panels' names + power entity ids for the inline
+        // uniqueness checks (name on step 2, sensor on step 3). The backend
+        // remains the source of truth (its checks are the safety net), but
+        // inline feedback is friendlier than discovering the clash only on
+        // Save. On failure we leave the sets empty — backend will still reject.
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_solar_panels');
+            const panels = data.solar_panels ?? [];
+            const others = panels.filter((p)=>p.id !== this._editingId);
+            this._otherPanelNames = new Set(others.map((p)=>(p.name ?? '').trim().toLowerCase()).filter((n)=>n !== ''));
+            this._otherPanelEntities = new Set(others.map((p)=>p.power_entity_id ?? '').filter((e)=>e !== ''));
+        } catch (e) {
+            this._otherPanelNames = new Set();
+            this._otherPanelEntities = new Set();
+        }
+        this._buildSensorEntityList();
+        if (this._powerEntityId) this._startListeningEntity(this._powerEntityId);
+        await this.updateComplete;
+    }
+    closeDialog() {
+        this._cleanupEntityListeners();
+        super.closeDialog();
+    }
+    _cleanupEntityListeners() {
+        for (const unsub of Object.values(this._entityListeners))try {
+            if (typeof unsub === 'function') unsub();
+        } catch (e) {
+        /* ignore */ }
+        this._entityListeners = {};
+    }
+    _buildSensorEntityList() {
+        const states = this.hass.states;
+        this._sensorEntities = [];
+        for (const entityId of Object.keys(states)){
+            if (!entityId.startsWith('sensor.')) continue;
+            const stateObj = states[entityId];
+            const deviceClass = stateObj.attributes.device_class ?? '';
+            const unit = stateObj.attributes.unit_of_measurement ?? '';
+            const isPower = deviceClass === 'power' || [
+                'W',
+                'kW',
+                'MW'
+            ].includes(unit);
+            const name = stateObj.attributes.friendly_name || entityId;
+            this._sensorEntities.push({
+                id: entityId,
+                name: name,
+                isPower: isPower
+            });
+        }
+        this._sensorEntities.sort((a, b)=>{
+            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = this._editingId ? 'Edit solar panel' : 'Add solar panel';
+        let content;
+        switch(this._step){
+            case "intro":
+                content = this._renderIntro();
+                break;
+            case "basic":
+                content = this._renderBasic();
+                break;
+            case "power_entity":
+                content = this._renderPowerEntity();
+                break;
+            case "connected_to_phase":
+                content = this._renderConnectedToPhase();
+                break;
+            case "grid_not_configured":
+                content = this._renderGridNotConfigured();
+                break;
+        }
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .heading=${isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${isNew ? header : null}
+      >
+        ${content}
+      </ha-dialog>
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    // ── Guard step: grid connection not configured ──────────────────────
+    _renderGridNotConfigured() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="error"
+        title="Grid connection not configured"
+      >
+        Solar panel settings depend on your grid connection (number of
+        phases, capacity). Please configure the grid connection first via
+        its settings card, then come back here to add your panels.
+      </ha-alert>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, this.hass.localize('ui.common.close'), false, 'close')}
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    _renderIntro() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        By monitoring your solar panels, V2G Liberty learns your generation
+        patterns. Over time, this leads to <strong>better predictions</strong>
+        and <strong>smarter schedules</strong> that match how much energy your
+        panels are likely to produce.
+      </p>
+      <p>
+        <strong>For Dutch users:</strong> this is a valuable preparation for the
+        end of "saldering" (net metering).
+      </p>
+
+      <div class="requirements-box">
+        <div class="requirements-header">What you need</div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:solar-power" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>A solar inverter</strong><br />
+            With a Home Assistant integration that exposes a power sensor for
+            the inverter's current production.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:information-outline" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>The inverter details</strong><br />
+            Peak power (Wp) and how many phases the inverter is connected to.
+            You can add multiple inverters one at a time.
+          </div>
+        </div>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "basic";
+        }, true)}
+    `;
+    }
+    // ── Step 2: Basic fields (name, Wp, phases) ─────────────────────────
+    _renderBasic() {
+        const phasesAllowed = this._allowedPhaseOptions();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div>
+        <label class="field-label" for="panel-name">Name</label>
+        <ha-textfield
+          id="panel-name"
+          .value=${this._name}
+          @input=${(e)=>{
+            this._name = e.target.value;
+        }}
+          placeholder="e.g. South roof"
+        ></ha-textfield>
+        ${this._renderNameError()}
+      </div>
+
+      <div style="margin-top: 16px;">
+        <label class="field-label" for="panel-wp">Peak power (Wp)</label>
+        <ha-textfield
+          id="panel-wp"
+          type="text"
+          inputmode="numeric"
+          .value=${this._peakPowerWp}
+          @input=${(e)=>{
+            this._peakPowerWp = e.target.value;
+        }}
+          suffix="Wp"
+          style="width: 160px;"
+        ></ha-textfield>
+        ${this._renderWpError()}
+      </div>
+
+      <div style="margin-top: 16px;">
+        <p style="margin: 0 0 8px 0;"><strong>Inverter phases</strong></p>
+        <div class="phase-cards">
+          ${phasesAllowed.includes(1) ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <div
+                  class="phase-card ${this._phases === 1 ? 'selected' : ''}"
+                  @click=${()=>this._selectPhases(1)}
+                >
+                  <ha-radio
+                    .checked=${this._phases === 1}
+                    name="solar-phases"
+                    value="1"
+                    @change=${()=>this._selectPhases(1)}
+                  ></ha-radio>
+                  <div>
+                    <strong>1 phase</strong><br />
+                    <span class="phase-subtitle">Single-phase inverter</span>
+                  </div>
+                </div>
+              ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          ${phasesAllowed.includes(3) ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <div
+                  class="phase-card ${this._phases === 3 ? 'selected' : ''}"
+                  @click=${()=>this._selectPhases(3)}
+                >
+                  <ha-radio
+                    .checked=${this._phases === 3}
+                    name="solar-phases"
+                    value="3"
+                    @change=${()=>this._selectPhases(3)}
+                  ></ha-radio>
+                  <div>
+                    <strong>3 phases</strong><br />
+                    <span class="phase-subtitle">Three-phase inverter</span>
+                  </div>
+                </div>
+              ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        ${this._gridPhases === 1 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="hint-note">
+              Only 1-phase available because your grid connection is 1-phase.
+            </div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._triedContinueBasic && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </div>
+
+      ${this._deleteConfirmed ? this._renderDeleteConfirmationAlert() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderStep2Footer()}
+    `;
+    }
+    _renderDeleteConfirmationAlert() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="warning"
+        title="Delete this panel?"
+        style="margin-top: 32px;"
+      >
+        Local registration of
+        <strong>${this._name.trim() || '(unnamed)'}</strong>
+        will be removed. The asset in FlexMeasures is left in place (an
+        administrator can clean it up if needed); historical data stays
+        available there under the same id.
+        ${this._deleteError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="error" style="margin-top:8px;">
+              ${this._deleteError}
+            </p>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </ha-alert>
+    `;
+    }
+    _renderStep2Footer() {
+        if (this._deleting) return (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass);
+        if (this._deleteConfirmed) {
+            // Confirmation flow takes over the footer — Cancel cancels the
+            // delete (not the dialog), Yes deletes (red, destructive variant).
+            const slot = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass) ? 'footer' : 'primaryAction';
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+                this._deleteConfirmed = false;
+                this._deleteError = '';
+            }, false, this.hass.localize('ui.common.cancel'), false, 'cancel-delete')}
+        <ha-button
+          @click=${()=>this._handleDelete()}
+          slot=${slot}
+          appearance="filled"
+          variant="danger"
+          test-id="confirm-delete"
+          size="small"
+          style="width: auto;"
+        >
+          Yes, delete
+        </ha-button>
+      `;
+        }
+        // Normal edit-mode footer: Delete… on the left, Cancel + Continue on
+        // the right. The trailing ellipsis on the Delete label signals that
+        // a confirmation step follows.
+        const slot = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass) ? 'footer' : 'secondaryAction';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._editingId ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button
+            @click=${()=>{
+            this._deleteConfirmed = true;
+            this._deleteError = '';
+        }}
+            slot=${slot}
+            appearance="outlined"
+            variant="secondary"
+            test-id="delete"
+            size="small"
+            style="width: auto; margin-right: auto;"
+          >
+            Delete this panel…
+          </ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._editingId ? (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), false, this.hass.localize('ui.common.cancel'), false, 'cancel') : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueBasic = false;
+            this._step = "intro";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueFromBasic(), true)}
+    `;
+    }
+    async _handleDelete() {
+        if (!this._editingId) return;
+        this._deleting = true;
+        this._deleteError = '';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'delete_solar_panel', {
+                id: this._editingId
+            });
+            if (result.error) {
+                this._deleteError = result.error;
+                this._deleting = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._deleteError = 'Failed to delete the solar panel. Please try again.';
+            this._deleting = false;
+        }
+    }
+    _allowedPhaseOptions() {
+        if (this._gridPhases === 1) return [
+            1
+        ];
+        return [
+            1,
+            3
+        ];
+    }
+    _selectPhases(phases) {
+        this._phases = phases;
+        // Clear connected_to_phase if no longer relevant
+        if (!this._needsConnectedToPhase()) this._connectedToPhase = null;
+    }
+    _isWpValid() {
+        // Required. Use Number() (not parseFloat) so "500abc" → NaN instead of 500.
+        if (this._peakPowerWp.trim() === '') return false;
+        const v = Number(this._peakPowerWp);
+        return Number.isInteger(v) && v >= 500 && v <= 15000;
+    }
+    _isNameDuplicate() {
+        const norm = this._name.trim().toLowerCase();
+        return norm !== '' && this._otherPanelNames.has(norm);
+    }
+    _renderNameError() {
+        if (this._name.trim() === '') return this._triedContinueBasic ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter a name.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        if (this._isNameDuplicate()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        A solar panel named '${this._name.trim()}' already exists. Please
+        choose a different name.
+      </div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _renderWpError() {
+        if (this._peakPowerWp.trim() === '') return this._triedContinueBasic ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter a peak power.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        if (!this._isWpValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        Must be a whole number between 500 and 15000 Wp.
+      </div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _continueFromBasic() {
+        this._triedContinueBasic = true;
+        if (this._name.trim() === '') return;
+        if (this._isNameDuplicate()) return;
+        if (!this._isWpValid()) return;
+        if (this._phases === null) return;
+        this._step = "power_entity";
+    }
+    // ── Step 3: Power entity ────────────────────────────────────────────
+    _renderPowerEntity() {
+        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
+        const status = this._powerEntityId ? this._entityStatus[this._powerEntityId] : undefined;
+        const statusIcon = this._powerEntityId ? status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+            icon="mdi:check-circle"
+            style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"
+          ></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        <strong>Power sensor</strong> — the Home Assistant entity that reports
+        the current production of this inverter.
+      </p>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+        <select
+          .value=${this._powerEntityId}
+          @change=${(e)=>this._selectPowerEntity(e.target.value)}
+          style="flex: 1; min-width: 0; padding: 8px;
+                 border: 1px solid var(--divider-color); border-radius: 4px;
+                 background: var(--card-background-color);
+                 color: var(--primary-text-color); font-size: 0.95em;"
+        >
+          <option value="">Select a sensor...</option>
+          ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
+                ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>this._renderSensorOption(e))}
+              </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
+            ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>this._renderSensorOption(e))}
+          </optgroup>
+        </select>
+        <span
+          style="width: 28px; text-align: center; display: flex;
+                 align-items: center; justify-content: center;"
+        >
+          ${statusIcon}
+        </span>
+      </div>
+      ${this._triedContinueEntity && this._powerEntityId === '' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error"
+            >Please select a power sensor.</ha-alert
+          >` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderPendingWarning()}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueEntity = false;
+            this._step = "basic";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._renderEntityNextOrSave()}
+    `;
+    }
+    _renderEntityNextOrSave() {
+        // If a phase selection step is needed, this is a Continue button;
+        // otherwise the save flow lives here.
+        if (this._needsConnectedToPhase()) return (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueFromEntity(), true, this.hass.localize('ui.common.continue'));
+        return this._renderSaveButton(()=>this._continueFromEntity());
+    }
+    _renderSensorOption(e) {
+        // Disable entities already claimed by another panel (mirrors the
+        // grid-dialog pattern). The currently selected entity is never
+        // disabled even if it's somehow in the set, so the dropdown stays
+        // self-consistent.
+        const isUsedByOther = this._otherPanelEntities.has(e.id) && e.id !== this._powerEntityId;
+        const label = isUsedByOther ? `${e.name} (${e.id}) \u{2014} used by another panel` : `${e.name} (${e.id})`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <option
+        value=${e.id}
+        ?selected=${e.id === this._powerEntityId}
+        ?disabled=${isUsedByOther}
+      >
+        ${label}
+      </option>
+    `;
+    }
+    _selectPowerEntity(entityId) {
+        const old = this._powerEntityId;
+        if (old) this._stopListeningEntity(old);
+        this._powerEntityId = entityId;
+        if (entityId) this._startListeningEntity(entityId);
+    }
+    _renderPendingWarning() {
+        if (!this._triedSave || this._powerEntityId === '' || this._entityStatus[this._powerEntityId] === true) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const currentState = this.hass.states[this._powerEntityId]?.state ?? '(none)';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="warning"
+        title="Sensor has not reported a usable value yet"
+      >
+        <p style="margin: 0 0 8px 0;">
+          The selected sensor
+          <code>${this._powerEntityId}</code> is currently reporting
+          <strong>${currentState}</strong>, and has not sent a usable
+          numeric value since this dialog was opened.
+        </p>
+        <p style="margin: 0 0 8px 0;">Likely causes:</p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">
+          <li>The entity ID is wrong or the integration is broken.</li>
+          <li>
+            The sensor is reporting <code>unknown</code> or
+            <code>unavailable</code> — usually fixed by reloading the
+            integration in Home Assistant.
+          </li>
+          <li>
+            The sensor genuinely hasn't reported anything yet (rare,
+            but possible right after a fresh install).
+          </li>
+        </ul>
+        <p style="margin: 0;">
+          Clicking <strong>Save anyway</strong> will save with the
+          current configuration. V2G Liberty will start collecting data
+          as soon as the sensor reports a numeric value; until then no
+          PV data will be sent to FlexMeasures for this panel.
+        </p>
+      </ha-alert>
+    `;
+    }
+    _continueFromEntity() {
+        this._triedContinueEntity = true;
+        if (this._powerEntityId === '') return;
+        if (this._needsConnectedToPhase()) this._step = "connected_to_phase";
+        else this._handleSave();
+    }
+    _needsConnectedToPhase() {
+        return this._phases === 1 && this._gridPhases === 3;
+    }
+    // ── Step 4: connected_to_phase ──────────────────────────────────────
+    _renderConnectedToPhase() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        <strong>Which phase is this 1-phase inverter connected to?</strong>
+      </p>
+      <p class="hint-note">
+        Your grid connection is 3-phase, so a 1-phase inverter sits on one of
+        the three phases. Pick the one your installer wired it to.
+      </p>
+      <div class="phase-cards" style="margin-top: 12px;">
+        ${[
+            1,
+            2,
+            3
+        ].map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <div
+              class="phase-card ${this._connectedToPhase === n ? 'selected' : ''}"
+              @click=${()=>{
+                this._connectedToPhase = n;
+            }}
+            >
+              <ha-radio
+                .checked=${this._connectedToPhase === n}
+                name="connected-to-phase"
+                value=${String(n)}
+                @change=${()=>{
+                this._connectedToPhase = n;
+            }}
+              ></ha-radio>
+              <div><strong>L${n}</strong></div>
+            </div>
+          `)}
+      </div>
+      ${this._triedContinuePhase && this._connectedToPhase === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select a phase.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinuePhase = false;
+            this._step = "power_entity";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._renderSaveButton(()=>this._triggerSaveFromPhaseStep())}
+    `;
+    }
+    _triggerSaveFromPhaseStep() {
+        this._triedContinuePhase = true;
+        if (this._connectedToPhase === null) return;
+        this._handleSave();
+    }
+    // ── Inline entity validation (state_changed subscription) ───────────
+    _startListeningEntity(entityId) {
+        if (this._entityListeners[entityId]) return;
+        // Initial state check: if the entity already has a valid numeric value
+        // right now (including 0 — a working sensor reporting no production
+        // counts as healthy), mark as ✓ immediately. Avoids a forever-spinner
+        // for sensors that report continuously without firing state_changed.
+        const initiallyValid = this._isStateValid(this.hass.states[entityId]?.state);
+        this._entityStatus = {
+            ...this._entityStatus,
+            [entityId]: initiallyValid ? true : undefined
+        };
+        // Still listen — the sensor may transition from
+        // unknown/unavailable to a valid value during the dialog session.
+        const unsub = this.hass.connection.subscribeEvents((event)=>{
+            const data = event.data;
+            if (data.entity_id !== entityId) return;
+            if (!this._isStateValid(data.new_state?.state)) return;
+            this._entityStatus = {
+                ...this._entityStatus,
+                [entityId]: true
+            };
+        }, 'state_changed');
+        unsub.then((unsubFn)=>{
+            this._entityListeners[entityId] = unsubFn;
+        });
+    }
+    _isStateValid(state) {
+        if (state == null || state === '' || state === 'unknown' || state === 'unavailable') return false;
+        return !isNaN(parseFloat(state));
+    }
+    _stopListeningEntity(entityId) {
+        const unsub = this._entityListeners[entityId];
+        if (unsub) {
+            try {
+                if (typeof unsub === 'function') unsub();
+            } catch (e) {
+            /* ignore */ }
+            delete this._entityListeners[entityId];
+        }
+        const copy = {
+            ...this._entityStatus
+        };
+        delete copy[entityId];
+        this._entityStatus = copy;
+    }
+    // ── Save ────────────────────────────────────────────────────────────
+    _renderSaveButton(onSave) {
+        if (this._saving) return (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass);
+        const label = this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save');
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${this._saveError}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, onSave, true, label)}
+    `;
+    }
+    async _handleSave() {
+        this._triedSave = true;
+        const isPending = this._entityStatus[this._powerEntityId] !== true;
+        if (isPending && !this._saveConfirmed) {
+            // First Save click while still pending → show warning + "Save anyway".
+            this._saveConfirmed = true;
+            return;
+        }
+        await this._save();
+    }
+    async _save() {
+        this._saving = true;
+        this._saveError = '';
+        const payload = {
+            name: this._name.trim(),
+            phases: this._phases,
+            power_entity_id: this._powerEntityId
+        };
+        if (this._editingId) payload.id = this._editingId;
+        if (this._peakPowerWp !== '') payload.peak_power_wp = Number(this._peakPowerWp);
+        if (this._needsConnectedToPhase() && this._connectedToPhase != null) payload.connected_to_phase = this._connectedToPhase;
+        // Preserve curtailable / curtail_entity_id verbatim across edits — the
+        // UI for these fields is deferred (see plan arch decision "PV curtailable
+        // niet naar FM"), but we must not silently drop data that already exists.
+        if (this._curtailablePreserved !== undefined) payload.curtailable = this._curtailablePreserved;
+        if (this._curtailEntityIdPreserved !== undefined) payload.curtail_entity_id = this._curtailEntityIdPreserved;
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_solar_panel', payload);
+            if (result.fm_error) {
+                // FM-side rejection. Lit preserves the form state, ensure_* is
+                // idempotent on retry, so clicking Save again resends the same
+                // payload and recovers cleanly once FM is available.
+                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                this._saving = false;
+                return;
+            }
+            if (result.error) {
+                this._saveError = result.error;
+                this._saving = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._saveError = 'Failed to save the solar panel. Please try again.';
+            this._saving = false;
+        }
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .error {
+        color: var(--error-color);
+        font-size: 0.875em;
+        margin-top: 4px;
+      }
+      .field-label {
+        display: block;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+        margin-bottom: 4px;
+      }
+      .hint-note {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
+      }
+      .phase-cards {
+        display: flex;
+        gap: 12px;
+      }
+      .phase-card {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .phase-card:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-card.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .phase-subtitle {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .requirements-box {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        background: var(--card-background-color);
+      }
+      .requirements-header {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .requirement-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .requirement-icon {
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        border-radius: 50%;
+        padding: 8px;
+        flex-shrink: 0;
+        --mdc-icon-size: 24px;
+      }
+      .requirement-item div {
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._step = "intro", // Form state
+        this._editingId = null, this._name = '', this._peakPowerWp = '', this._phases = null, this._connectedToPhase = null, this._powerEntityId = '', // Grid context (from get_grid_connection_settings)
+        this._gridPhases = null, // Normalised names of *other* solar panels — populated at dialog open
+        // and used for the inline duplicate-name check on step 2. Empty when
+        // editing the only panel, or before the panel list has been fetched.
+        this._otherPanelNames = new Set(), // Power entity ids already claimed by other panels — used to disable
+        // those entries in the step-3 dropdown so the same sensor can never be
+        // chosen for two panels.
+        this._otherPanelEntities = new Set(), // Inline entity validation
+        this._entityStatus = {}, this._entityListeners = {}, // Step-2 / step-3 validation flags
+        this._triedContinueBasic = false, this._triedSave = false, this._triedContinueEntity = false, this._triedContinuePhase = false, // Save state
+        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Delete state (edit-mode only)
+        this._deleting = false, this._deleteConfirmed = false, this._deleteError = '', // Sensor entity list (built once per open)
+        this._sensorEntities = [];
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_step", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_editingId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_name", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_peakPowerWp", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_connectedToPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_powerEntityId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_gridPhases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_otherPanelNames", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_otherPanelEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_entityStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedContinueBasic", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedSave", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedContinueEntity", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedContinuePhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_saving", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_saveError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_saveConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_deleting", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_deleteConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_deleteError", void 0);
+$69c2d5e8861124e5$export$49872103a5fed138 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($69c2d5e8861124e5$export$45e0b80f1e500bd4)
+], $69c2d5e8861124e5$export$49872103a5fed138);
+
+
+
+
+
+
+
+
+
 
 
 const $fe3d519835c26128$var$REQUIRED_ENTITY_IDS = [
@@ -13127,7 +15925,183 @@ $5dbf4f8d923d5746$export$814ec9585813edb4 = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
+
+
+
+
+
+const $4b89696e518dfe0c$export$45e0b80f1e500bd4 = 'reset-database-dialog';
+const $4b89696e518dfe0c$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('data-table.reset-dialog');
+class $4b89696e518dfe0c$export$5208d5f7b949d64 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    static{
+        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+    .option-group {
+      margin-bottom: 16px;
+    }
+    ha-formfield {
+      display: block;
+      --mdc-typography-body2-font-size: 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .option-detail {
+      margin: 0 0 0 52px;
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      line-height: 1.4;
+    }
+    .duration-note {
+      margin: 16px 0 0 0;
+      font-size: 13px;
+      color: var(--secondary-text-color);
+      line-height: 1.4;
+    }
+    .duration-note strong {
+      font-weight: 600;
+    }
+    .confirm-section {
+      margin: 12px 0 0 52px;
+    }
+  `;
+    }
+    async showDialog() {
+        this._mode = 'reimport';
+        this._confirmText = '';
+        this._isResetting = false;
+        this._error = '';
+        this._success = false;
+        super.showDialog();
+    }
+    get _canConfirm() {
+        if (this._isResetting) return false;
+        if (this._mode === 'reimport') return true;
+        const v = this._confirmText.trim().toLowerCase();
+        return v === 'yes' || v === 'ja';
+    }
+    async _doReset() {
+        this._isResetting = true;
+        this._error = '';
+        try {
+            await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'reset_database', {
+                mode: this._mode
+            }, 60000);
+            this._success = true;
+        } catch  {
+            this._error = $4b89696e518dfe0c$var$tp('error');
+        } finally{
+            this._isResetting = false;
+        }
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const header = $4b89696e518dfe0c$var$tp('header');
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        if (this._success) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <ha-dialog open @closed=${this.closeDialog}
+          .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+          .headerTitle=${_isNew ? header : null}>
+          <ha-alert alert-type="success">${$4b89696e518dfe0c$var$tp('success')}</ha-alert>
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, $4b89696e518dfe0c$var$tp('close'))}
+        </ha-dialog>
+      `;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog open @closed=${this.closeDialog}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}>
+
+        <div class="option-group">
+          <ha-formfield .label=${$4b89696e518dfe0c$var$tp('reimport-label')}>
+            <ha-radio
+              .checked=${this._mode === 'reimport'}
+              value="reimport"
+              name="reset-mode"
+              @change=${()=>{
+            this._mode = 'reimport';
+        }}
+            ></ha-radio>
+          </ha-formfield>
+          <div class="option-detail">${$4b89696e518dfe0c$var$tp('reimport-explanation')}</div>
+        </div>
+
+        <div class="option-group">
+          <ha-formfield .label=${$4b89696e518dfe0c$var$tp('full-label')}>
+            <ha-radio
+              .checked=${this._mode === 'full'}
+              value="full"
+              name="reset-mode"
+              @change=${()=>{
+            this._mode = 'full';
+        }}
+            ></ha-radio>
+          </ha-formfield>
+          <div class="option-detail">${$4b89696e518dfe0c$var$tp('full-explanation')}</div>
+        </div>
+
+        ${this._mode === 'full' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <div class="confirm-section">
+            <ha-alert alert-type="warning">
+              ${$4b89696e518dfe0c$var$tp('full-warning')}
+            </ha-alert>
+            <p style="margin-top: 12px; font-weight: 500;">
+              ${$4b89696e518dfe0c$var$tp('confirm-prompt')}
+            </p>
+            <ha-textfield
+              .value=${this._confirmText}
+              .placeholder=${$4b89696e518dfe0c$var$tp('confirm-placeholder')}
+              @input=${(e)=>{
+            this._confirmText = e.target.value;
+        }}
+              style="width: 100%"
+            ></ha-textfield>
+          </div>
+        ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+        <ha-markdown class="duration-note" breaks .content=${$4b89696e518dfe0c$var$tp('duration-note')}></ha-markdown>
+
+        ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <ha-alert alert-type="error" style="margin-top: 12px;">
+            ${this._error}
+          </ha-alert>
+        ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+        ${this._isResetting ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._doReset(), true, $4b89696e518dfe0c$var$tp('confirm-button'), !this._canConfirm)}
+      </ha-dialog>
+    `;
+    }
+    constructor(...args){
+        super(...args), this._mode = 'reimport', this._confirmText = '', this._isResetting = false, this._error = '', this._success = false;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4b89696e518dfe0c$export$5208d5f7b949d64.prototype, "_mode", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4b89696e518dfe0c$export$5208d5f7b949d64.prototype, "_confirmText", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4b89696e518dfe0c$export$5208d5f7b949d64.prototype, "_isResetting", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4b89696e518dfe0c$export$5208d5f7b949d64.prototype, "_error", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4b89696e518dfe0c$export$5208d5f7b949d64.prototype, "_success", void 0);
+$4b89696e518dfe0c$export$5208d5f7b949d64 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($4b89696e518dfe0c$export$45e0b80f1e500bd4)
+], $4b89696e518dfe0c$export$5208d5f7b949d64);
+
+
+
 const $de105ef1fecb85b1$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.dialogs');
+const $de105ef1fecb85b1$export$cec6284f5e04dc0 = (element)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $4b89696e518dfe0c$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: {}
+    });
+};
 const $de105ef1fecb85b1$export$6384a2ff4b012cae = (element)=>{
     (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
         dialogTag: (0, $5dbf4f8d923d5746$export$45e0b80f1e500bd4),
@@ -13168,6 +16142,20 @@ const $de105ef1fecb85b1$export$b220f18fecfa2078 = (element)=>{
         dialogTag: (0, $056feaf1842f603f$export$45e0b80f1e500bd4),
         dialogImport: ()=>Promise.resolve(),
         dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$dc47fab9d3063d57 = (element)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $c39c194e2cc8bd35$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$73ad1784b2d8a352 = (element, params = {})=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $69c2d5e8861124e5$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: params
     });
 };
 const $de105ef1fecb85b1$export$e19f22a93e56ff3b = (element)=>{
@@ -13249,48 +16237,58 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     setConfig(_config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._checkUninitialisedEntities();
+        // HA's runtime hass.themes has darkMode but the type doesn't include it
+        const isDark = hass.themes?.darkMode ?? false;
+        this.classList.toggle('dark', isDark);
     }
     _checkUninitialisedEntities() {
         if ((0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass)) (0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this);
     }
-    connectedCallback() {
-        super.connectedCallback();
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this._resizeObserver?.disconnect();
+        if (this._docClickHandler) document.removeEventListener('click', this._docClickHandler);
     }
     firstUpdated() {
         const container = this.shadowRoot?.querySelector('.table-container');
-        if (container) container.addEventListener('scroll', ()=>{
-            container.classList.toggle('scrolled', container.scrollTop > 0);
-        });
-        // Set table-container max-height from its actual viewport position rather than
-        // guessing HA's chrome height via CSS calc(). Measured values are always correct
-        // regardless of HA version, theme, view type or number of navigation bars.
-        const syncHeight = ()=>{
+        // Toggle enhanced thead shadow when the table header is sticking.
+        // :host is the scroll container; thead sticks relative to it.
+        this.addEventListener('scroll', ()=>{
             if (!container) return;
-            const top = container.getBoundingClientRect().top;
-            if (top <= 0) return; // Not yet positioned in DOM
-            // 40px = bar midpoint (bottom:12 + half of ~56px bar height) so the card
-            // visually extends halfway behind the floating island.
-            const h = Math.max(200, Math.floor(window.innerHeight - top - 40));
-            container.style.maxHeight = `${h}px`;
-        };
-        const syncNarrow = ()=>{
-            this._narrowBar = this.offsetWidth <= 800;
-            this._narrowLayout = this.offsetWidth <= 1024;
-        };
-        const ro = new ResizeObserver(()=>requestAnimationFrame(()=>{
-                syncHeight();
-                syncNarrow();
-            }));
-        ro.observe(this);
-        window.addEventListener('resize', syncHeight);
-        requestAnimationFrame(syncNarrow); // initial check after layout
-        // Close granularity dropdown when clicking outside the shadow DOM
-        document.addEventListener('click', (e)=>{
-            if (!this._granMenuOpen) return;
-            const menu = this.shadowRoot?.querySelector('.gran-menu');
-            if (menu && !e.composedPath().includes(menu)) this._granMenuOpen = false;
+            const hostTop = this.getBoundingClientRect().top;
+            const containerTop = container.getBoundingClientRect().top;
+            container.classList.toggle('scrolled', containerTop <= hostTop);
         });
+        const syncNarrow = ()=>{
+            // Match the @container (inline-size) measurement: content-box of :host,
+            // i.e. clientWidth minus left/right padding (12 px each).
+            const w = this.clientWidth - 24;
+            this._narrowBar = w <= 800;
+            // Compact applies only to hours / days+ — kwartieren keeps full layout.
+            const compact = w <= 768 && this._granularity !== 'quarter_hours';
+            if (compact !== this._isCompact) {
+                this._isCompact = compact;
+                if (!compact) this._expandedRowKey = null;
+            }
+        };
+        this._resizeObserver = new ResizeObserver(()=>requestAnimationFrame(syncNarrow));
+        this._resizeObserver.observe(this);
+        requestAnimationFrame(syncNarrow); // initial check after layout
+        // Close dropdowns when clicking outside the shadow DOM
+        this._docClickHandler = (e)=>{
+            const path = e.composedPath();
+            if (this._granMenuOpen) {
+                const menu = this.shadowRoot?.querySelector('.gran-menu');
+                if (menu && !path.includes(menu)) this._granMenuOpen = false;
+            }
+            if (this._overflowMenuOpen) {
+                const overflow = this.shadowRoot?.querySelector('.overflow-menu');
+                if (overflow && !path.includes(overflow)) this._overflowMenuOpen = false;
+            }
+        };
+        document.addEventListener('click', this._docClickHandler);
         this._fetchData();
     }
     // ── Data fetching ─────────────────────────────────────────────
@@ -13299,6 +16297,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         const { start: start, end: end } = this._getViewWindow();
         this._isLoading = true;
         this._error = null;
+        this._data = [];
         try {
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'v2g_data_query', {
                 start: start,
@@ -13311,6 +16310,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             } else {
                 this._data = (result.data || []).slice().reverse();
                 this._error = null;
+                if (result.first_available) this._firstAvailable = result.first_available;
             }
         } catch (e) {
             const isTimeout = e instanceof Error && e.message.includes('timed out');
@@ -13372,7 +16372,14 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         return `${y}-${mo}-${da}T${h}:${mi}:${s}${sign}${hh}:${mm}`;
     }
     // ── Navigation ────────────────────────────────────────────────
+    _toggleRow(key) {
+        this._expandedRowKey = this._expandedRowKey === key ? null : key;
+    }
+    _isExpanded(key) {
+        return this._expandedRowKey === key;
+    }
     _navigate(direction) {
+        this._expandedRowKey = null;
         const d = new Date(this._viewDate);
         switch(this._granularity){
             case 'quarter_hours':
@@ -13380,12 +16387,15 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                 d.setDate(d.getDate() + direction);
                 break;
             case 'days':
+                d.setDate(1);
                 d.setMonth(d.getMonth() + direction);
                 break;
             case 'weeks':
+                d.setDate(1);
                 d.setMonth(d.getMonth() + 3 * direction);
                 break;
             case 'months':
+                d.setDate(1);
                 d.setFullYear(d.getFullYear() + direction);
                 break;
         }
@@ -13393,11 +16403,15 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         this._fetchData();
     }
     _goToNow() {
+        this._expandedRowKey = null;
         this._viewDate = new Date();
         this._fetchData();
     }
     _setGranularity(g) {
+        this._expandedRowKey = null;
         this._granularity = g;
+        // Recompute compact: kwartieren is never compact, others depend on width.
+        this._isCompact = g !== 'quarter_hours' && this.clientWidth - 24 <= 768;
         this._fetchData();
     }
     _toggleGranMenu() {
@@ -13410,6 +16424,7 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     _onDateChange(e) {
         const input = e.target;
         if (input.value) {
+            this._expandedRowKey = null;
             const parts = input.value.split('-');
             this._viewDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
             this._fetchData();
@@ -13432,23 +16447,13 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             case 'hours':
                 return `${dd}-${mm}-${yyyy}`;
             case 'days':
-                {
-                    const monthName = d.toLocaleDateString(undefined, {
-                        month: 'long'
-                    });
-                    return `${monthName} ${yyyy}`;
-                }
+                return `${mm}-${yyyy}`;
             case 'weeks':
                 {
                     const qStart = Math.floor(d.getMonth() / 3) * 3;
-                    const qEnd = qStart + 2;
-                    const startMonth = new Date(yyyy, qStart, 1).toLocaleDateString(undefined, {
-                        month: 'short'
-                    });
-                    const endMonth = new Date(yyyy, qEnd, 1).toLocaleDateString(undefined, {
-                        month: 'short'
-                    });
-                    return `${startMonth} \u{2013} ${endMonth} ${yyyy}`;
+                    const qStartMM = String(qStart + 1).padStart(2, '0');
+                    const qEndMM = String(qStart + 3).padStart(2, '0');
+                    return `${qStartMM} \u{2013} ${qEndMM} ${yyyy}`;
                 }
             case 'months':
                 return `${yyyy}`;
@@ -13470,7 +16475,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     _fmtCurrency(value, decimals = 2) {
         if (value === null || value === undefined) return "\u2212";
         const currency = this._getCurrency();
-        const rounded = this._round(value, decimals);
+        const factor = Math.pow(10, decimals);
+        const rounded = Math.round((value + Number.EPSILON) * factor) / factor;
         try {
             return new Intl.NumberFormat(undefined, {
                 style: 'currency',
@@ -13489,9 +16495,11 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             maximumFractionDigits: 3
         });
     }
-    _fmtPct(value, decimals = 1) {
+    _fmtNum(value, decimals = 2) {
         if (value === null || value === undefined) return "\u2212";
-        return value.toLocaleString(undefined, {
+        const factor = Math.pow(10, decimals);
+        const rounded = Math.round((value + Number.EPSILON) * factor) / factor;
+        return rounded.toLocaleString(undefined, {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         });
@@ -13499,24 +16507,6 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     _fmtWh(value) {
         if (value === null || value === undefined) return "\u2212";
         return Math.round(value).toString();
-    }
-    _round(value, decimals) {
-        const factor = Math.pow(10, decimals);
-        return Math.round((value + Number.EPSILON) * factor) / factor;
-    }
-    _fmtKwh(value, decimals = 2) {
-        if (value === null || value === undefined) return "\u2212";
-        return this._round(value, decimals).toLocaleString(undefined, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        });
-    }
-    _fmtKg(value, decimals = 1) {
-        if (value === null || value === undefined) return "\u2212";
-        return this._round(value, decimals).toLocaleString(undefined, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        });
     }
     _fmtTime(isoStr) {
         if (!isoStr) return "\u2212";
@@ -13580,6 +16570,34 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             case 'years':
                 return this._fmtYear(isoStr);
         }
+    }
+    _fmtTitleDate(isoStr) {
+        if (!isoStr) return "\u2212";
+        switch(this._granularity){
+            case 'months':
+                return this._fmtMonthYear(isoStr);
+            case 'years':
+                return this._fmtYear(isoStr);
+            case 'weeks':
+                return this._fmtWeek(isoStr);
+            default:
+                {
+                    const d = new Date(isoStr);
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    return `${dd}-${mm}-${d.getFullYear()}`;
+                }
+        }
+    }
+    _getPageTitle() {
+        const base = $cb691508f8eb446e$var$tp('page-title');
+        if (!this._data?.length) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${base}`;
+        const first = this._data[this._data.length - 1];
+        const last = this._data[0];
+        const from = this._fmtTitleDate(first.period_start);
+        const to = this._fmtTitleDate(last.period_start);
+        const range = from === to ? from : `${from} \u{2013} ${to}`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${base}: <span class="date-range">${range}</span>`;
     }
     _renderAppState(state) {
         if (!state) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span>−</span>`;
@@ -13678,6 +16696,8 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
         if (this._granularity === 'quarter_hours') {
             const chargeWh = this._data.reduce((s, r)=>s + Math.max(0, r.energy_wh ?? 0), 0);
             const dischargeWh = this._data.reduce((s, r)=>s + Math.max(0, -(r.energy_wh ?? 0)), 0);
+            const chargeDurationMin = this._data.filter((r)=>(r.energy_wh ?? 0) > 0).length * 15;
+            const dischargeDurationMin = this._data.filter((r)=>(r.energy_wh ?? 0) < 0).length * 15;
             return {
                 kind: 'quarter_hours',
                 first: first,
@@ -13685,9 +16705,16 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                 avgCons: mean('consumption_price'),
                 avgProd: mean('production_price'),
                 chargeWh: chargeWh,
+                chargeDurationMin: chargeDurationMin,
                 dischargeWh: dischargeWh,
+                dischargeDurationMin: dischargeDurationMin,
                 chargeCost: sum('charge_cost'),
                 dischargeRev: sum('discharge_revenue'),
+                chargeCo2Kg: sum('charge_co2_kg'),
+                dischargeCo2Kg: sum('discharge_co2_kg'),
+                co2Kg: sum('co2_kg'),
+                savingsFixed: sum('savings_fixed_eur'),
+                savingsDyn: sum('savings_dynamic_eur'),
                 hasRepaired: this._data.some((r)=>r.has_repaired)
             };
         }
@@ -13701,9 +16728,16 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
                 socMax: socs.length ? Math.max(...socs) : null,
                 avgPrice: mean('avg_price'),
                 chargeWh: sum('charge_wh'),
-                chargeCost: sum('charge_cost'),
+                chargeDurationMin: sum('charge_duration_min'),
                 dischargeWh: sum('discharge_wh'),
+                dischargeDurationMin: sum('discharge_duration_min'),
+                chargeCost: sum('charge_cost'),
                 dischargeRev: sum('discharge_revenue'),
+                chargeCo2Kg: sum('charge_co2_kg'),
+                dischargeCo2Kg: sum('discharge_co2_kg'),
+                co2Kg: sum('co2_kg'),
+                savingsFixed: sum('savings_fixed_eur'),
+                savingsDyn: sum('savings_dynamic_eur'),
                 hasRepaired: this._data.some((r)=>r.has_repaired)
             };
         }
@@ -13716,206 +16750,289 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             chargeKwh: sum('charge_kwh'),
             chargeCost: sum('charge_cost'),
             chargeCo2Kg: sum('charge_co2_kg'),
+            chargeDurationMin: sum('charge_duration_min'),
             dischargeKwh: sum('discharge_kwh'),
             dischargeRev: sum('discharge_revenue'),
             dischargeCo2Kg: sum('discharge_co2_kg'),
+            dischargeDurationMin: sum('discharge_duration_min'),
             netKwh: sum('net_kwh'),
             netCost: sum('net_cost'),
             co2Kg: sum('co2_kg'),
+            savingsFixed: sum('savings_fixed_eur'),
+            savingsDyn: sum('savings_dynamic_eur'),
             hasRepaired: this._data.some((r)=>r.has_repaired)
         };
+    }
+    _noDataHint() {
+        if (!this._firstAvailable) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const { end: end } = this._getViewWindow();
+        if (new Date(end) > new Date(this._firstAvailable)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const firstDate = new Date(this._firstAvailable).toLocaleDateString(undefined, {
+            month: 'long',
+            year: 'numeric'
+        });
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<small>${$cb691508f8eb446e$var$tp('no-data-hint')} ${firstDate}</small>`;
+    }
+    // NOTE: ha-tooltip and ha-icon (HA design system) do not work reliably in custom
+    // card shadow DOM. ha-tooltip is absent from the DOM entirely; ha-icon in <th>
+    // elements appears in the DOM but produces no visual output. The custom SVG +
+    // click-toggle approach below is the correct solution for info icons in this card.
+    _renderInfoTip(tipKey, tooltipKey) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <span class="info-container">
+        <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
+          @click=${()=>{
+            this._openTip = this._openTip === tipKey ? null : tipKey;
+        }}>
+          <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
+        </svg>
+        ${this._openTip === tipKey ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp(tooltipKey)}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </span>
+    `;
+    }
+    _toggleOverflowMenu() {
+        this._overflowMenuOpen = !this._overflowMenuOpen;
+    }
+    _onResetDatabase() {
+        this._overflowMenuOpen = false;
+        (0, $de105ef1fecb85b1$export$cec6284f5e04dc0)(this);
     }
     _renderEstimatedNote(hasRepaired) {
         if (!hasRepaired) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="estimated-note">
         ${$cb691508f8eb446e$var$tp('estimated-note')}
-        <span class="info-container">
-          <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-            @click=${()=>{
-            this._estimatedTip = !this._estimatedTip;
-        }}>
-            <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
-          </svg>
-          ${this._estimatedTip ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp('estimated-tooltip')}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-        </span>
+        ${this._renderInfoTip('estimated', 'estimated-tooltip')}
       </div>
     `;
     }
-    _fmtTotalsPeriod(first, last) {
-        if (first === last) return this._fmtPeriod(first.period_start);
-        if (this._granularity === 'quarter_hours' || this._granularity === 'hours') {
-            const start = this._fmtPeriod(first.period_start);
-            const end = this._fmtPeriod(last.period_start);
-            const date = this._fmtDayDate(first.period_start);
-            return `${start} \u{2013} ${end}, ${date}`;
+    _fmtDurationVal(minutes) {
+        if (minutes == null || minutes === 0) return "\u2212";
+        if (this._granularity === 'quarter_hours') {
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         }
-        return `${this._fmtPeriod(first.period_start)} \u{2013} ${this._fmtPeriod(last.period_start)}`;
+        return `${Math.round(minutes / 60)}`;
+    }
+    _renderMetric(label, value, unit, profit = false) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="metric">
+        <span class="metric-label">${label}</span>
+        <span class="metric-value ${profit ? 'profit' : ''}"
+          >${value} <span class="metric-unit">${unit}</span></span
+        >
+      </div>
+    `;
+    }
+    _renderSavingsCard(savingsFixed, savingsDyn) {
+        const cur = this._currencySymbol();
+        const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
+        const fixedStr = savingsFixed != null ? this._fmtNum(savingsFixed, 2) : "\u2212";
+        const dynStr = savingsDyn != null ? this._fmtNum(savingsDyn, 2) : "\u2212";
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="subcard subcard-savings">
+        <ha-icon class="savings-piggy" icon="mdi:piggy-bank-outline"></ha-icon>
+        <div class="savings-title-row">
+          <span class="subcard-title">${tt('savings')}</span>
+          ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
+        </div>
+        <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
+        <div class="subcard-hero">${cur}\u202F${fixedStr}</div>
+        <div class="savings-dyn">
+          <span class="savings-dyn-amount">${cur}\u202F${dynStr}</span>
+          <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
+        </div>
+      </div>
+    `;
     }
     _renderTotals() {
         if (this._isLoading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted">
         <span class="spinner"></span>
       </div>`;
         const t = this._computeTotals();
-        if (!t) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div>`;
+        if (!t) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center muted">
+        <div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div>
+      </div>`;
+        const hasRepaired = this._data?.some((r)=>r.has_repaired) ?? false;
+        if (t.kind === 'quarter_hours') return this._renderTotalsSubcards_QH(t, hasRepaired);
+        if (t.kind === 'hours') return this._renderTotalsSubcards_Hours(t, hasRepaired);
+        return this._renderTotalsSubcards_Days(t, hasRepaired);
+    }
+    _renderTotalsSubcards_Days(t, hasRepaired) {
+        const cur = this._currencySymbol();
         const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
-        const period = this._fmtTotalsPeriod(t.first, t.last);
-        if (t.kind === 'quarter_hours') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-        <div class="totals-layout">
-          <dl class="totals-dl">
-            <div class="totals-row">
-              <dt>${tt('period')}</dt>
-              <dd>${period}</dd>
-            </div>
-            <div class="totals-row">
-              <dt>${tt('avg-cons-price')}</dt>
-              <dd>${this._fmtCents(t.avgCons)} <span class="totals-unit">€¢/kWh</span></dd>
-            </div>
-            <div class="totals-row">
-              <dt>${tt('avg-prod-price')}</dt>
-              <dd>${this._fmtCents(t.avgProd)} <span class="totals-unit">€¢/kWh</span></dd>
-            </div>
-          </dl>
-          <table class="totals-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
-              <th>${$cb691508f8eb446e$var$tp('col.cost')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
-              <td>${this._fmtWh(t.chargeWh)}</td>
-              <td>${this._fmtCurrency(t.chargeCost)}</td>
-            </tr>
-            <tr>
-              <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
-              <td>${this._fmtWh(t.dischargeWh)}</td>
-              <td>${this._fmtCurrency(t.dischargeRev)}</td>
-            </tr>
-            <tr class="totals-net">
-              <td>${$cb691508f8eb446e$var$tp('col.net')}</td>
-              <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
-              <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
-            </tr>
-          </tbody>
-        </table>
-        </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
-      `;
-        if (t.kind === 'hours') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-        <div class="totals-layout">
-          <dl class="totals-dl">
-            <div class="totals-row">
-              <dt>${tt('period')}</dt>
-              <dd>${period}</dd>
-            </div>
-            ${t.socMin != null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <div class="totals-row">
-                    <dt>${tt('soc-range')}</dt>
-                    <dd>
-                      ${this._fmtPct(t.socMin)}% – ${this._fmtPct(t.socMax)}%
-                    </dd>
-                  </div>
-                ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-            <div class="totals-row">
-              <dt>${tt('avg-price')}</dt>
-              <dd>${this._fmtCents(t.avgPrice)} <span class="totals-unit">€¢/kWh</span></dd>
-            </div>
-          </dl>
-          <table class="totals-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
-                <th>${$cb691508f8eb446e$var$tp('col.cost')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
-                <td>${this._fmtWh(t.chargeWh)}</td>
-                <td>${this._fmtCurrency(t.chargeCost)}</td>
-              </tr>
-              <tr>
-                <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
-                <td>${this._fmtWh(t.dischargeWh)}</td>
-                <td>${this._fmtCurrency(t.dischargeRev)}</td>
-              </tr>
-              <tr class="totals-net">
-                <td>${$cb691508f8eb446e$var$tp('col.net')}</td>
-                <td>${this._fmtWh(t.chargeWh - t.dischargeWh)}</td>
-                <td>${this._fmtCurrency(t.chargeCost - t.dischargeRev)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        ${this._renderEstimatedNote(t.hasRepaired)}
-      `;
-        // days / weeks / months / years
-        const kwhDec = this._granularity === 'years' ? 0 : 2;
-        const kgDec = this._granularity === 'years' ? 0 : 1;
+        const kwhDec = 0;
+        const kgDec = 0;
         const curDec = this._granularity === 'years' ? 0 : 2;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div class="totals-layout">
-        <dl class="totals-dl">
-          <div class="totals-row">
-            <dt>${tt('period')}</dt>
-            <dd>${period}</dd>
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.net')}</span>
           </div>
-          <div class="totals-row">
-            <dt>
-              ${tt('availability')}
-              <span class="info-container">
-                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-                  @click=${()=>{
-            this._availTipTotals = !this._availTipTotals;
-        }}>
-                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
-                </svg>
-                ${this._availTipTotals ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp('col.availability-tooltip')}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-              </span>
-            </dt>
-            <dd>${this._fmtPct(t.avgAvail, 0)}%</dd>
+          <div class="subcard-hero">
+            ${this._fmtCents(t.netKwh !== 0 ? t.netCost / t.netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
           </div>
-        </dl>
-        <table class="totals-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
-              <th>${$cb691508f8eb446e$var$tp('col.cost')}</th>
-              <th>${$cb691508f8eb446e$var$tp('col.emissions')} (kg)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${$cb691508f8eb446e$var$tp('col.charge')}</td>
-              <td>${this._fmtKwh(t.chargeKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.chargeCost, curDec)}</td>
-              <td>${this._fmtKg(t.chargeCo2Kg, kgDec)}</td>
-            </tr>
-            <tr>
-              <td>${$cb691508f8eb446e$var$tp('col.discharge')}</td>
-              <td>${this._fmtKwh(t.dischargeKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.dischargeRev, curDec)}</td>
-              <td>${this._fmtKg(t.dischargeCo2Kg, kgDec)}</td>
-            </tr>
-            <tr class="totals-net">
-              <td>${$cb691508f8eb446e$var$tp('col.net')}</td>
-              <td>${this._fmtKwh(t.netKwh, kwhDec)}</td>
-              <td>${this._fmtCurrency(t.netCost, curDec)}</td>
-              <td>${this._fmtKg(t.co2Kg, kgDec)}</td>
-            </tr>
-          </tbody>
-        </table>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtNum(t.netKwh, kwhDec), 'kWh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(t.netCost, curDec), cur, t.netCost < 0)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.co2Kg, kgDec), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric((0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${tt('availability')} ${this._renderInfoTip('avail-totals', 'col.availability-tooltip')}`, this._fmtNum(t.avgAvail, 0), '%')}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtNum(t.chargeKwh, kwhDec), 'kWh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(t.chargeCost, curDec), cur)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, kgDec), 'kg CO\u2082')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtNum(t.dischargeKwh, kwhDec), 'kWh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.revenue'), this._fmtNum(t.dischargeRev, curDec), cur, true)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, kgDec), 'kg CO\u2082')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
       </div>
-      ${this._renderEstimatedNote(t.hasRepaired)}
+    `;
+    }
+    _renderTotalsSubcards_Hours(t, hasRepaired) {
+        const cur = this._currencySymbol();
+        const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
+        const netWh = t.chargeWh - t.dischargeWh;
+        const netCost = t.chargeCost - t.dischargeRev;
+        const netKwh = netWh / 1000;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.net')}</span>
+          </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(netWh), 'Wh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric(tt('avg-price'), this._fmtCents(t.avgPrice), `${cur}c/kWh`)}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
+      </div>
+    `;
+    }
+    _renderTotalsSubcards_QH(t, hasRepaired) {
+        const cur = this._currencySymbol();
+        const tt = (key)=>$cb691508f8eb446e$var$tp(`totals.${key}`);
+        const netWh = t.chargeWh - t.dischargeWh;
+        const netCost = t.chargeCost - t.dischargeRev;
+        const netKwh = netWh / 1000;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="totals-subcards-grid">
+        <div class="subcard subcard-netto">
+          ${this._renderEstimatedNote(hasRepaired)}
+          <div class="subcard-header">
+            <ha-icon icon="mdi:calculator-variant-outline"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.net')}</span>
+          </div>
+          <div class="subcard-hero">
+            ${this._fmtCents(netKwh !== 0 ? netCost / netKwh : null)}
+            <span class="hero-unit">${cur}\u00a2ent/kWh</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(netWh), 'Wh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(netCost, 2), cur, netCost < 0)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.co2Kg, 1), 'kg CO\u2082', t.co2Kg < 0)}
+            ${this._renderMetric(tt('avg-cons-price'), this._fmtCents(t.avgCons), `${cur}c/kWh`)}
+          </div>
+        </div>
+
+        ${this._renderSavingsCard(t.savingsFixed, t.savingsDyn)}
+
+        <div class="subcard subcard-charge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-left"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.charge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.chargeWh), 'Wh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.cost'), this._fmtNum(t.chargeCost, 2), cur)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.emissions'), this._fmtNum(t.chargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.chargeDurationMin), 'uur')}
+          </div>
+        </div>
+
+        <div class="subcard subcard-discharge">
+          <div class="subcard-header">
+            <ha-icon icon="mdi:car-arrow-right"></ha-icon>
+            <span class="subcard-title">${$cb691508f8eb446e$var$tp('col.discharge')}</span>
+          </div>
+          <div class="metric-grid">
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.energy'), this._fmtWh(t.dischargeWh), 'Wh')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.revenue'), this._fmtNum(t.dischargeRev, 2), cur, true)}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.avoided-emissions'), this._fmtNum(t.dischargeCo2Kg, 1), 'kg CO\u2082')}
+            ${this._renderMetric($cb691508f8eb446e$var$tp('col.duration'), this._fmtDurationVal(t.dischargeDurationMin), 'uur')}
+          </div>
+        </div>
+      </div>
     `;
     }
     // ── Table rendering per granularity ───────────────────────────
+    _renderTbody(colSpan, renderRows) {
+        if (this._isLoading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="${colSpan}"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>`;
+        if (this._data.length === 0) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="${colSpan}"><div class="center muted"><div class="no-data-msg">${$cb691508f8eb446e$var$tp('no-data')}${this._noDataHint()}</div></div></td></tr>`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${renderRows()}`;
+    }
     _col(key, unit) {
         if (unit) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${$cb691508f8eb446e$var$tp(`col.${key}`)}<span class="unit">${unit}</span>`;
         return $cb691508f8eb446e$var$tp(`col.${key}`);
@@ -13936,25 +17053,81 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="8"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                    <tr class="${row.has_repaired ? 'repaired' : ''}">
-                      <td>${this._fmtTime(row.period_start)}</td>
-                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
-                      <td class="num">${this._fmtWh(row.energy_wh)}</td>
-                      <td class="num">${this._fmtCents(row.consumption_price)}</td>
-                      <td class="num">${this._fmtCents(row.production_price)}</td>
-                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                      <td class="num">${this._fmtCostRevenue(row)}</td>
-                    </tr>
-                  `)}
+          ${this._renderTbody(8, ()=>this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+              <tr class="${row.has_repaired ? 'repaired' : ''}">
+                <td>${this._fmtTime(row.period_start)}</td>
+                <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                <td class="num">${this._fmtNum(row.soc_pct, 1)}</td>
+                <td class="num">${this._fmtWh(row.energy_wh)}</td>
+                <td class="num">${this._fmtCents(row.consumption_price)}</td>
+                <td class="num">${this._fmtCents(row.production_price)}</td>
+                <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                <td class="num">${this._fmtCostRevenue(row)}</td>
+              </tr>
+            `))}
         </tbody>
       </table>
     `;
     }
-    _renderHourTable() {
+    _renderChevronTh() {
+        if (!this._isCompact) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<th class="chevron-col" rowspan="2"></th>`;
+    }
+    _renderChevronTd(rowKey) {
+        if (!this._isCompact) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const expanded = this._isExpanded(rowKey);
+        const label = expanded ? $cb691508f8eb446e$var$tp('row-details-hide') : $cb691508f8eb446e$var$tp('row-details-show');
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <table>
+      <td
+        class="chevron-cell ${expanded ? 'open' : ''}"
+        role="button"
+        tabindex="0"
+        aria-expanded="${expanded ? 'true' : 'false'}"
+        aria-label="${label}"
+        title="${label}"
+        @click=${(e)=>{
+            e.stopPropagation();
+            this._toggleRow(rowKey);
+        }}
+        @keydown=${(e)=>{
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this._toggleRow(rowKey);
+            }
+        }}
+      >
+        <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+        </svg>
+      </td>
+    `;
+    }
+    _renderHourDetailRow(row) {
+        if (!this._isCompact) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const key = row.period_start;
+        if (!this._isExpanded(key)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        // In compact mode the hours table has these visible columns:
+        // 0 period, 1 status, 2 soc, 3 avg-price, 4 rate, 5 net-energy, 6 net-cost, 7 chevron
+        // Label spans the first 5; values align with cols 5 and 6; chevron col stays blank.
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <tr class="row-detail row-detail-first">
+        <td colspan="5" class="row-detail-label">${$cb691508f8eb446e$var$tp('col.charge')}</td>
+        <td class="num">${this._fmtWh(row.charge_wh)}</td>
+        <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+      <tr class="row-detail row-detail-last">
+        <td colspan="5" class="row-detail-label">${$cb691508f8eb446e$var$tp('col.discharge')}</td>
+        <td class="num">${this._fmtWh(row.discharge_wh)}</td>
+        <td class="num profit">${this._fmtCurrency(row.discharge_revenue)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+    `;
+    }
+    _renderHourTable() {
+        const compact = this._isCompact;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <table class="${compact ? 'compact' : ''}">
         <thead class="grouped">
           <tr>
             <th>${$cb691508f8eb446e$var$tp('col.period')}</th>
@@ -13962,9 +17135,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             <th class="num">${$cb691508f8eb446e$var$tp('col.soc')}</th>
             <th class="num">${$cb691508f8eb446e$var$tp('col.avg-price')}</th>
             <th class="indicator-col">${$cb691508f8eb446e$var$tp('col.rate')}</th>
-            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.discharge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="2">${$cb691508f8eb446e$var$tp('col.charge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="2">${$cb691508f8eb446e$var$tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.net')}</th>
+            ${this._renderChevronTh()}
           </tr>
           <tr class="sub-header">
             <th></th>
@@ -13972,88 +17146,122 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
             <th class="num">%</th>
             <th class="num">€¢/kWh</th>
             <th class="indicator-col"></th>
-            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
-            <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
-            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
-            <th class="num">${$cb691508f8eb446e$var$tp('col.revenue')}</th>
+            <th class="num group-sep col-hide-compact">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+            <th class="num col-hide-compact">${$cb691508f8eb446e$var$tp('col.cost')}</th>
+            <th class="num group-sep col-hide-compact">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
+            <th class="num col-hide-compact">${$cb691508f8eb446e$var$tp('col.revenue')}</th>
             <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (Wh)</th>
             <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="11"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div></td></tr>` : this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                    <tr class="${row.has_repaired ? 'repaired' : ''}">
-                      <td>${this._fmtHour(row.period_start)}</td>
-                      <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
-                      <td class="num">${this._fmtPct(row.soc_pct)}</td>
-                      <td class="num">${this._fmtCents(row.avg_price)}</td>
-                      <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
-                      <td class="num group-sep">${this._fmtWh(row.charge_wh)}</td>
-                      <td class="num">${this._fmtCurrency(row.charge_cost)}</td>
-                      <td class="num group-sep">${this._fmtWh(row.discharge_wh)}</td>
-                      <td class="num">${this._fmtCurrency(row.discharge_revenue)}</td>
-                      <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
-                      <td class="num">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
-                    </tr>
-                  `)}
+          ${this._renderTbody(compact ? 8 : 11, ()=>this._data.flatMap((row)=>[
+                    (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <tr class="${row.has_repaired ? 'repaired' : ''} ${this._isExpanded(row.period_start) ? 'expanded' : ''}">
+                  <td>${this._fmtHour(row.period_start)}</td>
+                  <td class="indicator-cell">${this._renderAppState(row.app_state)}</td>
+                  <td class="num">${this._fmtNum(row.soc_pct, 1)}</td>
+                  <td class="num">${this._fmtCents(row.avg_price)}</td>
+                  <td class="indicator-cell">${this._renderPriceIndicator(row.price_rating)}</td>
+                  <td class="num group-sep col-hide-compact">${this._fmtWh(row.charge_wh)}</td>
+                  <td class="num col-hide-compact">${this._fmtCurrency(row.charge_cost)}</td>
+                  <td class="num group-sep col-hide-compact">${this._fmtWh(row.discharge_wh)}</td>
+                  <td class="num profit col-hide-compact">${this._fmtCurrency(row.discharge_revenue)}</td>
+                  <td class="num group-sep">${this._fmtWh((row.charge_wh ?? 0) - (row.discharge_wh ?? 0))}</td>
+                  <td class="num ${(row.charge_cost ?? 0) - (row.discharge_revenue ?? 0) < 0 ? 'profit' : ''}">${this._fmtCurrency((row.charge_cost ?? 0) - (row.discharge_revenue ?? 0))}</td>
+                  ${this._renderChevronTd(row.period_start)}
+                </tr>
+              `,
+                    this._renderHourDetailRow(row)
+                ]))}
         </tbody>
       </table>
     `;
     }
-    _renderDayTable() {
+    _renderDayDetailRow(row, kwhDec, kgDec, curDec) {
+        if (!this._isCompact) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const key = row.period_start;
+        if (!this._isExpanded(key)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        // In compact mode the days table has these visible columns:
+        // 0 period, 1 availability, 2 net-energy, 3 net-cost, 4 net-co2, 5 chevron
+        // Label spans the first 2; values align with cols 2/3/4; chevron stays blank.
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <table>
+      <tr class="row-detail row-detail-first">
+        <td colspan="2" class="row-detail-label">${$cb691508f8eb446e$var$tp('col.charge')}</td>
+        <td class="num">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
+        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+        <td class="num">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+      <tr class="row-detail row-detail-last">
+        <td colspan="2" class="row-detail-label">${$cb691508f8eb446e$var$tp('col.discharge')}</td>
+        <td class="num">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
+        <td class="num profit">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+        <td class="num profit">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
+        <td class="chevron-spacer"></td>
+      </tr>
+    `;
+    }
+    _renderDayTable() {
+        const compact = this._isCompact;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <table class="${compact ? 'compact' : ''}">
         <thead class="grouped">
           <tr>
             <th>${$cb691508f8eb446e$var$tp('col.period')}</th>
-            <th class="num">
-              ${$cb691508f8eb446e$var$tp('col.availability')}
-              <span class="info-container">
-                <svg class="info-icon" viewBox="0 0 24 24" aria-hidden="true"
-                  @click=${()=>{
-            this._availTipHeader = !this._availTipHeader;
-        }}>
-                  <path fill="currentColor" d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"/>
-                </svg>
-                ${this._availTipHeader ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="info-popup">${$cb691508f8eb446e$var$tp('col.availability-tooltip')}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-              </span>
-            </th>
-            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.charge')}</th>
-            <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.discharge')}</th>
+            <th class="num"><span class="wide-title-wrapper">${$cb691508f8eb446e$var$tp('col.availability')}</span></th>
+            <th class="group-header group-sep col-hide-compact" colspan="3">${$cb691508f8eb446e$var$tp('col.charge')}</th>
+            <th class="group-header group-sep col-hide-compact" colspan="3">${$cb691508f8eb446e$var$tp('col.discharge')}</th>
             <th class="group-header group-sep" colspan="2">${$cb691508f8eb446e$var$tp('col.net')}</th>
-            <th class="num">${$cb691508f8eb446e$var$tp('col.emissions')}</th>
+            <th class="num"></th>
+            ${this._renderChevronTh()}
           </tr>
           <tr class="sub-header">
             <th></th>
-            <th class="num">%</th>
+            <th class="num">%
+              ${this._renderInfoTip('avail-header', 'col.availability-tooltip')}
+            </th>
+            <th class="num group-sep col-hide-compact">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
+            <th class="num col-hide-compact">${$cb691508f8eb446e$var$tp('col.cost')}</th>
+            <th class="num col-hide-compact">CO₂ (kg)</th>
+            <th class="num group-sep col-hide-compact">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
+            <th class="num col-hide-compact">${$cb691508f8eb446e$var$tp('col.revenue')}</th>
+            <th class="num col-hide-compact">CO₂ (kg)</th>
             <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
             <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
-            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
-            <th class="num">${$cb691508f8eb446e$var$tp('col.revenue')}</th>
-            <th class="num group-sep">${$cb691508f8eb446e$var$tp('col.energy')} (kWh)</th>
-            <th class="num">${$cb691508f8eb446e$var$tp('col.cost')}</th>
-            <th class="num">kg CO₂</th>
+            <th class="num">CO₂ (kg)</th>
           </tr>
         </thead>
         <tbody>
-          ${this._isLoading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="9"><div class="center muted"><span class="spinner"></span>${$cb691508f8eb446e$var$tp('loading')}</div></td></tr>` : this._data.length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<tr><td colspan="9"><div class="center muted">${$cb691508f8eb446e$var$tp('no-data')}</div></td></tr>` : (()=>{
-            const kwhDec = this._granularity === 'years' ? 0 : 2;
-            const kgDec = this._granularity === 'years' ? 0 : 1;
+          ${this._renderTbody(compact ? 6 : 11, ()=>{
+            const aggGran = [
+                'weeks',
+                'months',
+                'years'
+            ].includes(this._granularity);
+            const kwhDec = aggGran ? 0 : 2;
+            const kgDec = aggGran ? 0 : 1;
             const curDec = this._granularity === 'years' ? 0 : 2;
-            return this._data.map((row)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                      <tr class="${row.has_repaired ? 'repaired' : ''}">
-                        <td>${this._fmtPeriod(row.period_start)}</td>
-                        <td class="num">${this._fmtPct(row.availability_pct, 0)}</td>
-                        <td class="num group-sep">${this._fmtKwh(row.charge_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.charge_cost, curDec)}</td>
-                        <td class="num group-sep">${this._fmtKwh(row.discharge_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
-                        <td class="num group-sep">${this._fmtKwh(row.net_kwh, kwhDec)}</td>
-                        <td class="num">${this._fmtCurrency(row.net_cost, curDec)}</td>
-                        <td class="num">${this._fmtKg(row.co2_kg, kgDec)}</td>
-                      </tr>
-                    `);
-        })()}
+            return this._data.flatMap((row)=>[
+                    (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <tr class="${row.has_repaired ? 'repaired' : ''} ${this._isExpanded(row.period_start) ? 'expanded' : ''}">
+                    <td>${this._fmtPeriod(row.period_start)}</td>
+                    <td class="num">${this._fmtNum(row.availability_pct, 0)}</td>
+                    <td class="num group-sep col-hide-compact">${this._fmtNum(row.charge_kwh, kwhDec)}</td>
+                    <td class="num col-hide-compact">${this._fmtCurrency(row.charge_cost, curDec)}</td>
+                    <td class="num col-hide-compact">${this._fmtNum(row.charge_co2_kg, kgDec)}</td>
+                    <td class="num group-sep col-hide-compact">${this._fmtNum(row.discharge_kwh, kwhDec)}</td>
+                    <td class="num profit col-hide-compact">${this._fmtCurrency(row.discharge_revenue, curDec)}</td>
+                    <td class="num profit col-hide-compact">${this._fmtNum(row.discharge_co2_kg, kgDec)}</td>
+                    <td class="num group-sep">${this._fmtNum(row.net_kwh, kwhDec)}</td>
+                    <td class="num ${row.net_cost < 0 ? 'profit' : ''}">${this._fmtCurrency(row.net_cost, curDec)}</td>
+                    <td class="num ${row.co2_kg < 0 ? 'profit' : ''}">${this._fmtNum(row.co2_kg, kgDec)}</td>
+                    ${this._renderChevronTd(row.period_start)}
+                  </tr>
+                `,
+                    this._renderDayDetailRow(row, kwhDec, kgDec, curDec)
+                ]);
+        })}
         </tbody>
       </table>
     `;
@@ -14071,20 +17279,30 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     // ── Main render ───────────────────────────────────────────────
     render() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div class="page-layout ${this._narrowLayout ? 'narrow' : ''}">
-        <ha-card
-          .header=${`${$cb691508f8eb446e$var$tp('card-title')} \u{2014} ${$cb691508f8eb446e$var$tp('granularity.' + this._granularity)}`}
-        >
-          <div class="table-container">
-            ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
-          </div>
-        </ha-card>
+      <div class="page-header">
+        <h1 class="page-title">${this._getPageTitle()}</h1>
+        <div class="overflow-menu">
+          <ha-icon-button
+            .path=${'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z'}
+            @click=${this._toggleOverflowMenu}
+          ></ha-icon-button>
+          ${this._overflowMenuOpen ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <ul class="overflow-dropdown">
+              <li>
+                <button class="overflow-item" @click=${this._onResetDatabase}>
+                  ${$cb691508f8eb446e$var$tp('overflow-reset-database')}
+                </button>
+              </li>
+            </ul>
+          ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+      </div>
+      <div class="page-layout">
+        ${this._renderTotals()}
 
-        <ha-card .header=${$cb691508f8eb446e$var$tp('totals.card-title')}>
-          <div class="totals-card-content">
-            ${this._renderTotals()}
-          </div>
-        </ha-card>
+        <div class="table-container">
+          ${this._error ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="center error">${this._error}</div>` : this._renderTable()}
+        </div>
       </div>
 
       <div class="floating-bar">
@@ -14157,560 +17375,10 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
     `;
     }
     static{
-        // ── Styles ────────────────────────────────────────────────────
-        this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
-    :host {
-      display: block;
-      max-height: calc(100vh - var(--header-height, 56px));
-      overflow: hidden;
-      padding: 12px;
-      box-sizing: border-box;
-      container-type: inline-size;
-    }
-
-    /* ─- Page layout ──────────────────────────────── */
-
-    .page-layout {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 12px;
-    }
-
-    .page-layout ha-card {
-      --ha-card-border-radius: 12px;
-      --ha-card-border-width: 1px;
-      --ha-card-border-color: var(--divider-color, #e0e0e0);
-      overflow: hidden;
-    }
-
-    .page-layout > ha-card:last-child {
-      align-self: start;
-      position: sticky;
-      top: 0;
-    }
-
-    .totals-card-content {
-      padding: 0 24px 16px;
-    }
-
-    @container (max-width: 1024px) {
-      .page-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .page-layout > ha-card:last-child {
-        order: -1;
-        position: static;
-      }
-    }
-
-    .page-layout.narrow .totals-layout {
-      display: flex;
-      gap: 48px;
-      align-items: flex-start;
-    }
-
-    .page-layout.narrow .totals-layout .totals-dl {
-      flex: 1;
-      margin-bottom: 0;
-    }
-
-    .page-layout.narrow .totals-layout .totals-table {
-      flex: 1;
-    }
-
-    // .card-content {
-    //   max-width: 450px;
-    //   padding: 0 48px 16px;
-    // }
-
-    /* ── Floating bar ─────────────────────────────── */
-
-    .floating-bar {
-      position: fixed;
-      bottom: 12px;
-      left: var(--mdc-drawer-width, 0px);
-      right: 0;
-      display: flex;
-      justify-content: center;
-      z-index: 5;
-    }
-
-    .bar-content {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      background: var(--card-background-color, white);
-      border-radius: 12px;
-      padding: 4px 8px;
-      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.25);
-      min-height: 48px;
-    }
-
-    .bar-separator {
-      width: 1px;
-      height: 24px;
-      background: var(--divider-color, #e0e0e0);
-      margin: 0 4px;
-    }
-
-    .pill {
-      border: none;
-      border-radius: 18px;
-      padding: 6px 12px;
-      font-size: 13px;
-      background: transparent;
-      color: var(--primary-text-color);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .pill:hover {
-      background: var(--secondary-background-color, #f5f5f5);
-    }
-
-    .pill.active {
-      background: var(--primary-color);
-      color: var(--text-primary-color, #fff);
-    }
-
-    /* ── Granularity dropdown (narrow bar) ──────── */
-
-    .gran-menu {
-      position: relative;
-    }
-
-    .gran-trigger {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: var(--primary-color);
-      border: none;
-      border-radius: 20px;
-      padding: 6px 8px 6px 14px;
-      font-size: 13px;
-      font-family: inherit;
-      color: var(--text-primary-color, #fff);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .gran-trigger:hover {
-      opacity: 0.85;
-    }
-
-    .gran-dropdown {
-      position: absolute;
-      bottom: calc(100% + 6px);
-      right: 0;
-      background: var(--card-background-color, #fff);
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-      min-width: 140px;
-      z-index: 100;
-      list-style: none;
-      margin: 0;
-      padding: 4px 0;
-    }
-
-    .gran-item {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: none;
-      border: none;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-family: inherit;
-      color: var(--primary-text-color);
-      cursor: pointer;
-    }
-
-    .gran-item:hover {
-      background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
-    }
-
-    .gran-item.active {
-      color: var(--primary-color, #1976d2);
-      font-weight: 500;
-    }
-
-    .gran-dropdown li:first-child .gran-item {
-      border-radius: 12px 12px 0 0;
-    }
-
-    .gran-dropdown li:last-child .gran-item {
-      border-radius: 0 0 12px 12px;
-    }
-
-    .date-wrapper {
-      position: relative;
-      text-align: center;
-      cursor: pointer;
-      min-width: 130px;
-    }
-
-    .date-label {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--primary-text-color);
-    }
-
-    .date-input {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    /* ── Table ─────────────────────────────────────── */
-
-    .table-container {
-      /* Pre-JS fallback only — firstUpdated() sets maxHeight via ResizeObserver
-         based on the container's actual viewport position. */
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font-size: 13px;
-      font-variant-numeric: tabular-nums;
-      /* Whitespace below last row; works because border-collapse is separate */
-      padding-bottom: 48px;
-    }
-
-    thead {
-      position: sticky;
-      top: 0;
-      z-index: 3;
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0);
-      transition: box-shadow 0.2s ease;
-    }
-
-    .table-container.scrolled thead {
-      box-shadow: 0 1px 0 var(--divider-color, #e0e0e0), 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    thead th {
-      text-align: left;
-      vertical-align: top;
-      padding: 8px 12px;
-      font-weight: 500;
-      font-size: 12px;
-      color: var(--primary-text-color);
-      background: var(--card-background-color, white);
-    }
-
-    thead th.group-sep {
-      border-left: 1px solid var(--divider-color, #e0e0e0);
-    }
-
-    thead th .unit {
-      display: block;
-      font-weight: 400;
-      font-size: 11px;
-      color: var(--secondary-text-color, #797979);
-    }
-
-    thead th.num {
-      text-align: right;
-    }
-
-    /* ── Grouped two-row header (hours/days view) ─────── */
-
-    .group-header {
-      text-align: left;
-      font-weight: 600;
-    }
-
-    thead.grouped tr.sub-header th {
-      font-size: 11px;
-      font-weight: 400;
-      color: var(--secondary-text-color, #797979);
-      padding-top: 4px;
-      padding-bottom: 4px;
-    }
-
-    tbody td.group-sep::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      width: 1px;
-      top: 20%;
-      bottom: 20%;
-      background: var(--divider-color, #e0e0e0);
-    }
-
-    tbody td.group-sep {
-      position: relative;
-    }
-
-    tbody td.group-sep::before {
-      top: 20%;
-      bottom: 20%;
-    }
-
-    tbody td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--divider-color, #e0e0e0);
-      white-space: nowrap;
-    }
-
-    thead th:first-child,
-    tbody td:first-child {
-      padding-left: 24px;
-    }
-
-    thead th:last-child,
-    tbody td:last-child {
-      padding-right: 24px;
-    }
-
-    tbody td.num {
-      text-align: right;
-    }
-
-    tbody tr:hover {
-      background: var(--table-row-alternative-background-color, #f9f9f9);
-    }
-
-    .center {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      padding: 24px 0;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border: 2px solid var(--secondary-text-color);
-      border-top-color: var(--primary-color);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-
-    .muted {
-      color: var(--secondary-text-color);
-      font-size: 14px;
-    }
-
-    tr.repaired {
-      color: var(--secondary-text-color);
-    }
-
-    .estimated-note {
-      color: var(--secondary-text-color);
-      font-size: 12px;
-      margin-top: 8px;
-      font-style: italic;
-    }
-
-    .error {
-      color: var(--error-color, #db4437);
-      font-size: 14px;
-    }
-
-    /* ── Price indicator ───────────────────────────── */
-
-    .indicator-col,
-    .indicator-cell {
-      text-align: center;
-    }
-
-    .state-cell {
-      position: relative;
-      display: inline-block;
-    }
-
-    .state-plus {
-      position: absolute;
-      top: -2px;
-      right: -6px;
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--primary-color);
-      line-height: 1;
-    }
-
-    /* ── Price sparkline track ─────────────────────── */
-
-    .price-track {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      width: 48px;
-      height: 20px;
-    }
-
-    .price-track::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      width: calc(var(--marker-left) - 7px);
-      top: 50%;
-      height: 1px;
-      background: var(--secondary-text-color);
-    }
-
-    .price-track::after {
-      content: '';
-      position: absolute;
-      left: calc(var(--marker-left) + 7px);
-      right: 0;
-      top: 50%;
-      height: 1px;
-      background: var(--secondary-text-color);
-    }
-
-    .price-marker {
-      position: absolute;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1;
-      transform: translateX(-50%);
-      color: var(--marker-color);
-      left: var(--marker-left);
-      z-index: 1;
-      user-select: none;
-    }
-
-    /* Light mode */
-    .price-track[data-level='very-low']  { --marker-left: 8%;  --marker-color: #90caf9; }
-    .price-track[data-level='low']       { --marker-left: 28%; --marker-color: #5c8dc9; }
-    .price-track[data-level='average']   { --marker-left: 50%; --marker-color: #7e57c2; }
-    .price-track[data-level='high']      { --marker-left: 72%; --marker-color: #6a1b9a; }
-    .price-track[data-level='very-high'] { --marker-left: 92%; --marker-color: #4a0072; }
-
-    @media (prefers-color-scheme: dark) {
-      .price-track[data-level='very-low']  { --marker-color: #37474f; }
-      .price-track[data-level='low']       { --marker-color: #5c6bc0; }
-      .price-track[data-level='average']   { --marker-color: #9575cd; }
-      .price-track[data-level='high']      { --marker-color: #ba68c8; }
-      .price-track[data-level='very-high'] { --marker-color: #e040fb; }
-    }
-
-    /* ── Totals card ───────────────────────────────── */
-
-    .totals-dl {
-      margin: 0 0 12px;
-      display: grid;
-      gap: 4px;
-    }
-
-    .totals-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-    }
-
-    .totals-row dt {
-      color: var(--secondary-text-color);
-      font-size: 0.85em;
-      flex-shrink: 0;
-    }
-
-    .totals-unit {
-      font-weight: 400;
-      color: var(--secondary-text-color);
-    }
-
-    .info-container {
-      position: relative;
-      display: inline-block;
-      vertical-align: middle;
-      margin-left: 2px;
-    }
-
-    .info-icon {
-      width: 14px;
-      height: 14px;
-      color: var(--primary-color);
-      cursor: pointer;
-      display: block;
-    }
-
-    .info-popup {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--primary-text-color);
-      color: var(--card-background-color);
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 400;
-      line-height: 1.4;
-      width: 200px;
-      white-space: normal;
-      z-index: 100;
-      cursor: default;
-    }
-
-    .totals-row dd {
-      margin: 0;
-      font-weight: 500;
-      text-align: right;
-    }
-
-    .totals-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9em;
-    }
-
-    .totals-table th {
-      text-align: right;
-      font-weight: normal;
-      color: var(--secondary-text-color);
-      padding: 2px 4px 4px;
-      border-bottom: 1px solid var(--divider-color);
-    }
-
-    .totals-table th:first-child {
-      text-align: left;
-      padding-left: 0;
-    }
-
-    .totals-table td {
-      padding: 3px 4px;
-      text-align: right;
-    }
-
-    .totals-table td:first-child {
-      text-align: left;
-      padding-left: 0;
-    }
-
-    .totals-table th:last-child,
-    .totals-table td:last-child {
-      padding-right: 0;
-    }
-
-    .totals-net td {
-      border-top: 1px solid var(--divider-color);
-      font-weight: 500;
-      padding-top: 4px;
-    }
-  `;
+        this.styles = (0, $0d210c97196ebd06$export$65361f0ecd1811fa);
     }
     constructor(...args){
-        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._narrowLayout = false, this._granMenuOpen = false, this._availTipTotals = false, this._availTipHeader = false, this._estimatedTip = false;
+        super(...args), this._granularity = 'days', this._viewDate = new Date(), this._data = [], this._isLoading = false, this._error = null, this._narrowBar = false, this._isCompact = false, this._expandedRowKey = null, this._granMenuOpen = false, this._firstAvailable = null, this._openTip = null, this._overflowMenuOpen = false;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -14736,19 +17404,22 @@ class $cb691508f8eb446e$export$9eb0c07a02bac54 extends (0, $ab210b2da7b39b9d$exp
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowBar", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_narrowLayout", void 0);
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_isCompact", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_expandedRowKey", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_granMenuOpen", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_availTipTotals", void 0);
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_firstAvailable", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_availTipHeader", void 0);
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_openTip", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_estimatedTip", void 0);
+], $cb691508f8eb446e$export$9eb0c07a02bac54.prototype, "_overflowMenuOpen", void 0);
 $cb691508f8eb446e$export$9eb0c07a02bac54 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-data-table-card')
 ], $cb691508f8eb446e$export$9eb0c07a02bac54);
@@ -14770,6 +17441,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._adminSettingsInitialised = hass.states[$755a87c9ee93218f$export$e912a4111e48f543];
         this._adminMobileName = hass.states[$755a87c9ee93218f$export$750f693c799177e2];
         this._adminMobilePlatform = hass.states[$755a87c9ee93218f$export$d70389959f86dee4];
@@ -14788,11 +17460,12 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         const args = {
             notificationTitle: $ce5bce3a7c4706d2$var$tt('notification-title'),
             notificationMessage: $ce5bce3a7c4706d2$var$tt('notification-message'),
-            notificationButtonLabel: $ce5bce3a7c4706d2$var$tt('notification-button-label')
+            notificationLoudAlarmLabel: $ce5bce3a7c4706d2$var$tt('notification-loud-alarm-label'),
+            notificationSoftOrNoSoundLabel: $ce5bce3a7c4706d2$var$tt('notification-soft-or-no-sound-label')
         };
         try {
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'send_test_notification', args, 120000);
-            this._testNotificationState = 'success';
+            this._testNotificationState = result.loud_alarm ? 'success' : 'sound-issue';
         } catch (err) {
             this._testNotificationState = 'timeout';
         }
@@ -14827,7 +17500,9 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         if (this._testNotificationState === 'waiting') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <div style="display: flex; border: 2px solid var(--warning-color); padding: 1em; border-radius: 4px;">
         ${(0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this._hass)}
-        <div style="padding-left: 0.5em;">${$ce5bce3a7c4706d2$var$tt('how-to-react-on-mobile-device')}</div></div>
+        <div style="padding-left: 0.5em;">
+          ${$ce5bce3a7c4706d2$var$tt('how-to-react-on-mobile-device')}
+        </div></div>
       `;
         if (this._testNotificationState === 'timeout') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <ha-alert alert-type="error">${$ce5bce3a7c4706d2$var$tt('test-notification-timeout')}</ha-alert>
@@ -14835,6 +17510,15 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
         if (this._testNotificationState === 'success') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
         <ha-alert alert-type="success">${$ce5bce3a7c4706d2$var$tt('test-notification-success')}</ha-alert>
       `;
+        if (this._testNotificationState === 'sound-issue') {
+            const isAndroid = this._adminMobilePlatform?.state?.toLowerCase() === 'android';
+            const hint = isAndroid ? $ce5bce3a7c4706d2$var$tt('sound-issue-android') : $ce5bce3a7c4706d2$var$tt('sound-issue-ios');
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <ha-alert alert-type="warning">
+          <ha-markdown breaks .content=${hint}></ha-markdown>
+        </ha-alert>
+      `;
+        }
     }
     _renderUninitialisedContent() {
         const editCallback = ()=>(0, $de105ef1fecb85b1$export$37fb422a613a50b6)(this);
@@ -14885,6 +17569,7 @@ class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._usableCapacity = hass.states[$755a87c9ee93218f$export$511a96d8a8b167fa];
         this._roundtripEfficiency = hass.states[$755a87c9ee93218f$export$7c53730103b0e952];
         this._carEnergyConsumption = hass.states[$755a87c9ee93218f$export$a6bd64d0b150c939];
@@ -14994,6 +17679,7 @@ class $8b666ded8df00928$export$5fb852718b75e058 extends (0, $ab210b2da7b39b9d$ex
     }
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._calendarSettingsInitialised = hass.states[$755a87c9ee93218f$export$327a7fa57ac6cc54];
         this._carCalendarSource = hass.states[$755a87c9ee93218f$export$9c93c6d1ceae75f4];
         this._integrationCalendarEntityName = hass.states[$755a87c9ee93218f$export$500ee9ae1b823337];
@@ -15099,6 +17785,7 @@ $8b666ded8df00928$export$5fb852718b75e058 = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
 const $8462057a459186b4$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.charger');
 const $8462057a459186b4$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
 var $8462057a459186b4$var$ChargerConnectionStatus = /*#__PURE__*/ function(ChargerConnectionStatus) {
@@ -15110,7 +17797,13 @@ var $8462057a459186b4$var$ChargerConnectionStatus = /*#__PURE__*/ function(Charg
 class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
     set hass(hass) {
+        const firstSet = !this._hass;
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
+        if (firstSet) {
+            this._loadPhaseInfo();
+            this._subscribeToPhaseEvents();
+        }
         this._chargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
         this._chargerHost = hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89];
         this._chargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
@@ -15146,6 +17839,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
+        ${this._renderChargerPhase()}
         ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
       </div>
       <div class="card-actions">
@@ -15162,6 +17856,43 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
             time: (0, $3e7075d7d44f6925$export$bb2bfceb6aaff8bf)(this._chargerConnectionStatus.last_updated)
         });
         return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    }
+    async _loadPhaseInfo() {
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_charger_phase');
+            this._connectedToPhase = data.connected_to_phase ?? null;
+            this._phaseRequired = data.required ?? false;
+            this._phaseLoaded = true;
+        } catch (e) {
+        // Ignore — phase info not available
+        }
+    }
+    async _subscribeToPhaseEvents() {
+        this._unsubPhase = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_charger_phase.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubPhase) {
+            this._unsubPhase();
+            this._unsubPhase = null;
+        }
+    }
+    _renderChargerPhase() {
+        if (!this._phaseLoaded) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (this._connectedToPhase === null) {
+            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
+            return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        }
+        const phaseValue = Array.isArray(this._connectedToPhase) ? this._connectedToPhase.map((p)=>`L${p}`).join(', ') : `L${this._connectedToPhase}`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon icon="mdi:electric-switch"></ha-icon>&nbsp; &nbsp;
+          Connected to phase
+        </span>
+        <div class="text-content value state">${phaseValue}</div>
+      </ha-settings-row>
+    `;
     }
     _renderMaxChargeConfiguration() {
         const maxAvailablePower = this._hass.states[$755a87c9ee93218f$export$2afa365a5af4c631].state;
@@ -15201,6 +17932,10 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
       `
         ];
     }
+    constructor(...args){
+        super(...args), // Charger phase (from JSON settings, not HA entity)
+        this._connectedToPhase = null, this._phaseRequired = false, this._phaseLoaded = false, this._unsubPhase = null;
+    }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
@@ -15226,6 +17961,12 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_loadBalancerLimit", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_connectedToPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_phaseRequired", void 0);
 $8462057a459186b4$export$bfa1cde860c39587 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-charger-settings-card')
 ], $8462057a459186b4$export$bfa1cde860c39587);
@@ -15248,6 +17989,7 @@ class $31e0aca5546fddf6$export$f58cebbb0e887608 extends (0, $ab210b2da7b39b9d$ex
     }
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._electricityContractSettingsInitialised = hass.states[$755a87c9ee93218f$export$6803b8e9884353c8];
         this._electricityProvider = hass.states[$755a87c9ee93218f$export$6106300be9012ff7];
         this._energyPriceVat = hass.states[$755a87c9ee93218f$export$8f62940f89c0da8a];
@@ -15361,6 +18103,7 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._optimisationMode = hass.states[$755a87c9ee93218f$export$29a786ee773985a];
         this._lowerChargeLimit = hass.states[$755a87c9ee93218f$export$a81a922cb2dc8458];
         this._upperChargeLimit = hass.states[$755a87c9ee93218f$export$e39cc2ab91dbbf48];
@@ -15453,6 +18196,7 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 
+
 class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     connectedCallback() {
         super.connectedCallback();
@@ -15465,6 +18209,7 @@ class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$ex
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._checkUnInitialisedEntities();
     }
     _checkUnInitialisedEntities() {
@@ -15519,6 +18264,7 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
     }
     set hass(hass) {
         this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._scheduleSettingsInitialised = hass.states[$755a87c9ee93218f$export$bcc5761a4d7674a4];
         this._fmAccountUsername = hass.states[$755a87c9ee93218f$export$e3ef81d1214ac426];
         this._fmUseOtherServer = hass.states[$755a87c9ee93218f$export$c7d1877b110c2f09];
@@ -15595,6 +18341,263 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
 $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-schedule-settings-card')
 ], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa);
+
+
+
+
+
+
+
+
+
+
+const $fcb07f75f9ef44be$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
+class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(config) {}
+    set hass(hass) {
+        const firstSet = !this._hass;
+        this._hass = hass;
+        if (firstSet) {
+            this._loadSettings();
+            this._subscribeToSaveEvents();
+        }
+    }
+    async _subscribeToSaveEvents() {
+        this._unsubscribe = await this._hass.connection.subscribeEvents(()=>this._loadSettings(), 'save_grid_connection_settings.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubscribe) {
+            this._unsubscribe();
+            this._unsubscribe = null;
+        }
+    }
+    async _loadSettings() {
+        this._loading = true;
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_grid_connection_settings');
+            this._phases = data.phases ?? null;
+            this._capacityPerPhase = data.capacity_per_phase ?? null;
+            this._consumptionEntities = data.consumption_entities ?? [];
+            this._productionEntities = data.production_entities ?? [];
+            this._isConfigured = this._consumptionEntities.length > 0;
+        } catch (e) {
+            console.error('Failed to load grid connection settings', e);
+            this._isConfigured = false;
+        }
+        this._loading = false;
+    }
+    render() {
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">
+        <div class="card-content">
+          <ha-circular-progress indeterminate></ha-circular-progress>
+        </div>
+      </ha-card>`;
+        const content = this._isConfigured ? this._renderConfiguredContent() : this._renderEmptyContent();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">${content}</ha-card>`;
+    }
+    _renderEmptyContent() {
+        const editCallback = ()=>this._openDialog();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <ha-alert alert-type="info">Not yet configured. This is optional but recommended.</ha-alert>
+        <p>Track your household energy usage to improve charging schedules over time.</p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, $fcb07f75f9ef44be$var$tc('configure'))}
+      </div>
+    `;
+    }
+    _renderConfiguredContent() {
+        const editCallback = ()=>this._openDialog();
+        const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
+        const sensorCount = this._consumptionEntities.length + this._productionEntities.length;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <p>${phaseLabel}, ${this._capacityPerPhase}A per phase</p>
+        <p>Monitoring active on ${sensorCount} sensors.</p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+      </div>
+    `;
+    }
+    _openDialog() {
+        (0, $de105ef1fecb85b1$export$dc47fab9d3063d57)(this);
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349)
+        ];
+    }
+    constructor(...args){
+        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._loading = true, this._unsubscribe = null;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_isConfigured", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_capacityPerPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_consumptionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loading", void 0);
+$fcb07f75f9ef44be$export$fc44a86842da187a = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-grid-connection-settings-card')
+], $fcb07f75f9ef44be$export$fc44a86842da187a);
+
+
+
+
+
+
+
+
+
+
+class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(config) {}
+    set hass(hass) {
+        const firstSet = !this._hass;
+        this._hass = hass;
+        if (firstSet) {
+            this._loadPanels();
+            this._subscribeToUpdates();
+        }
+    }
+    async _subscribeToUpdates() {
+        this._unsubscribeSave = await this._hass.connection.subscribeEvents(()=>this._loadPanels(), 'save_solar_panel.result');
+        this._unsubscribeDelete = await this._hass.connection.subscribeEvents(()=>this._loadPanels(), 'delete_solar_panel.result');
+        this._unsubscribeGridSave = await this._hass.connection.subscribeEvents(()=>this._loadPanels(), 'save_grid_connection_settings.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubscribeSave) {
+            this._unsubscribeSave();
+            this._unsubscribeSave = null;
+        }
+        if (this._unsubscribeDelete) {
+            this._unsubscribeDelete();
+            this._unsubscribeDelete = null;
+        }
+        if (this._unsubscribeGridSave) {
+            this._unsubscribeGridSave();
+            this._unsubscribeGridSave = null;
+        }
+    }
+    async _loadPanels() {
+        this._loading = true;
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_solar_panels');
+            this._panels = data.solar_panels ?? [];
+        } catch (e) {
+            console.error('Failed to load solar panels', e);
+            this._panels = [];
+        }
+        this._loading = false;
+    }
+    render() {
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Solar panels">
+        <div class="card-content">
+          <ha-circular-progress indeterminate></ha-circular-progress>
+        </div>
+      </ha-card>`;
+        const content = this._panels.length === 0 ? this._renderEmptyContent() : this._renderPanelList();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Solar panels">${content}</ha-card>`;
+    }
+    _renderEmptyContent() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <ha-alert alert-type="info"
+          >No solar panels configured. This is optional.</ha-alert
+        >
+        <p>
+          Prepare for the end of net metering by letting V2G Liberty learn your
+          solar generation patterns.
+        </p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Add solar panels')}
+      </div>
+    `;
+    }
+    _renderPanelList() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        ${this._panels.map((p)=>this._renderPanelRow(p))}
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Add panel')}
+      </div>
+    `;
+    }
+    _renderPanelRow(panel) {
+        const wp = panel.peak_power_wp ? `${panel.peak_power_wp} Wp` : '';
+        const phases = panel.phases === 1 ? '1-phase' : '3-phase';
+        const phaseInfo = panel.phases === 1 && panel.connected_to_phase ? `${phases} (L${panel.connected_to_phase})` : phases;
+        const summary = [
+            wp,
+            phaseInfo
+        ].filter(Boolean).join(', ');
+        // Use the alert icon as the leading icon when inconsistent — that way
+        // a long panel name can't push the warning off-screen, and the row
+        // catches the eye at a glance.
+        const leadingIcon = panel.inconsistency_reason ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-svg-icon
+          .path=${0, $04557c061247a0a6$export$2de6df494da709f1}
+          title=${panel.inconsistency_reason}
+          style="color: var(--error-color);"
+        ></ha-svg-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-svg-icon .path=${0, $04557c061247a0a6$export$709e1cf7b54ff1ad}></ha-svg-icon>`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-settings-row>
+        <span slot="heading">
+          ${leadingIcon}&nbsp; &nbsp; ${panel.name}
+        </span>
+        <div class="value">${summary}</div>
+        <ha-icon-button
+          .label=${'Edit'}
+          .path=${0, $04557c061247a0a6$export$798dd1d7757f148e}
+          @click=${()=>this._openDialog(panel)}
+        ></ha-icon-button>
+      </ha-settings-row>
+    `;
+    }
+    _openDialog(panel) {
+        (0, $de105ef1fecb85b1$export$73ad1784b2d8a352)(this, panel ? {
+            panel: panel
+        } : {});
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349)
+        ];
+    }
+    constructor(...args){
+        super(...args), this._panels = [], this._loading = true, this._unsubscribeSave = null, this._unsubscribeDelete = null, // Inconsistency_reason depends on grid phases, so also refresh on grid
+        // save events — otherwise the alert icon would only appear after a
+        // manual page reload.
+        this._unsubscribeGridSave = null;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $35ba43e7ac8b244d$export$34371b2164e98a89.prototype, "_panels", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $35ba43e7ac8b244d$export$34371b2164e98a89.prototype, "_loading", void 0);
+$35ba43e7ac8b244d$export$34371b2164e98a89 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-solar-panels-settings-card')
+], $35ba43e7ac8b244d$export$34371b2164e98a89);
+
 
 
 

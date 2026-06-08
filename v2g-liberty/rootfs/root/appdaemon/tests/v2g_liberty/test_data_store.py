@@ -1,5 +1,6 @@
 """Unit test (pytest) for data_store module."""
 
+import logging
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock
 
@@ -22,24 +23,6 @@ from apps.v2g_liberty.data_store import (
 # Fixed timezone for deterministic tests
 TEST_TZ = timezone(timedelta(hours=1))
 TEST_NOW = datetime(2026, 2, 21, 12, 0, 0, tzinfo=TEST_TZ)
-
-
-def get_log_message(log_call):
-    """Extract the log message from a single call object."""
-    if log_call and log_call.args:
-        return log_call.args[0]
-    elif log_call and log_call.kwargs:
-        return log_call.kwargs.get("msg", "")
-    return ""
-
-
-def find_log_containing(hass, text):
-    """Search all log calls for a message containing the given text."""
-    for call in hass.log.call_args_list:
-        msg = get_log_message(call)
-        if text in msg:
-            return call
-    return None
 
 
 @pytest.fixture
@@ -215,14 +198,15 @@ class TestSchemaVersion:
         assert count == 1
 
     @pytest.mark.asyncio
-    async def test_second_start_logs_up_to_date(self, data_store, hass):
+    async def test_second_start_logs_up_to_date(self, data_store, hass, caplog):
         await data_store.initialise()
         data_store.close()
-        await data_store.initialise()
-        assert find_log_containing(hass, "up to date") is not None
+        with caplog.at_level(logging.INFO):
+            await data_store.initialise()
+        assert "up to date" in caplog.text
 
     @pytest.mark.asyncio
-    async def test_newer_version_logs_warning(self, data_store, hass):
+    async def test_newer_version_logs_warning(self, data_store, hass, caplog):
         await data_store.initialise()
         # Manually bump version to simulate a downgrade scenario
         cursor = data_store.connection.cursor()
@@ -234,10 +218,9 @@ class TestSchemaVersion:
         cursor.close()
         # Reinitialise
         data_store.close()
-        await data_store.initialise()
-        warning_call = find_log_containing(hass, "newer than expected")
-        assert warning_call is not None
-        assert warning_call.kwargs.get("level") == "WARNING"
+        with caplog.at_level(logging.WARNING):
+            await data_store.initialise()
+        assert "newer than expected" in caplog.text
 
     @pytest.mark.asyncio
     async def test_tables_preserved_after_reinitialise(self, data_store):
@@ -414,15 +397,16 @@ class TestUpsertPrices:
         assert row["price_rating"] is None
 
     @pytest.mark.asyncio
-    async def test_upsert_prices_logs_count(self, data_store, hass):
+    async def test_upsert_prices_logs_count(self, data_store, hass, caplog):
         await data_store.initialise()
-        data_store.upsert_prices(
-            [
-                ("2026-02-21T12:00:00+01:00", 0.25, 0.10, None),
-                ("2026-02-21T12:05:00+01:00", 0.26, 0.11, None),
-            ]
-        )
-        assert find_log_containing(hass, "2 price row(s)") is not None
+        with caplog.at_level(logging.INFO):
+            data_store.upsert_prices(
+                [
+                    ("2026-02-21T12:00:00+01:00", 0.25, 0.10, None),
+                    ("2026-02-21T12:05:00+01:00", 0.26, 0.11, None),
+                ]
+            )
+        assert "2 price row(s)" in caplog.text
 
 
 class TestInsertReservation:
@@ -734,15 +718,16 @@ class TestUpsertEmissions:
         assert count == 1
 
     @pytest.mark.asyncio
-    async def test_upsert_emissions_logs_count(self, data_store, hass):
+    async def test_upsert_emissions_logs_count(self, data_store, hass, caplog):
         await data_store.initialise()
-        data_store.upsert_emissions(
-            [
-                ("2026-02-21T12:00:00+01:00", 350.5),
-                ("2026-02-21T12:05:00+01:00", 348.2),
-            ]
-        )
-        assert find_log_containing(hass, "2 emission row(s)") is not None
+        with caplog.at_level(logging.INFO):
+            data_store.upsert_emissions(
+                [
+                    ("2026-02-21T12:00:00+01:00", 350.5),
+                    ("2026-02-21T12:05:00+01:00", 348.2),
+                ]
+            )
+        assert "2 emission row(s)" in caplog.text
 
 
 class TestUpsertReferencePrices:
@@ -811,15 +796,16 @@ class TestUpsertReferencePrices:
         assert cursor.fetchone()[0] == 3
 
     @pytest.mark.asyncio
-    async def test_upsert_logs_count(self, data_store, hass):
+    async def test_upsert_logs_count(self, data_store, hass, caplog):
         await data_store.initialise()
-        data_store.upsert_reference_prices(
-            [
-                ("2026-01", 0.10, 0.15, "cbs", "2026-03-01T00:00:00+00:00"),
-                ("2026-02", 0.11, 0.16, "cbs", "2026-03-01T00:00:00+00:00"),
-            ]
-        )
-        assert find_log_containing(hass, "2 reference price row(s)") is not None
+        with caplog.at_level(logging.INFO):
+            data_store.upsert_reference_prices(
+                [
+                    ("2026-01", 0.10, 0.15, "cbs", "2026-03-01T00:00:00+00:00"),
+                    ("2026-02", 0.11, 0.16, "cbs", "2026-03-01T00:00:00+00:00"),
+                ]
+            )
+        assert "2 reference price row(s)" in caplog.text
 
 
 class TestGetReferencePrice:
@@ -845,11 +831,12 @@ class TestGetReferencePrice:
         assert price == pytest.approx(0.27)  # 2026-02 is latest ≤ 2026-06
 
     @pytest.mark.asyncio
-    async def test_fallback_logs_warning(self, data_store, hass):
+    async def test_fallback_logs_warning(self, data_store, hass, caplog):
         await data_store.initialise()
         self._insert(data_store, "2026-01")
-        data_store.get_reference_price("2026-06")
-        assert find_log_containing(hass, "fallback") is not None
+        with caplog.at_level(logging.WARNING):
+            data_store.get_reference_price("2026-06")
+        assert "fallback" in caplog.text
 
     @pytest.mark.asyncio
     async def test_returns_none_when_no_data(self, data_store):
@@ -862,3 +849,134 @@ class TestGetReferencePrice:
         await data_store.initialise()
         self._insert(data_store, "2026-06")
         assert data_store.get_reference_price("2026-01") is None
+
+
+class TestGridIntervalLog:
+    @pytest.mark.asyncio
+    async def test_insert_and_retrieve(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.5, 0.0)
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 2, 0.8, 0.1)
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 3, 0.3, 0.0)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 3
+        assert rows[0]["phase"] == 1
+        assert rows[0]["consumption_kw"] == 1.5
+        assert rows[0]["production_kw"] == 0.0
+        assert rows[1]["phase"] == 2
+        assert rows[2]["phase"] == 3
+
+    @pytest.mark.asyncio
+    async def test_retrieve_filters_by_timestamp(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.0, 0.0)
+        data_store.insert_grid_interval("2026-05-01T12:05:00+02:00", 1, 2.0, 0.0)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T12:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["consumption_kw"] == 2.0
+
+    @pytest.mark.asyncio
+    async def test_upsert_overwrites(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.0, 0.0)
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 9.9, 0.5)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["consumption_kw"] == 9.9
+        assert rows[0]["production_kw"] == 0.5
+
+    @pytest.mark.asyncio
+    async def test_retrieve_empty(self, data_store):
+        await data_store.initialise()
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T12:00:00+02:00")
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_none_values(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, None, None)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["consumption_kw"] is None
+        assert rows[0]["production_kw"] is None
+
+
+class TestPvIntervalLog:
+    @pytest.mark.asyncio
+    async def test_insert_and_retrieve(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 2.4)
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_2", 1.1)
+        data_store.insert_pv_interval("2026-05-01T12:05:00+02:00", "sp_1", 2.6)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 3
+        assert rows[0] == {
+            "timestamp": "2026-05-01T12:00:00+02:00",
+            "panel_id": "sp_1",
+            "power_kw": 2.4,
+        }
+        assert rows[1]["panel_id"] == "sp_2"
+        assert rows[2]["timestamp"] == "2026-05-01T12:05:00+02:00"
+
+    @pytest.mark.asyncio
+    async def test_retrieve_filters_by_timestamp(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 1.0)
+        data_store.insert_pv_interval("2026-05-01T12:05:00+02:00", "sp_1", 2.0)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T12:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["power_kw"] == 2.0
+
+    @pytest.mark.asyncio
+    async def test_upsert_overwrites(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 1.0)
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", 9.9)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["power_kw"] == 9.9
+
+    @pytest.mark.asyncio
+    async def test_retrieve_empty(self, data_store):
+        await data_store.initialise()
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T12:00:00+02:00")
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_none_power(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_pv_interval("2026-05-01T12:00:00+02:00", "sp_1", None)
+
+        rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["power_kw"] is None
+
+
+class TestSchemaMigration:
+    @pytest.mark.asyncio
+    async def test_schema_version_is_current(self, data_store):
+        await data_store.initialise()
+
+        cursor = data_store.connection.cursor()
+        cursor.execute(
+            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        assert row["version"] == CURRENT_SCHEMA_VERSION

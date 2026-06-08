@@ -1,6 +1,7 @@
 """Module to manage the communication with the FlexMeasures platform"""
 
 import asyncio
+import json
 import math
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
@@ -54,13 +55,20 @@ class FMClient(AsyncIOEventEmitter):
 
     # Should be FlexMeasuresClient but (early) import statement gives errors..
     client = None
-    _asset_id: int = None
+    # ID of the user's *charger* asset in FlexMeasures, resolved at FM
+    # client init by name (c.FM_ASSET_NAME). Kept as a single-asset
+    # reference for backward compat — see TODO in todo.md for the full
+    # rename of c.FM_ASSET_NAME → c.FM_CHARGER_ASSET_NAME, which is
+    # deferred because it touches the on-disk settings + HA YAML.
+    _charger_asset_id: int = None
     user_id: int | None = None
+    _cached_account_id: int | None = None
+    _cached_asset_types: dict[str, int] = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         super().__init__()
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="fm_client")
 
         self.event_bus = event_bus
 
@@ -206,8 +214,8 @@ class FMClient(AsyncIOEventEmitter):
         # both success and failure cases, so this method only returns the result string.
         await self.set_fm_connection_status(connected=True)
 
-        self._asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
-        if self._asset_id is None:
+        self._charger_asset_id = await self.__get_asset_id_by_name(c.FM_ASSET_NAME)
+        if self._charger_asset_id is None:
             self.__log(
                 f"Could not find asset '{c.FM_ASSET_NAME}' in FlexMeasures.",
                 level="WARNING",
@@ -223,32 +231,45 @@ class FMClient(AsyncIOEventEmitter):
 
         return "Successfully connected"
 
-    async def set_asset_attributes(self, attributes: dict):
-        """Write attributes to the FM asset, with retry mechanism.
+    async def set_asset_attributes(self, attributes: dict, asset_id: int | None = None):
+        """Write attributes to an FM asset, with retry mechanism.
 
-        All attributes are sent in a single PATCH call to avoid
-        overwriting previously set attributes.
+        ``asset_id`` defaults to ``self._charger_asset_id`` (the charger asset),
+        which preserves the original single-asset behaviour. Pass an
+        explicit ``asset_id`` to target another asset (e.g. the Main
+        Connection asset for V2G Liberty / HA version attributes).
+
+        Read-modify-write: FlexMeasures *replaces* the whole ``attributes``
+        object on a PATCH (confirmed against staging), so the current
+        attributes are fetched and the new keys are merged in before writing.
+        This prevents separate writers — e.g. grid phases/capacity
+        provisioning vs. version attributes on the Main Connection — from
+        clobbering each other's keys.
         """
         if self.client is None:
             self.__log(
                 "Client not initialised, cannot write attributes.", level="WARNING"
             )
             return
-        if self._asset_id is None:
+        target_id = asset_id if asset_id is not None else self._charger_asset_id
+        if target_id is None:
             self.__log("Asset ID not known, cannot write attributes.", level="WARNING")
             return
         if not attributes:
             self.__log("No attributes to write, abort.", level="WARNING")
             return
 
-        asset_attributes = {"attributes": attributes}
-
         max_attempts = 5
         delay = 15
         for attempt in range(max_attempts):
             try:
-                await self.client.update_asset(self._asset_id, asset_attributes)
-                self.__log(f"Wrote attributes to FM asset: {attributes}")
+                # Merge into the existing attributes: a PATCH replaces the
+                # whole attributes object on the FM side.
+                current = await self.client.get_asset(target_id, parse_json_fields=True)
+                existing = current.get("attributes") or {}
+                merged = {**existing, **attributes}
+                await self.client.update_asset(target_id, {"attributes": merged})
+                self.__log(f"Wrote attributes to FM asset id={target_id}: {attributes}")
                 return
             except Exception as e:
                 self.__log(
@@ -263,6 +284,174 @@ class FMClient(AsyncIOEventEmitter):
             f"Failed to write attributes after {max_attempts} attempts, aborting.",
             level="WARNING",
         )
+
+    # ── Generic asset/sensor provisioning ────────────────────────────────
+
+    async def _get_account_id(self) -> int:
+        """Get the FM account ID for the logged-in user. Cached after first call."""
+        if self._cached_account_id is None:
+            account = await self.client.get_account()
+            self._cached_account_id = account["id"]
+        return self._cached_account_id
+
+    async def _get_generic_asset_type_id(self, type_name: str) -> int:
+        """Get the FM generic_asset_type_id for the given type name.
+
+        Raises ValueError if the type is not found.
+        """
+        if self._cached_asset_types is None:
+            self._cached_asset_types = {}
+        if type_name in self._cached_asset_types:
+            return self._cached_asset_types[type_name]
+
+        types = await self.client.get_asset_types()
+        for t in types:
+            self._cached_asset_types[t["name"]] = t["id"]
+
+        if type_name not in self._cached_asset_types:
+            raise ValueError(f"Unknown generic_asset_type: '{type_name}'")
+        return self._cached_asset_types[type_name]
+
+    async def ensure_asset(
+        self,
+        name: str,
+        generic_asset_type: str,
+        parent_asset_id: int | None = None,
+        attributes: dict | None = None,
+        asset_id: int | None = None,
+    ) -> int:
+        """Find asset by name, create if not exists, update attributes if exists.
+
+        When ``asset_id`` is provided, that asset is updated by id instead of
+        looked up by name — this preserves identity across renames (the
+        existing FM asset gets the new name and attributes; no orphan is
+        created). When omitted, the original behaviour applies: match by
+        name → reuse, or create new.
+
+        Returns the asset ID.
+        """
+        if self.client is None:
+            raise RuntimeError("FM client not initialised")
+
+        # Update-by-id path: rename / update an existing asset without doing a
+        # name-based lookup. Used when the caller already knows the asset ID.
+        if asset_id is not None:
+            payload: dict = {"name": name}
+            if attributes:
+                payload["attributes"] = attributes
+            await self.client.update_asset(asset_id, payload)
+            self.__log(
+                f"Updated asset id={asset_id} → name='{name}'"
+                f"{', attributes set' if attributes else ''}"
+            )
+            return asset_id
+
+        # Search existing assets
+        existing = await self.client.get_assets(parse_json_fields=True)
+        match = next((a for a in existing if a["name"] == name), None)
+
+        if match:
+            existing_id = match["id"]
+            if attributes:
+                # Merge into the existing attributes: a PATCH replaces the whole
+                # attributes object on the FM side, so writing only the new keys
+                # would wipe others (e.g. version attributes on Main Connection).
+                merged = {**(match.get("attributes") or {}), **attributes}
+                await self.client.update_asset(existing_id, {"attributes": merged})
+                self.__log(f"Updated attributes for asset '{name}' (id={existing_id})")
+            else:
+                self.__log(f"Found existing asset '{name}' (id={existing_id})")
+            return existing_id
+
+        # Create new asset
+        type_id = await self._get_generic_asset_type_id(generic_asset_type)
+        account_id = await self._get_account_id()
+
+        # Re-use lat/lon from the existing charger asset
+        latitude = 52.0
+        longitude = 4.0
+        if self._charger_asset_id is not None:
+            try:
+                charger_asset = await self.client.get_asset(self._charger_asset_id)
+                latitude = charger_asset.get("latitude", latitude)
+                longitude = charger_asset.get("longitude", longitude)
+            except Exception:
+                pass
+
+        result = await self.client.add_asset(
+            name=name,
+            account_id=account_id,
+            latitude=latitude,
+            longitude=longitude,
+            generic_asset_type_id=type_id,
+            parent_asset_id=parent_asset_id,
+            attributes=attributes,
+        )
+        asset_id = result["id"]
+        self.__log(f"Created asset '{name}' (id={asset_id})")
+        return asset_id
+
+    async def mark_asset_deleted(self, asset_id: int, deleted_at_iso: str) -> None:
+        """Mark an FM asset as locally deleted by V2G Liberty.
+
+        Sets the ``v2g_liberty_deleted_at`` attribute to the given ISO
+        timestamp so admins browsing FM can spot abandoned assets, and
+        so future tooling can filter out non-active assets when
+        rebuilding local state from FM. The asset and its sensors are
+        left in place — clean-up is an admin action.
+
+        Raises if FM is not connected; the caller is expected to use
+        this best-effort (catch and log) so a local delete never blocks
+        on FM availability.
+        """
+        if self.client is None:
+            raise RuntimeError("FM client not initialised")
+        await self.client.update_asset(
+            asset_id,
+            {"attributes": {"v2g_liberty_deleted_at": deleted_at_iso}},
+        )
+        self.__log(f"Marked asset id={asset_id} as locally deleted at {deleted_at_iso}")
+
+    async def ensure_sensor(
+        self,
+        name: str,
+        unit: str,
+        asset_id: int,
+        event_resolution: str = "PT5M",
+        attributes: dict | None = None,
+    ) -> int:
+        """Find sensor by name within asset, create if not exists.
+
+        Returns the sensor ID.
+        """
+        if self.client is None:
+            raise RuntimeError("FM client not initialised")
+
+        sensors = await self.client.get_sensors(asset_id=asset_id)
+        match = next((s for s in sensors if s["name"] == name), None)
+
+        if match:
+            sensor_id = match["id"]
+            if attributes:
+                await self.client.update_sensor(sensor_id, {"attributes": attributes})
+                self.__log(f"Updated attributes for sensor '{name}' (id={sensor_id})")
+            else:
+                self.__log(f"Found existing sensor '{name}' (id={sensor_id})")
+            return sensor_id
+
+        result = await self.client.add_sensor(
+            name=name,
+            event_resolution=event_resolution,
+            unit=unit,
+            generic_asset_id=asset_id,
+            timezone=str(c.TZ),
+            attributes=attributes,
+        )
+        sensor_id = result["id"]
+        self.__log(f"Created sensor '{name}' (id={sensor_id}) on asset {asset_id}")
+        return sensor_id
+
+    # ── Existing helpers ───────────────────────────────────────────────
 
     async def __get_asset_id_by_name(self, asset_name: str):
         assets = await self.client.get_assets(parse_json_fields=True)
@@ -288,21 +477,16 @@ class FMClient(AsyncIOEventEmitter):
     async def discover_power_source_id(
         self,
         sensor_id: int,
-        user_id: int,
-        variance_threshold_kw: float = 0.05,
     ) -> int | None:
-        """Probe FM source_ids to find the one containing actual charger measurements.
+        """Discover the FM source_id for actual charger measurements.
 
-        The FM power sensor receives beliefs from two sources:
-        - The Seita scheduler: near-constant values (~0.005 kW), belief_time updated today.
-        - The user's charger reporter: widely varying values (real charge/discharge).
+        Uses the chart_data endpoint which returns per-entry source metadata,
+        allowing us to distinguish scheduler beliefs (type="scheduler") from
+        real charger measurements (type!="scheduler") in a single API call.
 
-        Probing starts at user_id and increments upward (upper bound: user_id + 500).
-        The first source_id whose returned values have a standard deviation above
-        variance_threshold_kw is returned as the measured source.
-
-        Returns None if no measured source is found within the search range, or if
-        the client is not initialised.
+        Scans backwards week-by-week (up to 6 months) until data is found.
+        Returns None if no measured source is found or the client is not
+        initialised.
         """
         if self.client is None:
             self.__log(
@@ -310,83 +494,111 @@ class FMClient(AsyncIOEventEmitter):
             )
             return None
 
-        # Find a reference week: scan back up to 6 months to find a week with data.
-        reference_duration = timedelta(days=7)
-        reference_start = None
+        self.client.ensure_session()
+
         today = get_local_now().replace(hour=0, minute=0, second=0, microsecond=0)
         for weeks_back in range(1, 27):  # up to ~6 months
-            candidate_start = today - timedelta(weeks=weeks_back)
+            week_start = today - timedelta(weeks=weeks_back)
+            week_end = week_start + timedelta(days=7)
+
+            url = self.client.build_url(
+                f"sensor/{sensor_id}/chart_data", path="/api/dev/"
+            )
+            headers = await self.client.get_headers(include_auth=True)
+            params = {
+                "event_starts_after": week_start.isoformat(),
+                "event_ends_before": week_end.isoformat(),
+            }
+
             try:
-                result = await self.client.get_sensor_data(
-                    sensor_id=sensor_id,
-                    start=candidate_start,
-                    duration=reference_duration,
-                    unit="kW",
-                    resolution="PT5M",
+                response = await self.client.session.get(
+                    url, headers=headers, params=params, ssl=self.client.ssl
                 )
-            except Exception:
-                continue
-            values = [v for v in (result or {}).get("values", []) if v is not None]
-            if values:
-                reference_start = candidate_start
+                if response.status != 200:
+                    self.__log(
+                        f"Source discovery: chart_data returned status {response.status} "
+                        f"for week {week_start.date()}, skipping."
+                    )
+                    continue
+                body = await response.text()
+                entries = json.loads(body)
+            except Exception as e:
                 self.__log(
-                    f"Source discovery: reference week is "
-                    f"{candidate_start.date()} -- {(candidate_start + reference_duration).date()}."
+                    f"Source discovery: error fetching chart_data for week "
+                    f"{week_start.date()}: {e}"
                 )
-                break
+                continue
 
-        if reference_start is None:
+            if not isinstance(entries, list) or not entries:
+                if entries:
+                    self.__log(
+                        f"Source discovery: unexpected response type "
+                        f"({type(entries).__name__}) for week {week_start.date()}, "
+                        f"skipping.",
+                        level="WARNING",
+                    )
+                continue
+
+            # Validate that entries have the expected source structure.
+            first = entries[0]
+            if not isinstance(first, dict) or "source" not in first:
+                self.__log(
+                    f"Source discovery: response format changed — entries lack "
+                    f"'source' field. First entry keys: {list(first.keys()) if isinstance(first, dict) else 'N/A'}.",
+                    level="WARNING",
+                )
+                return None
+
+            # Collect unique sources from the response.
+            sources_by_id: dict[int, dict] = {}
+            for entry in entries:
+                src = entry.get("source", {})
+                src_id = src.get("id")
+                if src_id is not None and src_id not in sources_by_id:
+                    sources_by_id[src_id] = src
+
             self.__log(
-                "Source discovery: no data found in the last 6 months, aborting.",
-                level="WARNING",
-            )
-            return None
-
-        # Probe source_ids starting from user_id.
-        upper_bound = user_id + 500
-        skipped_no_exist = []
-        skipped_no_data = []
-        skipped_low_variance = []
-
-        for source_id in range(user_id, upper_bound + 1):
-            if source_id > user_id:
-                await asyncio.sleep(1)
-            try:
-                result = await self.client.get_sensor_data(
-                    sensor_id=sensor_id,
-                    start=reference_start,
-                    duration=reference_duration,
-                    unit="kW",
-                    resolution="PT5M",
-                    source=source_id,
+                f"Source discovery: week {week_start.date()} -- {week_end.date()} "
+                f"has {len(entries)} entries from {len(sources_by_id)} source(s): "
+                + ", ".join(
+                    f"id={s['id']} name='{s.get('name')}' type='{s.get('type')}'"
+                    for s in sources_by_id.values()
                 )
-            except Exception:
-                # 422 = source_id does not exist in FM.
-                skipped_no_exist.append(source_id)
-                continue
-
-            values = [v for v in (result or {}).get("values", []) if v is not None]
-            if not values:
-                skipped_no_data.append(source_id)
-                continue
-
-            std = math.sqrt(
-                sum((v - sum(values) / len(values)) ** 2 for v in values) / len(values)
+                + "."
             )
-            if std > variance_threshold_kw:
+
+            # Filter out scheduler sources.
+            measured = {
+                sid: src
+                for sid, src in sources_by_id.items()
+                if src.get("type") != "scheduler"
+            }
+
+            if len(measured) == 1:
+                source_id = next(iter(measured))
                 self.__log(
                     f"Source discovery: found measured source_id={source_id} "
-                    f"(std={std:.4f} kW) after probing {source_id - user_id + 1} id(s)."
+                    f"(name='{measured[source_id].get('name')}')."
                 )
                 return source_id
-            skipped_low_variance.append(source_id)
+
+            if len(measured) > 1:
+                self.__log(
+                    f"Source discovery: multiple non-scheduler sources found: "
+                    f"{list(measured.keys())}. Cannot determine which is the "
+                    f"charger reporter, returning None.",
+                    level="WARNING",
+                )
+                return None
+
+            # Only scheduler sources found — try an earlier week.
+            self.__log(
+                f"Source discovery: week {week_start.date()} has only scheduler "
+                f"source(s), trying earlier week."
+            )
 
         self.__log(
-            f"Source discovery: no measured source found in range "
-            f"{user_id}..{upper_bound}. "
-            f"Not found: {skipped_no_exist}, "
-            f"no data: {skipped_no_data}, "
-            f"low variance: {skipped_low_variance}.",
+            "Source discovery: no measured source found in the last 6 months.",
             level="WARNING",
         )
         return None
@@ -445,43 +657,48 @@ class FMClient(AsyncIOEventEmitter):
 
         return res
 
-    async def post_measurements(
+    async def post_sensor_data(
         self,
         sensor_id: int,
         values: list[float],
-        start: datetime,
+        start: str,
         duration: str,
         uom: str,
     ) -> bool:
-        """General function to post data to FM.
+        """Post sensor data to FlexMeasures.
 
         Args:
-            sensor_id (str): FM sensor id that the measurements get posted to
-            values (list): list of values to send
-            start (datetime): start date-time of first value
-            duration (str): duration for which the values are relevant in iso format e.g. PT8H45M
-            uom (str): unit of measure, eg MW, EUR/kWh, etc.
+            sensor_id: FM sensor id to post to.
+            values: List of values to send.
+            start: ISO 8601 start timestamp.
+            duration: ISO 8601 duration string.
+            uom: Unit of measure (e.g. kW, MW, %).
 
         Returns:
-            bool: weather or not sending was successful
+            True if sending was successful, False otherwise.
         """
-        self.__log("post_measurements called.")
+        self.__log(
+            f"post_sensor_data called for sensor_id: {sensor_id}, "
+            f"start: {start}, duration: {duration}, unit: {uom}, "
+            f"nr_values: {len(values)}.",
+            level="DEBUG",
+        )
 
         if self.client is None:
             self.__log(
-                "Abort posting measurements, client not initialised (yet).",
+                "Abort posting sensor data, client not initialised (yet).",
                 level="WARNING",
             )
             return False
 
         if len(values) == 0:
             self.__log(
-                f"value list 0 length, not sending data to sensor_id '{sensor_id}'."
+                f"Value list empty, not sending data to sensor_id '{sensor_id}'."
             )
             return False
 
         try:
-            await self.client.post_measurements(
+            await self.client.post_sensor_data(
                 sensor_id=sensor_id,
                 values=values,
                 start=start,
@@ -489,10 +706,10 @@ class FMClient(AsyncIOEventEmitter):
                 unit=uom,
             )
         except Exception as e:
-            # ContentTypeError, ValueError, timeout??:
             self.__log(
-                f"failed | sensor_id: '{sensor_id}', values: '{values}', start: '{start}', "
-                f"duration: '{duration}', unit: '{uom}', fm_client returned exception: '{e}'.",
+                f"failed | sensor_id: '{sensor_id}', values: '{values}', "
+                f"start: '{start}', duration: '{duration}', unit: '{uom}', "
+                f"fm_client returned exception: '{e}'.",
                 level="WARNING",
             )
             await self.set_fm_connection_status(connected=False)
@@ -741,11 +958,11 @@ class FMClient(AsyncIOEventEmitter):
                             "end": erw,
                         }
                     )
-                self.__log(
-                    f"soc_minima processed - "
-                    f"first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}."
-                )
             # -- End for soc_minimum in soc_minima --
+            self.__log(
+                f"soc_minima processed - "
+                f"first_b2ms_reset_moment: {first_b2ms_reset_moment.isoformat()}."
+            )
         # -- End if targets not None --
 
         # Range where schedule should only discharge. This when the SoC is above the max (80%).
@@ -889,6 +1106,7 @@ class FMClient(AsyncIOEventEmitter):
             "roundtrip-efficiency": c.ROUNDTRIP_EFFICIENCY_FACTOR,
             "consumption-capacity": max_consumption_power_ranges,
             "production-capacity": max_production_power_ranges,
+            "state-of-charge": {"sensor": c.FM_ACCOUNT_SOC_SENSOR_ID},
         }
 
         flex_model_str = str(flex_model)

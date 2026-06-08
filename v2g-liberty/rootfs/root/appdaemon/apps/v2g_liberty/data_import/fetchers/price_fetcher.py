@@ -31,7 +31,7 @@ class PriceFetcher(BaseFetcher):
             fm_client_app: FlexMeasures client for API calls
         """
         super().__init__(hass, fm_client_app)
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="price_fetcher")
 
     async def fetch_prices(
         self, price_type: str, now: datetime
