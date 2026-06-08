@@ -3,11 +3,13 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.8.1 2026-045-??
+## 0.8.1 2026-05-??
 
 ### Fixed
 
--
+- 🪲 BUG: Reduce excessive FM schedule requests on SoC changes (#446)
+- 🪲 BUG: Fix orphaned schedule timers overriding charge mode changes (#444)
+- 🪲 BUG: Fix ping card toast not showing after mwc-snackbar to ha-toast migration (#443)
 
 ### Added
 
@@ -15,6 +17,8 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
+- 🛠️ Refactor: Migrate to python logging (#448)
+- 🛠️ Refactor: make AppDaemon timer-API usage consistently async in main_app (#445)
 - 🛠️ Refactor: Increase FM data send frequency from daily to hourly (#441)
 
 

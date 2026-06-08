@@ -21,7 +21,7 @@ class HAUIManager:
         self.hass = hass
         self.event_bus = event_bus
 
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="ha_ui_manager")
 
         self._initialize()
 

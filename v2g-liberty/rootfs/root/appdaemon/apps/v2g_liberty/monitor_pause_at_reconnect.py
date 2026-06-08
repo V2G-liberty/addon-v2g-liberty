@@ -28,7 +28,7 @@ class MonitorPauseAtReconnect:
         self.notifier = notifier
         self.event_bus = event_bus
 
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="monitor_pause_at_reconnect")
 
         self.event_bus.add_event_listener(
             "is_car_connected", self._handle_connected_state_change

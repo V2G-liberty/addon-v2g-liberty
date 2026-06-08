@@ -273,7 +273,7 @@ class DataStore:
     DB_PATH = "/data/v2g_liberty_data.db"
 
     def __init__(self, hass: Hass):
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="data_store")
         self.__connection: sqlite3.Connection | None = None
         self.__log("DataStore initialised (no DB connection yet).")
 
@@ -735,7 +735,7 @@ class DataStore:
         self.__connection.commit()
         updated = cursor.rowcount
         cursor.close()
-        self.__log(f"Updated {updated} naive charging row(s).")
+        self.__log(f"Updated {updated} naive charging row(s).", level="DEBUG")
 
     def get_last_naive_soc(self) -> float | None:
         """Return the most recent naive_soc_pct value, or None if unavailable."""

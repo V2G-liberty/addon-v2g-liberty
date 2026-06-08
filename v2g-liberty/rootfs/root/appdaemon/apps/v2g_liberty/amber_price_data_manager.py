@@ -64,7 +64,7 @@ class ManageAmberPriceData:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="amber_price_data_manager")
 
     async def initialize(self):
         self.__log("ManageAmberPriceData.")

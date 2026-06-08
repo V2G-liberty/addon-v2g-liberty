@@ -98,7 +98,7 @@ class FlexMeasuresDataImporter:
     def __init__(self, hass: Hass, notifier: Notifier):
         self.hass = hass
         self.notifier = notifier
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="fm_data_importer")
 
         # These are variables are used to decide what message to send to the user and can have the
         # following values:
@@ -291,7 +291,7 @@ class FlexMeasuresDataImporter:
             price_type="production", entsoe_latest_dt=entsoe_latest_dt
         )
 
-        # Persist combined prices to local DB (upsampled to 5-min resolution)
+        # Persist combined prices to local DB (upsampled to 5-min resolution).
         if consumption_ok and production_ok:
             try:
                 self._persist_epex_prices_to_db()

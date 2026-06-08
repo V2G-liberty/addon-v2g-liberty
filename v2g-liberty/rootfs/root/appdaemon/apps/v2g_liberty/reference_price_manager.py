@@ -37,7 +37,7 @@ class ReferencePriceManager:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="reference_price_manager")
 
     async def initialise(self):
         """Schedule daily refresh and kick off initial fetch in the background.
@@ -96,7 +96,10 @@ class ReferencePriceManager:
         end_month = (now.replace(day=1) + timedelta(days=32)).strftime("%Y-%m")
 
         def _log(msg, level="INFO"):
-            self.hass.log(msg, level=level)
+            import logging as _logging
+
+            log_level = getattr(_logging, level.upper(), _logging.INFO)
+            _logging.getLogger("AppDaemon.v2g-app.cbs_fetcher").log(log_level, msg)
 
         loop = asyncio.get_event_loop()
         rows = await loop.run_in_executor(

@@ -112,7 +112,7 @@ class DataMonitor:
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="data_monitor")
         self.event_bus = event_bus
 
     async def initialize(self):

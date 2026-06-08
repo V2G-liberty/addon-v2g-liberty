@@ -147,7 +147,8 @@ def _fetch_all_pages(
                         "ERROR",
                     )
                     return []
-                body = json.loads(response.read().decode("utf-8"))
+                raw_body = response.read().decode("utf-8")
+                body = json.loads(raw_body)
         except urllib.error.HTTPError as exc:
             log_fn(f"CBS fetcher: HTTP error {exc.code}: {exc.reason}", "ERROR")
             return []
@@ -155,7 +156,12 @@ def _fetch_all_pages(
             log_fn(f"CBS fetcher: URL error: {exc.reason}", "ERROR")
             return []
         except json.JSONDecodeError as exc:
-            log_fn(f"CBS fetcher: invalid JSON in response: {exc}", "ERROR")
+            snippet = raw_body[:200] if raw_body else "(empty)"
+            log_fn(
+                f"CBS fetcher: invalid JSON in response: {exc}. "
+                f"Response starts with: {snippet}",
+                "ERROR",
+            )
             return []
 
         page_rows = body.get("value", [])

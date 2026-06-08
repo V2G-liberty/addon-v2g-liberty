@@ -23,7 +23,7 @@ class FMDataSender:
 
     def __init__(self, hass: Hass):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="fm_data_sender")
 
     async def initialize(self):
         """Initialise send status and schedule hourly export."""
