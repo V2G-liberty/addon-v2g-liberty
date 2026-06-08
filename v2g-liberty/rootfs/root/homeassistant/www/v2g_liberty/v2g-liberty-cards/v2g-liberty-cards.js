@@ -2994,6 +2994,13 @@ const $aa1795080f053cd4$export$2c618a4308a30424 = $aa1795080f053cd4$export$e4594
 
 const $c5d85a824175067e$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('ping-card');
 class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    set hass(hass) {
+        this._hass = hass;
+        (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
+    }
+    get hass() {
+        return this._hass;
+    }
     setConfig(config) {
         this._config = {
             ...this.defaultConfig,
@@ -3014,34 +3021,38 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         this._isResponding = true;
         this._timeout = setTimeout(()=>this._ping(), 1000);
     }
+    get _toast() {
+        return this.renderRoot?.querySelector('ha-toast') ?? null;
+    }
     async _ping() {
         try {
             await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'ping', {}, this._config.ping_timeout);
             this._isResponding = true;
-            this._isSnackbarOpen = false;
             this._isRestarting = false;
+            this._toast?.hide('dismiss');
             if (this._connected) this._timeout = setTimeout(()=>this._ping(), this._config.interval);
         } catch (_) {
-            // If the ping fails, show the snackbar (again)
+            // If the ping fails, show the toast (again)
             this._isResponding = false;
-            this._isSnackbarOpen = true;
-            // Increase ping interval if not responding
-            if (this._connected) this._timeout = setTimeout(()=>this._ping(), 100);
+            if (this._connected) {
+                await this.updateComplete;
+                this._showToast();
+                this._timeout = setTimeout(()=>this._ping(), 100);
+            }
         }
+    }
+    _showToast() {
+        const toast = this._toast;
+        if (!toast) return;
+        toast.labelText = this._isRestarting ? $c5d85a824175067e$var$tp('restarting') : $c5d85a824175067e$var$tp('error');
+        toast.show();
     }
     _stopPinging() {
         clearTimeout(this._timeout);
     }
     render() {
-        const _onSnackbarClose = ()=>this._isSnackbarOpen = false;
         return this._isResponding ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <ha-toast
-            ?open=${this._isSnackbarOpen}
-            labelText=${this._isRestarting ? $c5d85a824175067e$var$tp('restarting') : $c5d85a824175067e$var$tp('error')}
-            timeoutMs="-1"  <!-- Persistent until closed -->
-            persistent
-            @closed=${_onSnackbarClose}
-          >
+          <ha-toast .timeoutMs=${-1}>
             ${!this._isRestarting ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${$c5d85a824175067e$var$tp('restart')}</ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
           </ha-toast>
         `;
@@ -3050,9 +3061,9 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         this._isRestarting = false;
     }
     async _restart(event) {
-        event.stopPropagation(); // Prevent the click closing the snackbar
-        this._isSnackbarOpen = true; // Ensure the snackbar stays open during restart
+        event.stopPropagation();
         this._isRestarting = true;
+        this._showToast();
         // After the restart assume that ultimately after a timeout the restart
         // should be finished and if not show an error again if pinging fails.
         setTimeout(()=>this._resetIsRestarting(), this._config.interval * 2);
@@ -3065,7 +3076,7 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         });
     }
     constructor(...args){
-        super(...args), this._isResponding = true, this._isSnackbarOpen = false, this._isRestarting = false, // Timings in milliseconds
+        super(...args), this._isResponding = true, this._isRestarting = false, // Timings in milliseconds
         this.defaultConfig = {
             ping_timeout: 5000,
             interval: 15000
@@ -3075,9 +3086,6 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isResponding", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isSnackbarOpen", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c5d85a824175067e$export$b6e3440b5366703f.prototype, "_isRestarting", void 0);
