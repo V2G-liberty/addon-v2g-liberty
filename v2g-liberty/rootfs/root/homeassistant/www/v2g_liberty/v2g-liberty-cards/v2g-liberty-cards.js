@@ -14555,6 +14555,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 
       ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._renderSaveWarning()}
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error save-error" role="alert">${this._saveError}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
             this._cleanupEntityListeners();
@@ -14739,6 +14740,16 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 consumption_entities: this._consumptionEntities,
                 production_entities: this._productionEntities
             });
+            if (result.fm_error) {
+                // FM-side rejection (provisioning failed). Lit preserves the form
+                // state; ensure_* is idempotent so clicking Save again resends the
+                // same payload and recovers cleanly once FM is available. Back/Cancel
+                // closes without saving.
+                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                this._saving = false;
+                this._saveConfirmed = false;
+                return;
+            }
             if (result.error) {
                 this._saveError = result.error;
                 this._saving = false;
@@ -14758,6 +14769,10 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         color: var(--error-color);
         font-size: 0.875em;
         margin-top: 4px;
+      }
+      .save-error {
+        margin-top: 12px;
+        font-weight: 500;
       }
       details.hint {
         margin-top: 8px;
