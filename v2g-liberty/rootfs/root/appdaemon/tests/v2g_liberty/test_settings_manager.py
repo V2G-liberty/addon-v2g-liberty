@@ -355,4 +355,89 @@ class TestGet:
         # Act
         value = settings_manager.get("missing_entity_id")
         # Assert
-        assert value == None
+        assert value is None
+
+
+class TestGetObject:
+    def test_get_object_existing(self, settings_manager):
+        # Arrange
+        obj = {"phases": 3, "capacity_per_phase": 25}
+        settings_manager.settings = {"grid_connection": obj}
+        # Act
+        result = settings_manager.get_object("grid_connection")
+        # Assert
+        assert result == obj
+
+    def test_get_object_missing_key(self, settings_manager):
+        # Arrange
+        settings_manager.settings = {}
+        # Act
+        result = settings_manager.get_object("grid_connection")
+        # Assert
+        assert result is None
+
+    def test_get_object_non_dict_value(self, settings_manager):
+        # Arrange: key exists but value is not a dict
+        settings_manager.settings = {"grid_connection": "not_a_dict"}
+        # Act
+        result = settings_manager.get_object("grid_connection")
+        # Assert
+        assert result is None
+
+    def test_get_object_nested(self, settings_manager):
+        # Arrange: object with nested structure
+        obj = {
+            "phases": 3,
+            "consumption_entities": ["sensor.l1", "sensor.l2", "sensor.l3"],
+        }
+        settings_manager.settings = {"grid_connection": obj}
+        # Act
+        result = settings_manager.get_object("grid_connection")
+        # Assert
+        assert result == obj
+        assert result["consumption_entities"] == ["sensor.l1", "sensor.l2", "sensor.l3"]
+
+
+class TestStoreObject:
+    @patch("builtins.open", mock_open())
+    @patch("os.replace")
+    def test_store_object_new(self, os_replace_mock, settings_manager, json_dump_mock):
+        # Arrange
+        obj = {"phases": 3, "capacity_per_phase": 25}
+        with patch("json.dump", json_dump_mock):
+            # Act
+            settings_manager.store_object("grid_connection", obj)
+        # Assert
+        assert settings_manager.settings["grid_connection"] == obj
+        json_dump_mock.assert_called_once()
+
+    @patch("builtins.open", mock_open())
+    @patch("os.replace")
+    def test_store_object_overwrite(
+        self, os_replace_mock, settings_manager, json_dump_mock
+    ):
+        # Arrange: existing object
+        settings_manager.settings = {
+            "grid_connection": {"phases": 1, "capacity_per_phase": 16}
+        }
+        new_obj = {"phases": 3, "capacity_per_phase": 25}
+        with patch("json.dump", json_dump_mock):
+            # Act
+            settings_manager.store_object("grid_connection", new_obj)
+        # Assert
+        assert settings_manager.settings["grid_connection"] == new_obj
+
+    @patch("builtins.open", mock_open())
+    @patch("os.replace")
+    def test_store_object_preserves_other_settings(
+        self, os_replace_mock, settings_manager, json_dump_mock
+    ):
+        # Arrange: existing settings should not be affected
+        settings_manager.settings = {"input_text.charger_host_url": "192.168.1.1"}
+        obj = {"phases": 3}
+        with patch("json.dump", json_dump_mock):
+            # Act
+            settings_manager.store_object("grid_connection", obj)
+        # Assert
+        assert settings_manager.settings["input_text.charger_host_url"] == "192.168.1.1"
+        assert settings_manager.settings["grid_connection"] == obj

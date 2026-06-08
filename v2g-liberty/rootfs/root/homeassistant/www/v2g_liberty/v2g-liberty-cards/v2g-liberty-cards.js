@@ -13151,13 +13151,33 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         this._useReducedMaxPower = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2].state;
         this._quasarLoadBalancerLimit = this.hass.states[$755a87c9ee93218f$export$f48daca8eb58f881].state;
         this._hasTriedToConnect = false;
+        this._showPhaseStep = false;
+        this._triedSavePhase = false;
+        this._savingPhase = false;
+        this._detecting = false;
+        this._detectStep = '';
+        this._detectError = '';
+        this._detectSuccess = '';
+        // Load grid and charger phase info
+        try {
+            const gridData = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            this._gridPhases = gridData.configured ? gridData.phases ?? null : null;
+        } catch (e) {
+            this._gridPhases = null;
+        }
+        try {
+            const phaseData = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_charger_phase');
+            this._selectedPhase = phaseData.connected_to_phase ?? null;
+        } catch (e) {
+            this._selectedPhase = null;
+        }
         await this.updateComplete;
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const header = $4163850e13316b31$var$tp('header');
         const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
-        const content = this._hasTriedToConnect && this._isConnected() ? this._renderChargerDetails() : this._renderConnectionDetails();
+        const content = this._showPhaseStep ? this._renderPhaseStep() : this._hasTriedToConnect && this._isConnected() ? this._renderChargerDetails() : this._renderConnectionDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
@@ -13235,7 +13255,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingReducedMaxPower, useReducedMaxPowerState, (evt)=>this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.continue'), false, 'continue')}
     `;
     }
     _renderReducedMaxPower() {
@@ -13293,7 +13313,174 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             } : {}
         };
         const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_settings', args);
-        this.closeDialog();
+        // Only show phase step if grid connection is configured
+        if (this._gridPhases !== null) this._showPhaseStep = true;
+        else this.closeDialog();
+    }
+    // ── Phase Step ──────────────────────────────────────────────────────
+    _renderPhaseStep() {
+        const gridPhases = this._gridPhases;
+        const chargerPhases = this._chargerPhases;
+        // Scenario: 1-phase grid + 3-phase charger → error
+        if (gridPhases === 1 && chargerPhases === 3) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <ha-alert alert-type="error">
+          Your 3-phase charger requires a 3-phase grid connection.
+          Please check your grid connection settings or charger type.
+        </ha-alert>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, this.hass.localize('ui.common.close'))}
+      `;
+        // Scenario: 1-phase grid + 1-phase charger → informational
+        if (gridPhases === 1 || gridPhases === null) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <p>Your charger is connected to the only available phase (L1).</p>
+        ${this._renderPhaseBackButton()}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._savePhase(1), true, this.hass.localize('ui.common.save'))}
+      `;
+        // Scenario: 3-phase grid + 3-phase charger → informational
+        if (chargerPhases === 3) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <p>Your 3-phase charger is connected to all three phases.</p>
+        ${this._renderPhaseBackButton()}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._savePhase([
+                1,
+                2,
+                3
+            ]), true, this.hass.localize('ui.common.save'))}
+      `;
+        // Scenario: 3-phase grid + 1-phase charger → manual selection
+        return this._renderPhaseSelection();
+    }
+    _renderPhaseSelection() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p><strong>Which phase is your charger connected to?</strong></p>
+
+      <div class="phase-options">
+        ${[
+            1,
+            2,
+            3
+        ].map((phase)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <div
+            class="phase-option ${this._selectedPhase === phase ? 'selected' : ''}"
+            @click=${()=>{
+                this._selectedPhase = phase;
+            }}
+          >
+            <ha-radio
+              .checked=${this._selectedPhase === phase}
+              name="charger-phase"
+              value="${phase}"
+              @change=${()=>{
+                this._selectedPhase = phase;
+            }}
+            ></ha-radio>
+            <span><strong>Phase ${phase}</strong> (L${phase})</span>
+          </div>
+        `)}
+      </div>
+
+      ${this._triedSavePhase && this._selectedPhase === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="invalid">Please select which phase your charger is connected to.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      <details class="hint">
+        <summary>Not sure?</summary>
+        <p>Check the label on your fuse box, or use the automatic detection below.</p>
+      </details>
+
+      ${this._renderAutoDetect()}
+
+      ${this._renderPhaseBackButton()}
+      ${this._savingPhase ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSavePhase(), true, this.hass.localize('ui.common.save'))}
+    `;
+    }
+    _renderAutoDetect() {
+        if (this._detecting) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <ha-spinner size="small"></ha-spinner>
+            <span>${this._detectStep || 'Starting...'}</span>
+          </div>
+        </div>
+      `;
+        if (this._detectSuccess) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <ha-alert alert-type="success">${this._detectSuccess}</ha-alert>
+        </div>
+      `;
+        if (this._detectError) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="margin-bottom: 12px;">
+            <ha-alert alert-type="warning">${this._detectError}</ha-alert>
+          </div>
+          ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._startDetection(), false, 'Retry')}
+        </div>
+      `;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="auto-detect-box">
+        <p><strong>Automatic phase detection</strong></p>
+        <p style="font-size: 0.875em; color: var(--secondary-text-color);">
+          Optionally, the phase can be detected automatically. This briefly
+          charges (and discharges for bidirectional chargers) while monitoring
+          the grid sensors. The charge mode will be temporarily set to Stop
+          during detection. Make sure your car is connected.
+        </p>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._startDetection(), false, 'Start detection')}
+      </div>
+    `;
+    }
+    async _startDetection() {
+        this._detecting = true;
+        this._detectStep = '';
+        this._detectError = '';
+        this._detectSuccess = '';
+        // Subscribe to progress events
+        const unsub = await this.hass.connection.subscribeEvents((event)=>{
+            const step = event.data.step;
+            if (step === 'baseline') this._detectStep = 'Measuring baseline...';
+            else if (step === 'charge_test') this._detectStep = 'Charge test...';
+            else if (step === 'discharge_test') this._detectStep = 'Discharge test...';
+        }, 'charger_phase_detection.progress');
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_charger_phase', {}, 180000 // 3 min timeout
+            );
+            if (result.success) {
+                this._selectedPhase = result.connected_to_phase;
+                this._detectError = '';
+                const phase = result.connected_to_phase;
+                const label = Array.isArray(phase) ? phase.map((p)=>`L${p}`).join(', ') : `L${phase}`;
+                this._detectSuccess = `Detected: Phase ${label}`;
+            } else {
+                this._detectSuccess = '';
+                this._detectError = result.error || 'Detection failed. You can select the phase manually.';
+            }
+        } catch (e) {
+            this._detectError = 'Detection timed out. You can select the phase manually.';
+        } finally{
+            unsub();
+            this._detecting = false;
+        }
+    }
+    _renderPhaseBackButton() {
+        return (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._showPhaseStep = false;
+            this._triedSavePhase = false;
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true);
+    }
+    _handleSavePhase() {
+        this._triedSavePhase = true;
+        if (this._selectedPhase === null) return;
+        this._savePhase(this._selectedPhase);
+    }
+    async _savePhase(phase) {
+        this._savingPhase = true;
+        try {
+            await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_phase', {
+                connected_to_phase: phase
+            });
+            this.closeDialog();
+        } catch (e) {
+            this._savingPhase = false;
+        }
     }
     static{
         this.styles = [
@@ -13305,6 +13492,53 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 
       .name {
         font-weight: bold;
+      }
+      .phase-options {
+        display: flex;
+        gap: 12px;
+        margin: 12px 0;
+      }
+      .phase-option {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 12px 12px 12px 4px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .phase-option:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-option.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      .hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      .hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+      }
+      .auto-detect-box {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--card-background-color);
+      }
+      .auto-detect-box p:first-child {
+        margin-top: 0;
       }
 
       // All of these don't seem to reach the hr element...
@@ -13322,6 +13556,11 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 
     `
         ];
+    }
+    constructor(...args){
+        super(...args), // Phase step state
+        this._showPhaseStep = false, this._gridPhases = null, this._chargerPhases = 1 // TODO: derive from charger type in branch 359
+        , this._selectedPhase = null, this._triedSavePhase = false, this._savingPhase = false, this._detecting = false, this._detectStep = '', this._detectError = '', this._detectSuccess = '';
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -13348,6 +13587,36 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_quasarLoadBalancerLimit", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_showPhaseStep", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_gridPhases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerPhases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_selectedPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_triedSavePhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_savingPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detecting", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detectStep", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detectError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detectSuccess", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $02a1f3a787c54a30$export$2fa187e846a241c4)(`[test-id='${$755a87c9ee93218f$export$bb6b29d6e8205d89}']`)
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerHostField", void 0);
@@ -13939,6 +14208,1612 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 
 
 
+const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
+class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog() {
+        super.showDialog();
+        this._step = "intro";
+        this._phases = null;
+        this._capacityPerPhase = '';
+        this._consumptionEntities = [];
+        this._productionEntities = [];
+        this._entityStatus = {};
+        this._cleanupEntityListeners();
+        this._autoDetected = false;
+        this._triedContinueStep2 = false;
+        this._triedSave = false;
+        this._phaseChangeConfirmed = false;
+        this._saving = false;
+        this._saveError = '';
+        this._saveConfirmed = false;
+        // Load existing settings if configured
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            if (data.consumption_entities?.length > 0) {
+                this._phases = data.phases;
+                this._capacityPerPhase = String(data.capacity_per_phase ?? '');
+                this._consumptionEntities = data.consumption_entities;
+                this._productionEntities = data.production_entities;
+            }
+        } catch (e) {
+        // Ignore — start fresh
+        }
+        // Auto-detect from available HA entities (only if not already configured)
+        if (!this._phases) try {
+            const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
+            if (detected.phases || detected.capacity_per_phase || detected.consumption_entities?.length > 0) this._autoDetected = true;
+            if (detected.phases) this._phases = detected.phases;
+            if (detected.capacity_per_phase) this._capacityPerPhase = String(detected.capacity_per_phase);
+            if (detected.consumption_entities?.length > 0) this._consumptionEntities = detected.consumption_entities;
+            if (detected.production_entities?.length > 0) this._productionEntities = detected.production_entities;
+        } catch (e) {
+        // Auto-detect failed, no problem — user fills in manually
+        }
+        this._buildSensorEntityList();
+        // Load existing solar panels so we can warn the user when their new
+        // phases choice would invalidate any of them (plan task 30a). Failure
+        // is non-fatal — we just won't warn.
+        try {
+            const sp = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_solar_panels');
+            this._existingSolarPanels = sp.solar_panels ?? [];
+        } catch (e) {
+            this._existingSolarPanels = [];
+        }
+        await this.updateComplete;
+    }
+    closeDialog() {
+        this._cleanupEntityListeners();
+        super.closeDialog();
+    }
+    _cleanupEntityListeners() {
+        for (const unsub of Object.values(this._entityListeners))try {
+            if (typeof unsub === 'function') unsub();
+        } catch (e) {}
+        this._entityListeners = {};
+    }
+    _buildSensorEntityList() {
+        const states = this.hass.states;
+        this._sensorEntities = [];
+        for (const entityId of Object.keys(states)){
+            if (!entityId.startsWith('sensor.')) continue;
+            const stateObj = states[entityId];
+            const deviceClass = stateObj.attributes.device_class ?? '';
+            const unit = stateObj.attributes.unit_of_measurement ?? '';
+            const isPower = deviceClass === 'power' || [
+                'W',
+                'kW',
+                'MW'
+            ].includes(unit);
+            const name = stateObj.attributes.friendly_name || entityId;
+            this._sensorEntities.push({
+                id: entityId,
+                name: name,
+                isPower: isPower
+            });
+        }
+        // Sort: power sensors first, then alphabetically
+        this._sensorEntities.sort((a, b)=>{
+            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = 'Grid connection';
+        let content;
+        switch(this._step){
+            case "intro":
+                content = this._renderIntro();
+                break;
+            case "phases_and_capacity":
+                content = this._renderPhasesAndCapacity();
+                break;
+            case "entities":
+                content = this._renderEntities();
+                break;
+        }
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${_isNew ? header : null}
+      >
+        ${content}
+      </ha-dialog>
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    _renderIntro() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>By monitoring your grid connection, the system learns your household energy
+      patterns. Over time, this leads to <strong>better predictions</strong> and
+      <strong>smarter schedules</strong> that fit your specific situation.</p>
+
+      <p><strong>For Dutch users:</strong> this is a valuable preparation for the
+      end of "saldering" (net metering). Once net metering ends, a grid connection
+      configuration will be required.</p>
+
+      <div class="requirements-box">
+        <div class="requirements-header">What you need*</div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Smart meter</strong><br/>
+            Capable of reporting power usage per phase in real-time.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>P1 cable</strong><br/>
+            A USB P1 port cable or similar to connect the meter.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>Home Assistant integration</strong><br/>
+            A functional integration that exposes meter data as sensor entities
+            (e.g. a DSMR integration).
+          </div>
+        </div>
+        <div class="requirements-footer">
+          * Typical setup. Other setups are possible, as long as usage and production
+          can be read from HA sensors.
+        </div>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "phases_and_capacity";
+        }, true)}
+    `;
+    }
+    // ── Step 2: Phases and Capacity ─────────────────────────────────────
+    _renderPhasesAndCapacity() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <p style="margin: 0;"><strong>How many phases does your grid connection have?</strong></p>
+          ${this._autoDetected && this._phases !== null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        <div class="phase-cards">
+          <div
+            class="phase-card ${this._phases === 1 ? 'selected' : ''}"
+            @click=${()=>{
+            this._selectPhases(1);
+        }}
+          >
+            <ha-radio
+              .checked=${this._phases === 1}
+              name="phases"
+              value="1"
+              @change=${()=>{
+            this._selectPhases(1);
+        }}
+            ></ha-radio>
+            <div>
+              <strong>1 phase</strong><br/>
+              <span class="phase-subtitle">Small apartment connection</span>
+            </div>
+          </div>
+          <div
+            class="phase-card ${this._phases === 3 ? 'selected' : ''}"
+            @click=${()=>{
+            this._selectPhases(3);
+        }}
+          >
+            <ha-radio
+              .checked=${this._phases === 3}
+              name="phases"
+              value="3"
+              @change=${()=>{
+            this._selectPhases(3);
+        }}
+            ></ha-radio>
+            <div>
+              <strong>3 phases</strong><br/>
+              <span class="phase-subtitle">Standard connection</span>
+            </div>
+          </div>
+        </div>
+        ${this._triedContinueStep2 && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <details class="hint">
+          <summary>Not sure?</summary>
+          <p>Check your smart meter integration in Home Assistant. Look for separate
+          L1, L2, and L3 sensors — if you have them, you have 3 phases. If you only
+          see L1, you have 1 phase.</p>
+        </details>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <p style="margin: 0;"><strong>Capacity per phase (ampere)</strong></p>
+          ${this._autoDetected && this._capacityPerPhase !== '' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        <ha-textfield
+          type="number"
+          inputmode="numeric"
+          .value=${this._capacityPerPhase}
+          @change=${(e)=>{
+            this._capacityPerPhase = e.target.value;
+        }}
+          min="6"
+          max="80"
+          suffix="A"
+          style="width: 120px; --mdc-text-field-text-align: right;"
+          test-id="capacity-per-phase"
+        ></ha-textfield>
+        ${this._renderCapacityError()}
+        <details class="hint">
+          <summary>Where to find this</summary>
+          <p>You can find this on your energy contract, or in your smart meter
+          integration in Home Assistant. Look for a sensor with "fuse" or "threshold"
+          in the name. Common values are 25A or 35A.</p>
+          <p>Please enter the actual value — do not enter a lower value as a safety margin.</p>
+        </details>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueStep2 = false;
+            this._step = "intro";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._renderSolarPanelWarning()}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToEntities(), true, this._phaseChangeConfirmed ? 'Continue anyway' : this.hass.localize('ui.common.continue'))}
+    `;
+    }
+    _selectPhases(phases) {
+        // Any change in the phase choice invalidates a previous
+        // "Continue anyway" acknowledgement — re-warn for the new selection.
+        if (this._phases !== phases) this._phaseChangeConfirmed = false;
+        this._phases = phases;
+    }
+    _isCapacityValid() {
+        if (this._capacityPerPhase === '') return false;
+        const cap = parseFloat(this._capacityPerPhase);
+        return !isNaN(cap) && Number.isInteger(cap) && cap >= 6 && cap <= 80;
+    }
+    _renderCapacityError() {
+        if (this._capacityPerPhase === '' && this._triedContinueStep2) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter the capacity.</div>`;
+        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Must be a whole number between 6 and 80.</div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _continueToEntities() {
+        this._triedContinueStep2 = true;
+        if (this._phases === null) return;
+        if (!this._isCapacityValid()) return;
+        // Soft warning: would the new phase choice make existing solar panels
+        // inconsistent? First Continue click reveals the warning; the second
+        // (now "Continue anyway") actually moves to the next step. Nothing on
+        // the panels is changed — they get flagged on the solar panels card.
+        if (this._panelsThatWillBecomeInconsistent().length > 0 && !this._phaseChangeConfirmed) {
+            this._phaseChangeConfirmed = true;
+            return;
+        }
+        // Initialise entity arrays to correct length if needed
+        const count = this._phases;
+        if (this._consumptionEntities.length !== count) this._consumptionEntities = new Array(count).fill('');
+        if (this._productionEntities.length !== count) this._productionEntities = new Array(count).fill('');
+        this._triedSave = false;
+        this._saveConfirmed = false;
+        this._step = "entities";
+        // Start listening for already-selected entities
+        for (const entityId of [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ])if (entityId) this._startListeningEntity(entityId);
+    }
+    // ── Step 3: Entity Selection (with inline validation) ───────────────
+    _renderEntities() {
+        const count = this._phases ?? 1;
+        const allSelected = this._getAllSelectedEntities();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
+          ${this._autoDetected && this._consumptionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          <span class="column-header">Active</span>
+        </div>
+        ${Array.from({
+            length: count
+        }, (_, i)=>this._renderEntityDropdown(`Consumption phase ${i + 1} (L${i + 1})`, this._consumptionEntities[i] ?? '', (val)=>{
+                const old = this._consumptionEntities[i];
+                if (old) this._stopListeningEntity(old);
+                const copy = [
+                    ...this._consumptionEntities
+                ];
+                copy[i] = val;
+                this._consumptionEntities = copy;
+                if (val) this._startListeningEntity(val);
+            }, allSelected))}
+      </div>
+
+      <div style="margin-top: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Production sensors</strong> (power fed back to the grid)</p>
+          ${this._autoDetected && this._productionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          <span class="column-header">Active</span>
+        </div>
+        ${Array.from({
+            length: count
+        }, (_, i)=>this._renderEntityDropdown(`Production phase ${i + 1} (L${i + 1})`, this._productionEntities[i] ?? '', (val)=>{
+                const old = this._productionEntities[i];
+                if (old) this._stopListeningEntity(old);
+                const copy = [
+                    ...this._productionEntities
+                ];
+                copy[i] = val;
+                this._productionEntities = copy;
+                if (val) this._startListeningEntity(val);
+            }, allSelected))}
+      </div>
+
+      ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderSaveWarning()}
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error save-error" role="alert">${this._saveError}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._cleanupEntityListeners();
+            this._triedSave = false;
+            this._step = "phases_and_capacity";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._saving ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save'))}
+    `;
+    }
+    _renderEntityDropdown(label, selected, onChange, allSelected) {
+        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
+        const status = selected ? this._entityStatus[selected] : undefined;
+        const statusIcon = selected ? status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="margin: 8px 0;">
+        <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select
+            .value=${selected}
+            @change=${(e)=>onChange(e.target.value)}
+            style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
+          >
+            <option value="">Select a sensor...</option>
+            ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
+              ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+            <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
+              ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <option
+                    value=${e.id}
+                    ?selected=${e.id === selected}
+                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
+                  >${e.name} (${e.id})</option>
+                `)}
+            </optgroup>
+          </select>
+          <span style="width: 28px; text-align: center; display: flex; align-items: center; justify-content: center;">${statusIcon}</span>
+        </div>
+      </div>
+    `;
+    }
+    _startListeningEntity(entityId) {
+        if (this._entityListeners[entityId]) return; // already listening
+        this._entityStatus = {
+            ...this._entityStatus,
+            [entityId]: undefined
+        }; // pending
+        // Subscribe to state changes for this entity
+        const unsub = this.hass.connection.subscribeEvents((event)=>{
+            const data = event.data;
+            if (data.entity_id !== entityId) return;
+            const newState = data.new_state?.state;
+            if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
+            // Numeric check
+            if (isNaN(parseFloat(newState))) return;
+            this._entityStatus = {
+                ...this._entityStatus,
+                [entityId]: true
+            };
+        }, 'state_changed');
+        unsub.then((unsubFn)=>{
+            this._entityListeners[entityId] = unsubFn;
+        });
+    }
+    _stopListeningEntity(entityId) {
+        const unsub = this._entityListeners[entityId];
+        if (unsub) {
+            try {
+                if (typeof unsub === 'function') unsub();
+            } catch (e) {}
+            delete this._entityListeners[entityId];
+        }
+        const copy = {
+            ...this._entityStatus
+        };
+        delete copy[entityId];
+        this._entityStatus = copy;
+    }
+    _getAllSelectedEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return new Set(all);
+    }
+    _hasDuplicateEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return new Set(all).size !== all.length;
+    }
+    _hasEmptyEntities() {
+        const count = this._phases ?? 1;
+        return this._consumptionEntities.filter((e)=>e !== '').length < count || this._productionEntities.filter((e)=>e !== '').length < count;
+    }
+    _hasPendingEntities() {
+        const all = [
+            ...this._consumptionEntities,
+            ...this._productionEntities
+        ].filter((e)=>e !== '');
+        return all.some((e)=>this._entityStatus[e] !== true);
+    }
+    _renderEntityErrors() {
+        const errors = [];
+        if (this._hasEmptyEntities()) errors.push('Please select a sensor for each field.');
+        if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
+        if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
+    }
+    _renderSaveWarning() {
+        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (!this._hasPendingEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title="Some sensors have not responded yet">
+        This could mean the entity ID is incorrect, or the sensor is not reporting
+        data at this time. For production sensors, this can be normal if there is
+        currently no or little solar production — the meter may report 0 continuously,
+        which does not generate a state change.
+      </ha-alert>
+    `;
+    }
+    // ── Solar panel consistency warning (plan task 30a) ─────────────────
+    _panelsThatWillBecomeInconsistent() {
+        if (this._phases === null) return [];
+        const newPhases = this._phases;
+        return this._existingSolarPanels.filter((p)=>{
+            if (typeof p.phases !== 'number') return true; // unknown counts as broken
+            if (p.phases > newPhases) return true;
+            if (p.phases === 1 && newPhases === 3 && p.connected_to_phase !== 1 && p.connected_to_phase !== 2 && p.connected_to_phase !== 3) return true;
+            return false;
+        }).map((p)=>p.name ?? '(unnamed)');
+    }
+    _renderSolarPanelWarning() {
+        if (!this._phaseChangeConfirmed) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const affected = this._panelsThatWillBecomeInconsistent();
+        if (affected.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const list = affected.map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${n}</li>`);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="warning"
+        title="This change will break ${affected.length === 1 ? 'a solar panel' : 'solar panels'}"
+        style="margin-top: 16px;"
+      >
+        <p style="margin: 0 0 8px 0;">
+          The new phase count no longer matches the configuration of:
+        </p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">${list}</ul>
+        <p style="margin: 0;">
+          Continue anyway is allowed — the affected panel(s) will be flagged
+          on the solar panels card so you can edit them afterwards. Nothing
+          on the panels is changed automatically.
+        </p>
+      </ha-alert>
+    `;
+    }
+    // ── Save ────────────────────────────────────────────────────────────
+    async _handleSave() {
+        this._triedSave = true;
+        // Block if empty or duplicate
+        if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
+        // If some entities still pending and not yet confirmed
+        if (this._hasPendingEntities() && !this._saveConfirmed) {
+            this._saveConfirmed = true; // next click will be "Save anyway"
+            return;
+        }
+        await this._save();
+    }
+    async _save() {
+        this._saving = true;
+        this._saveError = '';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_grid_connection_settings', {
+                phases: this._phases,
+                capacity_per_phase: parseInt(this._capacityPerPhase, 10),
+                consumption_entities: this._consumptionEntities,
+                production_entities: this._productionEntities
+            });
+            if (result.fm_error) {
+                // FM-side rejection (provisioning failed). Lit preserves the form
+                // state; ensure_* is idempotent so clicking Save again resends the
+                // same payload and recovers cleanly once FM is available. Back/Cancel
+                // closes without saving.
+                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                this._saving = false;
+                this._saveConfirmed = false;
+                return;
+            }
+            if (result.error) {
+                this._saveError = result.error;
+                this._saving = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._saveError = 'Failed to save settings. Please try again.';
+            this._saving = false;
+        }
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .error {
+        color: var(--error-color);
+        font-size: 0.875em;
+        margin-top: 4px;
+      }
+      .save-error {
+        margin-top: 12px;
+        font-weight: 500;
+      }
+      details.hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      details.hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      details.hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+      }
+      .phase-cards {
+        display: flex;
+        gap: 12px;
+      }
+      .phase-card {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .phase-card:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-card.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .phase-subtitle {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .column-header {
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .auto-detected-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: #2e7d32;
+        background: #e8f5e9;
+        padding: 2px 8px;
+        border-radius: 12px;
+        white-space: nowrap;
+      }
+      .requirements-box {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        background: var(--card-background-color);
+      }
+      .requirements-header {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .requirement-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .requirement-icon {
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        border-radius: 50%;
+        padding: 8px;
+        flex-shrink: 0;
+        --mdc-icon-size: 24px;
+      }
+      .requirement-item div {
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+      .requirements-footer {
+        margin-top: 12px;
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+        font-style: italic;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Inline entity validation state (per entity: true=ok, undefined=pending)
+        this._entityStatus = {}, this._entityListeners = {}, // Auto-detection state
+        this._autoDetected = false, // Form validation state
+        this._triedContinueStep2 = false, this._triedSave = false, // Set on the first Continue click of step 2 when the new phases would
+        // make existing solar panels inconsistent. While true, the Continue
+        // button reads "Continue anyway" and the warning is visible. Reset
+        // whenever the user changes the phase selection so a different choice
+        // requires its own acknowledgement.
+        this._phaseChangeConfirmed = false, // Saving state
+        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Existing solar panels (loaded at open) so the dialog can warn the user
+        // when a phases change would leave one or more panels inconsistent with
+        // the new grid configuration. The dialog never auto-fixes panels — see
+        // plan task 30a.
+        this._existingSolarPanels = [], // Available sensor entities for dropdowns
+        this._sensorEntities = [];
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_step", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_capacityPerPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_consumptionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueStep2", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phaseChangeConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saving", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_existingSolarPanels", void 0);
+$c39c194e2cc8bd35$export$7bc40f611da49691 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($c39c194e2cc8bd35$export$45e0b80f1e500bd4)
+], $c39c194e2cc8bd35$export$7bc40f611da49691);
+
+
+
+
+
+
+
+
+
+const $69c2d5e8861124e5$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-solar-panel-dialog';
+class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog(params = {}) {
+        super.showDialog();
+        // Reset — skip the intro page when editing an existing panel.
+        this._step = params.panel ? "basic" : "intro";
+        this._editingId = null;
+        this._name = '';
+        this._peakPowerWp = '';
+        this._phases = null;
+        this._connectedToPhase = null;
+        this._powerEntityId = '';
+        this._curtailablePreserved = undefined;
+        this._curtailEntityIdPreserved = undefined;
+        this._gridPhases = null;
+        this._entityStatus = {};
+        this._cleanupEntityListeners();
+        this._triedContinueBasic = false;
+        this._triedSave = false;
+        this._triedContinueEntity = false;
+        this._triedContinuePhase = false;
+        this._saving = false;
+        this._saveError = '';
+        this._saveConfirmed = false;
+        this._deleting = false;
+        this._deleteConfirmed = false;
+        this._deleteError = '';
+        // Load grid context (needed to limit phases dropdown + decide step 4).
+        // If the grid is not configured, take over the dialog immediately with
+        // a blocking explanation (plan task 29): solar panel config depends on
+        // grid phases, so there's nothing useful the user can do here yet.
+        try {
+            const grid = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
+            this._gridPhases = grid.phases ?? null;
+            if (grid.configured !== true) this._step = "grid_not_configured";
+        } catch (e) {
+            this._step = "grid_not_configured";
+        }
+        // Pre-fill on edit
+        if (params.panel) {
+            this._editingId = params.panel.id;
+            this._name = params.panel.name ?? '';
+            this._peakPowerWp = params.panel.peak_power_wp != null ? String(params.panel.peak_power_wp) : '';
+            this._phases = params.panel.phases;
+            this._connectedToPhase = params.panel.connected_to_phase ?? null;
+            this._powerEntityId = params.panel.power_entity_id ?? '';
+            this._curtailablePreserved = params.panel.curtailable;
+            this._curtailEntityIdPreserved = params.panel.curtail_entity_id;
+        }
+        // Load other panels' names + power entity ids for the inline
+        // uniqueness checks (name on step 2, sensor on step 3). The backend
+        // remains the source of truth (its checks are the safety net), but
+        // inline feedback is friendlier than discovering the clash only on
+        // Save. On failure we leave the sets empty — backend will still reject.
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_solar_panels');
+            const panels = data.solar_panels ?? [];
+            const others = panels.filter((p)=>p.id !== this._editingId);
+            this._otherPanelNames = new Set(others.map((p)=>(p.name ?? '').trim().toLowerCase()).filter((n)=>n !== ''));
+            this._otherPanelEntities = new Set(others.map((p)=>p.power_entity_id ?? '').filter((e)=>e !== ''));
+        } catch (e) {
+            this._otherPanelNames = new Set();
+            this._otherPanelEntities = new Set();
+        }
+        this._buildSensorEntityList();
+        if (this._powerEntityId) this._startListeningEntity(this._powerEntityId);
+        await this.updateComplete;
+    }
+    closeDialog() {
+        this._cleanupEntityListeners();
+        super.closeDialog();
+    }
+    _cleanupEntityListeners() {
+        for (const unsub of Object.values(this._entityListeners))try {
+            if (typeof unsub === 'function') unsub();
+        } catch (e) {
+        /* ignore */ }
+        this._entityListeners = {};
+    }
+    _buildSensorEntityList() {
+        const states = this.hass.states;
+        this._sensorEntities = [];
+        for (const entityId of Object.keys(states)){
+            if (!entityId.startsWith('sensor.')) continue;
+            const stateObj = states[entityId];
+            const deviceClass = stateObj.attributes.device_class ?? '';
+            const unit = stateObj.attributes.unit_of_measurement ?? '';
+            const isPower = deviceClass === 'power' || [
+                'W',
+                'kW',
+                'MW'
+            ].includes(unit);
+            const name = stateObj.attributes.friendly_name || entityId;
+            this._sensorEntities.push({
+                id: entityId,
+                name: name,
+                isPower: isPower
+            });
+        }
+        this._sensorEntities.sort((a, b)=>{
+            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = this._editingId ? 'Edit solar panel' : 'Add solar panel';
+        let content;
+        switch(this._step){
+            case "intro":
+                content = this._renderIntro();
+                break;
+            case "basic":
+                content = this._renderBasic();
+                break;
+            case "power_entity":
+                content = this._renderPowerEntity();
+                break;
+            case "connected_to_phase":
+                content = this._renderConnectedToPhase();
+                break;
+            case "grid_not_configured":
+                content = this._renderGridNotConfigured();
+                break;
+        }
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .heading=${isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${isNew ? header : null}
+      >
+        ${content}
+      </ha-dialog>
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    // ── Guard step: grid connection not configured ──────────────────────
+    _renderGridNotConfigured() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="error"
+        title="Grid connection not configured"
+      >
+        Solar panel settings depend on your grid connection (number of
+        phases, capacity). Please configure the grid connection first via
+        its settings card, then come back here to add your panels.
+      </ha-alert>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, this.hass.localize('ui.common.close'), false, 'close')}
+    `;
+    }
+    // ── Step 1: Introduction ────────────────────────────────────────────
+    _renderIntro() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        By monitoring your solar panels, V2G Liberty learns your generation
+        patterns. Over time, this leads to <strong>better predictions</strong>
+        and <strong>smarter schedules</strong> that match how much energy your
+        panels are likely to produce.
+      </p>
+      <p>
+        <strong>For Dutch users:</strong> this is a valuable preparation for the
+        end of "saldering" (net metering).
+      </p>
+
+      <div class="requirements-box">
+        <div class="requirements-header">What you need</div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:solar-power" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>A solar inverter</strong><br />
+            With a Home Assistant integration that exposes a power sensor for
+            the inverter's current production.
+          </div>
+        </div>
+        <div class="requirement-item">
+          <ha-icon icon="mdi:information-outline" class="requirement-icon"></ha-icon>
+          <div>
+            <strong>The inverter details</strong><br />
+            Peak power (Wp) and how many phases the inverter is connected to.
+            You can add multiple inverters one at a time.
+          </div>
+        </div>
+      </div>
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "basic";
+        }, true)}
+    `;
+    }
+    // ── Step 2: Basic fields (name, Wp, phases) ─────────────────────────
+    _renderBasic() {
+        const phasesAllowed = this._allowedPhaseOptions();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div>
+        <label class="field-label" for="panel-name">Name</label>
+        <ha-textfield
+          id="panel-name"
+          .value=${this._name}
+          @input=${(e)=>{
+            this._name = e.target.value;
+        }}
+          placeholder="e.g. South roof"
+        ></ha-textfield>
+        ${this._renderNameError()}
+      </div>
+
+      <div style="margin-top: 16px;">
+        <label class="field-label" for="panel-wp">Peak power (Wp)</label>
+        <ha-textfield
+          id="panel-wp"
+          type="text"
+          inputmode="numeric"
+          .value=${this._peakPowerWp}
+          @input=${(e)=>{
+            this._peakPowerWp = e.target.value;
+        }}
+          suffix="Wp"
+          style="width: 160px;"
+        ></ha-textfield>
+        ${this._renderWpError()}
+      </div>
+
+      <div style="margin-top: 16px;">
+        <p style="margin: 0 0 8px 0;"><strong>Inverter phases</strong></p>
+        <div class="phase-cards">
+          ${phasesAllowed.includes(1) ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <div
+                  class="phase-card ${this._phases === 1 ? 'selected' : ''}"
+                  @click=${()=>this._selectPhases(1)}
+                >
+                  <ha-radio
+                    .checked=${this._phases === 1}
+                    name="solar-phases"
+                    value="1"
+                    @change=${()=>this._selectPhases(1)}
+                  ></ha-radio>
+                  <div>
+                    <strong>1 phase</strong><br />
+                    <span class="phase-subtitle">Single-phase inverter</span>
+                  </div>
+                </div>
+              ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          ${phasesAllowed.includes(3) ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <div
+                  class="phase-card ${this._phases === 3 ? 'selected' : ''}"
+                  @click=${()=>this._selectPhases(3)}
+                >
+                  <ha-radio
+                    .checked=${this._phases === 3}
+                    name="solar-phases"
+                    value="3"
+                    @change=${()=>this._selectPhases(3)}
+                  ></ha-radio>
+                  <div>
+                    <strong>3 phases</strong><br />
+                    <span class="phase-subtitle">Three-phase inverter</span>
+                  </div>
+                </div>
+              ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        ${this._gridPhases === 1 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="hint-note">
+              Only 1-phase available because your grid connection is 1-phase.
+            </div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._triedContinueBasic && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </div>
+
+      ${this._deleteConfirmed ? this._renderDeleteConfirmationAlert() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderStep2Footer()}
+    `;
+    }
+    _renderDeleteConfirmationAlert() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="warning"
+        title="Delete this panel?"
+        style="margin-top: 32px;"
+      >
+        Local registration of
+        <strong>${this._name.trim() || '(unnamed)'}</strong>
+        will be removed. The asset in FlexMeasures is left in place (an
+        administrator can clean it up if needed); historical data stays
+        available there under the same id.
+        ${this._deleteError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="error" style="margin-top:8px;">
+              ${this._deleteError}
+            </p>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </ha-alert>
+    `;
+    }
+    _renderStep2Footer() {
+        if (this._deleting) return (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass);
+        if (this._deleteConfirmed) {
+            // Confirmation flow takes over the footer — Cancel cancels the
+            // delete (not the dialog), Yes deletes (red, destructive variant).
+            const slot = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass) ? 'footer' : 'primaryAction';
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+                this._deleteConfirmed = false;
+                this._deleteError = '';
+            }, false, this.hass.localize('ui.common.cancel'), false, 'cancel-delete')}
+        <ha-button
+          @click=${()=>this._handleDelete()}
+          slot=${slot}
+          appearance="filled"
+          variant="danger"
+          test-id="confirm-delete"
+          size="small"
+          style="width: auto;"
+        >
+          Yes, delete
+        </ha-button>
+      `;
+        }
+        // Normal edit-mode footer: Delete… on the left, Cancel + Continue on
+        // the right. The trailing ellipsis on the Delete label signals that
+        // a confirmation step follows.
+        const slot = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass) ? 'footer' : 'secondaryAction';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._editingId ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button
+            @click=${()=>{
+            this._deleteConfirmed = true;
+            this._deleteError = '';
+        }}
+            slot=${slot}
+            appearance="outlined"
+            variant="secondary"
+            test-id="delete"
+            size="small"
+            style="width: auto; margin-right: auto;"
+          >
+            Delete this panel…
+          </ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._editingId ? (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), false, this.hass.localize('ui.common.cancel'), false, 'cancel') : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueBasic = false;
+            this._step = "intro";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueFromBasic(), true)}
+    `;
+    }
+    async _handleDelete() {
+        if (!this._editingId) return;
+        this._deleting = true;
+        this._deleteError = '';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'delete_solar_panel', {
+                id: this._editingId
+            });
+            if (result.error) {
+                this._deleteError = result.error;
+                this._deleting = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._deleteError = 'Failed to delete the solar panel. Please try again.';
+            this._deleting = false;
+        }
+    }
+    _allowedPhaseOptions() {
+        if (this._gridPhases === 1) return [
+            1
+        ];
+        return [
+            1,
+            3
+        ];
+    }
+    _selectPhases(phases) {
+        this._phases = phases;
+        // Clear connected_to_phase if no longer relevant
+        if (!this._needsConnectedToPhase()) this._connectedToPhase = null;
+    }
+    _isWpValid() {
+        // Required. Use Number() (not parseFloat) so "500abc" → NaN instead of 500.
+        if (this._peakPowerWp.trim() === '') return false;
+        const v = Number(this._peakPowerWp);
+        return Number.isInteger(v) && v >= 500 && v <= 15000;
+    }
+    _isNameDuplicate() {
+        const norm = this._name.trim().toLowerCase();
+        return norm !== '' && this._otherPanelNames.has(norm);
+    }
+    _renderNameError() {
+        if (this._name.trim() === '') return this._triedContinueBasic ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter a name.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        if (this._isNameDuplicate()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        A solar panel named '${this._name.trim()}' already exists. Please
+        choose a different name.
+      </div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _renderWpError() {
+        if (this._peakPowerWp.trim() === '') return this._triedContinueBasic ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter a peak power.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        if (!this._isWpValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        Must be a whole number between 500 and 15000 Wp.
+      </div>`;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+    _continueFromBasic() {
+        this._triedContinueBasic = true;
+        if (this._name.trim() === '') return;
+        if (this._isNameDuplicate()) return;
+        if (!this._isWpValid()) return;
+        if (this._phases === null) return;
+        this._step = "power_entity";
+    }
+    // ── Step 3: Power entity ────────────────────────────────────────────
+    _renderPowerEntity() {
+        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
+        const status = this._powerEntityId ? this._entityStatus[this._powerEntityId] : undefined;
+        const statusIcon = this._powerEntityId ? status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+            icon="mdi:check-circle"
+            style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"
+          ></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        <strong>Power sensor</strong> — the Home Assistant entity that reports
+        the current production of this inverter.
+      </p>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+        <select
+          .value=${this._powerEntityId}
+          @change=${(e)=>this._selectPowerEntity(e.target.value)}
+          style="flex: 1; min-width: 0; padding: 8px;
+                 border: 1px solid var(--divider-color); border-radius: 4px;
+                 background: var(--card-background-color);
+                 color: var(--primary-text-color); font-size: 0.95em;"
+        >
+          <option value="">Select a sensor...</option>
+          ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
+                ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>this._renderSensorOption(e))}
+              </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
+            ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>this._renderSensorOption(e))}
+          </optgroup>
+        </select>
+        <span
+          style="width: 28px; text-align: center; display: flex;
+                 align-items: center; justify-content: center;"
+        >
+          ${statusIcon}
+        </span>
+      </div>
+      ${this._triedContinueEntity && this._powerEntityId === '' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error"
+            >Please select a power sensor.</ha-alert
+          >` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderPendingWarning()}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinueEntity = false;
+            this._step = "basic";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._renderEntityNextOrSave()}
+    `;
+    }
+    _renderEntityNextOrSave() {
+        // If a phase selection step is needed, this is a Continue button;
+        // otherwise the save flow lives here.
+        if (this._needsConnectedToPhase()) return (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueFromEntity(), true, this.hass.localize('ui.common.continue'));
+        return this._renderSaveButton(()=>this._continueFromEntity());
+    }
+    _renderSensorOption(e) {
+        // Disable entities already claimed by another panel (mirrors the
+        // grid-dialog pattern). The currently selected entity is never
+        // disabled even if it's somehow in the set, so the dropdown stays
+        // self-consistent.
+        const isUsedByOther = this._otherPanelEntities.has(e.id) && e.id !== this._powerEntityId;
+        const label = isUsedByOther ? `${e.name} (${e.id}) \u{2014} used by another panel` : `${e.name} (${e.id})`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <option
+        value=${e.id}
+        ?selected=${e.id === this._powerEntityId}
+        ?disabled=${isUsedByOther}
+      >
+        ${label}
+      </option>
+    `;
+    }
+    _selectPowerEntity(entityId) {
+        const old = this._powerEntityId;
+        if (old) this._stopListeningEntity(old);
+        this._powerEntityId = entityId;
+        if (entityId) this._startListeningEntity(entityId);
+    }
+    _renderPendingWarning() {
+        if (!this._triedSave || this._powerEntityId === '' || this._entityStatus[this._powerEntityId] === true) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const currentState = this.hass.states[this._powerEntityId]?.state ?? '(none)';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert
+        alert-type="warning"
+        title="Sensor has not reported a usable value yet"
+      >
+        <p style="margin: 0 0 8px 0;">
+          The selected sensor
+          <code>${this._powerEntityId}</code> is currently reporting
+          <strong>${currentState}</strong>, and has not sent a usable
+          numeric value since this dialog was opened.
+        </p>
+        <p style="margin: 0 0 8px 0;">Likely causes:</p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">
+          <li>The entity ID is wrong or the integration is broken.</li>
+          <li>
+            The sensor is reporting <code>unknown</code> or
+            <code>unavailable</code> — usually fixed by reloading the
+            integration in Home Assistant.
+          </li>
+          <li>
+            The sensor genuinely hasn't reported anything yet (rare,
+            but possible right after a fresh install).
+          </li>
+        </ul>
+        <p style="margin: 0;">
+          Clicking <strong>Save anyway</strong> will save with the
+          current configuration. V2G Liberty will start collecting data
+          as soon as the sensor reports a numeric value; until then no
+          PV data will be sent to FlexMeasures for this panel.
+        </p>
+      </ha-alert>
+    `;
+    }
+    _continueFromEntity() {
+        this._triedContinueEntity = true;
+        if (this._powerEntityId === '') return;
+        if (this._needsConnectedToPhase()) this._step = "connected_to_phase";
+        else this._handleSave();
+    }
+    _needsConnectedToPhase() {
+        return this._phases === 1 && this._gridPhases === 3;
+    }
+    // ── Step 4: connected_to_phase ──────────────────────────────────────
+    _renderConnectedToPhase() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        <strong>Which phase is this 1-phase inverter connected to?</strong>
+      </p>
+      <p class="hint-note">
+        Your grid connection is 3-phase, so a 1-phase inverter sits on one of
+        the three phases. Pick the one your installer wired it to.
+      </p>
+      <div class="phase-cards" style="margin-top: 12px;">
+        ${[
+            1,
+            2,
+            3
+        ].map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <div
+              class="phase-card ${this._connectedToPhase === n ? 'selected' : ''}"
+              @click=${()=>{
+                this._connectedToPhase = n;
+            }}
+            >
+              <ha-radio
+                .checked=${this._connectedToPhase === n}
+                name="connected-to-phase"
+                value=${String(n)}
+                @change=${()=>{
+                this._connectedToPhase = n;
+            }}
+              ></ha-radio>
+              <div><strong>L${n}</strong></div>
+            </div>
+          `)}
+      </div>
+      ${this._triedContinuePhase && this._connectedToPhase === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select a phase.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._triedContinuePhase = false;
+            this._step = "power_entity";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${this._renderSaveButton(()=>this._triggerSaveFromPhaseStep())}
+    `;
+    }
+    _triggerSaveFromPhaseStep() {
+        this._triedContinuePhase = true;
+        if (this._connectedToPhase === null) return;
+        this._handleSave();
+    }
+    // ── Inline entity validation (state_changed subscription) ───────────
+    _startListeningEntity(entityId) {
+        if (this._entityListeners[entityId]) return;
+        // Initial state check: if the entity already has a valid numeric value
+        // right now (including 0 — a working sensor reporting no production
+        // counts as healthy), mark as ✓ immediately. Avoids a forever-spinner
+        // for sensors that report continuously without firing state_changed.
+        const initiallyValid = this._isStateValid(this.hass.states[entityId]?.state);
+        this._entityStatus = {
+            ...this._entityStatus,
+            [entityId]: initiallyValid ? true : undefined
+        };
+        // Still listen — the sensor may transition from
+        // unknown/unavailable to a valid value during the dialog session.
+        const unsub = this.hass.connection.subscribeEvents((event)=>{
+            const data = event.data;
+            if (data.entity_id !== entityId) return;
+            if (!this._isStateValid(data.new_state?.state)) return;
+            this._entityStatus = {
+                ...this._entityStatus,
+                [entityId]: true
+            };
+        }, 'state_changed');
+        unsub.then((unsubFn)=>{
+            this._entityListeners[entityId] = unsubFn;
+        });
+    }
+    _isStateValid(state) {
+        if (state == null || state === '' || state === 'unknown' || state === 'unavailable') return false;
+        return !isNaN(parseFloat(state));
+    }
+    _stopListeningEntity(entityId) {
+        const unsub = this._entityListeners[entityId];
+        if (unsub) {
+            try {
+                if (typeof unsub === 'function') unsub();
+            } catch (e) {
+            /* ignore */ }
+            delete this._entityListeners[entityId];
+        }
+        const copy = {
+            ...this._entityStatus
+        };
+        delete copy[entityId];
+        this._entityStatus = copy;
+    }
+    // ── Save ────────────────────────────────────────────────────────────
+    _renderSaveButton(onSave) {
+        if (this._saving) return (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass);
+        const label = this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save');
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${this._saveError}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, onSave, true, label)}
+    `;
+    }
+    async _handleSave() {
+        this._triedSave = true;
+        const isPending = this._entityStatus[this._powerEntityId] !== true;
+        if (isPending && !this._saveConfirmed) {
+            // First Save click while still pending → show warning + "Save anyway".
+            this._saveConfirmed = true;
+            return;
+        }
+        await this._save();
+    }
+    async _save() {
+        this._saving = true;
+        this._saveError = '';
+        const payload = {
+            name: this._name.trim(),
+            phases: this._phases,
+            power_entity_id: this._powerEntityId
+        };
+        if (this._editingId) payload.id = this._editingId;
+        if (this._peakPowerWp !== '') payload.peak_power_wp = Number(this._peakPowerWp);
+        if (this._needsConnectedToPhase() && this._connectedToPhase != null) payload.connected_to_phase = this._connectedToPhase;
+        // Preserve curtailable / curtail_entity_id verbatim across edits — the
+        // UI for these fields is deferred (see plan arch decision "PV curtailable
+        // niet naar FM"), but we must not silently drop data that already exists.
+        if (this._curtailablePreserved !== undefined) payload.curtailable = this._curtailablePreserved;
+        if (this._curtailEntityIdPreserved !== undefined) payload.curtail_entity_id = this._curtailEntityIdPreserved;
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_solar_panel', payload);
+            if (result.fm_error) {
+                // FM-side rejection. Lit preserves the form state, ensure_* is
+                // idempotent on retry, so clicking Save again resends the same
+                // payload and recovers cleanly once FM is available.
+                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                this._saving = false;
+                return;
+            }
+            if (result.error) {
+                this._saveError = result.error;
+                this._saving = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._saveError = 'Failed to save the solar panel. Please try again.';
+            this._saving = false;
+        }
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .error {
+        color: var(--error-color);
+        font-size: 0.875em;
+        margin-top: 4px;
+      }
+      .field-label {
+        display: block;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+        margin-bottom: 4px;
+      }
+      .hint-note {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
+      }
+      .phase-cards {
+        display: flex;
+        gap: 12px;
+      }
+      .phase-card {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .phase-card:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-card.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .phase-subtitle {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .requirements-box {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        background: var(--card-background-color);
+      }
+      .requirements-header {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .requirement-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .requirement-icon {
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+        border-radius: 50%;
+        padding: 8px;
+        flex-shrink: 0;
+        --mdc-icon-size: 24px;
+      }
+      .requirement-item div {
+        font-size: 0.9em;
+        line-height: 1.4;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._step = "intro", // Form state
+        this._editingId = null, this._name = '', this._peakPowerWp = '', this._phases = null, this._connectedToPhase = null, this._powerEntityId = '', // Grid context (from get_grid_connection_settings)
+        this._gridPhases = null, // Normalised names of *other* solar panels — populated at dialog open
+        // and used for the inline duplicate-name check on step 2. Empty when
+        // editing the only panel, or before the panel list has been fetched.
+        this._otherPanelNames = new Set(), // Power entity ids already claimed by other panels — used to disable
+        // those entries in the step-3 dropdown so the same sensor can never be
+        // chosen for two panels.
+        this._otherPanelEntities = new Set(), // Inline entity validation
+        this._entityStatus = {}, this._entityListeners = {}, // Step-2 / step-3 validation flags
+        this._triedContinueBasic = false, this._triedSave = false, this._triedContinueEntity = false, this._triedContinuePhase = false, // Save state
+        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Delete state (edit-mode only)
+        this._deleting = false, this._deleteConfirmed = false, this._deleteError = '', // Sensor entity list (built once per open)
+        this._sensorEntities = [];
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_step", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_editingId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_name", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_peakPowerWp", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_connectedToPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_powerEntityId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_gridPhases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_otherPanelNames", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_otherPanelEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_entityStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedContinueBasic", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedSave", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedContinueEntity", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_triedContinuePhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_saving", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_saveError", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_saveConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_deleting", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_deleteConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $69c2d5e8861124e5$export$49872103a5fed138.prototype, "_deleteError", void 0);
+$69c2d5e8861124e5$export$49872103a5fed138 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($69c2d5e8861124e5$export$45e0b80f1e500bd4)
+], $69c2d5e8861124e5$export$49872103a5fed138);
+
+
+
+
+
+
+
+
+
 
 
 const $fe3d519835c26128$var$REQUIRED_ENTITY_IDS = [
@@ -14267,6 +16142,20 @@ const $de105ef1fecb85b1$export$b220f18fecfa2078 = (element)=>{
         dialogTag: (0, $056feaf1842f603f$export$45e0b80f1e500bd4),
         dialogImport: ()=>Promise.resolve(),
         dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$dc47fab9d3063d57 = (element)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $c39c194e2cc8bd35$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$73ad1784b2d8a352 = (element, params = {})=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $69c2d5e8861124e5$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: params
     });
 };
 const $de105ef1fecb85b1$export$e19f22a93e56ff3b = (element)=>{
@@ -15896,6 +17785,7 @@ $8b666ded8df00928$export$5fb852718b75e058 = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
 const $8462057a459186b4$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.charger');
 const $8462057a459186b4$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
 var $8462057a459186b4$var$ChargerConnectionStatus = /*#__PURE__*/ function(ChargerConnectionStatus) {
@@ -15907,8 +17797,13 @@ var $8462057a459186b4$var$ChargerConnectionStatus = /*#__PURE__*/ function(Charg
 class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
     set hass(hass) {
+        const firstSet = !this._hass;
         this._hass = hass;
         (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
+        if (firstSet) {
+            this._loadPhaseInfo();
+            this._subscribeToPhaseEvents();
+        }
         this._chargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
         this._chargerHost = hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89];
         this._chargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
@@ -15944,6 +17839,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
+        ${this._renderChargerPhase()}
         ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
       </div>
       <div class="card-actions">
@@ -15960,6 +17856,43 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
             time: (0, $3e7075d7d44f6925$export$bb2bfceb6aaff8bf)(this._chargerConnectionStatus.last_updated)
         });
         return isConnected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">${success}</ha-alert>` : hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${error}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    }
+    async _loadPhaseInfo() {
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_charger_phase');
+            this._connectedToPhase = data.connected_to_phase ?? null;
+            this._phaseRequired = data.required ?? false;
+            this._phaseLoaded = true;
+        } catch (e) {
+        // Ignore — phase info not available
+        }
+    }
+    async _subscribeToPhaseEvents() {
+        this._unsubPhase = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_charger_phase.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubPhase) {
+            this._unsubPhase();
+            this._unsubPhase = null;
+        }
+    }
+    _renderChargerPhase() {
+        if (!this._phaseLoaded) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (this._connectedToPhase === null) {
+            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
+            return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        }
+        const phaseValue = Array.isArray(this._connectedToPhase) ? this._connectedToPhase.map((p)=>`L${p}`).join(', ') : `L${this._connectedToPhase}`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon icon="mdi:electric-switch"></ha-icon>&nbsp; &nbsp;
+          Connected to phase
+        </span>
+        <div class="text-content value state">${phaseValue}</div>
+      </ha-settings-row>
+    `;
     }
     _renderMaxChargeConfiguration() {
         const maxAvailablePower = this._hass.states[$755a87c9ee93218f$export$2afa365a5af4c631].state;
@@ -15999,6 +17932,10 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
       `
         ];
     }
+    constructor(...args){
+        super(...args), // Charger phase (from JSON settings, not HA entity)
+        this._connectedToPhase = null, this._phaseRequired = false, this._phaseLoaded = false, this._unsubPhase = null;
+    }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
@@ -16024,6 +17961,12 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_loadBalancerLimit", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_connectedToPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_phaseRequired", void 0);
 $8462057a459186b4$export$bfa1cde860c39587 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-charger-settings-card')
 ], $8462057a459186b4$export$bfa1cde860c39587);
@@ -16398,6 +18341,263 @@ class $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa extends (0, $ab210b2da7b39b9d$ex
 $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-schedule-settings-card')
 ], $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa);
+
+
+
+
+
+
+
+
+
+
+const $fcb07f75f9ef44be$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
+class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(config) {}
+    set hass(hass) {
+        const firstSet = !this._hass;
+        this._hass = hass;
+        if (firstSet) {
+            this._loadSettings();
+            this._subscribeToSaveEvents();
+        }
+    }
+    async _subscribeToSaveEvents() {
+        this._unsubscribe = await this._hass.connection.subscribeEvents(()=>this._loadSettings(), 'save_grid_connection_settings.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubscribe) {
+            this._unsubscribe();
+            this._unsubscribe = null;
+        }
+    }
+    async _loadSettings() {
+        this._loading = true;
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_grid_connection_settings');
+            this._phases = data.phases ?? null;
+            this._capacityPerPhase = data.capacity_per_phase ?? null;
+            this._consumptionEntities = data.consumption_entities ?? [];
+            this._productionEntities = data.production_entities ?? [];
+            this._isConfigured = this._consumptionEntities.length > 0;
+        } catch (e) {
+            console.error('Failed to load grid connection settings', e);
+            this._isConfigured = false;
+        }
+        this._loading = false;
+    }
+    render() {
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">
+        <div class="card-content">
+          <ha-circular-progress indeterminate></ha-circular-progress>
+        </div>
+      </ha-card>`;
+        const content = this._isConfigured ? this._renderConfiguredContent() : this._renderEmptyContent();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">${content}</ha-card>`;
+    }
+    _renderEmptyContent() {
+        const editCallback = ()=>this._openDialog();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <ha-alert alert-type="info">Not yet configured. This is optional but recommended.</ha-alert>
+        <p>Track your household energy usage to improve charging schedules over time.</p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, $fcb07f75f9ef44be$var$tc('configure'))}
+      </div>
+    `;
+    }
+    _renderConfiguredContent() {
+        const editCallback = ()=>this._openDialog();
+        const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
+        const sensorCount = this._consumptionEntities.length + this._productionEntities.length;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <p>${phaseLabel}, ${this._capacityPerPhase}A per phase</p>
+        <p>Monitoring active on ${sensorCount} sensors.</p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+      </div>
+    `;
+    }
+    _openDialog() {
+        (0, $de105ef1fecb85b1$export$dc47fab9d3063d57)(this);
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349)
+        ];
+    }
+    constructor(...args){
+        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._loading = true, this._unsubscribe = null;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_isConfigured", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_phases", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_capacityPerPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_consumptionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loading", void 0);
+$fcb07f75f9ef44be$export$fc44a86842da187a = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-grid-connection-settings-card')
+], $fcb07f75f9ef44be$export$fc44a86842da187a);
+
+
+
+
+
+
+
+
+
+
+class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    setConfig(config) {}
+    set hass(hass) {
+        const firstSet = !this._hass;
+        this._hass = hass;
+        if (firstSet) {
+            this._loadPanels();
+            this._subscribeToUpdates();
+        }
+    }
+    async _subscribeToUpdates() {
+        this._unsubscribeSave = await this._hass.connection.subscribeEvents(()=>this._loadPanels(), 'save_solar_panel.result');
+        this._unsubscribeDelete = await this._hass.connection.subscribeEvents(()=>this._loadPanels(), 'delete_solar_panel.result');
+        this._unsubscribeGridSave = await this._hass.connection.subscribeEvents(()=>this._loadPanels(), 'save_grid_connection_settings.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubscribeSave) {
+            this._unsubscribeSave();
+            this._unsubscribeSave = null;
+        }
+        if (this._unsubscribeDelete) {
+            this._unsubscribeDelete();
+            this._unsubscribeDelete = null;
+        }
+        if (this._unsubscribeGridSave) {
+            this._unsubscribeGridSave();
+            this._unsubscribeGridSave = null;
+        }
+    }
+    async _loadPanels() {
+        this._loading = true;
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_solar_panels');
+            this._panels = data.solar_panels ?? [];
+        } catch (e) {
+            console.error('Failed to load solar panels', e);
+            this._panels = [];
+        }
+        this._loading = false;
+    }
+    render() {
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Solar panels">
+        <div class="card-content">
+          <ha-circular-progress indeterminate></ha-circular-progress>
+        </div>
+      </ha-card>`;
+        const content = this._panels.length === 0 ? this._renderEmptyContent() : this._renderPanelList();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Solar panels">${content}</ha-card>`;
+    }
+    _renderEmptyContent() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <ha-alert alert-type="info"
+          >No solar panels configured. This is optional.</ha-alert
+        >
+        <p>
+          Prepare for the end of net metering by letting V2G Liberty learn your
+          solar generation patterns.
+        </p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Add solar panels')}
+      </div>
+    `;
+    }
+    _renderPanelList() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        ${this._panels.map((p)=>this._renderPanelRow(p))}
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Add panel')}
+      </div>
+    `;
+    }
+    _renderPanelRow(panel) {
+        const wp = panel.peak_power_wp ? `${panel.peak_power_wp} Wp` : '';
+        const phases = panel.phases === 1 ? '1-phase' : '3-phase';
+        const phaseInfo = panel.phases === 1 && panel.connected_to_phase ? `${phases} (L${panel.connected_to_phase})` : phases;
+        const summary = [
+            wp,
+            phaseInfo
+        ].filter(Boolean).join(', ');
+        // Use the alert icon as the leading icon when inconsistent — that way
+        // a long panel name can't push the warning off-screen, and the row
+        // catches the eye at a glance.
+        const leadingIcon = panel.inconsistency_reason ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-svg-icon
+          .path=${0, $04557c061247a0a6$export$2de6df494da709f1}
+          title=${panel.inconsistency_reason}
+          style="color: var(--error-color);"
+        ></ha-svg-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-svg-icon .path=${0, $04557c061247a0a6$export$709e1cf7b54ff1ad}></ha-svg-icon>`;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-settings-row>
+        <span slot="heading">
+          ${leadingIcon}&nbsp; &nbsp; ${panel.name}
+        </span>
+        <div class="value">${summary}</div>
+        <ha-icon-button
+          .label=${'Edit'}
+          .path=${0, $04557c061247a0a6$export$798dd1d7757f148e}
+          @click=${()=>this._openDialog(panel)}
+        ></ha-icon-button>
+      </ha-settings-row>
+    `;
+    }
+    _openDialog(panel) {
+        (0, $de105ef1fecb85b1$export$73ad1784b2d8a352)(this, panel ? {
+            panel: panel
+        } : {});
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349)
+        ];
+    }
+    constructor(...args){
+        super(...args), this._panels = [], this._loading = true, this._unsubscribeSave = null, this._unsubscribeDelete = null, // Inconsistency_reason depends on grid phases, so also refresh on grid
+        // save events — otherwise the alert icon would only appear after a
+        // manual page reload.
+        this._unsubscribeGridSave = null;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $35ba43e7ac8b244d$export$34371b2164e98a89.prototype, "_panels", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $35ba43e7ac8b244d$export$34371b2164e98a89.prototype, "_loading", void 0);
+$35ba43e7ac8b244d$export$34371b2164e98a89 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-solar-panels-settings-card')
+], $35ba43e7ac8b244d$export$34371b2164e98a89);
+
 
 
 

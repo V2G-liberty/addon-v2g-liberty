@@ -249,7 +249,7 @@ class ManageOctopusPriceData:
         ]
         self.__log(f"start: {start}, end: {end}, prices: {prices}.", level="DEBUG")
         if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
+            res = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
                 values=consumption_prices,
                 start=start,
@@ -258,7 +258,7 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                "Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_sensor_data on fm_client_app as it is None."
             )
             res = False
 
@@ -325,7 +325,7 @@ class ManageOctopusPriceData:
         self.__log(f"start: {start}, end: {end}, prices: {prices}.", level="DEBUG")
 
         if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
+            res = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
                 values=production_prices,
                 start=start,
@@ -334,7 +334,7 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                "Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_sensor_data on fm_client_app as it is None."
             )
             res = False
 
@@ -399,7 +399,7 @@ class ManageOctopusPriceData:
         # self.EMISSIONS_UOM = "%"
 
         if self.fm_client_app is not None:
-            res = await self.fm_client_app.post_measurements(
+            res = await self.fm_client_app.post_sensor_data(
                 sensor_id=c.FM_EMISSIONS_SENSOR_ID,
                 values=emission_intensities,
                 start=start,
@@ -408,7 +408,7 @@ class ManageOctopusPriceData:
             )
         else:
             self.__log(
-                "Could not call post_measurements on fm_client_app as it is None."
+                "Could not call post_sensor_data on fm_client_app as it is None."
             )
             res = False
 

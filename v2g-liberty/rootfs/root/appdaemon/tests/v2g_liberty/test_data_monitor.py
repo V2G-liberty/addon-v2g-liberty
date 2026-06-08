@@ -31,6 +31,7 @@ TEST_NOW = datetime(2026, 2, 22, 12, 0, 0, tzinfo=TEST_TZ)
 def _set_constants():
     """Set runtime constants that are normally initialised by V2GLibertyGlobals."""
     c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+    c.TZ = TEST_TZ
 
 
 @pytest.fixture
@@ -716,3 +717,248 @@ class TestEmitTodayTotals:
         await monitor._emit_today_totals()
 
         event_bus.emit_event.assert_not_called()
+
+
+# =====================================================================
+# Grid monitoring tests
+# =====================================================================
+
+
+class TestGridMonitoringSetup:
+    @pytest.mark.asyncio
+    async def test_no_setup_when_not_configured(self, monitor, hass):
+        """Grid listeners not registered when GRID_CONSUMPTION_ENTITIES is empty."""
+        c.GRID_CONSUMPTION_ENTITIES = []
+        c.GRID_PRODUCTION_ENTITIES = []
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        assert monitor._grid_consumption_trackers == {}
+        assert monitor._grid_production_trackers == {}
+
+    @pytest.mark.asyncio
+    async def test_setup_creates_trackers_and_listeners(self, monitor, hass):
+        """Grid listeners registered for each configured entity."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = [
+            "sensor.cons_l1",
+            "sensor.cons_l2",
+            "sensor.cons_l3",
+        ]
+        c.GRID_PRODUCTION_ENTITIES = [
+            "sensor.prod_l1",
+            "sensor.prod_l2",
+            "sensor.prod_l3",
+        ]
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        assert len(monitor._grid_consumption_trackers) == 3
+        assert len(monitor._grid_production_trackers) == 3
+        # 6 listen_state calls for grid (3 consumption + 3 production)
+        # Plus any from fixture setup
+        grid_listen_calls = [
+            call
+            for call in hass.listen_state.call_args_list
+            if any("cons_l" in str(arg) or "prod_l" in str(arg) for arg in call.args)
+        ]
+        assert len(grid_listen_calls) == 6
+
+
+class TestGridConsumptionHandler:
+    @pytest.mark.asyncio
+    async def test_handles_numeric_state_change(self, monitor):
+        """Consumption handler updates the correct phase tracker."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "1500", {"phase": 1}
+        )
+
+        tracker = monitor._grid_consumption_trackers[1]
+        assert tracker._current_power == 1500.0
+
+    @pytest.mark.asyncio
+    async def test_ignores_unknown_state(self, monitor):
+        """Unknown/unavailable states are ignored."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "unknown", {"phase": 1}
+        )
+
+        tracker = monitor._grid_consumption_trackers[1]
+        assert tracker._current_power == 0.0  # unchanged from reset default
+
+
+class TestConcludeGridInterval:
+    def test_conclude_stores_to_database(self, monitor, data_store):
+        """Grid conclude writes avg power per phase to data store."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1"]
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+
+        from apps.v2g_liberty.grid_connection.power_tracker import PowerTracker
+
+        t0 = TEST_NOW
+        t1 = t0 + timedelta(minutes=5)
+
+        cons_tracker = PowerTracker()
+        cons_tracker.update(1500.0, t0)
+        monitor._grid_consumption_trackers[1] = cons_tracker
+
+        prod_tracker = PowerTracker()
+        prod_tracker.update(0.0, t0)
+        monitor._grid_production_trackers[1] = prod_tracker
+
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", t1)
+
+        data_store.insert_grid_interval.assert_called_once_with(
+            "2026-02-22T12:05:00+01:00", 1, 1500.0, 0.0
+        )
+
+    def test_conclude_skips_when_no_trackers(self, monitor, data_store):
+        """No trackers → no database writes."""
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
+
+        data_store.insert_grid_interval.assert_not_called()
+
+
+# =====================================================================
+# PV monitoring (plan Fase 3 tasks 13-17)
+# =====================================================================
+
+
+def _panel(panel_id: str, entity_id: str) -> dict:
+    """Minimal solar panel dict — only fields the monitor reads."""
+    return {"id": panel_id, "power_entity_id": entity_id}
+
+
+class TestPvMonitoringSetup:
+    @pytest.mark.asyncio
+    async def test_no_setup_when_not_configured(self, monitor, hass):
+        """PV listeners not registered when SOLAR_PANELS is empty."""
+        c.SOLAR_PANELS = []
+        monitor._pv_trackers = {}
+        monitor._pv_scales = {}
+
+        await monitor._setup_pv_listeners(TEST_NOW)
+
+        assert monitor._pv_trackers == {}
+
+    @pytest.mark.asyncio
+    async def test_setup_creates_trackers_and_listeners(self, monitor, hass):
+        """PV listeners registered for each configured panel."""
+        c.SOLAR_PANELS = [
+            _panel("sp_1", "sensor.pv_south"),
+            _panel("sp_2", "sensor.pv_north"),
+        ]
+        monitor._pv_trackers = {}
+        monitor._pv_scales = {}
+
+        await monitor._setup_pv_listeners(TEST_NOW)
+
+        assert set(monitor._pv_trackers.keys()) == {"sp_1", "sp_2"}
+        pv_listen_calls = [
+            call
+            for call in hass.listen_state.call_args_list
+            if any(
+                "pv_south" in str(arg) or "pv_north" in str(arg) for arg in call.args
+            )
+        ]
+        assert len(pv_listen_calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_scale_cached_per_entity_unit(self, monitor, hass):
+        """unit_of_measurement on the entity drives the scale factor:
+        W → 0.001 (covers the bugfix from plan task 18)."""
+        c.SOLAR_PANELS = [_panel("sp_1", "sensor.pv_south")]
+        monitor._pv_trackers = {}
+        monitor._pv_scales = {}
+        hass.get_state.return_value = "W"
+
+        await monitor._setup_pv_listeners(TEST_NOW)
+
+        assert monitor._pv_scales["sp_1"] == pytest.approx(0.001)
+
+
+class TestPvPowerHandler:
+    @pytest.mark.asyncio
+    async def test_handles_numeric_state_with_scale(self, monitor, hass):
+        """Handler multiplies the raw value by the cached scale (W → kW)."""
+        c.SOLAR_PANELS = [_panel("sp_1", "sensor.pv_south")]
+        monitor._pv_trackers = {}
+        monitor._pv_scales = {}
+        hass.get_state.return_value = "W"
+        await monitor._setup_pv_listeners(TEST_NOW)
+
+        await monitor._handle_pv_power_change(
+            "sensor.pv_south", "state", "0", "2500", {"panel_id": "sp_1"}
+        )
+
+        # 2500 W × 0.001 = 2.5 kW
+        assert monitor._pv_trackers["sp_1"]._current_power == pytest.approx(2.5)
+
+    @pytest.mark.asyncio
+    async def test_ignores_unknown_state(self, monitor, hass):
+        """Unknown/unavailable values from the entity are dropped."""
+        c.SOLAR_PANELS = [_panel("sp_1", "sensor.pv_south")]
+        monitor._pv_trackers = {}
+        monitor._pv_scales = {}
+        hass.get_state.return_value = "W"
+        await monitor._setup_pv_listeners(TEST_NOW)
+
+        await monitor._handle_pv_power_change(
+            "sensor.pv_south", "state", "0", "unknown", {"panel_id": "sp_1"}
+        )
+
+        # Tracker stayed at its reset default (0.0).
+        assert monitor._pv_trackers["sp_1"]._current_power == 0.0
+
+
+class TestConcludePvInterval:
+    def test_conclude_stores_to_database(self, monitor, data_store):
+        """Each panel's averaged tracker is forwarded to insert_pv_interval."""
+        from apps.v2g_liberty.grid_connection.power_tracker import PowerTracker
+
+        t0 = TEST_NOW
+        t1 = t0 + timedelta(minutes=5)
+
+        tracker_a = PowerTracker()
+        tracker_a.update(2.5, t0)
+        tracker_b = PowerTracker()
+        tracker_b.update(3.1, t0)
+        monitor._pv_trackers = {"sp_1": tracker_a, "sp_2": tracker_b}
+
+        monitor._conclude_pv_interval("2026-02-22T12:05:00+01:00", t1)
+
+        assert data_store.insert_pv_interval.call_count == 2
+        data_store.insert_pv_interval.assert_any_call(
+            "2026-02-22T12:05:00+01:00", "sp_1", 2.5
+        )
+        data_store.insert_pv_interval.assert_any_call(
+            "2026-02-22T12:05:00+01:00", "sp_2", 3.1
+        )
+
+    def test_conclude_skips_when_no_trackers(self, monitor, data_store):
+        """No PV trackers → no insert calls (e.g. installations without panels)."""
+        monitor._pv_trackers = {}
+
+        monitor._conclude_pv_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
+
+        data_store.insert_pv_interval.assert_not_called()

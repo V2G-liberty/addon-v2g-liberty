@@ -18,7 +18,9 @@ appdaemon:
   exclude_dirs:
     - chargers
     - data_import
+    - dev_tools
     - evs
+    - grid_connection
     - util
     - utils
 

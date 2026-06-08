@@ -602,15 +602,39 @@ class V2Gliberty:
             f"V2G Liberty version: {v2g_version}, Home Assistant version: {ha_version}"
         )
 
+        # Prefer the Main Connection asset (site-level metadata fits there);
+        # the helper falls back to the charger asset when grid is not yet
+        # configured so the version info is still visible somewhere in FM.
         try:
             await self.fm_client_app.set_asset_attributes(
                 {
                     "v2g-liberty-version": v2g_version,
                     "home-assistant-version": ha_version,
-                }
+                },
+                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
             )
         except Exception as e:
             self.__log(f"Error writing versions to FlexMeasures: {e}", level="WARNING")
+
+        # When the versions just landed on the Main Connection, clear any
+        # stale version attributes still sitting on the charger asset so
+        # there's a single canonical home. Idempotent: on later runs the
+        # nulls are written over nulls. Skip the cleanup when Main Connection
+        # is not yet provisioned — versions then *live* on the charger.
+        if c.FM_MAIN_CONNECTION_ASSET_ID is not None:
+            try:
+                await self.fm_client_app.set_asset_attributes(
+                    {
+                        "v2g-liberty-version": None,
+                        "home-assistant-version": None,
+                    },
+                    asset_id=None,  # falls back to charger asset
+                )
+            except Exception as e:
+                self.__log(
+                    f"Error clearing version attributes on charger asset: {e}",
+                    level="WARNING",
+                )
 
     async def _update_car_connected(self, is_car_connected: bool):
         self.__log(f"Acting on conneted state of car: {is_car_connected}.")
@@ -626,6 +650,18 @@ class V2Gliberty:
         # There might be a notification to remind the user to connect,
         # if the car gets connected this notification can be removed.
         self.notifier.clear_notification(tag="reminder_to_connect")
+
+        # Trigger charger phase detection if not yet detected and grid is 3-phase
+        if (
+            c.GRID_PHASES == 3
+            and c.GRID_CONSUMPTION_ENTITIES
+            and c.CHARGER_CONNECTED_TO_PHASE is None
+        ):
+            self.__log(
+                "Car connected, charger phase not yet detected — starting detection"
+            )
+            self.hass.fire_event("detect_charger_phase")
+
         await self.set_next_action(v2g_args="handle_car_connect")
 
     async def __handle_car_disconnect(self):

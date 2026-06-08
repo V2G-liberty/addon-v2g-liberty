@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from zoneinfo import ZoneInfo
 
@@ -13,6 +13,8 @@ from .fm_historical_importer import clear_import_flag, run_historical_import
 from .notifier_util import Notifier
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .grid_connection.charger_phase_detector import ChargerPhaseDetector
+from .grid_connection.grid_entity_detector import detect_grid_entities
 from .settings_manager import SettingsManager
 
 
@@ -340,6 +342,21 @@ class V2GLibertyGlobals:
         )
 
         self.hass.listen_event(
+            self.__save_grid_connection_settings, "save_grid_connection_settings"
+        )
+        self.hass.listen_event(
+            self.__get_grid_connection_settings, "get_grid_connection_settings"
+        )
+        self.hass.listen_event(self.__save_charger_phase, "save_charger_phase")
+        self.hass.listen_event(self.__get_charger_phase, "get_charger_phase")
+        self.hass.listen_event(self.__test_grid_entities, "test_grid_entities")
+        self.hass.listen_event(self.__detect_grid_entities, "detect_grid_entities")
+        self.hass.listen_event(self.__detect_charger_phase, "detect_charger_phase")
+        self.hass.listen_event(self.__get_solar_panels, "get_solar_panels")
+        self.hass.listen_event(self.__save_solar_panel, "save_solar_panel")
+        self.hass.listen_event(self.__delete_solar_panel, "delete_solar_panel")
+
+        self.hass.listen_event(
             self.__reset_to_factory_defaults, "RESET_TO_FACTORY_DEFAULTS"
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
@@ -361,6 +378,13 @@ class V2GLibertyGlobals:
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
         await self.__initialise_general_settings()
+        # Grid connection must be initialised before FM client, because
+        # FM provisioning needs GRID_CONSUMPTION_ENTITIES to be set.
+        self.__initialise_grid_connection_settings()
+        self.__initialise_charger_phase_settings()
+        # Solar panels must be loaded before FM client too, because PV
+        # provisioning will need SOLAR_PANELS to be set.
+        self.__initialise_solar_panel_settings()
         # FlexMeasures settings are influenced by the optimisation_ and general_settings.
         await self.__initialise_fm_client_settings()
         await self.__initialise_calendar_settings()
@@ -485,6 +509,868 @@ class V2GLibertyGlobals:
             await self.__set_fm_optimisation_context()
         await self.__initialise_general_settings()
         await self.v2g_main_app.kick_off_v2g_liberty()
+
+    # ── Grid connection settings (entity-free, JSON-based) ─────────────
+
+    _GRID_CONNECTION_DEFAULTS = {
+        "phases": 3,
+        "capacity_per_phase": 25,
+        "consumption_entities": [],
+        "production_entities": [],
+    }
+
+    def __initialise_solar_panel_settings(self):
+        """Load solar panel settings from JSON and set constants.
+
+        Solar panels are stored as a list of dicts under the
+        ``solar_panels`` key in the settings JSON. An empty list means
+        no PV monitoring is configured.
+        """
+        self.__log("called")
+        panels = self.v2g_settings.get_object("solar_panels", default=[])
+        if not isinstance(panels, list):
+            self.__log(
+                f"solar_panels has invalid type {type(panels).__name__}, ignoring"
+            )
+            panels = []
+        c.SOLAR_PANELS = panels
+        self.__log(f"Solar panels: {len(panels)} configured")
+
+    def __initialise_grid_connection_settings(self):
+        """Load grid connection settings from JSON and set constants."""
+        self.__log("called")
+        data = self.v2g_settings.get_object("grid_connection")
+        if data is None:
+            self.__log("Grid connection not configured")
+            c.GRID_PHASES = self._GRID_CONNECTION_DEFAULTS["phases"]
+            c.GRID_CAPACITY_PER_PHASE = self._GRID_CONNECTION_DEFAULTS[
+                "capacity_per_phase"
+            ]
+            c.GRID_CONSUMPTION_ENTITIES = []
+            c.GRID_PRODUCTION_ENTITIES = []
+            return
+
+        c.GRID_PHASES = data.get("phases", self._GRID_CONNECTION_DEFAULTS["phases"])
+        c.GRID_CAPACITY_PER_PHASE = data.get(
+            "capacity_per_phase",
+            self._GRID_CONNECTION_DEFAULTS["capacity_per_phase"],
+        )
+        c.GRID_CONSUMPTION_ENTITIES = data.get("consumption_entities", [])
+        c.GRID_PRODUCTION_ENTITIES = data.get("production_entities", [])
+        self.__log(
+            f"Grid connection: {c.GRID_PHASES} phase(s), "
+            f"{c.GRID_CAPACITY_PER_PHASE}A, "
+            f"{len(c.GRID_CONSUMPTION_ENTITIES)} consumption entities"
+        )
+
+    async def __save_grid_connection_settings(self, event, data, kwargs):
+        """Handle save_grid_connection_settings event from UI.
+
+        FM provisioning is blocking: nothing is persisted (neither to disk nor
+        to the ``c.GRID_*`` constants) unless provisioning succeeds first.
+
+        **Response event:** ``save_grid_connection_settings.result``
+            - success: no error keys (empty payload).
+            - ``error`` (str): validation failure. Nothing persisted.
+            - ``fm_error`` (str): FM provisioning failed (client not connected,
+              missing/duplicate asset, or exception from ``ensure_*``). Nothing
+              persisted and ``c.GRID_*`` left unchanged. The UI keeps the form
+              values and offers Retry; ``ensure_*`` is idempotent so a Retry is
+              safe.
+        """
+        phases = data.get("phases")
+        capacity = data.get("capacity_per_phase")
+        consumption = data.get("consumption_entities", [])
+        production = data.get("production_entities", [])
+
+        # Validate
+        if phases not in (1, 3):
+            self.hass.fire_event(
+                "save_grid_connection_settings.result",
+                error="phases must be 1 or 3",
+            )
+            return
+        if not isinstance(capacity, (int, float)) or capacity <= 0:
+            self.hass.fire_event(
+                "save_grid_connection_settings.result",
+                error="capacity_per_phase must be a positive number",
+            )
+            return
+        if len(consumption) != phases or len(production) != phases:
+            self.hass.fire_event(
+                "save_grid_connection_settings.result",
+                error=f"Expected {phases} entity/entities per list",
+            )
+            return
+
+        # Check if phases or entities changed (triggers charger phase re-detect)
+        old = self.v2g_settings.get_object("grid_connection") or {}
+        phases_changed = old.get("phases") != phases
+        entities_changed = (
+            old.get("consumption_entities") != consumption
+            or old.get("production_entities") != production
+        )
+
+        grid_data = {
+            "phases": phases,
+            "capacity_per_phase": capacity,
+            "consumption_entities": consumption,
+            "production_entities": production,
+        }
+
+        # FM provisioning must succeed BEFORE anything is persisted. Apply the
+        # new values to the in-memory constants so __provision_grid_assets uses
+        # them, but roll back on failure so a failed save leaves no trace —
+        # neither on disk nor in c.GRID_*.
+        prev_constants = (
+            c.GRID_PHASES,
+            c.GRID_CAPACITY_PER_PHASE,
+            c.GRID_CONSUMPTION_ENTITIES,
+            c.GRID_PRODUCTION_ENTITIES,
+        )
+        c.GRID_PHASES = phases
+        c.GRID_CAPACITY_PER_PHASE = capacity
+        c.GRID_CONSUMPTION_ENTITIES = consumption
+        c.GRID_PRODUCTION_ENTITIES = production
+        try:
+            await self.__provision_grid_assets()
+        except Exception as e:
+            (
+                c.GRID_PHASES,
+                c.GRID_CAPACITY_PER_PHASE,
+                c.GRID_CONSUMPTION_ENTITIES,
+                c.GRID_PRODUCTION_ENTITIES,
+            ) = prev_constants
+            self.__log(f"Grid FM provisioning failed: {e}", level="WARNING")
+            self.hass.fire_event(
+                "save_grid_connection_settings.result", fm_error=str(e)
+            )
+            return
+
+        # Provisioning succeeded → persist locally.
+        self.v2g_settings.store_object("grid_connection", grid_data)
+
+        if phases_changed or entities_changed:
+            self.v2g_settings.store_object(
+                "charger_phase",
+                {"connected_to_phase": None, "detected_at": None},
+            )
+            self.__initialise_charger_phase_settings()
+            self.__log("Cleared charger phase (grid phases or entities changed)")
+
+        self.hass.fire_event("save_grid_connection_settings.result")
+
+    async def __get_grid_connection_settings(self, event, data, kwargs):
+        """Handle get_grid_connection_settings event from UI."""
+        grid_data = self.v2g_settings.get_object("grid_connection")
+        if grid_data is None:
+            grid_data = dict(self._GRID_CONNECTION_DEFAULTS)
+            grid_data["configured"] = False
+        else:
+            grid_data["configured"] = True
+        self.hass.fire_event("get_grid_connection_settings.result", **grid_data)
+
+    # ── Solar panel CRUD ──────────────────────────────────────────────
+
+    # Fields accepted from the save_solar_panel event payload. AppDaemon's
+    # HA plugin attaches a "metadata" key (time_fired, origin, context) to
+    # event data; whitelisting prevents that — and any other unknown keys —
+    # from leaking into the persisted panel dict.
+    _PANEL_FIELDS = frozenset(
+        {
+            "id",
+            "name",
+            "phases",
+            "connected_to_phase",
+            "peak_power_wp",
+            "power_entity_id",
+            "curtailable",
+            "curtail_entity_id",
+            "fm_asset_id",
+            "fm_sensor_id",
+        }
+    )
+
+    def __load_solar_panels_list(self) -> list[dict]:
+        """Read the solar panels list from settings, normalised to a list."""
+        panels = self.v2g_settings.get_object("solar_panels", default=[])
+        return panels if isinstance(panels, list) else []
+
+    def __next_solar_panel_id(self, panels: list[dict]) -> str:
+        """Return the next free `sp_<n>` id (max n + 1, never reuses)."""
+        max_n = 0
+        for p in panels:
+            pid = p.get("id", "")
+            if isinstance(pid, str) and pid.startswith("sp_"):
+                try:
+                    n = int(pid[3:])
+                    if n > max_n:
+                        max_n = n
+                except ValueError:
+                    pass
+        return f"sp_{max_n + 1}"
+
+    def __validate_solar_panel(self, panel: dict) -> str | None:
+        """Validate a solar panel payload.
+
+        Returns ``None`` if the panel is valid, or an error message string
+        suitable for the ``save_solar_panel.result`` response.
+
+        Rules:
+        - ``name`` must be a non-empty string.
+        - ``power_entity_id`` must be a non-empty string (HA entity id).
+        - ``peak_power_wp`` must be a whole number between 500 and 15000.
+        - ``phases`` must be 1 or 3 and may not exceed ``GRID_PHASES``.
+        - ``connected_to_phase`` (1, 2, or 3) is required when a 1-phase
+          panel is installed on a 3-phase grid.
+        - ``curtail_entity_id`` is required when ``curtailable`` is True.
+        """
+        name = panel.get("name")
+        if not isinstance(name, str) or not name.strip():
+            return "Name must be a non-empty string"
+
+        power_entity_id = panel.get("power_entity_id")
+        if not isinstance(power_entity_id, str) or not power_entity_id.strip():
+            return "power_entity_id is required"
+
+        peak_power_wp = panel.get("peak_power_wp")
+        # bool is a subclass of int, so reject it explicitly.
+        if (
+            not isinstance(peak_power_wp, (int, float))
+            or isinstance(peak_power_wp, bool)
+            or peak_power_wp != int(peak_power_wp)
+            or peak_power_wp < 500
+            or peak_power_wp > 15000
+        ):
+            return "peak_power_wp must be a whole number between 500 and 15000"
+
+        phases = panel.get("phases")
+        if phases not in (1, 3):
+            return "phases must be 1 or 3"
+        if phases > c.GRID_PHASES:
+            return f"phases ({phases}) cannot exceed grid phases ({c.GRID_PHASES})"
+
+        if phases == 1 and c.GRID_PHASES == 3:
+            connected_to_phase = panel.get("connected_to_phase")
+            if connected_to_phase not in (1, 2, 3):
+                return (
+                    "connected_to_phase (1, 2, or 3) is required for a "
+                    "1-phase panel on a 3-phase grid"
+                )
+
+        if panel.get("curtailable") is True:
+            curtail_entity_id = panel.get("curtail_entity_id")
+            if not isinstance(curtail_entity_id, str) or not curtail_entity_id.strip():
+                return "curtail_entity_id is required when curtailable is True"
+
+        return None
+
+    def __solar_panel_inconsistency_reason(self, panel: dict) -> str | None:
+        """Check whether ``panel`` still fits the current grid configuration.
+
+        Returns ``None`` if the panel is consistent, or a user-facing string
+        explaining what's wrong. Inconsistency typically appears when the
+        user changes the grid phase count after panels have been saved
+        (plan task 30) — nothing is auto-fixed; the UI marks affected
+        panels so the user can correct them via the edit dialog.
+        """
+        phases = panel.get("phases")
+        if not isinstance(phases, int) or phases > c.GRID_PHASES:
+            return (
+                f"Panel is configured for {phases}-phase but the grid is now "
+                f"{c.GRID_PHASES}-phase. Edit the panel to update its phases."
+            )
+        if phases == 1 and c.GRID_PHASES == 3:
+            connected = panel.get("connected_to_phase")
+            if connected not in (1, 2, 3):
+                return (
+                    "1-phase panel on a 3-phase grid needs a connected_to_phase "
+                    "value (L1, L2 or L3). Edit the panel to set it."
+                )
+        return None
+
+    async def __get_solar_panels(self, event, data, kwargs):
+        """Handle ``get_solar_panels`` HA event.
+
+        **Emitted by:** cards (UI) to fetch the current list.
+
+        **Request payload:** none.
+
+        **Response event:** ``get_solar_panels.result``
+            - ``solar_panels`` (list[dict]): the current configured panels.
+              Each panel dict is annotated with an extra ``inconsistency_reason``
+              field (``str | null``) so the card can flag panels whose
+              configuration no longer matches the current grid setup.
+        """
+        panels = self.__load_solar_panels_list()
+        annotated = [
+            {**p, "inconsistency_reason": self.__solar_panel_inconsistency_reason(p)}
+            for p in panels
+        ]
+        self.hass.fire_event("get_solar_panels.result", solar_panels=annotated)
+
+    async def __save_solar_panel(self, event, data, kwargs):
+        """Handle ``save_solar_panel`` HA event (insert or update).
+
+        **Emitted by:** cards (UI) when the user adds or edits a panel.
+
+        **Request payload:** panel fields. When ``id`` is absent the
+        payload is treated as a new panel and an ``sp_<n>`` id is
+        generated. When ``id`` is present the existing panel is updated
+        (merge semantics: missing keys retain their stored value).
+
+        Fields (see ``__validate_solar_panel`` for rules):
+            - ``name`` (str, required)
+            - ``power_entity_id`` (str, required)
+            - ``phases`` (1 or 3, required; ≤ ``GRID_PHASES``)
+            - ``connected_to_phase`` (1, 2, or 3; required when 1-phase
+              panel on 3-phase grid)
+            - ``peak_power_wp`` (number, optional)
+            - ``curtailable`` (bool, optional)
+            - ``curtail_entity_id`` (str, required when curtailable)
+
+        **Response event:** ``save_solar_panel.result`` (mutually exclusive
+        payload variants)
+            - ``solar_panels`` (list[dict]): updated full list on success;
+              the saved panel includes ``fm_asset_id`` and ``fm_sensor_id``
+              from FM provisioning.
+            - ``error`` (str): validation or id-lookup failure. Nothing
+              was persisted.
+            - ``fm_error`` (str): FM provisioning failed (client not
+              connected, missing parent asset, or exception from
+              ``ensure_asset`` / ``ensure_sensor``). Nothing was
+              persisted. The UI is expected to keep form values and
+              offer Retry; ``ensure_*`` is idempotent so a Retry is safe.
+        """
+        # Whitelist known fields; ignore HA event metadata and any other
+        # unexpected keys (see _PANEL_FIELDS docstring).
+        incoming = {k: v for k, v in data.items() if k in self._PANEL_FIELDS}
+        panel_id = incoming.get("id")
+        panels = self.__load_solar_panels_list()
+
+        if panel_id:
+            updated_index = next(
+                (i for i, p in enumerate(panels) if p.get("id") == panel_id),
+                None,
+            )
+            if updated_index is None:
+                self.hass.fire_event(
+                    "save_solar_panel.result",
+                    error=f"Solar panel '{panel_id}' not found",
+                )
+                return
+            candidate = {**panels[updated_index], **incoming}
+            error = self.__validate_solar_panel(candidate)
+            if error:
+                self.hass.fire_event("save_solar_panel.result", error=error)
+                return
+        else:
+            error = self.__validate_solar_panel(incoming)
+            if error:
+                self.hass.fire_event("save_solar_panel.result", error=error)
+                return
+            incoming["id"] = self.__next_solar_panel_id(panels)
+            candidate = incoming
+
+        # Cross-panel uniqueness checks: a panel must not clash with
+        # another on either name (display label) or power_entity_id (the
+        # physical sensor). Two panels sharing the same sensor would feed
+        # FM the same readings under two asset identities, corrupting the
+        # forecasts for both.
+        candidate_name_norm = candidate["name"].strip().casefold()
+        candidate_power_entity = candidate["power_entity_id"]
+        for p in panels:
+            if p.get("id") == candidate.get("id"):
+                continue  # skip self on update
+            if (p.get("name") or "").strip().casefold() == candidate_name_norm:
+                self.hass.fire_event(
+                    "save_solar_panel.result",
+                    error=(
+                        f"A solar panel named '{candidate['name'].strip()}' "
+                        "already exists. Please choose a different name."
+                    ),
+                )
+                return
+            if p.get("power_entity_id") == candidate_power_entity:
+                self.hass.fire_event(
+                    "save_solar_panel.result",
+                    error=(
+                        f"The sensor '{candidate_power_entity}' is already used "
+                        f"by solar panel '{p.get('name')}'. Each panel must "
+                        "have its own power sensor."
+                    ),
+                )
+                return
+
+        # FM provisioning must succeed before the panel is persisted locally.
+        # An exception here (FM disconnected, missing parent asset, error
+        # in ensure_*) is reported as fm_error so the UI can show the
+        # message and offer Retry. Idempotent ensure_* calls keep a Retry
+        # safe even if ensure_asset already succeeded on a previous try.
+        try:
+            await self.__provision_solar_panel_assets(candidate)
+        except Exception as e:
+            self.__log(
+                f"Solar panel FM provisioning failed for "
+                f"'{candidate.get('name')}': {e}",
+                level="WARNING",
+            )
+            self.hass.fire_event("save_solar_panel.result", fm_error=str(e))
+            return
+
+        if panel_id:
+            panels[updated_index] = candidate
+        else:
+            panels.append(candidate)
+
+        self.v2g_settings.store_object("solar_panels", panels)
+        self.__initialise_solar_panel_settings()
+        self.hass.fire_event("save_solar_panel.result", solar_panels=c.SOLAR_PANELS)
+
+    async def __provision_solar_panel_assets(self, panel: dict) -> None:
+        """Ensure an FM asset + power sensor exist for ``panel``.
+
+        Mutates ``panel`` in place to add ``fm_asset_id`` and
+        ``fm_sensor_id``. Idempotent: existing FM asset/sensor (matched
+        by name) are reused.
+
+        Raises ``RuntimeError`` with a user-facing message when FM is
+        not available (client disconnected, Main Connection asset
+        missing). Underlying ``ensure_*`` exceptions propagate unchanged.
+        The caller is expected to convert any exception into an
+        ``fm_error`` response so the UI can show the message and offer
+        Retry.
+        """
+        if self.fm_client_app.client is None:
+            raise RuntimeError(
+                "FlexMeasures is not connected. "
+                "Configure FlexMeasures access and try again."
+            )
+        if c.FM_MAIN_CONNECTION_ASSET_ID is None:
+            raise RuntimeError(
+                "Grid connection has not been registered with FlexMeasures. "
+                "Save the grid connection first."
+            )
+
+        asset_attributes = {
+            "peak_power_wp": panel.get("peak_power_wp"),
+            "connected_to_phase": panel.get("connected_to_phase"),
+            # Re-asserting the asset is active. Clears the deletion
+            # marker set by mark_asset_deleted if this is a re-add of a
+            # panel that was previously locally deleted.
+            "v2g_liberty_deleted_at": None,
+        }
+        # Pass the stored fm_asset_id so a rename updates the existing FM
+        # asset in place (preserving identity + history) instead of creating
+        # a new one and orphaning the old.
+        asset_id = await self.fm_client_app.ensure_asset(
+            name=panel["name"],
+            generic_asset_type="solar",
+            parent_asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            attributes=asset_attributes,
+            asset_id=panel.get("fm_asset_id"),
+        )
+        panel["fm_asset_id"] = asset_id
+
+        sensor_id = await self.fm_client_app.ensure_sensor(
+            name="Power",
+            unit="kW",
+            asset_id=asset_id,
+        )
+        panel["fm_sensor_id"] = sensor_id
+
+        # Show the power sensor on the PV asset's FM page (top-level field,
+        # leaves the asset attributes untouched).
+        await self.fm_client_app.client.update_asset(
+            asset_id,
+            {"sensors_to_show": [sensor_id]},
+        )
+
+        self.__log(
+            f"Solar panel FM provisioning complete for '{panel['name']}': "
+            f"asset={asset_id}, sensor={sensor_id}, "
+            f"sensors_to_show=[{sensor_id}]"
+        )
+
+    async def __delete_solar_panel(self, event, data, kwargs):
+        """Handle ``delete_solar_panel`` HA event.
+
+        **Emitted by:** cards (UI) when the user removes a panel.
+
+        **Request payload:**
+            - ``id`` (str, required): the panel id to delete.
+
+        **Response event:** ``delete_solar_panel.result``
+            - ``solar_panels`` (list[dict]): updated full list on success.
+            - ``error`` (str): error message when ``id`` is missing or no
+              panel with that id exists. Mutually exclusive with
+              ``solar_panels``.
+
+        Any provisioned FM asset/sensor for the deleted panel is left in
+        place; a warning is logged so the orphaned resources can be
+        cleaned up manually if desired.
+        """
+        panel_id = data.get("id")
+        if not panel_id:
+            self.hass.fire_event(
+                "delete_solar_panel.result", error="Missing 'id' field"
+            )
+            return
+
+        panels = self.__load_solar_panels_list()
+        deleted = next((p for p in panels if p.get("id") == panel_id), None)
+        if deleted is None:
+            self.hass.fire_event(
+                "delete_solar_panel.result",
+                error=f"Solar panel '{panel_id}' not found",
+            )
+            return
+        new_panels = [p for p in panels if p.get("id") != panel_id]
+
+        fm_asset_id = deleted.get("fm_asset_id")
+        fm_sensor_id = deleted.get("fm_sensor_id")
+        if fm_asset_id is not None or fm_sensor_id is not None:
+            self.__log(
+                f"Solar panel '{deleted.get('name')}' (id={panel_id}) removed "
+                f"locally; FM asset {fm_asset_id} and sensor {fm_sensor_id} "
+                f"are left in place and must be cleaned up manually.",
+                level="WARNING",
+            )
+
+        # Best-effort: mark the FM asset as locally deleted so admins
+        # browsing FM can spot abandoned assets and future "rebuild from
+        # FM" tooling can filter them out. FM unreachable → log + carry
+        # on; the local delete must not depend on FM availability.
+        if fm_asset_id is not None and self.fm_client_app.client is not None:
+            try:
+                deleted_at = datetime.now(timezone.utc).isoformat()
+                await self.fm_client_app.mark_asset_deleted(fm_asset_id, deleted_at)
+            except Exception as e:
+                self.__log(
+                    f"Could not mark FM asset {fm_asset_id} as deleted: {e}",
+                    level="WARNING",
+                )
+
+        self.v2g_settings.store_object("solar_panels", new_panels)
+        self.__initialise_solar_panel_settings()
+        self.hass.fire_event("delete_solar_panel.result", solar_panels=c.SOLAR_PANELS)
+
+    async def __detect_grid_entities(self, event, data, kwargs):
+        """Auto-detect grid connection settings from available HA entities."""
+        self.__log("called")
+        states = await self.hass.get_state()
+        sensor_count = sum(1 for k in states if k.startswith("sensor."))
+        emulated_count = sum(1 for k in states if "emulated" in k)
+        self.__log(
+            f"Scanning {len(states)} entities "
+            f"({sensor_count} sensors, {emulated_count} emulated)"
+        )
+        result = detect_grid_entities(states)
+        self.__log(f"Detection result: {result}")
+        self.hass.fire_event("detect_grid_entities.result", **result)
+
+    # ── FM grid asset provisioning ────────────────────────────────────
+
+    async def __provision_grid_assets(self):
+        """Create/adopt FM assets and sensors for the grid connection.
+
+        Idempotent: existing assets/sensors are found by name and reused.
+        Returns early (no-op) when the grid connection is not configured.
+
+        Raises ``RuntimeError`` when the FM client is not connected, and lets
+        any ``ensure_*`` / ``update_asset`` exception propagate. Callers must
+        surface the failure: the save handler converts it into an ``fm_error``
+        response, while the startup caller logs a WARNING and continues.
+        """
+        if not c.GRID_CONSUMPTION_ENTITIES:
+            self.__log("Grid connection not configured, skipping FM provisioning")
+            return
+
+        if self.fm_client_app.client is None:
+            raise RuntimeError(
+                "FlexMeasures is not connected. "
+                "Configure FlexMeasures access and try again."
+            )
+
+        # Main Connection asset
+        c.FM_MAIN_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
+            name="Main Connection",
+            generic_asset_type="building",
+            attributes={
+                "phases": c.GRID_PHASES,
+                "capacity_per_phase": c.GRID_CAPACITY_PER_PHASE,
+            },
+        )
+
+        # Re-parent charger asset under Main Connection
+        if self.fm_client_app._charger_asset_id is not None:
+            await self.fm_client_app.client.update_asset(
+                self.fm_client_app._charger_asset_id,
+                {"parent_asset_id": c.FM_MAIN_CONNECTION_ASSET_ID},
+            )
+            self.__log(
+                f"Set charger asset {self.fm_client_app._charger_asset_id} "
+                f"as child of Main Connection {c.FM_MAIN_CONNECTION_ASSET_ID}"
+            )
+
+        # Grid sensors per phase
+        for phase in range(1, c.GRID_PHASES + 1):
+            c.FM_GRID_CONSUMPTION_SENSOR_IDS[
+                phase
+            ] = await self.fm_client_app.ensure_sensor(
+                name=f"Grid Consumption L{phase}",
+                unit="kW",
+                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                attributes={"consumption_is_positive": True},
+            )
+            c.FM_GRID_PRODUCTION_SENSOR_IDS[
+                phase
+            ] = await self.fm_client_app.ensure_sensor(
+                name=f"Grid Production L{phase}",
+                unit="kW",
+                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            )
+
+        # Aggregate Power sensor (written by FM scheduler, not by V2G Liberty)
+        c.FM_AGGREGATE_POWER_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Power",
+            unit="kW",
+            asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+        )
+
+        # EMS Status sensor
+        c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+            name="EMS Status",
+            unit="dimensionless",
+            asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+        )
+
+        # Show all provisioned grid sensors on the Main Connection's FM
+        # page. sensors_to_show is a top-level asset field (not an
+        # attribute), so phases/capacity stay untouched.
+        sensors_to_show = []
+        for phase in range(1, c.GRID_PHASES + 1):
+            sensors_to_show.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
+            sensors_to_show.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
+        sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
+        sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
+        await self.fm_client_app.client.update_asset(
+            c.FM_MAIN_CONNECTION_ASSET_ID,
+            {"sensors_to_show": sensors_to_show},
+        )
+
+        self.__log(
+            f"Grid FM provisioning complete: "
+            f"asset={c.FM_MAIN_CONNECTION_ASSET_ID}, "
+            f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
+            f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
+            f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
+            f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
+            f"sensors_to_show={sensors_to_show}"
+        )
+
+    # ── Charger phase setting (entity-free, JSON-based) ────────────────
+
+    def __initialise_charger_phase_settings(self):
+        """Load charger phase setting from JSON and set constant."""
+        self.__log("called")
+        data = self.v2g_settings.get_object("charger_phase")
+        if data is None:
+            c.CHARGER_CONNECTED_TO_PHASE = None
+            return
+        c.CHARGER_CONNECTED_TO_PHASE = data.get("connected_to_phase", None)
+        self.__log(f"Charger connected to phase: {c.CHARGER_CONNECTED_TO_PHASE}")
+
+    async def __save_charger_phase(self, event, data, kwargs):
+        """Handle save_charger_phase event from UI."""
+        phase = data.get("connected_to_phase")
+        if phase not in (1, 2, 3):
+            self.hass.fire_event(
+                "save_charger_phase.result",
+                error="connected_to_phase must be 1, 2, or 3",
+            )
+            return
+
+        self.v2g_settings.store_object("charger_phase", {"connected_to_phase": phase})
+        self.__initialise_charger_phase_settings()
+
+        self.hass.fire_event("save_charger_phase.result")
+
+    # TODO: Should charger_settings_initialised be set to False when
+    # charger_phase_is_valid() returns False? This would block charging
+    # until the phase is configured, which may be too aggressive. A milder
+    # approach could be a separate warning without blocking the charger.
+    # Decide before implementing.
+
+    def charger_phase_is_required(self) -> bool:
+        """Return True if the charger phase must be configured.
+
+        This is the case when the grid connection is configured AND set to 3 phases.
+        If the grid connection is not configured, the phase is not required.
+        """
+        return c.GRID_PHASES == 3 and len(c.GRID_CONSUMPTION_ENTITIES) > 0
+
+    def charger_phase_is_valid(self) -> bool:
+        """Return True if the charger phase config is valid.
+
+        Valid means: either not required (1-phase grid or grid not configured),
+        or required and a phase has been chosen.
+        """
+        if not self.charger_phase_is_required():
+            return True
+        return c.CHARGER_CONNECTED_TO_PHASE in (1, 2, 3)
+
+    async def __get_charger_phase(self, event, data, kwargs):
+        """Handle get_charger_phase event from UI.
+
+        Response includes whether the field is required and whether
+        the current config is valid, so the UI can show warnings.
+        """
+        data = self.v2g_settings.get_object("charger_phase")
+        phase = data.get("connected_to_phase") if data else None
+        self.hass.fire_event(
+            "get_charger_phase.result",
+            connected_to_phase=phase,
+            required=self.charger_phase_is_required(),
+            valid=self.charger_phase_is_valid(),
+        )
+
+    async def __detect_charger_phase(self, event, data, kwargs):
+        """Run automatic charger phase detection.
+
+        Triggered from the UI or automatically when conditions are met.
+        """
+        self.__log("called")
+
+        if not c.GRID_CONSUMPTION_ENTITIES:
+            self.hass.fire_event(
+                "detect_charger_phase.result",
+                success=False,
+                error="Grid connection not configured",
+            )
+            return
+
+        detector = ChargerPhaseDetector(
+            hass=self.hass,
+            evse_client=self.evse_client_app,
+            log=self.__log,
+            grid_entities=c.GRID_CONSUMPTION_ENTITIES,
+            charge_power_w=c.CHARGER_MAX_CHARGE_POWER,
+        )
+        result = await detector.run()
+
+        if result["success"]:
+            self.v2g_settings.store_object(
+                "charger_phase",
+                {
+                    "connected_to_phase": result["connected_to_phase"],
+                    "detected_at": result["detected_at"],
+                },
+            )
+            self.__initialise_charger_phase_settings()
+
+        self.hass.fire_event("detect_charger_phase.result", **result)
+
+    # ── Grid entity validation ─────────────────────────────────────────
+
+    _GRID_ENTITY_TEST_TIMEOUT = 30  # seconds
+
+    async def __test_grid_entities(self, event, data, kwargs):
+        """Test whether configured grid entities are emitting state changes.
+
+        Triggered from the grid connection settings dialog.
+        Sends progress events per entity as they respond, and a final
+        result event after all entities respond or the timeout expires.
+        """
+        self.__log("called")
+
+        entities = data.get("consumption_entities", []) + data.get(
+            "production_entities", []
+        )
+        if not entities:
+            self.hass.fire_event(
+                "test_grid_entities.result",
+                success=False,
+                error="No entities to test",
+                results={},
+            )
+            return
+
+        # Shared mutable state for callbacks
+        state = {
+            "pending": set(entities),
+            "results": {e: False for e in entities},
+            "listeners": [],
+            "timeout_handle": None,
+            "finished": False,
+        }
+
+        def on_state_change(entity, attribute, old, new, cb_kwargs):
+            """Called when an entity emits a state change."""
+            if state["finished"] or entity not in state["pending"]:
+                return
+            # Ignore non-numeric or unavailable states
+            if new in (None, "", "unknown", "unavailable"):
+                return
+            try:
+                float(new)
+            except (TypeError, ValueError):
+                return
+
+            state["pending"].discard(entity)
+            state["results"][entity] = True
+            self.hass.fire_event(
+                "test_grid_entities.progress",
+                entity=entity,
+                status="ok",
+            )
+            if not state["pending"]:
+                self._finish_grid_entity_test(state)
+
+        for entity in entities:
+            handle = self.hass.listen_state(on_state_change, entity)
+            state["listeners"].append(handle)
+
+        state["timeout_handle"] = self.hass.run_in(
+            self._grid_entity_test_timeout,
+            self._GRID_ENTITY_TEST_TIMEOUT,
+            state=state,
+        )
+
+    def _grid_entity_test_timeout(self, kwargs):
+        """Called when the grid entity test times out."""
+        self._finish_grid_entity_test(kwargs["state"])
+
+    def _finish_grid_entity_test(self, state):
+        """Clean up listeners and fire the result event.
+
+        Safe to call multiple times — only the first call has effect.
+        """
+        if state["finished"]:
+            return
+        state["finished"] = True
+
+        for handle in state["listeners"]:
+            try:
+                self.hass.cancel_listen_state(handle)
+            except Exception:
+                pass
+        if state["timeout_handle"] is not None:
+            try:
+                self.hass.cancel_timer(state["timeout_handle"])
+            except Exception:
+                pass
+
+        results = state["results"]
+        all_ok = all(results.values())
+        failed = [e for e, ok in results.items() if not ok]
+        self.__log(f"Grid entity test finished: all_ok={all_ok}, failed={failed}")
+        self.hass.fire_event(
+            "test_grid_entities.result",
+            success=all_ok,
+            results=results,
+            failed=failed,
+        )
 
     async def __test_caldav_connection(self, event=None, data=None, kwargs=None):
         self.__log("called")
@@ -994,6 +1880,14 @@ class V2GLibertyGlobals:
         await self.__set_fm_optimisation_context()
         self.__set_fm_user_id(self.fm_client_app.user_id)
         asyncio.ensure_future(self.__discover_source_id_and_import())
+
+        # Provision grid assets/sensors in FM (if grid connection is configured).
+        # Best-effort at startup: a provisioning failure must not abort init
+        # (the save handler is where failures surface to the user as fm_error).
+        try:
+            await self.__provision_grid_assets()
+        except Exception as e:
+            self.__log(f"Grid FM provisioning failed at startup: {e}", level="WARNING")
 
         self.__log("completed")
 

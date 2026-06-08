@@ -9,7 +9,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -355,6 +355,7 @@ class DataStore:
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS fm_send_status (
+                data_type TEXT PRIMARY KEY,
                 last_sent_up_to TEXT NOT NULL
             )
         """)
@@ -367,6 +368,25 @@ class DataStore:
                 total_price_eur_kwh REAL NOT NULL,
                 source TEXT NOT NULL,
                 fetched_at TEXT NOT NULL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS grid_interval_log (
+                timestamp TEXT NOT NULL,
+                phase INTEGER NOT NULL,
+                consumption_kw REAL,
+                production_kw REAL,
+                PRIMARY KEY (timestamp, phase)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pv_interval_log (
+                timestamp TEXT NOT NULL,
+                panel_id TEXT NOT NULL,
+                power_kw REAL,
+                PRIMARY KEY (timestamp, panel_id)
             )
         """)
 
@@ -396,10 +416,7 @@ class DataStore:
         else:
             current_version = row["version"]
             if current_version < CURRENT_SCHEMA_VERSION:
-                raise RuntimeError(
-                    f"Database schema version {current_version} is older than "
-                    f"expected {CURRENT_SCHEMA_VERSION}. A database reset is needed."
-                )
+                self.__migrate(current_version, cursor)
             elif current_version > CURRENT_SCHEMA_VERSION:
                 self.__log(
                     f"Database schema version {current_version} is newer than "
@@ -408,6 +425,65 @@ class DataStore:
                 )
             else:
                 self.__log(f"Database schema version {current_version} is up to date.")
+
+    def __migrate(self, from_version: int, cursor):
+        """Run schema migrations from from_version to CURRENT_SCHEMA_VERSION."""
+        self.__log(
+            f"Migrating database from version {from_version} to {CURRENT_SCHEMA_VERSION}."
+        )
+
+        if from_version < 2:
+            # v2: add grid_interval_log + pv_interval_log tables and rebuild
+            # fm_send_status with data_type column.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS grid_interval_log (
+                    timestamp TEXT NOT NULL,
+                    phase INTEGER NOT NULL,
+                    consumption_kw REAL,
+                    production_kw REAL,
+                    PRIMARY KEY (timestamp, phase)
+                )
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS pv_interval_log (
+                    timestamp TEXT NOT NULL,
+                    panel_id TEXT NOT NULL,
+                    power_kw REAL,
+                    PRIMARY KEY (timestamp, panel_id)
+                )
+            """)
+
+            # Migrate fm_send_status: add data_type column, preserve charger data
+            cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
+            existing = cursor.fetchone()
+            cursor.execute("DROP TABLE fm_send_status")
+            cursor.execute("""
+                CREATE TABLE fm_send_status (
+                    data_type TEXT PRIMARY KEY,
+                    last_sent_up_to TEXT NOT NULL
+                )
+            """)
+            if existing:
+                cursor.execute(
+                    "INSERT INTO fm_send_status (data_type, last_sent_up_to) "
+                    "VALUES (?, ?)",
+                    ("charger", existing["last_sent_up_to"]),
+                )
+
+            self.__log(
+                "Migration v1→v2: created grid_interval_log and "
+                "pv_interval_log, rebuilt fm_send_status with data_type column."
+            )
+
+        # Update schema version
+        now = datetime.now(timezone.utc).isoformat()
+        cursor.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
+            (CURRENT_SCHEMA_VERSION, now),
+        )
+        self.__connection.commit()
+        self.__log(f"Database migrated to version {CURRENT_SCHEMA_VERSION}.")
 
         cursor.close()
 
@@ -789,41 +865,44 @@ class DataStore:
             [dict(row) for row in rows],
         )
 
-    def get_fm_last_sent(self) -> str | None:
+    def get_fm_last_sent(self, data_type: str = "charger") -> str | None:
         """Get the timestamp up to which data has been sent to FlexMeasures.
+
+        Args:
+            data_type: One of "charger", "grid", "pv".
 
         Returns the ISO 8601 timestamp, or None if no data has been sent yet.
         """
         if not self.is_available:
             return None
         cursor = self.__connection.cursor()
-        cursor.execute("SELECT last_sent_up_to FROM fm_send_status LIMIT 1")
+        cursor.execute(
+            "SELECT last_sent_up_to FROM fm_send_status WHERE data_type = ?",
+            (data_type,),
+        )
         row = cursor.fetchone()
         cursor.close()
         if row is None:
             return None
         return row["last_sent_up_to"]
 
-    def set_fm_last_sent(self, timestamp: str) -> None:
+    def set_fm_last_sent(self, timestamp: str, data_type: str = "charger") -> None:
         """Update the timestamp up to which data has been sent to FlexMeasures.
 
-        Inserts a new row if none exists, otherwise updates the existing row.
+        Uses INSERT OR REPLACE for atomic upsert.
+
+        Args:
+            timestamp: ISO 8601 timestamp.
+            data_type: One of "charger", "grid", "pv".
         """
         if not self.is_available:
             return
         cursor = self.__connection.cursor()
-        cursor.execute("SELECT COUNT(*) as cnt FROM fm_send_status")
-        count = cursor.fetchone()["cnt"]
-        if count == 0:
-            cursor.execute(
-                "INSERT INTO fm_send_status (last_sent_up_to) VALUES (?)",
-                (timestamp,),
-            )
-        else:
-            cursor.execute(
-                "UPDATE fm_send_status SET last_sent_up_to = ?",
-                (timestamp,),
-            )
+        cursor.execute(
+            "INSERT OR REPLACE INTO fm_send_status (data_type, last_sent_up_to) "
+            "VALUES (?, ?)",
+            (data_type, timestamp),
+        )
         self.__connection.commit()
         cursor.close()
 
@@ -831,16 +910,99 @@ class DataStore:
         """Retrieve interval_log rows after the given timestamp.
 
         Returns a list of dicts with keys: timestamp, energy_kwh,
-        soc_pct, availability_pct. Ordered by timestamp ascending.
+        soc_pct, availability_pct, app_state. Ordered by timestamp ascending.
         """
         if not self.is_available:
             return []
         cursor = self.__connection.cursor()
         cursor.execute(
-            "SELECT timestamp, energy_kwh, soc_pct, availability_pct "
+            "SELECT timestamp, energy_kwh, soc_pct, availability_pct, app_state "
             "FROM interval_log "
             "WHERE timestamp > ? AND is_repaired < 2 "
             "ORDER BY timestamp",
+            (since,),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
+
+    # ── Grid interval log ─────────────────────────────────────────────
+
+    def insert_grid_interval(
+        self,
+        timestamp: str,
+        phase: int,
+        consumption_kw: float | None,
+        production_kw: float | None,
+    ):
+        """Insert a grid monitoring interval for a single phase."""
+        if not self.is_available:
+            return
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO grid_interval_log "
+            "(timestamp, phase, consumption_kw, production_kw) "
+            "VALUES (?, ?, ?, ?)",
+            (timestamp, phase, consumption_kw, production_kw),
+        )
+        self.__connection.commit()
+        cursor.close()
+
+    def get_grid_intervals_since(self, since: str) -> list[dict]:
+        """Retrieve grid_interval_log rows after the given timestamp.
+
+        Returns a list of dicts with keys: timestamp, phase,
+        consumption_kw, production_kw. Ordered by timestamp, phase.
+        """
+        if not self.is_available:
+            return []
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT timestamp, phase, consumption_kw, production_kw "
+            "FROM grid_interval_log "
+            "WHERE timestamp > ? "
+            "ORDER BY timestamp, phase",
+            (since,),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
+
+    # ── PV interval log ───────────────────────────────────────────────
+
+    def insert_pv_interval(
+        self,
+        timestamp: str,
+        panel_id: str,
+        power_kw: float | None,
+    ):
+        """Insert a PV monitoring interval for a single panel."""
+        if not self.is_available:
+            return
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO pv_interval_log "
+            "(timestamp, panel_id, power_kw) "
+            "VALUES (?, ?, ?)",
+            (timestamp, panel_id, power_kw),
+        )
+        self.__connection.commit()
+        cursor.close()
+
+    def get_pv_intervals_since(self, since: str) -> list[dict]:
+        """Retrieve pv_interval_log rows after the given timestamp.
+
+        Returns a list of dicts with keys: timestamp, panel_id, power_kw.
+        Ordered by timestamp, panel_id.
+        """
+        if not self.is_available:
+            return []
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT timestamp, panel_id, power_kw "
+            "FROM pv_interval_log "
+            "WHERE timestamp > ? "
+            "ORDER BY timestamp, panel_id",
             (since,),
         )
         rows = cursor.fetchall()

@@ -168,7 +168,7 @@ class ManageAmberPriceData:
             uom = f"{self.CURRENCY}/MWh"
 
             if self.fm_client_app is not None:
-                res = await self.fm_client_app.post_measurements(
+                res = await self.fm_client_app.post_sensor_data(
                     sensor_id=c.FM_PRICE_CONSUMPTION_SENSOR_ID,
                     values=consumption_prices,
                     start=start_cpf,
@@ -177,7 +177,7 @@ class ManageAmberPriceData:
                 )
             else:
                 self.__log(
-                    "1 Could not call post_measurements on fm_client_app as it is None."
+                    "1 Could not call post_sensor_data on fm_client_app as it is None."
                 )
                 res = False
 
@@ -217,7 +217,7 @@ class ManageAmberPriceData:
             self.last_emissions = list(emissions)
 
             if self.fm_client_app is not None:
-                res = await self.fm_client_app.post_measurements(
+                res = await self.fm_client_app.post_sensor_data(
                     sensor_id=c.FM_EMISSIONS_SENSOR_ID,
                     values=emissions,
                     start=start_cpf,
@@ -226,7 +226,7 @@ class ManageAmberPriceData:
                 )
             else:
                 self.__log(
-                    "1 Could not call post_measurements on fm_client_app as it is None."
+                    "1 Could not call post_sensor_data on fm_client_app as it is None."
                 )
                 res = False
 
@@ -273,7 +273,7 @@ class ManageAmberPriceData:
             uom = f"{self.CURRENCY}/MWh"
 
             if self.fm_client_app is not None:
-                res = await self.fm_client_app.post_measurements(
+                res = await self.fm_client_app.post_sensor_data(
                     sensor_id=c.FM_PRICE_PRODUCTION_SENSOR_ID,
                     values=production_prices,
                     start=start_ppf,
@@ -282,7 +282,7 @@ class ManageAmberPriceData:
                 )
             else:
                 self.__log(
-                    "2 Could not call post_measurements on fm_client_app as it is None."
+                    "2 Could not call post_sensor_data on fm_client_app as it is None."
                 )
                 res = False
 

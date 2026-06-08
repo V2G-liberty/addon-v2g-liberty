@@ -17,6 +17,7 @@ appdaemon:
     - chargers
     - data_import
     - evs
+    - grid_connection
     - util
     - utils
 

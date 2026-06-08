@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.8.1 2026-05-??
+## 0.8.1 2026-06-??
 
 ### Fixed
 
@@ -11,6 +11,7 @@
 ### Added
 
 - 🚀 FEAT: Pass SoC sensor ID in flex-model (#440)
+- 🚀 FEAT: grid pv monitoring (#450)
 
 ### Changed
 

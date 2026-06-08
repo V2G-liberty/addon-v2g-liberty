@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.8.1 2026-05-??
+## 0.8.1 2026-06-??
 
 ### Fixed
 
@@ -14,6 +14,7 @@ That file also contains possible changes that the next release might include.
 ### Added
 
 - 🚀 FEAT: Pass SoC sensor ID in flex-model (#440)
+- 🚀 FEAT: grid pv monitoring (#450)
 
 ### Changed
 

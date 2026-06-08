@@ -1,5 +1,6 @@
 import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators';
+import { HassEvent } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
 import {
@@ -40,6 +41,18 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _hasTriedToConnect: boolean;
   @state() private _quasarLoadBalancerLimit: string;
 
+  // Phase step state
+  @state() private _showPhaseStep: boolean = false;
+  @state() private _gridPhases: number | null = null;
+  @state() private _chargerPhases: number = 1; // TODO: derive from charger type in branch 359
+  @state() private _selectedPhase: number | number[] | null = null;
+  @state() private _triedSavePhase: boolean = false;
+  @state() private _savingPhase: boolean = false;
+  @state() private _detecting: boolean = false;
+  @state() private _detectStep: string = '';
+  @state() private _detectError: string = '';
+  @state() private _detectSuccess: string = '';
+
   @query(`[test-id='${entityIds.chargerHostname}']`) private _chargerHostField;
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
 
@@ -60,6 +73,28 @@ class EditChargerSettingsDialog extends DialogBase {
       this.hass.states[entityIds.useReducedMaxChargePower].state;
     this._quasarLoadBalancerLimit = this.hass.states[entityIds.quasarLoadBalancerLimit].state;
     this._hasTriedToConnect = false;
+    this._showPhaseStep = false;
+    this._triedSavePhase = false;
+    this._savingPhase = false;
+    this._detecting = false;
+    this._detectStep = '';
+    this._detectError = '';
+    this._detectSuccess = '';
+
+    // Load grid and charger phase info
+    try {
+      const gridData = await callFunction(this.hass, 'get_grid_connection_settings');
+      this._gridPhases = gridData.configured ? (gridData.phases ?? null) : null;
+    } catch (e) {
+      this._gridPhases = null;
+    }
+    try {
+      const phaseData = await callFunction(this.hass, 'get_charger_phase');
+      this._selectedPhase = phaseData.connected_to_phase ?? null;
+    } catch (e) {
+      this._selectedPhase = null;
+    }
+
     await this.updateComplete;
   }
 
@@ -68,8 +103,9 @@ class EditChargerSettingsDialog extends DialogBase {
 
     const header = tp('header');
     const _isNew = isNewHaDialogAPI(this.hass);
-    const content =
-      this._hasTriedToConnect && this._isConnected()
+    const content = this._showPhaseStep
+      ? this._renderPhaseStep()
+      : this._hasTriedToConnect && this._isConnected()
         ? this._renderChargerDetails()
         : this._renderConnectionDetails();
     return html`
@@ -209,9 +245,9 @@ class EditChargerSettingsDialog extends DialogBase {
         this.hass,
         this._save,
         true,
-        this.hass.localize('ui.common.save'),
+        this.hass.localize('ui.common.continue'),
         false,
-        'save'
+        'continue'
       )}
     `;
   }
@@ -306,7 +342,230 @@ class EditChargerSettingsDialog extends DialogBase {
         : {}),
     };
     const result = await callFunction(this.hass, 'save_charger_settings', args);
-    this.closeDialog();
+    // Only show phase step if grid connection is configured
+    if (this._gridPhases !== null) {
+      this._showPhaseStep = true;
+    } else {
+      this.closeDialog();
+    }
+  }
+
+  // ── Phase Step ──────────────────────────────────────────────────────
+
+  private _renderPhaseStep() {
+    const gridPhases = this._gridPhases;
+    const chargerPhases = this._chargerPhases;
+
+    // Scenario: 1-phase grid + 3-phase charger → error
+    if (gridPhases === 1 && chargerPhases === 3) {
+      return html`
+        <ha-alert alert-type="error">
+          Your 3-phase charger requires a 3-phase grid connection.
+          Please check your grid connection settings or charger type.
+        </ha-alert>
+        ${renderButton(this.hass, () => this.closeDialog(), true, this.hass.localize('ui.common.close'))}
+      `;
+    }
+
+    // Scenario: 1-phase grid + 1-phase charger → informational
+    if (gridPhases === 1 || gridPhases === null) {
+      return html`
+        <p>Your charger is connected to the only available phase (L1).</p>
+        ${this._renderPhaseBackButton()}
+        ${renderButton(this.hass, () => this._savePhase(1), true, this.hass.localize('ui.common.save'))}
+      `;
+    }
+
+    // Scenario: 3-phase grid + 3-phase charger → informational
+    if (chargerPhases === 3) {
+      return html`
+        <p>Your 3-phase charger is connected to all three phases.</p>
+        ${this._renderPhaseBackButton()}
+        ${renderButton(this.hass, () => this._savePhase([1, 2, 3]), true, this.hass.localize('ui.common.save'))}
+      `;
+    }
+
+    // Scenario: 3-phase grid + 1-phase charger → manual selection
+    return this._renderPhaseSelection();
+  }
+
+  private _renderPhaseSelection() {
+    return html`
+      <p><strong>Which phase is your charger connected to?</strong></p>
+
+      <div class="phase-options">
+        ${[1, 2, 3].map(phase => html`
+          <div
+            class="phase-option ${this._selectedPhase === phase ? 'selected' : ''}"
+            @click=${() => { this._selectedPhase = phase; }}
+          >
+            <ha-radio
+              .checked=${this._selectedPhase === phase}
+              name="charger-phase"
+              value="${phase}"
+              @change=${() => { this._selectedPhase = phase; }}
+            ></ha-radio>
+            <span><strong>Phase ${phase}</strong> (L${phase})</span>
+          </div>
+        `)}
+      </div>
+
+      ${this._triedSavePhase && this._selectedPhase === null
+        ? html`<div class="invalid">Please select which phase your charger is connected to.</div>`
+        : nothing
+      }
+
+      <details class="hint">
+        <summary>Not sure?</summary>
+        <p>Check the label on your fuse box, or use the automatic detection below.</p>
+      </details>
+
+      ${this._renderAutoDetect()}
+
+      ${this._renderPhaseBackButton()}
+      ${this._savingPhase
+        ? renderSpinner(this.hass)
+        : renderButton(
+            this.hass,
+            () => this._handleSavePhase(),
+            true,
+            this.hass.localize('ui.common.save')
+          )
+      }
+    `;
+  }
+
+  private _renderAutoDetect() {
+    if (this._detecting) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <ha-spinner size="small"></ha-spinner>
+            <span>${this._detectStep || 'Starting...'}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this._detectSuccess) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <ha-alert alert-type="success">${this._detectSuccess}</ha-alert>
+        </div>
+      `;
+    }
+
+    if (this._detectError) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <div style="margin-bottom: 12px;">
+            <ha-alert alert-type="warning">${this._detectError}</ha-alert>
+          </div>
+          ${renderButton(
+            this.hass,
+            () => this._startDetection(),
+            false,
+            'Retry',
+          )}
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="auto-detect-box">
+        <p><strong>Automatic phase detection</strong></p>
+        <p style="font-size: 0.875em; color: var(--secondary-text-color);">
+          Optionally, the phase can be detected automatically. This briefly
+          charges (and discharges for bidirectional chargers) while monitoring
+          the grid sensors. The charge mode will be temporarily set to Stop
+          during detection. Make sure your car is connected.
+        </p>
+        ${renderButton(
+          this.hass,
+          () => this._startDetection(),
+          false,
+          'Start detection',
+        )}
+      </div>
+    `;
+  }
+
+  private async _startDetection() {
+    this._detecting = true;
+    this._detectStep = '';
+    this._detectError = '';
+    this._detectSuccess = '';
+
+    // Subscribe to progress events
+    const unsub = await this.hass.connection.subscribeEvents<HassEvent>(
+      (event: HassEvent) => {
+        const step = event.data.step;
+        if (step === 'baseline') this._detectStep = 'Measuring baseline...';
+        else if (step === 'charge_test') this._detectStep = 'Charge test...';
+        else if (step === 'discharge_test') this._detectStep = 'Discharge test...';
+      },
+      'charger_phase_detection.progress'
+    );
+
+    try {
+      const result = await callFunction(
+        this.hass,
+        'detect_charger_phase',
+        {},
+        180 * 1000 // 3 min timeout
+      );
+
+      if (result.success) {
+        this._selectedPhase = result.connected_to_phase;
+        this._detectError = '';
+        const phase = result.connected_to_phase;
+        const label = Array.isArray(phase)
+          ? phase.map(p => `L${p}`).join(', ')
+          : `L${phase}`;
+        this._detectSuccess = `Detected: Phase ${label}`;
+      } else {
+        this._detectSuccess = '';
+        this._detectError = result.error || 'Detection failed. You can select the phase manually.';
+      }
+    } catch (e) {
+      this._detectError = 'Detection timed out. You can select the phase manually.';
+    } finally {
+      unsub();
+      this._detecting = false;
+    }
+  }
+
+  private _renderPhaseBackButton() {
+    return renderButton(
+      this.hass,
+      () => { this._showPhaseStep = false; this._triedSavePhase = false; },
+      false,
+      this.hass.localize('ui.common.back'),
+      false,
+      'back',
+      true
+    );
+  }
+
+  private _handleSavePhase() {
+    this._triedSavePhase = true;
+    if (this._selectedPhase === null) return;
+    this._savePhase(this._selectedPhase);
+  }
+
+  private async _savePhase(phase: number | number[]) {
+    this._savingPhase = true;
+    try {
+      await callFunction(this.hass, 'save_charger_phase', {
+        connected_to_phase: phase,
+      });
+      this.closeDialog();
+    } catch (e) {
+      this._savingPhase = false;
+    }
   }
 
 
@@ -320,6 +579,53 @@ class EditChargerSettingsDialog extends DialogBase {
 
       .name {
         font-weight: bold;
+      }
+      .phase-options {
+        display: flex;
+        gap: 12px;
+        margin: 12px 0;
+      }
+      .phase-option {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 12px 12px 12px 4px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .phase-option:hover {
+        border-color: var(--primary-color);
+      }
+      .phase-option.selected {
+        border-color: var(--primary-color);
+        border-width: 2px;
+        background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+      }
+      .hint {
+        margin-top: 8px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      .hint summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+      .hint p {
+        margin: 4px 0 0 0;
+        line-height: 1.4;
+      }
+      .auto-detect-box {
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        background: var(--card-background-color);
+      }
+      .auto-detect-box p:first-child {
+        margin-top: 0;
       }
 
       // All of these don't seem to reach the hr element...
