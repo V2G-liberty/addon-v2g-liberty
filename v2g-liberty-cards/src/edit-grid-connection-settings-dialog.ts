@@ -492,6 +492,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
       ${this._triedSave ? this._renderEntityErrors() : nothing}
       ${this._renderSaveWarning()}
+      ${this._saveError
+        ? html`<div class="error save-error" role="alert">${this._saveError}</div>`
+        : nothing}
 
       ${renderButton(
         this.hass,
@@ -746,6 +749,17 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         }
       );
 
+      if (result.fm_error) {
+        // FM-side rejection (provisioning failed). Lit preserves the form
+        // state; ensure_* is idempotent so clicking Save again resends the
+        // same payload and recovers cleanly once FM is available. Back/Cancel
+        // closes without saving.
+        this._saveError = `FlexMeasures error: ${result.fm_error}`;
+        this._saving = false;
+        this._saveConfirmed = false;
+        return;
+      }
+
       if (result.error) {
         this._saveError = result.error;
         this._saving = false;
@@ -766,6 +780,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         color: var(--error-color);
         font-size: 0.875em;
         margin-top: 4px;
+      }
+      .save-error {
+        margin-top: 12px;
+        font-weight: 500;
       }
       details.hint {
         margin-top: 8px;

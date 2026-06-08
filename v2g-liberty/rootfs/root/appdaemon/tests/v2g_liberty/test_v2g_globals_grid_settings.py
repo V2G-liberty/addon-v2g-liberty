@@ -139,9 +139,9 @@ class TestInitialiseGridConnectionSettings:
 class TestSaveGridConnectionSettings:
     @pytest.mark.asyncio
     async def test_save_valid_1_phase(
-        self, globals_instance, settings_manager_mock, hass_mock
+        self, globals_with_fm, settings_manager_mock, hass_mock
     ):
-        """Valid 1-phase config is stored and constants are set."""
+        """Valid 1-phase config is stored and constants are set (FM connected)."""
         data = {
             "phases": 1,
             "capacity_per_phase": 40,
@@ -149,7 +149,7 @@ class TestSaveGridConnectionSettings:
             "production_entities": ["sensor.grid_prod_l1"],
         }
 
-        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
             "event", data, {}
         )
 
@@ -162,9 +162,9 @@ class TestSaveGridConnectionSettings:
 
     @pytest.mark.asyncio
     async def test_save_valid_3_phase(
-        self, globals_instance, settings_manager_mock, hass_mock
+        self, globals_with_fm, settings_manager_mock, hass_mock
     ):
-        """Valid 3-phase config is stored."""
+        """Valid 3-phase config is stored (FM connected)."""
         data = {
             "phases": 3,
             "capacity_per_phase": 25,
@@ -172,7 +172,7 @@ class TestSaveGridConnectionSettings:
             "production_entities": ["sensor.p1", "sensor.p2", "sensor.p3"],
         }
 
-        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
             "event", data, {}
         )
 
@@ -249,10 +249,96 @@ class TestSaveGridConnectionSettings:
         )
 
 
+class TestSaveGridConnectionBlocking:
+    """FM provisioning is blocking: on FM failure nothing is persisted, the
+    c.GRID_* constants are left unchanged, and the UI gets an fm_error."""
+
+    @staticmethod
+    def _payload():
+        return {
+            "phases": 1,
+            "capacity_per_phase": 25,
+            "consumption_entities": ["sensor.l1"],
+            "production_entities": ["sensor.p1"],
+        }
+
+    @staticmethod
+    def _snapshot():
+        return (
+            c.GRID_PHASES,
+            c.GRID_CAPACITY_PER_PHASE,
+            c.GRID_CONSUMPTION_ENTITIES,
+            c.GRID_PRODUCTION_ENTITIES,
+        )
+
+    @staticmethod
+    def _seed_constants():
+        c.GRID_PHASES = 3
+        c.GRID_CAPACITY_PER_PHASE = 99
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.keep"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.keep2"]
+
+    @staticmethod
+    def _assert_fm_error(hass_mock):
+        args, kwargs = hass_mock.fire_event.call_args
+        assert args[0] == "save_grid_connection_settings.result"
+        assert kwargs.get("fm_error")
+
+    @pytest.mark.asyncio
+    async def test_fm_not_connected_blocks_save(
+        self, globals_instance, settings_manager_mock, hass_mock
+    ):
+        """FM disconnected → fm_error, no persist, constants unchanged."""
+        self._seed_constants()
+        before = self._snapshot()
+
+        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", self._payload(), {}
+        )
+
+        settings_manager_mock.store_object.assert_not_called()
+        assert self._snapshot() == before
+        self._assert_fm_error(hass_mock)
+
+    @pytest.mark.asyncio
+    async def test_ensure_asset_exception_blocks_save(
+        self, globals_with_fm, fm_client_connected, settings_manager_mock, hass_mock
+    ):
+        """ensure_asset exception → fm_error, no persist, constants unchanged."""
+        self._seed_constants()
+        before = self._snapshot()
+        fm_client_connected.ensure_asset.side_effect = Exception("boom")
+
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", self._payload(), {}
+        )
+
+        settings_manager_mock.store_object.assert_not_called()
+        assert self._snapshot() == before
+        self._assert_fm_error(hass_mock)
+
+    @pytest.mark.asyncio
+    async def test_ensure_sensor_exception_blocks_save(
+        self, globals_with_fm, fm_client_connected, settings_manager_mock, hass_mock
+    ):
+        """ensure_sensor exception → fm_error, no persist, constants unchanged."""
+        self._seed_constants()
+        before = self._snapshot()
+        fm_client_connected.ensure_sensor.side_effect = Exception("sensor boom")
+
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", self._payload(), {}
+        )
+
+        settings_manager_mock.store_object.assert_not_called()
+        assert self._snapshot() == before
+        self._assert_fm_error(hass_mock)
+
+
 class TestSaveGridClearsChargerPhase:
     @pytest.mark.asyncio
     async def test_clears_phase_when_phases_change(
-        self, globals_instance, settings_manager_mock, hass_mock
+        self, globals_with_fm, settings_manager_mock, hass_mock
     ):
         """Changing from 1 to 3 phases clears charger connected_to_phase."""
         # Pre-existing 1-phase config with detected charger phase
@@ -268,11 +354,11 @@ class TestSaveGridClearsChargerPhase:
         settings_manager_mock.store_object(
             "charger_phase", {"connected_to_phase": 1, "detected_at": "2026-04-29"}
         )
-        globals_instance._V2GLibertyGlobals__initialise_charger_phase_settings()
+        globals_with_fm._V2GLibertyGlobals__initialise_charger_phase_settings()
         assert c.CHARGER_CONNECTED_TO_PHASE == 1
 
         # Save with 3 phases
-        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
             "event",
             {
                 "phases": 3,
@@ -287,7 +373,7 @@ class TestSaveGridClearsChargerPhase:
 
     @pytest.mark.asyncio
     async def test_clears_phase_when_entities_change(
-        self, globals_instance, settings_manager_mock, hass_mock
+        self, globals_with_fm, settings_manager_mock, hass_mock
     ):
         """Changing consumption entities clears charger connected_to_phase."""
         settings_manager_mock.store_object(
@@ -302,9 +388,9 @@ class TestSaveGridClearsChargerPhase:
         settings_manager_mock.store_object(
             "charger_phase", {"connected_to_phase": 2, "detected_at": "2026-04-29"}
         )
-        globals_instance._V2GLibertyGlobals__initialise_charger_phase_settings()
+        globals_with_fm._V2GLibertyGlobals__initialise_charger_phase_settings()
 
-        await globals_instance._V2GLibertyGlobals__save_grid_connection_settings(
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
             "event",
             {
                 "phases": 3,
@@ -805,12 +891,14 @@ class TestProvisionGridAssets:
         fm_client_connected.ensure_sensor.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_skips_when_fm_not_connected(self, globals_instance):
-        """Provisioning is skipped when FM client is not connected."""
+    async def test_raises_when_fm_not_connected(self, globals_instance):
+        """Provisioning raises (no silent skip) when FM client is not connected,
+        so the save handler can surface it as fm_error."""
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
         # globals_instance has fm_client_app.client = None
 
-        await globals_instance._V2GLibertyGlobals__provision_grid_assets()
+        with pytest.raises(RuntimeError, match="not connected"):
+            await globals_instance._V2GLibertyGlobals__provision_grid_assets()
 
         globals_instance.fm_client_app.ensure_asset.assert_not_called()
 
@@ -883,19 +971,17 @@ class TestProvisionGridAssets:
         assert prod_call.kwargs.get("attributes") is None
 
     @pytest.mark.asyncio
-    async def test_exception_does_not_crash(
+    async def test_exception_propagates(
         self, globals_with_fm, fm_client_connected, log_mock
     ):
-        """Provisioning failure is logged but does not raise."""
+        """Provisioning lets ensure_* exceptions propagate (no swallow), so the
+        save handler can convert them to an fm_error response."""
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
         c.GRID_PHASES = 1
         fm_client_connected.ensure_asset.side_effect = Exception("FM down")
 
-        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
-
-        # Should have logged warning, not crashed
-        log_mock.assert_called()
-        assert "failed" in str(log_mock.call_args).lower()
+        with pytest.raises(Exception, match="FM down"):
+            await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
     @pytest.mark.asyncio
     async def test_main_connection_sensors_to_show(
