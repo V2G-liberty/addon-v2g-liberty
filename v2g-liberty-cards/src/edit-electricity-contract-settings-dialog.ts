@@ -9,7 +9,7 @@ import {
   renderInputNumber,
   renderInputSelect,
   renderInputText,
-  renderSelectOption,
+  renderControlSelect,
   isNewHaDialogAPI,
 } from './util/render';
 import { partial, to } from './util/translate';
@@ -91,22 +91,11 @@ class EditElectricityContractSettingsDialog extends DialogBase {
     return html`
       <p>${header}</p>
       <p><strong>${tp('nl')}</strong></p>
-      ${nlProviders.map(option =>
-        renderSelectOption(option, option === current, callback)
-      )}
-      ${renderSelectOption('nl_generic', 'nl_generic' === current, callback)}
+      ${renderControlSelect(current, [...nlProviders, 'nl_generic'], callback)}
       <p><strong>${tp('au')}</strong></p>
-      ${renderSelectOption(
-        'au_amber_electric',
-        'au_amber_electric' === current,
-        callback
-      )}
+      ${renderControlSelect(current, ['au_amber_electric'], callback)}
       <p><strong>${tp('gb')}</strong></p>
-      ${renderSelectOption(
-        'gb_octopus_energy',
-        'gb_octopus_energy' === current,
-        callback
-      )}
+      ${renderControlSelect(current, ['gb_octopus_energy'], callback)}
       ${renderButton(
         this.hass,
         this._continue,

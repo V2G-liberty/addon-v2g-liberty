@@ -74,7 +74,7 @@ export function renderButton(
   }
 
   return html`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small' style="width: auto">
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto">
       ${chevronIcon}
       ${label}
     </ha-button>
@@ -83,11 +83,20 @@ export function renderButton(
 
 export function renderSpinner(hass: HomeAssistant = null) {
   if (hass && isNewHaDialogAPI(hass)) {
-    // wa-dialog (HA ≥ 2026.3): render in content area, right-aligned to match button position.
+    // wa-dialog (HA ≥ 2026.3): the footer lays out its slotted *buttons* (right
+    // aligned, fixed height); a bare element instead lands on its own centred
+    // row. So host the spinner inside a plain footer ha-button: it then sits
+    // exactly where the primary button was, in line with the other buttons.
     return html`
-      <div style="display: flex; justify-content: flex-end;">
-        <ha-spinner test-id="progress" size="small"></ha-spinner>
-      </div>
+      <ha-button
+        slot="footer"
+        appearance="plain"
+        size="s"
+        style="width:auto"
+        test-id="progress"
+      >
+        <ha-spinner size="small"></ha-spinner>
+      </ha-button>
     `;
   }
   return html`
@@ -194,20 +203,73 @@ export function renderInputBoolean(
   `;
 }
 
-export function renderSelectOption(
-  option: string,
-  isChecked: boolean,
+// A CSS-drawn radio indicator. We draw it by hand on purpose: the MDC ha-radio
+// was removed in HA's WebAwesome migration and its replacement ha-radio-option
+// is lazy-loaded, which would reintroduce the empty-dialog problem this branch
+// fixes. Uses HA theme variables so it matches HA's own radios.
+export function renderRadioIndicator(isChecked: boolean): TemplateResult {
+  const ring = isChecked
+    ? 'var(--primary-color)'
+    : 'var(--secondary-text-color, #757575)';
+  return html`
+    <span
+      aria-hidden="true"
+      style="flex-shrink:0; box-sizing:border-box; width:20px; height:20px;
+             border-radius:50%; border:2px solid ${ring}; display:inline-flex;
+             align-items:center; justify-content:center;"
+    >
+      ${isChecked
+        ? html`<span
+            style="width:10px; height:10px; border-radius:50%;
+                   background:var(--primary-color);"
+          ></span>`
+        : ''}
+    </span>
+  `;
+}
+
+// A plain, left-aligned radio list (no segmented background). Each option is a
+// clickable row with a radio indicator in front. The click synthesises the same
+// {target:{value}} shape the old radio @change handler gave, so callers are
+// unchanged.
+export function renderControlSelect(
+  currentValue: string,
+  options: string[],
   changedCallback,
-  group: string = null
+  labelFor: (option: string) => string | TemplateResult = option =>
+    to(option) || option
 ): TemplateResult {
-  let label = to(option) || option;
-  return renderSelectOptionWithLabel(
-    option,
-    label,
-    isChecked,
-    changedCallback,
-    group
-  );
+  return html`
+    <div role="radiogroup">
+      ${options.map(option => {
+        const isChecked = option === currentValue;
+        const select = () => changedCallback({ target: { value: option } });
+        const background = isChecked
+          ? 'color-mix(in srgb, var(--primary-color) 8%, transparent)'
+          : 'transparent';
+        return html`
+          <div
+            role="radio"
+            aria-checked=${isChecked ? 'true' : 'false'}
+            tabindex="0"
+            @click=${select}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                select();
+              }
+            }}
+            style="display:flex; align-items:center; gap:12px; box-sizing:border-box;
+                   padding:10px 8px; border-radius:8px; cursor:pointer;
+                   background:${background}; color:var(--primary-text-color);"
+          >
+            ${renderRadioIndicator(isChecked)}
+            <span style="flex:1;">${labelFor(option)}</span>
+          </div>
+        `;
+      })}
+    </div>
+  `;
 }
 
 export function renderSelectOptionWithLabel(
@@ -215,18 +277,39 @@ export function renderSelectOptionWithLabel(
   label: string | TemplateResult,
   isChecked: boolean,
   changedCallback,
+  // group is kept for signature compatibility (was the radio group name).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   group: string = null
 ): TemplateResult {
+  // A clickable card (with border) plus a radio indicator. The card style suits
+  // the richer options (title + description); the simpler lists use
+  // renderControlSelect. The click synthesises the {target:{value}} shape the
+  // old radio @change handler gave, so callers are unchanged.
+  const select = () => changedCallback({ target: { value: option } });
+  const border = isChecked
+    ? '2px solid var(--primary-color)'
+    : '1px solid var(--divider-color, #c4c4c4)';
+  const background = isChecked
+    ? 'color-mix(in srgb, var(--primary-color) 5%, transparent)'
+    : 'transparent';
   return html`
-    <div>
-      <ha-formfield .label=${label}>
-        <ha-radio
-          .checked=${isChecked}
-          .value=${option}
-          .name=${group}
-          @change=${changedCallback}
-        ></ha-radio>
-      </ha-formfield>
+    <div
+      role="radio"
+      aria-checked=${isChecked ? 'true' : 'false'}
+      tabindex="0"
+      @click=${select}
+      @keydown=${(e: KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          select();
+        }
+      }}
+      style="display:flex; align-items:flex-start; gap:12px; box-sizing:border-box;
+             padding:12px 14px; margin:6px 0; border:${border}; border-radius:12px;
+             cursor:pointer; background:${background}; color:var(--primary-text-color);"
+    >
+      ${renderRadioIndicator(isChecked)}
+      <span style="flex:1;">${label}</span>
     </div>
   `;
 }
@@ -237,23 +320,20 @@ export function renderInputSelect(
   changedCallback,
   options?: string[]
 ): TemplateResult {
-  options = options ?? stateObj.attributes.options;
+  options = options ?? stateObj.attributes.options ?? [];
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-  const groupName = stateObj.entity_id;
   return html`
-    <div>
-      <span class="select-name">${name}</span>
-      <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-    </div>
-    <div class="select-options">
-      ${options.map(option =>
-        renderSelectOption(
-          option,
-          option === currentValue,
-          changedCallback,
-          groupName
-        )
-      )}
+    <div style="padding:8px 0;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <ha-icon
+          .icon="${stateObj.attributes.icon}"
+          style="flex-shrink:0; color:var(--secondary-text-color);"
+        ></ha-icon>
+        <span style="font-weight:500; color:var(--primary-text-color);">${name}</span>
+      </div>
+      <div style="padding-left:36px;">
+        ${renderControlSelect(currentValue, options, changedCallback)}
+      </div>
     </div>
   `;
 }

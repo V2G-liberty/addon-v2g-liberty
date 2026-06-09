@@ -1,6 +1,6 @@
 import { html, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
-import { renderDialogHeader, renderButton, renderSpinner, isNewHaDialogAPI, renderHaInput } from './util/render';
+import { renderDialogHeader, renderButton, renderSpinner, isNewHaDialogAPI, renderHaInput, renderSelectOptionWithLabel } from './util/render';
 import { partial } from './util/translate';
 import { DialogBase } from './dialog-base';
 import { callFunction } from './util/appdaemon';
@@ -17,17 +17,8 @@ export class ResetDatabaseDialog extends DialogBase {
   @state() private _success = false;
 
   static styles = css`
-    .option-group {
-      margin-bottom: 16px;
-    }
-    ha-formfield {
-      display: block;
-      --mdc-typography-body2-font-size: 16px;
-      font-size: 16px;
-      cursor: pointer;
-    }
     .option-detail {
-      margin: 0 0 0 52px;
+      margin-top: 4px;
       font-size: 13px;
       color: var(--secondary-text-color);
       line-height: 1.4;
@@ -42,7 +33,7 @@ export class ResetDatabaseDialog extends DialogBase {
       font-weight: 600;
     }
     .confirm-section {
-      margin: 12px 0 0 52px;
+      margin: 12px 0 0 0;
     }
   `;
 
@@ -97,29 +88,25 @@ export class ResetDatabaseDialog extends DialogBase {
         .heading=${_isNew ? null : renderDialogHeader(this.hass, header)}
         .headerTitle=${_isNew ? header : null}>
 
-        <div class="option-group">
-          <ha-formfield .label=${tp('reimport-label')}>
-            <ha-radio
-              .checked=${this._mode === 'reimport'}
-              value="reimport"
-              name="reset-mode"
-              @change=${() => { this._mode = 'reimport'; }}
-            ></ha-radio>
-          </ha-formfield>
-          <div class="option-detail">${tp('reimport-explanation')}</div>
-        </div>
+        ${renderSelectOptionWithLabel(
+          'reimport',
+          html`
+            <strong>${tp('reimport-label')}</strong>
+            <div class="option-detail">${tp('reimport-explanation')}</div>
+          `,
+          this._mode === 'reimport',
+          evt => { this._mode = evt.target.value; }
+        )}
 
-        <div class="option-group">
-          <ha-formfield .label=${tp('full-label')}>
-            <ha-radio
-              .checked=${this._mode === 'full'}
-              value="full"
-              name="reset-mode"
-              @change=${() => { this._mode = 'full'; }}
-            ></ha-radio>
-          </ha-formfield>
-          <div class="option-detail">${tp('full-explanation')}</div>
-        </div>
+        ${renderSelectOptionWithLabel(
+          'full',
+          html`
+            <strong>${tp('full-label')}</strong>
+            <div class="option-detail">${tp('full-explanation')}</div>
+          `,
+          this._mode === 'full',
+          evt => { this._mode = evt.target.value; }
+        )}
 
         ${this._mode === 'full' ? html`
           <div class="confirm-section">

@@ -3053,7 +3053,7 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
     render() {
         return this._isResponding ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <ha-toast .timeoutMs=${-1}>
-            ${!this._isRestarting ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${$c5d85a824175067e$var$tp('restart')}</ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+            ${!this._isRestarting ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="s">${$c5d85a824175067e$var$tp('restart')}</ha-button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
           </ha-toast>
         `;
     }
@@ -12474,18 +12474,27 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
     const chevronIcon = isBackButton ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='small' style="width: auto">
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto">
       ${chevronIcon}
       ${label}
     </ha-button>
   `;
 }
 function $4dbea3927e6cdc74$export$403c249a0a70d814(hass = null) {
-    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3): render in content area, right-aligned to match button position.
+    if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) // wa-dialog (HA ≥ 2026.3): the footer lays out its slotted *buttons* (right
+    // aligned, fixed height); a bare element instead lands on its own centred
+    // row. So host the spinner inside a plain footer ha-button: it then sits
+    // exactly where the primary button was, in line with the other buttons.
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div style="display: flex; justify-content: flex-end;">
-        <ha-spinner test-id="progress" size="small"></ha-spinner>
-      </div>
+      <ha-button
+        slot="footer"
+        appearance="plain"
+        size="s"
+        style="width:auto"
+        test-id="progress"
+      >
+        <ha-spinner size="small"></ha-spinner>
+      </ha-button>
     `;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-spinner test-id="progress" size="small" slot="primaryAction"></ha-spinner>
@@ -12568,35 +12577,107 @@ function $4dbea3927e6cdc74$export$c0105cf8fd33cdd7(isOn, stateObj, changedCallba
     </ha-settings-row>
   `;
 }
-function $4dbea3927e6cdc74$export$6989c9d413240856(option, isChecked, changedCallback, group = null) {
-    let label = (0, $aa1795080f053cd4$export$2c618a4308a30424)(option) || option;
-    return $4dbea3927e6cdc74$export$4554bf7c8c968942(option, label, isChecked, changedCallback, group);
-}
-function $4dbea3927e6cdc74$export$4554bf7c8c968942(option, label, isChecked, changedCallback, group = null) {
+function $4dbea3927e6cdc74$export$6784655213c448c5(isChecked) {
+    const ring = isChecked ? 'var(--primary-color)' : 'var(--secondary-text-color, #757575)';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <div>
-      <ha-formfield .label=${label}>
-        <ha-radio
-          .checked=${isChecked}
-          .value=${option}
-          .name=${group}
-          @change=${changedCallback}
-        ></ha-radio>
-      </ha-formfield>
+    <span
+      aria-hidden="true"
+      style="flex-shrink:0; box-sizing:border-box; width:20px; height:20px;
+             border-radius:50%; border:2px solid ${ring}; display:inline-flex;
+             align-items:center; justify-content:center;"
+    >
+      ${isChecked ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span
+            style="width:10px; height:10px; border-radius:50%;
+                   background:var(--primary-color);"
+          ></span>` : ''}
+    </span>
+  `;
+}
+function $4dbea3927e6cdc74$export$e19e5a7ef8e7713c(currentValue, options, changedCallback, labelFor = (option)=>(0, $aa1795080f053cd4$export$2c618a4308a30424)(option) || option) {
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <div role="radiogroup">
+      ${options.map((option)=>{
+        const isChecked = option === currentValue;
+        const select = ()=>changedCallback({
+                target: {
+                    value: option
+                }
+            });
+        const background = isChecked ? 'color-mix(in srgb, var(--primary-color) 8%, transparent)' : 'transparent';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <div
+            role="radio"
+            aria-checked=${isChecked ? 'true' : 'false'}
+            tabindex="0"
+            @click=${select}
+            @keydown=${(e)=>{
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                select();
+            }
+        }}
+            style="display:flex; align-items:center; gap:12px; box-sizing:border-box;
+                   padding:10px 8px; border-radius:8px; cursor:pointer;
+                   background:${background}; color:var(--primary-text-color);"
+          >
+            ${$4dbea3927e6cdc74$export$6784655213c448c5(isChecked)}
+            <span style="flex:1;">${labelFor(option)}</span>
+          </div>
+        `;
+    })}
+    </div>
+  `;
+}
+function $4dbea3927e6cdc74$export$4554bf7c8c968942(option, label, isChecked, changedCallback, // group is kept for signature compatibility (was the radio group name).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+group = null) {
+    // A clickable card (with border) plus a radio indicator. The card style suits
+    // the richer options (title + description); the simpler lists use
+    // renderControlSelect. The click synthesises the {target:{value}} shape the
+    // old radio @change handler gave, so callers are unchanged.
+    const select = ()=>changedCallback({
+            target: {
+                value: option
+            }
+        });
+    const border = isChecked ? '2px solid var(--primary-color)' : '1px solid var(--divider-color, #c4c4c4)';
+    const background = isChecked ? 'color-mix(in srgb, var(--primary-color) 5%, transparent)' : 'transparent';
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <div
+      role="radio"
+      aria-checked=${isChecked ? 'true' : 'false'}
+      tabindex="0"
+      @click=${select}
+      @keydown=${(e)=>{
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            select();
+        }
+    }}
+      style="display:flex; align-items:flex-start; gap:12px; box-sizing:border-box;
+             padding:12px 14px; margin:6px 0; border:${border}; border-radius:12px;
+             cursor:pointer; background:${background}; color:var(--primary-text-color);"
+    >
+      ${$4dbea3927e6cdc74$export$6784655213c448c5(isChecked)}
+      <span style="flex:1;">${label}</span>
     </div>
   `;
 }
 function $4dbea3927e6cdc74$export$1bc2b02519e65ffd(currentValue, stateObj, changedCallback, options) {
-    options = options ?? stateObj.attributes.options;
+    options = options ?? stateObj.attributes.options ?? [];
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    const groupName = stateObj.entity_id;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <div>
-      <span class="select-name">${name}</span>
-      <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-    </div>
-    <div class="select-options">
-      ${options.map((option)=>$4dbea3927e6cdc74$export$6989c9d413240856(option, option === currentValue, changedCallback, groupName))}
+    <div style="padding:8px 0;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+        <ha-icon
+          .icon="${stateObj.attributes.icon}"
+          style="flex-shrink:0; color:var(--secondary-text-color);"
+        ></ha-icon>
+        <span style="font-weight:500; color:var(--primary-text-color);">${name}</span>
+      </div>
+      <div style="padding-left:36px;">
+        ${$4dbea3927e6cdc74$export$e19e5a7ef8e7713c(currentValue, options, changedCallback)}
+      </div>
     </div>
   `;
 }
@@ -13390,14 +13471,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
                 this._selectedPhase = phase;
             }}
           >
-            <ha-radio
-              .checked=${this._selectedPhase === phase}
-              name="charger-phase"
-              value="${phase}"
-              @change=${()=>{
-                this._selectedPhase = phase;
-            }}
-            ></ha-radio>
+            ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._selectedPhase === phase)}
             <span><strong>Phase ${phase}</strong> (L${phase})</span>
           </div>
         `)}
@@ -13704,12 +13778,18 @@ class $528a5968cd9760bd$var$EditElectricityContractSettingsDialog extends (0, $9
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <p>${header}</p>
       <p><strong>${$528a5968cd9760bd$var$tp('nl')}</strong></p>
-      ${nlProviders.map((option)=>(0, $4dbea3927e6cdc74$export$6989c9d413240856)(option, option === current, callback))}
-      ${(0, $4dbea3927e6cdc74$export$6989c9d413240856)('nl_generic', 'nl_generic' === current, callback)}
+      ${(0, $4dbea3927e6cdc74$export$e19e5a7ef8e7713c)(current, [
+            ...nlProviders,
+            'nl_generic'
+        ], callback)}
       <p><strong>${$528a5968cd9760bd$var$tp('au')}</strong></p>
-      ${(0, $4dbea3927e6cdc74$export$6989c9d413240856)('au_amber_electric', 'au_amber_electric' === current, callback)}
+      ${(0, $4dbea3927e6cdc74$export$e19e5a7ef8e7713c)(current, [
+            'au_amber_electric'
+        ], callback)}
       <p><strong>${$528a5968cd9760bd$var$tp('gb')}</strong></p>
-      ${(0, $4dbea3927e6cdc74$export$6989c9d413240856)('gb_octopus_energy', 'gb_octopus_energy' === current, callback)}
+      ${(0, $4dbea3927e6cdc74$export$e19e5a7ef8e7713c)(current, [
+            'gb_octopus_energy'
+        ], callback)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'), !isSelectionValid, null)}
     `;
         function filterNLProviders(options) {
@@ -14191,7 +14271,7 @@ class $7283b140e865221f$var$EditInputNumberDialog extends (0, $942308f826de48c4$
           <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
         </div>
         <div>
-          ${stateObj.attributes.options.map((option)=>(0, $4dbea3927e6cdc74$export$6989c9d413240856)(option, option === this._value, (evt)=>this._value = evt.target.value))}
+          ${(0, $4dbea3927e6cdc74$export$e19e5a7ef8e7713c)(this._value, stateObj.attributes.options, (evt)=>this._value = evt.target.value)}
         </div>
         <ha-markdown breaks .content=${description}></ha-markdown>
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.save'), false, 'save')}
@@ -14414,14 +14494,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             this._selectPhases(1);
         }}
           >
-            <ha-radio
-              .checked=${this._phases === 1}
-              name="phases"
-              value="1"
-              @change=${()=>{
-            this._selectPhases(1);
-        }}
-            ></ha-radio>
+            ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 1)}
             <div>
               <strong>1 phase</strong><br/>
               <span class="phase-subtitle">Small apartment connection</span>
@@ -14433,14 +14506,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             this._selectPhases(3);
         }}
           >
-            <ha-radio
-              .checked=${this._phases === 3}
-              name="phases"
-              value="3"
-              @change=${()=>{
-            this._selectPhases(3);
-        }}
-            ></ha-radio>
+            ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 3)}
             <div>
               <strong>3 phases</strong><br/>
               <span class="phase-subtitle">Standard connection</span>
@@ -15215,12 +15281,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
                   class="phase-card ${this._phases === 1 ? 'selected' : ''}"
                   @click=${()=>this._selectPhases(1)}
                 >
-                  <ha-radio
-                    .checked=${this._phases === 1}
-                    name="solar-phases"
-                    value="1"
-                    @change=${()=>this._selectPhases(1)}
-                  ></ha-radio>
+                  ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 1)}
                   <div>
                     <strong>1 phase</strong><br />
                     <span class="phase-subtitle">Single-phase inverter</span>
@@ -15232,12 +15293,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
                   class="phase-card ${this._phases === 3 ? 'selected' : ''}"
                   @click=${()=>this._selectPhases(3)}
                 >
-                  <ha-radio
-                    .checked=${this._phases === 3}
-                    name="solar-phases"
-                    value="3"
-                    @change=${()=>this._selectPhases(3)}
-                  ></ha-radio>
+                  ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 3)}
                   <div>
                     <strong>3 phases</strong><br />
                     <span class="phase-subtitle">Three-phase inverter</span>
@@ -15290,7 +15346,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
           appearance="filled"
           variant="danger"
           test-id="confirm-delete"
-          size="small"
+          size="s"
           style="width: auto;"
         >
           Yes, delete
@@ -15311,7 +15367,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
             appearance="outlined"
             variant="secondary"
             test-id="delete"
-            size="small"
+            size="s"
             style="width: auto; margin-right: auto;"
           >
             Delete this panel…
@@ -15534,14 +15590,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
                 this._connectedToPhase = n;
             }}
             >
-              <ha-radio
-                .checked=${this._connectedToPhase === n}
-                name="connected-to-phase"
-                value=${String(n)}
-                @change=${()=>{
-                this._connectedToPhase = n;
-            }}
-              ></ha-radio>
+              ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._connectedToPhase === n)}
               <div><strong>L${n}</strong></div>
             </div>
           `)}
@@ -15961,17 +16010,8 @@ const $4b89696e518dfe0c$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)(
 class $4b89696e518dfe0c$export$5208d5f7b949d64 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     static{
         this.styles = (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
-    .option-group {
-      margin-bottom: 16px;
-    }
-    ha-formfield {
-      display: block;
-      --mdc-typography-body2-font-size: 16px;
-      font-size: 16px;
-      cursor: pointer;
-    }
     .option-detail {
-      margin: 0 0 0 52px;
+      margin-top: 4px;
       font-size: 13px;
       color: var(--secondary-text-color);
       line-height: 1.4;
@@ -15986,7 +16026,7 @@ class $4b89696e518dfe0c$export$5208d5f7b949d64 extends (0, $942308f826de48c4$exp
       font-weight: 600;
     }
     .confirm-section {
-      margin: 12px 0 0 52px;
+      margin: 12px 0 0 0;
     }
   `;
     }
@@ -16035,33 +16075,19 @@ class $4b89696e518dfe0c$export$5208d5f7b949d64 extends (0, $942308f826de48c4$exp
         .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
         .headerTitle=${_isNew ? header : null}>
 
-        <div class="option-group">
-          <ha-formfield .label=${$4b89696e518dfe0c$var$tp('reimport-label')}>
-            <ha-radio
-              .checked=${this._mode === 'reimport'}
-              value="reimport"
-              name="reset-mode"
-              @change=${()=>{
-            this._mode = 'reimport';
-        }}
-            ></ha-radio>
-          </ha-formfield>
-          <div class="option-detail">${$4b89696e518dfe0c$var$tp('reimport-explanation')}</div>
-        </div>
+        ${(0, $4dbea3927e6cdc74$export$4554bf7c8c968942)('reimport', (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <strong>${$4b89696e518dfe0c$var$tp('reimport-label')}</strong>
+            <div class="option-detail">${$4b89696e518dfe0c$var$tp('reimport-explanation')}</div>
+          `, this._mode === 'reimport', (evt)=>{
+            this._mode = evt.target.value;
+        })}
 
-        <div class="option-group">
-          <ha-formfield .label=${$4b89696e518dfe0c$var$tp('full-label')}>
-            <ha-radio
-              .checked=${this._mode === 'full'}
-              value="full"
-              name="reset-mode"
-              @change=${()=>{
-            this._mode = 'full';
-        }}
-            ></ha-radio>
-          </ha-formfield>
-          <div class="option-detail">${$4b89696e518dfe0c$var$tp('full-explanation')}</div>
-        </div>
+        ${(0, $4dbea3927e6cdc74$export$4554bf7c8c968942)('full', (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <strong>${$4b89696e518dfe0c$var$tp('full-label')}</strong>
+            <div class="option-detail">${$4b89696e518dfe0c$var$tp('full-explanation')}</div>
+          `, this._mode === 'full', (evt)=>{
+            this._mode = evt.target.value;
+        })}
 
         ${this._mode === 'full' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <div class="confirm-section">
@@ -17517,7 +17543,7 @@ class $ce5bce3a7c4706d2$export$4eef4984dcaac30c extends (0, $ab210b2da7b39b9d$ex
     }
     _renderTestNotificationPart() {
         if (this._testNotificationState === 'idle') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <ha-button @click=${this._sendNotificationCallback} appearance='plain' variant='brand' size='small'>
+          <ha-button @click=${this._sendNotificationCallback} appearance='plain' variant='brand' size='s'>
             <ha-icon slot='start' icon='mdi:cellphone-text'></ha-icon>
             ${$ce5bce3a7c4706d2$var$tt('send-test-notification')}
           </ha-button>
@@ -18415,7 +18441,7 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
     render() {
         if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">
         <div class="card-content">
-          <ha-circular-progress indeterminate></ha-circular-progress>
+          <ha-spinner></ha-spinner>
         </div>
       </ha-card>`;
         const content = this._isConfigured ? this._renderConfiguredContent() : this._renderEmptyContent();
@@ -18534,7 +18560,7 @@ class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$ex
     render() {
         if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Solar panels">
         <div class="card-content">
-          <ha-circular-progress indeterminate></ha-circular-progress>
+          <ha-spinner></ha-spinner>
         </div>
       </ha-card>`;
         const content = this._panels.length === 0 ? this._renderEmptyContent() : this._renderPanelList();

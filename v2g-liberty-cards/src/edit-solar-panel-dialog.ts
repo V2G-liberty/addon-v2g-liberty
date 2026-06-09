@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEvent } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
-import { renderButton, renderDialogHeader, renderSpinner, isNewHaDialogAPI, renderHaInput } from './util/render';
+import { renderButton, renderDialogHeader, renderSpinner, isNewHaDialogAPI, renderHaInput, renderRadioIndicator } from './util/render';
 import { styles } from './card.styles';
 import { DialogBase } from './dialog-base';
 
@@ -355,12 +355,7 @@ export class EditSolarPanelDialog extends DialogBase {
                   class="phase-card ${this._phases === 1 ? 'selected' : ''}"
                   @click=${() => this._selectPhases(1)}
                 >
-                  <ha-radio
-                    .checked=${this._phases === 1}
-                    name="solar-phases"
-                    value="1"
-                    @change=${() => this._selectPhases(1)}
-                  ></ha-radio>
+                  ${renderRadioIndicator(this._phases === 1)}
                   <div>
                     <strong>1 phase</strong><br />
                     <span class="phase-subtitle">Single-phase inverter</span>
@@ -374,12 +369,7 @@ export class EditSolarPanelDialog extends DialogBase {
                   class="phase-card ${this._phases === 3 ? 'selected' : ''}"
                   @click=${() => this._selectPhases(3)}
                 >
-                  <ha-radio
-                    .checked=${this._phases === 3}
-                    name="solar-phases"
-                    value="3"
-                    @change=${() => this._selectPhases(3)}
-                  ></ha-radio>
+                  ${renderRadioIndicator(this._phases === 3)}
                   <div>
                     <strong>3 phases</strong><br />
                     <span class="phase-subtitle">Three-phase inverter</span>
@@ -450,7 +440,7 @@ export class EditSolarPanelDialog extends DialogBase {
           appearance="filled"
           variant="danger"
           test-id="confirm-delete"
-          size="small"
+          size="s"
           style="width: auto;"
         >
           Yes, delete
@@ -472,7 +462,7 @@ export class EditSolarPanelDialog extends DialogBase {
             appearance="outlined"
             variant="secondary"
             test-id="delete"
-            size="small"
+            size="s"
             style="width: auto; margin-right: auto;"
           >
             Delete this panel…
@@ -779,14 +769,7 @@ export class EditSolarPanelDialog extends DialogBase {
                 this._connectedToPhase = n as 1 | 2 | 3;
               }}
             >
-              <ha-radio
-                .checked=${this._connectedToPhase === n}
-                name="connected-to-phase"
-                value=${String(n)}
-                @change=${() => {
-                  this._connectedToPhase = n as 1 | 2 | 3;
-                }}
-              ></ha-radio>
+              ${renderRadioIndicator(this._connectedToPhase === n)}
               <div><strong>L${n}</strong></div>
             </div>
           `

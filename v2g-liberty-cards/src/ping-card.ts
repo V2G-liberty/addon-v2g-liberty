@@ -108,7 +108,7 @@ export class PingCard extends LitElement {
       : html`
           <ha-toast .timeoutMs=${-1}>
             ${!this._isRestarting
-              ? html`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${tp('restart')}</ha-button>`
+              ? html`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="s">${tp('restart')}</ha-button>`
               : nothing
             }
           </ha-toast>
