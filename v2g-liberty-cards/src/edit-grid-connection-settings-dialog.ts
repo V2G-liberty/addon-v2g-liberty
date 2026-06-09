@@ -8,6 +8,8 @@ import {
   renderDialogHeader,
   renderSpinner,
   isNewHaDialogAPI,
+  renderHaInput,
+  renderRadioIndicator,
 } from './util/render';
 import { styles } from './card.styles';
 import { DialogBase } from './dialog-base';
@@ -274,12 +276,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
             class="phase-card ${this._phases === 1 ? 'selected' : ''}"
             @click=${() => { this._selectPhases(1); }}
           >
-            <ha-radio
-              .checked=${this._phases === 1}
-              name="phases"
-              value="1"
-              @change=${() => { this._selectPhases(1); }}
-            ></ha-radio>
+            ${renderRadioIndicator(this._phases === 1)}
             <div>
               <strong>1 phase</strong><br/>
               <span class="phase-subtitle">Small apartment connection</span>
@@ -289,12 +286,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
             class="phase-card ${this._phases === 3 ? 'selected' : ''}"
             @click=${() => { this._selectPhases(3); }}
           >
-            <ha-radio
-              .checked=${this._phases === 3}
-              name="phases"
-              value="3"
-              @change=${() => { this._selectPhases(3); }}
-            ></ha-radio>
+            ${renderRadioIndicator(this._phases === 3)}
             <div>
               <strong>3 phases</strong><br/>
               <span class="phase-subtitle">Standard connection</span>
@@ -324,17 +316,19 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
             : nothing
           }
         </div>
-        <ha-textfield
-          type="number"
-          inputmode="numeric"
-          .value=${this._capacityPerPhase}
-          @change=${(e) => { this._capacityPerPhase = e.target.value; }}
-          min="6"
-          max="80"
-          suffix="A"
-          style="width: 120px; --mdc-text-field-text-align: right;"
-          test-id="capacity-per-phase"
-        ></ha-textfield>
+        ${renderHaInput({
+          value: this._capacityPerPhase,
+          onChange: (e: any) => {
+            this._capacityPerPhase = e.target.value;
+          },
+          type: 'number',
+          inputmode: 'numeric',
+          min: 6,
+          max: 80,
+          suffix: 'A',
+          testId: 'capacity-per-phase',
+          style: 'width: 120px;',
+        })}
         ${this._renderCapacityError()}
         <details class="hint">
           <summary>Where to find this</summary>

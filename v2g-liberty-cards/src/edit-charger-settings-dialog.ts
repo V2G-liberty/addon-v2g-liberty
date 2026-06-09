@@ -14,6 +14,7 @@ import {
   renderInputNumber,
   renderInputText,
   isNewHaDialogAPI,
+  renderRadioIndicator,
 } from './util/render';
 import { partial } from './util/translate';
 import { styles } from './card.styles';
@@ -199,6 +200,7 @@ class EditChargerSettingsDialog extends DialogBase {
   private _isChargerHostValid() {
     return (
       !this._chargerHostField ||
+      typeof this._chargerHostField.checkValidity !== 'function' ||
       (this._chargerHost && this._chargerHostField.checkValidity())
     );
   }
@@ -214,6 +216,7 @@ class EditChargerSettingsDialog extends DialogBase {
   private _isChargerPortValid() {
     return (
       !this._chargerPortField ||
+      typeof this._chargerPortField.checkValidity !== 'function' ||
       (this._chargerPort && this._chargerPortField.checkValidity())
     );
   }
@@ -399,12 +402,7 @@ class EditChargerSettingsDialog extends DialogBase {
             class="phase-option ${this._selectedPhase === phase ? 'selected' : ''}"
             @click=${() => { this._selectedPhase = phase; }}
           >
-            <ha-radio
-              .checked=${this._selectedPhase === phase}
-              name="charger-phase"
-              value="${phase}"
-              @change=${() => { this._selectedPhase = phase; }}
-            ></ha-radio>
+            ${renderRadioIndicator(this._selectedPhase === phase)}
             <span><strong>Phase ${phase}</strong> (L${phase})</span>
           </div>
         `)}

@@ -9,6 +9,10 @@ arch:
   - amd64
   - armv7
 init: false
+# Minimum Home Assistant Core version: the settings UI uses ha-input, which
+# replaced ha-textfield (removed in HA 2026.5). The Supervisor blocks updating
+# the add-on on older HA and shows a message about the required version.
+homeassistant: "2026.5.0"
 homeassistant_api: true
 uart: true
 ports:

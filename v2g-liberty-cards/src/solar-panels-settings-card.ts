@@ -99,7 +99,7 @@ export class SolarPanelsSettingsCard extends LitElement {
     if (this._loading) {
       return html`<ha-card header="Solar panels">
         <div class="card-content">
-          <ha-circular-progress indeterminate></ha-circular-progress>
+          <ha-spinner></ha-spinner>
         </div>
       </ha-card>`;
     }

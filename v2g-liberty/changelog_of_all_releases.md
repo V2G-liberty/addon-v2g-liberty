@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Fix broken UI (ha-xyz elements) on HA 2026.5+ (#452)
 - 🪲 BUG: Reduce excessive FM schedule requests on SoC changes (#446)
 - 🪲 BUG: Fix orphaned schedule timers overriding charge mode changes (#444)
 - 🪲 BUG: Fix ping card toast not showing after mwc-snackbar to ha-toast migration (#443)
