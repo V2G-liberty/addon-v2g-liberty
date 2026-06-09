@@ -199,6 +199,7 @@ class EditChargerSettingsDialog extends DialogBase {
   private _isChargerHostValid() {
     return (
       !this._chargerHostField ||
+      typeof this._chargerHostField.checkValidity !== 'function' ||
       (this._chargerHost && this._chargerHostField.checkValidity())
     );
   }
@@ -214,6 +215,7 @@ class EditChargerSettingsDialog extends DialogBase {
   private _isChargerPortValid() {
     return (
       !this._chargerPortField ||
+      typeof this._chargerPortField.checkValidity !== 'function' ||
       (this._chargerPort && this._chargerPortField.checkValidity())
     );
   }

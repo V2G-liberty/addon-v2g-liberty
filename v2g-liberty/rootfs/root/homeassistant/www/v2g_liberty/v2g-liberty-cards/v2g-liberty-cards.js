@@ -12431,6 +12431,16 @@ var $04557c061247a0a6$export$a14c803a1714faa3 = "M18.5,19.13C20,17.77 20,15.18 2
 
 
 
+/**
+ * @license
+ * Copyright 2018 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */ const $eebc81779975f478$export$f68dd208b5df064d = (l)=>null != l ? l : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+
+
+
+
+
 function $4dbea3927e6cdc74$export$ce5035b7317f6169(loadbalancerEnabled) {
     const tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.charger');
     const title = loadbalancerEnabled ? tp('load-balancer.enabled.title') : tp('load-balancer.not_enabled.title');
@@ -12590,7 +12600,35 @@ function $4dbea3927e6cdc74$export$1bc2b02519e65ffd(currentValue, stateObj, chang
     </div>
   `;
 }
-function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallback, pattern = '^[0-9\\.]+$') {
+function $4dbea3927e6cdc74$export$849e03e1dc76274b(opts) {
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <ha-input
+      appearance="material"
+      type=${opts.type ?? 'text'}
+      inputmode=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.inputmode)}
+      ?required=${!!opts.required}
+      ?without-spin-buttons=${opts.noSpinButtons ?? opts.type === 'number'}
+      pattern=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.pattern)}
+      min=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.min)}
+      max=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.max)}
+      step=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.step)}
+      placeholder=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.placeholder)}
+      label=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.label)}
+      id=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.id)}
+      .value=${opts.value ?? ''}
+      @value-changed=${opts.onChange}
+      @change=${opts.onChange}
+      @input=${opts.onChange}
+      test-id=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.testId)}
+      style=${(0, $eebc81779975f478$export$f68dd208b5df064d)(opts.style)}
+    >
+      ${opts.suffix ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span slot="end">${opts.suffix}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+    </ha-input>
+  `;
+}
+function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallback, // pattern is kept for signature compatibility; ha-input validates via min/max.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+pattern = '^[0-9\\.]+$') {
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ha-settings-row>
@@ -12598,21 +12636,19 @@ function $4dbea3927e6cdc74$export$4560e40fc05e15cf(value, stateObj, changedCallb
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
         ${name}
       </span>
-      <ha-textfield
-        .pattern=${pattern}
-        id="inputField"
-        .step=${Number(stateObj.attributes.step)}
-        .min=${Number(stateObj.attributes.min)}
-        .max=${Number(stateObj.attributes.max)}
-        .value=${Number(value).toString()}
-        .suffix=${stateObj.attributes.unit_of_measurement || ''}
-        type="number"
-        inputmode="numeric"
-        no-spinner
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-      >
-      </ha-textfield>
+      ${$4dbea3927e6cdc74$export$849e03e1dc76274b({
+        value: Number(value).toString(),
+        onChange: changedCallback,
+        type: 'number',
+        inputmode: 'numeric',
+        noSpinButtons: true,
+        min: stateObj.attributes.min,
+        max: stateObj.attributes.max,
+        step: stateObj.attributes.step,
+        suffix: stateObj.attributes.unit_of_measurement || undefined,
+        id: 'inputField',
+        testId: stateObj.entity_id
+    })}
     </ha-settings-row>
   `;
 }
@@ -12635,26 +12671,16 @@ var $4dbea3927e6cdc74$export$7034fcb7d6351061 = /*#__PURE__*/ function(InputText
 }({});
 function $4dbea3927e6cdc74$export$bc401cf358a8ff27(pattern, value, stateObj, changedCallback, validationMessage = "", type = "text", hass = null) {
     const name = (0, $aa1795080f053cd4$export$625550452a3fa3ec)(stateObj.entity_id) || stateObj.attributes.friendly_name;
-    // Not happy with fixed height but can't get helper text error to render correctly.
-    if (validationMessage === "") {
-        // Use generic fallback validation message
-        const tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
-        validationMessage = tp("validation_error");
-    }
-    const textField = (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-textfield
-      type="${type}"
-      required="required"
-      .autovalidate=${pattern}
-      .pattern=${pattern}
-      .validationMessage=${validationMessage}
-      .label=${name}
-      .value=${value}
-      @change=${changedCallback}
-      test-id="${stateObj.entity_id}"
-      style="width: 100%"
-    ></ha-textfield>
-  `;
+    const textField = $4dbea3927e6cdc74$export$849e03e1dc76274b({
+        value: value,
+        onChange: changedCallback,
+        label: name,
+        type: type,
+        required: true,
+        pattern: pattern,
+        testId: stateObj.entity_id,
+        style: 'width: 100%'
+    });
     if (hass && $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass)) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div style="display: flex; align-items: flex-start; padding: 4px 0;">
         <ha-icon .icon="${stateObj.attributes.icon}" style="margin-right: 16px; flex-shrink: 0; margin-top: 16px;"></ha-icon>
@@ -13229,7 +13255,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         </div>`;
     }
     _isChargerHostValid() {
-        return !this._chargerHostField || this._chargerHost && this._chargerHostField.checkValidity();
+        return !this._chargerHostField || typeof this._chargerHostField.checkValidity !== 'function' || this._chargerHost && this._chargerHostField.checkValidity();
     }
     _renderInvalidPortError() {
         return !this._hasTriedToConnect || this._isChargerPortValid() ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div test-id="invalid-port" class="invalid">
@@ -13237,7 +13263,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         </div>`;
     }
     _isChargerPortValid() {
-        return !this._chargerPortField || this._chargerPort && this._chargerPortField.checkValidity();
+        return !this._chargerPortField || typeof this._chargerPortField.checkValidity !== 'function' || this._chargerPort && this._chargerPortField.checkValidity();
     }
     _isBusyConnecting() {
         return this._chargerConnectionStatus === "Trying to connect...";
@@ -14438,19 +14464,19 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 Auto-detected
               </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         </div>
-        <ha-textfield
-          type="number"
-          inputmode="numeric"
-          .value=${this._capacityPerPhase}
-          @change=${(e)=>{
-            this._capacityPerPhase = e.target.value;
-        }}
-          min="6"
-          max="80"
-          suffix="A"
-          style="width: 120px; --mdc-text-field-text-align: right;"
-          test-id="capacity-per-phase"
-        ></ha-textfield>
+        ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._capacityPerPhase,
+            onChange: (e)=>{
+                this._capacityPerPhase = e.target.value;
+            },
+            type: 'number',
+            inputmode: 'numeric',
+            min: 6,
+            max: 80,
+            suffix: 'A',
+            testId: 'capacity-per-phase',
+            style: 'width: 120px;'
+        })}
         ${this._renderCapacityError()}
         <details class="hint">
           <summary>Where to find this</summary>
@@ -15155,30 +15181,29 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div>
         <label class="field-label" for="panel-name">Name</label>
-        <ha-textfield
-          id="panel-name"
-          .value=${this._name}
-          @input=${(e)=>{
-            this._name = e.target.value;
-        }}
-          placeholder="e.g. South roof"
-        ></ha-textfield>
+        ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._name,
+            onChange: (e)=>{
+                this._name = e.target.value;
+            },
+            id: 'panel-name',
+            placeholder: 'e.g. South roof'
+        })}
         ${this._renderNameError()}
       </div>
 
       <div style="margin-top: 16px;">
         <label class="field-label" for="panel-wp">Peak power (Wp)</label>
-        <ha-textfield
-          id="panel-wp"
-          type="text"
-          inputmode="numeric"
-          .value=${this._peakPowerWp}
-          @input=${(e)=>{
-            this._peakPowerWp = e.target.value;
-        }}
-          suffix="Wp"
-          style="width: 160px;"
-        ></ha-textfield>
+        ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._peakPowerWp,
+            onChange: (e)=>{
+                this._peakPowerWp = e.target.value;
+            },
+            id: 'panel-wp',
+            inputmode: 'numeric',
+            suffix: 'Wp',
+            style: 'width: 160px;'
+        })}
         ${this._renderWpError()}
       </div>
 
@@ -16046,14 +16071,14 @@ class $4b89696e518dfe0c$export$5208d5f7b949d64 extends (0, $942308f826de48c4$exp
             <p style="margin-top: 12px; font-weight: 500;">
               ${$4b89696e518dfe0c$var$tp('confirm-prompt')}
             </p>
-            <ha-textfield
-              .value=${this._confirmText}
-              .placeholder=${$4b89696e518dfe0c$var$tp('confirm-placeholder')}
-              @input=${(e)=>{
-            this._confirmText = e.target.value;
-        }}
-              style="width: 100%"
-            ></ha-textfield>
+            ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._confirmText,
+            onChange: (e)=>{
+                this._confirmText = e.target.value;
+            },
+            placeholder: $4b89696e518dfe0c$var$tp('confirm-placeholder'),
+            style: 'width: 100%'
+        })}
           </div>
         ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
 

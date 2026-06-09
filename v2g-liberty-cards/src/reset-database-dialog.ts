@@ -1,6 +1,6 @@
 import { html, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
-import { renderDialogHeader, renderButton, renderSpinner, isNewHaDialogAPI } from './util/render';
+import { renderDialogHeader, renderButton, renderSpinner, isNewHaDialogAPI, renderHaInput } from './util/render';
 import { partial } from './util/translate';
 import { DialogBase } from './dialog-base';
 import { callFunction } from './util/appdaemon';
@@ -129,12 +129,14 @@ export class ResetDatabaseDialog extends DialogBase {
             <p style="margin-top: 12px; font-weight: 500;">
               ${tp('confirm-prompt')}
             </p>
-            <ha-textfield
-              .value=${this._confirmText}
-              .placeholder=${tp('confirm-placeholder')}
-              @input=${(e: Event) => { this._confirmText = (e.target as HTMLInputElement).value; }}
-              style="width: 100%"
-            ></ha-textfield>
+            ${renderHaInput({
+              value: this._confirmText,
+              onChange: (e: any) => {
+                this._confirmText = e.target.value;
+              },
+              placeholder: tp('confirm-placeholder'),
+              style: 'width: 100%',
+            })}
           </div>
         ` : nothing}
 

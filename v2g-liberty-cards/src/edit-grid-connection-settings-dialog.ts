@@ -8,6 +8,7 @@ import {
   renderDialogHeader,
   renderSpinner,
   isNewHaDialogAPI,
+  renderHaInput,
 } from './util/render';
 import { styles } from './card.styles';
 import { DialogBase } from './dialog-base';
@@ -324,17 +325,19 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
             : nothing
           }
         </div>
-        <ha-textfield
-          type="number"
-          inputmode="numeric"
-          .value=${this._capacityPerPhase}
-          @change=${(e) => { this._capacityPerPhase = e.target.value; }}
-          min="6"
-          max="80"
-          suffix="A"
-          style="width: 120px; --mdc-text-field-text-align: right;"
-          test-id="capacity-per-phase"
-        ></ha-textfield>
+        ${renderHaInput({
+          value: this._capacityPerPhase,
+          onChange: (e: any) => {
+            this._capacityPerPhase = e.target.value;
+          },
+          type: 'number',
+          inputmode: 'numeric',
+          min: 6,
+          max: 80,
+          suffix: 'A',
+          testId: 'capacity-per-phase',
+          style: 'width: 120px;',
+        })}
         ${this._renderCapacityError()}
         <details class="hint">
           <summary>Where to find this</summary>

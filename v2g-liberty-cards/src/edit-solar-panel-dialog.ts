@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEvent } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
-import { renderButton, renderDialogHeader, renderSpinner, isNewHaDialogAPI } from './util/render';
+import { renderButton, renderDialogHeader, renderSpinner, isNewHaDialogAPI, renderHaInput } from './util/render';
 import { styles } from './card.styles';
 import { DialogBase } from './dialog-base';
 
@@ -320,30 +320,29 @@ export class EditSolarPanelDialog extends DialogBase {
     return html`
       <div>
         <label class="field-label" for="panel-name">Name</label>
-        <ha-textfield
-          id="panel-name"
-          .value=${this._name}
-          @input=${(e: any) => {
+        ${renderHaInput({
+          value: this._name,
+          onChange: (e: any) => {
             this._name = e.target.value;
-          }}
-          placeholder="e.g. South roof"
-        ></ha-textfield>
+          },
+          id: 'panel-name',
+          placeholder: 'e.g. South roof',
+        })}
         ${this._renderNameError()}
       </div>
 
       <div style="margin-top: 16px;">
         <label class="field-label" for="panel-wp">Peak power (Wp)</label>
-        <ha-textfield
-          id="panel-wp"
-          type="text"
-          inputmode="numeric"
-          .value=${this._peakPowerWp}
-          @input=${(e: any) => {
+        ${renderHaInput({
+          value: this._peakPowerWp,
+          onChange: (e: any) => {
             this._peakPowerWp = e.target.value;
-          }}
-          suffix="Wp"
-          style="width: 160px;"
-        ></ha-textfield>
+          },
+          id: 'panel-wp',
+          inputmode: 'numeric',
+          suffix: 'Wp',
+          style: 'width: 160px;',
+        })}
         ${this._renderWpError()}
       </div>
 

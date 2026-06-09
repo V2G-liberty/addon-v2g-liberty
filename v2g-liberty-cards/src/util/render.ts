@@ -2,6 +2,7 @@ import { mdiClose, mdiPencil } from '@mdi/js';
 import { HomeAssistant } from 'custom-card-helpers';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { html, nothing, TemplateResult } from 'lit';
+import { ifDefined } from 'lit/directives/if-defined';
 
 import { t, to, partial } from '../util/translate';
 
@@ -257,10 +258,66 @@ export function renderInputSelect(
   `;
 }
 
+export interface HaInputOptions {
+  value: string;
+  onChange: (e: any) => void;
+  label?: string;
+  placeholder?: string;
+  type?: string;
+  inputmode?: string;
+  required?: boolean;
+  pattern?: string;
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
+  suffix?: string;
+  id?: string;
+  testId?: string;
+  style?: string;
+  noSpinButtons?: boolean;
+}
+
+// Single source of truth for our text/number inputs. Renders Home Assistant's
+// current input element (ha-input, WebAwesome-based; ha-textfield was removed
+// in HA 2026.5). Entity-free: callers pass plain values, not a HassEntity, so
+// this works for both the legacy entity-backed settings and the newer
+// entity-free dialogs (grid, solar, reset). Listens to value-changed/change/
+// input so the callback fires regardless of which event ha-input emits.
+export function renderHaInput(opts: HaInputOptions): TemplateResult {
+  return html`
+    <ha-input
+      appearance="material"
+      type=${opts.type ?? 'text'}
+      inputmode=${ifDefined(opts.inputmode)}
+      ?required=${!!opts.required}
+      ?without-spin-buttons=${opts.noSpinButtons ?? opts.type === 'number'}
+      pattern=${ifDefined(opts.pattern)}
+      min=${ifDefined(opts.min)}
+      max=${ifDefined(opts.max)}
+      step=${ifDefined(opts.step)}
+      placeholder=${ifDefined(opts.placeholder)}
+      label=${ifDefined(opts.label)}
+      id=${ifDefined(opts.id)}
+      .value=${opts.value ?? ''}
+      @value-changed=${opts.onChange}
+      @change=${opts.onChange}
+      @input=${opts.onChange}
+      test-id=${ifDefined(opts.testId)}
+      style=${ifDefined(opts.style)}
+    >
+      ${opts.suffix
+        ? html`<span slot="end">${opts.suffix}</span>`
+        : nothing}
+    </ha-input>
+  `;
+}
+
 export function renderInputNumber(
   value: string,
   stateObj: HassEntity,
   changedCallback,
+  // pattern is kept for signature compatibility; ha-input validates via min/max.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   pattern: string = '^[0-9\\.]+$'
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
@@ -270,21 +327,19 @@ export function renderInputNumber(
         <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
         ${name}
       </span>
-      <ha-textfield
-        .pattern=${pattern}
-        id="inputField"
-        .step=${Number(stateObj.attributes.step)}
-        .min=${Number(stateObj.attributes.min)}
-        .max=${Number(stateObj.attributes.max)}
-        .value=${Number(value).toString()}
-        .suffix=${stateObj.attributes.unit_of_measurement || ''}
-        type="number"
-        inputmode="numeric"
-        no-spinner
-        @change=${changedCallback}
-        test-id="${stateObj.entity_id}"
-      >
-      </ha-textfield>
+      ${renderHaInput({
+        value: Number(value).toString(),
+        onChange: changedCallback,
+        type: 'number',
+        inputmode: 'numeric',
+        noSpinButtons: true,
+        min: stateObj.attributes.min,
+        max: stateObj.attributes.max,
+        step: stateObj.attributes.step,
+        suffix: stateObj.attributes.unit_of_measurement || undefined,
+        id: 'inputField',
+        testId: stateObj.entity_id,
+      })}
     </ha-settings-row>
   `;
 }
@@ -316,27 +371,17 @@ export function renderInputText(
   hass: HomeAssistant = null
 ): TemplateResult {
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
-  // Not happy with fixed height but can't get helper text error to render correctly.
-  if (validationMessage === "") {
-    // Use generic fallback validation message
-    const tp = partial('settings.common');
-    validationMessage = tp("validation_error");
-  }
 
-  const textField = html`
-    <ha-textfield
-      type="${type}"
-      required="required"
-      .autovalidate=${pattern}
-      .pattern=${pattern}
-      .validationMessage=${validationMessage}
-      .label=${name}
-      .value=${value}
-      @change=${changedCallback}
-      test-id="${stateObj.entity_id}"
-      style="width: 100%"
-    ></ha-textfield>
-  `;
+  const textField = renderHaInput({
+    value,
+    onChange: changedCallback,
+    label: name,
+    type,
+    required: true,
+    pattern,
+    testId: stateObj.entity_id,
+    style: 'width: 100%',
+  });
 
   if (hass && isNewHaDialogAPI(hass)) {
     return html`
