@@ -76,6 +76,14 @@ class DataRepairer:
     def __init__(self, hass: Hass):
         self.__hass = hass
         self.__log = get_class_method_logger(module_name="data_repairer")
+        # Single-flight guard: only one repair (full or incremental) may run at
+        # a time. Repairs write the whole interval_log in big transactions;
+        # overlapping runs (e.g. the post-import full repair colliding with the
+        # API-triggered one or the 6-hourly incremental) hold the SQLite write
+        # lock long enough to starve the live 5-min monitoring writes
+        # ("database is locked"). The flag is only ever read/written on the
+        # event loop, so a plain boolean is race-free here.
+        self._repair_running = False
 
     async def initialise(self):
         """Schedule periodic incremental repair runs.
@@ -106,6 +114,15 @@ class DataRepairer:
         its own file lock, so concurrent writes from data_monitor /
         fm_data_importer simply wait their turn.
         """
+        if self._repair_running:
+            self.__log(
+                "Full repair requested while a repair is already running — "
+                "skipping this trigger.",
+                level="WARNING",
+            )
+            return
+        self._repair_running = True
+
         db_path = self.data_store.DB_PATH
 
         def _run_with_own_connection() -> dict:
@@ -143,6 +160,7 @@ class DataRepairer:
                 ),
                 notification_id=self._MEMO_ID,
             )
+            self._repair_running = False
             return
 
         # Success — dismiss any leftover notification from a previous failure.
@@ -164,6 +182,7 @@ class DataRepairer:
             )
 
         self._emit_repairer_complete()
+        self._repair_running = False
 
     def run_full_repair(self, conn=None) -> dict:
         """Repair entire interval_log from first to last record.
@@ -191,15 +210,25 @@ class DataRepairer:
 
     async def run_incremental_repair(self, _kwargs=None):
         """Repair the last PERIODIC_LOOKBACK_HOURS hours."""
-        now = get_local_now()
-        start = (now - timedelta(hours=PERIODIC_LOOKBACK_HOURS)).isoformat()
-        end = now.isoformat()
+        if self._repair_running:
+            self.__log(
+                "Incremental repair skipped — a repair is already running.",
+                level="WARNING",
+            )
+            return
+        self._repair_running = True
+        try:
+            now = get_local_now()
+            start = (now - timedelta(hours=PERIODIC_LOOKBACK_HOURS)).isoformat()
+            end = now.isoformat()
 
-        summary = self._repair_range(start, end)
-        total = _total_repairs(summary)
-        if total > 0:
-            self.__log(f"Incremental repair: {_format_summary(summary)}")
-        self._emit_repairer_complete()
+            summary = self._repair_range(start, end)
+            total = _total_repairs(summary)
+            if total > 0:
+                self.__log(f"Incremental repair: {_format_summary(summary)}")
+            self._emit_repairer_complete()
+        finally:
+            self._repair_running = False
 
     def _emit_repairer_complete(self):
         """Notify listeners that a repair run has finished."""

@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Fix perpetual database is lock + Accept FM HTTP 202 when posting sensor data (#453)
 - 🪲 BUG: Fix broken UI (ha-xyz elements) on HA 2026.5+ (#452)
 - 🪲 BUG: Reduce excessive FM schedule requests on SoC changes (#446)
 - 🪲 BUG: Fix orphaned schedule timers overriding charge mode changes (#444)

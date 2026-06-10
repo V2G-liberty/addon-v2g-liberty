@@ -413,3 +413,57 @@ class TestSetAssetAttributes:
             "capacity_per_phase": 25,
             "v2g-liberty-version": "1.2.3",
         }
+
+
+class TestPostSensorData:
+    """post_sensor_data treats a 2xx 'failure' from the client as success.
+
+    FlexMeasures returns 202 (Accepted) for sensor-data posts; the
+    flexmeasures-client raises ValueError('Request failed with status code 202')
+    because it whitelists only one status. The data was accepted, so we must
+    not report a failure (which would retry forever and flag FM as down).
+    """
+
+    @pytest.mark.asyncio
+    async def test_202_is_treated_as_success(self, fm, fm_client_mock):
+        fm.set_fm_connection_status = AsyncMock()
+        fm_client_mock.post_sensor_data = AsyncMock(
+            side_effect=ValueError("Request failed with status code 202")
+        )
+        result = await fm.post_sensor_data(
+            sensor_id=5,
+            values=[0.1, 0.2],
+            start="2026-01-01T00:00:00+00:00",
+            duration="PT10M",
+            uom="kW",
+        )
+        assert result is True
+        fm.set_fm_connection_status.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_200_is_treated_as_success(self, fm, fm_client_mock):
+        fm_client_mock.post_sensor_data = AsyncMock(return_value=None)
+        result = await fm.post_sensor_data(
+            sensor_id=5,
+            values=[0.1],
+            start="2026-01-01T00:00:00+00:00",
+            duration="PT5M",
+            uom="kW",
+        )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_error_status_is_a_failure(self, fm, fm_client_mock):
+        fm.set_fm_connection_status = AsyncMock()
+        fm_client_mock.post_sensor_data = AsyncMock(
+            side_effect=ValueError("Request failed with status code 500")
+        )
+        result = await fm.post_sensor_data(
+            sensor_id=5,
+            values=[0.1],
+            start="2026-01-01T00:00:00+00:00",
+            duration="PT5M",
+            uom="kW",
+        )
+        assert result is False
+        fm.set_fm_connection_status.assert_called_once_with(connected=False)

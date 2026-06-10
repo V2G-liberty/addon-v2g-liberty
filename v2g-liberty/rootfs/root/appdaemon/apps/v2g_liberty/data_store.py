@@ -302,6 +302,13 @@ class DataStore:
         cursor.execute("PRAGMA journal_mode = WAL")
         cursor.execute("PRAGMA synchronous = NORMAL")
         cursor.execute("PRAGMA temp_store = MEMORY")
+        # Wait (instead of failing immediately with "database is locked") when
+        # another connection holds the write lock. The data_repairer runs on its
+        # own connection in a background thread; without a generous busy_timeout
+        # the shared connection's default of 5s is too short and writes such as
+        # upsert_emissions fail during a concurrent repair. 30s matches the
+        # repairer's own connection timeout.
+        cursor.execute("PRAGMA busy_timeout = 30000")
         cursor.close()
 
     def __create_tables(self):
