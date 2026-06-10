@@ -1,11 +1,12 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
-import { HassEntity } from 'home-assistant-js-websocket';
+import { HassEntity, HassEvent } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
 import { partial, setLanguage } from './util/translate';
 import { elapsedTimeSince } from './util/time';
+import { callFunction } from './util/appdaemon';
 import { styles } from './card.styles';
 import { showChargerSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
@@ -30,14 +31,24 @@ export class ChargerSettingsCard extends LitElement {
   @state() private _chargerMaxDischargingPower: HassEntity;
   @state() private _loadBalancerLimit: HassEntity;
 
+  // Charger phase (from JSON settings, not HA entity)
+  @state() private _connectedToPhase: number | number[] | null = null;
+  @state() private _phaseRequired: boolean = false;
 
   private _hass: HomeAssistant;
+  private _phaseLoaded: boolean = false;
+  private _unsubPhase: (() => void) | null = null;
 
   setConfig(config: LovelaceCardConfig) {}
 
   set hass(hass: HomeAssistant) {
+    const firstSet = !this._hass;
     this._hass = hass;
     setLanguage(hass.locale?.language ?? (hass as any).language);
+    if (firstSet) {
+      this._loadPhaseInfo();
+      this._subscribeToPhaseEvents();
+    }
     this._chargerSettingsInitialised =
       hass.states[entityIds.chargerSettingsInitialised];
     this._chargerHost = hass.states[entityIds.chargerHostname];
@@ -88,6 +99,7 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityBlock(this._hass, this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
+        ${this._renderChargerPhase()}
         ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       </div>
       <div class="card-actions">
@@ -115,6 +127,57 @@ export class ChargerSettingsCard extends LitElement {
       : hasConnectionError
         ? html`<ha-alert alert-type="error">${error}</ha-alert>`
         : nothing;
+  }
+
+  private async _loadPhaseInfo() {
+    try {
+      const data = await callFunction(this._hass, 'get_charger_phase');
+      this._connectedToPhase = data.connected_to_phase ?? null;
+      this._phaseRequired = data.required ?? false;
+      this._phaseLoaded = true;
+    } catch (e) {
+      // Ignore — phase info not available
+    }
+  }
+
+  private async _subscribeToPhaseEvents() {
+    this._unsubPhase = await this._hass.connection.subscribeEvents<HassEvent>(
+      () => this._loadPhaseInfo(),
+      'save_charger_phase.result'
+    );
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._unsubPhase) {
+      this._unsubPhase();
+      this._unsubPhase = null;
+    }
+  }
+
+  private _renderChargerPhase() {
+    if (!this._phaseLoaded) return nothing;
+
+    if (this._connectedToPhase === null) {
+      if (this._phaseRequired) {
+        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
+      }
+      return nothing;
+    }
+
+    const phaseValue = Array.isArray(this._connectedToPhase)
+      ? this._connectedToPhase.map(p => `L${p}`).join(', ')
+      : `L${this._connectedToPhase}`;
+
+    return html`
+      <ha-settings-row>
+        <span slot="heading">
+          <ha-icon icon="mdi:electric-switch"></ha-icon>&nbsp; &nbsp;
+          Connected to phase
+        </span>
+        <div class="text-content value state">${phaseValue}</div>
+      </ha-settings-row>
+    `;
   }
 
   private _renderMaxChargeConfiguration() {

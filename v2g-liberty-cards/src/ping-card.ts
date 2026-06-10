@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
 import { callFunction } from './util/appdaemon';
-import { partial } from './util/translate';
+import { partial, setLanguage } from './util/translate';
 
 const tp = partial('ping-card');
 
@@ -15,11 +15,20 @@ interface PingCardConfig {
 @customElement('v2g-liberty-ping-card')
 export class PingCard extends LitElement {
   @state() private _isResponding: boolean = true;
-  @state() private _isSnackbarOpen: boolean = false;
   @state() private _isRestarting: boolean = false;
 
-  public hass!: HomeAssistant;
+  private _hass: HomeAssistant;
   public _config: PingCardConfig;
+
+  set hass(hass: HomeAssistant) {
+    this._hass = hass;
+    setLanguage(hass.locale?.language ?? (hass as any).language);
+  }
+
+  get hass(): HomeAssistant {
+    return this._hass;
+  }
+
   private _connected: boolean;
   private _timeout: number;
 
@@ -50,6 +59,10 @@ export class PingCard extends LitElement {
     this._timeout = setTimeout(() => this._ping(), 1000);
   }
 
+  private get _toast(): any | null {
+    return this.renderRoot?.querySelector('ha-toast') ?? null;
+  }
+
   async _ping() {
     try {
       await callFunction(
@@ -59,8 +72,8 @@ export class PingCard extends LitElement {
         this._config.ping_timeout
       );
       this._isResponding = true;
-      this._isSnackbarOpen = false;
       this._isRestarting = false;
+      this._toast?.hide('dismiss');
       if (this._connected) {
         this._timeout = setTimeout(
           () => this._ping(),
@@ -68,14 +81,21 @@ export class PingCard extends LitElement {
         );
       }
     } catch (_) {
-      // If the ping fails, show the snackbar (again)
+      // If the ping fails, show the toast (again)
       this._isResponding = false;
-      this._isSnackbarOpen = true;
-      // Increase ping interval if not responding
       if (this._connected) {
+        await this.updateComplete;
+        this._showToast();
         this._timeout = setTimeout(() => this._ping(), 100);
       }
     }
+  }
+
+  private _showToast() {
+    const toast = this._toast;
+    if (!toast) return;
+    toast.labelText = this._isRestarting ? tp('restarting') : tp('error');
+    toast.show();
   }
 
   _stopPinging() {
@@ -83,20 +103,12 @@ export class PingCard extends LitElement {
   }
 
   render() {
-    const _onSnackbarClose = () => this._isSnackbarOpen = false;
-
     return this._isResponding
       ? nothing
       : html`
-          <ha-toast
-            ?open=${this._isSnackbarOpen}
-            labelText=${this._isRestarting ? tp('restarting') : tp('error')}
-            timeoutMs="-1"  <!-- Persistent until closed -->
-            persistent
-            @closed=${_onSnackbarClose}
-          >
+          <ha-toast .timeoutMs=${-1}>
             ${!this._isRestarting
-              ? html`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="small">${tp('restart')}</ha-button>`
+              ? html`<ha-button slot="action" @click=${this._restart} appearance="outlined" size="s">${tp('restart')}</ha-button>`
               : nothing
             }
           </ha-toast>
@@ -108,9 +120,9 @@ export class PingCard extends LitElement {
   }
 
   async _restart(event: Event) {
-    event.stopPropagation(); // Prevent the click closing the snackbar
-    this._isSnackbarOpen = true; // Ensure the snackbar stays open during restart
+    event.stopPropagation();
     this._isRestarting = true;
+    this._showToast();
     // After the restart assume that ultimately after a timeout the restart
     // should be finished and if not show an error again if pinging fails.
     setTimeout(() => this._resetIsRestarting(), this._config.interval * 2);

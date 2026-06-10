@@ -2,7 +2,7 @@
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -682,7 +682,7 @@ class TestLinearSocInterpolation:
         _insert_interval(initialised_store, _ts(5), soc=None, energy=0.0)
         _insert_interval(initialised_store, _ts(10), soc=50.0, energy=0.0)
 
-        summary = repairer.run_full_repair()
+        repairer.run_full_repair()
         # Could be filled by linear interp or Type D — either is fine
         rows = _get_all_intervals(initialised_store)
         assert rows[1]["soc_pct"] == pytest.approx(50.0, abs=0.2)
@@ -1410,3 +1410,41 @@ class TestPendingReview:
         filled = [r for r in rows if r["timestamp"] not in (_ts(0), _ts(15))]
         for r in filled:
             assert r["is_repaired"] == 1
+
+
+class TestRepairSingleFlight:
+    """Only one repair (full or incremental) may run at a time.
+
+    Overlapping repairs hold the SQLite write lock long enough to starve the
+    live 5-min monitoring writes ("database is locked").
+    """
+
+    @pytest.mark.asyncio
+    async def test_full_repair_skipped_when_already_running(self, repairer):
+        repairer.run_full_repair = MagicMock()
+        repairer._repair_running = True
+
+        await repairer.run_full_repair_async()
+
+        # Skipped before doing any DB work; the in-progress flag is untouched.
+        repairer.run_full_repair.assert_not_called()
+        assert repairer._repair_running is True
+
+    @pytest.mark.asyncio
+    async def test_flag_reset_after_full_repair(self, repairer, hass):
+        hass.call_service = MagicMock()
+        repairer.run_full_repair = MagicMock(return_value=_empty_summary())
+
+        await repairer.run_full_repair_async()
+
+        repairer.run_full_repair.assert_called_once()
+        assert repairer._repair_running is False
+
+    @pytest.mark.asyncio
+    async def test_incremental_repair_skipped_when_running(self, repairer):
+        repairer._repair_range = MagicMock()
+        repairer._repair_running = True
+
+        await repairer.run_incremental_repair()
+
+        repairer._repair_range.assert_not_called()

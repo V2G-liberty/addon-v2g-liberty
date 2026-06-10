@@ -43,7 +43,7 @@ class NaiveChargingSimulator:
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.event_bus = event_bus
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="naive_charging_simulator")
 
     async def initialise(self):
         """Subscribe to events and run initial batch in the background."""

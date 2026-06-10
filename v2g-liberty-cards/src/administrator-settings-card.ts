@@ -105,7 +105,7 @@ export class AdministratorSettingsCard extends LitElement {
   private _renderTestNotificationPart() {
     if (this._testNotificationState === 'idle') {
       return html`
-          <ha-button @click=${this._sendNotificationCallback} appearance='plain' variant='brand' size='small'>
+          <ha-button @click=${this._sendNotificationCallback} appearance='plain' variant='brand' size='s'>
             <ha-icon slot='start' icon='mdi:cellphone-text'></ha-icon>
             ${tt('send-test-notification')}
           </ha-button>

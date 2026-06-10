@@ -8,3 +8,16 @@ charger-mocks/**/*.sh text eol=lf
 
 # Python files use LF
 *.py text eol=lf
+
+# Generated cards bundle — never merge-conflict on it. On a merge git keeps the
+# CURRENT branch's version (the "ours" merge driver, see below).
+#
+# DISCIPLINE: after merging a branch that changed the cards source
+# (v2g-liberty-cards/src/**), rebuild the bundle (npm run build) and commit it.
+# The merge keeps the OLD bundle SILENTLY, so without a rebuild you ship a stale
+# bundle. This matters especially before a release (dev → main).
+#
+# The driver must be enabled once per clone:  git config merge.ours.driver true
+# The devcontainers do this automatically via their postCreateCommand.
+v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards/v2g-liberty-cards.js merge=ours
+v2g-liberty/rootfs/root/homeassistant/www/v2g_liberty/v2g-liberty-cards/v2g-liberty-cards.js.map merge=ours

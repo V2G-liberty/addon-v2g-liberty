@@ -6,6 +6,7 @@ from typing import Union
 from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
+from .grid_connection.power_tracker import PowerTracker
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now, time_ceil, time_round
 from .event_bus import EventBus
@@ -96,9 +97,22 @@ class DataMonitor:
     reservations_client = None
     hass: Hass = None
 
+    # Grid monitoring: PowerTracker per phase per direction
+    _grid_consumption_trackers: dict[int, PowerTracker]
+    _grid_production_trackers: dict[int, PowerTracker]
+    # PV monitoring: PowerTracker per configured solar panel, keyed on panel id
+    _pv_trackers: dict[str, PowerTracker]
+    # Scale factors to convert each entity's reported value to kW. Looked
+    # up at setup from the entity's unit_of_measurement (W → 0.001, kW →
+    # 1.0, MW → 1000). Used in the corresponding handler before passing
+    # the value to the tracker.
+    _grid_consumption_scales: dict[int, float]
+    _grid_production_scales: dict[int, float]
+    _pv_scales: dict[str, float]
+
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="data_monitor")
         self.event_bus = event_bus
 
     async def initialize(self):
@@ -149,6 +163,18 @@ class DataMonitor:
             self.reservations_client.add_listener(
                 "calendar_change", self._handle_calendar_change
             )
+
+        # Grid monitoring listeners
+        self._grid_consumption_trackers = {}
+        self._grid_production_trackers = {}
+        self._grid_consumption_scales = {}
+        self._grid_production_scales = {}
+        await self._setup_grid_listeners(local_now)
+
+        # PV monitoring listeners
+        self._pv_trackers = {}
+        self._pv_scales = {}
+        await self._setup_pv_listeners(local_now)
 
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         await self.hass.run_every(
@@ -353,6 +379,167 @@ class DataMonitor:
         }
         return max(candidates, key=candidates.get)
 
+    # ── Grid monitoring ─────────────────────────────────────────────────
+
+    async def _get_power_scale(self, entity_id: str) -> float:
+        """Return the multiplier that converts the entity's reported value to kW.
+
+        Reads the entity's ``unit_of_measurement`` once at setup time —
+        DSMR/inverter sensors often report in W, some integrations use
+        kW, a few (large industrial setups) use MW. Unknown or missing
+        units default to 1.0 (assume kW) with a WARNING so the user can
+        spot misconfigured sensors.
+        """
+        unit = await self.hass.get_state(entity_id, attribute="unit_of_measurement")
+        if unit == "W":
+            return 0.001
+        if unit == "kW":
+            return 1.0
+        if unit == "MW":
+            return 1000.0
+        self.__log(
+            f"Entity {entity_id} reports unit '{unit}', assuming kW.",
+            level="WARNING",
+        )
+        return 1.0
+
+    async def _setup_grid_listeners(self, local_now: datetime):
+        """Register listen_state for each configured grid entity."""
+        if not c.GRID_CONSUMPTION_ENTITIES:
+            self.__log("Grid monitoring not configured, skipping.")
+            return
+
+        # Defensive init — tests may instantiate the monitor without going
+        # through initialize(); the scales dicts must exist before use.
+        if not hasattr(self, "_grid_consumption_scales"):
+            self._grid_consumption_scales = {}
+        if not hasattr(self, "_grid_production_scales"):
+            self._grid_production_scales = {}
+
+        for i, entity_id in enumerate(c.GRID_CONSUMPTION_ENTITIES, start=1):
+            self._grid_consumption_scales[i] = await self._get_power_scale(entity_id)
+            tracker = PowerTracker()
+            tracker.reset(local_now)
+            self._grid_consumption_trackers[i] = tracker
+            await self.hass.listen_state(
+                self._handle_grid_consumption_change, entity_id, phase=i
+            )
+
+        for i, entity_id in enumerate(c.GRID_PRODUCTION_ENTITIES, start=1):
+            self._grid_production_scales[i] = await self._get_power_scale(entity_id)
+            tracker = PowerTracker()
+            tracker.reset(local_now)
+            self._grid_production_trackers[i] = tracker
+            await self.hass.listen_state(
+                self._handle_grid_production_change, entity_id, phase=i
+            )
+
+        self.__log(
+            f"Grid monitoring started: {len(c.GRID_CONSUMPTION_ENTITIES)} "
+            f"consumption + {len(c.GRID_PRODUCTION_ENTITIES)} production entities."
+        )
+
+    async def _handle_grid_consumption_change(
+        self, entity, attribute, old, new, kwargs
+    ):
+        """Called when a grid consumption entity changes state."""
+        if new in self.EMPTY_STATES:
+            return
+        try:
+            power = float(new)
+        except (TypeError, ValueError):
+            return
+        phase = kwargs.get("phase", 1)
+        tracker = self._grid_consumption_trackers.get(phase)
+        if tracker:
+            scale = self._grid_consumption_scales.get(phase, 1.0)
+            tracker.update(power * scale, get_local_now())
+
+    async def _handle_grid_production_change(self, entity, attribute, old, new, kwargs):
+        """Called when a grid production entity changes state."""
+        if new in self.EMPTY_STATES:
+            return
+        try:
+            power = float(new)
+        except (TypeError, ValueError):
+            return
+        phase = kwargs.get("phase", 1)
+        tracker = self._grid_production_trackers.get(phase)
+        if tracker:
+            scale = self._grid_production_scales.get(phase, 1.0)
+            tracker.update(power * scale, get_local_now())
+
+    def _conclude_grid_interval(self, timestamp: str, local_now: datetime):
+        """Conclude grid trackers and persist to database."""
+        if not getattr(self, "_grid_consumption_trackers", None):
+            return
+
+        for phase in self._grid_consumption_trackers:
+            cons_avg = self._grid_consumption_trackers[phase].conclude(local_now)
+            prod_tracker = self._grid_production_trackers.get(phase)
+            prod_avg = prod_tracker.conclude(local_now) if prod_tracker else None
+
+            if self.data_store is not None:
+                self.data_store.insert_grid_interval(
+                    timestamp, phase, cons_avg, prod_avg
+                )
+
+    # ── PV monitoring ──────────────────────────────────────────────────
+
+    async def _setup_pv_listeners(self, local_now: datetime):
+        """Register listen_state for each configured solar panel.
+
+        Skips silently when no panels are configured (plan task 16 guard).
+        """
+        if not c.SOLAR_PANELS:
+            self.__log("PV monitoring not configured, skipping.")
+            return
+
+        # Defensive init — see _setup_grid_listeners.
+        if not hasattr(self, "_pv_scales"):
+            self._pv_scales = {}
+
+        for panel in c.SOLAR_PANELS:
+            panel_id = panel.get("id")
+            entity_id = panel.get("power_entity_id")
+            if not panel_id or not entity_id:
+                continue
+            self._pv_scales[panel_id] = await self._get_power_scale(entity_id)
+            tracker = PowerTracker()
+            tracker.reset(local_now)
+            self._pv_trackers[panel_id] = tracker
+            await self.hass.listen_state(
+                self._handle_pv_power_change, entity_id, panel_id=panel_id
+            )
+
+        self.__log(f"PV monitoring started: {len(self._pv_trackers)} panel(s).")
+
+    async def _handle_pv_power_change(self, entity, attribute, old, new, kwargs):
+        """Called when a solar panel's power entity changes state."""
+        if new in self.EMPTY_STATES:
+            return
+        try:
+            power = float(new)
+        except (TypeError, ValueError):
+            return
+        panel_id = kwargs.get("panel_id")
+        tracker = self._pv_trackers.get(panel_id)
+        if tracker:
+            scale = self._pv_scales.get(panel_id, 1.0)
+            tracker.update(power * scale, get_local_now())
+
+    def _conclude_pv_interval(self, timestamp: str, local_now: datetime):
+        """Conclude PV trackers and persist to database."""
+        if not getattr(self, "_pv_trackers", None):
+            return
+
+        for panel_id, tracker in self._pv_trackers.items():
+            avg_kw = tracker.conclude(local_now)
+            if self.data_store is not None:
+                self.data_store.insert_pv_interval(timestamp, panel_id, avg_kw)
+
+    # ── Charger power monitoring ───────────────────────────────────────
+
     async def _process_power_change(self, new_power: int):
         """Keep track of updated power changes within a regular interval."""
         if not isinstance(new_power, (int, float)):
@@ -416,6 +603,14 @@ class DataMonitor:
             timestamp = await self._write_interval_to_db(
                 energy_kwh, availability_pct, soc, app_state
             )
+
+            # Persist grid monitoring data
+            if timestamp is not None:
+                self._conclude_grid_interval(timestamp, get_local_now())
+
+            # Persist PV monitoring data
+            if timestamp is not None:
+                self._conclude_pv_interval(timestamp, get_local_now())
 
             # Notify listeners (e.g. naive charging simulator).
             if timestamp is not None:

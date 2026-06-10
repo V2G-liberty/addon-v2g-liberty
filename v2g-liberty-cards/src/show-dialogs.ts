@@ -8,6 +8,11 @@ import { tagName as editScheduleSettingsDialogTag } from './edit-schedule-settin
 import { tagName as editInputNumberDialogTag } from './edit-inputnumer-dialog';
 import { tagName as editInputSelectDialogTag } from './edit-inputselect-dialog';
 
+import { tagName as editGridConnectionSettingsDialogTag } from './edit-grid-connection-settings-dialog';
+import {
+  tagName as editSolarPanelDialogTag,
+  SolarPanelDialogParams,
+} from './edit-solar-panel-dialog';
 import { tagName as showSettingsErrorAlertDialogTag } from './settings-error-alert-dialog';
 import { tagName as resetDatabaseDialogTag } from './reset-database-dialog';
 
@@ -91,6 +96,31 @@ export const showCarReservationCalendarSettingsDialog = (
     dialogTag: editCarReservationCalendarSettingsDialogTag,
     dialogImport: () => Promise.resolve(),
     dialogParams: {},
+  });
+};
+
+// --- Grid Connection Settings ---
+
+export const showGridConnectionSettingsDialog = (
+  element: HTMLElement
+): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: editGridConnectionSettingsDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams: {},
+  });
+};
+
+// --- Solar Panel (add/edit) ---
+
+export const showSolarPanelDialog = (
+  element: HTMLElement,
+  params: SolarPanelDialogParams = {}
+): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: editSolarPanelDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams: params,
   });
 };
 

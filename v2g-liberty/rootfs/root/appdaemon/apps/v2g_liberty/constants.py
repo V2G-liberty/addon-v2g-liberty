@@ -148,7 +148,11 @@ DEFAULT_UTILITY_CONTEXTS = {
 FM_ACCOUNT_USERNAME: str = ""
 FM_ACCOUNT_PASSWORD: str = ""
 
-# Name of the FM asset that is managed, e.g. "John's Quasar"
+# Name of the user's *charger* asset in FlexMeasures (e.g. "John's Quasar").
+# Historically called just FM_ASSET_NAME — predates the multi-asset model
+# (Main Connection / solar panels). A rename to FM_CHARGER_ASSET_NAME is
+# tracked in todo.md; deferred because it touches the on-disk settings
+# JSON, the HA input_text entity (`fm_asset`) and the cards UI.
 FM_ASSET_NAME: str = ""
 
 # Sensor entity for sending and id for retrieving data to/from FM
@@ -203,6 +207,11 @@ ROUNDTRIP_EFFICIENCY_FACTOR: float = 0.85
 # Defaults to 85, used in settings UI
 CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: int = 85
 
+# Which phase the charger is connected to (1, 2, or 3).
+# Only relevant when GRID_PHASES == 3. Stored via JSON (no HA entity).
+# None means not yet configured.
+CHARGER_CONNECTED_TO_PHASE: int | None = None
+
 # Defaults to min current setting of 6A * 230V = 1380W
 # FSC: Used in fm_client, v2g_liberty, evse_client keep here.
 CHARGER_MAX_CHARGE_POWER: int = 1380
@@ -213,6 +222,29 @@ CHARGER_MAX_DISCHARGE_POWER: int = 1380
 # Defaults to 24 (to be safe)
 # FSC: Used in fm_client, v2g_liberty, keep here.
 CAR_MAX_CAPACITY_IN_KWH: int = 24
+
+# GRID CONNECTION CONSTANTS
+# These are set from grid connection settings (JSON, no HA entities).
+# Empty lists mean grid monitoring is not configured.
+GRID_PHASES: int = 3
+GRID_CAPACITY_PER_PHASE: int = 25
+GRID_CONSUMPTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
+GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
+
+# FM asset/sensor IDs for grid monitoring.
+# Set at runtime by __provision_grid_assets() in v2g_globals.
+FM_MAIN_CONNECTION_ASSET_ID: int | None = None
+FM_GRID_CONSUMPTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
+FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
+FM_AGGREGATE_POWER_SENSOR_ID: int | None = None
+FM_EMS_STATUS_SENSOR_ID: int | None = None
+
+# SOLAR PANEL CONSTANTS
+# Set from solar panel settings (JSON, no HA entities). Each entry is a
+# dict with keys: id, name, phases, connected_to_phase, peak_power_wp,
+# curtailable, power_entity_id, curtail_entity_id, fm_asset_id,
+# fm_sensor_id. Empty list means no PV monitoring is configured.
+SOLAR_PANELS: list[dict] = []
 
 # CALENDAR CONSTANTS
 # FSC: Used in reservations_client only, move there.

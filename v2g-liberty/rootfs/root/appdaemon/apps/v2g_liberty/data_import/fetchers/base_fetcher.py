@@ -22,7 +22,7 @@ class BaseFetcher:
         """
         self.hass = hass
         self.fm_client_app = fm_client_app
-        self.__log = get_class_method_logger(hass.log)
+        self.__log = get_class_method_logger(module_name="base_fetcher")
 
     def is_client_available(self) -> bool:
         """

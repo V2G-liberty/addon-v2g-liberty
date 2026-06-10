@@ -2,7 +2,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 
 import { callFunction } from './util/appdaemon';
-import { renderDialogHeader, renderSelectOption, renderButton, isNewHaDialogAPI } from './util/render';
+import { renderDialogHeader, renderControlSelect, renderButton, isNewHaDialogAPI } from './util/render';
 import { styles } from './card.styles';
 import { t } from './util/translate';
 import { DialogBase } from './dialog-base';
@@ -42,12 +42,10 @@ class EditInputNumberDialog extends DialogBase {
           <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
         </div>
         <div>
-          ${stateObj.attributes.options.map(option =>
-            renderSelectOption(
-              option,
-              option === this._value,
-              evt => (this._value = evt.target.value)
-            )
+          ${renderControlSelect(
+            this._value,
+            stateObj.attributes.options,
+            evt => (this._value = evt.target.value)
           )}
         </div>
         <ha-markdown breaks .content=${description}></ha-markdown>
