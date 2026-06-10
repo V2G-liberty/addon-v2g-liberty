@@ -3,6 +3,7 @@
 import asyncio
 import json
 import math
+import re
 from datetime import datetime, timedelta
 from pyee.asyncio import AsyncIOEventEmitter
 import isodate
@@ -706,6 +707,20 @@ class FMClient(AsyncIOEventEmitter):
                 unit=uom,
             )
         except Exception as e:
+            # flexmeasures-client raises ValueError("Request failed with status
+            # code NNN") when the response status is not its single expected
+            # status. FlexMeasures returns 202 (Accepted) for sensor-data posts,
+            # which the client (0.8.1) does not whitelist. A 2xx status means the
+            # data was accepted by FM, so treat it as success rather than a
+            # failure (which would otherwise retry forever and flag FM as down).
+            match = re.search(r"status code (\d{3})", str(e))
+            if match and 200 <= int(match.group(1)) < 300:
+                self.__log(
+                    f"accepted (HTTP {match.group(1)}) | sensor_id: '{sensor_id}', "
+                    f"start: '{start}', duration: '{duration}', unit: '{uom}'.",
+                    level="DEBUG",
+                )
+                return True
             self.__log(
                 f"failed | sensor_id: '{sensor_id}', values: '{values}', "
                 f"start: '{start}', duration: '{duration}', unit: '{uom}', "
