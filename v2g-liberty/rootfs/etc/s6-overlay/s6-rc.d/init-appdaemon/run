@@ -10,14 +10,16 @@ bashio::log.info "Configuring V2G Liberty..."
 # Create directory where log files will be written
 mkdir -p /config/logs
 
-# Remove dev-only files that earlier versions copied into the persistent
+# Remove dev-only files that earlier releases copied into the persistent
 # /config. The copy below only adds/overwrites, so without this these stale
-# dev files would survive an upgrade. They are no longer in the image.
-# Introduced in 0.8.1. Can be removed once no installation upgrades from a
-# version below 0.8.1 anymore (HA jumps straight to the latest version, so a
-# 0.8.0 -> later install would otherwise skip this cleanup).
-rm -rf /config/apps/dev_tools \
-    /config/tests \
+# files would survive an upgrade. They are no longer in the image as of 0.8.1.
+# NOTE: dev_tools/ is intentionally NOT removed here. It is new in 0.8.1 (so it
+# was never in an end-user's /config), and removing it on every start would
+# wipe a manually placed grid/PV emulator used for testing (see dev_tools/README).
+# Can be removed once no installation upgrades from a version below 0.8.1
+# anymore (HA jumps straight to the latest version, so a 0.8.0 -> later install
+# would otherwise skip this cleanup).
+rm -rf /config/tests \
     /config/appdaemon.devcontainer.yaml
 
 # Copy python files
