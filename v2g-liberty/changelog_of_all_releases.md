@@ -20,8 +20,8 @@ That file also contains possible changes that the next release might include.
 
 ### Changed
 
-- 🛠️ Refactor: Exclude dev-only files (dev_tools, tests, dev config) from the production add-on image (#454)
-- 🛠️ Refactor: Quieter add-on startup — copy without per-file logging and report each step (#454)
+- 🛠️ Refactor: Exclude dev-only files (dev_tools, tests, dev config) from the production add-on image (#455)
+- 🛠️ Refactor: Quieter add-on startup — copy without per-file logging and report each step (#455)
 - 🛠️ Refactor: Migrate to python logging (#448)
 - 🛠️ Refactor: make AppDaemon timer-API usage consistently async in main_app (#445)
 - 🛠️ Refactor: Increase FM data send frequency from daily to hourly (#441)
