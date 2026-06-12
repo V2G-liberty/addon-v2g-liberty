@@ -10,9 +10,12 @@ bashio::log.info "Configuring V2G Liberty..."
 # Create directory where log files will be written
 mkdir -p /config/logs
 
-# Remove old v2g-liberty folder as it is renamed to v2g_liberty
-# Bug-fix release 0.4.1
-rm -rf /config/apps/v2g-liberty
+# Remove dev-only files that earlier versions copied into the persistent
+# /config. The copy below only adds/overwrites, so without this these stale
+# dev files would survive an upgrade. They are no longer in the image.
+rm -rf /config/apps/dev_tools \
+    /config/tests \
+    /config/appdaemon.devcontainer.yaml
 
 # Copy python files
 cp -aR /root/appdaemon/* /config \
