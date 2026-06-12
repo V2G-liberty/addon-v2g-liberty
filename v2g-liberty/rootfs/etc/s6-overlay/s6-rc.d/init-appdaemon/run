@@ -5,6 +5,8 @@
 # Configures V2G Liberty
 # ==============================================================================
 
+bashio::log.info "Configuring V2G Liberty..."
+
 # Create directory where log files will be written
 mkdir -p /config/logs
 
@@ -13,16 +15,18 @@ mkdir -p /config/logs
 rm -rf /config/apps/v2g-liberty
 
 # Copy python files
-cp -aRv /root/appdaemon/* /config \
+cp -aR /root/appdaemon/* /config \
     || bashio::exit.nok 'Failed to copy V2G-Liberty app'
+bashio::log.info "AppDaemon app files copied to /config"
 
 #Create packages folder if it does not exist yet
 if ! bashio::fs.file_exists '/homeassistant/packages/v2g_liberty'; then
     mkdir -p /homeassistant/packages/v2g_liberty
 fi
 # Copy files to packages folder
-cp -aRv /root/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
+cp -aR /root/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_liberty \
     || bashio::exit.nok 'Failed to copy V2G-Liberty package'
+bashio::log.info "Home Assistant package files copied"
 
 # Create folders for plugins if needed
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/apexcharts-card'; then
@@ -37,17 +41,20 @@ if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/v2g-liberty-cards'; 
 fi
 
 # Copy plugins
-cp -aRv /root/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
+cp -aR /root/homeassistant/www/v2g_liberty/apexcharts-card/* /homeassistant/www/v2g_liberty/apexcharts-card \
     || bashio::exit.nok 'Failed to copy apexchart-card plugin'
 
-cp -aRv /root/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
+cp -aR /root/homeassistant/www/v2g_liberty/lovelace-card-mod/* /homeassistant/www/v2g_liberty/lovelace-card-mod \
     || bashio::exit.nok 'Failed to copy lovelace-card-mod plugin'
 
-cp -aRv /root/homeassistant/www/v2g_liberty/v2g-liberty-cards/* /homeassistant/www/v2g_liberty/v2g-liberty-cards \
+cp -aR /root/homeassistant/www/v2g_liberty/v2g-liberty-cards/* /homeassistant/www/v2g_liberty/v2g-liberty-cards \
     || bashio::exit.nok 'Failed to copy v2g-liberty-cards plugin'
+bashio::log.info "Front-end plugins copied (apexcharts-card, lovelace-card-mod, v2g-liberty-cards)"
 
-cp -av /root/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
+cp -a /root/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
     || bashio::exit.nok 'Failed to copy v2g_liberty_example_configuration.yaml'
 
-cp -av /root/homeassistant/quasar_load_balancer.json-example /homeassistant/quasar_load_balancer.json-example \
+cp -a /root/homeassistant/quasar_load_balancer.json-example /homeassistant/quasar_load_balancer.json-example \
     || bashio::exit.nok 'Failed to copy quasar_load_balancer.json-example'
+
+bashio::log.info "V2G Liberty configuration complete."

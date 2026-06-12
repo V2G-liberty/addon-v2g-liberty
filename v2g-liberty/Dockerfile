@@ -31,6 +31,18 @@ RUN \
 # Copy root filesystem
 COPY rootfs /
 
+# Strip dev-only files so they are never shipped in the production add-on.
+# The dev container loads everything straight from the repo (it does not use
+# this image), so removing these does not affect development:
+#   - apps/dev_tools/             : dev-only tooling (e.g. the grid/PV emulator)
+#   - appdaemon/tests/ & /root/tests/ : the test suites
+#   - appdaemon.devcontainer.yaml : the dev AppDaemon config (prod uses appdaemon.yaml)
+# (appdaemon.yaml's exclude_dirs only stops app discovery; it does not remove files.)
+RUN rm -rf /root/appdaemon/apps/dev_tools \
+    /root/appdaemon/tests \
+    /root/appdaemon/appdaemon.devcontainer.yaml \
+    /root/tests
+
 # Build arguments
 ARG BUILD_ARCH
 ARG BUILD_DATE

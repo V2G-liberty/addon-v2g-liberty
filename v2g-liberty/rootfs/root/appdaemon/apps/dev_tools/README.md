@@ -64,3 +64,18 @@ Turn it off to resume.
 2. In the grid connection settings dialog, use the `sensor.emulated_*` entity IDs
 3. The entity validation test will confirm they are emitting data
 4. For charger phase detection testing: ensure the charger is connected and charging — the emulator will reflect the charger power on the correct phase
+
+### Running outside the dev container (e.g. on pre-production)
+
+The emulator is **dev-only** and is **stripped from the built add-on image** (see the `rm -rf …/dev_tools` in the repo `Dockerfile`), so it is **not present in production *or* pre-production add-ons**. (`appdaemon.yaml` additionally excludes `dev_tools` from app discovery.)
+
+**Recommended:** run the emulator in the **dev container**, where it loads automatically from the repo. For most grid/PV UI, entity-validation and flow testing this is enough.
+
+If you specifically need it on a pre-production host, set it up by hand (temporary):
+
+1. Copy the `dev_tools/` directory into the running add-on's `…/appdaemon/apps/` directory — it is not in the built image, so you must add it (e.g. via the add-on's file access or `docker cp` into the container).
+2. Remove the `- dev_tools` line from that host's `appdaemon.yaml` `exclude_dirs` (leave the other entries — `chargers`, `evs`, `util`, etc. — in place) so AppDaemon discovers `dev_tools/apps.yaml`.
+3. Configure `dev_tools/apps.yaml` (`pv_panels`, `base_load`, `fuse_threshold`) and restart AppDaemon / the add-on.
+4. After ~10 seconds the `sensor.emulated_*` entities appear (Developer Tools → States). Use those entity IDs in the grid connection settings dialog; toggle `input_boolean.emulator_paused` to test the "no sensor activity" scenario.
+
+> ⚠️ This is a temporary, manual test setup — a rebuild/redeploy removes it again. **Never enable the emulator on production.**
