@@ -26,8 +26,8 @@ class EntsoeFetcher(BaseFetcher):
     """
 
     # ENTSOE sensor and source IDs in FlexMeasures
-    ENTSOE_SENSOR_ID: int = 14
-    ENTSOE_SOURCE_ID: int = 37
+    ENTSOE_SENSOR_ID: int = 16
+    ENTSOE_SOURCE_ID: int = 1
 
     def __init__(
         self,
