@@ -2123,9 +2123,9 @@ class V2GLibertyGlobals:
             c.CURRENCY = "EUR"
             c.PRICE_RESOLUTION_MINUTES = 15
             # TODO Notify user if fallback "nl_generic" is used..
-            c.FM_PRICE_PRODUCTION_SENSOR_ID = context["production-sensor"]
-            c.FM_PRICE_CONSUMPTION_SENSOR_ID = context["consumption-sensor"]
-            c.FM_EMISSIONS_SENSOR_ID = context["emissions-sensor"]
+            c.FM_PRICE_PRODUCTION_SENSOR_ID = 20
+            c.FM_PRICE_CONSUMPTION_SENSOR_ID = 19
+            c.FM_EMISSIONS_SENSOR_ID = 21
             c.UTILITY_CONTEXT_DISPLAY_NAME = context["display-name"]
             self.__log(
                 f"FM sensors (generic):\n"
