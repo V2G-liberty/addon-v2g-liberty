@@ -78,11 +78,11 @@ class QuasarLoadBalancer(Hass):
 
     def on_total_power_changed(self, entity, attribute, old, new, kwargs):
         try:
-            total_power = int(new)
-        except ValueError:
-            self.__log(f"incoming power not int: {new=}.")
+            total_power = int(round(float(new)))
+        except (ValueError, TypeError):
+            self.__log(f"incoming power invalid: {new=}.")
             return
-        total_power = int(new)
+
         self.load_balancer.total_power_changed(total_power)
         self.reset_timeout()
 
