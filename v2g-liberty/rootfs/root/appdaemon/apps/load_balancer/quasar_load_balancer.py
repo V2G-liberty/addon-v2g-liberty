@@ -78,11 +78,13 @@ class QuasarLoadBalancer(Hass):
 
     def on_total_power_changed(self, entity, attribute, old, new, kwargs):
         try:
-            total_power = int(new)
-        except ValueError:
-            self.__log(f"incoming power not int: {new=}.")
+            # Some HA power sensors report floats / float-strings
+            # (e.g. "-1473.99997711182"); round to whole watts.
+            # round() already returns an int in Python 3.
+            total_power = round(float(new))
+        except (ValueError, TypeError):
+            self.__log(f"incoming power invalid: {new=}.")
             return
-        total_power = int(new)
         self.load_balancer.total_power_changed(total_power)
         self.reset_timeout()
 

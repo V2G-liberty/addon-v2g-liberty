@@ -3,6 +3,12 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
+## 0.8.2 2026-06-??
+
+### Fixed
+
+- 🪲 BUG: Handle float values from the total power sensor in the load balancer (#465, thanks @sin7ek)
+
 ## 0.8.1 2026-06-12
 
 ### Fixed
