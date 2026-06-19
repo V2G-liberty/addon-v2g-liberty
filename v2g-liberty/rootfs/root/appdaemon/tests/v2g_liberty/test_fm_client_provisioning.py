@@ -92,25 +92,25 @@ class TestEnsureAsset:
         fm_client_mock.get_assets.return_value = []
 
         asset_id = await fm.ensure_asset(
-            name="[TEST] Main Connection",
+            name="[TEST] Mains Connection",
             generic_asset_type="building",
         )
 
         assert asset_id == 100
         fm_client_mock.add_asset.assert_called_once()
         call_kwargs = fm_client_mock.add_asset.call_args.kwargs
-        assert call_kwargs["name"] == "[TEST] Main Connection"
+        assert call_kwargs["name"] == "[TEST] Mains Connection"
         assert call_kwargs["account_id"] == 42
 
     @pytest.mark.asyncio
     async def test_finds_existing_asset(self, fm, fm_client_mock):
         """Existing asset is found by name, not created."""
         fm_client_mock.get_assets.return_value = [
-            {"id": 55, "name": "[TEST] Main Connection", "sensors": []}
+            {"id": 55, "name": "[TEST] Mains Connection", "sensors": []}
         ]
 
         asset_id = await fm.ensure_asset(
-            name="[TEST] Main Connection",
+            name="[TEST] Mains Connection",
             generic_asset_type="building",
         )
 
@@ -121,11 +121,11 @@ class TestEnsureAsset:
     async def test_updates_attributes_on_existing(self, fm, fm_client_mock):
         """Attributes are updated when asset already exists."""
         fm_client_mock.get_assets.return_value = [
-            {"id": 55, "name": "[TEST] Main Connection", "sensors": []}
+            {"id": 55, "name": "[TEST] Mains Connection", "sensors": []}
         ]
 
         asset_id = await fm.ensure_asset(
-            name="[TEST] Main Connection",
+            name="[TEST] Mains Connection",
             generic_asset_type="building",
             attributes={"phases": 3, "capacity_per_phase": 25},
         )
@@ -139,11 +139,11 @@ class TestEnsureAsset:
     async def test_merges_attributes_on_existing(self, fm, fm_client_mock):
         """Existing attributes are preserved (merged) — a PATCH replaces the
         whole attributes object, so a phases/capacity write must not wipe the
-        version attributes already on the Main Connection."""
+        version attributes already on the Mains Connection."""
         fm_client_mock.get_assets.return_value = [
             {
                 "id": 55,
-                "name": "Main Connection",
+                "name": "Mains Connection",
                 "sensors": [],
                 "attributes": {
                     "v2g-liberty-version": "1.2.3",
@@ -153,7 +153,7 @@ class TestEnsureAsset:
         ]
 
         await fm.ensure_asset(
-            name="Main Connection",
+            name="Mains Connection",
             generic_asset_type="building",
             attributes={"phases": 3, "capacity_per_phase": 25},
         )
@@ -174,11 +174,11 @@ class TestEnsureAsset:
     async def test_no_update_without_attributes(self, fm, fm_client_mock):
         """No update_asset call when no attributes provided."""
         fm_client_mock.get_assets.return_value = [
-            {"id": 55, "name": "[TEST] Main Connection", "sensors": []}
+            {"id": 55, "name": "[TEST] Mains Connection", "sensors": []}
         ]
 
         await fm.ensure_asset(
-            name="[TEST] Main Connection",
+            name="[TEST] Mains Connection",
             generic_asset_type="building",
         )
 
@@ -208,7 +208,7 @@ class TestEnsureAsset:
         }
 
         await fm.ensure_asset(
-            name="[TEST] Main Connection",
+            name="[TEST] Mains Connection",
             generic_asset_type="building",
         )
 

@@ -27,15 +27,15 @@ def v2g():
 
 class TestLogVersions:
     @pytest.mark.asyncio
-    async def test_writes_to_main_connection_and_clears_charger(self, v2g):
-        """Main Connection present → versions written there + charger cleanup."""
-        with patch.object(c, "FM_MAIN_CONNECTION_ASSET_ID", 171):
+    async def test_writes_to_mains_connection_and_clears_charger(self, v2g):
+        """Mains Connection present → versions written there + charger cleanup."""
+        with patch.object(c, "FM_MAINS_CONNECTION_ASSET_ID", 171):
             await v2g.log_versions()
 
         calls = v2g.fm_client_app.set_asset_attributes.await_args_list
         assert len(calls) == 2
 
-        # First call: write the versions to the Main Connection.
+        # First call: write the versions to the Mains Connection.
         assert calls[0].args[0] == {
             "v2g-liberty-version": "1.2.3",
             "home-assistant-version": "2026.5.0",
@@ -50,9 +50,9 @@ class TestLogVersions:
         assert calls[1].kwargs == {"asset_id": None}
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_charger_without_main_connection(self, v2g):
-        """No Main Connection → single write (falls back to charger), no cleanup."""
-        with patch.object(c, "FM_MAIN_CONNECTION_ASSET_ID", None):
+    async def test_falls_back_to_charger_without_mains_connection(self, v2g):
+        """No Mains Connection → single write (falls back to charger), no cleanup."""
+        with patch.object(c, "FM_MAINS_CONNECTION_ASSET_ID", None):
             await v2g.log_versions()
 
         calls = v2g.fm_client_app.set_asset_attributes.await_args_list

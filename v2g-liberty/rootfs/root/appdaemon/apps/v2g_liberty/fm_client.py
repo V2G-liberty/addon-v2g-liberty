@@ -244,7 +244,7 @@ class FMClient(AsyncIOEventEmitter):
         object on a PATCH (confirmed against staging), so the current
         attributes are fetched and the new keys are merged in before writing.
         This prevents separate writers — e.g. grid phases/capacity
-        provisioning vs. version attributes on the Main Connection — from
+        provisioning vs. version attributes on the Mains Connection — from
         clobbering each other's keys.
         """
         if self.client is None:
@@ -356,7 +356,7 @@ class FMClient(AsyncIOEventEmitter):
             if attributes:
                 # Merge into the existing attributes: a PATCH replaces the whole
                 # attributes object on the FM side, so writing only the new keys
-                # would wipe others (e.g. version attributes on Main Connection).
+                # would wipe others (e.g. version attributes on Mains Connection).
                 merged = {**(match.get("attributes") or {}), **attributes}
                 await self.client.update_asset(existing_id, {"attributes": merged})
                 self.__log(f"Updated attributes for asset '{name}' (id={existing_id})")

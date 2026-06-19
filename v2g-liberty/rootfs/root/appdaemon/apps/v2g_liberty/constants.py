@@ -150,7 +150,7 @@ FM_ACCOUNT_PASSWORD: str = ""
 
 # Name of the user's *charger* asset in FlexMeasures (e.g. "John's Quasar").
 # Historically called just FM_ASSET_NAME — predates the multi-asset model
-# (Main Connection / solar panels). A rename to FM_CHARGER_ASSET_NAME is
+# (Mains Connection / solar panels). A rename to FM_CHARGER_ASSET_NAME is
 # tracked in todo.md; deferred because it touches the on-disk settings
 # JSON, the HA input_text entity (`fm_asset`) and the cards UI.
 FM_ASSET_NAME: str = ""
@@ -233,7 +233,7 @@ GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter valu
 
 # FM asset/sensor IDs for grid monitoring.
 # Set at runtime by __provision_grid_assets() in v2g_globals.
-FM_MAIN_CONNECTION_ASSET_ID: int | None = None
+FM_MAINS_CONNECTION_ASSET_ID: int | None = None
 FM_GRID_CONSUMPTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_AGGREGATE_POWER_SENSOR_ID: int | None = None

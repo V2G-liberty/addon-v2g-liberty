@@ -915,13 +915,13 @@ class TestProvisionGridAssets:
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
-        # Main Connection asset created
+        # Mains Connection asset created
         fm_client_connected.ensure_asset.assert_called_once()
         asset_call = fm_client_connected.ensure_asset.call_args
-        assert "Main Connection" in asset_call.kwargs["name"]
+        assert "Mains Connection" in asset_call.kwargs["name"]
         assert asset_call.kwargs["attributes"]["phases"] == 3
 
-        assert c.FM_MAIN_CONNECTION_ASSET_ID == 500
+        assert c.FM_MAINS_CONNECTION_ASSET_ID == 500
 
         # 6 grid sensors + 1 Aggregate Power + 1 EMS Status = 8 ensure_sensor calls
         assert fm_client_connected.ensure_sensor.call_count == 8
@@ -984,10 +984,10 @@ class TestProvisionGridAssets:
             await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
     @pytest.mark.asyncio
-    async def test_main_connection_sensors_to_show(
+    async def test_mains_connection_sensors_to_show(
         self, globals_with_fm, fm_client_connected
     ):
-        """All provisioned grid sensors are written to the Main Connection's
+        """All provisioned grid sensors are written to the Mains Connection's
         top-level sensors_to_show field (not as an attribute)."""
         c.GRID_PHASES = 3
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
@@ -1003,7 +1003,7 @@ class TestProvisionGridAssets:
         ]
         assert len(sts_calls) == 1
         asset_id_arg, payload = sts_calls[0].args
-        assert asset_id_arg == c.FM_MAIN_CONNECTION_ASSET_ID
+        assert asset_id_arg == c.FM_MAINS_CONNECTION_ASSET_ID
 
         expected = []
         for phase in range(1, 4):
@@ -1020,7 +1020,7 @@ class TestChargerReparent:
 
     @pytest.mark.asyncio
     async def test_reparents_charger_asset(self, globals_with_fm, fm_client_connected):
-        """Charger asset is set as child of Main Connection."""
+        """Charger asset is set as child of Mains Connection."""
         c.GRID_PHASES = 1
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
@@ -1047,7 +1047,7 @@ class TestChargerReparent:
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
         # No reparent call when the charger asset id is unknown; the only
-        # update_asset call is the sensors_to_show write on Main Connection.
+        # update_asset call is the sensors_to_show write on Mains Connection.
         reparent_calls = [
             call_
             for call_ in fm_client_connected.client.update_asset.call_args_list
