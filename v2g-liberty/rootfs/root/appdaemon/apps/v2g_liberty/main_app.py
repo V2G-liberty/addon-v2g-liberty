@@ -602,7 +602,7 @@ class V2Gliberty:
             f"V2G Liberty version: {v2g_version}, Home Assistant version: {ha_version}"
         )
 
-        # Prefer the Main Connection asset (site-level metadata fits there);
+        # Prefer the Mains Connection asset (site-level metadata fits there);
         # the helper falls back to the charger asset when grid is not yet
         # configured so the version info is still visible somewhere in FM.
         try:
@@ -611,17 +611,17 @@ class V2Gliberty:
                     "v2g-liberty-version": v2g_version,
                     "home-assistant-version": ha_version,
                 },
-                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
             )
         except Exception as e:
             self.__log(f"Error writing versions to FlexMeasures: {e}", level="WARNING")
 
-        # When the versions just landed on the Main Connection, clear any
+        # When the versions just landed on the Mains Connection, clear any
         # stale version attributes still sitting on the charger asset so
         # there's a single canonical home. Idempotent: on later runs the
-        # nulls are written over nulls. Skip the cleanup when Main Connection
+        # nulls are written over nulls. Skip the cleanup when Mains Connection
         # is not yet provisioned — versions then *live* on the charger.
-        if c.FM_MAIN_CONNECTION_ASSET_ID is not None:
+        if c.FM_MAINS_CONNECTION_ASSET_ID is not None:
             try:
                 await self.fm_client_app.set_asset_attributes(
                     {

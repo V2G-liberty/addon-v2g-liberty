@@ -935,7 +935,7 @@ class V2GLibertyGlobals:
         by name) are reused.
 
         Raises ``RuntimeError`` with a user-facing message when FM is
-        not available (client disconnected, Main Connection asset
+        not available (client disconnected, Mains Connection asset
         missing). Underlying ``ensure_*`` exceptions propagate unchanged.
         The caller is expected to convert any exception into an
         ``fm_error`` response so the UI can show the message and offer
@@ -946,7 +946,7 @@ class V2GLibertyGlobals:
                 "FlexMeasures is not connected. "
                 "Configure FlexMeasures access and try again."
             )
-        if c.FM_MAIN_CONNECTION_ASSET_ID is None:
+        if c.FM_MAINS_CONNECTION_ASSET_ID is None:
             raise RuntimeError(
                 "Grid connection has not been registered with FlexMeasures. "
                 "Save the grid connection first."
@@ -966,7 +966,7 @@ class V2GLibertyGlobals:
         asset_id = await self.fm_client_app.ensure_asset(
             name=panel["name"],
             generic_asset_type="solar",
-            parent_asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            parent_asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
             attributes=asset_attributes,
             asset_id=panel.get("fm_asset_id"),
         )
@@ -1092,9 +1092,9 @@ class V2GLibertyGlobals:
                 "Configure FlexMeasures access and try again."
             )
 
-        # Main Connection asset
-        c.FM_MAIN_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
-            name="Main Connection",
+        # Mains Connection asset
+        c.FM_MAINS_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
+            name="Mains Connection",
             generic_asset_type="building",
             attributes={
                 "phases": c.GRID_PHASES,
@@ -1102,15 +1102,15 @@ class V2GLibertyGlobals:
             },
         )
 
-        # Re-parent charger asset under Main Connection
+        # Re-parent charger asset under Mains Connection
         if self.fm_client_app._charger_asset_id is not None:
             await self.fm_client_app.client.update_asset(
                 self.fm_client_app._charger_asset_id,
-                {"parent_asset_id": c.FM_MAIN_CONNECTION_ASSET_ID},
+                {"parent_asset_id": c.FM_MAINS_CONNECTION_ASSET_ID},
             )
             self.__log(
                 f"Set charger asset {self.fm_client_app._charger_asset_id} "
-                f"as child of Main Connection {c.FM_MAIN_CONNECTION_ASSET_ID}"
+                f"as child of Mains Connection {c.FM_MAINS_CONNECTION_ASSET_ID}"
             )
 
         # Grid sensors per phase
@@ -1120,7 +1120,7 @@ class V2GLibertyGlobals:
             ] = await self.fm_client_app.ensure_sensor(
                 name=f"Grid Consumption L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
                 attributes={"consumption_is_positive": True},
             )
             c.FM_GRID_PRODUCTION_SENSOR_IDS[
@@ -1128,24 +1128,24 @@ class V2GLibertyGlobals:
             ] = await self.fm_client_app.ensure_sensor(
                 name=f"Grid Production L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
             )
 
         # Aggregate Power sensor (written by FM scheduler, not by V2G Liberty)
         c.FM_AGGREGATE_POWER_SENSOR_ID = await self.fm_client_app.ensure_sensor(
             name="Aggregate Power",
             unit="kW",
-            asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
         )
 
         # EMS Status sensor
         c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
             name="EMS Status",
             unit="dimensionless",
-            asset_id=c.FM_MAIN_CONNECTION_ASSET_ID,
+            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
         )
 
-        # Show all provisioned grid sensors on the Main Connection's FM
+        # Show all provisioned grid sensors on the Mains Connection's FM
         # page. sensors_to_show is a top-level asset field (not an
         # attribute), so phases/capacity stay untouched.
         sensors_to_show = []
@@ -1155,13 +1155,13 @@ class V2GLibertyGlobals:
         sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
         sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
         await self.fm_client_app.client.update_asset(
-            c.FM_MAIN_CONNECTION_ASSET_ID,
+            c.FM_MAINS_CONNECTION_ASSET_ID,
             {"sensors_to_show": sensors_to_show},
         )
 
         self.__log(
             f"Grid FM provisioning complete: "
-            f"asset={c.FM_MAIN_CONNECTION_ASSET_ID}, "
+            f"asset={c.FM_MAINS_CONNECTION_ASSET_ID}, "
             f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
             f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
             f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "

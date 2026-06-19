@@ -1,6 +1,6 @@
 # What's changed?
 
-ek ## 0.8.2 2026-06-??
+## 0.8.2 2026-06-19
 
 ### Fixed
 
@@ -12,7 +12,7 @@ ek ## 0.8.2 2026-06-??
 
 ### Changed
 
--
+- 🛠️ Refactor: Rename FlexMeasures "Main Connection" asset to "Mains Connection" (#466)
 
 #### Removing
 
