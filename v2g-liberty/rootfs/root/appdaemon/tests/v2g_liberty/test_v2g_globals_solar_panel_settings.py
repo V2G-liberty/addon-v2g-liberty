@@ -18,7 +18,7 @@ from apps.v2g_liberty.v2g_globals import V2GLibertyGlobals
 # care about the full saved record assert these in fm_asset_id / fm_sensor_id.
 _FM_ASSET_ID = 101
 _FM_SENSOR_ID = 201
-_FM_MAIN_CONNECTION_ID = 100
+_FM_MAINS_CONNECTION_ID = 100
 
 
 @pytest.fixture
@@ -83,10 +83,10 @@ def globals_instance(log_mock, settings_manager_mock, hass_mock, fm_client_mock)
 def reset_solar_panels_constant():
     """Reset module-level FM/SOLAR state around each test."""
     c.SOLAR_PANELS = []
-    c.FM_MAIN_CONNECTION_ASSET_ID = _FM_MAIN_CONNECTION_ID
+    c.FM_MAINS_CONNECTION_ASSET_ID = _FM_MAINS_CONNECTION_ID
     yield
     c.SOLAR_PANELS = []
-    c.FM_MAIN_CONNECTION_ASSET_ID = None
+    c.FM_MAINS_CONNECTION_ASSET_ID = None
 
 
 def _valid_panel_payload(**overrides):
@@ -1001,7 +1001,7 @@ class TestSolarPanelValidation:
 
 class TestSolarPanelFMProvisioningCalls:
     """The save handler invokes ensure_asset / ensure_sensor with the
-    correct arguments per the design (asset under Main Connection, sensor
+    correct arguments per the design (asset under Mains Connection, sensor
     named ``Power`` in kW), and reuses the same asset name on update so
     the FM side stays idempotent.
     """
@@ -1019,7 +1019,7 @@ class TestSolarPanelFMProvisioningCalls:
         fm_client_mock.ensure_asset.assert_called_once_with(
             name="South",
             generic_asset_type="solar",
-            parent_asset_id=_FM_MAIN_CONNECTION_ID,
+            parent_asset_id=_FM_MAINS_CONNECTION_ID,
             attributes={
                 "peak_power_wp": 4000,
                 "connected_to_phase": None,
@@ -1167,12 +1167,12 @@ class TestSolarPanelFMProvisioningBlocking:
         assert "FlexMeasures is not connected" in call.kwargs["fm_error"]
 
     @pytest.mark.asyncio
-    async def test_main_connection_missing_returns_fm_error(
+    async def test_mains_connection_missing_returns_fm_error(
         self, globals_instance, fm_client_mock, settings_manager_mock, hass_mock
     ):
         """Grid not yet provisioned → fm_error, no FM calls, no persist."""
         c.GRID_PHASES = 1
-        c.FM_MAIN_CONNECTION_ASSET_ID = None  # override autouse default
+        c.FM_MAINS_CONNECTION_ASSET_ID = None  # override autouse default
 
         await globals_instance._V2GLibertyGlobals__save_solar_panel(
             "event", _valid_panel_payload(), {}
