@@ -996,8 +996,14 @@ class V2Gliberty:
             )
 
         if (
-            await self.evse_client_app.is_charging()
+            # Only on a genuine rise to max SoC, not on the first reading after a
+            # restart (old_soc is then None/"unavailable"). This also avoids
+            # computing the range before the car settings are loaded, which would
+            # use the default battery capacity and report a wrong range.
+            isinstance(old_soc, (int, float))
+            and old_soc < new_soc
             and new_soc == c.CAR_MAX_SOC_IN_PERCENT
+            and await self.evse_client_app.is_charging()
         ):
             message = (
                 f"Car battery at {new_soc} %, "
