@@ -1,10 +1,10 @@
 # What's changed?
 
-## 0.8.2 2026-06-19
+## 0.8.3 2026-07-??
 
 ### Fixed
 
-- 🪲 BUG: Handle float values from the total power sensor in the load balancer (#465, thanks @sin7ek)
+- 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
 
 ### Added
 
@@ -12,11 +12,11 @@
 
 ### Changed
 
-- 🛠️ Refactor: Rename FlexMeasures "Main Connection" asset to "Mains Connection" (#466)
+-
 
 #### Removing
 
-- ?
+-
 
 ## Complete changelog of all releases
 
