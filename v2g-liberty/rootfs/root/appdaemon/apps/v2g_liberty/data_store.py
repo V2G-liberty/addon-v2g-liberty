@@ -9,7 +9,55 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from .log_wrapper import get_class_method_logger
 
+# The numbering was reset in March 2026 (commit a73c0a4): it had climbed to 4
+# during pre-release development and was set back to 1 for the first release
+# (v0.8.0), after which it climbed to 2 again. So a database reporting version 3
+# or 4 comes from that old, abandoned line and is in fact OLDER in content than
+# version 1 -- not newer. Never treat a higher number as "more recent"; rely on
+# __validate_schema() to judge whether a database is actually usable.
 CURRENT_SCHEMA_VERSION = 2
+
+# The tables and columns the code requires, mirroring __create_tables(). Used by
+# __validate_schema() to verify what is really in the database, because a version
+# number cannot be trusted (see above) and CREATE TABLE IF NOT EXISTS silently
+# skips tables that already exist with an outdated set of columns.
+EXPECTED_SCHEMA = {
+    "schema_version": {"version", "applied_at"},
+    "interval_log": {
+        "timestamp",
+        "energy_kwh",
+        "app_state",
+        "soc_pct",
+        "availability_pct",
+        "is_repaired",
+        "naive_power_w",
+        "naive_soc_pct",
+    },
+    "price_log": {
+        "timestamp",
+        "consumption_price_kwh",
+        "production_price_kwh",
+        "price_rating",
+    },
+    "reservation_log": {
+        "timestamp",
+        "start_timestamp",
+        "end_timestamp",
+        "target_soc_pct",
+    },
+    "emission_log": {"timestamp", "emission_intensity_kg_mwh"},
+    "fm_send_status": {"data_type", "last_sent_up_to"},
+    "reference_price_log": {
+        "month",
+        "delivery_price_eur_kwh",
+        "energy_tax_eur_kwh",
+        "total_price_eur_kwh",
+        "source",
+        "fetched_at",
+    },
+    "grid_interval_log": {"timestamp", "phase", "consumption_kw", "production_kw"},
+    "pv_interval_log": {"timestamp", "panel_id", "power_kw"},
+}
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
 PRICE_RATING_LABELS = ["very_low", "low", "average", "high", "very_high"]
@@ -291,6 +339,9 @@ class DataStore:
             self.__set_pragmas()
             self.__create_tables()
             self.__check_schema_version()
+            # Verify the outcome: the version number drives the migration but is
+            # not proof that the database is usable.
+            self.__validate_schema()
         except Exception:
             self.close()
             raise
@@ -432,6 +483,44 @@ class DataStore:
                 )
             else:
                 self.__log(f"Database schema version {current_version} is up to date.")
+
+    def __validate_schema(self):
+        """Verify the database contains every table and column the code needs.
+
+        A version number cannot be trusted: it may have been reset (see the note
+        at CURRENT_SCHEMA_VERSION), left unbumped when columns were added, or a
+        migration may have been skipped or interrupted. This checks the actual
+        table structure with PRAGMA table_info and raises if anything the code
+        requires is missing, so v2g_app can disable data features and prompt the
+        user for a database reset instead of crashing later on a missing column.
+
+        Extra tables or columns are not an error: a database from a newer version
+        must remain usable on older code.
+        """
+        cursor = self.__connection.cursor()
+        problems = []
+        for table, expected_columns in EXPECTED_SCHEMA.items():
+            cursor.execute(f"PRAGMA table_info({table})")
+            rows = cursor.fetchall()
+            if not rows:
+                problems.append(f"missing table '{table}'")
+                continue
+            present_columns = {row["name"] for row in rows}
+            missing_columns = expected_columns - present_columns
+            if missing_columns:
+                columns = ", ".join(sorted(missing_columns))
+                problems.append(f"table '{table}' is missing column(s): {columns}")
+        cursor.close()
+
+        if problems:
+            summary = "; ".join(problems)
+            self.__log(
+                f"Database schema is incompatible with this version: {summary}.",
+                level="ERROR",
+            )
+            raise RuntimeError(f"Incompatible database schema: {summary}")
+
+        self.__log("Database schema validated.")
 
     def __migrate(self, from_version: int, cursor):
         """Run schema migrations from from_version to CURRENT_SCHEMA_VERSION."""

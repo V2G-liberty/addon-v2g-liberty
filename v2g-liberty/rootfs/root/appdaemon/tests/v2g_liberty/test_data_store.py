@@ -1,6 +1,7 @@
 """Unit test (pytest) for data_store module."""
 
 import logging
+import sqlite3
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock
 
@@ -223,6 +224,100 @@ class TestSchemaVersion:
         assert "newer than expected" in caplog.text
 
     @pytest.mark.asyncio
+    async def test_fresh_database_passes_validation(self, data_store, caplog):
+        """A freshly created database validates cleanly.
+
+        Also guards against EXPECTED_SCHEMA drifting out of sync with
+        __create_tables(): if a column were listed as expected but never created,
+        this would fail.
+        """
+        with caplog.at_level(logging.INFO):
+            await data_store.initialise()
+        assert data_store.is_available
+        assert "schema validated" in caplog.text.lower()
+
+    @pytest.mark.asyncio
+    async def test_incompatible_schema_raises_and_disables(
+        self, data_store, hass, caplog
+    ):
+        """Ronald's scenario: a pre-existing DB from the old, reset numbering.
+
+        Version reads 4 (from the abandoned numbering) but interval_log lacks
+        the naive_* columns and fm_send_status lacks data_type. initialise()
+        must raise and leave the store unavailable so v2g_app can degrade
+        gracefully instead of crashing later on a missing column.
+        """
+        con = sqlite3.connect(data_store.DB_PATH)
+        con.execute(
+            "CREATE TABLE schema_version "
+            "(version INTEGER NOT NULL, applied_at TEXT NOT NULL)"
+        )
+        con.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (4, '2026-01-01')"
+        )
+        # interval_log without naive_power_w / naive_soc_pct
+        con.execute(
+            "CREATE TABLE interval_log ("
+            "timestamp TEXT PRIMARY KEY, energy_kwh REAL, app_state TEXT NOT NULL, "
+            "soc_pct REAL, availability_pct REAL, "
+            "is_repaired INTEGER NOT NULL DEFAULT 0)"
+        )
+        # fm_send_status without data_type
+        con.execute("CREATE TABLE fm_send_status (last_sent_up_to TEXT NOT NULL)")
+        con.commit()
+        con.close()
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError):
+                await data_store.initialise()
+
+        assert not data_store.is_available
+        assert "naive_power_w" in caplog.text
+        assert "data_type" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_migrated_v1_database_validates_clean(self, data_store):
+        """A genuine v1 database migrates to v2 and then validates cleanly."""
+        con = sqlite3.connect(data_store.DB_PATH)
+        con.execute(
+            "CREATE TABLE schema_version "
+            "(version INTEGER NOT NULL, applied_at TEXT NOT NULL)"
+        )
+        con.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01')"
+        )
+        # v0.8.0 interval_log already had the naive columns.
+        con.execute(
+            "CREATE TABLE interval_log ("
+            "timestamp TEXT PRIMARY KEY, energy_kwh REAL, app_state TEXT NOT NULL, "
+            "soc_pct REAL, availability_pct REAL, "
+            "is_repaired INTEGER NOT NULL DEFAULT 0, "
+            "naive_power_w REAL, naive_soc_pct REAL)"
+        )
+        # v1 fm_send_status: single column, migrated to add data_type.
+        con.execute("CREATE TABLE fm_send_status (last_sent_up_to TEXT NOT NULL)")
+        con.commit()
+        con.close()
+
+        await data_store.initialise()
+
+        assert data_store.is_available
+
+    @pytest.mark.asyncio
+    async def test_unknown_extra_column_is_allowed(self, data_store):
+        """A newer database with an unknown extra column stays usable."""
+        await data_store.initialise()
+        data_store.connection.execute(
+            "ALTER TABLE interval_log ADD COLUMN future_field TEXT"
+        )
+        data_store.connection.commit()
+        data_store.close()
+
+        # Reinitialising must not raise on the unrecognised column.
+        await data_store.initialise()
+        assert data_store.is_available
+
+    @pytest.mark.asyncio
     async def test_tables_preserved_after_reinitialise(self, data_store):
         """Verify that CREATE TABLE IF NOT EXISTS does not drop existing data."""
         await data_store.initialise()
@@ -266,6 +361,25 @@ class TestClose:
         # Second close should not raise
         data_store.close()
         assert data_store.connection is None
+
+
+class TestUnavailableDegradation:
+    """When the store is unavailable, read methods return neutral values.
+
+    This is what lets the whole app keep running after initialise() fails on an
+    incompatible schema, instead of crashing on a query.
+    """
+
+    def test_get_fm_last_sent_returns_none_when_unavailable(self, data_store):
+        # Never initialised, so no connection.
+        assert not data_store.is_available
+        assert data_store.get_fm_last_sent("charger") is None
+
+    @pytest.mark.asyncio
+    async def test_get_fm_last_sent_returns_none_after_close(self, data_store):
+        await data_store.initialise()
+        data_store.close()
+        assert data_store.get_fm_last_sent("charger") is None
 
 
 class TestInsertInterval:

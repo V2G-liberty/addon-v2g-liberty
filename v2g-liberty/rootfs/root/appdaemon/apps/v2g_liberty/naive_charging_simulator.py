@@ -153,59 +153,66 @@ class NaiveChargingSimulator:
         if conn is None:
             return
 
-        # Fetch all intervals (need full history for SoC tracking).
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT timestamp, energy_kwh, soc_pct, availability_pct, "
-            "       naive_power_w "
-            "FROM interval_log "
-            "WHERE is_repaired < 2 "
-            "ORDER BY timestamp"
-        )
-        rows = cursor.fetchall()
-        cursor.close()
+        # This runs detached via asyncio.ensure_future, so any exception would
+        # otherwise surface as an unretrieved "Unhandled exception in event loop"
+        # rather than being handled. A background savings calculation must never
+        # do that; on any failure, log and give up quietly.
+        try:
+            # Fetch all intervals (need full history for SoC tracking).
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT timestamp, energy_kwh, soc_pct, availability_pct, "
+                "       naive_power_w "
+                "FROM interval_log "
+                "WHERE is_repaired < 2 "
+                "ORDER BY timestamp"
+            )
+            rows = cursor.fetchall()
+            cursor.close()
 
-        if not rows:
-            self.__log("Batch: no intervals to process.")
-            return
+            if not rows:
+                self.__log("Batch: no intervals to process.")
+                return
 
-        df = pd.DataFrame(
-            [dict(r) for r in rows],
-            columns=[
-                "timestamp",
-                "energy_kwh",
-                "soc_pct",
-                "availability_pct",
-                "naive_power_w",
-            ],
-        )
+            df = pd.DataFrame(
+                [dict(r) for r in rows],
+                columns=[
+                    "timestamp",
+                    "energy_kwh",
+                    "soc_pct",
+                    "availability_pct",
+                    "naive_power_w",
+                ],
+            )
 
-        # Check how many need simulation.
-        needs_sim = df["naive_power_w"].isna()
-        if not needs_sim.any():
-            self.__log("Batch: all intervals already have naive charging data.")
-            return
+            # Check how many need simulation.
+            needs_sim = df["naive_power_w"].isna()
+            if not needs_sim.any():
+                self.__log("Batch: all intervals already have naive charging data.")
+                return
 
-        self.__log(
-            f"Batch: simulating naive charging for {needs_sim.sum()} of "
-            f"{len(df)} intervals."
-        )
+            self.__log(
+                f"Batch: simulating naive charging for {needs_sim.sum()} of "
+                f"{len(df)} intervals."
+            )
 
-        # Run simulation over all rows (need full history for SoC state).
-        result = self._simulate(df)
+            # Run simulation over all rows (need full history for SoC state).
+            result = self._simulate(df)
 
-        # Only write rows that were missing.
-        to_update = result.loc[
-            needs_sim, ["naive_power_w", "naive_soc_pct", "timestamp"]
-        ]
-        update_rows = list(to_update.itertuples(index=False, name=None))
-        self.data_store.update_naive_charging(update_rows)
+            # Only write rows that were missing.
+            to_update = result.loc[
+                needs_sim, ["naive_power_w", "naive_soc_pct", "timestamp"]
+            ]
+            update_rows = list(to_update.itertuples(index=False, name=None))
+            self.data_store.update_naive_charging(update_rows)
 
-        # Update in-memory state to the last simulated value.
-        self._naive_soc = float(result["naive_soc_pct"].iloc[-1])
-        self._prev_connected = (result["availability_pct"].iloc[-1] or 0) > 0
+            # Update in-memory state to the last simulated value.
+            self._naive_soc = float(result["naive_soc_pct"].iloc[-1])
+            self._prev_connected = (result["availability_pct"].iloc[-1] or 0) > 0
 
-        self.__log(f"Batch: completed, updated {len(update_rows)} row(s).")
+            self.__log(f"Batch: completed, updated {len(update_rows)} row(s).")
+        except Exception as e:
+            self.__log(f"Batch: naive charging simulation failed: {e}", level="ERROR")
 
     def _simulate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Run naive charging simulation over a DataFrame.
