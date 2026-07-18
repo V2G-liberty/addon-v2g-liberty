@@ -726,6 +726,25 @@ export class DataTableCard extends LitElement {
     const tt = (key: string) => tp(`totals.${key}`);
     const fixedStr = savingsFixed != null ? this._fmtNum(savingsFixed, 2) : '−';
     const dynStr = savingsDyn != null ? this._fmtNum(savingsDyn, 2) : '−';
+    // Distinguish "no naive/savings data" from a genuine zero: the summed
+    // figures collapse null to 0, so detect from the raw rows. Both amounts
+    // null for every period means the naive charging simulation produced
+    // nothing for this window (never ran, failed, or data unavailable).
+    const savingsMissing =
+      !!this._data?.length &&
+      this._data.every(
+        (r: any) => r.savings_fixed_eur == null && r.savings_dynamic_eur == null
+      );
+    const body = savingsMissing
+      ? html`<div class="savings-unavailable">${tt('savings-unavailable')}</div>`
+      : html`
+          <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
+          <div class="subcard-hero">${cur}\u202F${fixedStr}</div>
+          <div class="savings-dyn">
+            <span class="savings-dyn-amount">${cur}\u202F${dynStr}</span>
+            <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
+          </div>
+        `;
     return html`
       <div class="subcard subcard-savings">
         <ha-icon class="savings-piggy" icon="mdi:piggy-bank-outline"></ha-icon>
@@ -733,12 +752,7 @@ export class DataTableCard extends LitElement {
           <span class="subcard-title">${tt('savings')}</span>
           ${this._renderInfoTip('savings', 'totals.savings-tooltip')}
         </div>
-        <div class="savings-sublabel">${tt('savings-fixed-label')}</div>
-        <div class="subcard-hero">${cur}\u202F${fixedStr}</div>
-        <div class="savings-dyn">
-          <span class="savings-dyn-amount">${cur}\u202F${dynStr}</span>
-          <span class="savings-dyn-label">${tt('savings-dyn-label')}</span>
-        </div>
+        ${body}
       </div>
     `;
   }
