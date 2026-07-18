@@ -76,65 +76,74 @@ class NaiveChargingSimulator:
         if self.data_store is None or not self.data_store.is_available:
             return
 
-        # Read the interval that was just written.
-        conn = self.data_store.connection
-        if conn is None:
-            return
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT energy_kwh, soc_pct, availability_pct "
-            "FROM interval_log WHERE timestamp = ?",
-            (timestamp,),
-        )
-        row = cursor.fetchone()
-        cursor.close()
-        if row is None:
-            return
+        # This is an event-bus callback, so an unexpected failure would otherwise
+        # propagate into the event loop. A background savings calculation must
+        # never do that; on any failure, log and skip this interval.
+        try:
+            # Read the interval that was just written.
+            conn = self.data_store.connection
+            if conn is None:
+                return
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT energy_kwh, soc_pct, availability_pct "
+                "FROM interval_log WHERE timestamp = ?",
+                (timestamp,),
+            )
+            row = cursor.fetchone()
+            cursor.close()
+            if row is None:
+                return
 
-        # Initialise naive SoC from DB on first call after (re)start.
-        if self._naive_soc is None:
-            stored = self.data_store.get_last_naive_soc()
-            if stored is not None:
-                self._naive_soc = stored
-            elif row["soc_pct"] is not None:
-                self._naive_soc = row["soc_pct"]
+            # Initialise naive SoC from DB on first call after (re)start.
+            if self._naive_soc is None:
+                stored = self.data_store.get_last_naive_soc()
+                if stored is not None:
+                    self._naive_soc = stored
+                elif row["soc_pct"] is not None:
+                    self._naive_soc = row["soc_pct"]
+                else:
+                    self._naive_soc = 0.0
+
+            connected = (row["availability_pct"] or 0) > 0
+            measured_soc = row["soc_pct"]
+
+            # Detect return from trip: apply real SoC consumption to naive SoC.
+            if connected and not self._prev_connected and measured_soc is not None:
+                # The car was away and just reconnected.
+                # We don't know the SoC when it left in real-time mode,
+                # so we sync naive SoC to the measured SoC on reconnect
+                # (conservative: assumes naive driver also depleted the same).
+                self._naive_soc = min(measured_soc, self._naive_soc)
+
+            # Naive charging logic.
+            soc_max = c.CAR_MAX_SOC_IN_PERCENT
+            max_power = c.CHARGER_MAX_CHARGE_POWER * self._charge_power_factor
+            efficiency = math.sqrt(c.ROUNDTRIP_EFFICIENCY_FACTOR)
+
+            if connected and self._naive_soc < soc_max:
+                naive_power = float(max_power)
             else:
-                self._naive_soc = 0.0
+                naive_power = 0.0
 
-        connected = (row["availability_pct"] or 0) > 0
-        measured_soc = row["soc_pct"]
+            # Update naive SoC.
+            dt_hours = c.FM_EVENT_RESOLUTION_IN_MINUTES / 60
+            energy_kwh = (naive_power / 1000.0) * dt_hours * efficiency
+            capacity = c.CAR_MAX_CAPACITY_IN_KWH
+            soc_increase = (energy_kwh / capacity) * 100 if capacity > 0 else 0
+            self._naive_soc = min(self._naive_soc + soc_increase, soc_max)
 
-        # Detect return from trip: apply real SoC consumption to naive SoC.
-        if connected and not self._prev_connected and measured_soc is not None:
-            # The car was away and just reconnected.
-            # We don't know the SoC when it left in real-time mode,
-            # so we sync naive SoC to the measured SoC on reconnect
-            # (conservative: assumes naive driver also depleted the same).
-            self._naive_soc = min(measured_soc, self._naive_soc)
+            self._prev_connected = connected
 
-        # Naive charging logic.
-        soc_max = c.CAR_MAX_SOC_IN_PERCENT
-        max_power = c.CHARGER_MAX_CHARGE_POWER * self._charge_power_factor
-        efficiency = math.sqrt(c.ROUNDTRIP_EFFICIENCY_FACTOR)
-
-        if connected and self._naive_soc < soc_max:
-            naive_power = float(max_power)
-        else:
-            naive_power = 0.0
-
-        # Update naive SoC.
-        dt_hours = c.FM_EVENT_RESOLUTION_IN_MINUTES / 60
-        energy_kwh = (naive_power / 1000.0) * dt_hours * efficiency
-        capacity = c.CAR_MAX_CAPACITY_IN_KWH
-        soc_increase = (energy_kwh / capacity) * 100 if capacity > 0 else 0
-        self._naive_soc = min(self._naive_soc + soc_increase, soc_max)
-
-        self._prev_connected = connected
-
-        # Write to database.
-        self.data_store.update_naive_charging(
-            [(naive_power, round(self._naive_soc, 2), timestamp)]
-        )
+            # Write to database.
+            self.data_store.update_naive_charging(
+                [(naive_power, round(self._naive_soc, 2), timestamp)]
+            )
+        except Exception as e:
+            self.__log(
+                f"Naive charging for interval {timestamp} failed: {e}",
+                level="ERROR",
+            )
 
     # ------------------------------------------------------------------
     #  Batch: called after data_repairer completes
