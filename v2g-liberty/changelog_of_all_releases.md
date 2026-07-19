@@ -8,6 +8,7 @@ That file also contains possible changes that the next release might include.
 ### Fixed
 
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
+- 🪲 BUG: Fix db schema validation (#470)
 
 ## 0.8.2 2026-06-19
 
