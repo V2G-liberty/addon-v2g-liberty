@@ -5,6 +5,7 @@
 ### Fixed
 
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
+- 🪲 BUG: Fix db schema validation (#470)
 
 ### Added
 
