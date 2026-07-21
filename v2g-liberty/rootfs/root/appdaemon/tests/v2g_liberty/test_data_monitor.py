@@ -32,6 +32,11 @@ def _set_constants():
     """Set runtime constants that are normally initialised by V2GLibertyGlobals."""
     c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
     c.TZ = TEST_TZ
+    # Deterministic defaults for the residential-load attribution; tests that
+    # exercise phases/PV/charger override these explicitly.
+    c.GRID_PHASES = 3
+    c.SOLAR_PANELS = []
+    c.CHARGER_CONNECTED_TO_PHASE = None
 
 
 @pytest.fixture
@@ -823,10 +828,11 @@ class TestConcludeGridInterval:
         prod_tracker.update(0.0, t0)
         monitor._grid_production_trackers[1] = prod_tracker
 
-        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", t1)
+        # No PV, no charger power: residential = consumption - production.
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", t1, 0.0, {})
 
         data_store.insert_grid_interval.assert_called_once_with(
-            "2026-02-22T12:05:00+01:00", 1, 1500.0, 0.0
+            "2026-02-22T12:05:00+01:00", 1, 1500.0, 0.0, 1500.0
         )
 
     def test_conclude_skips_when_no_trackers(self, monitor, data_store):
@@ -834,9 +840,147 @@ class TestConcludeGridInterval:
         monitor._grid_consumption_trackers = {}
         monitor._grid_production_trackers = {}
 
-        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", TEST_NOW, 0.0, {})
 
         data_store.insert_grid_interval.assert_not_called()
+
+
+def _make_grid_trackers(monitor, cons_by_phase, prod_by_phase=None):
+    """Set up per-phase grid trackers holding a constant power for the interval."""
+    from apps.v2g_liberty.grid_connection.power_tracker import PowerTracker
+
+    monitor._grid_consumption_trackers = {}
+    monitor._grid_production_trackers = {}
+    for phase, value in cons_by_phase.items():
+        tracker = PowerTracker()
+        tracker.update(value, TEST_NOW)
+        monitor._grid_consumption_trackers[phase] = tracker
+    for phase, value in (prod_by_phase or {}).items():
+        tracker = PowerTracker()
+        tracker.update(value, TEST_NOW)
+        monitor._grid_production_trackers[phase] = tracker
+
+
+class TestResidentialLoad:
+    """Per-phase residential (net household) load: energy balance + smart-null."""
+
+    # ── _residential_load (the energy-balance formula) ────────────────
+    def test_energy_balance_formula(self, monitor):
+        # consumption - production + solar - charger
+        assert monitor._residential_load(2.0, 0.5, 1.0, 3.0) == -0.5
+
+    def test_none_consumption_gives_none(self, monitor):
+        assert monitor._residential_load(None, 0.0, 1.0, 0.0) is None
+
+    def test_none_production_treated_as_zero(self, monitor):
+        assert monitor._residential_load(2.0, None, 0.0, 0.0) == 2.0
+
+    # ── _charger_by_phase ─────────────────────────────────────────────
+    def test_charger_single_phase_grid_all_on_l1(self, monitor):
+        c.GRID_PHASES = 1
+        by_phase, unknown = monitor._charger_by_phase(3.0)
+        assert by_phase == {1: 3.0}
+        assert unknown is False
+
+    def test_charger_three_phase_int(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = 2
+        by_phase, unknown = monitor._charger_by_phase(3.0)
+        assert by_phase == {2: 3.0}
+        assert unknown is False
+
+    def test_charger_three_phase_list_splits_evenly(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = [1, 2, 3]
+        by_phase, unknown = monitor._charger_by_phase(3.0)
+        assert by_phase == {1: 1.0, 2: 1.0, 3: 1.0}
+        assert unknown is False
+
+    def test_charger_unknown_phase_with_power_is_unknown(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _, unknown = monitor._charger_by_phase(3.0)
+        assert unknown is True
+
+    def test_charger_unknown_phase_without_power_is_known(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _, unknown = monitor._charger_by_phase(0.0)
+        assert unknown is False
+
+    # ── _pv_by_phase ──────────────────────────────────────────────────
+    def test_pv_single_phase_grid_sums_on_l1(self, monitor):
+        c.GRID_PHASES = 1
+        c.SOLAR_PANELS = [{"id": "a"}, {"id": "b"}]
+        by_phase, unknown = monitor._pv_by_phase({"a": 1.0, "b": 2.0})
+        assert by_phase == {1: 3.0}
+        assert unknown is False
+
+    def test_pv_three_phase_panel_split_evenly(self, monitor):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 3}]
+        by_phase, _ = monitor._pv_by_phase({"a": 3.0})
+        assert by_phase == {1: 1.0, 2: 1.0, 3: 1.0}
+
+    def test_pv_one_phase_panel_on_connected_phase(self, monitor):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 1, "connected_to_phase": 2}]
+        by_phase, unknown = monitor._pv_by_phase({"a": 2.5})
+        assert by_phase == {2: 2.5}
+        assert unknown is False
+
+    def test_pv_unknown_phase_with_power_is_unknown(self, monitor):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 1, "connected_to_phase": None}]
+        _, unknown = monitor._pv_by_phase({"a": 2.5})
+        assert unknown is True
+
+    # ── End-to-end via _conclude_grid_interval ────────────────────────
+    def test_conclude_computes_residential_per_phase(self, monitor, data_store):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 1, "connected_to_phase": 1}]
+        c.CHARGER_CONNECTED_TO_PHASE = 2
+        _make_grid_trackers(
+            monitor,
+            {1: 2.0, 2: 3.0, 3: 1.0},
+            {1: 0.0, 2: 0.0, 3: 0.0},
+        )
+        t1 = TEST_NOW + timedelta(minutes=5)
+
+        # Charger charging 1.5 kW on L2, PV producing 1.0 kW on L1.
+        monitor._conclude_grid_interval("ts", t1, 1.5, {"a": 1.0})
+
+        residential = {
+            call.args[1]: call.args[4]
+            for call in data_store.insert_grid_interval.call_args_list
+        }
+        assert residential[1] == 3.0  # 2.0 - 0 + 1.0(pv)
+        assert residential[2] == 1.5  # 3.0 - 0 - 1.5(charger)
+        assert residential[3] == 1.0  # 1.0 - 0
+
+    def test_conclude_residential_null_when_charger_phase_unknown_and_charging(
+        self, monitor, data_store
+    ):
+        c.SOLAR_PANELS = []
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _make_grid_trackers(monitor, {1: 2.0, 2: 2.0, 3: 2.0})
+        t1 = TEST_NOW + timedelta(minutes=5)
+
+        # Car is charging (2 kW) but the phase is unknown -> cannot attribute.
+        monitor._conclude_grid_interval("ts", t1, 2.0, {})
+
+        assert data_store.insert_grid_interval.call_count == 3
+        for call in data_store.insert_grid_interval.call_args_list:
+            assert call.args[4] is None
+
+    def test_conclude_residential_computed_when_unknown_phase_but_idle(
+        self, monitor, data_store
+    ):
+        c.SOLAR_PANELS = []
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _make_grid_trackers(monitor, {1: 2.0, 2: 2.0, 3: 2.0})
+        t1 = TEST_NOW + timedelta(minutes=5)
+
+        # Charger phase unknown but the car drew no power -> still computable.
+        monitor._conclude_grid_interval("ts", t1, 0.0, {})
+
+        residential = {
+            call.args[1]: call.args[4]
+            for call in data_store.insert_grid_interval.call_args_list
+        }
+        assert residential == {1: 2.0, 2: 2.0, 3: 2.0}
 
 
 # =====================================================================
