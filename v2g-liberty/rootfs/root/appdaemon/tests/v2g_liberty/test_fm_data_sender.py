@@ -40,6 +40,7 @@ def _set_constants():
     c.FM_EMS_STATUS_SENSOR_ID = 104
     c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
     c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+    c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
 
 
 @pytest.fixture
@@ -536,13 +537,16 @@ class TestInitialize:
 # ──────────────────────────────────────────────────────────
 
 
-def _make_grid_row(ts_str, phase, consumption_kw=1.0, production_kw=0.0):
+def _make_grid_row(
+    ts_str, phase, consumption_kw=1.0, production_kw=0.0, residential_load_kw=None
+):
     """Helper to create a grid_interval_log row dict."""
     return {
         "timestamp": ts_str,
         "phase": phase,
         "consumption_kw": consumption_kw,
         "production_kw": production_kw,
+        "residential_load_kw": residential_load_kw,
     }
 
 
@@ -594,6 +598,47 @@ class TestSendGridData:
 
         # 3 consumption + 3 production = 6
         assert fm_client.post_sensor_data.call_count == 6
+        assert data_store._last_sent["grid"] == _ts(10, 0)
+
+    @pytest.mark.asyncio
+    async def test_sends_residential_load(self, sender, data_store, fm_client):
+        """Residential load is posted per phase; a None value stays a gap."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {1: 507}
+        data_store._last_sent["grid"] = _ts(9, 55)
+        data_store.get_grid_intervals_since.return_value = [
+            _make_grid_row(_ts(10, 0), 1, 2.5, 0.1, 2.4),
+            _make_grid_row(_ts(10, 5), 1, 2.3, 0.2, None),  # smart-null -> gap
+        ]
+
+        await sender._send_grid_data()
+
+        # 1 consumption + 1 production + 1 residential = 3
+        assert fm_client.post_sensor_data.call_count == 3
+        resid_call = fm_client.post_sensor_data.call_args_list[2]
+        assert resid_call.kwargs["sensor_id"] == 507
+        assert resid_call.kwargs["values"] == [2.4, None]
+        assert resid_call.kwargs["uom"] == "kW"
+
+    @pytest.mark.asyncio
+    async def test_sends_3_phase_grid_with_residential(
+        self, sender, data_store, fm_client
+    ):
+        """3-phase grid with residential: 3 cons + 3 prod + 3 residential = 9."""
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 501, 2: 503, 3: 505}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {1: 502, 2: 504, 3: 506}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {1: 507, 2: 508, 3: 509}
+        data_store._last_sent["grid"] = _ts(9, 55)
+        data_store.get_grid_intervals_since.return_value = [
+            _make_grid_row(_ts(10, 0), 1, 2.5, 0.1, 2.4),
+            _make_grid_row(_ts(10, 0), 2, 1.8, 0.0, 1.8),
+            _make_grid_row(_ts(10, 0), 3, 0.9, 0.5, 0.4),
+        ]
+
+        await sender._send_grid_data()
+
+        assert fm_client.post_sensor_data.call_count == 9
         assert data_store._last_sent["grid"] == _ts(10, 0)
 
     @pytest.mark.asyncio

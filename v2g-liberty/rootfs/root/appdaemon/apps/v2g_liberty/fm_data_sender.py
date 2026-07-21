@@ -323,7 +323,8 @@ class FMDataSender:
     def _group_grid_by_timestamp(intervals: list[dict]) -> dict[str, dict[int, dict]]:
         """Group grid interval rows by timestamp.
 
-        Returns {timestamp: {phase: {consumption_kw, production_kw}}}.
+        Returns {timestamp: {phase: {consumption_kw, production_kw,
+        residential_load_kw}}}.
         """
         by_timestamp: dict[str, dict[int, dict]] = {}
         for row in intervals:
@@ -333,6 +334,7 @@ class FMDataSender:
             by_timestamp[ts][row["phase"]] = {
                 "consumption_kw": row["consumption_kw"],
                 "production_kw": row["production_kw"],
+                "residential_load_kw": row.get("residential_load_kw"),
             }
         return by_timestamp
 
@@ -384,8 +386,8 @@ class FMDataSender:
     ) -> bool:
         """Send a contiguous block of grid data to FlexMeasures.
 
-        Posts consumption and production per phase. Returns True only if
-        all posts succeed.
+        Posts consumption, production and residential load per phase. Returns
+        True only if all posts succeed.
         """
         start = timestamps[0]
         duration = _len_to_iso_duration(len(timestamps))
@@ -424,6 +426,25 @@ class FMDataSender:
             if not ok:
                 self.__log(
                     f"Grid: failed to send production L{phase}.",
+                    level="WARNING",
+                )
+                return False
+
+        for phase, sensor_id in c.FM_RESIDENTIAL_LOAD_SENSOR_IDS.items():
+            values = [
+                by_timestamp[ts].get(phase, {}).get("residential_load_kw")
+                for ts in timestamps
+            ]
+            ok = await self.fm_client_app.post_sensor_data(
+                sensor_id=sensor_id,
+                values=values,
+                start=start,
+                duration=duration,
+                uom="kW",
+            )
+            if not ok:
+                self.__log(
+                    f"Grid: failed to send residential load L{phase}.",
                     level="WARNING",
                 )
                 return False
