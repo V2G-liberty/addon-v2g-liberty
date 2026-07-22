@@ -38,6 +38,8 @@ export class ChargerSettingsCard extends LitElement {
   private _hass: HomeAssistant;
   private _phaseLoaded: boolean = false;
   private _unsubPhase: (() => void) | null = null;
+  private _unsubGrid: (() => void) | null = null;
+  private _unsubDetect: (() => void) | null = null;
 
   setConfig(config: LovelaceCardConfig) {}
 
@@ -145,6 +147,18 @@ export class ChargerSettingsCard extends LitElement {
       () => this._loadPhaseInfo(),
       'save_charger_phase.result'
     );
+    // A grid settings change clears the charger phase (and changes whether it
+    // is required), so reload the phase info to reflect it immediately.
+    this._unsubGrid = await this._hass.connection.subscribeEvents<HassEvent>(
+      () => this._loadPhaseInfo(),
+      'save_grid_connection_settings.result'
+    );
+    // Phase detection (automatic on connect, or manual) sets the phase, so
+    // reload so the warning clears without a page reload.
+    this._unsubDetect = await this._hass.connection.subscribeEvents<HassEvent>(
+      () => this._loadPhaseInfo(),
+      'detect_charger_phase.result'
+    );
   }
 
   disconnectedCallback() {
@@ -153,6 +167,14 @@ export class ChargerSettingsCard extends LitElement {
       this._unsubPhase();
       this._unsubPhase = null;
     }
+    if (this._unsubGrid) {
+      this._unsubGrid();
+      this._unsubGrid = null;
+    }
+    if (this._unsubDetect) {
+      this._unsubDetect();
+      this._unsubDetect = null;
+    }
   }
 
   private _renderChargerPhase() {
@@ -160,7 +182,7 @@ export class ChargerSettingsCard extends LitElement {
 
     if (this._connectedToPhase === null) {
       if (this._phaseRequired) {
-        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
+        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">It is detected automatically the next time the car is connected. If this message keeps showing, open the charger settings to detect or set it manually.</ha-alert></div>`;
       }
       return nothing;
     }
