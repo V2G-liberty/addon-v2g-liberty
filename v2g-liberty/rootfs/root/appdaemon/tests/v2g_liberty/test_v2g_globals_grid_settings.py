@@ -56,6 +56,7 @@ def globals_instance(log_mock, settings_manager_mock, hass_mock, fm_client_mock)
     instance.v2g_settings = settings_manager_mock
     instance.hass = hass_mock
     instance.fm_client_app = fm_client_mock
+    instance.event_bus = MagicMock()
     return instance
 
 
@@ -181,6 +182,24 @@ class TestSaveGridConnectionSettings:
             ("grid_connection", data),
         )
         assert c.GRID_PHASES == 3
+
+    @pytest.mark.asyncio
+    async def test_save_emits_grid_settings_changed(self, globals_with_fm):
+        """A successful save signals data_monitor to re-register listeners."""
+        data = {
+            "phases": 1,
+            "capacity_per_phase": 40,
+            "consumption_entities": ["sensor.grid_cons_l1"],
+            "production_entities": ["sensor.grid_prod_l1"],
+        }
+
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", data, {}
+        )
+
+        globals_with_fm.event_bus.emit_event.assert_called_once_with(
+            "grid_settings_changed"
+        )
 
     @pytest.mark.asyncio
     async def test_save_invalid_phases(
@@ -316,6 +335,8 @@ class TestSaveGridConnectionBlocking:
         settings_manager_mock.store_object.assert_not_called()
         assert self._snapshot() == before
         self._assert_fm_error(hass_mock)
+        # No re-registration signal on the FM-error (blocked) path.
+        globals_with_fm.event_bus.emit_event.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_ensure_sensor_exception_blocks_save(
@@ -872,6 +893,7 @@ def globals_with_fm(log_mock, settings_manager_mock, hass_mock, fm_client_connec
     instance.v2g_settings = settings_manager_mock
     instance.hass = hass_mock
     instance.fm_client_app = fm_client_connected
+    instance.event_bus = MagicMock()
     return instance
 
 

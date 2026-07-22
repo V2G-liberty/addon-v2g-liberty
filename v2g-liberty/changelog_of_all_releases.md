@@ -14,6 +14,7 @@ That file also contains possible changes that the next release might include.
 ### Added
 
 - 🚀 FEAT: Warn negative grid power (#472)
+- 🚀 FEAT: Live reregister grid listeners (#473)
 
 ## 0.8.2 2026-06-19
 

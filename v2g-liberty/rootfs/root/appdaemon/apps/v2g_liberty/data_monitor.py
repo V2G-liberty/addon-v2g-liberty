@@ -157,6 +157,9 @@ class DataMonitor:
             "charge_power_change", self._process_power_change
         )
         self.event_bus.add_event_listener("soc_change", self._process_soc_change)
+        self.event_bus.add_event_listener(
+            "grid_settings_changed", self._on_grid_settings_changed
+        )
 
         # Reservation logging
         if self.reservations_client is not None:
@@ -419,29 +422,66 @@ class DataMonitor:
         # negative reading, so the warning fires once per channel per session.
         if not hasattr(self, "_grid_negative_warned"):
             self._grid_negative_warned = {}
+        # Handles of the registered listeners, kept so they can be cancelled and
+        # re-registered when grid settings change (see _on_grid_settings_changed).
+        if not hasattr(self, "_grid_listener_handles"):
+            self._grid_listener_handles = []
 
         for i, entity_id in enumerate(c.GRID_CONSUMPTION_ENTITIES, start=1):
             self._grid_consumption_scales[i] = await self._get_power_scale(entity_id)
             tracker = PowerTracker()
             tracker.reset(local_now)
             self._grid_consumption_trackers[i] = tracker
-            await self.hass.listen_state(
+            handle = await self.hass.listen_state(
                 self._handle_grid_consumption_change, entity_id, phase=i
             )
+            self._grid_listener_handles.append(handle)
 
         for i, entity_id in enumerate(c.GRID_PRODUCTION_ENTITIES, start=1):
             self._grid_production_scales[i] = await self._get_power_scale(entity_id)
             tracker = PowerTracker()
             tracker.reset(local_now)
             self._grid_production_trackers[i] = tracker
-            await self.hass.listen_state(
+            handle = await self.hass.listen_state(
                 self._handle_grid_production_change, entity_id, phase=i
             )
+            self._grid_listener_handles.append(handle)
 
         self.__log(
             f"Grid monitoring started: {len(c.GRID_CONSUMPTION_ENTITIES)} "
             f"consumption + {len(c.GRID_PRODUCTION_ENTITIES)} production entities."
         )
+
+    async def _teardown_grid_listeners(self):
+        """Cancel the registered grid listeners and reset grid state.
+
+        Leaves the trackers/scales empty so a subsequent _setup_grid_listeners
+        rebuilds them for the new entities.
+        """
+        for handle in getattr(self, "_grid_listener_handles", []):
+            try:
+                await self.hass.cancel_listen_state(handle)
+            except Exception as e:
+                self.__log(f"Failed to cancel a grid listener: {e}", level="WARNING")
+        self._grid_listener_handles = []
+        self._grid_consumption_trackers = {}
+        self._grid_production_trackers = {}
+        self._grid_consumption_scales = {}
+        self._grid_production_scales = {}
+        # Re-arm negative warnings for the freshly (re)configured sensors.
+        self._grid_negative_warned = {}
+
+    async def _on_grid_settings_changed(self, *args, **kwargs):
+        """Re-register grid listeners after grid settings were saved.
+
+        Grid settings changes only update the c.GRID_* constants; the listeners
+        still point at the old entities. Tear them down and register on the new
+        entities so monitoring (and the negative-value warning) works without an
+        app restart.
+        """
+        self.__log("Grid settings changed, re-registering grid listeners.")
+        await self._teardown_grid_listeners()
+        await self._setup_grid_listeners(get_local_now())
 
     async def _handle_grid_consumption_change(
         self, entity, attribute, old, new, kwargs

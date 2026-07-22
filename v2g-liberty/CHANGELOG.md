@@ -10,6 +10,7 @@
 ### Added
 
 - 🚀 FEAT: Warn negative grid power (#472)
+- 🚀 FEAT: Live reregister grid listeners (#473)
 
 ### Changed
 
