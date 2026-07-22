@@ -293,10 +293,12 @@ class V2GLibertyGlobals:
 
     hass: Hass = None
     notifier: Notifier = None
+    event_bus = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    def __init__(self, hass: Hass, notifier: Notifier, event_bus=None):
         self.hass = hass
         self.notifier = notifier
+        self.event_bus = event_bus
         self.__log = get_class_method_logger(module_name="v2g_globals")
         self.v2g_settings = SettingsManager(log=self.__log)
 
@@ -657,6 +659,11 @@ class V2GLibertyGlobals:
             )
             self.__initialise_charger_phase_settings()
             self.__log("Cleared charger phase (grid phases or entities changed)")
+
+        # Let data_monitor re-register its grid listeners on the new entities
+        # without an app restart.
+        if self.event_bus is not None:
+            self.event_bus.emit_event("grid_settings_changed")
 
         self.hass.fire_event("save_grid_connection_settings.result")
 

@@ -42,6 +42,7 @@ def hass():
     mock_hass.listen_state = AsyncMock()
     mock_hass.run_every = AsyncMock()
     mock_hass.call_service = AsyncMock()
+    mock_hass.cancel_listen_state = AsyncMock()
     return mock_hass
 
 
@@ -853,6 +854,61 @@ class TestGridNegativeWarning:
         )
 
         hass.call_service.assert_not_called()
+
+
+class TestGridSettingsChanged:
+    """Grid listeners are re-registered live when grid settings change."""
+
+    @pytest.mark.asyncio
+    async def test_setup_stores_listener_handles(self, monitor):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        monitor._grid_listener_handles = []
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1"]
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        # One handle per registered listener (1 consumption + 1 production).
+        assert len(monitor._grid_listener_handles) == 2
+
+    @pytest.mark.asyncio
+    async def test_settings_change_cancels_old_and_registers_new(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        monitor._grid_listener_handles = []
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1"]
+        await monitor._setup_grid_listeners(TEST_NOW)
+        assert len(monitor._grid_listener_handles) == 2
+
+        # Settings change to a 2-phase set of new entities.
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.new_cons_l1", "sensor.new_cons_l2"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.new_prod_l1", "sensor.new_prod_l2"]
+        hass.listen_state.reset_mock()
+        hass.cancel_listen_state.reset_mock()
+
+        await monitor._on_grid_settings_changed()
+
+        # Old two listeners cancelled, new four registered.
+        assert hass.cancel_listen_state.call_count == 2
+        assert hass.listen_state.call_count == 4
+        assert len(monitor._grid_listener_handles) == 4
+
+    @pytest.mark.asyncio
+    async def test_settings_change_rearms_negative_warning(self, monitor):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        monitor._grid_listener_handles = []
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+        monitor._grid_negative_warned[("consumption", 1)] = True
+
+        await monitor._on_grid_settings_changed()
+
+        # The warned-flags are cleared so a newly configured wrong sensor warns.
+        assert monitor._grid_negative_warned == {}
 
 
 class TestConcludeGridInterval:

@@ -45,7 +45,7 @@ class V2GLibertyApp(Hass):
         self._log_init_time("Notifier", start_module)
 
         start_module = datetime.now()
-        v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
+        v2g_globals = V2GLibertyGlobals(self, notifier=notifier, event_bus=event_bus)
         self._log_init_time("V2GLibertyGlobals", start_module)
 
         start_module = datetime.now()
