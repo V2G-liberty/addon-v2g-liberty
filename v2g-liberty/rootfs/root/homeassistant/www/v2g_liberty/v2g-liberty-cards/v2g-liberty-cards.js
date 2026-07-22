@@ -14336,6 +14336,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         this._consumptionEntities = [];
         this._productionEntities = [];
         this._entityStatus = {};
+        this._entityNegative = {};
         this._cleanupEntityListeners();
         this._autoDetected = false;
         this._triedContinueStep2 = false;
@@ -14666,6 +14667,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
       </div>
 
       ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._renderNegativeWarning()}
       ${this._renderSaveWarning()}
       ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error save-error" role="alert">${this._saveError}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
 
@@ -14680,7 +14682,8 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     _renderEntityDropdown(label, selected, onChange, allSelected) {
         const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
         const status = selected ? this._entityStatus[selected] : undefined;
-        const statusIcon = selected ? status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        const isNegative = selected ? this._entityNegative[selected] : false;
+        const statusIcon = !selected ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : isNegative ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:alert" title="This sensor reported a negative value" style="color: var(--warning-color, #ff9800); --mdc-icon-size: 20px;"></ha-icon>` : status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>`;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div style="margin: 8px 0;">
         <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
@@ -14721,6 +14724,12 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             ...this._entityStatus,
             [entityId]: undefined
         }; // pending
+        // Fresh subscription: clear any stale negative flag for this entity.
+        const negReset = {
+            ...this._entityNegative
+        };
+        delete negReset[entityId];
+        this._entityNegative = negReset;
         // Subscribe to state changes for this entity
         const unsub = this.hass.connection.subscribeEvents((event)=>{
             const data = event.data;
@@ -14728,9 +14737,16 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             const newState = data.new_state?.state;
             if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
             // Numeric check
-            if (isNaN(parseFloat(newState))) return;
+            const value = parseFloat(newState);
+            if (isNaN(value)) return;
             this._entityStatus = {
                 ...this._entityStatus,
+                [entityId]: true
+            };
+            // Consumption/production should be directional (>= 0). A negative value
+            // points at a bidirectional/net or wrong sensor; flag it (sticky).
+            if (value < 0) this._entityNegative = {
+                ...this._entityNegative,
                 [entityId]: true
             };
         }, 'state_changed');
@@ -14751,6 +14767,11 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         };
         delete copy[entityId];
         this._entityStatus = copy;
+        const negCopy = {
+            ...this._entityNegative
+        };
+        delete negCopy[entityId];
+        this._entityNegative = negCopy;
     }
     _getAllSelectedEntities() {
         const all = [
@@ -14783,6 +14804,26 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
         if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
+    }
+    _renderNegativeWarning() {
+        const selected = this._getAllSelectedEntities();
+        const hasNegative = Object.keys(this._entityNegative).some((e)=>this._entityNegative[e] && selected.has(e));
+        if (!hasNegative) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title="A sensor reported a negative value">
+        A selected grid sensor reported a negative value. These fields each need
+        a sensor that reports only one direction and stays zero or positive: one
+        for power drawn from the grid, and one for power fed back to the grid. A
+        negative value means the sensor measures both directions at once (a net
+        value) — for example a CT clamp that also sees the car feeding back.
+        <p>
+          <strong>Tip:</strong> V2G Liberty does not support a single net sensor.
+          If your meter offers separate sensors for power drawn from and fed back
+          to the grid, select those; if not, please contact V2G Liberty to
+          request support.
+        </p>
+      </ha-alert>
+    `;
     }
     _renderSaveWarning() {
         if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
@@ -14992,7 +15033,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     }
     constructor(...args){
         super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Inline entity validation state (per entity: true=ok, undefined=pending)
-        this._entityStatus = {}, this._entityListeners = {}, // Auto-detection state
+        this._entityStatus = {}, // Entities that reported a negative value (likely a bidirectional/net or
+        // wrong sensor, since consumption/production should be directional).
+        this._entityNegative = {}, this._entityListeners = {}, // Auto-detection state
         this._autoDetected = false, // Form validation state
         this._triedContinueStep2 = false, this._triedSave = false, // Set on the first Continue click of step 2 when the new phases would
         // make existing solar panels inconsistent. While true, the Continue
@@ -15026,6 +15069,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityNegative", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
