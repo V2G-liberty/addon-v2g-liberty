@@ -415,6 +415,10 @@ class DataMonitor:
             self._grid_consumption_scales = {}
         if not hasattr(self, "_grid_production_scales"):
             self._grid_production_scales = {}
+        # Tracks which (direction, phase) channels have already warned about a
+        # negative reading, so the warning fires once per channel per session.
+        if not hasattr(self, "_grid_negative_warned"):
+            self._grid_negative_warned = {}
 
         for i, entity_id in enumerate(c.GRID_CONSUMPTION_ENTITIES, start=1):
             self._grid_consumption_scales[i] = await self._get_power_scale(entity_id)
@@ -453,7 +457,11 @@ class DataMonitor:
         tracker = self._grid_consumption_trackers.get(phase)
         if tracker:
             scale = self._grid_consumption_scales.get(phase, 1.0)
-            tracker.update(power * scale, get_local_now())
+            power_kw = power * scale
+            await self._warn_if_negative_grid_power(
+                "consumption", phase, entity, power_kw
+            )
+            tracker.update(power_kw, get_local_now())
 
     async def _handle_grid_production_change(self, entity, attribute, old, new, kwargs):
         """Called when a grid production entity changes state."""
@@ -467,7 +475,50 @@ class DataMonitor:
         tracker = self._grid_production_trackers.get(phase)
         if tracker:
             scale = self._grid_production_scales.get(phase, 1.0)
-            tracker.update(power * scale, get_local_now())
+            power_kw = power * scale
+            await self._warn_if_negative_grid_power(
+                "production", phase, entity, power_kw
+            )
+            tracker.update(power_kw, get_local_now())
+
+    async def _warn_if_negative_grid_power(
+        self, direction: str, phase: int, entity: str, power_kw: float
+    ):
+        """Warn (once per channel) when a grid entity reports negative power.
+
+        Consumption and production are directional channels and should never be
+        negative. A negative value means a bidirectional/net sensor was selected
+        (e.g. a CT clamp that also sees the car feeding back) or the wrong sensor
+        entirely. Log a WARNING and raise a persistent notification so the user
+        can correct the sensor selection.
+        """
+        if not hasattr(self, "_grid_negative_warned"):
+            self._grid_negative_warned = {}
+
+        if power_kw >= 0:
+            return
+
+        key = (direction, phase)
+        if self._grid_negative_warned.get(key):
+            return
+        self._grid_negative_warned[key] = True
+
+        self.__log(
+            f"Grid {direction} L{phase} ({entity}) reported negative power "
+            f"({power_kw} kW), which points at a wrong or net sensor.",
+            level="WARNING",
+        )
+        await self.hass.call_service(
+            "persistent_notification/create",
+            title="V2G Liberty: check your grid sensors",
+            message=(
+                "A grid sensor is reporting a negative value. Consumption and "
+                "production sensors should never be negative, so this points at "
+                "a wrong sensor selection. Please open the grid connection "
+                "settings to check and correct your grid sensors."
+            ),
+            notification_id="grid_sensor_negative",
+        )
 
     def _conclude_grid_interval(self, timestamp: str, local_now: datetime):
         """Conclude grid trackers and persist to database."""

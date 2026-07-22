@@ -41,6 +41,7 @@ def hass():
     mock_hass.get_state = AsyncMock(return_value="Automatic")
     mock_hass.listen_state = AsyncMock()
     mock_hass.run_every = AsyncMock()
+    mock_hass.call_service = AsyncMock()
     return mock_hass
 
 
@@ -800,6 +801,58 @@ class TestGridConsumptionHandler:
 
         tracker = monitor._grid_consumption_trackers[1]
         assert tracker._current_power == 0.0  # unchanged from reset default
+
+
+class TestGridNegativeWarning:
+    """A negative grid reading warns once and raises a persistent notification."""
+
+    @pytest.mark.asyncio
+    async def test_negative_consumption_notifies(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "-1200", {"phase": 1}
+        )
+
+        hass.call_service.assert_called_once()
+        call = hass.call_service.call_args
+        assert call.args[0] == "persistent_notification/create"
+        assert call.kwargs["notification_id"] == "grid_sensor_negative"
+        # The negative value is still recorded on the tracker (data unchanged).
+        assert monitor._grid_consumption_trackers[1]._current_power == -1200.0
+
+    @pytest.mark.asyncio
+    async def test_warns_only_once_per_channel(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        for _ in range(3):
+            await monitor._handle_grid_consumption_change(
+                "sensor.cons_l1", "state", "0", "-1200", {"phase": 1}
+            )
+
+        assert hass.call_service.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_positive_value_does_not_notify(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "1500", {"phase": 1}
+        )
+
+        hass.call_service.assert_not_called()
 
 
 class TestConcludeGridInterval:

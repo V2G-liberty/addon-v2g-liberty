@@ -6,6 +6,9 @@ Updates them every ~10 seconds with realistic values, including:
 - Charger power on the correct phase(s) (read from actual charger state)
 - PV production as a sine curve over the day
 - Grid production (feed-in) when PV surplus exceeds consumption
+- A signed net-power sensor per phase (import positive, export negative) to
+  test the grid dialog's "negative value" warning. It goes negative during PV
+  surplus, or always when `input_boolean.emulator_force_negative` is on.
 
 These entities can be selected in the grid connection / solar panel settings
 dialogs to test the full data pipeline without real hardware.
@@ -32,6 +35,7 @@ class GridPvEmulator(hass.Hass):
     }
 
     _PAUSE_ENTITY = "input_boolean.emulator_paused"
+    _FORCE_NEGATIVE_ENTITY = "input_boolean.emulator_force_negative"
     _cycle: int = 0  # Alternating offset to ensure state changes
 
     def initialize(self):
@@ -44,6 +48,14 @@ class GridPvEmulator(hass.Hass):
             self._PAUSE_ENTITY,
             state="off",
             attributes={"friendly_name": "Pause grid/PV emulator"},
+        )
+
+        # Toggle to force the emulated net sensors negative on demand, so the
+        # grid dialog's "negative value" warning can be tested at any time.
+        self.set_state(
+            self._FORCE_NEGATIVE_ENTITY,
+            state="off",
+            attributes={"friendly_name": "Force emulator grid net negative"},
         )
 
         # Create a fuse threshold entity (DSMR OBIS 1-0:31.4.0)
@@ -76,6 +88,8 @@ class GridPvEmulator(hass.Hass):
         charger = self._calculate_charger_impact()
         pv_per_phase = self._calculate_pv_per_phase(now)
 
+        force_negative = self.get_state(self._FORCE_NEGATIVE_ENTITY) == "on"
+
         # Per phase: net = base + charger - pv
         for phase in (1, 2, 3):
             total_consumption = base[phase] + charger[phase]
@@ -98,6 +112,20 @@ class GridPvEmulator(hass.Hass):
                 f"sensor.emulated_grid_production_l{phase}",
                 grid_production,
                 f"Emulated Grid Production L{phase}",
+            )
+
+            # Signed net-power sensor (import positive, export negative) — the
+            # kind of wrong/net sensor a user might accidentally pick. It goes
+            # negative during PV surplus; the force toggle makes it clearly
+            # negative regardless of time so the warning can be tested anytime.
+            if force_negative:
+                net_value = -(500 + round(base[phase])) + offset
+            else:
+                net_value = round(net) + offset
+            self._set_sensor(
+                f"sensor.emulated_grid_net_l{phase}",
+                net_value,
+                f"Emulated Grid Net L{phase}",
             )
 
         # PV sensors (total per panel, not per phase)

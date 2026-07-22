@@ -9,7 +9,7 @@
 
 ### Added
 
--
+- 🚀 FEAT: Warn negative grid power (#472)
 
 ### Changed
 
