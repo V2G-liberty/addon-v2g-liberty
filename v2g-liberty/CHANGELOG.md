@@ -14,7 +14,7 @@
 
 ### Changed
 
--
+- Explain the 'charger phase not set' warning and keep it in sync (#474)
 
 #### Removing
 

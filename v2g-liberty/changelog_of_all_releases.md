@@ -16,6 +16,11 @@ That file also contains possible changes that the next release might include.
 - 🚀 FEAT: Warn negative grid power (#472)
 - 🚀 FEAT: Live reregister grid listeners (#473)
 
+### Changed
+
+- Explain the 'charger phase not set' warning and keep it in sync (#474)
+
+
 ## 0.8.2 2026-06-19
 
 ### Fixed

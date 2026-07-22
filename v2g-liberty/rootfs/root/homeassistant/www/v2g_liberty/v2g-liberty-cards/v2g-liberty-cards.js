@@ -17986,6 +17986,12 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     }
     async _subscribeToPhaseEvents() {
         this._unsubPhase = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_charger_phase.result');
+        // A grid settings change clears the charger phase (and changes whether it
+        // is required), so reload the phase info to reflect it immediately.
+        this._unsubGrid = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_grid_connection_settings.result');
+        // Phase detection (automatic on connect, or manual) sets the phase, so
+        // reload so the warning clears without a page reload.
+        this._unsubDetect = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'detect_charger_phase.result');
     }
     disconnectedCallback() {
         super.disconnectedCallback();
@@ -17993,11 +17999,19 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
             this._unsubPhase();
             this._unsubPhase = null;
         }
+        if (this._unsubGrid) {
+            this._unsubGrid();
+            this._unsubGrid = null;
+        }
+        if (this._unsubDetect) {
+            this._unsubDetect();
+            this._unsubDetect = null;
+        }
     }
     _renderChargerPhase() {
         if (!this._phaseLoaded) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         if (this._connectedToPhase === null) {
-            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
+            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">It is detected automatically the next time the car is connected. If this message keeps showing, open the charger settings to detect or set it manually.</ha-alert></div>`;
             return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         }
         const phaseValue = Array.isArray(this._connectedToPhase) ? this._connectedToPhase.map((p)=>`L${p}`).join(', ') : `L${this._connectedToPhase}`;
@@ -18051,7 +18065,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     }
     constructor(...args){
         super(...args), // Charger phase (from JSON settings, not HA entity)
-        this._connectedToPhase = null, this._phaseRequired = false, this._phaseLoaded = false, this._unsubPhase = null;
+        this._connectedToPhase = null, this._phaseRequired = false, this._phaseLoaded = false, this._unsubPhase = null, this._unsubGrid = null, this._unsubDetect = null;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
