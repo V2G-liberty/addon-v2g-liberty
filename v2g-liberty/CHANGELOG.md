@@ -9,7 +9,7 @@
 
 ### Added
 
--
+- 🚀 FEAT: Residential load per phase (#471)
 
 ### Changed
 
