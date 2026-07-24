@@ -123,36 +123,51 @@ class ChargerEmulator(hass.Hass):
         self._ticks_since_status = 0
         self._last_logged_state = None
 
-        # Control surface. These virtual entities are changed via Developer
-        # Tools > States (they are not backed by the input_* integration).
-        self.set_state(
-            self._SCENARIO_ENTITY,
-            state=DEFAULT_SCENARIO,
-            attributes={
-                "options": list(SCENARIOS),
-                "friendly_name": "Charger emulator scenario",
-            },
-        )
-        self.set_state(
-            self._CONNECT_ENTITY,
-            state="on",
-            attributes={"friendly_name": "Charger emulator: car connected"},
-        )
+        # Control surface: prefer real HA input entities (from the dev package,
+        # interactive in the dev dashboard); fall back to virtual set_state
+        # entities (changed via Developer Tools > States) when absent.
+        await self._init_control_entities()
         self.listen_state(self._on_scenario_change, self._SCENARIO_ENTITY)
         self.listen_state(self._on_connect_change, self._CONNECT_ENTITY)
 
         # Resume from the mock's current SoC so an app reload/restart doesn't
         # jump the SoC back to the default (the mock keeps register 538).
         await self._resume_soc_from_mock()
-        await self._apply_scenario(DEFAULT_SCENARIO)
+        await self._apply_scenario(self._scenario.name)
         self._task = asyncio.create_task(self._run_loop())
         self.log(
             f"Charger emulator started against {self._host}:{self._port} "
-            f"(tick {self._interval}s, scenario '{DEFAULT_SCENARIO}')"
+            f"(tick {self._interval}s, scenario '{self._scenario.name}')"
         )
 
     def terminate(self):
         self._running = False
+
+    async def _init_control_entities(self):
+        """Adopt the scenario/connect HA input entities if present (dev package),
+        else create virtual fallbacks so the emulator still works standalone."""
+        scenario = await self.get_state(self._SCENARIO_ENTITY)
+        if scenario not in SCENARIOS:
+            scenario = DEFAULT_SCENARIO
+            self.set_state(
+                self._SCENARIO_ENTITY,
+                state=scenario,
+                attributes={
+                    "options": list(SCENARIOS),
+                    "friendly_name": "Charger emulator scenario",
+                },
+            )
+        self._scenario = SCENARIOS[scenario]
+
+        connected = await self.get_state(self._CONNECT_ENTITY)
+        if connected not in ("on", "off"):
+            connected = "on"
+            self.set_state(
+                self._CONNECT_ENTITY,
+                state=connected,
+                attributes={"friendly_name": "Charger emulator: car connected"},
+            )
+        self._car_connected = connected == "on"
 
     # --- Control-surface callbacks ----------------------------------------
     async def _on_scenario_change(self, entity, attribute, old, new, kwargs):

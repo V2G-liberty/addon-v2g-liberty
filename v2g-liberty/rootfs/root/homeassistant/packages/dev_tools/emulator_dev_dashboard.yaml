@@ -1,0 +1,71 @@
+# Dev-only Lovelace dashboard for the charger + grid/PV emulators.
+# Register it as a separate YAML-mode dashboard (see charger_emulator_dev.yaml).
+title: Emulator (dev)
+views:
+  - title: Charger emulator
+    path: charger-emulator
+    icon: mdi:ev-station
+    cards:
+      - type: markdown
+        content: |
+          ## Charger emulator (dev)
+          Makes the static Wallbox-Quasar mock respond to V2G Liberty, so you can
+          test charging, phase detection and error handling without real hardware.
+
+          **Emulator controls** — drive the emulator:
+          - **Scenario** — what the mock simulates:
+            - `normal`: follows V2G's setpoint (charge/discharge), SoC ramps.
+            - `reduced_max_power`: hardware max limited to 3700 W.
+            - `wrong_fingerprint`: reports a wrong charger identity.
+            - `error_state`: charger error (state 7); held > 60 s → un-recoverable.
+            - `internal_error`: a non-zero internal error register.
+          - **Car connected** — connect/disconnect the car. A disconnect→connect
+            triggers V2G's automatic phase detection and a fresh SoC read.
+
+          **Charger status** — what V2G Liberty reads back from the (emulated)
+          charger: state, actual power, SoC, range, hardware max power and
+          connection status.
+
+          **Grid / PV emulator** — toggles for the separate grid/PV emulator:
+          *Pause* (freeze it) and *Force negative* (make the grid net sensors
+          negative to test the "negative value" warning).
+
+          _Tip: at real speed the SoC moves slowly (~0.2 %/min); raise
+          `soc_speedup` in `dev_tools/apps.yaml` to speed it up. Full tick-by-tick
+          detail is in `charger_emulator.log`._
+
+      - type: entities
+        title: Emulator controls
+        show_header_toggle: false
+        entities:
+          - entity: input_select.emulator_charger_scenario
+            name: Scenario
+          - entity: input_boolean.emulator_car_connected
+            name: Car connected
+
+      - type: entities
+        title: Charger status (as V2G Liberty reads it)
+        entities:
+          - entity: sensor.charger_state_text
+            name: Charger state
+          - entity: sensor.charger_real_charging_power
+            name: Actual power
+          - entity: sensor.car_state_of_charge
+            name: SoC
+          - entity: sensor.car_remaining_range
+            name: Remaining range
+          - entity: sensor.charger_max_available_power
+            name: Max available power
+          - entity: sensor.charger_connection_status
+            name: Connection status
+
+      - type: entities
+        title: Grid / PV emulator
+        show_header_toggle: false
+        entities:
+          - entity: input_boolean.emulator_paused
+            name: Pause grid/PV emulator
+            icon: mdi:pause
+          - entity: input_boolean.emulator_force_negative
+            name: Force grid net negative
+            icon: mdi:transmission-tower-export
