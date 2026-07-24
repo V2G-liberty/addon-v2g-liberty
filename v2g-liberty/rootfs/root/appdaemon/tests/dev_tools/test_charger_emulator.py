@@ -86,6 +86,7 @@ def make_emulator(fake, **over):
     e._status_every = 0
     e._ticks_since_status = 0
     e._last_logged_state = None
+    e._last_soc_shown = None
     return e
 
 

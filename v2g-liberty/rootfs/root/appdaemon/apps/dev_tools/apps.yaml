@@ -29,7 +29,11 @@ charger_emulator:
   charger_host: quasar-mock
   charger_port: 5020
   update_interval: 0.5
-  soc_speedup: 1.0
+
+  # Multiplication factor of how much faster the SoC is updated than in real life.
+  # This is used to speed up the emulator for testing. Normal = 1, fast is 30.
+  soc_speedup: 1
+
   status_log_seconds: 10
   ramp_up_seconds: 15
   ramp_down_seconds: 2

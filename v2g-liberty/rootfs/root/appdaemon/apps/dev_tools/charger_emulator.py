@@ -80,6 +80,7 @@ class ChargerEmulator(hass.Hass):
 
     _SCENARIO_ENTITY = "input_select.emulator_charger_scenario"
     _CONNECT_ENTITY = "input_boolean.emulator_car_connected"
+    _SOC_ENTITY = "input_number.emulator_soc"
 
     async def initialize(self):
         self.log("")
@@ -122,6 +123,7 @@ class ChargerEmulator(hass.Hass):
         )
         self._ticks_since_status = 0
         self._last_logged_state = None
+        self._last_soc_shown = None
 
         # Control surface: prefer real HA input entities (from the dev package,
         # interactive in the dev dashboard); fall back to virtual set_state
@@ -129,15 +131,22 @@ class ChargerEmulator(hass.Hass):
         await self._init_control_entities()
         self.listen_state(self._on_scenario_change, self._SCENARIO_ENTITY)
         self.listen_state(self._on_connect_change, self._CONNECT_ENTITY)
+        self.listen_state(self._on_soc_set, self._SOC_ENTITY)
 
         # Resume from the mock's current SoC so an app reload/restart doesn't
         # jump the SoC back to the default (the mock keeps register 538).
         await self._resume_soc_from_mock()
         await self._apply_scenario(self._scenario.name)
+        await self._sync_soc_entity()
         self._task = asyncio.create_task(self._run_loop())
         self.log(
             f"Charger emulator started against {self._host}:{self._port} "
-            f"(tick {self._interval}s, scenario '{self._scenario.name}')"
+            f"(tick {self._interval}s, scenario '{self._scenario.name}', "
+            f"soc_speedup {self._soc_speedup}x, "
+            f"ramp up/down {self._ramp_up_seconds}/{self._ramp_down_seconds}s, "
+            f"target {self._power_target_fraction}, "
+            f"max {self._profile.hw_max_charge_power_w}W, "
+            f"battery {self._profile.battery_capacity_kwh}kWh)"
         )
 
     def terminate(self):
@@ -178,6 +187,35 @@ class ChargerEmulator(hass.Hass):
     async def _on_connect_change(self, entity, attribute, old, new, kwargs):
         self._car_connected = new == "on"
         self.log(f"Charger emulator car connected -> {self._car_connected}")
+
+    async def _on_soc_set(self, entity, attribute, old, new, kwargs):
+        """Jump the emulated SoC to a value set via input_number.emulator_soc."""
+        try:
+            value = float(new)
+        except (TypeError, ValueError):
+            return
+        # Ignore our own echo (the tick pushes the live SoC onto this entity).
+        if abs(value - self._soc) < 1.0:
+            return
+        self._soc = value
+        self._last_soc_shown = round(value)
+        self.log(f"Charger emulator SoC set to {round(self._soc)}%")
+
+    async def _sync_soc_entity(self):
+        """Reflect the current SoC on input_number.emulator_soc so the slider
+        tracks it. Only writes on a changed (rounded) value to limit churn."""
+        rounded = round(self._soc)
+        if rounded == self._last_soc_shown:
+            return
+        self._last_soc_shown = rounded
+        try:
+            await self.call_service(
+                "input_number/set_value",
+                entity_id=self._SOC_ENTITY,
+                value=rounded,
+            )
+        except Exception as e:  # noqa: BLE001 - entity absent without the dev package
+            self.log(f"Could not sync SoC entity: {e}", level="DEBUG")
 
     # --- Scenario activation ----------------------------------------------
     async def _apply_scenario(self, name: str):
@@ -267,6 +305,7 @@ class ChargerEmulator(hass.Hass):
                 REG_SOC: round(self._soc),
             }
         )
+        await self._sync_soc_entity()
         self._log_status(state, setpoint, actual)
 
     def _log_status(self, state: int, setpoint: int, actual: int):

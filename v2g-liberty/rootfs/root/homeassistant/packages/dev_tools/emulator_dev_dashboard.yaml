@@ -23,6 +23,8 @@ views:
                 name: Scenario
               - entity: input_boolean.emulator_car_connected
                 name: Car connected
+              - entity: input_number.emulator_soc
+                name: Set SoC
           - type: markdown
             content: |
               **Scenario** — what the mock simulates:

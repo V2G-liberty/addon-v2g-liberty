@@ -44,3 +44,14 @@ input_boolean:
     name: Force emulator grid net negative
     icon: mdi:transmission-tower-export
     initial: false
+
+input_number:
+  # Jump the emulated SoC to a value (read by charger_emulator).
+  emulator_soc:
+    name: "Charger emulator: set SoC"
+    icon: mdi:battery-charging
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: slider
