@@ -125,7 +125,7 @@ Pick a scenario and connect/disconnect the car via `input_select.emulator_charge
 |--------|-------------|
 | `normal` | Follows V2G's setpoint; SoC ramps. |
 | `reduced_max_power` | Hardware max limited to 3700 W. |
-| `wrong_fingerprint` | A wrong charger identity (unknown charger). |
+| `wrong_fingerprint` | Wrong charger signature (firmware = 0); the 359 connection test flags it (`not_recognised`), dev only shows it. Charger fingerprint, not car-ID recognition. |
 | `error_state` | Charger error (state 7); held > 60 s → un-recoverable. |
 | `internal_error` | A non-zero internal error register. |
 

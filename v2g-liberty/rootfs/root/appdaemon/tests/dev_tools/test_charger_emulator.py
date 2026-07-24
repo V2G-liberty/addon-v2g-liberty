@@ -251,7 +251,7 @@ async def test_scenario_wrong_fingerprint():
     fake = FakeModbusClient()
     e = make_emulator(fake)
     await e._apply_scenario("wrong_fingerprint")
-    assert fake.store[REG_FIRMWARE] == 9999
+    assert fake.store[REG_FIRMWARE] == 0
     assert fake.store[REG_SERIAL_HIGH] == 0
 
 

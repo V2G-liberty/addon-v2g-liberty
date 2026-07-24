@@ -140,8 +140,12 @@ SCENARIOS: dict[str, ChargerScenario] = {
     ),
     "wrong_fingerprint": ChargerScenario(
         name="wrong_fingerprint",
-        description="Normal mirror but wrong identity (registers 1-3) — an unknown charger.",
-        registers={REG_FIRMWARE: 9999, REG_SERIAL_HIGH: 0, REG_SERIAL_LOW: 0},
+        description=(
+            "Wrong charger signature (firmware register = 0). The 359 connection "
+            "test flags it (test_connection -> not_recognised); dev does not "
+            "validate it. This is the charger fingerprint, not car-ID recognition."
+        ),
+        registers={REG_FIRMWARE: 0, REG_SERIAL_HIGH: 0, REG_SERIAL_LOW: 0},
     ),
     "reduced_max_power": ChargerScenario(
         name="reduced_max_power",
