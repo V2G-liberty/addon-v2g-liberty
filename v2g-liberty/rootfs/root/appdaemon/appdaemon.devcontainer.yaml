@@ -21,7 +21,7 @@ appdaemon:
     - util
     - utils
 
-  production_mode: False
+  production_mode: True
   plugins:
     HASS:
       type: hass
@@ -33,6 +33,10 @@ logs:
     filename: /config/logs/v2g_liberty_main.log
   error_log:
     filename: /config/logs/v2g_liberty_error.log
+  # Dev-only: dedicated log for the charger emulator (dev_tools.charger_emulator).
+  charger_emulator_log:
+    name: charger_emulator
+    filename: /config/logs/charger_emulator.log
 
 http:
   url: http://127.0.0.1:5050

@@ -43,20 +43,21 @@ class GridPvEmulator(hass.Hass):
         self._pv_panels = self.args.get("pv_panels", [])
         self._base_load = self.args.get("base_load", {"l1": 800, "l2": 600, "l3": 400})
 
-        # Create a toggle in HA to pause/resume the emulator
-        self.set_state(
-            self._PAUSE_ENTITY,
-            state="off",
-            attributes={"friendly_name": "Pause grid/PV emulator"},
-        )
-
-        # Toggle to force the emulated net sensors negative on demand, so the
-        # grid dialog's "negative value" warning can be tested at any time.
-        self.set_state(
-            self._FORCE_NEGATIVE_ENTITY,
-            state="off",
-            attributes={"friendly_name": "Force emulator grid net negative"},
-        )
+        # Prefer real HA input entities (dev package) so the toggles are
+        # interactive in the dev dashboard; create virtual fallbacks only when
+        # absent, so the emulator still works standalone.
+        if self.get_state(self._PAUSE_ENTITY) is None:
+            self.set_state(
+                self._PAUSE_ENTITY,
+                state="off",
+                attributes={"friendly_name": "Pause grid/PV emulator"},
+            )
+        if self.get_state(self._FORCE_NEGATIVE_ENTITY) is None:
+            self.set_state(
+                self._FORCE_NEGATIVE_ENTITY,
+                state="off",
+                attributes={"friendly_name": "Force emulator grid net negative"},
+            )
 
         # Create a fuse threshold entity (DSMR OBIS 1-0:31.4.0)
         fuse_threshold = self.args.get("fuse_threshold", 25)

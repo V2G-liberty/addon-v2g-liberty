@@ -17,3 +17,29 @@ grid_pv_emulator:
     l2: 300
     l3: 300
   fuse_threshold: 25
+
+# Dev-only: Wallbox Quasar charger emulator.
+# Acts as a second Modbus client to the static mock so it responds to V2G's
+# setpoint (unblocks phase detection, charge/discharge, SoC). Stripped from the
+# production image with the rest of dev_tools (Dockerfile rm).
+charger_emulator:
+  module: dev_tools.charger_emulator
+  class: ChargerEmulator
+  log: charger_emulator_log
+  charger_host: quasar-mock
+  charger_port: 5020
+  update_interval: 0.5
+
+  # Multiplication factor of how much faster the SoC is updated than in real life.
+  # This is used to speed up the emulator for testing. Normal = 1, fast is 30.
+  soc_speedup: 1
+
+  status_log_seconds: 10
+  ramp_up_seconds: 15
+  ramp_down_seconds: 2
+  power_target_fraction: 0.92
+  battery_capacity_kwh: 58
+  hw_soc_floor_pct: 10
+  hw_soc_ceiling_pct: 97
+  hw_max_charge_power_w: 5600
+  hw_max_discharge_power_w: 5600
