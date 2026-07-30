@@ -32,6 +32,7 @@ from apps.dev_tools.charger_scenarios import (
     STATE_PAUSED,
     int16_to_uint16,
 )
+import apps.v2g_liberty.constants as c
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.modbus_evse_client import ModbusEVSEclient
 
@@ -878,3 +879,25 @@ async def test_state_change_suppressed_during_soc_dance(driver):
 
     assert rec.find("charger_state_change") == []
     assert rec.find("is_car_connected") == []
+
+
+# --- SoC -> kWh -> range derivation (Fase-1 EV-parity anchor) ---------------
+@pytest.mark.asyncio
+async def test_soc_getter_derivations(driver):
+    """Pin the charger's SoC->kWh->range derivation that the EV mirrors bit-for-bit.
+
+    Paired with test_electric_vehicle.py: both sides use round(soc*cap/100, 2)
+    and int(round(kwh*1000/consumption, 0)), so a drift on either side fails.
+    """
+    e, _ = driver
+    del e._ModbusEVSEclient__get_car_soc  # real SoC getter
+    del e.get_car_remaining_range  # real range wrapper
+    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING  # connected
+    e.ENTITY_CAR_SOC["current_value"] = 55
+
+    assert await e.get_car_soc() == 55
+    soc_kwh = await e.get_car_soc_kwh()
+    assert soc_kwh == round(55 * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
+    assert await e.get_car_remaining_range() == int(
+        round(soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM, 0)
+    )

@@ -8,6 +8,7 @@ from .ha_ui_manager import HAUIManager
 from .notifier_util import Notifier
 from .v2g_globals import V2GLibertyGlobals
 from .modbus_evse_client import ModbusEVSEclient
+from .evs.electric_vehicle import ElectricVehicle
 from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
@@ -61,6 +62,12 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         reservations_client = ReservationsClient(self, event_bus=event_bus)
         self._log_init_time("ReservationsClient", start_module)
+
+        # Construct the EV before main_app so its soc_change subscription is
+        # registered first (belt-and-braces alongside its sync, run-inline handler).
+        start_module = datetime.now()
+        electric_vehicle = ElectricVehicle(self, event_bus=event_bus)
+        self._log_init_time("ElectricVehicle", start_module)
 
         start_module = datetime.now()
         main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
@@ -124,6 +131,7 @@ class V2GLibertyApp(Hass):
         modbus_evse_client.v2g_main_app = main_app
         modbus_evse_client.v2g_globals = v2g_globals
         main_app.evse_client_app = modbus_evse_client
+        main_app.electric_vehicle = electric_vehicle
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
         data_repairer.data_store = data_store

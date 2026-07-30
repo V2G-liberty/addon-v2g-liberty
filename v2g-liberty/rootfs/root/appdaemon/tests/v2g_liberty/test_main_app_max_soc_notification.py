@@ -32,7 +32,9 @@ def v2g():
 
     instance.evse_client_app = MagicMock()
     instance.evse_client_app.is_charging = AsyncMock(return_value=True)
-    instance.evse_client_app.get_car_remaining_range = AsyncMock(return_value=278)
+    # Range now comes from the EV abstraction (a sync property).
+    instance.electric_vehicle = MagicMock()
+    instance.electric_vehicle.remaining_range_km = 278
 
     return instance
 
