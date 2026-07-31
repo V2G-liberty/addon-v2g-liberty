@@ -109,6 +109,16 @@ class EventBus(AsyncIOEventEmitter):
           simulation over repaired/imported rows.
         - **Emitted by** data_repairer
 
+    #### Settings related
+
+    - `grid_settings_changed`:
+        - **Description**: Emitted after grid connection settings were saved
+          successfully (consumption/production entities or phases changed).
+          Used by data_monitor to tear down and re-register its grid listeners
+          on the new entities without an app restart. Listeners read the new
+          `c.GRID_*` constants directly, so no arguments are passed.
+        - **Emitted by** v2g_globals
+
     """
 
     def __init__(self, hass: Hass):

@@ -1,0 +1,57 @@
+# Dev-only: real HA input entities for the charger and grid/PV emulators, so the
+# scenario picker and toggles are interactive in the dev dashboard.
+#
+# Setup (dev environment only):
+#   1. Copy this file AND emulator_dev_dashboard.yaml into your HA config under
+#      packages/dev_tools/.
+#   2. In configuration.yaml, under `homeassistant: packages:` add:
+#        emulator_dev_pack: !include packages/dev_tools/charger_emulator_dev.yaml
+#   3. Register the dashboard: under your existing `lovelace: dashboards:` add:
+#        emulator-dev:
+#          mode: yaml
+#          filename: packages/dev_tools/emulator_dev_dashboard.yaml
+#          title: Emulator (dev)
+#          icon: mdi:test-tube
+#   4. Restart Home Assistant.
+#
+# Without this package the emulator falls back to virtual entities that you
+# change via Developer Tools > States (the options/toggle are then read-only in
+# the dashboard).
+
+input_select:
+  emulator_charger_scenario:
+    name: Charger emulator scenario
+    icon: mdi:ev-station
+    initial: normal
+    options:
+      - normal
+      - wrong_fingerprint
+      - reduced_max_power
+      - error_state
+      - internal_error
+
+input_boolean:
+  emulator_car_connected:
+    name: "Charger emulator: car connected"
+    icon: mdi:car-electric
+    initial: true
+  # Grid / PV emulator toggles (read by grid_pv_emulator).
+  emulator_paused:
+    name: Pause grid/PV emulator
+    icon: mdi:pause
+    initial: false
+  emulator_force_negative:
+    name: Force emulator grid net negative
+    icon: mdi:transmission-tower-export
+    initial: false
+
+input_number:
+  # Jump the emulated SoC to a value (read by charger_emulator).
+  emulator_soc:
+    name: "Charger emulator: set SoC"
+    icon: mdi:battery-charging
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: slider

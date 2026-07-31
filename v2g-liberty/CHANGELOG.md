@@ -10,10 +10,12 @@
 ### Added
 
 - 🚀 FEAT: Residential load per phase (#471)
+- 🚀 FEAT: Warn negative grid power (#472)
+- 🚀 FEAT: Live reregister grid listeners (#473)
 
 ### Changed
 
--
+- Explain the 'charger phase not set' warning and keep it in sync (#474)
 
 #### Removing
 

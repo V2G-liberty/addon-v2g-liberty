@@ -99,6 +99,7 @@ class V2Gliberty:
     no_schedule_notification_is_planned: bool
 
     evse_client_app: object = None
+    electric_vehicle: object = None
     fm_client_app: object = None
     reservations_client: object = None
     notifier: Notifier = None
@@ -257,11 +258,11 @@ class V2Gliberty:
 
         # Needed in many of the cases further in this method
         now = get_local_now()
-        soc = await self.evse_client_app.get_car_soc()
+        soc = self.electric_vehicle.soc
 
         if charge_mode == "Automatic":
             # update_charge_mode takes charger control already, not needed here.
-            soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+            soc_kwh = self.electric_vehicle.soc_kwh
             if soc_kwh in self.EMPTY_STATES:
                 self.__log("SoC_kWh is 'unknown', abort.")
                 return
@@ -372,7 +373,7 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+                soc_kwh = self.electric_vehicle.soc_kwh
                 schedule = None
                 try:
                     schedule = await self.fm_client_app.get_new_schedule(
@@ -1007,7 +1008,7 @@ class V2Gliberty:
         ):
             message = (
                 f"Car battery at {new_soc} %, "
-                f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
+                f"range ≈ {self.electric_vehicle.remaining_range_km} km."
             )
             self.__log(f"{message=}")
             await self.notifier.notify_user(
@@ -1201,7 +1202,7 @@ class V2Gliberty:
             self.__log("aborted: car is not connected")
             return
 
-        if await self.evse_client_app.get_car_soc() in self.EMPTY_STATES:
+        if self.electric_vehicle.soc in self.EMPTY_STATES:
             self.__log("aborted: soc is 'unknown'")
             return
 
@@ -1290,7 +1291,7 @@ class V2Gliberty:
 
         exp_soc_values = list(
             accumulate(
-                [await self.evse_client_app.get_car_soc()]
+                [self.electric_vehicle.soc]
                 + convert_mw_to_percentage_points(
                     values,
                     resolution,

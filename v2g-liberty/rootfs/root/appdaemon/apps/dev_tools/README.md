@@ -80,3 +80,64 @@ If you do want it on a pre-production host, you can add it by hand — and it no
 No `appdaemon.yaml` edit is needed: `dev_tools` is no longer listed under `exclude_dirs`, so AppDaemon discovers `/config/apps/dev_tools/apps.yaml` once the folder is present. (On a normal install the folder isn't there, so nothing is loaded.)
 
 > ⚠️ **Never place the emulator on a real production install** — it would emit fake meter/PV data.
+
+## Charger Emulator
+
+`charger_emulator.py` — Makes the static Wallbox Quasar Modbus mock (`quasar-mock`) **dynamic**, so V2G Liberty sees a charger that responds to its commands. This unblocks automatic charger-phase detection and lets charging, discharging, SoC and error handling be tested without real hardware.
+
+### What it does
+
+Acts as a **second Modbus client** to the mock and, every tick, mirrors V2G's setpoint onto the report registers:
+
+- **Power mirror** — reads the requested power (register 260) and writes the actual power (526) and charger state (537): charging / discharging / paused.
+- **Ramp** — actual power ramps up slowly and down fast, hard-clamped to the hardware max (never above it).
+- **SoC** — integrates power over time into register 538, with a hardware taper at the physical bounds.
+
+It only ever writes the report registers and never touches V2G's command registers `{81, 82, 83, 88, 257, 260}`, so it cannot fight V2G on the shared mock datastore. Per-tick status is logged to a dedicated log, `charger_emulator.log`.
+
+### Configuration
+
+Edit `dev_tools/apps.yaml` (`charger_emulator`):
+
+```yaml
+charger_emulator:
+  module: dev_tools.charger_emulator
+  class: ChargerEmulator
+  charger_host: quasar-mock
+  charger_port: 5020
+  update_interval: 0.5          # tick, seconds
+  soc_speedup: 1.0              # >1 accelerates the SoC ramp for testing
+  ramp_up_seconds: 15           # time to reach full max power (slow)
+  ramp_down_seconds: 2          # time to fall back to zero (fast)
+  power_target_fraction: 0.92   # delivered = this fraction of the requested power
+  battery_capacity_kwh: 58
+  hw_soc_floor_pct: 10
+  hw_soc_ceiling_pct: 97
+  hw_max_charge_power_w: 5600
+  hw_max_discharge_power_w: 5600
+```
+
+### Scenarios and controls
+
+Pick a scenario and connect/disconnect the car via `input_select.emulator_charger_scenario` and `input_boolean.emulator_car_connected`. With the dev package + dashboard (`homeassistant/packages/dev_tools/`) these are interactive; otherwise change them in Developer Tools → States. A disconnect→connect triggers V2G's automatic phase detection and a fresh SoC read.
+
+| Scenario | Simulates |
+|--------|-------------|
+| `normal` | Follows V2G's setpoint; SoC ramps. |
+| `reduced_max_power` | Hardware max limited to 3700 W. |
+| `wrong_fingerprint` | Wrong charger signature (firmware = 0); the 359 connection test flags it (`not_recognised`), dev only shows it. Charger fingerprint, not car-ID recognition. |
+| `error_state` | Charger error (state 7); held > 60 s → un-recoverable. |
+| `internal_error` | A non-zero internal error register. |
+
+### Crash / no-connection scenarios (container control)
+
+Two failure modes are genuine communication losses that **cannot** be faked with registers — they need control of the mock **container**. Run these from `.devcontainer/` (where the compose file lives), or use `docker pause`/`stop` with the container name from `docker ps`:
+
+| Scenario | Command | Effect | Restore |
+|--------|-------------|--------|---------|
+| **Hung charger** (comms lost) | `docker compose pause quasar-mock` | Modbus stops responding; V2G's reads time out. | `docker compose unpause quasar-mock` |
+| **No connection** | `docker compose stop quasar-mock` | TCP refused; V2G cannot connect. | `docker compose start quasar-mock` |
+
+V2G reacts by flagging communication loss (the `charger_communication_state_change` event) and, after persistent failure, its un-recoverable-error handling. Restoring the container clears it (communication restored). Watch `v2g_liberty_main.log` for the transition.
+
+> ⚠️ **Dev-only** — like the grid/PV emulator, `charger_emulator.py` is stripped from the built add-on image.

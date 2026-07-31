@@ -1,0 +1,173 @@
+# Dev-only Lovelace dashboard for the charger + grid/PV emulators.
+# Register it as a separate YAML-mode dashboard (see charger_emulator_dev.yaml).
+title: Emulators
+views:
+  - title: Emulators
+    path: charger-emulator
+    icon: mdi:controller-classic-outline
+    cards:
+      - type: markdown
+        content: |
+          ## Charger emulator (dev)
+          Makes the static Wallbox-Quasar mock respond to V2G Liberty, so you can
+          test charging, phase detection and error handling without real hardware.
+          Full tick-by-tick detail is in `charger_emulator.log`.
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Emulator controls
+            show_header_toggle: false
+            entities:
+              - entity: input_select.emulator_charger_scenario
+                name: Scenario
+              - entity: input_boolean.emulator_car_connected
+                name: Car connected
+              - entity: input_number.emulator_soc
+                name: Set SoC
+          - type: markdown
+            content: |
+              **Scenario** — what the mock simulates:
+              - `normal`: follows V2G's setpoint (charge/discharge), SoC ramps.
+              - `reduced_max_power`: hardware max limited to 3700 W.
+              - `wrong_fingerprint`: reports a wrong charger identity.
+              - `error_state`: charger error (state 7); held > 60 s → un-recoverable.
+              - `internal_error`: a non-zero internal error register.
+
+              **Car connected** — connect/disconnect the car; a disconnect→connect
+              triggers automatic phase detection and a fresh SoC read.
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Charger status
+            entities:
+              - entity: sensor.charger_state_text
+                name: Charger state
+              - entity: sensor.charger_real_charging_power
+                name: Actual power
+              - entity: sensor.car_state_of_charge
+                name: SoC
+              - entity: sensor.car_remaining_range
+                name: Remaining range
+              - entity: sensor.charger_max_available_power
+                name: Max available power
+              - entity: sensor.charger_connection_status
+                name: Connection status
+          - type: markdown
+            content: |
+              What V2G Liberty reads back from the (emulated) charger.
+
+              _Tip: at real speed the SoC moves slowly (~0.2 %/min); raise
+              `soc_speedup` in `dev_tools/apps.yaml` to speed it up._
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Grid / PV emulator
+            show_header_toggle: false
+            entities:
+              - entity: input_boolean.emulator_paused
+                name: Pause grid/PV emulator
+                icon: mdi:pause
+              - entity: input_boolean.emulator_force_negative
+                name: Force grid net negative
+                icon: mdi:transmission-tower-export
+          - type: markdown
+            content: |
+              Toggles for the separate grid/PV emulator: **Pause** (freeze it) and
+              **Force negative** (make the grid net sensors negative to test the
+              "negative value" warning).
+
+  - title: Test guide
+    path: test-checklist
+    icon: mdi:book-open-variant
+    cards:
+      - type: markdown
+        content: |
+          ## Manual end-to-end test guide
+          Each step is **Do / See** with a pass criterion. Keep the **Emulators**
+          tab open for the controls; watch two logs — `charger_emulator.log` (the
+          mock, tick-by-tick) and `v2g_liberty_main.log` (what V2G does).
+
+          **Setup**
+          - Emulator running (`charger_emulator` + `grid_pv_emulator` in `dev_tools/apps.yaml`).
+          - Fast SoC: set `soc_speedup: 30` and restart AppDaemon (at 1 it moves ~0.2 %/min).
+          - Use the **Set SoC** slider to jump to a start value.
+
+      - type: markdown
+        content: |
+          ### Happy path
+          **1. Idle**
+          - Do: scenario `normal`, **Car connected** on, charge mode `Stop`.
+          - See: state = paused, `charger_real_charging_power` = 0 W, SoC steady.
+
+          **2. Phase detection**
+          - Do: **Car connected** off → on.
+          - See: `v2g_liberty_main.log` — detection succeeds and stores a phase.
+          - ⚠️ Circular on dev: the emulator loads the already-configured phase
+            (`c.CHARGER_CONNECTED_TO_PHASE`), so it only confirms the set phase (TODO 1).
+
+          **3. Charge**
+          - Do: charge mode `Max boost now`.
+          - See: power ramps up over ~15 s to ~5150 W (0.92 × 5600), SoC rises, state = Charging.
+
+          **4. Discharge**
+          - Do: charge mode `Max discharge now`.
+          - See: power negative (~-5150 W), SoC falls, state = Discharging; stops near the min-SoC.
+
+          **5. Pause**
+          - Do: charge mode `Stop`.
+          - See: power ramps down fast (~2 s) to 0, state = paused.
+
+          **6. Max-SoC range notification**
+          - Do: **Set SoC** just below your max-SoC (`c.CAR_MAX_SOC_IN_PERCENT`),
+            charge mode `Max boost now`, let the SoC rise across the max.
+          - See: notification *"Car battery at {max} %, range ≈ X km"* fires once —
+            check the range (from `ev.remaining_range_km`, the Fase-1 repoint).
+          - Note: at the hardware ceiling (97 %) power tapers to 0 (waiting).
+
+      - type: markdown
+        content: |
+          ### Scenarios
+          _Back to `normal` after each._
+
+          **7. `reduced_max_power`** — V2G reads the max from register 514 only during
+          charger config; the emulator writes 514 = 3700 and clamps delivery to 3700.
+          - A — no re-config (emulator clamp): scenario `reduced_max_power`, `Max boost
+            now` → V2G still requests up to its current max, but actual power stays ≤ ~3700 W.
+          - B — with re-config (V2G ingestion): re-run the **connection test** →
+            `sensor.charger_max_available_power` = 3700 and V2G itself requests ≤ 3700.
+
+          **8. `wrong_fingerprint`**
+          - ⚠️ Not meaningful on dev yet (no charger-type / signature validation until
+            359 Fase 3). Firmware = 0 only changes the info string. Skip until after Fase 3.
+
+          **9. `error_state`**
+          - Do: scenario `error_state`.
+          - See: state = Error; after ~60 s → un-recoverable (polling stopped,
+            notification, SoC/power → unavailable).
+
+          **10. `internal_error`**
+          - Do: scenario `internal_error`.
+          - See: non-zero error register; after ~60 s → un-recoverable.
+
+      - type: markdown
+        content: |
+          ### Comms, grid & reset
+          **11. Hung charger** (run from `.devcontainer/`)
+          - Do: `docker compose pause quasar-mock`.
+          - See: `sensor.charger_connection_status` = Connection error; `unpause` → restored.
+
+          **12. No connection**
+          - Do: `docker compose stop quasar-mock`.
+          - See: cannot connect; `start` → reconnects.
+
+          **Grid / PV**
+          - During step 3/4 the charger impact lands on the right phase in
+            `sensor.emulated_grid_consumption_l1..l3`.
+          - Test the negative-value warning with **Force grid net negative**.
+
+          **Reset**
+          - Scenario `normal`, **Car connected** on, charge mode `Automatic`,
+            `soc_speedup` back to 1.

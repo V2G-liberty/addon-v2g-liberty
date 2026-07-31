@@ -32,6 +32,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   // Inline entity validation state (per entity: true=ok, undefined=pending)
   @state() private _entityStatus: { [entityId: string]: boolean | undefined } = {};
+  // Entities that reported a negative value (likely a bidirectional/net or
+  // wrong sensor, since consumption/production should be directional).
+  @state() private _entityNegative: { [entityId: string]: boolean } = {};
   private _entityListeners: { [entityId: string]: any } = {};
 
   // Auto-detection state
@@ -73,6 +76,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._consumptionEntities = [];
     this._productionEntities = [];
     this._entityStatus = {};
+    this._entityNegative = {};
     this._cleanupEntityListeners();
     this._autoDetected = false;
     this._triedContinueStep2 = false;
@@ -485,6 +489,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       </div>
 
       ${this._triedSave ? this._renderEntityErrors() : nothing}
+      ${this._renderNegativeWarning()}
       ${this._renderSaveWarning()}
       ${this._saveError
         ? html`<div class="error save-error" role="alert">${this._saveError}</div>`
@@ -519,11 +524,14 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   ) {
     const hasPowerGroup = this._sensorEntities.some(e => e.isPower);
     const status = selected ? this._entityStatus[selected] : undefined;
-    const statusIcon = selected
-      ? (status === true
+    const isNegative = selected ? this._entityNegative[selected] : false;
+    const statusIcon = !selected
+      ? nothing
+      : isNegative
+        ? html`<ha-icon icon="mdi:alert" title="This sensor reported a negative value" style="color: var(--warning-color, #ff9800); --mdc-icon-size: 20px;"></ha-icon>`
+        : status === true
           ? html`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>`
-          : html`<ha-spinner size="small"></ha-spinner>`)
-      : nothing;
+          : html`<ha-spinner size="small"></ha-spinner>`;
 
     return html`
       <div style="margin: 8px 0;">
@@ -567,6 +575,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   private _startListeningEntity(entityId: string) {
     if (this._entityListeners[entityId]) return; // already listening
     this._entityStatus = { ...this._entityStatus, [entityId]: undefined }; // pending
+    // Fresh subscription: clear any stale negative flag for this entity.
+    const negReset = { ...this._entityNegative };
+    delete negReset[entityId];
+    this._entityNegative = negReset;
 
     // Subscribe to state changes for this entity
     const unsub = this.hass.connection.subscribeEvents<HassEvent>(
@@ -576,8 +588,14 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         const newState = data.new_state?.state;
         if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
         // Numeric check
-        if (isNaN(parseFloat(newState))) return;
+        const value = parseFloat(newState);
+        if (isNaN(value)) return;
         this._entityStatus = { ...this._entityStatus, [entityId]: true };
+        // Consumption/production should be directional (>= 0). A negative value
+        // points at a bidirectional/net or wrong sensor; flag it (sticky).
+        if (value < 0) {
+          this._entityNegative = { ...this._entityNegative, [entityId]: true };
+        }
       },
       'state_changed'
     );
@@ -597,6 +615,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     const copy = { ...this._entityStatus };
     delete copy[entityId];
     this._entityStatus = copy;
+    const negCopy = { ...this._entityNegative };
+    delete negCopy[entityId];
+    this._entityNegative = negCopy;
   }
 
   private _getAllSelectedEntities(): Set<string> {
@@ -643,6 +664,30 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     return html`${errors.map(
       e => html`<ha-alert alert-type="error">${e}</ha-alert>`
     )}`;
+  }
+
+  private _renderNegativeWarning() {
+    const selected = this._getAllSelectedEntities();
+    const hasNegative = Object.keys(this._entityNegative).some(
+      e => this._entityNegative[e] && selected.has(e)
+    );
+    if (!hasNegative) return nothing;
+
+    return html`
+      <ha-alert alert-type="warning" title="A sensor reported a negative value">
+        A selected grid sensor reported a negative value. These fields each need
+        a sensor that reports only one direction and stays zero or positive: one
+        for power drawn from the grid, and one for power fed back to the grid. A
+        negative value means the sensor measures both directions at once (a net
+        value) — for example a CT clamp that also sees the car feeding back.
+        <p>
+          <strong>Tip:</strong> V2G Liberty does not support a single net sensor.
+          If your meter offers separate sensors for power drawn from and fed back
+          to the grid, select those; if not, please contact V2G Liberty to
+          request support.
+        </p>
+      </ha-alert>
+    `;
   }
 
   private _renderSaveWarning() {
