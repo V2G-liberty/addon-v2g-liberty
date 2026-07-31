@@ -304,6 +304,38 @@ class TestSchemaVersion:
         assert data_store.is_available
 
     @pytest.mark.asyncio
+    async def test_migrated_v2_database_gets_residential_column(self, data_store):
+        """A v2 database migrates to v3, gaining residential_load_kw."""
+        # Build a valid current DB, then make it look like v2: drop the new
+        # column and set the version back to 2.
+        await data_store.initialise()
+        data_store.connection.execute(
+            "ALTER TABLE grid_interval_log DROP COLUMN residential_load_kw"
+        )
+        data_store.connection.execute("DELETE FROM schema_version")
+        data_store.connection.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (2, '2026-05-13')"
+        )
+        data_store.connection.commit()
+        data_store.close()
+
+        # Reinitialise: migrate v2 -> v3 and validate cleanly.
+        await data_store.initialise()
+
+        assert data_store.is_available
+        cols = {
+            row[1]
+            for row in data_store.connection.execute(
+                "PRAGMA table_info(grid_interval_log)"
+            )
+        }
+        assert "residential_load_kw" in cols
+        version = data_store.connection.execute(
+            "SELECT MAX(version) FROM schema_version"
+        ).fetchone()[0]
+        assert version == CURRENT_SCHEMA_VERSION
+
+    @pytest.mark.asyncio
     async def test_unknown_extra_column_is_allowed(self, data_store):
         """A newer database with an unknown extra column stays usable."""
         await data_store.initialise()
@@ -981,6 +1013,27 @@ class TestGridIntervalLog:
         assert rows[0]["production_kw"] == 0.0
         assert rows[1]["phase"] == 2
         assert rows[2]["phase"] == 3
+
+    @pytest.mark.asyncio
+    async def test_insert_and_retrieve_residential_load(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.5, 0.0, 0.9)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["residential_load_kw"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_residential_load_defaults_to_none(self, data_store):
+        await data_store.initialise()
+
+        # Not passing residential_load_kw leaves it NULL.
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.5, 0.0)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["residential_load_kw"] is None
 
     @pytest.mark.asyncio
     async def test_retrieve_filters_by_timestamp(self, data_store):

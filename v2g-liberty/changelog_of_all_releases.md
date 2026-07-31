@@ -10,9 +10,9 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
 - 🪲 BUG: Fix db schema validation (#470)
 
-
 ### Added
 
+- 🚀 FEAT: Residential load per phase (#471)
 - 🚀 FEAT: Warn negative grid power (#472)
 - 🚀 FEAT: Live reregister grid listeners (#473)
 

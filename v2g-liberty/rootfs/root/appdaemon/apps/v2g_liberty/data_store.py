@@ -11,11 +11,13 @@ from .log_wrapper import get_class_method_logger
 
 # The numbering was reset in March 2026 (commit a73c0a4): it had climbed to 4
 # during pre-release development and was set back to 1 for the first release
-# (v0.8.0), after which it climbed to 2 again. So a database reporting version 3
-# or 4 comes from that old, abandoned line and is in fact OLDER in content than
-# version 1 -- not newer. Never treat a higher number as "more recent"; rely on
-# __validate_schema() to judge whether a database is actually usable.
-CURRENT_SCHEMA_VERSION = 2
+# (v0.8.0), after which it has climbed again (2, 3, ...). So a database
+# reporting version 4 comes from that old, abandoned line and is in fact OLDER
+# in content than version 1 -- not newer; and an old-line database at 3 predates
+# the current line's 3 despite the matching number. Never trust the number
+# alone: __validate_schema() checks the actual columns and catches any mismatch
+# (old-line databases simply fail validation and the data features degrade).
+CURRENT_SCHEMA_VERSION = 3
 
 # The tables and columns the code requires, mirroring __create_tables(). Used by
 # __validate_schema() to verify what is really in the database, because a version
@@ -55,7 +57,13 @@ EXPECTED_SCHEMA = {
         "source",
         "fetched_at",
     },
-    "grid_interval_log": {"timestamp", "phase", "consumption_kw", "production_kw"},
+    "grid_interval_log": {
+        "timestamp",
+        "phase",
+        "consumption_kw",
+        "production_kw",
+        "residential_load_kw",
+    },
     "pv_interval_log": {"timestamp", "panel_id", "power_kw"},
 }
 
@@ -435,6 +443,7 @@ class DataStore:
                 phase INTEGER NOT NULL,
                 consumption_kw REAL,
                 production_kw REAL,
+                residential_load_kw REAL,
                 PRIMARY KEY (timestamp, phase)
             )
         """)
@@ -571,6 +580,28 @@ class DataStore:
                 "Migration v1→v2: created grid_interval_log and "
                 "pv_interval_log, rebuilt fm_send_status with data_type column."
             )
+
+        if from_version < 3:
+            # v3: add per-phase residential (net household) load to
+            # grid_interval_log. __create_tables() runs before this migration, so
+            # a v1 database (which had no grid_interval_log) already got the
+            # five-column table; only a v2 database still has the four-column
+            # table. Guard the ALTER on the column being absent so it is
+            # idempotent in both cases.
+            grid_columns = {
+                row[1] for row in cursor.execute("PRAGMA table_info(grid_interval_log)")
+            }
+            if "residential_load_kw" not in grid_columns:
+                cursor.execute(
+                    "ALTER TABLE grid_interval_log ADD COLUMN residential_load_kw REAL"
+                )
+                self.__log(
+                    "Migration v2→v3: added residential_load_kw to grid_interval_log."
+                )
+            else:
+                self.__log(
+                    "Migration v2→v3: residential_load_kw already present, skipped."
+                )
 
         # Update schema version
         now = datetime.now(timezone.utc).isoformat()
@@ -1030,6 +1061,7 @@ class DataStore:
         phase: int,
         consumption_kw: float | None,
         production_kw: float | None,
+        residential_load_kw: float | None = None,
     ):
         """Insert a grid monitoring interval for a single phase."""
         if not self.is_available:
@@ -1037,9 +1069,9 @@ class DataStore:
         cursor = self.__connection.cursor()
         cursor.execute(
             "INSERT OR REPLACE INTO grid_interval_log "
-            "(timestamp, phase, consumption_kw, production_kw) "
-            "VALUES (?, ?, ?, ?)",
-            (timestamp, phase, consumption_kw, production_kw),
+            "(timestamp, phase, consumption_kw, production_kw, residential_load_kw) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (timestamp, phase, consumption_kw, production_kw, residential_load_kw),
         )
         self.__connection.commit()
         cursor.close()
@@ -1047,14 +1079,15 @@ class DataStore:
     def get_grid_intervals_since(self, since: str) -> list[dict]:
         """Retrieve grid_interval_log rows after the given timestamp.
 
-        Returns a list of dicts with keys: timestamp, phase,
-        consumption_kw, production_kw. Ordered by timestamp, phase.
+        Returns a list of dicts with keys: timestamp, phase, consumption_kw,
+        production_kw, residential_load_kw. Ordered by timestamp, phase.
         """
         if not self.is_available:
             return []
         cursor = self.__connection.cursor()
         cursor.execute(
-            "SELECT timestamp, phase, consumption_kw, production_kw "
+            "SELECT timestamp, phase, consumption_kw, production_kw, "
+            "residential_load_kw "
             "FROM grid_interval_log "
             "WHERE timestamp > ? "
             "ORDER BY timestamp, phase",

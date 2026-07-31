@@ -1137,6 +1137,15 @@ class V2GLibertyGlobals:
                 unit="kW",
                 asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
             )
+            # Residential (net household) load: grid minus solar and car.
+            c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[
+                phase
+            ] = await self.fm_client_app.ensure_sensor(
+                name=f"Residential Load L{phase}",
+                unit="kW",
+                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+                attributes={"consumption_is_positive": True},
+            )
 
         # Aggregate Power sensor (written by FM scheduler, not by V2G Liberty)
         c.FM_AGGREGATE_POWER_SENSOR_ID = await self.fm_client_app.ensure_sensor(
@@ -1159,6 +1168,7 @@ class V2GLibertyGlobals:
         for phase in range(1, c.GRID_PHASES + 1):
             sensors_to_show.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
             sensors_to_show.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
+            sensors_to_show.append(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[phase])
         sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
         sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
         await self.fm_client_app.client.update_asset(
@@ -1171,6 +1181,7 @@ class V2GLibertyGlobals:
             f"asset={c.FM_MAINS_CONNECTION_ASSET_ID}, "
             f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
             f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
+            f"residential_load={c.FM_RESIDENTIAL_LOAD_SENSOR_IDS}, "
             f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
             f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
             f"sensors_to_show={sensors_to_show}"

@@ -934,6 +934,7 @@ class TestProvisionGridAssets:
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
@@ -945,12 +946,14 @@ class TestProvisionGridAssets:
 
         assert c.FM_MAINS_CONNECTION_ASSET_ID == 500
 
-        # 6 grid sensors + 1 Aggregate Power + 1 EMS Status = 8 ensure_sensor calls
-        assert fm_client_connected.ensure_sensor.call_count == 8
+        # 9 grid sensors (3 phases x consumption/production/residential)
+        # + 1 Aggregate Power + 1 EMS Status = 11 ensure_sensor calls
+        assert fm_client_connected.ensure_sensor.call_count == 11
 
         # Check grid sensor IDs are set for all 3 phases
         assert len(c.FM_GRID_CONSUMPTION_SENSOR_IDS) == 3
         assert len(c.FM_GRID_PRODUCTION_SENSOR_IDS) == 3
+        assert len(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS) == 3
         assert c.FM_AGGREGATE_POWER_SENSOR_ID is not None
         assert c.FM_EMS_STATUS_SENSOR_ID is not None
 
@@ -964,13 +967,16 @@ class TestProvisionGridAssets:
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
-        # 2 grid sensors + 1 Aggregate Power + 1 EMS Status = 4
-        assert fm_client_connected.ensure_sensor.call_count == 4
+        # 3 grid sensors (consumption/production/residential)
+        # + 1 Aggregate Power + 1 EMS Status = 5
+        assert fm_client_connected.ensure_sensor.call_count == 5
         assert len(c.FM_GRID_CONSUMPTION_SENSOR_IDS) == 1
         assert len(c.FM_GRID_PRODUCTION_SENSOR_IDS) == 1
+        assert len(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS) == 1
 
     @pytest.mark.asyncio
     async def test_consumption_sensors_have_attribute(
@@ -981,16 +987,39 @@ class TestProvisionGridAssets:
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
-        # Find consumption and production ensure_sensor calls
+        # Find consumption, production and residential ensure_sensor calls
         calls = fm_client_connected.ensure_sensor.call_args_list
         cons_call = next(c_ for c_ in calls if "Consumption" in c_.kwargs["name"])
         prod_call = next(c_ for c_ in calls if "Production" in c_.kwargs["name"])
+        resid_call = next(c_ for c_ in calls if "Residential" in c_.kwargs["name"])
 
         assert cons_call.kwargs["attributes"] == {"consumption_is_positive": True}
         assert prod_call.kwargs.get("attributes") is None
+        # Residential load is a consumption quantity.
+        assert resid_call.kwargs["attributes"] == {"consumption_is_positive": True}
+        assert resid_call.kwargs["unit"] == "kW"
+
+    @pytest.mark.asyncio
+    async def test_residential_sensors_in_sensors_to_show(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """Residential load sensors are added to the asset's sensors_to_show."""
+        c.GRID_PHASES = 3
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        update_call = fm_client_connected.client.update_asset.call_args
+        sensors_to_show = update_call.args[1]["sensors_to_show"]
+        for sensor_id in c.FM_RESIDENTIAL_LOAD_SENSOR_IDS.values():
+            assert sensor_id in sensors_to_show
 
     @pytest.mark.asyncio
     async def test_exception_propagates(
@@ -1015,6 +1044,7 @@ class TestProvisionGridAssets:
         c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
         c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
         c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
 
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
@@ -1031,6 +1061,7 @@ class TestProvisionGridAssets:
         for phase in range(1, 4):
             expected.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
             expected.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
+            expected.append(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[phase])
         expected += [c.FM_AGGREGATE_POWER_SENSOR_ID, c.FM_EMS_STATUS_SENSOR_ID]
         assert payload["sensors_to_show"] == expected
         # sensors_to_show is a top-level field, never inside attributes
