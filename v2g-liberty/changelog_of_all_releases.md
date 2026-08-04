@@ -3,12 +3,13 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.8.3 2026-07-??
+## 0.8.3 2026-08-??
 
 ### Fixed
 
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
 - 🪲 BUG: Fix db schema validation (#470)
+- 🪲 BUG: Paused app lets the charger charge the car to full on reconnect (#480, #481)
 
 ### Added
 
