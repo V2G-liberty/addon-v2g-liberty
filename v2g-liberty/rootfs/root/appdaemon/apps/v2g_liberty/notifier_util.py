@@ -165,7 +165,10 @@ class Notifier:
             # A tag is required for clearing.
             # Critical notifications should never auto clear.
             await self.hass.run_in(
-                self.clear_notification, delay=ttl, recipients=to_notify, tag=tag
+                self._clear_notification_after_ttl,
+                delay=ttl,
+                recipients=to_notify,
+                tag=tag,
             )
 
     def clear_notification(self, tag: str, recipients: Optional[list] = None):
@@ -198,6 +201,19 @@ class Notifier:
                 self.__log(
                     f"Could not clear notification: exception on {recipient}. Exception: {e}."
                 )
+
+    async def _clear_notification_after_ttl(self, kwargs: dict):
+        """Scheduled (``run_in``) callback that clears a notification after its ttl.
+
+        AppDaemon passes the scheduling kwargs as a single positional dict, so the
+        tag and recipients are read from it here. Scheduling ``clear_notification``
+        directly bound that whole dict to its ``tag`` parameter, so the ttl clear
+        never matched the real tag and the notification was never removed.
+        """
+        self.clear_notification(
+            tag=kwargs.get("tag"),
+            recipients=kwargs.get("recipients"),
+        )
 
     def post_sticky_memo(
         self, message: str, title: Optional[str] = None, memo_id: Optional[str] = None
