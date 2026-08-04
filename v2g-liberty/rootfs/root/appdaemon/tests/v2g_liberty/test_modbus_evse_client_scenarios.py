@@ -34,7 +34,7 @@ from apps.dev_tools.charger_scenarios import (
 )
 import apps.v2g_liberty.constants as c
 from apps.v2g_liberty.event_bus import EventBus
-from apps.v2g_liberty.modbus_evse_client import ModbusEVSEclient
+from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
 
 _EVENTS = [
     "soc_change",
@@ -108,10 +108,14 @@ def driver():
     rec = Recorder()
     rec.subscribe(bus)
 
-    e = ModbusEVSEclient(hass, bus, MagicMock())
+    e = WallboxQuasar1Client(hass, bus, MagicMock())
     e.notifier = MagicMock()
     e.v2g_main_app = MagicMock()
+    # Inject the fake as the transport's low-level pymodbus client. The charger
+    # routes its raw reads/writes through self._mb_client, which delegates to
+    # _mbc; the tests keep addressing the same fake via e.client (store/fault).
     e.client = FakeModbusClient()
+    e._mb_client._mbc = e.client
     e._am_i_active = True
     e.modbus_exception_counter = 0
     e.requested_charge_power = 0
@@ -120,16 +124,16 @@ def driver():
 
     # Reset the shared (class-level) entity caches to a clean baseline.
     for ent in (
-        e.ENTITY_CHARGER_CURRENT_POWER,
-        e.ENTITY_CHARGER_STATE,
-        e.ENTITY_CAR_SOC,
-        e.ENTITY_ERROR_1,
-        e.ENTITY_ERROR_2,
-        e.ENTITY_ERROR_3,
-        e.ENTITY_ERROR_4,
-        e.ENTITY_CHARGER_LOCKED,
+        e._MCE_ACTUAL_POWER,
+        e._MCE_CHARGER_STATE,
+        e._MCE_CAR_SOC,
+        e._MCE_ERROR_1,
+        e._MCE_ERROR_2,
+        e._MCE_ERROR_3,
+        e._MCE_ERROR_4,
+        e._MCE_CHARGER_LOCKED,
     ):
-        ent["current_value"] = None
+        ent.current_value = None
 
     # Patch the heavy side-effects so the tests exercise the decode/event path
     # without real charger I/O, timers or notifications. What each one does:
@@ -138,60 +142,58 @@ def driver():
     #  - __get_car_soc: the 1 W "SoC-refresh dance" (start -> read 538 -> stop).
     #  - __handle_charger_error_state_change: user notifications + grace timers.
     #  - get_car_remaining_range: range calc that needs runtime constants.
-    e._ModbusEVSEclient__set_charger_action = AsyncMock()
-    e._ModbusEVSEclient__set_poll_strategy = AsyncMock()
-    e._ModbusEVSEclient__get_car_soc = AsyncMock(return_value=50)
-    e._ModbusEVSEclient__handle_charger_error_state_change = AsyncMock()
+    e._set_charger_action = AsyncMock()
+    e._set_poll_strategy = AsyncMock()
+    e._get_car_soc = AsyncMock(return_value=50)
+    e._handle_charger_error_state_change = AsyncMock()
     e.get_car_remaining_range = AsyncMock(return_value=100)
 
     return e, rec
 
 
 def _process(e, entities):
-    return e._ModbusEVSEclient__get_and_process_registers(entities)
+    return e._get_and_process_registers(entities)
 
 
 def _update(e, entity, value):
-    return e._ModbusEVSEclient__update_evse_entity(entity, value)
+    return e._update_evse_entity(entity, value)
 
 
 def _modbus_read(e, address, length):
-    return e._ModbusEVSEclient__modbus_read(address, length)
+    return e._modbus_read(address, length)
 
 
 def _modbus_write(e, address, value):
-    return e._ModbusEVSEclient__modbus_write(address, value, "test")
+    return e._modbus_write(address, value, "test")
 
 
 def _handle_error_state(e, **kw):
-    return e._ModbusEVSEclient__handle_charger_error_state_change(kw)
+    return e._handle_charger_error_state_change(kw)
 
 
 def _base_poll(e):
-    return e._ModbusEVSEclient__base_polling({})
+    return e._base_polling({})
 
 
 def _minimal_poll(e):
-    return e._ModbusEVSEclient__minimal_polling({})
+    return e._minimal_polling({})
 
 
 def _get_soc(e, **kw):
-    return e._ModbusEVSEclient__get_car_soc(**kw)
+    return e._get_car_soc(**kw)
 
 
 def _force_get(e, address, min_at, max_at, min_after=None, max_after=None):
-    return e._ModbusEVSEclient__force_get_register(
-        address, min_at, max_at, min_after, max_after
-    )
+    return e._force_get_register(address, min_at, max_at, min_after, max_after)
 
 
 def _handle_power(e, new_power):
-    return e._ModbusEVSEclient__handle_charge_power_change(new_power)
+    return e._handle_charge_power_change(new_power)
 
 
 def _set_poll_strategy(e):
     # Bypass the fixture's instance-level AsyncMock and run the REAL class method.
-    return ModbusEVSEclient._ModbusEVSEclient__set_poll_strategy(e)
+    return WallboxQuasar1Client._set_poll_strategy(e)
 
 
 def _comm_states(rec):
@@ -212,19 +214,19 @@ async def test_modbus_read_decodes_twos_complement(driver):
 @pytest.mark.asyncio
 async def test_power_change_emits_event_and_caches_value(driver):
     e, rec = driver
-    await _update(e, e.ENTITY_CHARGER_CURRENT_POWER, 4000)
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] == 4000
+    await _update(e, e._MCE_ACTUAL_POWER, 4000)
+    assert e._MCE_ACTUAL_POWER.current_value == 4000
     assert rec.find("charge_power_change")[-1]["new_power"] == 4000
-    await _update(e, e.ENTITY_CHARGER_CURRENT_POWER, -2000)
+    await _update(e, e._MCE_ACTUAL_POWER, -2000)
     assert rec.find("charge_power_change")[-1]["new_power"] == -2000
 
 
 @pytest.mark.asyncio
 async def test_soc_change_emits_events(driver):
     e, rec = driver
-    e.ENTITY_CAR_SOC["current_value"] = 50
-    await _update(e, e.ENTITY_CAR_SOC, 55)
-    assert e.ENTITY_CAR_SOC["current_value"] == 55
+    e._MCE_CAR_SOC.current_value = 50
+    await _update(e, e._MCE_CAR_SOC, 55)
+    assert e._MCE_CAR_SOC.current_value == 55
     assert rec.find("soc_change")[-1] == {"new_soc": 55, "old_soc": 50}
     assert rec.find("remaining_range_change")
 
@@ -238,9 +240,9 @@ async def test_full_poll_charging(driver):
     )
     await _process(e, e.CHARGER_POLLING_ENTITIES)
 
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] == 4000
-    assert e.ENTITY_CHARGER_STATE["current_value"] == STATE_CHARGING
-    assert e.ENTITY_CAR_SOC["current_value"] == 55
+    assert e._MCE_ACTUAL_POWER.current_value == 4000
+    assert e._MCE_CHARGER_STATE.current_value == STATE_CHARGING
+    assert e._MCE_CAR_SOC.current_value == 55
     assert rec.find("charge_power_change")[-1]["new_power"] == 4000
     assert rec.find("charger_state_change")[-1]["new_charger_state"] == STATE_CHARGING
     assert rec.find("soc_change")[-1]["new_soc"] == 55
@@ -251,22 +253,22 @@ async def test_full_poll_charging(driver):
 @pytest.mark.asyncio
 async def test_disconnect_marks_soc_unavailable_and_emits_event(driver):
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_CAR_SOC["current_value"] = 55
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_CAR_SOC.current_value = 55
     e.client.store.update(
         {REG_STATE: STATE_DISCONNECTED, REG_ACTUAL_POWER: 0, REG_SOC: 0}
     )
     await _process(e, e.CHARGER_POLLING_ENTITIES)
 
     assert rec.find("is_car_connected")[-1]["is_car_connected"] is False
-    assert e.ENTITY_CAR_SOC["current_value"] == "unavailable"
-    e._ModbusEVSEclient__set_charger_action.assert_awaited()  # explicit stop
+    assert e._MCE_CAR_SOC.current_value == "unavailable"
+    e._set_charger_action.assert_awaited()  # explicit stop
 
 
 @pytest.mark.asyncio
 async def test_connect_emits_is_car_connected_true(driver):
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_DISCONNECTED
+    e._MCE_CHARGER_STATE.current_value = STATE_DISCONNECTED
     e.client.store.update({REG_STATE: STATE_PAUSED, REG_ACTUAL_POWER: 0, REG_SOC: 55})
     await _process(e, e.CHARGER_POLLING_ENTITIES)
 
@@ -277,25 +279,25 @@ async def test_connect_emits_is_car_connected_true(driver):
 @pytest.mark.asyncio
 async def test_soc_zero_while_connected_is_ignored(driver):
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING  # connected
-    e.ENTITY_CAR_SOC["current_value"] = 50
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING  # connected
+    e._MCE_CAR_SOC.current_value = 50
     e.client.store.update(
         {REG_STATE: STATE_CHARGING, REG_SOC: 0, REG_ACTUAL_POWER: 3000}
     )
     await _process(e, e.CHARGER_POLLING_ENTITIES)
 
     # A polled 0 while connected is a glitch: keep the last value, no event.
-    assert e.ENTITY_CAR_SOC["current_value"] == 50
+    assert e._MCE_CAR_SOC.current_value == 50
     assert not rec.find("soc_change")
 
 
 @pytest.mark.asyncio
 async def test_error_register_invokes_error_handler(driver):
     e, _ = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_CHARGER_CURRENT_POWER["current_value"] = 3000
-    e.ENTITY_CAR_SOC["current_value"] = 55
-    e.ENTITY_ERROR_1["current_value"] = 0
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_ACTUAL_POWER.current_value = 3000
+    e._MCE_CAR_SOC.current_value = 55
+    e._MCE_ERROR_1.current_value = 0
     e.client.store.update(
         {
             REG_ACTUAL_POWER: 3000,
@@ -305,13 +307,13 @@ async def test_error_register_invokes_error_handler(driver):
         }
     )
     await _process(e, e.CHARGER_POLLING_ENTITIES)
-    e._ModbusEVSEclient__handle_charger_error_state_change.assert_awaited()
+    e._handle_charger_error_state_change.assert_awaited()
 
 
 @pytest.mark.asyncio
 async def test_base_polling_emits_evse_polled(driver):
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
     e.client.store.update(
         {REG_ACTUAL_POWER: 3000, REG_STATE: STATE_CHARGING, REG_SOC: 55}
     )
@@ -336,44 +338,44 @@ async def test_get_car_soc_dance_connected_not_charging(driver):
     """Connected but idle -> the 1 W start/read/stop dance runs and force-emits."""
     e, rec = driver
     # Run the real SoC method; keep the heavy action/poll timers stubbed.
-    del e._ModbusEVSEclient__get_car_soc
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_PAUSED  # connected, not charging
-    e.ENTITY_CAR_SOC["current_value"] = None
+    del e._get_car_soc
+    e._MCE_CHARGER_STATE.current_value = STATE_PAUSED  # connected, not charging
+    e._MCE_CAR_SOC.current_value = None
     e.client.store[REG_SOC] = 55  # in the strict [2, 97] window -> accepted at once
 
     result = await _get_soc(e, do_not_use_cache=True)
 
     assert result == 55
-    assert e.ENTITY_CAR_SOC["current_value"] == 55
+    assert e._MCE_CAR_SOC.current_value == 55
     assert rec.find("soc_change")[-1] == {"new_soc": 55, "old_soc": None}
     assert rec.find("remaining_range_change")
     assert e.try_get_new_soc_in_process is False
     # The dance starts a 1 W charge then stops it again.
-    calls = e._ModbusEVSEclient__set_charger_action.await_args_list
+    calls = e._set_charger_action.await_args_list
     assert calls[0].args[0] == "start"
     assert calls[-1].args[0] == "stop"
     assert _comm_states(rec)[-1] is True
     # Polling is paused for the duration of the dance and restored afterwards.
     assert {"stop": True} in rec.find("evse_polled")
-    e._ModbusEVSEclient__set_poll_strategy.assert_awaited()
+    e._set_poll_strategy.assert_awaited()
 
 
 @pytest.mark.asyncio
 async def test_get_car_soc_direct_read_when_already_charging(driver):
     """Already (dis)charging -> a plain force-read, NO action/poll churn."""
     e, rec = driver
-    del e._ModbusEVSEclient__get_car_soc
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_CAR_SOC["current_value"] = None
+    del e._get_car_soc
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_CAR_SOC.current_value = None
     e.client.store[REG_SOC] = 55
 
     result = await _get_soc(e, do_not_use_cache=True)
 
     assert result == 55
-    assert e.ENTITY_CAR_SOC["current_value"] == 55
+    assert e._MCE_CAR_SOC.current_value == 55
     assert rec.find("soc_change")[-1]["new_soc"] == 55
-    e._ModbusEVSEclient__set_charger_action.assert_not_awaited()
-    e._ModbusEVSEclient__set_poll_strategy.assert_not_awaited()
+    e._set_charger_action.assert_not_awaited()
+    e._set_poll_strategy.assert_not_awaited()
     assert e.try_get_new_soc_in_process is False
 
 
@@ -381,9 +383,9 @@ async def test_get_car_soc_direct_read_when_already_charging(driver):
 async def test_get_car_soc_force_emit_vs_cache_return(driver):
     """force_emit == do_not_use_cache: cached read is silent, forced re-emits."""
     e, rec = driver
-    del e._ModbusEVSEclient__get_car_soc
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_CAR_SOC["current_value"] = 55
+    del e._get_car_soc
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_CAR_SOC.current_value = 55
     e.client.store[REG_SOC] = 55
 
     # Cache hit: no modbus read, no event.
@@ -404,9 +406,9 @@ async def test_get_car_soc_not_connected_returns_unavailable(
 ):
     """No car -> SoC/kwh/range all short-circuit to 'unavailable', no event."""
     e, rec = driver
-    del e._ModbusEVSEclient__get_car_soc
+    del e._get_car_soc
     del e.get_car_remaining_range  # run the real range wrapper too
-    e.ENTITY_CHARGER_STATE["current_value"] = disconnected_state
+    e._MCE_CHARGER_STATE.current_value = disconnected_state
 
     assert await _get_soc(e, do_not_use_cache=True) == "unavailable"
     assert await _get_soc(e, do_not_use_cache=False) == "unavailable"
@@ -424,13 +426,13 @@ async def test_get_car_soc_none_coerced_to_unavailable(driver):
     timeout->None outcome is pinned by test_force_get_register_timeout_*.
     """
     e, rec = driver
-    del e._ModbusEVSEclient__get_car_soc
-    e._ModbusEVSEclient__force_get_register = AsyncMock(return_value=None)
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_CAR_SOC["current_value"] = 55
+    del e._get_car_soc
+    e._force_get_register = AsyncMock(return_value=None)
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_CAR_SOC.current_value = 55
 
     assert await _get_soc(e, do_not_use_cache=True) == "unavailable"
-    assert e.ENTITY_CAR_SOC["current_value"] == "unavailable"
+    assert e._MCE_CAR_SOC.current_value == "unavailable"
     assert rec.find("soc_change")[-1] == {"new_soc": "unavailable", "old_soc": 55}
     assert rec.find("remaining_range_change")
 
@@ -467,7 +469,7 @@ async def test_force_get_register_timeout_returns_none_and_escalates(driver):
     e.v2g_main_app = AsyncMock()
     e.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS = 0
     e.client.store[REG_SOC] = 0  # outside strict AND relaxed windows
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING  # was connected
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING  # was connected
 
     result = await _force_get(e, REG_SOC, 2, 97, 1, 100)
 
@@ -478,8 +480,8 @@ async def test_force_get_register_timeout_returns_none_and_escalates(driver):
     )
     assert _comm_states(rec)[-1] is False
     assert rec.find("evse_polled")[-1]["stop"] is True
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] == "unavailable"
-    assert e.ENTITY_CAR_SOC["current_value"] == "unavailable"
+    assert e._MCE_ACTUAL_POWER.current_value == "unavailable"
+    assert e._MCE_CAR_SOC.current_value == "unavailable"
     assert rec.find("charge_power_change")[-1] == {"new_power": 0}
     assert rec.find("soc_change")[-1]["new_soc"] == "unavailable"
 
@@ -496,9 +498,7 @@ async def test_first_modbus_exception_arms_grace_timer(driver):
     assert e.modbus_exception_counter == 1
     # A one-shot timer to __handle_un_recoverable_error was armed with delay 60.
     e.hass.run_in.assert_awaited_once()
-    assert e.hass.run_in.await_args.args[0] == (
-        e._ModbusEVSEclient__handle_un_recoverable_error
-    )
+    assert e.hass.run_in.await_args.args[0] == (e._handle_un_recoverable_error)
     assert e.hass.run_in.await_args.kwargs["delay"] == 60
     # Still recoverable: no comms-fault, no user notification yet.
     assert _comm_states(rec) == []
@@ -531,12 +531,12 @@ async def test_grace_timer_firing_escalates_to_unrecoverable(driver):
     """When the armed grace timer fires, it escalates to un-recoverable."""
     e, rec = driver
     e.v2g_main_app = AsyncMock()
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
 
     e.client.fault = "raise"
     await _modbus_read(e, REG_STATE, 1)  # arm the timer
     escalation_cb = e.hass.run_in.await_args.args[0]
-    assert escalation_cb == e._ModbusEVSEclient__handle_un_recoverable_error
+    assert escalation_cb == e._handle_un_recoverable_error
 
     await escalation_cb()  # simulate the timer firing
 
@@ -546,8 +546,8 @@ async def test_grace_timer_firing_escalates_to_unrecoverable(driver):
         was_car_connected=True
     )
     assert _comm_states(rec)[-1] is False
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] == "unavailable"
-    assert e.ENTITY_CAR_SOC["current_value"] == "unavailable"
+    assert e._MCE_ACTUAL_POWER.current_value == "unavailable"
+    assert e._MCE_CAR_SOC.current_value == "unavailable"
 
 
 @pytest.mark.asyncio
@@ -573,12 +573,12 @@ async def test_bad_modbus_config_posts_sticky_memo(driver):
 async def test_set_poll_strategy_minimal_when_disconnected(driver, disconnected_state):
     """Disconnected -> minimal polling (15 s), and a cancel-first teardown."""
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = disconnected_state
+    e._MCE_CHARGER_STATE.current_value = disconnected_state
 
     await _set_poll_strategy(e)
 
     e.hass.run_every.assert_awaited_once()
-    assert e.hass.run_every.await_args.args[0] == e._ModbusEVSEclient__minimal_polling
+    assert e.hass.run_every.await_args.args[0] == e._minimal_polling
     assert e.hass.run_every.await_args.args[2] == 15
     assert e.poll_timer_handle is e.hass.run_every.return_value
     polled = rec.find("evse_polled")
@@ -592,11 +592,11 @@ async def test_set_poll_strategy_minimal_when_disconnected(driver, disconnected_
 async def test_set_poll_strategy_base_when_connected(driver, connected_state):
     """Any connected state -> base polling (5 s)."""
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = connected_state
+    e._MCE_CHARGER_STATE.current_value = connected_state
 
     await _set_poll_strategy(e)
 
-    assert e.hass.run_every.await_args.args[0] == e._ModbusEVSEclient__base_polling
+    assert e.hass.run_every.await_args.args[0] == e._base_polling
     assert e.hass.run_every.await_args.args[2] == 5
     assert e.poll_timer_handle is e.hass.run_every.return_value
     assert rec.find("evse_polled")[-1]["stop"] is True
@@ -606,11 +606,11 @@ async def test_set_poll_strategy_base_when_connected(driver, connected_state):
 async def test_set_poll_strategy_unavailable_state_coerced_to_minimal(driver):
     """An 'unavailable' charger state is treated as disconnected -> minimal."""
     e, _ = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = "unavailable"
+    e._MCE_CHARGER_STATE.current_value = "unavailable"
 
     await _set_poll_strategy(e)
 
-    assert e.hass.run_every.await_args.args[0] == e._ModbusEVSEclient__minimal_polling
+    assert e.hass.run_every.await_args.args[0] == e._minimal_polling
     assert e.hass.run_every.await_args.args[2] == 15
 
 
@@ -619,7 +619,7 @@ async def test_set_poll_strategy_suppressed_during_soc_dance(driver):
     """While a forced-SoC read is running, poll strategy is a no-op."""
     e, rec = driver
     e.try_get_new_soc_in_process = True
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
 
     await _set_poll_strategy(e)
 
@@ -631,7 +631,7 @@ async def test_set_poll_strategy_suppressed_during_soc_dance(driver):
 async def test_minimal_polling_emits_stop_false_and_skips_soc_and_power(driver):
     """Minimal poll reads only state+lock; a disconnected car still ticks stop=False."""
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_DISCONNECTED  # no state change
+    e._MCE_CHARGER_STATE.current_value = STATE_DISCONNECTED  # no state change
     e.client.store.update({REG_STATE: STATE_DISCONNECTED, REG_LOCKED: 0})
 
     await _minimal_poll(e)
@@ -639,9 +639,9 @@ async def test_minimal_polling_emits_stop_false_and_skips_soc_and_power(driver):
     assert (
         rec.find("evse_polled")[-1]["stop"] is False
     )  # teardown flag, not "disconnected"
-    assert e.ENTITY_CAR_SOC["current_value"] is None  # 538 never read
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] is None  # 526 never read
-    assert e.ENTITY_CHARGER_LOCKED["current_value"] == 0  # 256 read, cached, no event
+    assert e._MCE_CAR_SOC.current_value is None  # 538 never read
+    assert e._MCE_ACTUAL_POWER.current_value is None  # 526 never read
+    assert e._MCE_CHARGER_LOCKED.current_value == 0  # 256 read, cached, no event
 
 
 # --- power deviation (>500 W flag, no event/action) ------------------------
@@ -698,7 +698,7 @@ async def test_base_poll_power_deviation_integration(driver):
     """Deviation surfaces through a full base poll and clears when power realigns."""
     e, rec = driver
     e.requested_charge_power = 0
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
     e.client.store.update(
         {
             REG_ACTUAL_POWER: int16_to_uint16(4000),
@@ -709,7 +709,7 @@ async def test_base_poll_power_deviation_integration(driver):
 
     await _base_poll(e)
 
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] == 4000
+    assert e._MCE_ACTUAL_POWER.current_value == 4000
     assert rec.find("charge_power_change")[-1] == {"new_power": 4000}
     assert e._is_power_deviating is True  # 4000 vs requested 0
     assert rec.find("evse_polled")[-1]["stop"] is False
@@ -731,16 +731,14 @@ async def test_base_poll_power_deviation_integration(driver):
 async def test_charger_error_state_arms_final_check_timer(driver):
     """A non-zero error register arms a one-shot final-check, still recoverable."""
     e, _ = driver
-    del e._ModbusEVSEclient__handle_charger_error_state_change
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_ERROR_1["current_value"] = 1234  # charger reports an error
+    del e._handle_charger_error_state_change
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_ERROR_1.current_value = 1234  # charger reports an error
 
     await _handle_error_state(e, new_charger_state=None, is_final_check=False)
 
     e.hass.run_in.assert_awaited_once()
-    assert e.hass.run_in.await_args.args[0] == (
-        e._ModbusEVSEclient__handle_charger_error_state_change
-    )
+    assert e.hass.run_in.await_args.args[0] == (e._handle_charger_error_state_change)
     assert e.hass.run_in.await_args.kwargs["delay"] == 60
     assert e.hass.run_in.await_args.kwargs["is_final_check"] is True
     assert e.timer_id_check_error_state is e.hass.run_in.return_value
@@ -751,10 +749,10 @@ async def test_charger_error_state_arms_final_check_timer(driver):
 async def test_charger_error_final_check_escalates_to_unrecoverable(driver):
     """The final check on a persistent error escalates to un-recoverable."""
     e, rec = driver
-    del e._ModbusEVSEclient__handle_charger_error_state_change
+    del e._handle_charger_error_state_change
     e.v2g_main_app = AsyncMock()
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
-    e.ENTITY_ERROR_1["current_value"] = 1234
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e._MCE_ERROR_1.current_value = 1234
 
     await _handle_error_state(e, new_charger_state=None, is_final_check=True)
 
@@ -764,18 +762,18 @@ async def test_charger_error_final_check_escalates_to_unrecoverable(driver):
         was_car_connected=True
     )
     assert _comm_states(rec)[-1] is False
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] == "unavailable"
-    assert e.ENTITY_CAR_SOC["current_value"] == "unavailable"
+    assert e._MCE_ACTUAL_POWER.current_value == "unavailable"
+    assert e._MCE_CAR_SOC.current_value == "unavailable"
 
 
 @pytest.mark.asyncio
 async def test_charger_error_cleared_cancels_timer(driver):
     """When no error is present any more, the pending final-check timer is cleared."""
     e, _ = driver
-    del e._ModbusEVSEclient__handle_charger_error_state_change
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING  # not an error state
-    for err in (e.ENTITY_ERROR_1, e.ENTITY_ERROR_2, e.ENTITY_ERROR_3, e.ENTITY_ERROR_4):
-        err["current_value"] = 0
+    del e._handle_charger_error_state_change
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING  # not an error state
+    for err in (e._MCE_ERROR_1, e._MCE_ERROR_2, e._MCE_ERROR_3, e._MCE_ERROR_4):
+        err.current_value = 0
     e.timer_id_check_error_state = MagicMock()  # a timer is pending
 
     await _handle_error_state(e, new_charger_state=None, is_final_check=False)
@@ -799,11 +797,9 @@ async def test_partial_modbus_result_arms_grace_timer_and_aborts(driver):
 
     assert e.modbus_exception_counter == 1  # grace timer armed
     e.hass.run_in.assert_awaited_once()
-    assert e.hass.run_in.await_args.args[0] == (
-        e._ModbusEVSEclient__handle_un_recoverable_error
-    )
+    assert e.hass.run_in.await_args.args[0] == (e._handle_un_recoverable_error)
     # Processing aborted: no entity was updated from the partial batch.
-    assert e.ENTITY_CHARGER_CURRENT_POWER["current_value"] is None
+    assert e._MCE_ACTUAL_POWER.current_value is None
     assert rec.find("charge_power_change") == []
 
 
@@ -818,9 +814,7 @@ async def test_write_exception_arms_grace_timer(driver):
     assert await _modbus_write(e, e.SET_ACTION_REGISTER, 2) is None
     assert e.modbus_exception_counter == 1
     e.hass.run_in.assert_awaited_once()
-    assert e.hass.run_in.await_args.args[0] == (
-        e._ModbusEVSEclient__handle_un_recoverable_error
-    )
+    assert e.hass.run_in.await_args.args[0] == (e._handle_un_recoverable_error)
     assert e.hass.run_in.await_args.kwargs["delay"] == 60
 
 
@@ -859,12 +853,12 @@ async def test_force_get_register_returns_none_on_unrecoverable_exception(driver
 async def test_state_change_into_error_invokes_error_handler(driver):
     """A transition INTO a charger error state routes to the error handler."""
     e, rec = driver
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
     e.client.store.update({REG_STATE: STATE_ERROR, REG_ACTUAL_POWER: 0, REG_SOC: 55})
 
     await _process(e, e.CHARGER_POLLING_ENTITIES)
 
-    e._ModbusEVSEclient__handle_charger_error_state_change.assert_awaited()
+    e._handle_charger_error_state_change.assert_awaited()
     assert rec.find("charger_state_change")[-1]["new_charger_state"] == STATE_ERROR
 
 
@@ -873,9 +867,9 @@ async def test_state_change_suppressed_during_soc_dance(driver):
     """A (non-error) state change emits nothing while a forced-SoC read runs."""
     e, rec = driver
     e.try_get_new_soc_in_process = True
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_PAUSED
+    e._MCE_CHARGER_STATE.current_value = STATE_PAUSED
 
-    await _update(e, e.ENTITY_CHARGER_STATE, STATE_CHARGING)
+    await _update(e, e._MCE_CHARGER_STATE, STATE_CHARGING)
 
     assert rec.find("charger_state_change") == []
     assert rec.find("is_car_connected") == []
@@ -890,10 +884,10 @@ async def test_soc_getter_derivations(driver):
     and int(round(kwh*1000/consumption, 0)), so a drift on either side fails.
     """
     e, _ = driver
-    del e._ModbusEVSEclient__get_car_soc  # real SoC getter
+    del e._get_car_soc  # real SoC getter
     del e.get_car_remaining_range  # real range wrapper
-    e.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING  # connected
-    e.ENTITY_CAR_SOC["current_value"] = 55
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING  # connected
+    e._MCE_CAR_SOC.current_value = 55
 
     assert await e.get_car_soc() == 55
     soc_kwh = await e.get_car_soc_kwh()

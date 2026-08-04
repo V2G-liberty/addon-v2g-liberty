@@ -14,7 +14,7 @@ import pytest
 import apps.v2g_liberty.constants as c
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.evs.electric_vehicle import ElectricVehicle
-from apps.v2g_liberty.modbus_evse_client import ModbusEVSEclient
+from apps.v2g_liberty.chargers.wallbox_quasar_1 import WallboxQuasar1Client
 from apps.dev_tools.charger_scenarios import STATE_CHARGING
 
 
@@ -74,11 +74,13 @@ async def test_ev_derivations_match_charger_getters():
         setattr(hass, m, AsyncMock())
     bus = EventBus(hass)
 
-    charger = ModbusEVSEclient(hass, bus, MagicMock())
-    charger.client = MagicMock()  # is_car_connected only needs a non-None client
+    charger = WallboxQuasar1Client(hass, bus, MagicMock())
+    charger._mb_client._mbc = (
+        MagicMock()
+    )  # is_car_connected needs an initialised client
     charger._am_i_active = True
-    charger.ENTITY_CHARGER_STATE["current_value"] = STATE_CHARGING  # connected
-    charger.ENTITY_CAR_SOC["current_value"] = 55
+    charger._MCE_CHARGER_STATE.current_value = STATE_CHARGING  # connected
+    charger._MCE_CAR_SOC.current_value = 55
 
     ev = ElectricVehicle(hass, event_bus=bus)
     ev.update_soc(55)
@@ -88,5 +90,5 @@ async def test_ev_derivations_match_charger_getters():
         assert ev.remaining_range_km == await charger.get_car_remaining_range()
     finally:
         # Reset the shared class-level entity caches for test isolation.
-        charger.ENTITY_CHARGER_STATE["current_value"] = None
-        charger.ENTITY_CAR_SOC["current_value"] = None
+        charger._MCE_CHARGER_STATE.current_value = None
+        charger._MCE_CAR_SOC.current_value = None
