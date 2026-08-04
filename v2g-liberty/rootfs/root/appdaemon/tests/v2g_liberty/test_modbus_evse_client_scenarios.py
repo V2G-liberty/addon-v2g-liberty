@@ -895,3 +895,118 @@ async def test_soc_getter_derivations(driver):
     assert await e.get_car_remaining_range() == int(
         round(soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM, 0)
     )
+
+
+# ---------------------------------------------------------------------------
+# Auto-recovery after an unrecoverable error (Fase 2b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_unrecoverable_error_arms_recovery_probe(driver):
+    """After an unrecoverable error a recurring recovery probe is armed."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+
+    await e._handle_un_recoverable_error(reason="test", source="test")
+
+    # A recurring timer to _probe_charger_recovery was scheduled.
+    e.hass.run_every.assert_awaited()
+    assert e.hass.run_every.await_args.args[0] == e._probe_charger_recovery
+
+
+@pytest.mark.asyncio
+async def test_unrecoverable_error_releases_probe_slot_if_arming_fails(driver):
+    """If arming the probe fails, the slot is released so a later crash retries."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e.hass.run_every = AsyncMock(side_effect=RuntimeError("boom"))
+
+    await e._handle_un_recoverable_error(reason="test", source="test")
+
+    # The synchronous claim ("") must not stay stuck; it is reset to None.
+    assert e.timer_id_recovery_probe is None
+
+
+@pytest.mark.asyncio
+async def test_recovery_probe_recovers_when_reachable(driver):
+    """Reachable + not an error state → cancel probe and trigger auto-recovery."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e.hass.timer_running = AsyncMock(return_value=True)
+    e._am_i_active = False  # post-crash state
+    state_addr = e._MCE_CHARGER_STATE.modbus_register.address
+    e.client.store[state_addr] = 2  # reachable, not an error state (7 or 9)
+    e.client.fault = None
+    e.timer_id_recovery_probe = "probe_handle"
+
+    await e._probe_charger_recovery()
+
+    e.v2g_main_app.auto_recover_from_charger_crash.assert_awaited_once()
+    # The probe cancels itself before recovering (no double recovery).
+    assert e.timer_id_recovery_probe is None
+    # The probe reads directly, NOT via _modbus_read, so it must not go through
+    # the exception state machine's success path (reset_charger_communication_fault).
+    e.v2g_main_app.reset_charger_communication_fault.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recovery_probe_waits_when_error_state(driver):
+    """Reachable but still in an error state → keep waiting, do not recover."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e._am_i_active = False
+    state_addr = e._MCE_CHARGER_STATE.modbus_register.address
+    e.client.store[state_addr] = e.ERROR_STATES[0]
+    e.client.fault = None
+
+    await e._probe_charger_recovery()
+
+    e.v2g_main_app.auto_recover_from_charger_crash.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recovery_probe_waits_when_unreachable(driver):
+    """Still unreachable (read raises) → the probe swallows it and does not recover."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e._am_i_active = False
+    e.client.fault = "raise"
+
+    await e._probe_charger_recovery()  # must not raise
+
+    e.v2g_main_app.auto_recover_from_charger_crash.assert_not_awaited()
+    # Reading directly (not via _modbus_read) must not arm a grace timer or bump
+    # the exception counter — the probe stays out of the exception state machine.
+    e.hass.run_in.assert_not_awaited()
+    assert e.modbus_exception_counter == 0
+
+
+@pytest.mark.asyncio
+async def test_recovery_probe_waits_on_error_response(driver):
+    """A Modbus error response (isError) counts as still-unreachable, not recovered."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e._am_i_active = False
+    e.client.read_holding_registers = AsyncMock(
+        return_value=SimpleNamespace(registers=[], isError=lambda: True)
+    )
+
+    await e._probe_charger_recovery()
+
+    e.v2g_main_app.auto_recover_from_charger_crash.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recovery_probe_noops_when_already_active(driver):
+    """Already recovered (e.g. manual switch to Automatic) → cancel self, no recover."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e.hass.timer_running = AsyncMock(return_value=True)
+    e._am_i_active = True
+    e.timer_id_recovery_probe = "probe_handle"
+
+    await e._probe_charger_recovery()
+
+    e.v2g_main_app.auto_recover_from_charger_crash.assert_not_awaited()
+    assert e.timer_id_recovery_probe is None

@@ -27,7 +27,7 @@ from ..log_wrapper import get_class_method_logger
 from ..notifier_util import Notifier
 from ..v2g_globals import parse_to_int
 from ..event_bus import EventBus
-from ..timer_utils import cancel_timer_silent, set_oneshot_timer
+from ..timer_utils import cancel_timer_silent, set_oneshot_timer, set_recurring_timer
 from .base_bidirectional_evse import BidirectionalEVSE
 from .modbus_types import MBR, ModbusConfigEntity
 from .v2g_modbus_client import V2GmodbusClient
@@ -258,6 +258,11 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     timer_id_check_error_state: str = None
     MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 60
 
+    # Recovery probing after an unrecoverable error: periodically read a single
+    # register until the charger is reachable again, then trigger auto-recovery.
+    RECOVERY_PROBE_INTERVAL_SECONDS: int = 120
+    timer_id_recovery_probe: str = None
+
     # For (un)blocking of calls and keeping the client in-active when it should
     # Set only(!) by set_inactive and set_active.
     _am_i_active: bool = None
@@ -414,6 +419,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._log("Client not initialised, aborting", level="WARNING")
             return
         self._log("activated")
+        # A manual switch back to Automatic recovers too; stop any recovery probe.
+        await self._cancel_recovery_probe()
         self._am_i_active = True
         await self._set_charger_control("take")
         await self._get_car_soc(do_not_use_cache=True)
@@ -1570,6 +1577,87 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._update_evse_entity(
             evse_entity=self._MCE_CAR_SOC, new_value="unavailable"
         )
+        # Clear the cached charger state too. Otherwise, if the charger recovers
+        # in the same state it crashed in, the recovery poll equals the cache, no
+        # charger_state_change is emitted, and the UI keeps showing "Error".
+        self._MCE_CHARGER_STATE.current_value = None
+
+        # Arm the recovery probe so the charger auto-recovers once reachable
+        # again — but only one, even if two grace timers escalate concurrently
+        # (each would otherwise see timer_id_recovery_probe == None and arm its
+        # own recurring timer, orphaning one). Claim the slot synchronously.
+        if self.timer_id_recovery_probe is not None:
+            return
+        self.timer_id_recovery_probe = ""  # synchronous claim before the await
+        self._log(
+            f"Starting recovery probe every {self.RECOVERY_PROBE_INTERVAL_SECONDS}s."
+        )
+        try:
+            self.timer_id_recovery_probe = await set_recurring_timer(
+                self.hass,
+                self.timer_id_recovery_probe,
+                self._probe_charger_recovery,
+                start=f"now+{self.RECOVERY_PROBE_INTERVAL_SECONDS}",
+                interval=self.RECOVERY_PROBE_INTERVAL_SECONDS,
+            )
+        except Exception as ex:
+            # Arming failed: release the claim so a later crash can retry.
+            self.timer_id_recovery_probe = None
+            self._log(f"Failed to arm recovery probe: {ex}", level="WARNING")
+
+    async def _probe_charger_recovery(self, kwargs: dict = None):
+        """Periodic probe that checks whether a charger which hit an unrecoverable
+        error is reachable again.
+
+        Reads a single register directly via the transport — NOT via
+        ``_modbus_read`` — so it never re-enters the exception/grace-timer state
+        machine (no timers, no side effects). On a clean read that is not an error
+        state it cancels itself and asks the main app to auto-recover (which
+        switches charge_mode back to Automatic → ``set_active``).
+        """
+        if self._am_i_active:
+            # Already recovered (e.g. the user manually switched to Automatic).
+            await self._cancel_recovery_probe()
+            return
+
+        mbr = self._MCE_CHARGER_STATE.modbus_register
+        try:
+            result = await self._mb_client.read_holding_registers(
+                address=mbr.address, count=mbr.length, device_id=mbr.device_id
+            )
+        except Exception as e:
+            # Isolate the probe from all transport errors; wait for the next probe.
+            self._log(f"Recovery probe: charger still unreachable ({e}).")
+            return
+
+        if result is None or result.isError():
+            self._log("Recovery probe: charger still unreachable (error response).")
+            return
+
+        charger_state = mbr.decode(result.registers)
+        if charger_state in self.ERROR_STATES:
+            self._log(
+                f"Recovery probe: charger reachable but in error state "
+                f"{charger_state}; waiting."
+            )
+            return
+
+        if self._am_i_active:
+            # A manual recovery (set_active) landed while we were reading; the
+            # charger is already active, so avoid a redundant auto-recover.
+            await self._cancel_recovery_probe()
+            return
+
+        self._log(
+            f"Recovery probe: charger reachable (state {charger_state}); auto-recovering."
+        )
+        await self._cancel_recovery_probe()
+        await self.v2g_main_app.auto_recover_from_charger_crash()
+
+    async def _cancel_recovery_probe(self):
+        """Cancel the recovery probe timer, if running."""
+        await cancel_timer_silent(self.hass, self.timer_id_recovery_probe)
+        self.timer_id_recovery_probe = None
 
     def _get_2comp(self, number):
         """Util function to covert a modbus read value to in with two's complement values

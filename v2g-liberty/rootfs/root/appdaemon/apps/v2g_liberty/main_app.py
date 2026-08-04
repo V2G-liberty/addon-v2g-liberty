@@ -851,6 +851,35 @@ class V2Gliberty:
         }
         self.notifier.clear_notification(identification)
 
+    async def auto_recover_from_charger_crash(self):
+        """Auto-recover after the charger becomes reachable again.
+
+        Called by the EVSE client's recovery probe when it detects the charger is
+        reachable and no longer in an error state. Reuses the existing manual
+        recovery path by switching charge_mode to Automatic, which triggers
+        __handle_charge_mode_change → evse_client_app.set_active() and resumes
+        polling and scheduling.
+        """
+        self.__log("Auto-recovering from charger crash.")
+
+        # Clear the fault flag and crash notification first.
+        await self.reset_charger_communication_fault()
+
+        # Switching to Automatic triggers __handle_charge_mode_change → set_active.
+        await self.__set_charge_mode_in_ui("Automatic")
+
+        # Replace the crash notification (same tag) with a recovery message.
+        await self.notifier.notify_user(
+            message=(
+                "The charger is reachable again and automatic charging has "
+                "been resumed."
+            ),
+            title="Charger recovered",
+            tag="charger_modbus_crashed",
+            critical=False,
+            send_to_all=False,
+        )
+
     async def set_records_in_chart(self, chart_line_name: ChartLine, records):
         """Write or remove records in lines in the chart.
 
