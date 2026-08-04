@@ -169,6 +169,8 @@ class V2GLibertyApp(Hass):
         await notifier.initialize()
         self._log_init_time("notifier.initialize()", start_module)
 
+        await pause_at_reconnect.initialize()
+
         start_module = datetime.now()
         try:
             await data_store.initialise()
