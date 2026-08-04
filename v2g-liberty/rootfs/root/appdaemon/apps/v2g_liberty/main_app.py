@@ -997,11 +997,14 @@ class V2Gliberty:
             )
 
         if (
-            # Only on a genuine rise to max SoC, not on the first reading after a
-            # restart (old_soc is then None/"unavailable"). This also avoids
+            # Only on a genuine rise to max SoC. Both readings must be numeric:
+            # old_soc is None/"unavailable" on the first reading after a restart,
+            # and new_soc is "unavailable" right after the car is disconnected —
+            # comparing either against a number would raise. Guarding also avoids
             # computing the range before the car settings are loaded, which would
             # use the default battery capacity and report a wrong range.
             isinstance(old_soc, (int, float))
+            and isinstance(new_soc, (int, float))
             and old_soc < new_soc
             and new_soc == c.CAR_MAX_SOC_IN_PERCENT
             and await self.evse_client_app.is_charging()

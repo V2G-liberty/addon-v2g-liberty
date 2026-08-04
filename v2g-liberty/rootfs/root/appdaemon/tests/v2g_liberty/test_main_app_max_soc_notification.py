@@ -71,6 +71,19 @@ class TestMaxSocNotification:
         v2g.notifier.notify_user.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_no_notification_when_soc_becomes_unavailable_on_disconnect(
+        self, v2g
+    ):
+        """new_soc is "unavailable" (car just disconnected) → no notification and
+        no ``int < str`` TypeError from the max-SoC comparison."""
+        await _handle(
+            v2g,
+            new_soc="unavailable",
+            old_soc=c.CAR_MAX_SOC_IN_PERCENT - 1,
+        )
+        v2g.notifier.notify_user.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_no_notification_when_already_at_max(self, v2g):
         """No genuine rise (old_soc == new_soc == max) → no notification."""
         await _handle(
