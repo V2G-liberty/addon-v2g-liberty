@@ -9,6 +9,7 @@
 - 🪲 BUG: Paused app lets the charger charge the car to full on reconnect (#480, #481)
 - 🪲 BUG: Guard the max-SoC notification against a non-numeric new SoC (#483)
 - 🪲 BUG: Fix ttl-based notification clearing (unpack AppDaemon's kwargs dict) - (#484)
+- 🪲 BUG: Fix grid connection save fm gate - (#485)
 
 
 ### Added
