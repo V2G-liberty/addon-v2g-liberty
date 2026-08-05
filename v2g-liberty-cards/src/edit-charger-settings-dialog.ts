@@ -331,6 +331,12 @@ class EditChargerSettingsDialog extends DialogBase {
   }
 
   private async _save(): Promise<void> {
+    // NOTE: charger settings are currently local/Modbus only — this Save does
+    // NOT create or edit anything on the Smart schedule server (FlexMeasures).
+    // When the charger asset gets provisioned/edited from here (planned, branch
+    // 359), apply the shared FM-reachability gate like the grid and solar
+    // dialogs: fire `this._probeFm()` in showDialog() and block on
+    // `this._fmReachable` (see DialogBase._probeFm / _renderFmGate).
     // TODO: Add validation
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
     const args = {
