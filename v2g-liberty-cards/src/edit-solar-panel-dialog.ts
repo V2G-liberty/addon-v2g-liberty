@@ -88,6 +88,11 @@ export class EditSolarPanelDialog extends DialogBase {
   public async showDialog(params: SolarPanelDialogParams = {}): Promise<void> {
     super.showDialog();
 
+    // Fresh FlexMeasures reachability probe (non-blocking). The panel's sensors
+    // are created on the Smart schedule server, so while it is not reachable
+    // render() shows the shared gate instead of the wizard (add and edit alike).
+    void this._probeFm();
+
     // Reset — skip the intro page when editing an existing panel.
     this._step = params.panel ? Step.Basic : Step.Intro;
     this._editingId = null;
@@ -213,22 +218,28 @@ export class EditSolarPanelDialog extends DialogBase {
     const header = this._editingId ? 'Edit solar panel' : 'Add solar panel';
     let content;
 
-    switch (this._step) {
-      case Step.Intro:
-        content = this._renderIntro();
-        break;
-      case Step.Basic:
-        content = this._renderBasic();
-        break;
-      case Step.PowerEntity:
-        content = this._renderPowerEntity();
-        break;
-      case Step.ConnectedToPhase:
-        content = this._renderConnectedToPhase();
-        break;
-      case Step.GridNotConfigured:
-        content = this._renderGridNotConfigured();
-        break;
+    if (this._step === Step.GridNotConfigured) {
+      content = this._renderGridNotConfigured();
+    } else if (!this._fmReachable) {
+      // Grid is configured but the Smart schedule server is not reachable —
+      // block until it is (covers both add and edit). Reactive: swaps to the
+      // wizard as soon as the probe reports reachable.
+      content = this._renderFmGateTakeover();
+    } else {
+      switch (this._step) {
+        case Step.Intro:
+          content = this._renderIntro();
+          break;
+        case Step.Basic:
+          content = this._renderBasic();
+          break;
+        case Step.PowerEntity:
+          content = this._renderPowerEntity();
+          break;
+        case Step.ConnectedToPhase:
+          content = this._renderConnectedToPhase();
+          break;
+      }
     }
 
     return html`
@@ -257,6 +268,22 @@ export class EditSolarPanelDialog extends DialogBase {
         phases, capacity). Please configure the grid connection first via
         its settings card, then come back here to add your panels.
       </ha-alert>
+      ${renderButton(
+        this.hass,
+        () => this.closeDialog(),
+        true,
+        this.hass.localize('ui.common.close'),
+        false,
+        'close'
+      )}
+    `;
+  }
+
+  // ── Guard step: Smart schedule server not reachable ─────────────────
+
+  private _renderFmGateTakeover() {
+    return html`
+      ${this._renderFmGate('solar panel')}
       ${renderButton(
         this.hass,
         () => this.closeDialog(),
@@ -915,10 +942,14 @@ export class EditSolarPanelDialog extends DialogBase {
     try {
       const result = await callFunction(this.hass, 'save_solar_panel', payload);
       if (result.fm_error) {
-        // FM-side rejection. Lit preserves the form state, ensure_* is
-        // idempotent on retry, so clicking Save again resends the same
-        // payload and recovers cleanly once FM is available.
-        this._saveError = `FlexMeasures error: ${result.fm_error}`;
+        // The panel's sensors are created on the Smart schedule server; nothing
+        // was saved. Lit preserves the form and ensure_* is idempotent, so
+        // clicking Save again resends the same payload and recovers cleanly once
+        // the server is reachable.
+        this._saveError =
+          `Could not create the solar sensors on the Smart schedule server: ` +
+          `${result.fm_error}. Please check the connection under Smart schedule ` +
+          `and try again.`;
         this._saving = false;
         return;
       }
@@ -929,7 +960,9 @@ export class EditSolarPanelDialog extends DialogBase {
       }
       this.closeDialog();
     } catch (e) {
-      this._saveError = 'Failed to save the solar panel. Please try again.';
+      this._saveError =
+        'Could not reach the add-on. Please check that V2G Liberty is running ' +
+        'and try again.';
       this._saving = false;
     }
   }

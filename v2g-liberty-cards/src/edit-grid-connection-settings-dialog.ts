@@ -86,6 +86,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._saveError = '';
     this._saveConfirmed = false;
 
+    // Fresh FlexMeasures reachability probe (non-blocking; updates _fmProbe when
+    // it resolves). The intro gate stays closed until it reports back.
+    void this._probeFm();
+
     // Load existing settings if configured
     try {
       const data = await callFunction(this.hass, 'get_grid_connection_settings');
@@ -214,6 +218,8 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   private _renderIntro() {
     return html`
+      ${this._renderFmGate('grid connection')}
+
       <p>By monitoring your grid connection, the system learns your household energy
       patterns. Over time, this leads to <strong>better predictions</strong> and
       <strong>smarter schedules</strong> that fit your specific situation.</p>
@@ -255,7 +261,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       ${renderButton(
         this.hass,
         () => { this._step = Step.PhasesAndCapacity; },
-        true
+        true,
+        null,
+        !this._fmReachable
       )}
     `;
   }
@@ -769,6 +777,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       return;
     }
 
+    // FlexMeasures may have dropped between the intro probe and here; the
+    // backend save is the authority — it provisions atomically and returns a
+    // clear fm_error if FM is unreachable, which _save() surfaces below.
     await this._save();
   }
 
@@ -789,11 +800,12 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       );
 
       if (result.fm_error) {
-        // FM-side rejection (provisioning failed). Lit preserves the form
-        // state; ensure_* is idempotent so clicking Save again resends the
-        // same payload and recovers cleanly once FM is available. Back/Cancel
-        // closes without saving.
-        this._saveError = `FlexMeasures error: ${result.fm_error}`;
+        // Provisioning at FlexMeasures failed (unreachable or too slow). Nothing
+        // was saved; Lit preserves the form so the user can retry once FM is
+        // healthy (ensure_* is idempotent). Back/Cancel closes without saving.
+        this._saveError =
+          `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` +
+          `Please check FlexMeasures and try again.`;
         this._saving = false;
         this._saveConfirmed = false;
         return;
@@ -807,7 +819,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
       this.closeDialog();
     } catch (e) {
-      this._saveError = 'Failed to save settings. Please try again.';
+      this._saveError =
+        'Could not reach the add-on. Please check that V2G Liberty is running ' +
+        'and try again.';
       this._saving = false;
     }
   }

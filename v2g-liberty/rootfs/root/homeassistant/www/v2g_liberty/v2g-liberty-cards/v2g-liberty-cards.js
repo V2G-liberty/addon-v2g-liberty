@@ -12860,6 +12860,8 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
 
 
 
+
+
 function $942308f826de48c4$export$49d5fc8cba920a0(stateObj, defaultValue) {
     return $942308f826de48c4$var$isUninitialised(stateObj) ? defaultValue : stateObj.state;
 }
@@ -12867,6 +12869,50 @@ function $942308f826de48c4$var$isUninitialised(stateObj) {
     return stateObj.state === 'unknown';
 }
 class $942308f826de48c4$export$569e42c9a98af7b7 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+    get _fmReachable() {
+        return this._fmProbe === 'reachable';
+    }
+    // Fire from a subclass's showDialog() (non-blocking). Updates _fmProbe when
+    // it resolves, so the gate opens/closes reactively.
+    async _probeFm() {
+        this._fmProbe = 'checking';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'test_fm_reachable');
+            this._fmProbe = result?.reachable ? 'reachable' : 'unreachable';
+        } catch (e) {
+            // Add-on unreachable or probe errored → treat as not reachable.
+            this._fmProbe = 'unreachable';
+        }
+    }
+    // Renders the shared reachability gate: a "checking" note, or a blocking
+    // error alert plus a "Check again" action while unreachable; `nothing` once
+    // reachable. `subject` names what is being set up (e.g. "grid connection",
+    // "solar panel"). Subclasses gate their Continue/Save on `_fmReachable`.
+    _renderFmGate(subject) {
+        if (this._fmProbe === 'checking') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="info">
+        Checking the Smart schedule server…
+      </ha-alert>`;
+        if (this._fmProbe === 'unreachable') return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <ha-alert
+          alert-type="error"
+          title="Smart schedule server not reachable"
+        >
+          The ${subject} is created on the Smart schedule server (FlexMeasures),
+          so it can only be set up while that server is reachable — and right now
+          it is not.
+          <p style="margin: 8px 0 0 0;"><strong>To continue:</strong></p>
+          <ul style="margin: 4px 0 0 16px; padding: 0;">
+            <li>Restore the connection under <strong>Smart schedule</strong>.</li>
+            <li>
+              Reopen this dialog afterwards — the connection is checked again
+              automatically when you do.
+            </li>
+          </ul>
+        </ha-alert>
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._probeFm(), false, 'Check again')}
+      `;
+        return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
     async showDialog() {
         this.isOpen = true;
     }
@@ -12875,6 +12921,16 @@ class $942308f826de48c4$export$569e42c9a98af7b7 extends (0, $ab210b2da7b39b9d$ex
         (0, $ee1328194d522913$export$43835e9acf248a15)(this, 'dialog-closed', {
             dialog: this.localName
         });
+    }
+    constructor(...args){
+        super(...args), // ── FlexMeasures reachability gate ──────────────────────────────────
+        // Shared by dialogs whose Save provisions assets/sensors on the Smart
+        // schedule server (FlexMeasures) — grid connection, solar panels, and
+        // (planned, branch 359) the charger. Such a dialog must not proceed while
+        // that server is unreachable. The fm_connection_status sensor is a lagging
+        // indicator (no heartbeat), so we probe the live client fresh on open and on
+        // demand via "Check again".
+        this._fmProbe = 'checking';
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -12885,6 +12941,9 @@ class $942308f826de48c4$export$569e42c9a98af7b7 extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $942308f826de48c4$export$569e42c9a98af7b7.prototype, "isOpen", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $942308f826de48c4$export$569e42c9a98af7b7.prototype, "_fmProbe", void 0);
 
 
 
@@ -13420,6 +13479,12 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         }
     }
     async _save() {
+        // NOTE: charger settings are currently local/Modbus only — this Save does
+        // NOT create or edit anything on the Smart schedule server (FlexMeasures).
+        // When the charger asset gets provisioned/edited from here (planned, branch
+        // 359), apply the shared FM-reachability gate like the grid and solar
+        // dialogs: fire `this._probeFm()` in showDialog() and block on
+        // `this._fmReachable` (see DialogBase._probeFm / _renderFmGate).
         // TODO: Add validation
         const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
         const args = {
@@ -14345,6 +14410,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         this._saving = false;
         this._saveError = '';
         this._saveConfirmed = false;
+        // Fresh FlexMeasures reachability probe (non-blocking; updates _fmProbe when
+        // it resolves). The intro gate stays closed until it reports back.
+        this._probeFm();
         // Load existing settings if configured
         try {
             const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
@@ -14446,6 +14514,8 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     // ── Step 1: Introduction ────────────────────────────────────────────
     _renderIntro() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._renderFmGate('grid connection')}
+
       <p>By monitoring your grid connection, the system learns your household energy
       patterns. Over time, this leads to <strong>better predictions</strong> and
       <strong>smarter schedules</strong> that fit your specific situation.</p>
@@ -14486,7 +14556,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
             this._step = "phases_and_capacity";
-        }, true)}
+        }, true, null, !this._fmReachable)}
     `;
     }
     // ── Step 2: Phases and Capacity ─────────────────────────────────────
@@ -14881,6 +14951,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             this._saveConfirmed = true; // next click will be "Save anyway"
             return;
         }
+        // FlexMeasures may have dropped between the intro probe and here; the
+        // backend save is the authority — it provisions atomically and returns a
+        // clear fm_error if FM is unreachable, which _save() surfaces below.
         await this._save();
     }
     async _save() {
@@ -14894,11 +14967,10 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 production_entities: this._productionEntities
             });
             if (result.fm_error) {
-                // FM-side rejection (provisioning failed). Lit preserves the form
-                // state; ensure_* is idempotent so clicking Save again resends the
-                // same payload and recovers cleanly once FM is available. Back/Cancel
-                // closes without saving.
-                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                // Provisioning at FlexMeasures failed (unreachable or too slow). Nothing
+                // was saved; Lit preserves the form so the user can retry once FM is
+                // healthy (ensure_* is idempotent). Back/Cancel closes without saving.
+                this._saveError = `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` + `Please check FlexMeasures and try again.`;
                 this._saving = false;
                 this._saveConfirmed = false;
                 return;
@@ -14910,7 +14982,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             }
             this.closeDialog();
         } catch (e) {
-            this._saveError = 'Failed to save settings. Please try again.';
+            this._saveError = "Could not reach the add-on. Please check that V2G Liberty is running and try again.";
             this._saving = false;
         }
     }
@@ -15112,6 +15184,10 @@ const $69c2d5e8861124e5$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-solar-panel-
 class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog(params = {}) {
         super.showDialog();
+        // Fresh FlexMeasures reachability probe (non-blocking). The panel's sensors
+        // are created on the Smart schedule server, so while it is not reachable
+        // render() shows the shared gate instead of the wizard (add and edit alike).
+        this._probeFm();
         // Reset — skip the intro page when editing an existing panel.
         this._step = params.panel ? "basic" : "intro";
         this._editingId = null;
@@ -15217,7 +15293,12 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
         const isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
         const header = this._editingId ? 'Edit solar panel' : 'Add solar panel';
         let content;
-        switch(this._step){
+        if (this._step === "grid_not_configured") content = this._renderGridNotConfigured();
+        else if (!this._fmReachable) // Grid is configured but the Smart schedule server is not reachable —
+        // block until it is (covers both add and edit). Reactive: swaps to the
+        // wizard as soon as the probe reports reachable.
+        content = this._renderFmGateTakeover();
+        else switch(this._step){
             case "intro":
                 content = this._renderIntro();
                 break;
@@ -15229,9 +15310,6 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
                 break;
             case "connected_to_phase":
                 content = this._renderConnectedToPhase();
-                break;
-            case "grid_not_configured":
-                content = this._renderGridNotConfigured();
                 break;
         }
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -15257,6 +15335,13 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
         phases, capacity). Please configure the grid connection first via
         its settings card, then come back here to add your panels.
       </ha-alert>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, this.hass.localize('ui.common.close'), false, 'close')}
+    `;
+    }
+    // ── Guard step: Smart schedule server not reachable ─────────────────
+    _renderFmGateTakeover() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._renderFmGate('solar panel')}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), true, this.hass.localize('ui.common.close'), false, 'close')}
     `;
     }
@@ -15751,10 +15836,11 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
         try {
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_solar_panel', payload);
             if (result.fm_error) {
-                // FM-side rejection. Lit preserves the form state, ensure_* is
-                // idempotent on retry, so clicking Save again resends the same
-                // payload and recovers cleanly once FM is available.
-                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                // The panel's sensors are created on the Smart schedule server; nothing
+                // was saved. Lit preserves the form and ensure_* is idempotent, so
+                // clicking Save again resends the same payload and recovers cleanly once
+                // the server is reachable.
+                this._saveError = `Could not create the solar sensors on the Smart schedule server: ` + `${result.fm_error}. Please check the connection under Smart schedule ` + `and try again.`;
                 this._saving = false;
                 return;
             }
@@ -15765,7 +15851,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
             }
             this.closeDialog();
         } catch (e) {
-            this._saveError = 'Failed to save the solar panel. Please try again.';
+            this._saveError = "Could not reach the add-on. Please check that V2G Liberty is running and try again.";
             this._saving = false;
         }
     }
