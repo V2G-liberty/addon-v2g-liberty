@@ -14345,6 +14345,10 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         this._saving = false;
         this._saveError = '';
         this._saveConfirmed = false;
+        this._fmProbe = 'checking';
+        // Fresh FlexMeasures reachability probe (non-blocking; updates _fmProbe when
+        // it resolves). The intro gate stays closed until it reports back.
+        this._probeFm();
         // Load existing settings if configured
         try {
             const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
@@ -14444,8 +14448,43 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     `;
     }
     // ── Step 1: Introduction ────────────────────────────────────────────
+    // Run a FRESH FlexMeasures reachability probe (once on open, and on demand via
+    // "Check again"). Uses the backend's existing authenticated client — no
+    // credentials needed — so the gate reflects the current reality instead of the
+    // lagging fm_connection_status sensor.
+    async _probeFm() {
+        this._fmProbe = 'checking';
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'test_fm_reachable');
+            this._fmProbe = result?.reachable ? 'reachable' : 'unreachable';
+        } catch (e) {
+            // Add-on unreachable or probe errored → treat as not reachable.
+            this._fmProbe = 'unreachable';
+        }
+    }
     _renderIntro() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._fmProbe === 'checking' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="info">
+            Checking the Smart schedule server…
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._fmProbe === 'unreachable' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert
+              alert-type="error"
+              title="Smart schedule server not reachable"
+            >
+              The grid connection is created on the Smart schedule server
+              (FlexMeasures), so it can only be set up while that server is
+              reachable — and right now it is not.
+              <p style="margin: 8px 0 0 0;"><strong>To continue:</strong></p>
+              <ul style="margin: 4px 0 0 16px; padding: 0;">
+                <li>Restore the connection under <strong>Smart schedule</strong>.</li>
+                <li>
+                  Reopen this dialog afterwards — the connection is checked again
+                  automatically when you do.
+                </li>
+              </ul>
+            </ha-alert>
+            ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._probeFm(), false, 'Check again')}` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
       <p>By monitoring your grid connection, the system learns your household energy
       patterns. Over time, this leads to <strong>better predictions</strong> and
       <strong>smarter schedules</strong> that fit your specific situation.</p>
@@ -14486,7 +14525,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
             this._step = "phases_and_capacity";
-        }, true)}
+        }, true, null, this._fmProbe !== 'reachable')}
     `;
     }
     // ── Step 2: Phases and Capacity ─────────────────────────────────────
@@ -14881,6 +14920,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             this._saveConfirmed = true; // next click will be "Save anyway"
             return;
         }
+        // FlexMeasures may have dropped between the intro probe and here; the
+        // backend save is the authority — it provisions atomically and returns a
+        // clear fm_error if FM is unreachable, which _save() surfaces below.
         await this._save();
     }
     async _save() {
@@ -14894,11 +14936,10 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 production_entities: this._productionEntities
             });
             if (result.fm_error) {
-                // FM-side rejection (provisioning failed). Lit preserves the form
-                // state; ensure_* is idempotent so clicking Save again resends the
-                // same payload and recovers cleanly once FM is available. Back/Cancel
-                // closes without saving.
-                this._saveError = `FlexMeasures error: ${result.fm_error}`;
+                // Provisioning at FlexMeasures failed (unreachable or too slow). Nothing
+                // was saved; Lit preserves the form so the user can retry once FM is
+                // healthy (ensure_* is idempotent). Back/Cancel closes without saving.
+                this._saveError = `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` + `Please check FlexMeasures and try again.`;
                 this._saving = false;
                 this._saveConfirmed = false;
                 return;
@@ -14910,7 +14951,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             }
             this.closeDialog();
         } catch (e) {
-            this._saveError = 'Failed to save settings. Please try again.';
+            this._saveError = "Could not reach the add-on. Please check that V2G Liberty is running and try again.";
             this._saving = false;
         }
     }
@@ -15036,7 +15077,11 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         this._entityStatus = {}, // Entities that reported a negative value (likely a bidirectional/net or
         // wrong sensor, since consumption/production should be directional).
         this._entityNegative = {}, this._entityListeners = {}, // Auto-detection state
-        this._autoDetected = false, // Form validation state
+        this._autoDetected = false, // FlexMeasures reachability probe for the intro gate. The grid sensors are
+        // created in FlexMeasures, so the wizard must not proceed until a FRESH probe
+        // confirms FM is reachable (the fm_connection_status sensor is a lagging
+        // indicator — no heartbeat). Re-run on demand via "Check again".
+        this._fmProbe = 'checking', // Form validation state
         this._triedContinueStep2 = false, this._triedSave = false, // Set on the first Continue click of step 2 when the new phases would
         // make existing solar panels inconsistent. While true, the Continue
         // button reads "Continue anyway" and the warning is visible. Reset
@@ -15075,6 +15120,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_fmProbe", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueStep2", void 0);

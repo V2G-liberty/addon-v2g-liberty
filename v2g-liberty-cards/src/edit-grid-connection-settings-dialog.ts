@@ -40,6 +40,12 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   // Auto-detection state
   @state() private _autoDetected: boolean = false;
 
+  // FlexMeasures reachability probe for the intro gate. The grid sensors are
+  // created in FlexMeasures, so the wizard must not proceed until a FRESH probe
+  // confirms FM is reachable (the fm_connection_status sensor is a lagging
+  // indicator — no heartbeat). Re-run on demand via "Check again".
+  @state() private _fmProbe: 'checking' | 'reachable' | 'unreachable' = 'checking';
+
   // Form validation state
   @state() private _triedContinueStep2: boolean = false;
   @state() private _triedSave: boolean = false;
@@ -85,6 +91,11 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     this._saving = false;
     this._saveError = '';
     this._saveConfirmed = false;
+    this._fmProbe = 'checking';
+
+    // Fresh FlexMeasures reachability probe (non-blocking; updates _fmProbe when
+    // it resolves). The intro gate stays closed until it reports back.
+    void this._probeFm();
 
     // Load existing settings if configured
     try {
@@ -212,8 +223,48 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   // ── Step 1: Introduction ────────────────────────────────────────────
 
+  // Run a FRESH FlexMeasures reachability probe (once on open, and on demand via
+  // "Check again"). Uses the backend's existing authenticated client — no
+  // credentials needed — so the gate reflects the current reality instead of the
+  // lagging fm_connection_status sensor.
+  private async _probeFm() {
+    this._fmProbe = 'checking';
+    try {
+      const result = await callFunction(this.hass, 'test_fm_reachable');
+      this._fmProbe = result?.reachable ? 'reachable' : 'unreachable';
+    } catch (e) {
+      // Add-on unreachable or probe errored → treat as not reachable.
+      this._fmProbe = 'unreachable';
+    }
+  }
+
   private _renderIntro() {
     return html`
+      ${this._fmProbe === 'checking'
+        ? html`<ha-alert alert-type="info">
+            Checking the Smart schedule server…
+          </ha-alert>`
+        : nothing}
+      ${this._fmProbe === 'unreachable'
+        ? html`<ha-alert
+              alert-type="error"
+              title="Smart schedule server not reachable"
+            >
+              The grid connection is created on the Smart schedule server
+              (FlexMeasures), so it can only be set up while that server is
+              reachable — and right now it is not.
+              <p style="margin: 8px 0 0 0;"><strong>To continue:</strong></p>
+              <ul style="margin: 4px 0 0 16px; padding: 0;">
+                <li>Restore the connection under <strong>Smart schedule</strong>.</li>
+                <li>
+                  Reopen this dialog afterwards — the connection is checked again
+                  automatically when you do.
+                </li>
+              </ul>
+            </ha-alert>
+            ${renderButton(this.hass, () => this._probeFm(), false, 'Check again')}`
+        : nothing}
+
       <p>By monitoring your grid connection, the system learns your household energy
       patterns. Over time, this leads to <strong>better predictions</strong> and
       <strong>smarter schedules</strong> that fit your specific situation.</p>
@@ -255,7 +306,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       ${renderButton(
         this.hass,
         () => { this._step = Step.PhasesAndCapacity; },
-        true
+        true,
+        null,
+        this._fmProbe !== 'reachable'
       )}
     `;
   }
@@ -769,6 +822,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       return;
     }
 
+    // FlexMeasures may have dropped between the intro probe and here; the
+    // backend save is the authority — it provisions atomically and returns a
+    // clear fm_error if FM is unreachable, which _save() surfaces below.
     await this._save();
   }
 
@@ -789,11 +845,12 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       );
 
       if (result.fm_error) {
-        // FM-side rejection (provisioning failed). Lit preserves the form
-        // state; ensure_* is idempotent so clicking Save again resends the
-        // same payload and recovers cleanly once FM is available. Back/Cancel
-        // closes without saving.
-        this._saveError = `FlexMeasures error: ${result.fm_error}`;
+        // Provisioning at FlexMeasures failed (unreachable or too slow). Nothing
+        // was saved; Lit preserves the form so the user can retry once FM is
+        // healthy (ensure_* is idempotent). Back/Cancel closes without saving.
+        this._saveError =
+          `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` +
+          `Please check FlexMeasures and try again.`;
         this._saving = false;
         this._saveConfirmed = false;
         return;
@@ -807,7 +864,9 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
       this.closeDialog();
     } catch (e) {
-      this._saveError = 'Failed to save settings. Please try again.';
+      this._saveError =
+        'Could not reach the add-on. Please check that V2G Liberty is running ' +
+        'and try again.';
       this._saving = false;
     }
   }

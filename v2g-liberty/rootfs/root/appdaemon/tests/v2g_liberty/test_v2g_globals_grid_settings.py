@@ -1,5 +1,6 @@
 """Unit tests for grid connection and charger phase settings in V2GLibertyGlobals."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 
@@ -1151,3 +1152,259 @@ class TestProvisioningTriggerOnSave:
 
         # fm_client_mock.client is None → no provisioning
         fm_client_mock.ensure_asset.assert_not_called()
+
+
+class TestGridProvisioningResilience:
+    """A slow/hung FlexMeasures must not block the save (wait_for-timeout), and a
+    grid that could not be provisioned at startup self-heals once FM reconnects."""
+
+    @staticmethod
+    def _payload():
+        return {
+            "phases": 1,
+            "capacity_per_phase": 25,
+            "consumption_entities": ["sensor.l1"],
+            "production_entities": ["sensor.p1"],
+        }
+
+    @staticmethod
+    def _seed_constants():
+        c.GRID_PHASES = 3
+        c.GRID_CAPACITY_PER_PHASE = 99
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.keep"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.keep2"]
+
+    @staticmethod
+    def _snapshot():
+        return (
+            c.GRID_PHASES,
+            c.GRID_CAPACITY_PER_PHASE,
+            c.GRID_CONSUMPTION_ENTITIES,
+            c.GRID_PRODUCTION_ENTITIES,
+        )
+
+    @pytest.mark.asyncio
+    async def test_provisioning_timeout_blocks_save(
+        self, globals_with_fm, settings_manager_mock, hass_mock
+    ):
+        """A hung FlexMeasures times out cleanly → fm_error, nothing persisted,
+        constants unchanged (instead of hanging past the frontend's 60s limit)."""
+        self._seed_constants()
+        before = self._snapshot()
+
+        async def _hang():
+            await asyncio.sleep(5)
+
+        # Replace provisioning with a hang and shrink the bound so the test is fast.
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets = _hang
+        globals_with_fm._FM_PROVISION_TIMEOUT = 0.02
+
+        await globals_with_fm._V2GLibertyGlobals__save_grid_connection_settings(
+            "event", self._payload(), {}
+        )
+
+        settings_manager_mock.store_object.assert_not_called()
+        assert self._snapshot() == before
+        args, kwargs = hass_mock.fire_event.call_args
+        assert args[0] == "save_grid_connection_settings.result"
+        assert kwargs.get("fm_error") == "FlexMeasures did not respond in time"
+
+    @pytest.mark.asyncio
+    async def test_reconnect_provisions_when_configured_and_unprovisioned(
+        self, globals_with_fm
+    ):
+        """FM reconnects, grid configured but no FM ids yet → provision now."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        best_effort = AsyncMock()
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort = (
+            best_effort
+        )
+
+        await globals_with_fm._V2GLibertyGlobals__on_fm_connection_status(
+            "Successfully connected"
+        )
+        await asyncio.sleep(0)  # let the scheduled task start
+
+        best_effort.assert_called_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state", ["Error", "Connecting", ""])
+    async def test_reconnect_noop_when_not_connected(self, globals_with_fm, state):
+        """Any non-connected status is ignored."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        best_effort = AsyncMock()
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort = (
+            best_effort
+        )
+
+        await globals_with_fm._V2GLibertyGlobals__on_fm_connection_status(state)
+        await asyncio.sleep(0)
+
+        best_effort.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reconnect_noop_when_grid_not_configured(self, globals_with_fm):
+        """No grid config → nothing to provision, even when FM is back."""
+        c.GRID_CONSUMPTION_ENTITIES = []
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        best_effort = AsyncMock()
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort = (
+            best_effort
+        )
+
+        await globals_with_fm._V2GLibertyGlobals__on_fm_connection_status(
+            "Successfully connected"
+        )
+        await asyncio.sleep(0)
+
+        best_effort.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reconnect_noop_when_already_provisioned(self, globals_with_fm):
+        """Already has FM ids → idempotent, but skip the needless round-trip."""
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {1: 500}
+        best_effort = AsyncMock()
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort = (
+            best_effort
+        )
+
+        await globals_with_fm._V2GLibertyGlobals__on_fm_connection_status(
+            "Successfully connected"
+        )
+        await asyncio.sleep(0)
+
+        best_effort.assert_not_called()
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}  # reset for other tests
+
+    @pytest.mark.asyncio
+    async def test_best_effort_guard_prevents_concurrent_run(self, globals_with_fm):
+        """A run already in flight → skip (no second concurrent provisioning)."""
+        globals_with_fm._grid_prov_in_flight = True
+        provision = AsyncMock()
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets = provision
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort()
+
+        provision.assert_not_called()
+        # The in-flight run keeps ownership of the flag.
+        assert globals_with_fm._grid_prov_in_flight is True
+
+    @pytest.mark.asyncio
+    async def test_best_effort_swallows_failure_and_clears_flag(self, globals_with_fm):
+        """Background provisioning failure is swallowed and the flag is released."""
+        globals_with_fm._grid_prov_in_flight = False
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets = AsyncMock(
+            side_effect=Exception("boom")
+        )
+
+        await globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort()
+
+        assert globals_with_fm._grid_prov_in_flight is False
+
+    @pytest.mark.asyncio
+    async def test_partial_provisioning_leaves_ids_untouched_for_retry(
+        self, globals_with_fm, fm_client_connected
+    ):
+        """Provisioning is atomic: a mid-run failure must NOT leave a partial
+        FM-id map. Otherwise the self-heal guard (non-empty == provisioned)
+        would treat a half-done multi-phase grid as complete and never finish
+        it."""
+        c.GRID_PHASES = 3
+        c.GRID_CAPACITY_PER_PHASE = 25
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.l1", "sensor.l2", "sensor.l3"]
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
+
+        # Fail on the 4th ensure_sensor call: phase 1 (3 sensors) fully
+        # succeeds, then phase 2 fails — exactly the partial-completion window.
+        calls = {"n": 0}
+
+        def flaky_sensor(**kw):
+            calls["n"] += 1
+            if calls["n"] >= 4:
+                raise Exception("FM went away mid-provision")
+            return calls["n"]
+
+        fm_client_connected.ensure_sensor.side_effect = flaky_sensor
+
+        with pytest.raises(Exception):
+            await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
+
+        # Nothing published → a later reconnect re-provisions from scratch.
+        assert c.FM_GRID_CONSUMPTION_SENSOR_IDS == {}
+        assert c.FM_GRID_PRODUCTION_SENSOR_IDS == {}
+        assert c.FM_RESIDENTIAL_LOAD_SENSOR_IDS == {}
+
+        # And the self-heal guard therefore does NOT skip as "already done".
+        best_effort = AsyncMock()
+        globals_with_fm._V2GLibertyGlobals__provision_grid_assets_best_effort = (
+            best_effort
+        )
+        await globals_with_fm._V2GLibertyGlobals__on_fm_connection_status(
+            "Successfully connected"
+        )
+        await asyncio.sleep(0)
+        best_effort.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_initialize_wires_self_heal_listener(self, globals_with_fm):
+        """The self-heal listener must actually be subscribed on the event bus
+        with the exact event name the emitter uses (fm_client emits
+        'fm_connection_status'); every other test invokes the handler directly,
+        so this is the only guard against a broken registration."""
+        globals_with_fm.hass.get_plugin_config = AsyncMock(
+            return_value={"time_zone": "Europe/Amsterdam", "location_name": "Test"}
+        )
+        event_bus = MagicMock()
+        globals_with_fm.event_bus = event_bus
+
+        await globals_with_fm.initialize()
+
+        event_bus.add_event_listener.assert_any_call(
+            "fm_connection_status",
+            globals_with_fm._V2GLibertyGlobals__on_fm_connection_status,
+        )
+
+
+class TestFmReachableProbe:
+    """The grid wizard's fresh FM liveness probe (test_fm_reachable) uses the
+    existing authenticated client so the intro gate reflects current reality."""
+
+    @staticmethod
+    def _fired_reachable(hass_mock):
+        args, kwargs = hass_mock.fire_event.call_args
+        assert args[0] == "test_fm_reachable.result"
+        return kwargs.get("reachable")
+
+    @pytest.mark.asyncio
+    async def test_reachable_when_get_assets_succeeds(
+        self, globals_with_fm, fm_client_connected, hass_mock
+    ):
+        fm_client_connected.client.get_assets = AsyncMock(return_value=[])
+
+        await globals_with_fm._V2GLibertyGlobals__test_fm_reachable("e", {}, {})
+
+        assert self._fired_reachable(hass_mock) is True
+
+    @pytest.mark.asyncio
+    async def test_not_reachable_when_client_is_none(self, globals_instance, hass_mock):
+        # fm_client_mock.client is None → FM not connected at all.
+        await globals_instance._V2GLibertyGlobals__test_fm_reachable("e", {}, {})
+
+        assert self._fired_reachable(hass_mock) is False
+
+    @pytest.mark.asyncio
+    async def test_not_reachable_when_get_assets_raises(
+        self, globals_with_fm, fm_client_connected, hass_mock
+    ):
+        fm_client_connected.client.get_assets = AsyncMock(
+            side_effect=Exception("FM down")
+        )
+
+        await globals_with_fm._V2GLibertyGlobals__test_fm_reachable("e", {}, {})
+
+        assert self._fired_reachable(hass_mock) is False

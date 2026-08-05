@@ -295,6 +295,14 @@ class V2GLibertyGlobals:
     notifier: Notifier = None
     event_bus = None
 
+    # Grid FM provisioning: bound each attempt so a slow/hung FlexMeasures cannot
+    # block the save or startup, and guard against overlapping background
+    # (startup / FM-reconnect) provisioning runs. Kept below the cards'
+    # callFunction timeout (60s) so a save always returns a definitive
+    # success/fm_error to the UI before the frontend gives up.
+    _FM_PROVISION_TIMEOUT: int = 45
+    _grid_prov_in_flight: bool = False
+
     def __init__(self, hass: Hass, notifier: Notifier, event_bus=None):
         self.hass = hass
         self.notifier = notifier
@@ -342,6 +350,7 @@ class V2GLibertyGlobals:
         self.hass.listen_event(
             self.__test_schedule_connection, "test_schedule_connection"
         )
+        self.hass.listen_event(self.__test_fm_reachable, "test_fm_reachable")
 
         self.hass.listen_event(
             self.__save_grid_connection_settings, "save_grid_connection_settings"
@@ -363,6 +372,13 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
         self.hass.listen_event(self.__reset_database, "reset_database")
+
+        # Self-heal grid FM provisioning when FlexMeasures becomes reachable
+        # again (e.g. it was down at the last save or at startup).
+        if self.event_bus is not None:
+            self.event_bus.add_event_listener(
+                "fm_connection_status", self.__on_fm_connection_status
+            )
 
         self.__log("Completed initializing V2GLibertyGlobals")
 
@@ -635,7 +651,10 @@ class V2GLibertyGlobals:
         c.GRID_CONSUMPTION_ENTITIES = consumption
         c.GRID_PRODUCTION_ENTITIES = production
         try:
-            await self.__provision_grid_assets()
+            await asyncio.wait_for(
+                self.__provision_grid_assets(),
+                timeout=self._FM_PROVISION_TIMEOUT,
+            )
         except Exception as e:
             (
                 c.GRID_PHASES,
@@ -643,9 +662,14 @@ class V2GLibertyGlobals:
                 c.GRID_CONSUMPTION_ENTITIES,
                 c.GRID_PRODUCTION_ENTITIES,
             ) = prev_constants
-            self.__log(f"Grid FM provisioning failed: {e}", level="WARNING")
+            reason = (
+                "FlexMeasures did not respond in time"
+                if isinstance(e, asyncio.TimeoutError)
+                else str(e)
+            )
+            self.__log(f"Grid FM provisioning failed: {reason}", level="WARNING")
             self.hass.fire_event(
-                "save_grid_connection_settings.result", fm_error=str(e)
+                "save_grid_connection_settings.result", fm_error=reason
             )
             return
 
@@ -1088,6 +1112,10 @@ class V2GLibertyGlobals:
         any ``ensure_*`` / ``update_asset`` exception propagate. Callers must
         surface the failure: the save handler converts it into an ``fm_error``
         response, while the startup caller logs a WARNING and continues.
+
+        Atomic: the module-global ``c.FM_*`` id constants are published only
+        after every FM call has succeeded, so a partially-completed run leaves
+        them untouched rather than half-filled.
         """
         if not c.GRID_CONSUMPTION_ENTITIES:
             self.__log("Grid connection not configured, skipping FM provisioning")
@@ -1099,8 +1127,10 @@ class V2GLibertyGlobals:
                 "Configure FlexMeasures access and try again."
             )
 
+        # Build all ids into locals and publish the module-global constants
+        # only after every FM call has succeeded (see the "Atomic" note above).
         # Mains Connection asset
-        c.FM_MAINS_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
+        mains_asset_id = await self.fm_client_app.ensure_asset(
             name="Mains Connection",
             generic_asset_type="building",
             attributes={
@@ -1113,52 +1143,49 @@ class V2GLibertyGlobals:
         if self.fm_client_app._charger_asset_id is not None:
             await self.fm_client_app.client.update_asset(
                 self.fm_client_app._charger_asset_id,
-                {"parent_asset_id": c.FM_MAINS_CONNECTION_ASSET_ID},
+                {"parent_asset_id": mains_asset_id},
             )
             self.__log(
                 f"Set charger asset {self.fm_client_app._charger_asset_id} "
-                f"as child of Mains Connection {c.FM_MAINS_CONNECTION_ASSET_ID}"
+                f"as child of Mains Connection {mains_asset_id}"
             )
 
         # Grid sensors per phase
+        consumption_ids: dict[int, int] = {}
+        production_ids: dict[int, int] = {}
+        residential_ids: dict[int, int] = {}
         for phase in range(1, c.GRID_PHASES + 1):
-            c.FM_GRID_CONSUMPTION_SENSOR_IDS[
-                phase
-            ] = await self.fm_client_app.ensure_sensor(
+            consumption_ids[phase] = await self.fm_client_app.ensure_sensor(
                 name=f"Grid Consumption L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+                asset_id=mains_asset_id,
                 attributes={"consumption_is_positive": True},
             )
-            c.FM_GRID_PRODUCTION_SENSOR_IDS[
-                phase
-            ] = await self.fm_client_app.ensure_sensor(
+            production_ids[phase] = await self.fm_client_app.ensure_sensor(
                 name=f"Grid Production L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+                asset_id=mains_asset_id,
             )
             # Residential (net household) load: grid minus solar and car.
-            c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[
-                phase
-            ] = await self.fm_client_app.ensure_sensor(
+            residential_ids[phase] = await self.fm_client_app.ensure_sensor(
                 name=f"Residential Load L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+                asset_id=mains_asset_id,
                 attributes={"consumption_is_positive": True},
             )
 
         # Aggregate Power sensor (written by FM scheduler, not by V2G Liberty)
-        c.FM_AGGREGATE_POWER_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+        aggregate_power_id = await self.fm_client_app.ensure_sensor(
             name="Aggregate Power",
             unit="kW",
-            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+            asset_id=mains_asset_id,
         )
 
         # EMS Status sensor
-        c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+        ems_status_id = await self.fm_client_app.ensure_sensor(
             name="EMS Status",
             unit="dimensionless",
-            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+            asset_id=mains_asset_id,
         )
 
         # Show all provisioned grid sensors on the Mains Connection's FM
@@ -1166,15 +1193,23 @@ class V2GLibertyGlobals:
         # attribute), so phases/capacity stay untouched.
         sensors_to_show = []
         for phase in range(1, c.GRID_PHASES + 1):
-            sensors_to_show.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
-            sensors_to_show.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
-            sensors_to_show.append(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[phase])
-        sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
-        sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
+            sensors_to_show.append(consumption_ids[phase])
+            sensors_to_show.append(production_ids[phase])
+            sensors_to_show.append(residential_ids[phase])
+        sensors_to_show.append(aggregate_power_id)
+        sensors_to_show.append(ems_status_id)
         await self.fm_client_app.client.update_asset(
-            c.FM_MAINS_CONNECTION_ASSET_ID,
+            mains_asset_id,
             {"sensors_to_show": sensors_to_show},
         )
+
+        # All FM calls succeeded — publish the ids atomically.
+        c.FM_MAINS_CONNECTION_ASSET_ID = mains_asset_id
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = consumption_ids
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = production_ids
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = residential_ids
+        c.FM_AGGREGATE_POWER_SENSOR_ID = aggregate_power_id
+        c.FM_EMS_STATUS_SENSOR_ID = ems_status_id
 
         self.__log(
             f"Grid FM provisioning complete: "
@@ -1186,6 +1221,48 @@ class V2GLibertyGlobals:
             f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
             f"sensors_to_show={sensors_to_show}"
         )
+
+    async def __provision_grid_assets_best_effort(self):
+        """Provision FM grid assets in the background (startup / FM reconnect).
+
+        A bounded, guarded, failure-swallowing wrapper around
+        ``__provision_grid_assets`` so it never blocks startup and self-heals once
+        FlexMeasures is reachable. User-triggered saves do NOT use this — they
+        surface failures to the UI as ``fm_error``.
+        """
+        if self._grid_prov_in_flight:
+            return
+        self._grid_prov_in_flight = True
+        try:
+            await asyncio.wait_for(
+                self.__provision_grid_assets(),
+                timeout=self._FM_PROVISION_TIMEOUT,
+            )
+        except Exception as e:
+            self.__log(
+                f"Grid FM provisioning (background) failed: {e}", level="WARNING"
+            )
+        finally:
+            self._grid_prov_in_flight = False
+
+    async def __on_fm_connection_status(self, state):
+        """Self-heal grid provisioning when FlexMeasures becomes reachable.
+
+        If the grid is configured but its FM sensors were never provisioned (FM
+        was down at the last save or at startup), provision them now.
+        """
+        if state != "Successfully connected":
+            return
+        if not c.GRID_CONSUMPTION_ENTITIES:
+            return
+        if c.FM_GRID_CONSUMPTION_SENSOR_IDS:
+            # __provision_grid_assets publishes the ids atomically, so a
+            # non-empty map means a fully-completed run — nothing to redo.
+            return
+        self.__log(
+            "FlexMeasures reachable and grid not yet provisioned; provisioning now"
+        )
+        asyncio.ensure_future(self.__provision_grid_assets_best_effort())
 
     # ── Charger phase setting (entity-free, JSON-based) ────────────────
 
@@ -1482,6 +1559,26 @@ class V2GLibertyGlobals:
             msg = "Failed to connect"
 
         self.hass.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
+
+    async def __test_fm_reachable(self, event, data, kwargs):
+        """Lightweight liveness probe for the grid-connection wizard.
+
+        Answers "is FlexMeasures reachable right now?" using the existing
+        authenticated client (no credentials needed), so the wizard can gate on
+        a fresh signal rather than the lagging fm_connection_status sensor.
+        """
+        reachable = False
+        client = self.fm_client_app.client
+        if client is None:
+            self.__log("FM reachability probe: no client (FM not initialised)")
+        else:
+            try:
+                await client.get_assets()
+                reachable = True
+            except Exception as e:
+                self.__log(f"FM reachability probe failed: {e}", level="WARNING")
+        self.__log(f"FM reachability probe: reachable={reachable}")
+        self.hass.fire_event("test_fm_reachable.result", reachable=reachable)
 
     ######################################################################
     #                            HA METHODS                              #
@@ -1900,12 +1997,10 @@ class V2GLibertyGlobals:
         asyncio.ensure_future(self.__discover_source_id_and_import())
 
         # Provision grid assets/sensors in FM (if grid connection is configured).
-        # Best-effort at startup: a provisioning failure must not abort init
-        # (the save handler is where failures surface to the user as fm_error).
-        try:
-            await self.__provision_grid_assets()
-        except Exception as e:
-            self.__log(f"Grid FM provisioning failed at startup: {e}", level="WARNING")
+        # Best-effort and non-blocking: never abort init on a slow/unreachable FM;
+        # it self-heals via __on_fm_connection_status once FM is reachable. The
+        # save handler is where failures surface to the user as fm_error.
+        asyncio.ensure_future(self.__provision_grid_assets_best_effort())
 
         self.__log("completed")
 
