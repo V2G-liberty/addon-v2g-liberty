@@ -19,10 +19,54 @@ from .time_range_util import (
 )
 
 
+def _fm_http_status(exception: Exception) -> int | None:
+    """Extract the HTTP status code from a flexmeasures-client exception.
+
+    The client raises errors in two shapes:
+      - "Request failed with status code NNN"
+      - "Error occurred while communicating with the API: NNN, message=..."
+    Returns the status code as an int, or None when the exception carries no
+    HTTP status at all (transport error, timeout, DNS failure).
+    """
+    match = re.search(r"status code (\d{3})|API:\s*(\d{3})", str(exception))
+    if match is None:
+        return None
+    return int(match.group(1) or match.group(2))
+
+
+def _is_connection_error(exception: Exception) -> bool:
+    """Classify an exception as a connection/auth failure vs an operational
+    rejection of one specific request.
+
+    Returns True (the connection is down) for:
+      - no HTTP status at all (transport/timeout/DNS),
+      - a 5xx server error (FlexMeasures itself is failing),
+      - a 401 (token invalid, so the whole connection is unusable).
+    Returns False (the connection is up, only this request was refused) for
+    other 4xx such as 403/404/422: FlexMeasures is reachable but rejects this
+    specific action.
+    """
+    status = _fm_http_status(exception)
+    if status is None:
+        return True
+    if status >= 500:
+        return True
+    if status == 401:
+        return True
+    return False
+
+
 class FMClient(AsyncIOEventEmitter):
     """This class manages the communication with the FlexMeasures platform, which delivers the
     charging schedules.
-    - Reports on errors via v2g_liberty module handle_no_schedule()
+
+    Emits (via AsyncIOEventEmitter), handled in main_app:
+    - "no_new_schedule": a schedule could not be retrieved
+      (main_app.handle_no_new_schedule).
+    - "fm_data_issue": FlexMeasures is reachable but refuses data for a
+      specific sensor - an operational error, not a connection failure
+      (main_app.handle_fm_data_issue). kwargs: active (bool), and when active
+      also sensor_id (int) and detail (str). Raised from post_sensor_data.
     """
 
     event_bus: EventBus = None
@@ -93,6 +137,12 @@ class FMClient(AsyncIOEventEmitter):
         self.connection_error_counter = 0
         # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
+
+        # Sensor ids whose data posts are currently rejected by FlexMeasures
+        # with an operational error (e.g. 403). Used to raise/clear a single
+        # persistent "fm_data_issue" warning without touching the connection
+        # status. See post_sensor_data / _clear_data_issue.
+        self._sensors_with_data_issue: set[int] = set()
 
     async def test_fm_connection(self, host_url, username, password):
         """Test if we can connect with given FlexMeasures host and port.
@@ -707,30 +757,68 @@ class FMClient(AsyncIOEventEmitter):
                 unit=uom,
             )
         except Exception as e:
-            # flexmeasures-client raises ValueError("Request failed with status
-            # code NNN") when the response status is not its single expected
-            # status. FlexMeasures returns 202 (Accepted) for sensor-data posts,
-            # which the client (0.8.1) does not whitelist. A 2xx status means the
-            # data was accepted by FM, so treat it as success rather than a
+            # flexmeasures-client raises on any status other than its single
+            # expected one. FlexMeasures returns 202 (Accepted) for sensor-data
+            # posts, which the client (0.8.1) does not whitelist. A 2xx status
+            # means the data was accepted, so treat it as success rather than a
             # failure (which would otherwise retry forever and flag FM as down).
-            match = re.search(r"status code (\d{3})", str(e))
-            if match and 200 <= int(match.group(1)) < 300:
+            status = _fm_http_status(e)
+            if status is not None and 200 <= status < 300:
                 self.__log(
-                    f"accepted (HTTP {match.group(1)}) | sensor_id: '{sensor_id}', "
+                    f"accepted (HTTP {status}) | sensor_id: '{sensor_id}', "
                     f"start: '{start}', duration: '{duration}', unit: '{uom}'.",
                     level="DEBUG",
                 )
+                self._clear_data_issue(sensor_id)
                 return True
+
+            if _is_connection_error(e):
+                # Transport/timeout/5xx/401: the connection itself is down.
+                self.__log(
+                    f"connection failed | sensor_id: '{sensor_id}', "
+                    f"values: '{values}', start: '{start}', duration: "
+                    f"'{duration}', unit: '{uom}', "
+                    f"fm_client returned exception: '{e}'.",
+                    level="WARNING",
+                )
+                await self.set_fm_connection_status(connected=False)
+                return False
+
+            # Operational 4xx (e.g. 403/404/422): FlexMeasures is reachable but
+            # refuses this specific post. Leave the connection status untouched
+            # and raise a persistent, actionable warning instead of a false
+            # "Error" that would wrongly mark the whole FM connection as down.
             self.__log(
-                f"failed | sensor_id: '{sensor_id}', values: '{values}', "
-                f"start: '{start}', duration: '{duration}', unit: '{uom}', "
-                f"fm_client returned exception: '{e}'.",
+                f"rejected (HTTP {status}) | sensor_id: '{sensor_id}', "
+                f"values: '{values}', start: '{start}', duration: '{duration}', "
+                f"unit: '{uom}', fm_client returned exception: '{e}'.",
                 level="WARNING",
             )
-            await self.set_fm_connection_status(connected=False)
+            self._sensors_with_data_issue.add(sensor_id)
+            self.emit(
+                "fm_data_issue",
+                active=True,
+                sensor_id=sensor_id,
+                detail=f"HTTP {status}",
+            )
             return False
 
+        self._clear_data_issue(sensor_id)
         return True
+
+    def _clear_data_issue(self, sensor_id: int):
+        """Mark a sensor's data post as healthy again.
+
+        When this clears the last sensor that had an operational issue, emit
+        "fm_data_issue" with active=False so the persistent warning is
+        dismissed. A silent no-op when the sensor had no issue, so the happy
+        path emits nothing.
+        """
+        if sensor_id not in self._sensors_with_data_issue:
+            return
+        self._sensors_with_data_issue.discard(sensor_id)
+        if not self._sensors_with_data_issue:
+            self.emit("fm_data_issue", active=False)
 
     async def get_new_schedule(
         self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime

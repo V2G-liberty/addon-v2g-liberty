@@ -160,6 +160,7 @@ class V2Gliberty:
         self.no_schedule_notification_is_planned = False
 
         self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+        self.fm_client_app.add_listener("fm_data_issue", self.handle_fm_data_issue)
         self.fm_client_app.add_listener(
             "unreachable_target", self.handle_unreachable_target
         )
@@ -777,6 +778,33 @@ class V2Gliberty:
             tag="unreachable_target",
             send_to_all=True,
             ttl=ttl,
+        )
+
+    async def handle_fm_data_issue(
+        self, active: bool, sensor_id: int = None, detail: str = None
+    ):
+        """Show or dismiss a persistent memo when FlexMeasures is reachable but
+        refuses data for a specific sensor (an operational error, not a
+        connection failure). Emitted by fm_client.post_sensor_data.
+
+        The memo stays visible until the underlying post succeeds again (or the
+        user re-saves the grid/solar configuration to recreate the sensors).
+        To be called from fm_client_app.
+        """
+        if not active:
+            self.notifier.dismiss_sticky_memo(memo_id="fm_data_issue")
+            return
+        message = (
+            "V2G Liberty can reach FlexMeasures, but FlexMeasures refuses data "
+            f"for at least one sensor (sensor {sensor_id}, {detail}). This "
+            "usually means the sensor is still linked to a different "
+            "FlexMeasures asset. Please re-save the relevant grid- or "
+            "solar-panel configuration to recreate the sensors."
+        )
+        self.notifier.post_sticky_memo(
+            message=message,
+            title="FlexMeasures is refusing data",
+            memo_id="fm_data_issue",
         )
 
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):

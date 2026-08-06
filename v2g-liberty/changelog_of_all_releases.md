@@ -13,6 +13,7 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: Guard the max-SoC notification against a non-numeric new SoC (#483)
 - 🪲 BUG: Fix ttl-based notification clearing (unpack AppDaemon's kwargs dict) - (#484)
 - 🪲 BUG: Fix grid connection save fm gate - (#485)
+- 🪲 BUG: FlexMeasures connection wrongly shows "Error" when a single sensor's data is rejected (#486)
 
 
 ### Added

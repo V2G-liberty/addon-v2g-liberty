@@ -241,6 +241,23 @@ class Notifier:
         except Exception as e:
             self.__log(f"Failed. Exception: '{e}'.", level="WARNING")
 
+    def dismiss_sticky_memo(self, memo_id: str):
+        """
+        Dismiss a sticky memo (persistent notification) previously posted with
+        post_sticky_memo, identified by memo_id.
+
+        Args:
+            memo_id (str):
+                The id used when the memo was created via post_sticky_memo.
+        """
+        try:
+            self.hass.call_service(
+                service="persistent_notification/dismiss",
+                notification_id=memo_id,
+            )
+        except Exception as e:
+            self.__log(f"Failed. Exception: '{e}'.", level="WARNING")
+
     ########################################################################
     #                       PRIVATE (UTILITY) FUNCTIONS                    #
     ########################################################################

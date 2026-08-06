@@ -163,3 +163,13 @@ def test_post_sticky_memo(notifier, mock_hass):
         message="Sticky memo test",
         notification_id="sticky_id",
     )
+
+
+def test_dismiss_sticky_memo(notifier, mock_hass):
+    """Test dismiss_sticky_memo dismisses the persistent notification by id."""
+    notifier.dismiss_sticky_memo(memo_id="fm_data_issue")
+
+    mock_hass.call_service.assert_called_with(
+        service="persistent_notification/dismiss",
+        notification_id="fm_data_issue",
+    )
