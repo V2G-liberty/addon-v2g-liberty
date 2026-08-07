@@ -9,6 +9,10 @@ Updates them every ~10 seconds with realistic values, including:
 - A signed net-power sensor per phase (import positive, export negative) to
   test the grid dialog's "negative value" warning. It goes negative during PV
   surplus, or always when `input_boolean.emulator_force_negative` is on.
+- Cumulative import/export energy registers per tariff (DSMR 1.8.x / 2.8.x),
+  total_increasing kWh. These integrate the CROSS-PHASE net (summed over the
+  phases, then gated) — like a real meter, and unlike summing the per-phase
+  channels — so they exercise the aggregate consumption/production feature.
 
 These entities can be selected in the grid connection / solar panel settings
 dialogs to test the full data pipeline without real hardware.
@@ -32,6 +36,12 @@ class GridPvEmulator(hass.Hass):
         "unit_of_measurement": "W",
         "device_class": "power",
         "state_class": "measurement",
+    }
+
+    _ENTITY_ATTRS_ENERGY = {
+        "unit_of_measurement": "kWh",
+        "device_class": "energy",
+        "state_class": "total_increasing",
     }
 
     _PAUSE_ENTITY = "input_boolean.emulator_paused"
@@ -71,8 +81,39 @@ class GridPvEmulator(hass.Hass):
             },
         )
 
+        # Cumulative energy registers, continued from the existing sensor value
+        # across restarts so the reader does not see a spurious meter reset.
+        self._energy = {
+            "import_t1": self._init_energy(
+                "sensor.emulated_energy_consumption_tarif_1", 6000.0
+            ),
+            "import_t2": self._init_energy(
+                "sensor.emulated_energy_consumption_tarif_2", 4000.0
+            ),
+            "export_t1": self._init_energy(
+                "sensor.emulated_energy_production_tarif_1", 1200.0
+            ),
+            "export_t2": self._init_energy(
+                "sensor.emulated_energy_production_tarif_2", 800.0
+            ),
+        }
+
+        # Throttled status heartbeat to the emulator log (0 = off).
+        self._status_log_seconds = float(self.args.get("status_log_seconds", 30))
+        self._status_every = (
+            max(1, round(self._status_log_seconds / self._update_interval))
+            if self._status_log_seconds > 0
+            else 0
+        )
+        self._ticks_since_status = 0
+
         self.run_every(self._update_sensors, "now", self._update_interval)
-        self.log("Grid & PV emulator started")
+        baseline = {k: round(v, 1) for k, v in self._energy.items()}
+        self.log(
+            f"Grid & PV emulator started: base_load {self._base_load} W, "
+            f"{len(self._pv_panels)} PV panel(s), tick {self._update_interval}s, "
+            f"fuse {fuse_threshold}A, energy baseline (kWh) {baseline}"
+        )
 
     def _update_sensors(self, kwargs):
         if self.get_state(self._PAUSE_ENTITY) == "on":
@@ -138,6 +179,48 @@ class GridPvEmulator(hass.Hass):
                 f"Emulated PV Power {i}",
             )
 
+        # Cumulative energy registers. The meter sums the phases at one instant,
+        # gates the sign, then integrates — so use the CROSS-PHASE net, not the
+        # per-phase channels (which would double-count opposing flows).
+        total_net_w = sum(base[p] + charger[p] - pv_per_phase[p] for p in (1, 2, 3))
+        increment_kwh = abs(total_net_w) / 1000 * (self._update_interval / 3600)
+        tariff = self._active_tariff(now)
+        if total_net_w > 0:
+            self._energy[f"import_t{tariff}"] += increment_kwh
+        else:
+            self._energy[f"export_t{tariff}"] += increment_kwh
+
+        for key, entity_id, friendly in (
+            (
+                "import_t1",
+                "sensor.emulated_energy_consumption_tarif_1",
+                "Energy consumption (tarif 1)",
+            ),
+            (
+                "import_t2",
+                "sensor.emulated_energy_consumption_tarif_2",
+                "Energy consumption (tarif 2)",
+            ),
+            (
+                "export_t1",
+                "sensor.emulated_energy_production_tarif_1",
+                "Energy production (tarif 1)",
+            ),
+            (
+                "export_t2",
+                "sensor.emulated_energy_production_tarif_2",
+                "Energy production (tarif 2)",
+            ),
+        ):
+            self._set_energy_sensor(
+                entity_id, self._energy[key], f"Emulated {friendly}"
+            )
+
+        self._ticks_since_status += 1
+        if self._status_every and self._ticks_since_status >= self._status_every:
+            self._ticks_since_status = 0
+            self._log_status(base, charger, pv_per_phase, total_net_w, tariff)
+
     def _set_sensor(self, entity_id: str, value: float, friendly_name: str):
         self.set_state(
             entity_id,
@@ -146,6 +229,43 @@ class GridPvEmulator(hass.Hass):
                 **self._ENTITY_ATTRS_POWER,
                 "friendly_name": friendly_name,
             },
+        )
+
+    def _set_energy_sensor(self, entity_id: str, value: float, friendly_name: str):
+        self.set_state(
+            entity_id,
+            state=round(value, 3),
+            attributes={
+                **self._ENTITY_ATTRS_ENERGY,
+                "friendly_name": friendly_name,
+            },
+        )
+
+    def _init_energy(self, entity_id: str, default: float) -> float:
+        """Continue an existing register across restarts; else start at default."""
+        try:
+            return float(self.get_state(entity_id))
+        except (TypeError, ValueError):
+            return float(default)
+
+    @staticmethod
+    def _active_tariff(now: datetime) -> int:
+        """Dutch dual tariff: 2 (dal) at night, 1 (normaal) during the day."""
+        return 2 if now.hour < 7 or now.hour >= 23 else 1
+
+    def _log_status(self, base, charger, pv_per_phase, total_net_w, tariff):
+        """Heartbeat: per-phase net, the cross-phase net + gate, register totals."""
+        per_phase = {
+            p: round(base[p] + charger[p] - pv_per_phase[p]) for p in (1, 2, 3)
+        }
+        direction = "import" if total_net_w > 0 else "export"
+        self.log(
+            f"net/phase (W) {per_phase} | cross-phase {round(total_net_w)} W -> "
+            f"{direction} (tarif {tariff}) | registers (kWh) "
+            f"cons_t1={round(self._energy['import_t1'], 3)} "
+            f"cons_t2={round(self._energy['import_t2'], 3)} "
+            f"prod_t1={round(self._energy['export_t1'], 3)} "
+            f"prod_t2={round(self._energy['export_t2'], 3)}"
         )
 
     def _calculate_base_load(self, now: datetime) -> dict[int, float]:
