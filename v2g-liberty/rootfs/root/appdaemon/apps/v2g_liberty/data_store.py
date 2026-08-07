@@ -17,7 +17,7 @@ from .log_wrapper import get_class_method_logger
 # the current line's 3 despite the matching number. Never trust the number
 # alone: __validate_schema() checks the actual columns and catches any mismatch
 # (old-line databases simply fail validation and the data features degrade).
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 # The tables and columns the code requires, mirroring __create_tables(). Used by
 # __validate_schema() to verify what is really in the database, because a version
@@ -65,6 +65,13 @@ EXPECTED_SCHEMA = {
         "residential_load_kw",
     },
     "pv_interval_log": {"timestamp", "panel_id", "power_kw"},
+    "meter_interval_log": {
+        "timestamp",
+        "import_kwh",
+        "export_kwh",
+        "import_total_kwh",
+        "export_total_kwh",
+    },
 }
 
 PRICE_RATING_BINS = [0, 0.15, 0.35, 0.65, 0.85, 1.0]
@@ -457,6 +464,16 @@ class DataStore:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS meter_interval_log (
+                timestamp TEXT NOT NULL PRIMARY KEY,
+                import_kwh REAL,
+                export_kwh REAL,
+                import_total_kwh REAL,
+                export_total_kwh REAL
+            )
+        """)
+
         self.__connection.commit()
         cursor.close()
         self.__log("All tables created/verified.")
@@ -602,6 +619,22 @@ class DataStore:
                 self.__log(
                     "Migration v2→v3: residential_load_kw already present, skipped."
                 )
+
+        if from_version < 4:
+            # v4: add meter_interval_log for the aggregate import/export energy
+            # derived from the cumulative meter registers. __create_tables()
+            # (IF NOT EXISTS) already made it on fresh databases; this covers an
+            # existing v3 database.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS meter_interval_log (
+                    timestamp TEXT NOT NULL PRIMARY KEY,
+                    import_kwh REAL,
+                    export_kwh REAL,
+                    import_total_kwh REAL,
+                    export_total_kwh REAL
+                )
+            """)
+            self.__log("Migration v3→v4: created meter_interval_log.")
 
         # Update schema version
         now = datetime.now(timezone.utc).isoformat()
@@ -1096,6 +1129,79 @@ class DataStore:
         rows = cursor.fetchall()
         cursor.close()
         return [dict(row) for row in rows]
+
+    # ── Meter interval log (aggregate import/export energy) ───────────
+
+    def insert_meter_interval(
+        self,
+        timestamp: str,
+        import_kwh: float | None,
+        export_kwh: float | None,
+        import_total_kwh: float | None,
+        export_total_kwh: float | None,
+    ):
+        """Insert one interval of aggregate meter energy.
+
+        ``import_kwh`` / ``export_kwh`` are the per-interval increments (sent to
+        FM); ``import_total_kwh`` / ``export_total_kwh`` are the cumulative
+        register totals at this boundary, kept as the delta baseline so a
+        restart does not lose or double-count energy.
+        """
+        if not self.is_available:
+            return
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO meter_interval_log "
+            "(timestamp, import_kwh, export_kwh, import_total_kwh, export_total_kwh) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (timestamp, import_kwh, export_kwh, import_total_kwh, export_total_kwh),
+        )
+        self.__connection.commit()
+        cursor.close()
+
+    def get_meter_intervals_since(self, since: str) -> list[dict]:
+        """Retrieve meter_interval_log rows after the given timestamp.
+
+        Returns dicts with keys: timestamp, import_kwh, export_kwh (the
+        cumulative totals are baseline-only). Ordered by timestamp.
+        """
+        if not self.is_available:
+            return []
+        cursor = self.__connection.cursor()
+        cursor.execute(
+            "SELECT timestamp, import_kwh, export_kwh "
+            "FROM meter_interval_log "
+            "WHERE timestamp > ? "
+            "ORDER BY timestamp",
+            (since,),
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in rows]
+
+    def get_last_meter_totals(self) -> tuple:
+        """Return the most recent non-null cumulative (import, export) totals.
+
+        Used as the delta baseline after a restart. Each side is taken from the
+        latest row where it is present (they can differ if one register was
+        momentarily unavailable). Returns ``(None, None)`` when unknown.
+        """
+        if not self.is_available:
+            return (None, None)
+        cursor = self.__connection.cursor()
+
+        def _latest(column: str):
+            # column is a hard-coded literal, never user input.
+            cursor.execute(
+                f"SELECT {column} FROM meter_interval_log "
+                f"WHERE {column} IS NOT NULL ORDER BY timestamp DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+        result = (_latest("import_total_kwh"), _latest("export_total_kwh"))
+        cursor.close()
+        return result
 
     # ── PV interval log ───────────────────────────────────────────────
 

@@ -37,6 +37,8 @@ def _set_constants():
     c.GRID_PHASES = 3
     c.SOLAR_PANELS = []
     c.CHARGER_CONNECTED_TO_PHASE = None
+    c.METER_CONSUMPTION_REGISTERS = []
+    c.METER_PRODUCTION_REGISTERS = []
 
 
 @pytest.fixture
@@ -1215,3 +1217,104 @@ class TestConcludePvInterval:
         monitor._conclude_pv_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
 
         data_store.insert_pv_interval.assert_not_called()
+
+
+def _reg_states(mapping):
+    """Build a get_state side_effect returning full-state dicts per entity."""
+
+    async def _side_effect(entity_id, attribute=None):
+        return mapping.get(entity_id)
+
+    return _side_effect
+
+
+def _reg(value, unit="kWh"):
+    return {"state": value, "attributes": {"unit_of_measurement": unit}}
+
+
+class TestMeterEnergy:
+    @pytest.mark.asyncio
+    async def test_read_register_sum_sums_tariffs(self, monitor):
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states(
+                {"sensor.imp_t1": _reg("1200.0"), "sensor.imp_t2": _reg("800.5")}
+            )
+        )
+        total = await monitor._read_register_sum(["sensor.imp_t1", "sensor.imp_t2"])
+        assert total == 2000.5
+
+    @pytest.mark.asyncio
+    async def test_read_register_sum_normalises_wh(self, monitor):
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states({"sensor.imp": _reg("5000", unit="Wh")})
+        )
+        assert await monitor._read_register_sum(["sensor.imp"]) == 5.0
+
+    @pytest.mark.asyncio
+    async def test_read_register_sum_none_on_unavailable(self, monitor):
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states(
+                {"sensor.imp_t1": _reg("1200.0"), "sensor.imp_t2": _reg("unavailable")}
+            )
+        )
+        # One tariff register unavailable → whole interval skipped.
+        assert (
+            await monitor._read_register_sum(["sensor.imp_t1", "sensor.imp_t2"]) is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_conclude_stores_delta_and_advances_baseline(
+        self, monitor, data_store
+    ):
+        c.METER_CONSUMPTION_REGISTERS = ["sensor.imp"]
+        c.METER_PRODUCTION_REGISTERS = ["sensor.exp"]
+        monitor._meter_import_baseline = 100.0
+        monitor._meter_export_baseline = 50.0
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states(
+                {"sensor.imp": _reg("100.25"), "sensor.exp": _reg("50.0")}
+            )
+        )
+
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+
+        data_store.insert_meter_interval.assert_called_once_with(
+            "2026-05-01T12:00:00+02:00", 0.25, 0.0, 100.25, 50.0
+        )
+        assert monitor._meter_import_baseline == 100.25
+        assert monitor._meter_export_baseline == 50.0
+
+    @pytest.mark.asyncio
+    async def test_conclude_skips_when_not_configured(self, monitor, data_store):
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+        data_store.insert_meter_interval.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_conclude_first_interval_has_no_delta(self, monitor, data_store):
+        c.METER_CONSUMPTION_REGISTERS = ["sensor.imp"]
+        monitor._meter_import_baseline = None
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states({"sensor.imp": _reg("100.0")})
+        )
+
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+
+        # Delta None (no baseline yet), but totals stored and baseline set.
+        data_store.insert_meter_interval.assert_called_once_with(
+            "2026-05-01T12:00:00+02:00", None, None, 100.0, None
+        )
+        assert monitor._meter_import_baseline == 100.0
+
+    @pytest.mark.asyncio
+    async def test_conclude_reset_rebaselines(self, monitor, data_store):
+        c.METER_CONSUMPTION_REGISTERS = ["sensor.imp"]
+        monitor._meter_import_baseline = 18000.0  # meter replaced → drops
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states({"sensor.imp": _reg("5.0")})
+        )
+
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+
+        args = data_store.insert_meter_interval.call_args[0]
+        assert args[1] is None  # import delta skipped on reset
+        assert monitor._meter_import_baseline == 5.0  # re-baselined

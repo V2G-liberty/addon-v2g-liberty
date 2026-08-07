@@ -7,6 +7,11 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .grid_connection.power_tracker import PowerTracker
+from .grid_connection.meter_energy import (
+    interval_delta,
+    normalise_to_kwh,
+    sum_register_readings,
+)
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now, time_ceil, time_round
 from .event_bus import EventBus
@@ -109,6 +114,11 @@ class DataMonitor:
     _grid_consumption_scales: dict[int, float]
     _grid_production_scales: dict[int, float]
     _pv_scales: dict[str, float]
+    # Meter energy: last cumulative kWh totals, used as the baseline for the
+    # per-interval delta. Loaded from the DB at init so a restart neither loses
+    # nor double-counts energy. None until the first successful read.
+    _meter_import_baseline: float | None = None
+    _meter_export_baseline: float | None = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
@@ -178,6 +188,14 @@ class DataMonitor:
         self._pv_trackers = {}
         self._pv_scales = {}
         await self._setup_pv_listeners(local_now)
+
+        # Meter energy baseline — restore from the DB so the first interval
+        # after a restart computes a correct delta (no loss, no double-count).
+        if self.data_store is not None:
+            (
+                self._meter_import_baseline,
+                self._meter_export_baseline,
+            ) = self.data_store.get_last_meter_totals()
 
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         await self.hass.run_every(
@@ -677,6 +695,77 @@ class DataMonitor:
 
         return pv_by_phase, unknown_active
 
+    # ── Meter energy (aggregate import/export from cumulative registers) ─
+
+    async def _read_register_sum(self, entity_ids: list) -> float | None:
+        """Read and sum the cumulative energy registers (kWh).
+
+        Returns None when any register is missing or unavailable — a partial
+        sum would corrupt the interval delta (a dropped tariff register would
+        look like a meter reset).
+        """
+        readings = []
+        for entity_id in entity_ids:
+            full = await self.hass.get_state(entity_id, attribute="all")
+            if not full:
+                return None
+            state = full.get("state")
+            if state in (None, "", "unknown", "unavailable"):
+                return None
+            unit = (full.get("attributes") or {}).get("unit_of_measurement")
+            readings.append(normalise_to_kwh(state, unit))
+        return sum_register_readings(readings)
+
+    async def _conclude_meter_interval(self, timestamp: str):
+        """Derive per-interval import/export energy from the cumulative meter
+        registers and persist it.
+
+        Boundary-sampled via get_state (no high-frequency listeners): the
+        interval energy is the register total now minus the previous boundary
+        total. Meter resets and unavailable reads are handled by meter_energy;
+        the cumulative totals are stored as the baseline for the next interval.
+        """
+        if not c.METER_CONSUMPTION_REGISTERS and not c.METER_PRODUCTION_REGISTERS:
+            return
+
+        current_import = await self._read_register_sum(c.METER_CONSUMPTION_REGISTERS)
+        current_export = await self._read_register_sum(c.METER_PRODUCTION_REGISTERS)
+
+        import_kwh, import_reset = interval_delta(
+            current_import, self._meter_import_baseline
+        )
+        export_kwh, export_reset = interval_delta(
+            current_export, self._meter_export_baseline
+        )
+        if import_reset:
+            self.__log(
+                "Import meter register dropped below the previous total "
+                "(meter reset?); re-baselining, skipping this interval.",
+                level="WARNING",
+            )
+        if export_reset:
+            self.__log(
+                "Export meter register dropped below the previous total "
+                "(meter reset?); re-baselining, skipping this interval.",
+                level="WARNING",
+            )
+
+        # Advance the baseline whenever a fresh reading is available (normal and
+        # reset cases). Keep the old baseline on unavailable so the next
+        # successful read spans the gap and no energy is lost.
+        if current_import is not None:
+            self._meter_import_baseline = current_import
+        if current_export is not None:
+            self._meter_export_baseline = current_export
+
+        if current_import is None and current_export is None:
+            return  # nothing readable this interval
+
+        if self.data_store is not None:
+            self.data_store.insert_meter_interval(
+                timestamp, import_kwh, export_kwh, current_import, current_export
+            )
+
     # ── PV monitoring ──────────────────────────────────────────────────
 
     async def _setup_pv_listeners(self, local_now: datetime):
@@ -813,6 +902,7 @@ class DataMonitor:
                 self._conclude_grid_interval(
                     timestamp, local_now, average_power_kw, pv_avg_by_panel
                 )
+                await self._conclude_meter_interval(timestamp)
 
             # Notify listeners (e.g. naive charging simulator).
             if timestamp is not None:
