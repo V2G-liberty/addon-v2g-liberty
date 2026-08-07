@@ -4,7 +4,9 @@
 grid_pv_emulator:
   module: dev_tools.grid_pv_emulator
   class: GridPvEmulator
+  log: grid_pv_emulator_log
   update_interval: 10
+  status_log_seconds: 30
   pv_panels:
     - peak_wp: 3200
       phases: 1

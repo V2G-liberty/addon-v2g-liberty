@@ -37,6 +37,10 @@ logs:
   charger_emulator_log:
     name: charger_emulator
     filename: /config/logs/charger_emulator.log
+  # Dev-only: dedicated log for the grid & PV emulator (dev_tools.grid_pv_emulator).
+  grid_pv_emulator_log:
+    name: grid_pv_emulator
+    filename: /config/logs/grid_pv_emulator.log
 
 http:
   url: http://127.0.0.1:5050
