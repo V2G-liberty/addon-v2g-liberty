@@ -15,6 +15,7 @@ from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .grid_connection.charger_phase_detector import ChargerPhaseDetector
 from .grid_connection.grid_entity_detector import detect_grid_entities
+from .grid_connection.meter_register_detector import detect_meter_registers
 from .settings_manager import SettingsManager
 
 
@@ -519,6 +520,8 @@ class V2GLibertyGlobals:
         "capacity_per_phase": 25,
         "consumption_entities": [],
         "production_entities": [],
+        "consumption_registers": [],
+        "production_registers": [],
     }
 
     def __initialise_solar_panel_settings(self):
@@ -550,6 +553,8 @@ class V2GLibertyGlobals:
             ]
             c.GRID_CONSUMPTION_ENTITIES = []
             c.GRID_PRODUCTION_ENTITIES = []
+            c.METER_CONSUMPTION_REGISTERS = []
+            c.METER_PRODUCTION_REGISTERS = []
             return
 
         c.GRID_PHASES = data.get("phases", self._GRID_CONNECTION_DEFAULTS["phases"])
@@ -559,6 +564,8 @@ class V2GLibertyGlobals:
         )
         c.GRID_CONSUMPTION_ENTITIES = data.get("consumption_entities", [])
         c.GRID_PRODUCTION_ENTITIES = data.get("production_entities", [])
+        c.METER_CONSUMPTION_REGISTERS = data.get("consumption_registers", [])
+        c.METER_PRODUCTION_REGISTERS = data.get("production_registers", [])
         self.__log(
             f"Grid connection: {c.GRID_PHASES} phase(s), "
             f"{c.GRID_CAPACITY_PER_PHASE}A, "
@@ -584,6 +591,10 @@ class V2GLibertyGlobals:
         capacity = data.get("capacity_per_phase")
         consumption = data.get("consumption_entities", [])
         production = data.get("production_entities", [])
+        # Cumulative energy meter registers are optional (a grid connection may
+        # be configured without them). Coerce to lists; no per-phase count.
+        consumption_registers = data.get("consumption_registers") or []
+        production_registers = data.get("production_registers") or []
 
         # Validate
         if phases not in (1, 3):
@@ -618,6 +629,8 @@ class V2GLibertyGlobals:
             "capacity_per_phase": capacity,
             "consumption_entities": consumption,
             "production_entities": production,
+            "consumption_registers": consumption_registers,
+            "production_registers": production_registers,
         }
 
         # FM provisioning must succeed BEFORE anything is persisted. Apply the
@@ -629,11 +642,15 @@ class V2GLibertyGlobals:
             c.GRID_CAPACITY_PER_PHASE,
             c.GRID_CONSUMPTION_ENTITIES,
             c.GRID_PRODUCTION_ENTITIES,
+            c.METER_CONSUMPTION_REGISTERS,
+            c.METER_PRODUCTION_REGISTERS,
         )
         c.GRID_PHASES = phases
         c.GRID_CAPACITY_PER_PHASE = capacity
         c.GRID_CONSUMPTION_ENTITIES = consumption
         c.GRID_PRODUCTION_ENTITIES = production
+        c.METER_CONSUMPTION_REGISTERS = consumption_registers
+        c.METER_PRODUCTION_REGISTERS = production_registers
         try:
             await self.__provision_grid_assets()
         except Exception as e:
@@ -642,6 +659,8 @@ class V2GLibertyGlobals:
                 c.GRID_CAPACITY_PER_PHASE,
                 c.GRID_CONSUMPTION_ENTITIES,
                 c.GRID_PRODUCTION_ENTITIES,
+                c.METER_CONSUMPTION_REGISTERS,
+                c.METER_PRODUCTION_REGISTERS,
             ) = prev_constants
             self.__log(f"Grid FM provisioning failed: {e}", level="WARNING")
             self.hass.fire_event(
@@ -1073,6 +1092,7 @@ class V2GLibertyGlobals:
             f"({sensor_count} sensors, {emulated_count} emulated)"
         )
         result = detect_grid_entities(states)
+        result.update(detect_meter_registers(states))
         self.__log(f"Detection result: {result}")
         self.hass.fire_event("detect_grid_entities.result", **result)
 

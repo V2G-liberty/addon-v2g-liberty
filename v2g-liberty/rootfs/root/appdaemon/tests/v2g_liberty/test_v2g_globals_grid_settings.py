@@ -154,9 +154,11 @@ class TestSaveGridConnectionSettings:
             "event", data, {}
         )
 
-        # grid_connection stored + charger_phase cleared (new config, no previous)
+        # grid_connection stored + charger_phase cleared (new config, no previous).
+        # Energy registers default to empty when the save omits them.
+        expected = {**data, "consumption_registers": [], "production_registers": []}
         assert settings_manager_mock.store_object.call_args_list[0] == (
-            ("grid_connection", data),
+            ("grid_connection", expected),
         )
         hass_mock.fire_event.assert_called_with("save_grid_connection_settings.result")
         assert c.GRID_PHASES == 1
@@ -177,9 +179,11 @@ class TestSaveGridConnectionSettings:
             "event", data, {}
         )
 
-        # grid_connection stored (+ charger_phase cleared since no previous config)
+        # grid_connection stored (+ charger_phase cleared since no previous config).
+        # Energy registers default to empty when the save omits them.
+        expected = {**data, "consumption_registers": [], "production_registers": []}
         assert settings_manager_mock.store_object.call_args_list[0] == (
-            ("grid_connection", data),
+            ("grid_connection", expected),
         )
         assert c.GRID_PHASES == 3
 
@@ -502,6 +506,8 @@ class TestGetGridConnectionSettings:
             capacity_per_phase=25,
             consumption_entities=[],
             production_entities=[],
+            consumption_registers=[],
+            production_registers=[],
             configured=False,
         )
 

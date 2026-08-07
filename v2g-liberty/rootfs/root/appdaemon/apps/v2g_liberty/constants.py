@@ -230,6 +230,12 @@ GRID_PHASES: int = 3
 GRID_CAPACITY_PER_PHASE: int = 25
 GRID_CONSUMPTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
 GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
+# Cumulative energy meter registers (kWh, total_increasing) that feed the
+# aggregate consumption/production sensors on the Mains Connection. Each list
+# holds 1+ HA entity IDs: the tariff registers to sum, or a single total
+# register. Empty = not configured.
+METER_CONSUMPTION_REGISTERS: list[str] = []  # import registers (OBIS 1.8.x)
+METER_PRODUCTION_REGISTERS: list[str] = []  # export registers (OBIS 2.8.x)
 
 # FM asset/sensor IDs for grid monitoring.
 # Set at runtime by __provision_grid_assets() in v2g_globals.
