@@ -1174,6 +1174,21 @@ class V2GLibertyGlobals:
             asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
         )
 
+        # Aggregate metered energy: whole-connection import/export from the
+        # cumulative meter registers. kW-defined; V2G posts kWh increments per
+        # interval and FM converts. Left unfilled when no registers configured.
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Consumption",
+            unit="kW",
+            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+            attributes={"consumption_is_positive": True},
+        )
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Production",
+            unit="kW",
+            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+        )
+
         # EMS Status sensor
         c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
             name="EMS Status",
@@ -1190,6 +1205,8 @@ class V2GLibertyGlobals:
             sensors_to_show.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
             sensors_to_show.append(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[phase])
         sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
+        sensors_to_show.append(c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID)
+        sensors_to_show.append(c.FM_AGGREGATE_PRODUCTION_SENSOR_ID)
         sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
         await self.fm_client_app.client.update_asset(
             c.FM_MAINS_CONNECTION_ASSET_ID,
@@ -1203,6 +1220,8 @@ class V2GLibertyGlobals:
             f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
             f"residential_load={c.FM_RESIDENTIAL_LOAD_SENSOR_IDS}, "
             f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
+            f"aggregate_consumption={c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID}, "
+            f"aggregate_production={c.FM_AGGREGATE_PRODUCTION_SENSOR_ID}, "
             f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
             f"sensors_to_show={sensors_to_show}"
         )

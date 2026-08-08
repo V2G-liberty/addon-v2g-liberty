@@ -245,6 +245,10 @@ FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_RESIDENTIAL_LOAD_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_AGGREGATE_POWER_SENSOR_ID: int | None = None
 FM_EMS_STATUS_SENSOR_ID: int | None = None
+# Whole-connection metered import/export energy (from the cumulative meter
+# registers). kW-defined FM sensors; filled with per-interval kWh increments.
+FM_AGGREGATE_CONSUMPTION_SENSOR_ID: int | None = None
+FM_AGGREGATE_PRODUCTION_SENSOR_ID: int | None = None
 
 # SOLAR PANEL CONSTANTS
 # Set from solar panel settings (JSON, no HA entities). Each entry is a
