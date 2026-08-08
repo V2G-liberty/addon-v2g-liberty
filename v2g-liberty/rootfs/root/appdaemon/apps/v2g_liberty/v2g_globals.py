@@ -1201,6 +1201,21 @@ class V2GLibertyGlobals:
             asset_id=mains_asset_id,
         )
 
+        # Aggregate metered energy: whole-connection import/export from the
+        # cumulative meter registers. kW-defined; V2G posts kWh increments per
+        # interval and FM converts. Left unfilled when no registers configured.
+        aggregate_consumption_id = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Consumption",
+            unit="kW",
+            asset_id=mains_asset_id,
+            attributes={"consumption_is_positive": True},
+        )
+        aggregate_production_id = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Production",
+            unit="kW",
+            asset_id=mains_asset_id,
+        )
+
         # EMS Status sensor
         ems_status_id = await self.fm_client_app.ensure_sensor(
             name="EMS Status",
@@ -1217,6 +1232,8 @@ class V2GLibertyGlobals:
             sensors_to_show.append(production_ids[phase])
             sensors_to_show.append(residential_ids[phase])
         sensors_to_show.append(aggregate_power_id)
+        sensors_to_show.append(aggregate_consumption_id)
+        sensors_to_show.append(aggregate_production_id)
         sensors_to_show.append(ems_status_id)
         await self.fm_client_app.client.update_asset(
             mains_asset_id,
@@ -1229,6 +1246,8 @@ class V2GLibertyGlobals:
         c.FM_GRID_PRODUCTION_SENSOR_IDS = production_ids
         c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = residential_ids
         c.FM_AGGREGATE_POWER_SENSOR_ID = aggregate_power_id
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = aggregate_consumption_id
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = aggregate_production_id
         c.FM_EMS_STATUS_SENSOR_ID = ems_status_id
 
         self.__log(
@@ -1238,6 +1257,8 @@ class V2GLibertyGlobals:
             f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
             f"residential_load={c.FM_RESIDENTIAL_LOAD_SENSOR_IDS}, "
             f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
+            f"aggregate_consumption={c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID}, "
+            f"aggregate_production={c.FM_AGGREGATE_PRODUCTION_SENSOR_ID}, "
             f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
             f"sensors_to_show={sensors_to_show}"
         )
