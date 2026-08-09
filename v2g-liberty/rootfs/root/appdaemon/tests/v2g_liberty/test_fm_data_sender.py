@@ -41,6 +41,8 @@ def _set_constants():
     c.FM_GRID_CONSUMPTION_SENSOR_IDS = {}
     c.FM_GRID_PRODUCTION_SENSOR_IDS = {}
     c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = {}
+    c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = None
+    c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = None
 
 
 @pytest.fixture
@@ -75,6 +77,7 @@ def data_store():
     mock_store.get_intervals_since = MagicMock(return_value=[])
     mock_store.get_grid_intervals_since = MagicMock(return_value=[])
     mock_store.get_pv_intervals_since = MagicMock(return_value=[])
+    mock_store.get_meter_intervals_since = MagicMock(return_value=[])
     mock_store._last_sent = _last_sent
     return mock_store
 
@@ -510,16 +513,17 @@ class TestSendTypeIsolation:
 class TestInitialize:
     @pytest.mark.asyncio
     async def test_first_start_sets_last_sent_for_all_types(self, sender, data_store):
-        # charger, grid and pv all have no last_sent → all three should be set
+        # charger, grid, pv and meter have no last_sent → all four should be set
         await sender.initialize()
 
-        assert data_store.set_fm_last_sent.call_count == 3
+        assert data_store.set_fm_last_sent.call_count == 4
 
     @pytest.mark.asyncio
     async def test_existing_last_sent_not_overwritten(self, sender, data_store):
         data_store._last_sent["charger"] = _ts(10, 0)
         data_store._last_sent["grid"] = _ts(10, 0)
         data_store._last_sent["pv"] = _ts(10, 0)
+        data_store._last_sent["meter"] = _ts(10, 0)
         await sender.initialize()
 
         data_store.set_fm_last_sent.assert_not_called()
@@ -673,6 +677,117 @@ class TestSendGridData:
         # 2 blocks × 2 calls (1 cons + 1 prod) = 4
         assert fm_client.post_sensor_data.call_count == 4
         assert data_store._last_sent["grid"] == _ts(10, 10)
+
+
+# ──────────────────────────────────────────────────────────
+# Aggregate meter energy sending (plan Fase 4)
+# ──────────────────────────────────────────────────────────
+
+
+def _make_meter_row(ts_str, import_kwh=0.2, export_kwh=0.0):
+    """Helper to create a meter_interval_log row dict (increments only)."""
+    return {
+        "timestamp": ts_str,
+        "import_kwh": import_kwh,
+        "export_kwh": export_kwh,
+    }
+
+
+class TestSendMeterData:
+    @pytest.mark.asyncio
+    async def test_skips_when_aggregate_sensors_not_provisioned(
+        self, sender, data_store
+    ):
+        """No meter sending when the aggregate sensor ids are unset."""
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = None
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = None
+        await sender._send_meter_data()
+        data_store.get_meter_intervals_since.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_sends_import_and_export_as_kwh(self, sender, data_store, fm_client):
+        """Import → consumption sensor, export → production sensor, both kWh."""
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = 667
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = 668
+        data_store._last_sent["meter"] = _ts(9, 55)
+        data_store.get_meter_intervals_since.return_value = [
+            _make_meter_row(_ts(10, 0), 0.20, 0.00),
+            _make_meter_row(_ts(10, 5), 0.15, 0.05),
+        ]
+
+        await sender._send_meter_data()
+
+        assert fm_client.post_sensor_data.call_count == 2
+        cons_call = fm_client.post_sensor_data.call_args_list[0]
+        assert cons_call.kwargs["sensor_id"] == 667
+        assert cons_call.kwargs["values"] == [0.20, 0.15]
+        assert cons_call.kwargs["uom"] == "kWh"
+        assert cons_call.kwargs["start"] == _ts(10, 0)
+        prod_call = fm_client.post_sensor_data.call_args_list[1]
+        assert prod_call.kwargs["sensor_id"] == 668
+        assert prod_call.kwargs["values"] == [0.00, 0.05]
+        assert prod_call.kwargs["uom"] == "kWh"
+        assert data_store._last_sent["meter"] == _ts(10, 5)
+
+    @pytest.mark.asyncio
+    async def test_meter_no_unsent_intervals(self, sender, data_store, fm_client):
+        """Nothing to send → no posts, last_sent unchanged."""
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = 667
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = 668
+        data_store._last_sent["meter"] = _ts(9, 55)
+        data_store.get_meter_intervals_since.return_value = []
+
+        await sender._send_meter_data()
+
+        fm_client.post_sensor_data.assert_not_called()
+        assert data_store._last_sent["meter"] == _ts(9, 55)
+
+    @pytest.mark.asyncio
+    async def test_meter_recovers_when_last_sent_none(
+        self, sender, data_store, fm_client
+    ):
+        """No last_sent baseline → set to now and skip this run."""
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = 667
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = 668
+        # No "meter" entry in _last_sent.
+
+        await sender._send_meter_data()
+
+        fm_client.post_sensor_data.assert_not_called()
+        assert data_store._last_sent.get("meter") is not None
+
+    @pytest.mark.asyncio
+    async def test_meter_failure_does_not_advance(self, sender, data_store, fm_client):
+        """A failed post keeps last_sent where it was for retry next run."""
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = 667
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = 668
+        data_store._last_sent["meter"] = _ts(9, 55)
+        data_store.get_meter_intervals_since.return_value = [
+            _make_meter_row(_ts(10, 0), 0.20, 0.00),
+        ]
+        fm_client.post_sensor_data = AsyncMock(return_value=False)
+
+        await sender._send_meter_data()
+
+        assert data_store._last_sent["meter"] == _ts(9, 55)
+
+    @pytest.mark.asyncio
+    async def test_meter_gap_creates_two_blocks(self, sender, data_store, fm_client):
+        """A gap in timestamps splits the send into two blocks."""
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = 667
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = 668
+        data_store._last_sent["meter"] = _ts(9, 55)
+        data_store.get_meter_intervals_since.return_value = [
+            _make_meter_row(_ts(10, 0), 0.20, 0.00),
+            # gap: 10:05 missing
+            _make_meter_row(_ts(10, 10), 0.15, 0.05),
+        ]
+
+        await sender._send_meter_data()
+
+        # 2 blocks × 2 calls (import + export) = 4
+        assert fm_client.post_sensor_data.call_count == 4
+        assert data_store._last_sent["meter"] == _ts(10, 10)
 
 
 # ──────────────────────────────────────────────────────────
