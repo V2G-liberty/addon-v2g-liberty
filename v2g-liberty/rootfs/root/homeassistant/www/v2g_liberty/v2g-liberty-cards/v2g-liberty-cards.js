@@ -14328,6 +14328,15 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 
 const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
 class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    // Pad/trim a register list to exactly two slots (tariff 1, tariff 2). A
+    // single total register lands in slot 0; any 3rd/4th tariff is dropped
+    // (rare outside NL — the total register covers those meters).
+    _padTo2(arr) {
+        return [
+            arr[0] ?? '',
+            arr[1] ?? ''
+        ];
+    }
     async showDialog() {
         super.showDialog();
         this._step = "intro";
@@ -14335,6 +14344,14 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         this._capacityPerPhase = '';
         this._consumptionEntities = [];
         this._productionEntities = [];
+        this._consumptionRegisters = [
+            '',
+            ''
+        ];
+        this._productionRegisters = [
+            '',
+            ''
+        ];
         this._entityStatus = {};
         this._entityNegative = {};
         this._cleanupEntityListeners();
@@ -14354,6 +14371,8 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 this._consumptionEntities = data.consumption_entities;
                 this._productionEntities = data.production_entities;
             }
+            if (data.consumption_registers?.length > 0) this._consumptionRegisters = this._padTo2(data.consumption_registers);
+            if (data.production_registers?.length > 0) this._productionRegisters = this._padTo2(data.production_registers);
         } catch (e) {
         // Ignore — start fresh
         }
@@ -14365,6 +14384,14 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             if (detected.capacity_per_phase) this._capacityPerPhase = String(detected.capacity_per_phase);
             if (detected.consumption_entities?.length > 0) this._consumptionEntities = detected.consumption_entities;
             if (detected.production_entities?.length > 0) this._productionEntities = detected.production_entities;
+            if (detected.consumption_registers?.length > 0) {
+                this._autoDetected = true;
+                this._consumptionRegisters = this._padTo2(detected.consumption_registers);
+            }
+            if (detected.production_registers?.length > 0) {
+                this._autoDetected = true;
+                this._productionRegisters = this._padTo2(detected.production_registers);
+            }
         } catch (e) {
         // Auto-detect failed, no problem — user fills in manually
         }
@@ -14398,16 +14425,25 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             const stateObj = states[entityId];
             const deviceClass = stateObj.attributes.device_class ?? '';
             const unit = stateObj.attributes.unit_of_measurement ?? '';
+            const stateClass = stateObj.attributes.state_class ?? '';
             const isPower = deviceClass === 'power' || [
                 'W',
                 'kW',
                 'MW'
             ].includes(unit);
+            // Cumulative meter register: an energy sensor whose value only ever
+            // increases (the meter's kWh total per tariff).
+            const isEnergyRegister = deviceClass === 'energy' && stateClass === 'total_increasing' && [
+                'Wh',
+                'kWh',
+                'MWh'
+            ].includes(unit);
             const name = stateObj.attributes.friendly_name || entityId;
             this._sensorEntities.push({
                 id: entityId,
                 name: name,
-                isPower: isPower
+                isPower: isPower,
+                isEnergyRegister: isEnergyRegister
             });
         }
         // Sort: power sensors first, then alphabetically
@@ -14620,6 +14656,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         const count = this._phases ?? 1;
         const allSelected = this._getAllSelectedEntities();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._renderPowerHelp()}
       <div>
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
           <p style="margin: 0; flex: 1;"><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
@@ -14665,6 +14702,8 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 if (val) this._startListeningEntity(val);
             }, allSelected))}
       </div>
+
+      ${this._renderRegisters()}
 
       ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${this._renderNegativeWarning()}
@@ -14715,6 +14754,122 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
           </select>
           <span style="width: 28px; text-align: center; display: flex; align-items: center; justify-content: center;">${statusIcon}</span>
         </div>
+      </div>
+    `;
+    }
+    // ── Cumulative energy meter registers (optional) ────────────────────
+    _renderRegisterDropdown(selected, onChange, allSelected) {
+        const registers = this._sensorEntities.filter((e)=>e.isEnergyRegister);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <select
+        .value=${selected}
+        @change=${(e)=>onChange(e.target.value)}
+        style="width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
+      >
+        <option value="">Select a sensor...</option>
+        ${registers.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+          <option
+            value=${e.id}
+            ?selected=${e.id === selected}
+            ?disabled=${e.id !== selected && allSelected.has(e.id)}
+          >${e.name} (${e.id})</option>
+        `)}
+      </select>
+    `;
+    }
+    _renderIntegrationHint() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p style="margin: 4px 0;">
+        <strong>If the sensor you need is missing from the list, it may still
+        need to be enabled on the meter integration</strong> (Settings →
+        Devices &amp; Services → your meter → Entities → show disabled
+        entities).
+      </p>
+    `;
+    }
+    _renderPowerHelp() {
+        const count = this._phases ?? 1;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <details style="margin: 4px 0 12px; font-size: 0.85em; color: var(--secondary-text-color);">
+        <summary style="cursor: pointer;">Help — which sensors do I pick?</summary>
+        <div style="margin-top: 6px;">
+          <p style="margin: 4px 0;">
+            Pick the <strong>power</strong> sensors (in W or kW) for each phase:
+            how much the connection draws from the grid (consumption) and feeds
+            back (production). Select one per phase (L1..L${count}).
+          </p>
+          ${this._renderIntegrationHint()}
+        </div>
+      </details>
+    `;
+    }
+    _renderRegisterHelp() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <details style="margin: 4px 0; font-size: 0.85em; color: var(--secondary-text-color);">
+        <summary style="cursor: pointer;">What are these? (optional)</summary>
+        <div style="margin-top: 6px;">
+          <p style="margin: 4px 0;">
+            These are the meter's <strong>cumulative</strong> import/export
+            registers — the ever-increasing kWh totals, one per tariff. V2G
+            Liberty uses their per-interval increase to send the exact
+            whole-connection energy to FlexMeasures. Leave them empty to skip
+            this; it is optional.
+          </p>
+          <p style="margin: 4px 0;">
+            Only sensors of device class <em>energy</em> with state class
+            <em>total_increasing</em> are listed.
+          </p>
+          ${this._renderIntegrationHint()}
+        </div>
+      </details>
+    `;
+    }
+    _renderRegisters() {
+        const allSelected = this._getAllSelectedEntities();
+        const hasRegisters = this._sensorEntities.some((e)=>e.isEnergyRegister);
+        const anyDetected = this._autoDetected && [
+            ...this._consumptionRegisters,
+            ...this._productionRegisters
+        ].some((e)=>e !== '');
+        const th = 'text-align: left; font-size: 0.8em; color: var(--secondary-text-color); font-weight: normal; padding: 4px;';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="margin-top: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <p style="margin: 0; flex: 1;"><strong>Energy meter registers</strong> (cumulative import/export, optional)</p>
+          ${anyDetected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+                Auto-detected
+              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        </div>
+        ${this._renderRegisterHelp()}
+        ${hasRegisters ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+              <thead>
+                <tr>
+                  <th style=${th}></th>
+                  <th style=${th}>Consumption (import)</th>
+                  <th style=${th}>Production (export)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${[
+            0,
+            1
+        ].map((i)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                  <tr>
+                    <td style="padding: 4px; font-size: 0.875em; color: var(--secondary-text-color); white-space: nowrap;">Tariff ${i + 1}</td>
+                    <td style="padding: 4px;">
+                      ${this._renderRegisterDropdown(this._consumptionRegisters[i] ?? '', (v)=>this._setRegister('c', i, v), allSelected)}
+                    </td>
+                    <td style="padding: 4px;">
+                      ${this._renderRegisterDropdown(this._productionRegisters[i] ?? '', (v)=>this._setRegister('p', i, v), allSelected)}
+                    </td>
+                  </tr>
+                `)}
+              </tbody>
+            </table>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p style="font-size: 0.85em; color: var(--secondary-text-color); margin: 8px 0;">
+              No cumulative energy sensors were found. See the note above.
+            </p>`}
       </div>
     `;
     }
@@ -14776,9 +14931,26 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     _getAllSelectedEntities() {
         const all = [
             ...this._consumptionEntities,
-            ...this._productionEntities
+            ...this._productionEntities,
+            ...this._consumptionRegisters,
+            ...this._productionRegisters
         ].filter((e)=>e !== '');
         return new Set(all);
+    }
+    _setRegister(side, i, val) {
+        if (side === 'c') {
+            const copy = [
+                ...this._consumptionRegisters
+            ];
+            copy[i] = val;
+            this._consumptionRegisters = copy;
+        } else {
+            const copy = [
+                ...this._productionRegisters
+            ];
+            copy[i] = val;
+            this._productionRegisters = copy;
+        }
     }
     _hasDuplicateEntities() {
         const all = [
@@ -14891,7 +15063,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 phases: this._phases,
                 capacity_per_phase: parseInt(this._capacityPerPhase, 10),
                 consumption_entities: this._consumptionEntities,
-                production_entities: this._productionEntities
+                production_entities: this._productionEntities,
+                consumption_registers: this._consumptionRegisters.filter((e)=>e !== ''),
+                production_registers: this._productionRegisters.filter((e)=>e !== '')
             });
             if (result.fm_error) {
                 // FM-side rejection (provisioning failed). Lit preserves the form
@@ -15032,7 +15206,16 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         ];
     }
     constructor(...args){
-        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Inline entity validation state (per entity: true=ok, undefined=pending)
+        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Cumulative meter registers (total_increasing energy). Index 0 = tariff 1,
+        // index 1 = tariff 2. Optional and summed downstream; empty = feature off.
+        // The common NL case is two tariffs (or a single total register in slot 0).
+        this._consumptionRegisters = [
+            '',
+            ''
+        ], this._productionRegisters = [
+            '',
+            ''
+        ], // Inline entity validation state (per entity: true=ok, undefined=pending)
         this._entityStatus = {}, // Entities that reported a negative value (likely a bidirectional/net or
         // wrong sensor, since consumption/production should be directional).
         this._entityNegative = {}, this._entityListeners = {}, // Auto-detection state
@@ -15066,6 +15249,12 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_consumptionRegisters", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionRegisters", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
