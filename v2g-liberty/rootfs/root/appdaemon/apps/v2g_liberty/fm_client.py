@@ -1242,7 +1242,7 @@ class FMClient(AsyncIOEventEmitter):
                 else:
                     self.__log(
                         f"trigger_and_get_schedule failed after {attempt + 1} attempts. "
-                        f"Client exception: {e}.",
+                        f"Client exception: {e!r}.",
                         level="WARNING",
                     )
                     self.fm_busy_getting_schedule = False
