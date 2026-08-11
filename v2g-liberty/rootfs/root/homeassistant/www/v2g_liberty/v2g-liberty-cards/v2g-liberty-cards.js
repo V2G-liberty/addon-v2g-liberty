@@ -14970,10 +14970,30 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         ].filter((e)=>e !== '');
         return all.some((e)=>this._entityStatus[e] !== true);
     }
+    // Meter registers are required, not optional. Per direction the selection is
+    // only complete when it is either a single cumulative TOTAL register (1.8.0 /
+    // 2.8.0 — already sums the tariffs), or BOTH tariff registers. A single
+    // tariff register leaves the other tariff's energy uncounted, so it does not
+    // count as complete.
+    _isTotalRegister(entityId) {
+        // The detector marks totals with "total" in the entity id
+        // (e.g. ..._energy_consumption_total). Tariff registers carry "tarif".
+        return /total/i.test(entityId);
+    }
+    _directionIncomplete(registers) {
+        const filled = registers.filter((e)=>e !== '');
+        if (filled.length === 0) return true;
+        if (filled.some((e)=>this._isTotalRegister(e))) return false;
+        return filled.length < 2;
+    }
+    _hasMissingRegisters() {
+        return this._directionIncomplete(this._consumptionRegisters) || this._directionIncomplete(this._productionRegisters);
+    }
     _renderEntityErrors() {
         const errors = [];
         if (this._hasEmptyEntities()) errors.push('Please select a sensor for each field.');
         if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
+        if (this._hasMissingRegisters()) errors.push("For both import and export, select a total meter register or both tariff 1 and tariff 2 (cumulative kWh).");
         if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
     }
@@ -14998,7 +15018,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     `;
     }
     _renderSaveWarning() {
-        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities() || this._hasMissingRegisters()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         if (!this._hasPendingEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-alert alert-type="warning" title="Some sensors have not responded yet">
@@ -15046,8 +15066,8 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     // ── Save ────────────────────────────────────────────────────────────
     async _handleSave() {
         this._triedSave = true;
-        // Block if empty or duplicate
-        if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
+        // Block if empty, duplicate, or required registers missing
+        if (this._hasEmptyEntities() || this._hasDuplicateEntities() || this._hasMissingRegisters()) return;
         // If some entities still pending and not yet confirmed
         if (this._hasPendingEntities() && !this._saveConfirmed) {
             this._saveConfirmed = true; // next click will be "Save anyway"
