@@ -155,9 +155,11 @@ class TestSaveGridConnectionSettings:
             "event", data, {}
         )
 
-        # grid_connection stored + charger_phase cleared (new config, no previous)
+        # grid_connection stored + charger_phase cleared (new config, no previous).
+        # Energy registers default to empty when the save omits them.
+        expected = {**data, "consumption_registers": [], "production_registers": []}
         assert settings_manager_mock.store_object.call_args_list[0] == (
-            ("grid_connection", data),
+            ("grid_connection", expected),
         )
         hass_mock.fire_event.assert_called_with("save_grid_connection_settings.result")
         assert c.GRID_PHASES == 1
@@ -178,9 +180,11 @@ class TestSaveGridConnectionSettings:
             "event", data, {}
         )
 
-        # grid_connection stored (+ charger_phase cleared since no previous config)
+        # grid_connection stored (+ charger_phase cleared since no previous config).
+        # Energy registers default to empty when the save omits them.
+        expected = {**data, "consumption_registers": [], "production_registers": []}
         assert settings_manager_mock.store_object.call_args_list[0] == (
-            ("grid_connection", data),
+            ("grid_connection", expected),
         )
         assert c.GRID_PHASES == 3
 
@@ -503,6 +507,8 @@ class TestGetGridConnectionSettings:
             capacity_per_phase=25,
             consumption_entities=[],
             production_entities=[],
+            consumption_registers=[],
+            production_registers=[],
             configured=False,
         )
 
@@ -948,14 +954,17 @@ class TestProvisionGridAssets:
         assert c.FM_MAINS_CONNECTION_ASSET_ID == 500
 
         # 9 grid sensors (3 phases x consumption/production/residential)
-        # + 1 Aggregate Power + 1 EMS Status = 11 ensure_sensor calls
-        assert fm_client_connected.ensure_sensor.call_count == 11
+        # + Aggregate Power + Aggregate Consumption + Aggregate Production
+        # + EMS Status = 13 ensure_sensor calls
+        assert fm_client_connected.ensure_sensor.call_count == 13
 
         # Check grid sensor IDs are set for all 3 phases
         assert len(c.FM_GRID_CONSUMPTION_SENSOR_IDS) == 3
         assert len(c.FM_GRID_PRODUCTION_SENSOR_IDS) == 3
         assert len(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS) == 3
         assert c.FM_AGGREGATE_POWER_SENSOR_ID is not None
+        assert c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID is not None
+        assert c.FM_AGGREGATE_PRODUCTION_SENSOR_ID is not None
         assert c.FM_EMS_STATUS_SENSOR_ID is not None
 
     @pytest.mark.asyncio
@@ -973,8 +982,8 @@ class TestProvisionGridAssets:
         await globals_with_fm._V2GLibertyGlobals__provision_grid_assets()
 
         # 3 grid sensors (consumption/production/residential)
-        # + 1 Aggregate Power + 1 EMS Status = 5
-        assert fm_client_connected.ensure_sensor.call_count == 5
+        # + Aggregate Power + Aggregate Consumption/Production + EMS Status = 7
+        assert fm_client_connected.ensure_sensor.call_count == 7
         assert len(c.FM_GRID_CONSUMPTION_SENSOR_IDS) == 1
         assert len(c.FM_GRID_PRODUCTION_SENSOR_IDS) == 1
         assert len(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS) == 1
@@ -1063,7 +1072,12 @@ class TestProvisionGridAssets:
             expected.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
             expected.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
             expected.append(c.FM_RESIDENTIAL_LOAD_SENSOR_IDS[phase])
-        expected += [c.FM_AGGREGATE_POWER_SENSOR_ID, c.FM_EMS_STATUS_SENSOR_ID]
+        expected += [
+            c.FM_AGGREGATE_POWER_SENSOR_ID,
+            c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID,
+            c.FM_AGGREGATE_PRODUCTION_SENSOR_ID,
+            c.FM_EMS_STATUS_SENSOR_ID,
+        ]
         assert payload["sensors_to_show"] == expected
         # sensors_to_show is a top-level field, never inside attributes
         assert "attributes" not in payload
