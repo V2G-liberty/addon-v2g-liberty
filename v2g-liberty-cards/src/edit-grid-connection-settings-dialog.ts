@@ -685,20 +685,25 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       const dir = power[1];
       const phase = power[2];
       const label = dir === 'consumption' ? 'Consumption' : 'Production';
+      // Prefill with terms that actually appear in entity names: the direction
+      // and the phase as "l1"/"l2"/"l3" (matches "L1" and "..._l1"). Avoid the
+      // word "phase" — many integrations do not use it. The ✕ clears it.
       return {
         subtitle: `${label} phase ${phase} · power`,
-        searchTerms: [dir, 'phase', phase],
+        searchTerms: [dir, `l${phase}`],
       };
     }
     const meter = def.key.match(/^(import|export)_t(\d+)$/);
     if (meter) {
       const dir = meter[1];
       const tariff = meter[2];
-      // DSMR names import as "consumption", export as "production".
+      // DSMR names import as "consumption", export as "production", with the
+      // tariff as "tarif_1"/"tarif_2" — so search the direction + the number,
+      // not the word "tariff".
       const term = dir === 'import' ? 'consumption' : 'production';
       return {
         subtitle: `Tariff ${tariff} · ${dir} · meter reading`,
-        searchTerms: [term, 'tariff', tariff],
+        searchTerms: [term, tariff],
       };
     }
     return { subtitle: '', searchTerms: [] };

@@ -73,13 +73,29 @@ export class ChooseSensorDialog extends DialogBase {
         <div class="content">
           <p class="subtitle">${this._params.subtitle}</p>
 
-          ${renderHaInput({
-            value: this._query,
-            onChange: (e: any) => (this._query = e.target?.value ?? ''),
-            label: 'Search',
-            style: 'width: 100%',
-            testId: 'sensor-search',
-          })}
+          <div class="search-row">
+            ${renderHaInput({
+              value: this._query,
+              onChange: (e: any) => (this._query = e.target?.value ?? ''),
+              label: 'Search',
+              style: 'flex: 1; min-width: 0;',
+              testId: 'sensor-search',
+            })}
+            ${this._query
+              ? html`<button
+                  class="icon-btn"
+                  title="Clear the search"
+                  @click=${() => (this._query = '')}
+                >
+                  ✕
+                </button>`
+              : nothing}
+            <ha-icon
+              class="info"
+              icon="mdi:information-outline"
+              title="Prefilled with what you are setting up — every word has to match. Clear or edit it if your integration names things differently."
+            ></ha-icon>
+          </div>
 
           <div class="filters">
             <button
@@ -253,6 +269,25 @@ export class ChooseSensorDialog extends DialogBase {
       .subtitle {
         color: var(--secondary-text-color);
         margin: 0 0 12px;
+      }
+      .search-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-size: 1em;
+        padding: 4px 6px;
+        flex: 0 0 auto;
+      }
+      .info {
+        color: var(--secondary-text-color);
+        --mdc-icon-size: 20px;
+        flex: 0 0 auto;
       }
       .filters {
         display: flex;
