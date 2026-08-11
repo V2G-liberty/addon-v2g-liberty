@@ -18,6 +18,7 @@
 - 🚀 FEAT: Residential load per phase (#471)
 - 🚀 FEAT: Warn negative grid power (#472)
 - 🚀 FEAT: Live reregister grid listeners (#473)
+- 🚀 FEAT: Aggregate import/export meter energy from the meter registers to FlexMeasures (#___)
 
 ### Changed
 
