@@ -10,6 +10,10 @@ import { tagName as editInputSelectDialogTag } from './edit-inputselect-dialog';
 
 import { tagName as editGridConnectionSettingsDialogTag } from './edit-grid-connection-settings-dialog';
 import {
+  tagName as chooseSensorDialogTag,
+  ChooseSensorDialogParams,
+} from './choose-sensor-dialog';
+import {
   tagName as editSolarPanelDialogTag,
   SolarPanelDialogParams,
 } from './edit-solar-panel-dialog';
@@ -108,6 +112,19 @@ export const showGridConnectionSettingsDialog = (
     dialogTag: editGridConnectionSettingsDialogTag,
     dialogImport: () => Promise.resolve(),
     dialogParams: {},
+  });
+};
+
+// --- Choose sensor (side-step of the grid connection flow) ---
+
+export const showChooseSensorDialog = (
+  element: HTMLElement,
+  dialogParams: ChooseSensorDialogParams
+): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: chooseSensorDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams,
   });
 };
 
