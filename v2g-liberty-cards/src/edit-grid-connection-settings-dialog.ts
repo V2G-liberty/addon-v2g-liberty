@@ -857,6 +857,31 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     return all.some(e => this._entityStatus[e] !== true);
   }
 
+  // Meter registers are required, not optional. Per direction the selection is
+  // only complete when it is either a single cumulative TOTAL register (1.8.0 /
+  // 2.8.0 — already sums the tariffs), or BOTH tariff registers. A single
+  // tariff register leaves the other tariff's energy uncounted, so it does not
+  // count as complete.
+  private _isTotalRegister(entityId: string): boolean {
+    // The detector marks totals with "total" in the entity id
+    // (e.g. ..._energy_consumption_total). Tariff registers carry "tarif".
+    return /total/i.test(entityId);
+  }
+
+  private _directionIncomplete(registers: string[]): boolean {
+    const filled = registers.filter(e => e !== '');
+    if (filled.length === 0) return true;
+    if (filled.some(e => this._isTotalRegister(e))) return false;
+    return filled.length < 2;
+  }
+
+  private _hasMissingRegisters(): boolean {
+    return (
+      this._directionIncomplete(this._consumptionRegisters) ||
+      this._directionIncomplete(this._productionRegisters)
+    );
+  }
+
   private _renderEntityErrors() {
     const errors = [];
     if (this._hasEmptyEntities()) {
@@ -864,6 +889,12 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     }
     if (this._hasDuplicateEntities()) {
       errors.push('Each sensor can only be selected once.');
+    }
+    if (this._hasMissingRegisters()) {
+      errors.push(
+        'For both import and export, select a total meter register or both ' +
+          'tariff 1 and tariff 2 (cumulative kWh).'
+      );
     }
     if (errors.length === 0) return nothing;
     return html`${errors.map(
@@ -896,7 +927,12 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   }
 
   private _renderSaveWarning() {
-    if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities()) {
+    if (
+      !this._triedSave ||
+      this._hasEmptyEntities() ||
+      this._hasDuplicateEntities() ||
+      this._hasMissingRegisters()
+    ) {
       return nothing;
     }
     if (!this._hasPendingEntities()) return nothing;
@@ -965,8 +1001,13 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   private async _handleSave() {
     this._triedSave = true;
 
-    // Block if empty or duplicate
-    if (this._hasEmptyEntities() || this._hasDuplicateEntities()) return;
+    // Block if empty, duplicate, or required registers missing
+    if (
+      this._hasEmptyEntities() ||
+      this._hasDuplicateEntities() ||
+      this._hasMissingRegisters()
+    )
+      return;
 
     // If some entities still pending and not yet confirmed
     if (this._hasPendingEntities() && !this._saveConfirmed) {
