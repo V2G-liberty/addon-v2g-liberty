@@ -14449,7 +14449,10 @@ function $929021681b822bb4$export$dbc45d2f37c52c28(hass, role, inUse = []) {
 function $929021681b822bb4$export$5b7c125220f68fd5(statuses) {
     if (statuses.length === 0 || statuses.every((s)=>s === 'not_set')) return 'not_set';
     if (statuses.some((s)=>s === 'stale' || s === 'wrong_type')) return 'problem';
-    if (statuses.some((s)=>s === 'not_set' || s === 'waiting')) return 'incomplete';
+    // A configured-but-empty slot is "incomplete" and needs the user's action.
+    // 'waiting' (selected, nothing reported yet — e.g. production without sun) is
+    // normal and counts as ok, not incomplete.
+    if (statuses.some((s)=>s === 'not_set')) return 'incomplete';
     return 'ok';
 }
 
@@ -19202,16 +19205,27 @@ $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00df
 
 
 
-const $fcb07f75f9ef44be$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
+
 class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
-    setConfig(config) {}
+    setConfig(_config) {}
     set hass(hass) {
-        const firstSet = !this._hass;
+        const old = this._hass;
         this._hass = hass;
-        if (firstSet) {
+        if (!old) {
             this._loadSettings();
             this._subscribeToSaveEvents();
+            return;
         }
+        // Re-render only when a configured entity's state object changed (including
+        // it appearing or disappearing), so the status dot / Problem state stays
+        // current without re-rendering on every hass tick.
+        const ids = [
+            ...this._consumptionEntities,
+            ...this._productionEntities,
+            ...this._consumptionRegisters,
+            ...this._productionRegisters
+        ].filter(Boolean);
+        if (ids.some((id)=>old.states[id] !== hass.states[id])) this.requestUpdate();
     }
     async _subscribeToSaveEvents() {
         this._unsubscribe = await this._hass.connection.subscribeEvents(()=>this._loadSettings(), 'save_grid_connection_settings.result');
@@ -19231,6 +19245,8 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
             this._capacityPerPhase = data.capacity_per_phase ?? null;
             this._consumptionEntities = data.consumption_entities ?? [];
             this._productionEntities = data.production_entities ?? [];
+            this._consumptionRegisters = data.consumption_registers ?? [];
+            this._productionRegisters = data.production_registers ?? [];
             this._isConfigured = this._consumptionEntities.length > 0;
         } catch (e) {
             console.error('Failed to load grid connection settings', e);
@@ -19238,38 +19254,102 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
         }
         this._loading = false;
     }
+    _roles() {
+        return [
+            ...(0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities),
+            ...(0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters)
+        ];
+    }
+    _state() {
+        if (!this._isConfigured) return 'not_set';
+        return (0, $929021681b822bb4$export$5b7c125220f68fd5)(this._roles().map((r)=>(0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r)));
+    }
+    _roleLabel(role) {
+        const p = role.key.match(/^(consumption|production)_l(\d+)$/);
+        if (p) return `${p[1] === 'consumption' ? 'Consumption' : 'Production'} L${p[2]}`;
+        const m = role.key.match(/^(import|export)_t(\d+)$/);
+        if (m) return `${m[1] === 'import' ? 'Import' : 'Export'} tariff ${m[2]}`;
+        return role.key;
+    }
     render() {
         if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">
-        <div class="card-content">
-          <ha-spinner></ha-spinner>
-        </div>
+        <div class="card-content"><ha-spinner></ha-spinner></div>
       </ha-card>`;
-        const content = this._isConfigured ? this._renderConfiguredContent() : this._renderEmptyContent();
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">${content}</ha-card>`;
+        const state = this._state();
+        // The status dot reads the state without reading the alert: green = active,
+        // red = a problem, amber = not fully set up, outlined = nothing set.
+        const dotClass = state === 'problem' ? 'problem' : state === 'incomplete' ? 'incomplete' : state === 'not_set' ? 'not-set' : 'ok';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-card>
+        <div class="gc-header">
+          <span class="dot ${dotClass}"></span>
+          <span>Grid connection</span>
+        </div>
+        ${state === 'not_set' ? this._renderNotSetUp() : state === 'problem' ? this._renderProblem() : state === 'incomplete' ? this._renderIncomplete() : this._renderActive()}
+      </ha-card>
+    `;
     }
-    _renderEmptyContent() {
-        const editCallback = ()=>this._openDialog();
+    _renderActive() {
+        const roles = this._roles();
+        const reporting = roles.filter((r)=>(0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r) === 'ok').length;
+        const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        <ha-alert alert-type="info">Not yet configured. This is optional but recommended.</ha-alert>
-        <p>Track your household energy usage to improve charging schedules over time.</p>
+        <ha-alert alert-type="success">
+          Active · ${reporting} of ${roles.length} sensors reporting
+        </ha-alert>
+        <p>${phaseLabel}, ${this._capacityPerPhase} A per phase.</p>
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, $fcb07f75f9ef44be$var$tc('configure'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
-    _renderConfiguredContent() {
-        const editCallback = ()=>this._openDialog();
-        const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
-        const sensorCount = this._consumptionEntities.length + this._productionEntities.length;
+    _renderProblem() {
+        const failing = this._roles().find((r)=>{
+            const s = (0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r);
+            return s === 'stale' || s === 'wrong_type';
+        });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        <p>${phaseLabel}, ${this._capacityPerPhase}A per phase</p>
-        <p>Monitoring active on ${sensorCount} sensors.</p>
+        <ha-alert alert-type="error" title="A sensor needs attention">
+          ${failing ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<strong>${this._roleLabel(failing)}</strong> is ` : ''}
+          not reporting correctly. Monitoring is paused until it is resolved.
+        </ha-alert>
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Fix this')}
+      </div>
+    `;
+    }
+    _renderIncomplete() {
+        const roles = this._roles();
+        const missing = roles.filter((r)=>(0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r) === 'not_set');
+        const set = roles.length - missing.length;
+        const names = missing.map((m)=>this._roleLabel(m)).join(', ');
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <ha-alert alert-type="warning" title="Not fully set up">
+          ${set} of ${roles.length} sensors selected. Still missing: ${names}.
+          Complete the setup to start monitoring.
+        </ha-alert>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Fix this')}
+      </div>
+    `;
+    }
+    _renderNotSetUp() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <p>
+          Configure your grid connection so V2G Liberty learns your household
+          energy patterns — for better predictions and smarter schedules, and to
+          be ready for the end of net metering.
+        </p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, 'Set up')}
       </div>
     `;
     }
@@ -19278,11 +19358,40 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
     }
     static{
         this.styles = [
-            (0, $120c5a859c012378$export$9dd6ff9ea0189349)
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .gc-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px 0 16px;
+        font-size: 1.2em;
+        font-weight: 500;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+      }
+      .dot.ok {
+        background: var(--success-color, #4caf50);
+      }
+      .dot.problem {
+        background: var(--error-color, #f44336);
+      }
+      .dot.incomplete {
+        background: var(--warning-color, #ff9800);
+      }
+      .dot.not-set {
+        background: transparent;
+        border: 2px solid var(--disabled-text-color, var(--secondary-text-color));
+      }
+    `
         ];
     }
     constructor(...args){
-        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._loading = true, this._unsubscribe = null;
+        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._consumptionRegisters = [], this._productionRegisters = [], this._loading = true, this._unsubscribe = null;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -19300,6 +19409,12 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_consumptionRegisters", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionRegisters", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loading", void 0);

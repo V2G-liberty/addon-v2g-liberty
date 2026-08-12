@@ -125,6 +125,9 @@ export function aggregateStatus(
     return 'not_set';
   }
   if (statuses.some(s => s === 'stale' || s === 'wrong_type')) return 'problem';
-  if (statuses.some(s => s === 'not_set' || s === 'waiting')) return 'incomplete';
+  // A configured-but-empty slot is "incomplete" and needs the user's action.
+  // 'waiting' (selected, nothing reported yet — e.g. production without sun) is
+  // normal and counts as ok, not incomplete.
+  if (statuses.some(s => s === 'not_set')) return 'incomplete';
   return 'ok';
 }
