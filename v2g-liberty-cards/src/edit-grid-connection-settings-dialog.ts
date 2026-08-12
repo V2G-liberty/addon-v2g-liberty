@@ -454,14 +454,20 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
       ${noCandidates ? this._renderNotRecognised('power per phase') : nothing}
 
-      <div class="group-head"><strong>Consumption</strong> <span class="muted">power drawn from the grid</span> <span class="live">LIVE</span></div>
+      <div class="group-head">
+        <span class="gh-title"><strong>Consumption</strong> <span class="muted">power drawn from the grid</span></span>
+        <span class="gh-live">LIVE</span>
+      </div>
       ${consumption.map(role =>
         renderSensorRow(this.hass, role, {
           onChoose: def => this._openChooseSensor(def),
         })
       )}
 
-      <div class="group-head" style="margin-top: 16px;"><strong>Production</strong> <span class="muted">power fed back to the grid</span> <span class="live">LIVE</span></div>
+      <div class="group-head" style="margin-top: 16px;">
+        <span class="gh-title"><strong>Production</strong> <span class="muted">power fed back to the grid</span></span>
+        <span class="gh-live">LIVE</span>
+      </div>
       ${production.map(role =>
         renderSensorRow(this.hass, role, {
           onChoose: def => this._openChooseSensor(def),
@@ -946,9 +952,21 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         gap: 8px;
         font-size: 0.95em;
         margin-bottom: 2px;
+        /* Match the rows' horizontal padding so columns line up. */
+        padding: 0 4px;
       }
-      .group-head .live {
-        margin-left: auto;
+      .gh-title {
+        flex: 1;
+        min-width: 0;
+      }
+      .gh-live {
+        flex: 0 0 auto;
+        width: 28px;
+        text-align: center;
+        white-space: nowrap;
+        /* Sit centred above the 28px status column: the row's action column
+           is 108px wide with a 12px gap before the status icon. */
+        margin-right: 120px;
         font-size: 0.7em;
         font-weight: 600;
         letter-spacing: 0.05em;

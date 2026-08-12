@@ -12486,7 +12486,7 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
     const chevronIcon = isBackButton ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto">
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto; min-width: 5em;">
       ${chevronIcon}
       ${label}
     </ha-button>
@@ -14384,24 +14384,548 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 ], $7283b140e865221f$var$EditInputNumberDialog);
 
 
+// Grid connection configuration flow (redesign).
+//
+// Five steps: Intro → Connection → Power → Meter readings → Done. Storage is
+// unchanged (the four settings lists); roles are derived for rendering only.
+// Rows and status come from grid-connection-status / -sensor-row / -roles; the
+// per-row "Change / Choose sensor" opens the choose-sensor side-step.
+//
+// Buttons are never disabled to block an action (except the shared FM
+// reachability gate on the intro): pressing on with something missing shows an
+// ha-alert saying what. Copy is inline English for now (moves to strings.json,
+// Fase 7.1).
 
 
 
 
 
+
+
+
+// Status model for the grid connection settings (redesign, Fase 1).
+//
+// Design: `.private/UX design/Grid connection flow/README.md` — "Status
+// vocabulary". Everything here is derived from `hass.states`; there is no
+// backend service that watches whether a cumulative meter reading keeps
+// increasing, so meter-reading roles deliberately have no waiting/stale status
+// (they report `unmonitored` once set).
+//
+// Filtering is on attributes (device_class, unit, state_class), never on the
+// entity id text: Home Assistant generates entity ids from the default name in
+// the user's language, so a Dutch install yields
+// `sensor.slimme_meter_stroomverbruik_fase_l2`.
+const $929021681b822bb4$export$bd88375431f5337a = 86400000;
+function $929021681b822bb4$export$3131e24fbd7f4c64(stateObj, role) {
+    const attrs = stateObj.attributes;
+    const unit = (attrs.unit_of_measurement ?? '').toLowerCase();
+    if (role === 'power') return attrs.device_class === 'power' && (unit === 'w' || unit === 'kw');
+    return attrs.device_class === 'energy' && (unit === 'wh' || unit === 'kwh' || unit === 'mwh') && attrs.state_class === 'total_increasing';
+}
+function $929021681b822bb4$export$1094b4db5e23d27c(hass, definition) {
+    if (!definition.entityId) return 'not_set';
+    const stateObj = hass.states[definition.entityId];
+    if (!stateObj) return 'wrong_type'; // entity gone or disabled
+    if (!$929021681b822bb4$export$3131e24fbd7f4c64(stateObj, definition.role)) return 'wrong_type';
+    if (definition.role === 'meter_reading') // A standing-still reading is normal: only the active tariff moves, and
+    // nothing monitors a cumulative register, so there is no live status.
+    return 'unmonitored';
+    if (stateObj.state === 'unknown' || stateObj.state === 'unavailable') return 'waiting';
+    const changed = new Date(stateObj.last_changed).getTime();
+    if (Number.isFinite(changed) && Date.now() - changed > $929021681b822bb4$export$bd88375431f5337a) return 'stale';
+    return 'ok';
+}
+function $929021681b822bb4$export$f52e1a142ed579d(stateObj) {
+    return stateObj.attributes.friendly_name ?? stateObj.entity_id;
+}
+function $929021681b822bb4$export$dbc45d2f37c52c28(hass, role, inUse = []) {
+    return Object.values(hass.states).filter((stateObj)=>stateObj.entity_id.startsWith('sensor.')).filter((stateObj)=>$929021681b822bb4$export$3131e24fbd7f4c64(stateObj, role)).sort((a, b)=>{
+        const aUsed = inUse.includes(a.entity_id) ? 1 : 0;
+        const bUsed = inUse.includes(b.entity_id) ? 1 : 0;
+        if (aUsed !== bUsed) return aUsed - bUsed;
+        return $929021681b822bb4$export$f52e1a142ed579d(a).localeCompare($929021681b822bb4$export$f52e1a142ed579d(b));
+    });
+}
+function $929021681b822bb4$export$5b7c125220f68fd5(statuses) {
+    if (statuses.length === 0 || statuses.every((s)=>s === 'not_set')) return 'not_set';
+    if (statuses.some((s)=>s === 'stale' || s === 'wrong_type')) return 'problem';
+    if (statuses.some((s)=>s === 'not_set' || s === 'waiting')) return 'incomplete';
+    return 'ok';
+}
+
+
+// One sensor row for the grid connection flow (redesign, Fase 2).
+//
+// Layout: [badge] [friendly name / entity id] [LIVE status] [Change / Choose].
+// Rendered as a plain helper (not a custom element) so it lives inside the
+// dialog's light DOM and re-renders with the dialog when `hass` updates — that
+// is what makes the status "live" (spinner → green check) without a separate
+// subscription.
+//
+// The entity id is never the only label: friendly name first, id underneath in
+// monospace. Step 4 (meter readings) passes `showStatus: false` — nothing
+// monitors a cumulative register, so no status is shown there.
+
+
+function $4783b00079e8724f$export$fb3bddae799d3201(status) {
+    switch(status){
+        case 'ok':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+        icon="mdi:check-circle"
+        title="Reporting"
+        style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"
+      ></ha-icon>`;
+        case 'waiting':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small" title="Waiting for data"></ha-spinner>`;
+        case 'wrong_type':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+        icon="mdi:alert-circle"
+        title="This sensor does not fit here"
+        style="color: var(--error-color, #f44336); --mdc-icon-size: 20px;"
+      ></ha-icon>`;
+        case 'stale':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+        icon="mdi:alert-circle"
+        title="No update for a long time"
+        style="color: var(--error-color, #f44336); --mdc-icon-size: 20px;"
+      ></ha-icon>`;
+        default:
+            // not_set / unmonitored: nothing to show.
+            return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+}
+function $4783b00079e8724f$export$f6154e7ea1c4e2d5(hass, definition, opts) {
+    const showStatus = opts.showStatus ?? true;
+    const status = (0, $929021681b822bb4$export$1094b4db5e23d27c)(hass, definition);
+    const stateObj = definition.entityId ? hass.states[definition.entityId] : undefined;
+    const notSet = status === 'not_set';
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <div
+      style="display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--divider-color);"
+    >
+      <span
+        style="flex: 0 0 auto; min-width: 28px; text-align: center; font-size: 0.8em; color: var(--secondary-text-color);"
+        >${definition.badge}</span
+      >
+      <div style="flex: 1; min-width: 0;">
+        ${notSet ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="color: var(--secondary-text-color); font-style: italic;">
+              No sensor selected yet
+            </div>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+              <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${stateObj ? (0, $929021681b822bb4$export$f52e1a142ed579d)(stateObj) : definition.entityId}
+              </div>
+              <div
+                style="font-family: var(--code-font-family, monospace); font-size: 0.75em; color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+              >
+                ${definition.entityId}
+              </div>
+            `}
+      </div>
+      ${showStatus ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span
+            style="flex: 0 0 auto; width: 28px; display: flex; align-items: center; justify-content: center;"
+            >${$4783b00079e8724f$export$fb3bddae799d3201(status)}</span
+          >` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      <button
+        style="flex: 0 0 auto; width: 108px; text-align: right; white-space: nowrap; background: none; border: none; padding: 4px 0; color: var(--primary-color); cursor: pointer; font-size: 0.95em;"
+        @click=${()=>opts.onChoose(definition)}
+      >
+        ${notSet ? 'Choose sensor' : 'Change'}
+      </button>
+    </div>
+  `;
+}
+
+
+// Bridge between the stored grid connection settings and the role/status model
+// (redesign, Fase 3 plumbing).
+//
+// "Roles" are a light internal helper only — storage stays the four existing
+// lists (consumption/production entities and registers). These functions derive
+// RoleDefinitions from those lists for rendering, and map a role key back to the
+// list + index the user's choice must be written to.
+const $15d4c5d680e517d6$var$IMPORT_BADGE = "\u2193";
+const $15d4c5d680e517d6$var$EXPORT_BADGE = "\u2191";
+function $15d4c5d680e517d6$export$4a00346298d70185(phases, consumption, production) {
+    const roles = [];
+    for(let phase = 1; phase <= phases; phase++)roles.push({
+        key: `consumption_l${phase}`,
+        role: 'power',
+        badge: `L${phase}`,
+        entityId: consumption[phase - 1] || null
+    });
+    for(let phase = 1; phase <= phases; phase++)roles.push({
+        key: `production_l${phase}`,
+        role: 'power',
+        badge: `L${phase}`,
+        entityId: production[phase - 1] || null
+    });
+    return roles;
+}
+function $15d4c5d680e517d6$export$9142f209d16b0a8a(consumptionRegisters, productionRegisters) {
+    return [
+        {
+            key: 'import_t1',
+            role: 'meter_reading',
+            badge: $15d4c5d680e517d6$var$IMPORT_BADGE,
+            entityId: consumptionRegisters[0] || null
+        },
+        {
+            key: 'import_t2',
+            role: 'meter_reading',
+            badge: $15d4c5d680e517d6$var$IMPORT_BADGE,
+            entityId: consumptionRegisters[1] || null
+        },
+        {
+            key: 'export_t1',
+            role: 'meter_reading',
+            badge: $15d4c5d680e517d6$var$EXPORT_BADGE,
+            entityId: productionRegisters[0] || null
+        },
+        {
+            key: 'export_t2',
+            role: 'meter_reading',
+            badge: $15d4c5d680e517d6$var$EXPORT_BADGE,
+            entityId: productionRegisters[1] || null
+        }
+    ];
+}
+function $15d4c5d680e517d6$export$d66896b981a903db(key) {
+    const power = key.match(/^(consumption|production)_l(\d+)$/);
+    if (power) return {
+        list: power[1] === 'consumption' ? 'consumption_entities' : 'production_entities',
+        index: Number(power[2]) - 1
+    };
+    const meter = key.match(/^(import|export)_t(\d+)$/);
+    if (meter) return {
+        list: meter[1] === 'import' ? 'consumption_registers' : 'production_registers',
+        index: Number(meter[2]) - 1
+    };
+    return null;
+}
+function $15d4c5d680e517d6$export$6f60e56286389e91(...roleLists) {
+    return roleLists.flat().map((r)=>r.entityId).filter((e)=>!!e);
+}
+
+
+// Side-step dialog: pick a sensor for one role (redesign, Fase 4).
+//
+// The candidate list is filtered on device_class / unit / state_class, never on
+// entity id text. Entities already used by another role stay in the list but are
+// marked "already in use". Switching to "All sensors" drops the filter and
+// labels each unsuitable candidate with what it actually measures; picking one
+// then needs a second OK (a stated-consequence override).
+//
+// Copy is inline English for now; it moves to strings.json in Fase 7.1.
+
+
+
+
+
+
+
+const $9ab7994a7f6bff81$export$45e0b80f1e500bd4 = 'v2g-liberty-choose-sensor-dialog';
+class $9ab7994a7f6bff81$export$c3cfd0d6798395e4 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog(params) {
+        super.showDialog();
+        this._params = params;
+        this._query = (params.searchTerms ?? []).join(' ');
+        this._selected = params.definition.entityId;
+        this._unfiltered = false;
+        this._warnedUnsuitable = false;
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const newApi = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const title = 'Choose sensor';
+        const isPower = this._params.definition.role === 'power';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .headerTitle=${newApi ? title : undefined}
+        .headerSubtitle=${newApi ? this._params.subtitle : undefined}
+        .heading=${newApi ? undefined : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, title)}
+      >
+        <div class="content">
+          ${newApi ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="subtitle">${this._params.subtitle}</p>`}
+
+          ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._query,
+            onChange: (e)=>this._query = e.target?.value ?? '',
+            label: 'Search',
+            style: 'width: 100%',
+            testId: 'sensor-search',
+            suffix: (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+              ${this._query ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<button
+                    class="icon-btn"
+                    title="Clear the search"
+                    @click=${()=>this._query = ''}
+                  >
+                    ✕
+                  </button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+              <span
+                class="info"
+                title="Prefilled with what you are setting up — every word has to match. Clear or edit it if your integration names things differently."
+              >
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+              </span>
+            `
+        })}
+
+          <div class="filters">
+            <button
+              class="chip ${this._unfiltered ? '' : 'active'}"
+              @click=${()=>this._unfiltered = false}
+            >
+              ${isPower ? 'W / kW only' : 'kWh readings only'}
+            </button>
+            <button
+              class="chip ${this._unfiltered ? 'active' : ''}"
+              @click=${()=>this._unfiltered = true}
+            >
+              All sensors
+            </button>
+          </div>
+
+          <div class="list">
+            ${this._visibleCandidates().map((stateObj)=>this._renderCandidate(stateObj))}
+            ${this._visibleCandidates().length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="empty">No matching sensors.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          </div>
+
+          ${this._renderUnsuitableWarning()} ${this._renderHelp(isPower)}
+        </div>
+
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), false, 'Cancel')}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._confirm(), true, 'OK', !this._selected)}
+      </ha-dialog>
+    `;
+    }
+    _visibleCandidates() {
+        const role = this._params.definition.role;
+        const all = this._unfiltered ? Object.values(this.hass.states).filter((s)=>s.entity_id.startsWith('sensor.'))// Fitting sensors (the right unit/class for this role) first, the
+        // rest below; alphabetical by friendly name within each group.
+        .sort((a, b)=>{
+            const aFits = (0, $929021681b822bb4$export$3131e24fbd7f4c64)(a, role) ? 0 : 1;
+            const bFits = (0, $929021681b822bb4$export$3131e24fbd7f4c64)(b, role) ? 0 : 1;
+            if (aFits !== bFits) return aFits - bFits;
+            return (0, $929021681b822bb4$export$f52e1a142ed579d)(a).localeCompare((0, $929021681b822bb4$export$f52e1a142ed579d)(b));
+        }) : (0, $929021681b822bb4$export$dbc45d2f37c52c28)(this.hass, role, this._params.inUse);
+        const terms = this._query.toLowerCase().split(/\s+/).filter((term)=>term.length > 0);
+        return all.filter((stateObj)=>{
+            if (terms.length === 0) return true;
+            const haystack = `${(0, $929021681b822bb4$export$f52e1a142ed579d)(stateObj)} ${stateObj.entity_id}`.toLowerCase();
+            return terms.every((term)=>haystack.includes(term));
+        }).slice(0, 100);
+    }
+    _renderCandidate(stateObj) {
+        const role = this._params.definition.role;
+        const used = this._params.inUse.includes(stateObj.entity_id);
+        const misfit = !(0, $929021681b822bb4$export$3131e24fbd7f4c64)(stateObj, role);
+        const selected = this._selected === stateObj.entity_id;
+        const unit = stateObj.attributes.unit_of_measurement ?? '';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div
+        class="candidate ${selected ? 'selected' : ''} ${used ? 'used' : ''}"
+        @click=${()=>this._select(stateObj.entity_id)}
+      >
+        <div class="labels">
+          <div class="name">${(0, $929021681b822bb4$export$f52e1a142ed579d)(stateObj)}</div>
+          <div class="entity-id">${stateObj.entity_id}</div>
+        </div>
+        ${used ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="note">already in use</span>` : misfit && this._unfiltered ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="warn">measures ${unit || '?'}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </div>
+    `;
+    }
+    _renderUnsuitableWarning() {
+        if (!this._warnedUnsuitable || !this._selected) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const stateObj = this.hass.states[this._selected];
+        if (stateObj && (0, $929021681b822bb4$export$3131e24fbd7f4c64)(stateObj, this._params.definition.role)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const unit = stateObj?.attributes?.unit_of_measurement ?? 'the wrong quantity';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title="This sensor does not fit here">
+        This sensor measures ${unit}, not what this field needs. V2G Liberty
+        cannot use it here and the schedules would be wrong. Pick another sensor,
+        or press OK again to use it anyway.
+      </ha-alert>
+    `;
+    }
+    _renderHelp(isPower) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <details class="help">
+        <summary>Help — which sensor do I pick?</summary>
+        <div class="help-body">
+          ${isPower ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <p>
+                  Pick the <strong>power</strong> on one phase, in W or kW,
+                  measured at your meter — a value that changes all the time.
+                  Consumption is what you take from the grid, production what you
+                  feed back. Phase numbering follows your meter, so pick the
+                  sensor whose phase matches the row you are filling in.
+                </p>
+                <p>
+                  A sensor for a single appliance (a heat pump, a charger)
+                  measures only that device, not the whole connection.
+                </p>
+              ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <p>
+                  Pick a total in kWh that only ever goes up — the same kind of
+                  number your meter shows. Import is what you took from the grid;
+                  export is what you fed back. With DSMR these are usually named
+                  <em>energy consumption / production tariff 1 / 2</em>.
+                </p>
+                <p>
+                  Not sure between two? Compare the value with the display on
+                  your meter — the numbers should match.
+                </p>
+              `}
+        </div>
+      </details>
+    `;
+    }
+    _select(entityId) {
+        this._selected = entityId;
+        this._warnedUnsuitable = false;
+    }
+    _confirm() {
+        if (!this._selected) return;
+        const stateObj = this.hass.states[this._selected];
+        const suitable = stateObj && (0, $929021681b822bb4$export$3131e24fbd7f4c64)(stateObj, this._params.definition.role);
+        if (!suitable && !this._warnedUnsuitable) {
+            this._warnedUnsuitable = true; // first OK explains; second OK proceeds
+            return;
+        }
+        this._params.onSelect(this._selected);
+        this.closeDialog();
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .subtitle {
+        color: var(--secondary-text-color);
+        margin: 0 0 12px;
+      }
+      .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-size: 1em;
+        padding: 0 4px;
+      }
+      .info {
+        color: var(--secondary-text-color);
+        --mdc-icon-size: 20px;
+        display: inline-flex;
+        align-items: center;
+        cursor: help;
+      }
+      .filters {
+        display: flex;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .chip {
+        border: 1px solid var(--divider-color);
+        border-radius: 16px;
+        padding: 4px 12px;
+        background: none;
+        color: var(--primary-text-color);
+        cursor: pointer;
+        font-size: 0.85em;
+      }
+      .chip.active {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+      }
+      .list {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        overflow: hidden auto;
+        max-height: 320px;
+      }
+      .candidate {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        cursor: pointer;
+        border-top: 1px solid var(--divider-color);
+      }
+      .candidate:first-child {
+        border-top: none;
+      }
+      .candidate.selected {
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+      }
+      .candidate.used {
+        opacity: 0.5;
+      }
+      .labels {
+        flex: 1;
+        min-width: 0;
+      }
+      .name {
+        font-size: 0.95em;
+      }
+      .entity-id {
+        font-family: var(--code-font-family, monospace);
+        font-size: 0.7em;
+        color: var(--secondary-text-color);
+      }
+      .note {
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+      }
+      .warn {
+        font-size: 0.8em;
+        color: var(--warning-color);
+      }
+      .empty {
+        padding: 16px;
+        color: var(--secondary-text-color);
+      }
+      .help {
+        margin-top: 12px;
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .help summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._query = '', this._unfiltered = false, this._selected = null, this._warnedUnsuitable = false;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $9cd908ed2625c047$export$d541bacb2bda4494)({
+        attribute: false
+    })
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_params", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_query", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_unfiltered", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_selected", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_warnedUnsuitable", void 0);
+$9ab7994a7f6bff81$export$c3cfd0d6798395e4 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($9ab7994a7f6bff81$export$45e0b80f1e500bd4)
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4);
 
 
 const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
 class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
-    // Pad/trim a register list to exactly two slots (tariff 1, tariff 2). A
-    // single total register lands in slot 0; any 3rd/4th tariff is dropped
-    // (rare outside NL — the total register covers those meters).
-    _padTo2(arr) {
-        return [
-            arr[0] ?? '',
-            arr[1] ?? ''
-        ];
-    }
     async showDialog() {
         super.showDialog();
         this._step = "intro";
@@ -14417,20 +14941,18 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             '',
             ''
         ];
-        this._entityStatus = {};
-        this._entityNegative = {};
-        this._cleanupEntityListeners();
         this._autoDetected = false;
-        this._triedContinueStep2 = false;
-        this._triedSave = false;
+        this._triedContinueConnection = false;
         this._phaseChangeConfirmed = false;
+        this._triedContinuePower = false;
+        this._triedContinueMeter = false;
+        this._triedSave = false;
         this._saving = false;
         this._saveError = '';
-        this._saveConfirmed = false;
-        // Fresh FlexMeasures reachability probe (non-blocking; updates _fmProbe when
-        // it resolves). The intro gate stays closed until it reports back.
+        // Fresh FlexMeasures reachability probe — the intro gate stays closed until
+        // it reports back (Save provisions sensors on FlexMeasures).
         this._probeFm();
-        // Load existing settings if configured
+        // Load existing settings if configured.
         try {
             const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
             if (data.consumption_entities?.length > 0) {
@@ -14442,9 +14964,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             if (data.consumption_registers?.length > 0) this._consumptionRegisters = this._padTo2(data.consumption_registers);
             if (data.production_registers?.length > 0) this._productionRegisters = this._padTo2(data.production_registers);
         } catch (e) {
-        // Ignore — start fresh
+        // Ignore — start fresh.
         }
-        // Auto-detect from available HA entities (only if not already configured)
+        // Auto-detect only when nothing is configured yet.
         if (!this._phases) try {
             const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
             if (detected.phases || detected.capacity_per_phase || detected.consumption_entities?.length > 0) this._autoDetected = true;
@@ -14461,12 +14983,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 this._productionRegisters = this._padTo2(detected.production_registers);
             }
         } catch (e) {
-        // Auto-detect failed, no problem — user fills in manually
+        // Detection failed — the user fills things in manually.
         }
-        this._buildSensorEntityList();
-        // Load existing solar panels so we can warn the user when their new
-        // phases choice would invalidate any of them (plan task 30a). Failure
-        // is non-fatal — we just won't warn.
+        // Existing solar panels, to warn when a phase change would invalidate one.
         try {
             const sp = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_solar_panels');
             this._existingSolarPanels = sp.solar_panels ?? [];
@@ -14475,185 +14994,155 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         }
         await this.updateComplete;
     }
-    closeDialog() {
-        this._cleanupEntityListeners();
-        super.closeDialog();
-    }
-    _cleanupEntityListeners() {
-        for (const unsub of Object.values(this._entityListeners))try {
-            if (typeof unsub === 'function') unsub();
-        } catch (e) {}
-        this._entityListeners = {};
-    }
-    _buildSensorEntityList() {
-        const states = this.hass.states;
-        this._sensorEntities = [];
-        for (const entityId of Object.keys(states)){
-            if (!entityId.startsWith('sensor.')) continue;
-            const stateObj = states[entityId];
-            const deviceClass = stateObj.attributes.device_class ?? '';
-            const unit = stateObj.attributes.unit_of_measurement ?? '';
-            const stateClass = stateObj.attributes.state_class ?? '';
-            const isPower = deviceClass === 'power' || [
-                'W',
-                'kW',
-                'MW'
-            ].includes(unit);
-            // Cumulative meter register: an energy sensor whose value only ever
-            // increases (the meter's kWh total per tariff).
-            const isEnergyRegister = deviceClass === 'energy' && stateClass === 'total_increasing' && [
-                'Wh',
-                'kWh',
-                'MWh'
-            ].includes(unit);
-            const name = stateObj.attributes.friendly_name || entityId;
-            this._sensorEntities.push({
-                id: entityId,
-                name: name,
-                isPower: isPower,
-                isEnergyRegister: isEnergyRegister
-            });
-        }
-        // Sort: power sensors first, then alphabetically
-        this._sensorEntities.sort((a, b)=>{
-            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
-            return a.name.localeCompare(b.name);
-        });
+    _padTo2(arr) {
+        return [
+            arr[0] ?? '',
+            arr[1] ?? ''
+        ];
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
-        const header = 'Grid connection';
+        const isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = this._headerFor(this._step);
         let content;
         switch(this._step){
             case "intro":
                 content = this._renderIntro();
                 break;
-            case "phases_and_capacity":
-                content = this._renderPhasesAndCapacity();
+            case "connection":
+                content = this._renderConnection();
                 break;
-            case "entities":
-                content = this._renderEntities();
+            case "power":
+                content = this._renderPower();
+                break;
+            case "meter":
+                content = this._renderMeter();
+                break;
+            case "done":
+                content = this._renderDone();
                 break;
         }
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
-        .headerTitle=${_isNew ? header : null}
+        .heading=${isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${isNew ? header : null}
       >
         ${content}
       </ha-dialog>
     `;
     }
-    // ── Step 1: Introduction ────────────────────────────────────────────
+    _headerFor(step) {
+        switch(step){
+            case "connection":
+                return 'Connection';
+            case "power":
+                return 'Power';
+            case "meter":
+                return 'Meter readings';
+            case "done":
+                return 'Done';
+            default:
+                return 'Grid connection';
+        }
+    }
+    // ── Step 1: Intro ───────────────────────────────────────────────────
     _renderIntro() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderFmGate('grid connection')}
 
-      <p>By monitoring your grid connection, the system learns your household energy
-      patterns. Over time, this leads to <strong>better predictions</strong> and
-      <strong>smarter schedules</strong> that fit your specific situation.</p>
-
-      <p><strong>For Dutch users:</strong> this is a valuable preparation for the
-      end of "saldering" (net metering). Once net metering ends, a grid connection
-      configuration will be required.</p>
+      <p>
+        By monitoring your grid connection, V2G Liberty learns your household
+        energy patterns. That leads to <strong>better predictions</strong> and
+        <strong>smarter schedules</strong>.
+      </p>
+      <p>
+        <strong>For Dutch users:</strong> a valuable preparation for the end of
+        net metering. Once it ends, this configuration will be required.
+      </p>
 
       <div class="requirements-box">
-        <div class="requirements-header">What you need*</div>
+        <div class="requirements-header">What you need</div>
         <div class="requirement-item">
           <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
           <div>
-            <strong>Smart meter</strong><br/>
-            Capable of reporting power usage per phase in real-time.
+            <strong>Smart meter</strong><br />
+            Reports power per phase in real time.
           </div>
         </div>
         <div class="requirement-item">
           <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
           <div>
-            <strong>P1 cable</strong><br/>
-            A USB P1 port cable or similar to connect the meter.
+            <strong>P1 cable</strong><br />
+            A USB P1 port cable or similar (~€15).
           </div>
         </div>
         <div class="requirement-item">
           <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
           <div>
-            <strong>Home Assistant integration</strong><br/>
-            A functional integration that exposes meter data as sensor entities
-            (e.g. a DSMR integration).
+            <strong>Home Assistant integration</strong><br />
+            E.g. the DSMR Smart Meter integration, exposing the meter as sensor
+            entities.
           </div>
-        </div>
-        <div class="requirements-footer">
-          * Typical setup. Other setups are possible, as long as usage and production
-          can be read from HA sensors.
         </div>
       </div>
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
-            this._step = "phases_and_capacity";
+            this._step = "connection";
         }, true, null, !this._fmReachable)}
     `;
     }
-    // ── Step 2: Phases and Capacity ─────────────────────────────────────
-    _renderPhasesAndCapacity() {
+    // ── Step 2: Connection (phases + capacity) ──────────────────────────
+    _renderConnection() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <p style="margin: 0;"><strong>How many phases does your grid connection have?</strong></p>
-          ${this._autoDetected && this._phases !== null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <div class="section-head">
+          <p style="margin: 0;">
+            <strong>How many phases does your grid connection have?</strong>
+          </p>
+          ${this._autoDetected && this._phases !== null ? this._autoBadge() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         </div>
         <div class="phase-cards">
           <div
             class="phase-card ${this._phases === 1 ? 'selected' : ''}"
-            @click=${()=>{
-            this._selectPhases(1);
-        }}
+            @click=${()=>this._selectPhases(1)}
           >
             ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 1)}
             <div>
-              <strong>1 phase</strong><br/>
-              <span class="phase-subtitle">Small apartment connection</span>
+              <strong>1 phase</strong><br />
+              <span class="phase-subtitle">Small connection</span>
             </div>
           </div>
           <div
             class="phase-card ${this._phases === 3 ? 'selected' : ''}"
-            @click=${()=>{
-            this._selectPhases(3);
-        }}
+            @click=${()=>this._selectPhases(3)}
           >
             ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 3)}
             <div>
-              <strong>3 phases</strong><br/>
+              <strong>3 phases</strong><br />
               <span class="phase-subtitle">Standard connection</span>
             </div>
           </div>
         </div>
-        ${this._triedContinueStep2 && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._triedContinueConnection && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         <details class="hint">
           <summary>Not sure?</summary>
-          <p>Check your smart meter integration in Home Assistant. Look for separate
-          L1, L2, and L3 sensors — if you have them, you have 3 phases. If you only
-          see L1, you have 1 phase.</p>
+          <p>
+            Check your smart meter integration. Separate L1, L2 and L3 sensors
+            mean 3 phases; only L1 means 1 phase.
+          </p>
         </details>
       </div>
 
       <div style="margin-top: 16px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <div class="section-head">
           <p style="margin: 0;"><strong>Capacity per phase (ampere)</strong></p>
-          ${this._autoDetected && this._capacityPerPhase !== '' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          ${this._autoDetected && this._capacityPerPhase !== '' ? this._autoBadge() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         </div>
         ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
             value: this._capacityPerPhase,
-            onChange: (e)=>{
-                this._capacityPerPhase = e.target.value;
-            },
+            onChange: (e)=>this._capacityPerPhase = e.target.value,
             type: 'number',
             inputmode: 'numeric',
             min: 6,
@@ -14665,24 +15154,22 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         ${this._renderCapacityError()}
         <details class="hint">
           <summary>Where to find this</summary>
-          <p>You can find this on your energy contract, or in your smart meter
-          integration in Home Assistant. Look for a sensor with "fuse" or "threshold"
-          in the name. Common values are 25A or 35A.</p>
-          <p>Please enter the actual value — do not enter a lower value as a safety margin.</p>
+          <p>
+            On your energy contract or your main fuse — typically 25 A or 35 A.
+            Enter the actual value, not a lower safety margin.
+          </p>
         </details>
       </div>
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
-            this._triedContinueStep2 = false;
+            this._triedContinueConnection = false;
             this._step = "intro";
         }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${this._renderSolarPanelWarning()}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToEntities(), true, this._phaseChangeConfirmed ? 'Continue anyway' : this.hass.localize('ui.common.continue'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToPower(), true, this._phaseChangeConfirmed ? 'Continue anyway' : this.hass.localize('ui.common.continue'))}
     `;
     }
     _selectPhases(phases) {
-        // Any change in the phase choice invalidates a previous
-        // "Continue anyway" acknowledgement — re-warn for the new selection.
         if (this._phases !== phases) this._phaseChangeConfirmed = false;
         this._phases = phases;
     }
@@ -14692,362 +15179,312 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         return !isNaN(cap) && Number.isInteger(cap) && cap >= 6 && cap <= 80;
     }
     _renderCapacityError() {
-        if (this._capacityPerPhase === '' && this._triedContinueStep2) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter the capacity.</div>`;
-        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Must be a whole number between 6 and 80.</div>`;
+        if (this._capacityPerPhase === '' && this._triedContinueConnection) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter the capacity.</div>`;
+        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        Must be a whole number between 6 and 80.
+      </div>`;
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     }
-    _continueToEntities() {
-        this._triedContinueStep2 = true;
-        if (this._phases === null) return;
-        if (!this._isCapacityValid()) return;
-        // Soft warning: would the new phase choice make existing solar panels
-        // inconsistent? First Continue click reveals the warning; the second
-        // (now "Continue anyway") actually moves to the next step. Nothing on
-        // the panels is changed — they get flagged on the solar panels card.
+    _continueToPower() {
+        this._triedContinueConnection = true;
+        if (this._phases === null || !this._isCapacityValid()) return;
+        // Soft warning: would the new phase choice invalidate existing panels?
         if (this._panelsThatWillBecomeInconsistent().length > 0 && !this._phaseChangeConfirmed) {
             this._phaseChangeConfirmed = true;
             return;
         }
-        // Initialise entity arrays to correct length if needed
+        // Size the power arrays to the phase count.
         const count = this._phases;
-        if (this._consumptionEntities.length !== count) this._consumptionEntities = new Array(count).fill('');
-        if (this._productionEntities.length !== count) this._productionEntities = new Array(count).fill('');
-        this._triedSave = false;
-        this._saveConfirmed = false;
-        this._step = "entities";
-        // Start listening for already-selected entities
-        for (const entityId of [
-            ...this._consumptionEntities,
-            ...this._productionEntities
-        ])if (entityId) this._startListeningEntity(entityId);
+        if (this._consumptionEntities.length !== count) this._consumptionEntities = this._resize(this._consumptionEntities, count);
+        if (this._productionEntities.length !== count) this._productionEntities = this._resize(this._productionEntities, count);
+        this._triedContinuePower = false;
+        this._step = "power";
     }
-    // ── Step 3: Entity Selection (with inline validation) ───────────────
-    _renderEntities() {
-        const count = this._phases ?? 1;
-        const allSelected = this._getAllSelectedEntities();
+    _resize(arr, count) {
+        const copy = arr.slice(0, count);
+        while(copy.length < count)copy.push('');
+        return copy;
+    }
+    // ── Step 3: Power ───────────────────────────────────────────────────
+    _renderPower() {
+        const roles = (0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities);
+        const consumption = roles.filter((r)=>r.key.startsWith('consumption'));
+        const production = roles.filter((r)=>r.key.startsWith('production'));
+        const noCandidates = (0, $929021681b822bb4$export$dbc45d2f37c52c28)(this.hass, 'power').length === 0;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      ${this._renderPowerHelp()}
-      <div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <p style="margin: 0; flex: 1;"><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
-          ${this._autoDetected && this._consumptionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-          <span class="column-header">Active</span>
-        </div>
-        ${Array.from({
-            length: count
-        }, (_, i)=>this._renderEntityDropdown(`Consumption phase ${i + 1} (L${i + 1})`, this._consumptionEntities[i] ?? '', (val)=>{
-                const old = this._consumptionEntities[i];
-                if (old) this._stopListeningEntity(old);
-                const copy = [
-                    ...this._consumptionEntities
-                ];
-                copy[i] = val;
-                this._consumptionEntities = copy;
-                if (val) this._startListeningEntity(val);
-            }, allSelected))}
+      <div class="sensors-intro">
+        <p style="margin: 0;"><strong>Sensors</strong></p>
+        <p class="muted">
+          To follow what your household uses and returns, V2G Liberty reads the
+          power on every phase. These sensors were recognised automatically —
+          please check that each one is right before continuing.
+        </p>
       </div>
 
-      <div style="margin-top: 24px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <p style="margin: 0; flex: 1;"><strong>Production sensors</strong> (power fed back to the grid)</p>
-          ${this._autoDetected && this._productionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-          <span class="column-header">Active</span>
-        </div>
-        ${Array.from({
-            length: count
-        }, (_, i)=>this._renderEntityDropdown(`Production phase ${i + 1} (L${i + 1})`, this._productionEntities[i] ?? '', (val)=>{
-                const old = this._productionEntities[i];
-                if (old) this._stopListeningEntity(old);
-                const copy = [
-                    ...this._productionEntities
-                ];
-                copy[i] = val;
-                this._productionEntities = copy;
-                if (val) this._startListeningEntity(val);
-            }, allSelected))}
+      ${noCandidates ? this._renderNotRecognised('power per phase') : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      <div class="group-head">
+        <span class="gh-title"><strong>Consumption</strong> <span class="muted">power drawn from the grid</span></span>
+        <span class="gh-live">LIVE</span>
       </div>
+      ${consumption.map((role)=>(0, $4783b00079e8724f$export$f6154e7ea1c4e2d5)(this.hass, role, {
+                onChoose: (def)=>this._openChooseSensor(def)
+            }))}
 
-      ${this._renderRegisters()}
+      <div class="group-head" style="margin-top: 16px;">
+        <span class="gh-title"><strong>Production</strong> <span class="muted">power fed back to the grid</span></span>
+        <span class="gh-live">LIVE</span>
+      </div>
+      ${production.map((role)=>(0, $4783b00079e8724f$export$f6154e7ea1c4e2d5)(this.hass, role, {
+                onChoose: (def)=>this._openChooseSensor(def)
+            }))}
 
-      ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-      ${this._renderNegativeWarning()}
-      ${this._renderSaveWarning()}
-      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error save-error" role="alert">${this._saveError}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._triedContinuePower && this._powerIncomplete() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error" style="margin-top: 12px;">
+            Sensor(s) still missing — choose a sensor for every phase, for both
+            consumption and production, to continue.
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
-            this._cleanupEntityListeners();
-            this._triedSave = false;
-            this._step = "phases_and_capacity";
+            this._step = "connection";
         }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
-      ${this._saving ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToMeter(), true)}
     `;
     }
-    _renderEntityDropdown(label, selected, onChange, allSelected) {
-        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
-        const status = selected ? this._entityStatus[selected] : undefined;
-        const isNegative = selected ? this._entityNegative[selected] : false;
-        const statusIcon = !selected ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : isNegative ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:alert" title="This sensor reported a negative value" style="color: var(--warning-color, #ff9800); --mdc-icon-size: 20px;"></ha-icon>` : status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>`;
+    _continueToMeter() {
+        this._triedContinuePower = true;
+        if (this._powerIncomplete()) return;
+        this._triedContinueMeter = false;
+        this._step = "meter";
+    }
+    // ── Step 4: Meter readings ──────────────────────────────────────────
+    _renderMeter() {
+        const roles = (0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters);
+        // roles = [import_t1, import_t2, export_t1, export_t2]
+        const tariff1 = [
+            roles[0],
+            roles[2]
+        ];
+        const tariff2 = [
+            roles[1],
+            roles[3]
+        ];
+        const noCandidates = (0, $929021681b822bb4$export$dbc45d2f37c52c28)(this.hass, 'meter_reading').length === 0;
+        const rows = (rs)=>rs.map((role)=>(0, $4783b00079e8724f$export$f6154e7ea1c4e2d5)(this.hass, role, {
+                    showStatus: false,
+                    onChoose: (def)=>this._openChooseSensor(def)
+                }));
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div style="margin: 8px 0;">
-        <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <select
-            .value=${selected}
-            @change=${(e)=>onChange(e.target.value)}
-            style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
-          >
-            <option value="">Select a sensor...</option>
-            ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
-              ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <option
-                    value=${e.id}
-                    ?selected=${e.id === selected}
-                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
-                  >${e.name} (${e.id})</option>
-                `)}
-            </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-            <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
-              ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <option
-                    value=${e.id}
-                    ?selected=${e.id === selected}
-                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
-                  >${e.name} (${e.id})</option>
-                `)}
-            </optgroup>
-          </select>
-          <span style="width: 28px; text-align: center; display: flex; align-items: center; justify-content: center;">${statusIcon}</span>
-        </div>
+      <div class="sensors-intro">
+        <p style="margin: 0;"><strong>Sensors</strong></p>
+        <p class="muted">
+          The cumulative meter readings are what your energy bill is settled on,
+          per tariff. There are always two tariffs — with a single tariff,
+          tariff 2 simply stays at the same value. These were recognised
+          automatically — please check them before continuing.
+        </p>
       </div>
+
+      ${noCandidates ? this._renderNotRecognised('cumulative kWh readings') : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      <div class="group-head"><strong>Tariff 1</strong></div>
+      ${rows(tariff1)}
+      <div class="group-head" style="margin-top: 16px;"><strong>Tariff 2</strong></div>
+      ${rows(tariff2)}
+
+      ${this._triedContinueMeter && this._metersIncomplete() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error" style="margin-top: 12px;">
+            Sensor(s) still missing — for both import and export, choose a total
+            register or both tariff 1 and tariff 2 (cumulative kWh).
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "power";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToDone(), true)}
     `;
     }
-    // ── Cumulative energy meter registers (optional) ────────────────────
-    _renderRegisterDropdown(selected, onChange, allSelected) {
-        const registers = this._sensorEntities.filter((e)=>e.isEnergyRegister);
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <select
-        .value=${selected}
-        @change=${(e)=>onChange(e.target.value)}
-        style="width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
-      >
-        <option value="">Select a sensor...</option>
-        ${registers.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <option
-            value=${e.id}
-            ?selected=${e.id === selected}
-            ?disabled=${e.id !== selected && allSelected.has(e.id)}
-          >${e.name} (${e.id})</option>
-        `)}
-      </select>
-    `;
+    _continueToDone() {
+        this._triedContinueMeter = true;
+        if (this._metersIncomplete()) return;
+        this._triedSave = false;
+        this._step = "done";
     }
-    _renderIntegrationHint() {
+    // ── Step 5: Done ────────────────────────────────────────────────────
+    _renderDone() {
+        const powerList = (0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities);
+        const meterList = (0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters);
+        const linked = (0, $15d4c5d680e517d6$export$6f60e56286389e91)(powerList, meterList).length;
+        const complete = !this._powerIncomplete() && !this._metersIncomplete();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <p style="margin: 4px 0;">
-        <strong>If the sensor you need is missing from the list, it may still
-        need to be enabled on the meter integration</strong> (Settings →
-        Devices &amp; Services → your meter → Entities → show disabled
-        entities).
+      ${complete ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">
+            All set — ${linked} sensors linked.
+          </ha-alert>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="warning">
+            Not everything is set yet. Go back and complete the missing rows.
+          </ha-alert>`}
+
+      <div class="summary-group">Connection</div>
+      <div class="summary-row"><span>Phases</span><span>${this._phases} phase${this._phases === 1 ? '' : 's'}</span></div>
+      <div class="summary-row"><span>Capacity per phase</span><span>${this._capacityPerPhase} A</span></div>
+
+      <div class="summary-group">Power</div>
+      ${powerList.map((role)=>this._summaryRow(role))}
+
+      <div class="summary-group">Meter readings</div>
+      ${meterList.map((role)=>this._summaryRow(role, false))}
+
+      <p class="muted" style="margin-top: 12px;">
+        V2G Liberty keeps monitoring these sensors and warns you as soon as one
+        stops reporting.
       </p>
+
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error" class="save-error">
+            ${this._saveError}
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._triedSave && !complete ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">
+            Some rows are still missing — go back and complete them before saving.
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "meter";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saving ? "Saving\u2026" : this.hass.localize('ui.common.save'), this._saving)}
     `;
     }
-    _renderPowerHelp() {
-        const count = this._phases ?? 1;
+    _summaryRow(role, showStatus = true) {
+        const label = role.entityId ?? 'No sensor selected yet';
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <details style="margin: 4px 0 12px; font-size: 0.85em; color: var(--secondary-text-color);">
-        <summary style="cursor: pointer;">Help — which sensors do I pick?</summary>
-        <div style="margin-top: 6px;">
-          <p style="margin: 4px 0;">
-            Pick the <strong>power</strong> sensors (in W or kW) for each phase:
-            how much the connection draws from the grid (consumption) and feeds
-            back (production). Select one per phase (L1..L${count}).
-          </p>
-          ${this._renderIntegrationHint()}
-        </div>
-      </details>
-    `;
-    }
-    _renderRegisterHelp() {
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <details style="margin: 4px 0; font-size: 0.85em; color: var(--secondary-text-color);">
-        <summary style="cursor: pointer;">What are these? (optional)</summary>
-        <div style="margin-top: 6px;">
-          <p style="margin: 4px 0;">
-            These are the meter's <strong>cumulative</strong> import/export
-            registers — the ever-increasing kWh totals, one per tariff. V2G
-            Liberty uses their per-interval increase to send the exact
-            whole-connection energy to FlexMeasures. Leave them empty to skip
-            this; it is optional.
-          </p>
-          <p style="margin: 4px 0;">
-            Only sensors of device class <em>energy</em> with state class
-            <em>total_increasing</em> are listed.
-          </p>
-          ${this._renderIntegrationHint()}
-        </div>
-      </details>
-    `;
-    }
-    _renderRegisters() {
-        const allSelected = this._getAllSelectedEntities();
-        const hasRegisters = this._sensorEntities.some((e)=>e.isEnergyRegister);
-        const anyDetected = this._autoDetected && [
-            ...this._consumptionRegisters,
-            ...this._productionRegisters
-        ].some((e)=>e !== '');
-        const th = 'text-align: left; font-size: 0.8em; color: var(--secondary-text-color); font-weight: normal; padding: 4px;';
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div style="margin-top: 24px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <p style="margin: 0; flex: 1;"><strong>Energy meter registers</strong> (cumulative import/export, optional)</p>
-          ${anyDetected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-        </div>
-        ${this._renderRegisterHelp()}
-        ${hasRegisters ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
-              <thead>
-                <tr>
-                  <th style=${th}></th>
-                  <th style=${th}>Consumption (import)</th>
-                  <th style=${th}>Production (export)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${[
-            0,
-            1
-        ].map((i)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <tr>
-                    <td style="padding: 4px; font-size: 0.875em; color: var(--secondary-text-color); white-space: nowrap;">Tariff ${i + 1}</td>
-                    <td style="padding: 4px;">
-                      ${this._renderRegisterDropdown(this._consumptionRegisters[i] ?? '', (v)=>this._setRegister('c', i, v), allSelected)}
-                    </td>
-                    <td style="padding: 4px;">
-                      ${this._renderRegisterDropdown(this._productionRegisters[i] ?? '', (v)=>this._setRegister('p', i, v), allSelected)}
-                    </td>
-                  </tr>
-                `)}
-              </tbody>
-            </table>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p style="font-size: 0.85em; color: var(--secondary-text-color); margin: 8px 0;">
-              No cumulative energy sensors were found. See the note above.
-            </p>`}
+      <div class="summary-row">
+        <span>${role.badge} ${label}</span>
+        ${showStatus ? (0, $4783b00079e8724f$export$fb3bddae799d3201)((0, $929021681b822bb4$export$1094b4db5e23d27c)(this.hass, role)) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       </div>
     `;
     }
-    _startListeningEntity(entityId) {
-        if (this._entityListeners[entityId]) return; // already listening
-        this._entityStatus = {
-            ...this._entityStatus,
-            [entityId]: undefined
-        }; // pending
-        // Fresh subscription: clear any stale negative flag for this entity.
-        const negReset = {
-            ...this._entityNegative
+    // ── Choose-sensor side-step ─────────────────────────────────────────
+    _openChooseSensor(def) {
+        const { subtitle: subtitle, searchTerms: searchTerms } = this._pickerContext(def);
+        const inUse = (0, $15d4c5d680e517d6$export$6f60e56286389e91)((0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities), (0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters)).filter((id)=>id !== def.entityId);
+        const params = {
+            definition: def,
+            subtitle: subtitle,
+            inUse: inUse,
+            searchTerms: searchTerms,
+            onSelect: (entityId)=>this._applyChoice(def, entityId)
         };
-        delete negReset[entityId];
-        this._entityNegative = negReset;
-        // Subscribe to state changes for this entity
-        const unsub = this.hass.connection.subscribeEvents((event)=>{
-            const data = event.data;
-            if (data.entity_id !== entityId) return;
-            const newState = data.new_state?.state;
-            if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
-            // Numeric check
-            const value = parseFloat(newState);
-            if (isNaN(value)) return;
-            this._entityStatus = {
-                ...this._entityStatus,
-                [entityId]: true
-            };
-            // Consumption/production should be directional (>= 0). A negative value
-            // points at a bidirectional/net or wrong sensor; flag it (sticky).
-            if (value < 0) this._entityNegative = {
-                ...this._entityNegative,
-                [entityId]: true
-            };
-        }, 'state_changed');
-        unsub.then((unsubFn)=>{
-            this._entityListeners[entityId] = unsubFn;
+        (0, $ee1328194d522913$export$43835e9acf248a15)(this, 'show-dialog', {
+            dialogTag: (0, $9ab7994a7f6bff81$export$45e0b80f1e500bd4),
+            dialogImport: ()=>Promise.resolve(),
+            dialogParams: params
         });
     }
-    _stopListeningEntity(entityId) {
-        const unsub = this._entityListeners[entityId];
-        if (unsub) {
-            try {
-                if (typeof unsub === 'function') unsub();
-            } catch (e) {}
-            delete this._entityListeners[entityId];
+    _pickerContext(def) {
+        const power = def.key.match(/^(consumption|production)_l(\d+)$/);
+        if (power) {
+            const dir = power[1];
+            const phase = power[2];
+            const label = dir === 'consumption' ? 'Consumption' : 'Production';
+            // Prefill with terms that actually appear in entity names: the direction
+            // and the phase as "l1"/"l2"/"l3" (matches "L1" and "..._l1"). Avoid the
+            // word "phase" — many integrations do not use it. The ✕ clears it.
+            return {
+                subtitle: `${label} phase ${phase} \xb7 power`,
+                searchTerms: [
+                    dir,
+                    `l${phase}`
+                ]
+            };
         }
-        const copy = {
-            ...this._entityStatus
+        const meter = def.key.match(/^(import|export)_t(\d+)$/);
+        if (meter) {
+            const dir = meter[1];
+            const tariff = meter[2];
+            // DSMR names import as "consumption", export as "production", with the
+            // tariff as "tarif_1"/"tarif_2" — so search the direction + the number,
+            // not the word "tariff".
+            const term = dir === 'import' ? 'consumption' : 'production';
+            return {
+                subtitle: `Tariff ${tariff} \xb7 ${dir} \xb7 meter reading`,
+                searchTerms: [
+                    term,
+                    tariff
+                ]
+            };
+        }
+        return {
+            subtitle: '',
+            searchTerms: []
         };
-        delete copy[entityId];
-        this._entityStatus = copy;
-        const negCopy = {
-            ...this._entityNegative
+    }
+    _applyChoice(def, entityId) {
+        const target = (0, $15d4c5d680e517d6$export$d66896b981a903db)(def.key);
+        if (!target) return;
+        const update = (arr)=>{
+            const copy = [
+                ...arr
+            ];
+            while(copy.length <= target.index)copy.push('');
+            copy[target.index] = entityId;
+            return copy;
         };
-        delete negCopy[entityId];
-        this._entityNegative = negCopy;
-    }
-    _getAllSelectedEntities() {
-        const all = [
-            ...this._consumptionEntities,
-            ...this._productionEntities,
-            ...this._consumptionRegisters,
-            ...this._productionRegisters
-        ].filter((e)=>e !== '');
-        return new Set(all);
-    }
-    _setRegister(side, i, val) {
-        if (side === 'c') {
-            const copy = [
-                ...this._consumptionRegisters
-            ];
-            copy[i] = val;
-            this._consumptionRegisters = copy;
-        } else {
-            const copy = [
-                ...this._productionRegisters
-            ];
-            copy[i] = val;
-            this._productionRegisters = copy;
+        switch(target.list){
+            case 'consumption_entities':
+                this._consumptionEntities = update(this._consumptionEntities);
+                break;
+            case 'production_entities':
+                this._productionEntities = update(this._productionEntities);
+                break;
+            case 'consumption_registers':
+                this._consumptionRegisters = update(this._consumptionRegisters);
+                break;
+            case 'production_registers':
+                this._productionRegisters = update(this._productionRegisters);
+                break;
         }
     }
-    _hasDuplicateEntities() {
-        const all = [
-            ...this._consumptionEntities,
-            ...this._productionEntities
-        ].filter((e)=>e !== '');
-        return new Set(all).size !== all.length;
+    // ── Detection variant, badges ───────────────────────────────────────
+    _renderNotRecognised(what) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title="Sensors not recognised — or not yet enabled">
+        No sensors reporting ${what} were found. Many integrations provide them
+        but leave them disabled by default — check Settings → Devices &amp;
+        services → your meter → entities and enable them.
+        <div style="margin-top: 8px;">
+          <button class="link" @click=${()=>this._searchAgain()}>
+            Search again
+          </button>
+          <a
+            href="/config/integrations"
+            target="_blank"
+            rel="noopener"
+            style="margin-left: 12px; color: var(--primary-color);"
+          >
+            Open integrations
+            <ha-icon icon="mdi:open-in-new" style="--mdc-icon-size: 14px;"></ha-icon>
+          </a>
+        </div>
+      </ha-alert>
+    `;
     }
-    _hasEmptyEntities() {
-        const count = this._phases ?? 1;
-        return this._consumptionEntities.filter((e)=>e !== '').length < count || this._productionEntities.filter((e)=>e !== '').length < count;
+    async _searchAgain() {
+        try {
+            const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
+            if (detected.consumption_entities?.length > 0) this._consumptionEntities = detected.consumption_entities;
+            if (detected.production_entities?.length > 0) this._productionEntities = detected.production_entities;
+            if (detected.consumption_registers?.length > 0) this._consumptionRegisters = this._padTo2(detected.consumption_registers);
+            if (detected.production_registers?.length > 0) this._productionRegisters = this._padTo2(detected.production_registers);
+        } catch (e) {
+        // Nothing found — the alert stays; the user can enable and retry.
+        }
     }
-    _hasPendingEntities() {
-        const all = [
-            ...this._consumptionEntities,
-            ...this._productionEntities
-        ].filter((e)=>e !== '');
-        return all.some((e)=>this._entityStatus[e] !== true);
+    _autoBadge() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+      <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+      Auto-detected
+    </span>`;
     }
-    // Meter registers are required, not optional. Per direction the selection is
-    // only complete when it is either a single cumulative TOTAL register (1.8.0 /
-    // 2.8.0 — already sums the tariffs), or BOTH tariff registers. A single
-    // tariff register leaves the other tariff's energy uncounted, so it does not
-    // count as complete.
+    // ── Validation ──────────────────────────────────────────────────────
+    _powerIncomplete() {
+        return (0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities).some((r)=>!r.entityId);
+    }
     _isTotalRegister(entityId) {
-        // The detector marks totals with "total" in the entity id
-        // (e.g. ..._energy_consumption_total). Tariff registers carry "tarif".
         return /total/i.test(entityId);
     }
     _directionIncomplete(registers) {
@@ -15056,55 +15493,15 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         if (filled.some((e)=>this._isTotalRegister(e))) return false;
         return filled.length < 2;
     }
-    _hasMissingRegisters() {
+    _metersIncomplete() {
         return this._directionIncomplete(this._consumptionRegisters) || this._directionIncomplete(this._productionRegisters);
     }
-    _renderEntityErrors() {
-        const errors = [];
-        if (this._hasEmptyEntities()) errors.push('Please select a sensor for each field.');
-        if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
-        if (this._hasMissingRegisters()) errors.push("For both import and export, select a total meter register or both tariff 1 and tariff 2 (cumulative kWh).");
-        if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
-    }
-    _renderNegativeWarning() {
-        const selected = this._getAllSelectedEntities();
-        const hasNegative = Object.keys(this._entityNegative).some((e)=>this._entityNegative[e] && selected.has(e));
-        if (!hasNegative) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <ha-alert alert-type="warning" title="A sensor reported a negative value">
-        A selected grid sensor reported a negative value. These fields each need
-        a sensor that reports only one direction and stays zero or positive: one
-        for power drawn from the grid, and one for power fed back to the grid. A
-        negative value means the sensor measures both directions at once (a net
-        value) — for example a CT clamp that also sees the car feeding back.
-        <p>
-          <strong>Tip:</strong> V2G Liberty does not support a single net sensor.
-          If your meter offers separate sensors for power drawn from and fed back
-          to the grid, select those; if not, please contact V2G Liberty to
-          request support.
-        </p>
-      </ha-alert>
-    `;
-    }
-    _renderSaveWarning() {
-        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities() || this._hasMissingRegisters()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        if (!this._hasPendingEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <ha-alert alert-type="warning" title="Some sensors have not responded yet">
-        This could mean the entity ID is incorrect, or the sensor is not reporting
-        data at this time. For production sensors, this can be normal if there is
-        currently no or little solar production — the meter may report 0 continuously,
-        which does not generate a state change.
-      </ha-alert>
-    `;
-    }
-    // ── Solar panel consistency warning (plan task 30a) ─────────────────
+    // ── Solar panel consistency warning ─────────────────────────────────
     _panelsThatWillBecomeInconsistent() {
         if (this._phases === null) return [];
         const newPhases = this._phases;
         return this._existingSolarPanels.filter((p)=>{
-            if (typeof p.phases !== 'number') return true; // unknown counts as broken
+            if (typeof p.phases !== 'number') return true;
             if (p.phases > newPhases) return true;
             if (p.phases === 1 && newPhases === 3 && p.connected_to_phase !== 1 && p.connected_to_phase !== 2 && p.connected_to_phase !== 3) return true;
             return false;
@@ -15114,7 +15511,6 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         if (!this._phaseChangeConfirmed) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const affected = this._panelsThatWillBecomeInconsistent();
         if (affected.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const list = affected.map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${n}</li>`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-alert
         alert-type="warning"
@@ -15124,11 +15520,12 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         <p style="margin: 0 0 8px 0;">
           The new phase count no longer matches the configuration of:
         </p>
-        <ul style="margin: 0 0 8px 16px; padding: 0;">${list}</ul>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">
+          ${affected.map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${n}</li>`)}
+        </ul>
         <p style="margin: 0;">
-          Continue anyway is allowed — the affected panel(s) will be flagged
-          on the solar panels card so you can edit them afterwards. Nothing
-          on the panels is changed automatically.
+          Continue anyway is allowed — the affected panel(s) get flagged on the
+          solar panels card. Nothing on the panels is changed automatically.
         </p>
       </ha-alert>
     `;
@@ -15136,16 +15533,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
     // ── Save ────────────────────────────────────────────────────────────
     async _handleSave() {
         this._triedSave = true;
-        // Block if empty, duplicate, or required registers missing
-        if (this._hasEmptyEntities() || this._hasDuplicateEntities() || this._hasMissingRegisters()) return;
-        // If some entities still pending and not yet confirmed
-        if (this._hasPendingEntities() && !this._saveConfirmed) {
-            this._saveConfirmed = true; // next click will be "Save anyway"
-            return;
-        }
-        // FlexMeasures may have dropped between the intro probe and here; the
-        // backend save is the authority — it provisions atomically and returns a
-        // clear fm_error if FM is unreachable, which _save() surfaces below.
+        if (this._powerIncomplete() || this._metersIncomplete()) return;
         await this._save();
     }
     async _save() {
@@ -15161,12 +15549,8 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 production_registers: this._productionRegisters.filter((e)=>e !== '')
             });
             if (result.fm_error) {
-                // Provisioning at FlexMeasures failed (unreachable or too slow). Nothing
-                // was saved; Lit preserves the form so the user can retry once FM is
-                // healthy (ensure_* is idempotent). Back/Cancel closes without saving.
                 this._saveError = `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` + `Please check FlexMeasures and try again.`;
                 this._saving = false;
-                this._saveConfirmed = false;
                 return;
             }
             if (result.error) {
@@ -15191,7 +15575,76 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
       }
       .save-error {
         margin-top: 12px;
-        font-weight: 500;
+      }
+      .muted {
+        color: var(--secondary-text-color);
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .sensors-intro {
+        border-bottom: 1px solid var(--divider-color);
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .sensors-intro .muted {
+        font-size: 0.9em;
+        line-height: 1.4;
+        margin: 4px 0 0 0;
+      }
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 0.95em;
+        margin-bottom: 2px;
+        /* Match the rows' horizontal padding so columns line up. */
+        padding: 0 4px;
+      }
+      .gh-title {
+        flex: 1;
+        min-width: 0;
+      }
+      .gh-live {
+        flex: 0 0 auto;
+        width: 28px;
+        text-align: center;
+        white-space: nowrap;
+        /* Sit centred above the 28px status column: the row's action column
+           is 108px wide with a 12px gap before the status icon. */
+        margin-right: 120px;
+        font-size: 0.7em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: var(--secondary-text-color);
+      }
+      .summary-group {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: var(--secondary-text-color);
+        margin: 16px 0 4px 0;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0;
+        border-top: 1px solid var(--divider-color);
+        font-size: 0.9em;
+      }
+      .link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--primary-color);
+        cursor: pointer;
+        font-size: 1em;
       }
       details.hint {
         margin-top: 8px;
@@ -15232,16 +15685,6 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
       .phase-subtitle {
         font-size: 0.85em;
         color: var(--secondary-text-color);
-      }
-      .column-header {
-        font-size: 0.75em;
-        font-weight: 600;
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        width: 28px;
-        text-align: center;
-        flex-shrink: 0;
       }
       .auto-detected-badge {
         display: inline-flex;
@@ -15288,42 +15731,19 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         font-size: 0.9em;
         line-height: 1.4;
       }
-      .requirements-footer {
-        margin-top: 12px;
-        font-size: 0.8em;
-        color: var(--secondary-text-color);
-        font-style: italic;
-      }
     `
         ];
     }
     constructor(...args){
-        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Cumulative meter registers (total_increasing energy). Index 0 = tariff 1,
-        // index 1 = tariff 2. Optional and summed downstream; empty = feature off.
-        // The common NL case is two tariffs (or a single total register in slot 0).
-        this._consumptionRegisters = [
+        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', // Storage stays the four lists; roles are derived for rendering.
+        this._consumptionEntities = [], this._productionEntities = [], this._consumptionRegisters = [
             '',
             ''
         ], this._productionRegisters = [
             '',
             ''
-        ], // Inline entity validation state (per entity: true=ok, undefined=pending)
-        this._entityStatus = {}, // Entities that reported a negative value (likely a bidirectional/net or
-        // wrong sensor, since consumption/production should be directional).
-        this._entityNegative = {}, this._entityListeners = {}, // Auto-detection state
-        this._autoDetected = false, // Form validation state
-        this._triedContinueStep2 = false, this._triedSave = false, // Set on the first Continue click of step 2 when the new phases would
-        // make existing solar panels inconsistent. While true, the Continue
-        // button reads "Continue anyway" and the warning is visible. Reset
-        // whenever the user changes the phase selection so a different choice
-        // requires its own acknowledgement.
-        this._phaseChangeConfirmed = false, // Saving state
-        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Existing solar panels (loaded at open) so the dialog can warn the user
-        // when a phases change would leave one or more panels inconsistent with
-        // the new grid configuration. The dialog never auto-fixes panels — see
-        // plan task 30a.
-        this._existingSolarPanels = [], // Available sensor entities for dropdowns
-        this._sensorEntities = [];
+        ], this._autoDetected = false, // Per-step "the user pressed on with something missing" flags.
+        this._triedContinueConnection = false, this._phaseChangeConfirmed = false, this._triedContinuePower = false, this._triedContinueMeter = false, this._triedSave = false, this._saving = false, this._saveError = '', this._existingSolarPanels = [];
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -15349,22 +15769,22 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionRegisters", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityNegative", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueStep2", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueConnection", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phaseChangeConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinuePower", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueMeter", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saving", void 0);
@@ -15373,13 +15793,11 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveError", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveConfirmed", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_existingSolarPanels", void 0);
 $c39c194e2cc8bd35$export$7bc40f611da49691 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($c39c194e2cc8bd35$export$45e0b80f1e500bd4)
 ], $c39c194e2cc8bd35$export$7bc40f611da49691);
+
 
 
 
@@ -16553,6 +16971,13 @@ const $de105ef1fecb85b1$export$dc47fab9d3063d57 = (element)=>{
         dialogTag: (0, $c39c194e2cc8bd35$export$45e0b80f1e500bd4),
         dialogImport: ()=>Promise.resolve(),
         dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$b901c39e7c5877ae = (element, dialogParams)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $9ab7994a7f6bff81$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: dialogParams
     });
 };
 const $de105ef1fecb85b1$export$73ad1784b2d8a352 = (element, params = {})=>{

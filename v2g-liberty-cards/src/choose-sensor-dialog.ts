@@ -148,9 +148,16 @@ export class ChooseSensorDialog extends DialogBase {
   private _visibleCandidates(): HassEntity[] {
     const role = this._params.definition.role;
     const all = this._unfiltered
-      ? Object.values(this.hass.states).filter(s =>
-          s.entity_id.startsWith('sensor.')
-        )
+      ? Object.values(this.hass.states)
+          .filter(s => s.entity_id.startsWith('sensor.'))
+          // Fitting sensors (the right unit/class for this role) first, the
+          // rest below; alphabetical by friendly name within each group.
+          .sort((a, b) => {
+            const aFits = fitsRole(a, role) ? 0 : 1;
+            const bFits = fitsRole(b, role) ? 0 : 1;
+            if (aFits !== bFits) return aFits - bFits;
+            return friendlyName(a).localeCompare(friendlyName(b));
+          })
       : candidatesFor(this.hass, role, this._params.inUse);
 
     const terms = this._query

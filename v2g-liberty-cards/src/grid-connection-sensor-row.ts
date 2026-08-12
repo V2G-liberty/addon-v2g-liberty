@@ -99,7 +99,7 @@ export function renderSensorRow(
           >`
         : nothing}
       <button
-        style="flex: 0 0 auto; background: none; border: none; padding: 4px 8px; color: var(--primary-color); cursor: pointer; font-size: 0.95em;"
+        style="flex: 0 0 auto; width: 108px; text-align: right; white-space: nowrap; background: none; border: none; padding: 4px 0; color: var(--primary-color); cursor: pointer; font-size: 0.95em;"
         @click=${() => opts.onChoose(definition)}
       >
         ${notSet ? 'Choose sensor' : 'Change'}
