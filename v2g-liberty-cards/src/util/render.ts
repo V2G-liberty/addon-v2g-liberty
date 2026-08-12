@@ -74,7 +74,7 @@ export function renderButton(
   }
 
   return html`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto">
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto; min-width: 5em;">
       ${chevronIcon}
       ${label}
     </ha-button>
