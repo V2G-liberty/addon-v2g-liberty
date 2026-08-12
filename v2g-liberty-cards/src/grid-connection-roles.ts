@@ -80,7 +80,11 @@ export function meterRoles(
   ];
 }
 
-/** Map a role key to the stored list + index the choice must be written to. */
+/**
+ * Map a role key to the stored settings list + index the choice must be written
+ * to. Note the two kinds of list: `*_entities` hold per-phase POWER sensors
+ * (W/kW), `*_registers` hold cumulative ENERGY meter registers (kWh).
+ */
 export function roleTarget(key: string): RoleTarget | null {
   const power = key.match(/^(consumption|production)_l(\d+)$/);
   if (power) {

@@ -78,6 +78,9 @@ def detect_meter_registers(states: dict) -> dict:
     """
     registers = _find_energy_registers(states)
     consumption, production = _classify(registers, states)
+    # These are cumulative ENERGY meter registers (kWh, total_increasing;
+    # OBIS 1.8.x import / 2.8.x export) — distinct from the per-phase POWER
+    # sensors detected by grid_entity_detector (consumption/production_entities).
     return {
         "consumption_registers": _prefer_total(consumption),
         "production_registers": _prefer_total(production),
