@@ -68,10 +68,13 @@ export class ChooseSensorDialog extends DialogBase {
         open
         @closed=${this.closeDialog}
         .headerTitle=${newApi ? title : undefined}
+        .headerSubtitle=${newApi ? this._params.subtitle : undefined}
         .heading=${newApi ? undefined : renderDialogHeader(this.hass, title)}
       >
         <div class="content">
-          <p class="subtitle">${this._params.subtitle}</p>
+          ${newApi
+            ? nothing
+            : html`<p class="subtitle">${this._params.subtitle}</p>`}
 
           ${renderHaInput({
             value: this._query,
@@ -270,8 +273,6 @@ export class ChooseSensorDialog extends DialogBase {
       .subtitle {
         color: var(--secondary-text-color);
         margin: 0 0 12px;
-        /* Align with the header title, which sits past the close icon. */
-        padding-left: 40px;
       }
       .icon-btn {
         background: none;
