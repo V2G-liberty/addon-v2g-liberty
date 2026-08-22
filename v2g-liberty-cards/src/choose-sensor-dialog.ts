@@ -6,7 +6,7 @@
 // labels each unsuitable candidate with what it actually measures; picking one
 // then needs a second OK (a stated-consequence override).
 //
-// Copy is inline English for now; it moves to strings.json in Fase 7.1.
+// Copy lives in strings.json / nl.json under settings.grid-connection.choose-sensor.
 
 import { html, css, nothing, TemplateResult } from 'lit';
 import { customElement, state, property } from 'lit/decorators';
@@ -26,6 +26,10 @@ import {
   friendlyName,
   fitsRole,
 } from './grid-connection-status';
+import { unsafeHTML } from 'lit/directives/unsafe-html';
+import { partial } from './util/translate';
+
+const tp = partial('settings.grid-connection.choose-sensor');
 
 export const tagName = 'v2g-liberty-choose-sensor-dialog';
 
@@ -47,6 +51,7 @@ export class ChooseSensorDialog extends DialogBase {
   @state() private _unfiltered = false;
   @state() private _selected: string | null = null;
   @state() private _warnedUnsuitable = false;
+  @state() private _triedConfirmEmpty = false;
 
   public async showDialog(params: ChooseSensorDialogParams): Promise<void> {
     super.showDialog();
@@ -55,12 +60,13 @@ export class ChooseSensorDialog extends DialogBase {
     this._selected = params.definition.entityId;
     this._unfiltered = false;
     this._warnedUnsuitable = false;
+    this._triedConfirmEmpty = false;
   }
 
   render(): TemplateResult | typeof nothing {
     if (!this.isOpen) return nothing;
     const newApi = isNewHaDialogAPI(this.hass);
-    const title = 'Choose sensor';
+    const title = tp('title');
     const isPower = this._params.definition.role === 'power';
 
     return html`
@@ -79,23 +85,20 @@ export class ChooseSensorDialog extends DialogBase {
           ${renderHaInput({
             value: this._query,
             onChange: (e: any) => (this._query = e.target?.value ?? ''),
-            label: 'Search',
+            label: tp('search-label'),
             style: 'width: 100%',
             testId: 'sensor-search',
             suffix: html`
               ${this._query
                 ? html`<button
                     class="icon-btn"
-                    title="Clear the search"
+                    title=${tp('clear-title')}
                     @click=${() => (this._query = '')}
                   >
                     ✕
                   </button>`
                 : nothing}
-              <span
-                class="info"
-                title="Prefilled with what you are setting up — every word has to match. Clear or edit it if your integration names things differently."
-              >
+              <span class="info" title=${tp('search-info')}>
                 <ha-icon icon="mdi:information-outline"></ha-icon>
               </span>
             `,
@@ -106,13 +109,13 @@ export class ChooseSensorDialog extends DialogBase {
               class="chip ${this._unfiltered ? '' : 'active'}"
               @click=${() => (this._unfiltered = false)}
             >
-              ${isPower ? 'W / kW only' : 'kWh readings only'}
+              ${isPower ? tp('filter-power') : tp('filter-meter')}
             </button>
             <button
               class="chip ${this._unfiltered ? 'active' : ''}"
               @click=${() => (this._unfiltered = true)}
             >
-              All sensors
+              ${tp('filter-all')}
             </button>
           </div>
 
@@ -121,26 +124,18 @@ export class ChooseSensorDialog extends DialogBase {
               this._renderCandidate(stateObj)
             )}
             ${this._visibleCandidates().length === 0
-              ? html`<div class="empty">No matching sensors.</div>`
+              ? html`<div class="empty">${tp('empty')}</div>`
               : nothing}
           </div>
 
+          ${this._triedConfirmEmpty && !this._selected
+            ? html`<ha-alert alert-type="error">${tp('select-first')}</ha-alert>`
+            : nothing}
           ${this._renderUnsuitableWarning()} ${this._renderHelp(isPower)}
         </div>
 
-        ${renderButton(
-          this.hass,
-          () => this.closeDialog(),
-          false,
-          'Cancel'
-        )}
-        ${renderButton(
-          this.hass,
-          () => this._confirm(),
-          true,
-          'OK',
-          !this._selected
-        )}
+        ${renderButton(this.hass, () => this.closeDialog(), false, tp('cancel'))}
+        ${renderButton(this.hass, () => this._confirm(), true, tp('ok'))}
       </ha-dialog>
     `;
   }
@@ -194,9 +189,9 @@ export class ChooseSensorDialog extends DialogBase {
           <div class="entity-id">${stateObj.entity_id}</div>
         </div>
         ${used
-          ? html`<span class="note">already in use</span>`
+          ? html`<span class="note">${tp('already-in-use')}</span>`
           : misfit && this._unfiltered
-            ? html`<span class="warn">measures ${unit || '?'}</span>`
+            ? html`<span class="warn">${tp('measures', { unit: unit || '?' })}</span>`
             : nothing}
       </div>
     `;
@@ -210,12 +205,10 @@ export class ChooseSensorDialog extends DialogBase {
     }
     const unit =
       (stateObj?.attributes as { unit_of_measurement?: string })
-        ?.unit_of_measurement ?? 'the wrong quantity';
+        ?.unit_of_measurement ?? tp('unsuitable-fallback-unit');
     return html`
-      <ha-alert alert-type="warning" title="This sensor does not fit here">
-        This sensor measures ${unit}, not what this field needs. V2G Liberty
-        cannot use it here and the schedules would be wrong. Pick another sensor,
-        or press OK again to use it anyway.
+      <ha-alert alert-type="warning" title=${tp('unsuitable-title')}>
+        ${tp('unsuitable-body', { unit })}
       </ha-alert>
     `;
   }
@@ -223,33 +216,16 @@ export class ChooseSensorDialog extends DialogBase {
   private _renderHelp(isPower: boolean) {
     return html`
       <details class="help">
-        <summary>Help — which sensor do I pick?</summary>
+        <summary>${tp('help-summary')}</summary>
         <div class="help-body">
           ${isPower
             ? html`
-                <p>
-                  Pick the <strong>power</strong> on one phase, in W or kW,
-                  measured at your meter — a value that changes all the time.
-                  Consumption is what you take from the grid, production what you
-                  feed back. Phase numbering follows your meter, so pick the
-                  sensor whose phase matches the row you are filling in.
-                </p>
-                <p>
-                  A sensor for a single appliance (a heat pump, a charger)
-                  measures only that device, not the whole connection.
-                </p>
+                <p>${unsafeHTML(tp('help-power-1'))}</p>
+                <p>${tp('help-power-2')}</p>
               `
             : html`
-                <p>
-                  Pick a total in kWh that only ever goes up — the same kind of
-                  number your meter shows. Import is what you took from the grid;
-                  export is what you fed back. With DSMR these are usually named
-                  <em>energy consumption / production tariff 1 / 2</em>.
-                </p>
-                <p>
-                  Not sure between two? Compare the value with the display on
-                  your meter — the numbers should match.
-                </p>
+                <p>${unsafeHTML(tp('help-meter-1'))}</p>
+                <p>${tp('help-meter-2')}</p>
               `}
         </div>
       </details>
@@ -259,10 +235,14 @@ export class ChooseSensorDialog extends DialogBase {
   private _select(entityId: string) {
     this._selected = entityId;
     this._warnedUnsuitable = false;
+    this._triedConfirmEmpty = false;
   }
 
   private _confirm() {
-    if (!this._selected) return;
+    if (!this._selected) {
+      this._triedConfirmEmpty = true;
+      return;
+    }
     const stateObj = this.hass.states[this._selected];
     const suitable =
       stateObj && fitsRole(stateObj, this._params.definition.role);

@@ -19,6 +19,9 @@ import {
   statusOf,
   friendlyName,
 } from './grid-connection-status';
+import { partial } from './util/translate';
+
+const tp = partial('settings.grid-connection');
 
 export interface SensorRowOptions {
   /** Show the LIVE status column. Default true; step 4 sets it false. */
@@ -33,21 +36,24 @@ export function renderStatusIcon(status: SensorStatus): TemplateResult | symbol 
     case 'ok':
       return html`<ha-icon
         icon="mdi:check-circle"
-        title="Reporting"
+        title=${tp('status.reporting')}
         style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"
       ></ha-icon>`;
     case 'waiting':
-      return html`<ha-spinner size="small" title="Waiting for data"></ha-spinner>`;
+      return html`<ha-spinner
+        size="small"
+        title=${tp('status.waiting')}
+      ></ha-spinner>`;
     case 'wrong_type':
       return html`<ha-icon
         icon="mdi:alert-circle"
-        title="This sensor does not fit here"
+        title=${tp('status.wrong-type')}
         style="color: var(--error-color, #f44336); --mdc-icon-size: 20px;"
       ></ha-icon>`;
     case 'stale':
       return html`<ha-icon
         icon="mdi:alert-circle"
-        title="No update for a long time"
+        title=${tp('status.stale')}
         style="color: var(--error-color, #f44336); --mdc-icon-size: 20px;"
       ></ha-icon>`;
     default:
@@ -79,7 +85,7 @@ export function renderSensorRow(
       <div style="flex: 1; min-width: 0;">
         ${notSet
           ? html`<div style="color: var(--secondary-text-color); font-style: italic;">
-              No sensor selected yet
+              ${tp('done.no-sensor')}
             </div>`
           : html`
               <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -102,7 +108,7 @@ export function renderSensorRow(
         style="flex: 0 0 auto; width: 108px; text-align: right; white-space: nowrap; background: none; border: none; padding: 4px 0; color: var(--primary-color); cursor: pointer; font-size: 0.95em;"
         @click=${() => opts.onChoose(definition)}
       >
-        ${notSet ? 'Choose sensor' : 'Change'}
+        ${notSet ? tp('row.choose') : tp('row.change')}
       </button>
     </div>
   `;

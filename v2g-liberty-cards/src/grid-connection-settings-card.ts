@@ -13,6 +13,9 @@ import {
   aggregateStatus,
 } from './grid-connection-status';
 import { powerRoles, meterRoles } from './grid-connection-roles';
+import { partial } from './util/translate';
+
+const tp = partial('settings.grid-connection');
 
 @customElement('v2g-liberty-grid-connection-settings-card')
 export class GridConnectionSettingsCard extends LitElement {
@@ -104,18 +107,20 @@ export class GridConnectionSettingsCard extends LitElement {
   private _roleLabel(role: RoleDefinition): string {
     const p = role.key.match(/^(consumption|production)_l(\d+)$/);
     if (p) {
-      return `${p[1] === 'consumption' ? 'Consumption' : 'Production'} L${p[2]}`;
+      return tp(p[1] === 'consumption' ? 'role.consumption' : 'role.production', {
+        n: p[2],
+      });
     }
     const m = role.key.match(/^(import|export)_t(\d+)$/);
     if (m) {
-      return `${m[1] === 'import' ? 'Import' : 'Export'} tariff ${m[2]}`;
+      return tp(m[1] === 'import' ? 'role.import' : 'role.export', { n: m[2] });
     }
     return role.key;
   }
 
   render() {
     if (this._loading) {
-      return html`<ha-card header="Grid connection">
+      return html`<ha-card header=${tp('title')}>
         <div class="card-content"><ha-spinner></ha-spinner></div>
       </ha-card>`;
     }
@@ -136,7 +141,7 @@ export class GridConnectionSettingsCard extends LitElement {
       <ha-card>
         <div class="gc-header">
           <span class="dot ${dotClass}"></span>
-          <span>Grid connection</span>
+          <span>${tp('title')}</span>
         </div>
         ${state === 'not_set'
           ? this._renderNotSetUp()
@@ -154,13 +159,18 @@ export class GridConnectionSettingsCard extends LitElement {
     const reporting = roles.filter(
       r => statusOf(this._hass, r) === 'ok'
     ).length;
-    const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
+    const phaseLabel = tp(this._phases === 1 ? 'card.phase-1' : 'card.phase-3');
     return html`
       <div class="card-content">
         <ha-alert alert-type="success">
-          Active · ${reporting} of ${roles.length} sensors reporting
+          ${tp('card.active-alert', { reporting, total: roles.length })}
         </ha-alert>
-        <p>${phaseLabel}, ${this._capacityPerPhase} A per phase.</p>
+        <p>
+          ${tp('card.active-summary', {
+            phase: phaseLabel,
+            capacity: this._capacityPerPhase ?? '',
+          })}
+        </p>
       </div>
       <div class="card-actions">
         ${renderButton(
@@ -180,13 +190,14 @@ export class GridConnectionSettingsCard extends LitElement {
     });
     return html`
       <div class="card-content">
-        <ha-alert alert-type="error" title="A sensor needs attention">
-          ${failing ? html`<strong>${this._roleLabel(failing)}</strong> is ` : ''}
-          not reporting correctly. Monitoring is paused until it is resolved.
+        <ha-alert alert-type="error" title=${tp('card.problem-title')}>
+          ${failing
+            ? tp('card.problem-alert', { role: this._roleLabel(failing) })
+            : tp('card.problem-alert-generic')}
         </ha-alert>
       </div>
       <div class="card-actions">
-        ${renderButton(this._hass, () => this._openDialog(), true, 'Fix this')}
+        ${renderButton(this._hass, () => this._openDialog(), true, tp('card.fix'))}
       </div>
     `;
   }
@@ -198,13 +209,16 @@ export class GridConnectionSettingsCard extends LitElement {
     const names = missing.map(m => this._roleLabel(m)).join(', ');
     return html`
       <div class="card-content">
-        <ha-alert alert-type="warning" title="Not fully set up">
-          ${set} of ${roles.length} sensors selected. Still missing: ${names}.
-          Complete the setup to start monitoring.
+        <ha-alert alert-type="warning" title=${tp('card.incomplete-title')}>
+          ${tp('card.incomplete-alert', {
+            set,
+            total: roles.length,
+            names,
+          })}
         </ha-alert>
       </div>
       <div class="card-actions">
-        ${renderButton(this._hass, () => this._openDialog(), true, 'Fix this')}
+        ${renderButton(this._hass, () => this._openDialog(), true, tp('card.fix'))}
       </div>
     `;
   }
@@ -212,14 +226,10 @@ export class GridConnectionSettingsCard extends LitElement {
   private _renderNotSetUp() {
     return html`
       <div class="card-content">
-        <p>
-          Configure your grid connection so V2G Liberty learns your household
-          energy patterns — for better predictions and smarter schedules, and to
-          be ready for the end of net metering.
-        </p>
+        <p>${tp('card.not-set-up')}</p>
       </div>
       <div class="card-actions">
-        ${renderButton(this._hass, () => this._openDialog(), true, 'Set up')}
+        ${renderButton(this._hass, () => this._openDialog(), true, tp('card.set-up'))}
       </div>
     `;
   }

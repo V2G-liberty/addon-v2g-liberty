@@ -1,4 +1,152 @@
 {
+  "settings": {
+    "grid-connection": {
+      "title": "Netaansluiting",
+      "role": {
+        "consumption": "Inkoop L%{n}",
+        "production": "Verkoop L%{n}",
+        "import": "Inkoop tarief %{n}",
+        "export": "Verkoop tarief %{n}"
+      },
+      "card": {
+        "active-alert": "Actief · %{reporting} van %{total} sensoren rapporteren",
+        "active-summary": "%{phase}, %{capacity} A per fase.",
+        "phase-1": "1-fase",
+        "phase-3": "3-fase",
+        "problem-title": "Een sensor heeft aandacht nodig",
+        "problem-alert": "%{role} rapporteert niet correct. De monitoring is gepauzeerd totdat dit is opgelost.",
+        "problem-alert-generic": "Een sensor rapporteert niet correct. De monitoring is gepauzeerd totdat dit is opgelost.",
+        "incomplete-title": "Nog niet volledig ingesteld",
+        "incomplete-alert": "%{set} van %{total} sensoren geselecteerd. Nog niet ingesteld: %{names}. Rond de configuratie af om te starten met monitoren.",
+        "not-set-up": "Configureer je netaansluiting zodat V2G Liberty de energiepatronen van je huishouden leert — voor betere voorspellingen en slimmere schema's, en om klaar te zijn voor het einde van de saldering.",
+        "set-up": "Instellen",
+        "fix": "Herstel dit"
+      },
+      "header": {
+        "connection": "Aansluiting",
+        "power": "Vermogen",
+        "meter": "Meterstanden",
+        "done": "Klaar"
+      },
+      "fm-gate-subject": "netaansluiting",
+      "intro": {
+        "p1": "Door je netaansluiting te monitoren leert V2G Liberty de energiepatronen van je huishouden kennen. Dat leidt tot <strong>betere voorspellingen</strong> en <strong>slimmere schema's</strong>.",
+        "p2": "<strong>Voor Nederlandse gebruikers:</strong> een waardevolle voorbereiding op het einde van de saldering. Zodra die stopt, is deze configuratie vereist.",
+        "req-header": "Wat je nodig hebt",
+        "req-smart-meter-title": "Slimme meter",
+        "req-smart-meter-desc": "Rapporteert het vermogen per fase in real time.",
+        "req-cable-title": "P1-kabel",
+        "req-cable-desc": "Een USB-P1-poortkabel of vergelijkbaar (~€15).",
+        "req-integration-title": "Home Assistant-integratie",
+        "req-integration-desc": "Bijv. de DSMR Smart Meter-integratie, die de meter als sensor-entiteiten beschikbaar maakt."
+      },
+      "connection": {
+        "phases-question": "Hoeveel fasen heeft je netaansluiting?",
+        "phase-1-title": "1 fase",
+        "phase-1-sub": "Kleine aansluiting",
+        "phase-3-title": "3 fasen",
+        "phase-3-sub": "Standaardaansluiting",
+        "phases-error": "Selecteer het aantal fasen.",
+        "phases-hint-summary": "Niet zeker?",
+        "phases-hint-body": "Kijk in je slimme-meter-integratie. Aparte L1-, L2- en L3-sensoren betekenen 3 fasen; alleen L1 betekent 1 fase.",
+        "capacity-label": "Capaciteit per fase (ampère)",
+        "capacity-error-empty": "Vul de capaciteit in.",
+        "capacity-error-range": "Moet een heel getal tussen 6 en 80 zijn.",
+        "capacity-hint-summary": "Waar vind ik dit",
+        "capacity-hint-body": "Op je energiecontract of je hoofdzekering — meestal 25 A of 35 A. Vul de werkelijke waarde in, niet een lagere veiligheidsmarge.",
+        "continue-anyway": "Toch doorgaan"
+      },
+      "badge": {
+        "auto-detected": "Automatisch gedetecteerd"
+      },
+      "solar-warning": {
+        "title-one": "Deze wijziging maakt een zonnepaneel ongeldig",
+        "title-many": "Deze wijziging maakt zonnepanelen ongeldig",
+        "body-intro": "Het nieuwe aantal fasen komt niet meer overeen met de configuratie van:",
+        "body-outro": "Toch doorgaan mag — de betreffende paneel(en) worden gemarkeerd op de zonnepanelen-kaart. Er wordt niets automatisch aan de panelen gewijzigd.",
+        "unnamed": "(naamloos)"
+      },
+      "sensors-heading": "Sensoren",
+      "power": {
+        "intro": "Om te volgen wat je huishouden gebruikt en teruglevert, leest V2G Liberty het vermogen op elke fase. Deze sensoren zijn automatisch herkend — controleer of elke sensor klopt voordat je verdergaat.",
+        "consumption-title": "Inkoop",
+        "consumption-sub": "vermogen dat van het net wordt afgenomen",
+        "production-title": "Verkoop",
+        "production-sub": "vermogen dat aan het net wordt teruggeleverd",
+        "incomplete-alert": "Sensor(en) ontbreken nog — kies voor elke fase een sensor, voor zowel inkoop als verkoop, om verder te gaan.",
+        "not-recognised-what": "vermogen per fase"
+      },
+      "meter": {
+        "intro": "De cumulatieve meterstanden zijn waarop je energierekening wordt afgerekend, per tarief. Er zijn altijd twee tarieven — bij één tarief blijft tarief 2 simpelweg op dezelfde waarde. Deze zijn automatisch herkend — controleer ze voordat je verdergaat.",
+        "tariff-1": "Tarief 1",
+        "tariff-2": "Tarief 2",
+        "incomplete-alert": "Sensor(en) ontbreken nog — kies voor zowel inkoop als verkoop een totaalregister of zowel tarief 1 als tarief 2 (cumulatieve kWh).",
+        "not-recognised-what": "cumulatieve kWh-standen"
+      },
+      "done": {
+        "all-set": "Helemaal klaar — %{count} sensoren gekoppeld.",
+        "incomplete-warning": "Nog niet alles is ingesteld. Ga terug en vul de ontbrekende rijen aan.",
+        "phases-label": "Fasen",
+        "phases-value": "%{smart_count} fase |||| %{smart_count} fasen",
+        "capacity-label": "Capaciteit per fase",
+        "no-sensor": "Nog geen sensor geselecteerd",
+        "keeps-monitoring": "V2G Liberty blijft deze sensoren monitoren en waarschuwt je zodra er één stopt met rapporteren.",
+        "save-incomplete": "Sommige rijen ontbreken nog — ga terug en vul ze aan voordat je opslaat.",
+        "saving": "Opslaan…"
+      },
+      "detect": {
+        "title": "Sensoren niet herkend — of nog niet ingeschakeld",
+        "body": "Er zijn geen sensoren gevonden die %{what} rapporteren. Veel integraties leveren ze wel maar laten ze standaard uitgeschakeld — ga naar Instellingen → Apparaten & services → je meter → entiteiten en schakel ze in.",
+        "search-again": "Opnieuw zoeken",
+        "open-integrations": "Integraties openen"
+      },
+      "save-error": {
+        "fm": "Kon de grid-sensoren niet aanmaken in FlexMeasures: %{error}. Controleer FlexMeasures en probeer het opnieuw.",
+        "unreachable": "Kon de add-on niet bereiken. Controleer of V2G Liberty draait en probeer het opnieuw."
+      },
+      "picker": {
+        "consumption": "Inkoop",
+        "production": "Verkoop",
+        "import": "Inkoop",
+        "export": "Verkoop",
+        "power-subtitle": "%{direction} fase %{phase} · vermogen",
+        "meter-subtitle": "Tarief %{tariff} · %{direction} · meterstand"
+      },
+      "choose-sensor": {
+        "title": "Sensor kiezen",
+        "search-label": "Zoeken",
+        "clear-title": "Zoekopdracht wissen",
+        "search-info": "Voorgevuld met wat je instelt — elk woord moet matchen. Wis of pas het aan als je integratie dingen anders benoemt.",
+        "filter-power": "Alleen W / kW",
+        "filter-meter": "Alleen kWh-standen",
+        "filter-all": "Alle sensoren",
+        "empty": "Geen passende sensoren.",
+        "already-in-use": "al in gebruik",
+        "measures": "meet %{unit}",
+        "select-first": "Kies eerst een sensor uit de lijst — zoek hierboven als je 'm niet ziet.",
+        "unsuitable-title": "Deze sensor past hier niet",
+        "unsuitable-body": "Deze sensor meet %{unit}, niet wat dit veld nodig heeft. V2G Liberty kan 'm hier niet gebruiken en de schema's zouden fout zijn. Kies een andere sensor, of druk nogmaals op OK om 'm toch te gebruiken.",
+        "unsuitable-fallback-unit": "de verkeerde grootheid",
+        "help-summary": "Help — welke sensor kies ik?",
+        "help-power-1": "Kies het <strong>vermogen</strong> op één fase, in W of kW, gemeten bij je meter — een waarde die continu verandert. Inkoop is wat je van het net afneemt, verkoop wat je teruglevert. De fasenummering volgt je meter, dus kies de sensor waarvan de fase overeenkomt met de rij die je invult.",
+        "help-power-2": "Een sensor voor één apparaat (een warmtepomp, een lader) meet alleen dat apparaat, niet de hele aansluiting.",
+        "help-meter-1": "Kies een totaal in kWh dat alleen maar oploopt — hetzelfde soort getal dat je meter toont. Inkoop is wat je van het net hebt afgenomen; verkoop is wat je hebt teruggeleverd. Bij DSMR heten deze meestal <em>energy consumption / production tariff 1 / 2</em>.",
+        "help-meter-2": "Twijfel je tussen twee? Vergelijk de waarde met het display op je meter — de getallen moeten overeenkomen.",
+        "cancel": "Annuleren",
+        "ok": "OK"
+      },
+      "status": {
+        "reporting": "Rapporteert",
+        "waiting": "Wachten op data",
+        "wrong-type": "Deze sensor past hier niet",
+        "stale": "Lang geen update"
+      },
+      "row": {
+        "choose": "Sensor kiezen",
+        "change": "Wijzigen"
+      }
+    }
+  },
   "data-table": {
     "granularity": {
       "quarter_hours": "15 min",

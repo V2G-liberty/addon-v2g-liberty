@@ -7,8 +7,8 @@
 //
 // Buttons are never disabled to block an action (except the shared FM
 // reachability gate on the intro): pressing on with something missing shows an
-// ha-alert saying what. Copy is inline English for now (moves to strings.json,
-// Fase 7.1).
+// ha-alert saying what. Copy lives in strings.json / nl.json under
+// settings.grid-connection.
 
 import { css, html, nothing, TemplateResult } from 'lit';
 import { customElement, state } from 'lit/decorators';
@@ -36,6 +36,10 @@ import {
   tagName as chooseSensorTag,
   ChooseSensorDialogParams,
 } from './choose-sensor-dialog';
+import { unsafeHTML } from 'lit/directives/unsafe-html';
+import { partial } from './util/translate';
+
+const tp = partial('settings.grid-connection');
 
 export const tagName = 'v2g-liberty-edit-grid-connection-settings-dialog';
 
@@ -210,15 +214,15 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   private _headerFor(step: Step): string {
     switch (step) {
       case Step.Connection:
-        return 'Connection';
+        return tp('header.connection');
       case Step.Power:
-        return 'Power';
+        return tp('header.power');
       case Step.Meter:
-        return 'Meter readings';
+        return tp('header.meter');
       case Step.Done:
-        return 'Done';
+        return tp('header.done');
       default:
-        return 'Grid connection';
+        return tp('title');
     }
   }
 
@@ -226,40 +230,32 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   private _renderIntro() {
     return html`
-      ${this._renderFmGate('grid connection')}
+      ${this._renderFmGate(tp('fm-gate-subject'))}
 
-      <p>
-        By monitoring your grid connection, V2G Liberty learns your household
-        energy patterns. That leads to <strong>better predictions</strong> and
-        <strong>smarter schedules</strong>.
-      </p>
-      <p>
-        <strong>For Dutch users:</strong> a valuable preparation for the end of
-        net metering. Once it ends, this configuration will be required.
-      </p>
+      <p>${unsafeHTML(tp('intro.p1'))}</p>
+      <p>${unsafeHTML(tp('intro.p2'))}</p>
 
       <div class="requirements-box">
-        <div class="requirements-header">What you need</div>
+        <div class="requirements-header">${tp('intro.req-header')}</div>
         <div class="requirement-item">
           <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
           <div>
-            <strong>Smart meter</strong><br />
-            Reports power per phase in real time.
+            <strong>${tp('intro.req-smart-meter-title')}</strong><br />
+            ${tp('intro.req-smart-meter-desc')}
           </div>
         </div>
         <div class="requirement-item">
           <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
           <div>
-            <strong>P1 cable</strong><br />
-            A USB P1 port cable or similar (~€15).
+            <strong>${tp('intro.req-cable-title')}</strong><br />
+            ${tp('intro.req-cable-desc')}
           </div>
         </div>
         <div class="requirement-item">
           <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
           <div>
-            <strong>Home Assistant integration</strong><br />
-            E.g. the DSMR Smart Meter integration, exposing the meter as sensor
-            entities.
+            <strong>${tp('intro.req-integration-title')}</strong><br />
+            ${tp('intro.req-integration-desc')}
           </div>
         </div>
       </div>
@@ -283,7 +279,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       <div>
         <div class="section-head">
           <p style="margin: 0;">
-            <strong>How many phases does your grid connection have?</strong>
+            <strong>${tp('connection.phases-question')}</strong>
           </p>
           ${this._autoDetected && this._phases !== null
             ? this._autoBadge()
@@ -296,8 +292,8 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
           >
             ${renderRadioIndicator(this._phases === 1)}
             <div>
-              <strong>1 phase</strong><br />
-              <span class="phase-subtitle">Small connection</span>
+              <strong>${tp('connection.phase-1-title')}</strong><br />
+              <span class="phase-subtitle">${tp('connection.phase-1-sub')}</span>
             </div>
           </div>
           <div
@@ -306,26 +302,23 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
           >
             ${renderRadioIndicator(this._phases === 3)}
             <div>
-              <strong>3 phases</strong><br />
-              <span class="phase-subtitle">Standard connection</span>
+              <strong>${tp('connection.phase-3-title')}</strong><br />
+              <span class="phase-subtitle">${tp('connection.phase-3-sub')}</span>
             </div>
           </div>
         </div>
         ${this._triedContinueConnection && this._phases === null
-          ? html`<div class="error">Please select the number of phases.</div>`
+          ? html`<div class="error">${tp('connection.phases-error')}</div>`
           : nothing}
         <details class="hint">
-          <summary>Not sure?</summary>
-          <p>
-            Check your smart meter integration. Separate L1, L2 and L3 sensors
-            mean 3 phases; only L1 means 1 phase.
-          </p>
+          <summary>${tp('connection.phases-hint-summary')}</summary>
+          <p>${tp('connection.phases-hint-body')}</p>
         </details>
       </div>
 
       <div style="margin-top: 16px;">
         <div class="section-head">
-          <p style="margin: 0;"><strong>Capacity per phase (ampere)</strong></p>
+          <p style="margin: 0;"><strong>${tp('connection.capacity-label')}</strong></p>
           ${this._autoDetected && this._capacityPerPhase !== ''
             ? this._autoBadge()
             : nothing}
@@ -343,11 +336,8 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         })}
         ${this._renderCapacityError()}
         <details class="hint">
-          <summary>Where to find this</summary>
-          <p>
-            On your energy contract or your main fuse — typically 25 A or 35 A.
-            Enter the actual value, not a lower safety margin.
-          </p>
+          <summary>${tp('connection.capacity-hint-summary')}</summary>
+          <p>${tp('connection.capacity-hint-body')}</p>
         </details>
       </div>
 
@@ -369,7 +359,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         () => this._continueToPower(),
         true,
         this._phaseChangeConfirmed
-          ? 'Continue anyway'
+          ? tp('connection.continue-anyway')
           : this.hass.localize('ui.common.continue')
       )}
     `;
@@ -388,11 +378,13 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   private _renderCapacityError() {
     if (this._capacityPerPhase === '' && this._triedContinueConnection) {
-      return html`<div class="error">Please enter the capacity.</div>`;
+      return html`<div class="error">
+        ${tp('connection.capacity-error-empty')}
+      </div>`;
     }
     if (this._capacityPerPhase !== '' && !this._isCapacityValid()) {
       return html`<div class="error">
-        Must be a whole number between 6 and 80.
+        ${tp('connection.capacity-error-range')}
       </div>`;
     }
     return nothing;
@@ -444,18 +436,16 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
     return html`
       <div class="sensors-intro">
-        <p style="margin: 0;"><strong>Sensors</strong></p>
-        <p class="muted">
-          To follow what your household uses and returns, V2G Liberty reads the
-          power on every phase. These sensors were recognised automatically —
-          please check that each one is right before continuing.
-        </p>
+        <p style="margin: 0;"><strong>${tp('sensors-heading')}</strong></p>
+        <p class="muted">${tp('power.intro')}</p>
       </div>
 
-      ${noCandidates ? this._renderNotRecognised('power per phase') : nothing}
+      ${noCandidates
+        ? this._renderNotRecognised(tp('power.not-recognised-what'))
+        : nothing}
 
       <div class="group-head">
-        <span class="gh-title"><strong>Consumption</strong> <span class="muted">power drawn from the grid</span></span>
+        <span class="gh-title"><strong>${tp('power.consumption-title')}</strong> <span class="muted">${tp('power.consumption-sub')}</span></span>
         <span class="gh-live">LIVE</span>
       </div>
       ${consumption.map(role =>
@@ -465,7 +455,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       )}
 
       <div class="group-head" style="margin-top: 16px;">
-        <span class="gh-title"><strong>Production</strong> <span class="muted">power fed back to the grid</span></span>
+        <span class="gh-title"><strong>${tp('power.production-title')}</strong> <span class="muted">${tp('power.production-sub')}</span></span>
         <span class="gh-live">LIVE</span>
       </div>
       ${production.map(role =>
@@ -476,8 +466,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
       ${this._triedContinuePower && this._powerIncomplete()
         ? html`<ha-alert alert-type="error" style="margin-top: 12px;">
-            Sensor(s) still missing — choose a sensor for every phase, for both
-            consumption and production, to continue.
+            ${tp('power.incomplete-alert')}
           </ha-alert>`
         : nothing}
 
@@ -525,28 +514,22 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
     return html`
       <div class="sensors-intro">
-        <p style="margin: 0;"><strong>Sensors</strong></p>
-        <p class="muted">
-          The cumulative meter readings are what your energy bill is settled on,
-          per tariff. There are always two tariffs — with a single tariff,
-          tariff 2 simply stays at the same value. These were recognised
-          automatically — please check them before continuing.
-        </p>
+        <p style="margin: 0;"><strong>${tp('sensors-heading')}</strong></p>
+        <p class="muted">${tp('meter.intro')}</p>
       </div>
 
       ${noCandidates
-        ? this._renderNotRecognised('cumulative kWh readings')
+        ? this._renderNotRecognised(tp('meter.not-recognised-what'))
         : nothing}
 
-      <div class="group-head"><strong>Tariff 1</strong></div>
+      <div class="group-head"><strong>${tp('meter.tariff-1')}</strong></div>
       ${rows(tariff1)}
-      <div class="group-head" style="margin-top: 16px;"><strong>Tariff 2</strong></div>
+      <div class="group-head" style="margin-top: 16px;"><strong>${tp('meter.tariff-2')}</strong></div>
       ${rows(tariff2)}
 
       ${this._triedContinueMeter && this._metersIncomplete()
         ? html`<ha-alert alert-type="error" style="margin-top: 12px;">
-            Sensor(s) still missing — for both import and export, choose a total
-            register or both tariff 1 and tariff 2 (cumulative kWh).
+            ${tp('meter.incomplete-alert')}
           </ha-alert>`
         : nothing}
 
@@ -590,25 +573,24 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     return html`
       ${complete
         ? html`<ha-alert alert-type="success">
-            All set — ${linked} sensors linked.
+            ${tp('done.all-set', { count: linked })}
           </ha-alert>`
         : html`<ha-alert alert-type="warning">
-            Not everything is set yet. Go back and complete the missing rows.
+            ${tp('done.incomplete-warning')}
           </ha-alert>`}
 
-      <div class="summary-group">Connection</div>
-      <div class="summary-row"><span>Phases</span><span>${this._phases} phase${this._phases === 1 ? '' : 's'}</span></div>
-      <div class="summary-row"><span>Capacity per phase</span><span>${this._capacityPerPhase} A</span></div>
+      <div class="summary-group">${tp('header.connection')}</div>
+      <div class="summary-row"><span>${tp('done.phases-label')}</span><span>${tp('done.phases-value', { smart_count: this._phases ?? 0 })}</span></div>
+      <div class="summary-row"><span>${tp('done.capacity-label')}</span><span>${this._capacityPerPhase} A</span></div>
 
-      <div class="summary-group">Power</div>
+      <div class="summary-group">${tp('header.power')}</div>
       ${powerList.map(role => this._summaryRow(role))}
 
-      <div class="summary-group">Meter readings</div>
+      <div class="summary-group">${tp('header.meter')}</div>
       ${meterList.map(role => this._summaryRow(role, false))}
 
       <p class="muted" style="margin-top: 12px;">
-        V2G Liberty keeps monitoring these sensors and warns you as soon as one
-        stops reporting.
+        ${tp('done.keeps-monitoring')}
       </p>
 
       ${this._saveError
@@ -618,7 +600,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         : nothing}
       ${this._triedSave && !complete
         ? html`<ha-alert alert-type="error">
-            Some rows are still missing — go back and complete them before saving.
+            ${tp('done.save-incomplete')}
           </ha-alert>`
         : nothing}
 
@@ -637,14 +619,14 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         this.hass,
         () => this._handleSave(),
         true,
-        this._saving ? 'Saving…' : this.hass.localize('ui.common.save'),
+        this._saving ? tp('done.saving') : this.hass.localize('ui.common.save'),
         this._saving
       )}
     `;
   }
 
   private _summaryRow(role: RoleDefinition, showStatus = true) {
-    const label = role.entityId ?? 'No sensor selected yet';
+    const label = role.entityId ?? tp('done.no-sensor');
     return html`
       <div class="summary-row">
         <span>${role.badge} ${label}</span>
@@ -690,12 +672,15 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     if (power) {
       const dir = power[1];
       const phase = power[2];
-      const label = dir === 'consumption' ? 'Consumption' : 'Production';
+      const label =
+        dir === 'consumption'
+          ? tp('picker.consumption')
+          : tp('picker.production');
       // Prefill with terms that actually appear in entity names: the direction
       // and the phase as "l1"/"l2"/"l3" (matches "L1" and "..._l1"). Avoid the
       // word "phase" — many integrations do not use it. The ✕ clears it.
       return {
-        subtitle: `${label} phase ${phase} · power`,
+        subtitle: tp('picker.power-subtitle', { direction: label, phase }),
         searchTerms: [dir, `l${phase}`],
       };
     }
@@ -707,8 +692,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       // tariff as "tarif_1"/"tarif_2" — so search the direction + the number,
       // not the word "tariff".
       const term = dir === 'import' ? 'consumption' : 'production';
+      const direction =
+        dir === 'import' ? tp('picker.import') : tp('picker.export');
       return {
-        subtitle: `Tariff ${tariff} · ${dir} · meter reading`,
+        subtitle: tp('picker.meter-subtitle', { tariff, direction }),
         searchTerms: [term, tariff],
       };
     }
@@ -744,13 +731,11 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
 
   private _renderNotRecognised(what: string) {
     return html`
-      <ha-alert alert-type="warning" title="Sensors not recognised — or not yet enabled">
-        No sensors reporting ${what} were found. Many integrations provide them
-        but leave them disabled by default — check Settings → Devices &amp;
-        services → your meter → entities and enable them.
+      <ha-alert alert-type="warning" title=${tp('detect.title')}>
+        ${tp('detect.body', { what })}
         <div style="margin-top: 8px;">
           <button class="link" @click=${() => this._searchAgain()}>
-            Search again
+            ${tp('detect.search-again')}
           </button>
           <a
             href="/config/integrations"
@@ -758,7 +743,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
             rel="noopener"
             style="margin-left: 12px; color: var(--primary-color);"
           >
-            Open integrations
+            ${tp('detect.open-integrations')}
             <ha-icon icon="mdi:open-in-new" style="--mdc-icon-size: 14px;"></ha-icon>
           </a>
         </div>
@@ -789,7 +774,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
   private _autoBadge() {
     return html`<span class="auto-detected-badge">
       <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-      Auto-detected
+      ${tp('badge.auto-detected')}
     </span>`;
   }
 
@@ -841,7 +826,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         }
         return false;
       })
-      .map(p => p.name ?? '(unnamed)');
+      .map(p => p.name ?? tp('solar-warning.unnamed'));
   }
 
   private _renderSolarPanelWarning() {
@@ -851,21 +836,16 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
     return html`
       <ha-alert
         alert-type="warning"
-        title="This change will break ${affected.length === 1
-          ? 'a solar panel'
-          : 'solar panels'}"
+        title=${affected.length === 1
+          ? tp('solar-warning.title-one')
+          : tp('solar-warning.title-many')}
         style="margin-top: 16px;"
       >
-        <p style="margin: 0 0 8px 0;">
-          The new phase count no longer matches the configuration of:
-        </p>
+        <p style="margin: 0 0 8px 0;">${tp('solar-warning.body-intro')}</p>
         <ul style="margin: 0 0 8px 16px; padding: 0;">
           ${affected.map(n => html`<li>${n}</li>`)}
         </ul>
-        <p style="margin: 0;">
-          Continue anyway is allowed — the affected panel(s) get flagged on the
-          solar panels card. Nothing on the panels is changed automatically.
-        </p>
+        <p style="margin: 0;">${tp('solar-warning.body-outro')}</p>
       </ha-alert>
     `;
   }
@@ -896,9 +876,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       );
 
       if (result.fm_error) {
-        this._saveError =
-          `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` +
-          `Please check FlexMeasures and try again.`;
+        this._saveError = tp('save-error.fm', { error: result.fm_error });
         this._saving = false;
         return;
       }
@@ -909,9 +887,7 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       }
       this.closeDialog();
     } catch (e) {
-      this._saveError =
-        'Could not reach the add-on. Please check that V2G Liberty is running ' +
-        'and try again.';
+      this._saveError = tp('save-error.unreachable');
       this._saving = false;
     }
   }
