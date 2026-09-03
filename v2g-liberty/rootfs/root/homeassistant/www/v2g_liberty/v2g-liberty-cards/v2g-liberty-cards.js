@@ -2949,11 +2949,11 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-unavailable":"Savings data not available yet","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-unavailable":"Savings data not available yet","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"grid-connection":{"title":"Grid connection","role":{"consumption":"Consumption L%{n}","production":"Production L%{n}","import":"Import tariff %{n}","export":"Export tariff %{n}"},"card":{"active-alert":"Active \xb7 %{reporting} of %{total} sensors reporting","active-summary":"%{phase}, %{capacity} A per phase.","phase-1":"1-phase","phase-3":"3-phase","problem-title":"A sensor needs attention","problem-alert":"%{role} is not reporting correctly. Monitoring is paused until it is resolved.","problem-alert-generic":"A sensor is not reporting correctly. Monitoring is paused until it is resolved.","incomplete-title":"Not fully set up","incomplete-alert":"%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.","not-set-up":"Configure your grid connection so V2G Liberty learns your household energy patterns \u2014 for better predictions and smarter schedules, and to be ready for the end of net metering.","set-up":"Set up","fix":"Fix this"},"header":{"connection":"Connection","power":"Power","meter":"Meter readings","done":"Done"},"fm-gate-subject":"grid connection","intro":{"p1":"By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.","p2":"<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.","req-header":"What you need","req-smart-meter-title":"Smart meter","req-smart-meter-desc":"Reports power per phase in real time.","req-cable-title":"P1 cable","req-cable-desc":"A USB P1 port cable or similar (~\u20AC15).","req-integration-title":"Home Assistant integration","req-integration-desc":"E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."},"connection":{"phases-question":"How many phases does your grid connection have?","phase-1-title":"1 phase","phase-1-sub":"Small connection","phase-3-title":"3 phases","phase-3-sub":"Standard connection","phases-error":"Please select the number of phases.","phases-hint-summary":"Not sure?","phases-hint-body":"Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.","capacity-label":"Capacity per phase (ampere)","capacity-error-empty":"Please enter the capacity.","capacity-error-range":"Must be a whole number between 6 and 80.","capacity-hint-summary":"Where to find this","capacity-hint-body":"On your energy contract or your main fuse \u2014 typically 25 A or 35 A. Enter the actual value, not a lower safety margin.","continue-anyway":"Continue anyway"},"badge":{"auto-detected":"Auto-detected"},"solar-warning":{"title-one":"This change will break a solar panel","title-many":"This change will break solar panels","body-intro":"The new phase count no longer matches the configuration of:","body-outro":"Continue anyway is allowed \u2014 the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.","unnamed":"(unnamed)"},"sensors-heading":"Sensors","power":{"intro":"To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically \u2014 please check that each one is right before continuing.","consumption-title":"Consumption","consumption-sub":"power drawn from the grid","production-title":"Production","production-sub":"power fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 choose a sensor for every phase, for both consumption and production, to continue.","not-recognised-what":"power per phase"},"meter":{"intro":"The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs \u2014 with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically \u2014 please check them before continuing.","import-title":"Import","import-sub":"total energy taken from the grid","export-title":"Export","export-sub":"total energy fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).","not-recognised-what":"cumulative kWh readings"},"done":{"all-set":"All set \u2014 %{count} sensors linked.","incomplete-warning":"Not everything is set yet. Go back and complete the missing rows.","phases-label":"Phases","phases-value":"%{smart_count} phase |||| %{smart_count} phases","capacity-label":"Capacity per phase","no-sensor":"No sensor selected yet","keeps-monitoring":"V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.","save-incomplete":"Some rows are still missing \u2014 go back and complete them before saving.","saving":"Saving\u2026"},"detect":{"title":"Sensors not recognised \u2014 or not yet enabled","body":"No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default \u2014 check Settings \u2192 Devices & services \u2192 your meter \u2192 entities and enable them.","search-again":"Search again","open-integrations":"Open integrations"},"save-error":{"fm":"Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.","unreachable":"Could not reach the add-on. Please check that V2G Liberty is running and try again."},"picker":{"consumption":"Consumption","production":"Production","import":"Import","export":"Export","power-subtitle":"%{direction} phase %{phase} \xb7 power","meter-subtitle":"Tariff %{tariff} \xb7 %{direction} \xb7 meter reading"},"choose-sensor":{"title":"Choose sensor","search-label":"Search","clear-title":"Clear the search","search-info":"Prefilled with what you are setting up \u2014 every word has to match. Clear or edit it if your integration names things differently.","filter-power":"W / kW only","filter-meter":"kWh readings only","filter-all":"All sensors","empty":"No matching sensors.","already-in-use":"already in use","measures":"measures %{unit}","select-first":"Choose a sensor from the list first \u2014 search above if you don\'t see it.","unsuitable-title":"This sensor does not fit here","unsuitable-body":"This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.","unsuitable-fallback-unit":"the wrong quantity","help-summary":"Help \u2014 which sensor do I pick?","help-power-1":"Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter \u2014 a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.","help-power-2":"A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.","help-meter-1":"Pick a total in kWh that only ever goes up \u2014 the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.","help-meter-2":"Not sure between two? Compare the value with the display on your meter \u2014 the numbers should match.","cancel":"Cancel","ok":"OK"},"status":{"reporting":"Reporting","waiting":"Waiting for data","wrong-type":"This sensor does not fit here","stale":"No update for a long time"},"row":{"choose":"Choose sensor","change":"Change"}},"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
-$4db9c280a88445d4$exports = JSON.parse('{"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Uren","days":"Dagen","weeks":"Weken","months":"Maanden","years":"Jaren"},"now":"Nu","loading":"Data laden...","no-data":"Geen data voor deze periode","no-data-hint":"Eerste data beschikbaar:","error":"Kon geen data laden. Probeer het opnieuw.","error-timeout":"Data laden duurde te lang. Probeer het later opnieuw.","all-time":"Alles","page-title":"Slimme energie","card-title":"Laden","app-state":{"automatic":"Automatisch","charge":"Laden","discharge":"Ontladen","pause":"Pauze","max_boost":"Max boost","not_connected":"Niet verbonden","error":"Fout","unknown":"Onbekend","mixed":"andere staten"},"price-rating":{"very-low":"Zeer laag","low":"Laag","average":"Gemiddeld","high":"Hoog","very-high":"Zeer hoog"},"col":{"period":"Periode","status":"Status","soc":"SoC","consumption":"Inkoop","production":"Verkoop","avg-price":"Gem. prijs","rate":"Prijspeil","energy":"Energie","cost-revenue":"Netto kosten","charge":"Laden","charge-kwh":"Laden","charge-cost":"Laadkosten","discharge":"Ontladen","discharge-kwh":"Ontladen","discharge-revenue":"Ontlaadopbrengst","availability":"Beschikbaarheid","availability-tooltip":"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.","net":"Netto","net-cost":"Netto kosten","cost":"Kosten","revenue":"Opbrengst","emissions":"Emissies","avoided-emissions":"Vermeden","duration":"Duur"},"totals":{"card-title":"Totalen","period":"Periode","soc-range":"SoC bereik","avg-cons-price":"Inkoop (gem.)","avg-prod-price":"Verkoop (gem.)","avg-price":"Gem. prijs","net-avg-price":"Prijs","availability":"Beschikbaarheid","charge-duration":"Laadduur","discharge-duration":"Ontlaadduur","savings":"Besparingen","savings-label":"Besparing tov vast","savings-fixed-label":"t.o.v. standaard laden + vast contract","savings-dyn-label":"t.o.v. standaard laden + dyn. contract","savings-unavailable":"Besparingsdata nog niet beschikbaar","savings-tooltip":"Dit is uw besparing t.o.v. standaard laden.\\n\\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage \u2014 zonder slim schema.\\n\\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\\n \u2022 Vast: standaard laden kWh \xd7 maandelijkse gemiddelde contractprijzen (CBS).\\n \u2022 Dynamisch: standaard laden kWh \xd7 dezelfde dynamische energieprijzen."},"row-details-show":"Toon details","row-details-hide":"Verberg details","estimated-note":"Deels gebaseerd op geschatte data","estimated-tooltip":"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.","overflow-reset-database":"Geschiedenis resetten","reset-dialog":{"header":"Geschiedenis resetten","reimport-label":"Geschiedenis opnieuw importeren","reimport-explanation":"Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.","full-label":"Volledige database reset","full-explanation":"Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.","duration-note":"De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.","full-warning":"Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.","confirm-prompt":"Typ \\"Yes\\" of \\"Ja\\" ter bevestiging:","confirm-placeholder":"Yes / Ja","confirm-button":"Doorgaan","error":"Reset mislukt. Probeer het opnieuw.","success":"Klaar. Historische data wordt opnieuw ge\xefmporteerd \u2014 de Data-pagina wordt geleidelijk gevuld.","close":"Sluiten"}}}');
+$4db9c280a88445d4$exports = JSON.parse('{"settings":{"grid-connection":{"title":"Netaansluiting","role":{"consumption":"Inkoop L%{n}","production":"Verkoop L%{n}","import":"Inkoop tarief %{n}","export":"Verkoop tarief %{n}"},"card":{"active-alert":"Actief \xb7 %{reporting} van %{total} sensoren rapporteren","active-summary":"%{phase}, %{capacity} A per fase.","phase-1":"1-fase","phase-3":"3-fase","problem-title":"Een sensor heeft aandacht nodig","problem-alert":"%{role} rapporteert niet correct. De monitoring is gepauzeerd totdat dit is opgelost.","problem-alert-generic":"Een sensor rapporteert niet correct. De monitoring is gepauzeerd totdat dit is opgelost.","incomplete-title":"Nog niet volledig ingesteld","incomplete-alert":"%{set} van %{total} sensoren geselecteerd. Nog niet ingesteld: %{names}. Rond de configuratie af om te starten met monitoren.","not-set-up":"Configureer je netaansluiting zodat V2G Liberty de energiepatronen van je huishouden leert \u2014 voor betere voorspellingen en slimmere schema\'s, en om klaar te zijn voor het einde van de saldering.","set-up":"Instellen","fix":"Herstel dit"},"header":{"connection":"Aansluiting","power":"Vermogen","meter":"Meterstanden","done":"Klaar"},"fm-gate-subject":"netaansluiting","intro":{"p1":"Door je netaansluiting te monitoren leert V2G Liberty de energiepatronen van je huishouden kennen. Dat leidt tot <strong>betere voorspellingen</strong> en <strong>slimmere schema\'s</strong>.","p2":"<strong>Voor Nederlandse gebruikers:</strong> een waardevolle voorbereiding op het einde van de saldering. Zodra die stopt, is deze configuratie vereist.","req-header":"Wat je nodig hebt","req-smart-meter-title":"Slimme meter","req-smart-meter-desc":"Rapporteert het vermogen per fase in real time.","req-cable-title":"P1-kabel","req-cable-desc":"Een USB-P1-poortkabel of vergelijkbaar (~\u20AC15).","req-integration-title":"Home Assistant-integratie","req-integration-desc":"Bijv. de DSMR Smart Meter-integratie, die de meter als sensor-entiteiten beschikbaar maakt."},"connection":{"phases-question":"Hoeveel fasen heeft je netaansluiting?","phase-1-title":"1 fase","phase-1-sub":"Kleine aansluiting","phase-3-title":"3 fasen","phase-3-sub":"Standaardaansluiting","phases-error":"Selecteer het aantal fasen.","phases-hint-summary":"Niet zeker?","phases-hint-body":"Kijk in je slimme-meter-integratie. Aparte L1-, L2- en L3-sensoren betekenen 3 fasen; alleen L1 betekent 1 fase.","capacity-label":"Capaciteit per fase (amp\xe8re)","capacity-error-empty":"Vul de capaciteit in.","capacity-error-range":"Moet een heel getal tussen 6 en 80 zijn.","capacity-hint-summary":"Waar vind ik dit","capacity-hint-body":"Op je energiecontract of je hoofdzekering \u2014 meestal 25 A of 35 A. Vul de werkelijke waarde in, niet een lagere veiligheidsmarge.","continue-anyway":"Toch doorgaan"},"badge":{"auto-detected":"Automatisch gedetecteerd"},"solar-warning":{"title-one":"Deze wijziging maakt een zonnepaneel ongeldig","title-many":"Deze wijziging maakt zonnepanelen ongeldig","body-intro":"Het nieuwe aantal fasen komt niet meer overeen met de configuratie van:","body-outro":"Toch doorgaan mag \u2014 de betreffende paneel(en) worden gemarkeerd op de zonnepanelen-kaart. Er wordt niets automatisch aan de panelen gewijzigd.","unnamed":"(naamloos)"},"sensors-heading":"Sensoren","power":{"intro":"Om te volgen wat je huishouden gebruikt en teruglevert, leest V2G Liberty het vermogen op elke fase. Deze sensoren zijn automatisch herkend \u2014 controleer of elke sensor klopt voordat je verdergaat.","consumption-title":"Inkoop","consumption-sub":"vermogen dat van het net wordt afgenomen","production-title":"Verkoop","production-sub":"vermogen dat aan het net wordt teruggeleverd","incomplete-alert":"Sensor(en) ontbreken nog \u2014 kies voor elke fase een sensor, voor zowel inkoop als verkoop, om verder te gaan.","not-recognised-what":"vermogen per fase"},"meter":{"intro":"De cumulatieve meterstanden zijn waarop je energierekening wordt afgerekend, per tarief. Er zijn altijd twee tarieven \u2014 bij \xe9\xe9n tarief blijft tarief 2 simpelweg op dezelfde waarde. Deze zijn automatisch herkend \u2014 controleer ze voordat je verdergaat.","import-title":"Inkoop","import-sub":"totale energie die van het net is afgenomen","export-title":"Verkoop","export-sub":"totale energie die aan het net is teruggeleverd","incomplete-alert":"Sensor(en) ontbreken nog \u2014 kies voor zowel inkoop als verkoop een totaalregister of zowel tarief 1 als tarief 2 (cumulatieve kWh).","not-recognised-what":"cumulatieve kWh-standen"},"done":{"all-set":"Helemaal klaar \u2014 %{count} sensoren gekoppeld.","incomplete-warning":"Nog niet alles is ingesteld. Ga terug en vul de ontbrekende rijen aan.","phases-label":"Fasen","phases-value":"%{smart_count} fase |||| %{smart_count} fasen","capacity-label":"Capaciteit per fase","no-sensor":"Nog geen sensor geselecteerd","keeps-monitoring":"V2G Liberty blijft deze sensoren monitoren en waarschuwt je zodra er \xe9\xe9n stopt met rapporteren.","save-incomplete":"Sommige rijen ontbreken nog \u2014 ga terug en vul ze aan voordat je opslaat.","saving":"Opslaan\u2026"},"detect":{"title":"Sensoren niet herkend \u2014 of nog niet ingeschakeld","body":"Er zijn geen sensoren gevonden die %{what} rapporteren. Veel integraties leveren ze wel maar laten ze standaard uitgeschakeld \u2014 ga naar Instellingen \u2192 Apparaten & services \u2192 je meter \u2192 entiteiten en schakel ze in.","search-again":"Opnieuw zoeken","open-integrations":"Integraties openen"},"save-error":{"fm":"Kon de grid-sensoren niet aanmaken in FlexMeasures: %{error}. Controleer FlexMeasures en probeer het opnieuw.","unreachable":"Kon de add-on niet bereiken. Controleer of V2G Liberty draait en probeer het opnieuw."},"picker":{"consumption":"Inkoop","production":"Verkoop","import":"Inkoop","export":"Verkoop","power-subtitle":"%{direction} fase %{phase} \xb7 vermogen","meter-subtitle":"Tarief %{tariff} \xb7 %{direction} \xb7 meterstand"},"choose-sensor":{"title":"Sensor kiezen","search-label":"Zoeken","clear-title":"Zoekopdracht wissen","search-info":"Voorgevuld met wat je instelt \u2014 elk woord moet matchen. Wis of pas het aan als je integratie dingen anders benoemt.","filter-power":"Alleen W / kW","filter-meter":"Alleen kWh-standen","filter-all":"Alle sensoren","empty":"Geen passende sensoren.","already-in-use":"al in gebruik","measures":"meet %{unit}","select-first":"Kies eerst een sensor uit de lijst \u2014 zoek hierboven als je \'m niet ziet.","unsuitable-title":"Deze sensor past hier niet","unsuitable-body":"Deze sensor meet %{unit}, niet wat dit veld nodig heeft. V2G Liberty kan \'m hier niet gebruiken en de schema\'s zouden fout zijn. Kies een andere sensor, of druk nogmaals op OK om \'m toch te gebruiken.","unsuitable-fallback-unit":"de verkeerde grootheid","help-summary":"Help \u2014 welke sensor kies ik?","help-power-1":"Kies het <strong>vermogen</strong> op \xe9\xe9n fase, in W of kW, gemeten bij je meter \u2014 een waarde die continu verandert. Inkoop is wat je van het net afneemt, verkoop wat je teruglevert. De fasenummering volgt je meter, dus kies de sensor waarvan de fase overeenkomt met de rij die je invult.","help-power-2":"Een sensor voor \xe9\xe9n apparaat (een warmtepomp, een lader) meet alleen dat apparaat, niet de hele aansluiting.","help-meter-1":"Kies een totaal in kWh dat alleen maar oploopt \u2014 hetzelfde soort getal dat je meter toont. Inkoop is wat je van het net hebt afgenomen; verkoop is wat je hebt teruggeleverd. Bij DSMR heten deze meestal <em>energy consumption / production tariff 1 / 2</em>.","help-meter-2":"Twijfel je tussen twee? Vergelijk de waarde met het display op je meter \u2014 de getallen moeten overeenkomen.","cancel":"Annuleren","ok":"OK"},"status":{"reporting":"Rapporteert","waiting":"Wachten op data","wrong-type":"Deze sensor past hier niet","stale":"Lang geen update"},"row":{"choose":"Sensor kiezen","change":"Wijzigen"}}},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Uren","days":"Dagen","weeks":"Weken","months":"Maanden","years":"Jaren"},"now":"Nu","loading":"Data laden...","no-data":"Geen data voor deze periode","no-data-hint":"Eerste data beschikbaar:","error":"Kon geen data laden. Probeer het opnieuw.","error-timeout":"Data laden duurde te lang. Probeer het later opnieuw.","all-time":"Alles","page-title":"Slimme energie","card-title":"Laden","app-state":{"automatic":"Automatisch","charge":"Laden","discharge":"Ontladen","pause":"Pauze","max_boost":"Max boost","not_connected":"Niet verbonden","error":"Fout","unknown":"Onbekend","mixed":"andere staten"},"price-rating":{"very-low":"Zeer laag","low":"Laag","average":"Gemiddeld","high":"Hoog","very-high":"Zeer hoog"},"col":{"period":"Periode","status":"Status","soc":"SoC","consumption":"Inkoop","production":"Verkoop","avg-price":"Gem. prijs","rate":"Prijspeil","energy":"Energie","cost-revenue":"Netto kosten","charge":"Laden","charge-kwh":"Laden","charge-cost":"Laadkosten","discharge":"Ontladen","discharge-kwh":"Ontladen","discharge-revenue":"Ontlaadopbrengst","availability":"Beschikbaarheid","availability-tooltip":"Percentage van de tijd dat het voertuig verbonden en beschikbaar was voor laden/ontladen in deze periode.","net":"Netto","net-cost":"Netto kosten","cost":"Kosten","revenue":"Opbrengst","emissions":"Emissies","avoided-emissions":"Vermeden","duration":"Duur"},"totals":{"card-title":"Totalen","period":"Periode","soc-range":"SoC bereik","avg-cons-price":"Inkoop (gem.)","avg-prod-price":"Verkoop (gem.)","avg-price":"Gem. prijs","net-avg-price":"Prijs","availability":"Beschikbaarheid","charge-duration":"Laadduur","discharge-duration":"Ontlaadduur","savings":"Besparingen","savings-label":"Besparing tov vast","savings-fixed-label":"t.o.v. standaard laden + vast contract","savings-dyn-label":"t.o.v. standaard laden + dyn. contract","savings-unavailable":"Besparingsdata nog niet beschikbaar","savings-tooltip":"Dit is uw besparing t.o.v. standaard laden.\\n\\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage \u2014 zonder slim schema.\\n\\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\\n \u2022 Vast: standaard laden kWh \xd7 maandelijkse gemiddelde contractprijzen (CBS).\\n \u2022 Dynamisch: standaard laden kWh \xd7 dezelfde dynamische energieprijzen."},"row-details-show":"Toon details","row-details-hide":"Verberg details","estimated-note":"Deels gebaseerd op geschatte data","estimated-tooltip":"Historische data was niet altijd compleet. Er is getracht ontbrekende waarden zo goed mogelijk te interpoleren. Er kunnen nog steeds gaten in de data zitten. De laadstatus werd historisch niet gelogd en is daarom onbekend.","overflow-reset-database":"Geschiedenis resetten","reset-dialog":{"header":"Geschiedenis resetten","reimport-label":"Geschiedenis opnieuw importeren","reimport-explanation":"Voert de historische data-import vanuit FlexMeasures opnieuw uit. Bestaande data wordt bewaard; ontbrekende data wordt aangevuld. Gebruik dit als de eerste import niet volledig was of na een software-update.","full-label":"Volledige database reset","full-explanation":"Verwijdert alle laadgeschiedenis en statistieken en importeert opnieuw vanuit FlexMeasures. Gebruik dit als de database beschadigd is of na een schemawijziging.","duration-note":"De import van historische laadata uit FlexMeasures duurt tot wel **5 minuten per maand** aan geschiedenis.","full-warning":"Dit verwijdert permanent alle lokale laaddata. Dit kan niet ongedaan worden gemaakt.","confirm-prompt":"Typ \\"Yes\\" of \\"Ja\\" ter bevestiging:","confirm-placeholder":"Yes / Ja","confirm-button":"Doorgaan","error":"Reset mislukt. Probeer het opnieuw.","success":"Klaar. Historische data wordt opnieuw ge\xefmporteerd \u2014 de Data-pagina wordt geleidelijk gevuld.","close":"Sluiten"}}}');
 
 
 const $aa1795080f053cd4$var$LANGUAGES = {
@@ -12486,7 +12486,7 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
     const chevronIcon = isBackButton ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto">
+    <ha-button @click=${action} slot=${slot} appearance=${appearance} variant=${variant} test-id=${testId} .disabled=${isDisabled} size='s' style="width: auto; min-width: 5em;">
       ${chevronIcon}
       ${label}
     </ha-button>
@@ -14384,6 +14384,17 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 ], $7283b140e865221f$var$EditInputNumberDialog);
 
 
+// Grid connection configuration flow (redesign).
+//
+// Five steps: Intro → Connection → Power → Meter readings → Done. Storage is
+// unchanged (the four settings lists); roles are derived for rendering only.
+// Rows and status come from grid-connection-status / -sensor-row / -roles; the
+// per-row "Change / Choose sensor" opens the choose-sensor side-step.
+//
+// Buttons are never disabled to block an action (except the shared FM
+// reachability gate on the intro): pressing on with something missing shows an
+// ha-alert saying what. Copy lives in strings.json / nl.json under
+// settings.grid-connection.
 
 
 
@@ -14391,17 +14402,595 @@ $7283b140e865221f$var$EditInputNumberDialog = (0, $24c52f343453d62d$export$29e00
 
 
 
-const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
-class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
-    // Pad/trim a register list to exactly two slots (tariff 1, tariff 2). A
-    // single total register lands in slot 0; any 3rd/4th tariff is dropped
-    // (rare outside NL — the total register covers those meters).
-    _padTo2(arr) {
-        return [
-            arr[0] ?? '',
-            arr[1] ?? ''
+
+// Status model for the grid connection settings (redesign, Fase 1).
+//
+// Design: `.private/UX design/Grid connection flow/README.md` — "Status
+// vocabulary". Everything here is derived from `hass.states`; there is no
+// backend service that watches whether a cumulative meter reading keeps
+// increasing, so meter-reading roles deliberately have no waiting/stale status
+// (they report `unmonitored` once set).
+//
+// Filtering is on attributes (device_class, unit, state_class), never on the
+// entity id text: Home Assistant generates entity ids from the default name in
+// the user's language, so a Dutch install yields
+// `sensor.slimme_meter_stroomverbruik_fase_l2`.
+const $929021681b822bb4$export$bd88375431f5337a = 86400000;
+function $929021681b822bb4$export$3131e24fbd7f4c64(stateObj, role) {
+    const attrs = stateObj.attributes;
+    const unit = (attrs.unit_of_measurement ?? '').toLowerCase();
+    if (role === 'power') return attrs.device_class === 'power' && (unit === 'w' || unit === 'kw');
+    return attrs.device_class === 'energy' && (unit === 'wh' || unit === 'kwh' || unit === 'mwh') && attrs.state_class === 'total_increasing';
+}
+function $929021681b822bb4$export$1094b4db5e23d27c(hass, definition) {
+    if (!definition.entityId) return 'not_set';
+    const stateObj = hass.states[definition.entityId];
+    if (!stateObj) return 'wrong_type'; // entity gone or disabled
+    if (!$929021681b822bb4$export$3131e24fbd7f4c64(stateObj, definition.role)) return 'wrong_type';
+    if (definition.role === 'meter_reading') // A standing-still reading is normal: only the active tariff moves, and
+    // nothing monitors a cumulative register, so there is no live status.
+    return 'unmonitored';
+    if (stateObj.state === 'unknown' || stateObj.state === 'unavailable') return 'waiting';
+    const changed = new Date(stateObj.last_changed).getTime();
+    if (Number.isFinite(changed) && Date.now() - changed > $929021681b822bb4$export$bd88375431f5337a) return 'stale';
+    return 'ok';
+}
+function $929021681b822bb4$export$f52e1a142ed579d(stateObj) {
+    return stateObj.attributes.friendly_name ?? stateObj.entity_id;
+}
+function $929021681b822bb4$export$dbc45d2f37c52c28(hass, role, inUse = []) {
+    return Object.values(hass.states).filter((stateObj)=>stateObj.entity_id.startsWith('sensor.')).filter((stateObj)=>$929021681b822bb4$export$3131e24fbd7f4c64(stateObj, role)).sort((a, b)=>{
+        const aUsed = inUse.includes(a.entity_id) ? 1 : 0;
+        const bUsed = inUse.includes(b.entity_id) ? 1 : 0;
+        if (aUsed !== bUsed) return aUsed - bUsed;
+        return $929021681b822bb4$export$f52e1a142ed579d(a).localeCompare($929021681b822bb4$export$f52e1a142ed579d(b));
+    });
+}
+function $929021681b822bb4$export$5b7c125220f68fd5(statuses) {
+    if (statuses.length === 0 || statuses.every((s)=>s === 'not_set')) return 'not_set';
+    if (statuses.some((s)=>s === 'stale' || s === 'wrong_type')) return 'problem';
+    // A configured-but-empty slot is "incomplete" and needs the user's action.
+    // 'waiting' (selected, nothing reported yet — e.g. production without sun) is
+    // normal and counts as ok, not incomplete.
+    if (statuses.some((s)=>s === 'not_set')) return 'incomplete';
+    return 'ok';
+}
+
+
+// One sensor row for the grid connection flow (redesign, Fase 2).
+//
+// Layout: [badge] [friendly name / entity id] [LIVE status] [Change / Choose].
+// Rendered as a plain helper (not a custom element) so it lives inside the
+// dialog's light DOM and re-renders with the dialog when `hass` updates — that
+// is what makes the status "live" (spinner → green check) without a separate
+// subscription.
+//
+// The entity id is never the only label: friendly name first, id underneath in
+// monospace. Step 4 (meter readings) passes `showStatus: false` — nothing
+// monitors a cumulative register, so no status is shown there.
+
+
+
+const $4783b00079e8724f$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.grid-connection');
+function $4783b00079e8724f$export$fb3bddae799d3201(status) {
+    switch(status){
+        case 'ok':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+        icon="mdi:check-circle"
+        title=${$4783b00079e8724f$var$tp('status.reporting')}
+        style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"
+      ></ha-icon>`;
+        case 'waiting':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner
+        size="small"
+        title=${$4783b00079e8724f$var$tp('status.waiting')}
+      ></ha-spinner>`;
+        case 'wrong_type':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+        icon="mdi:alert-circle"
+        title=${$4783b00079e8724f$var$tp('status.wrong-type')}
+        style="color: var(--error-color, #f44336); --mdc-icon-size: 20px;"
+      ></ha-icon>`;
+        case 'stale':
+            return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon
+        icon="mdi:alert-circle"
+        title=${$4783b00079e8724f$var$tp('status.stale')}
+        style="color: var(--error-color, #f44336); --mdc-icon-size: 20px;"
+      ></ha-icon>`;
+        default:
+            // not_set / unmonitored: nothing to show.
+            return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    }
+}
+function $4783b00079e8724f$export$f6154e7ea1c4e2d5(hass, definition, opts) {
+    const showStatus = opts.showStatus ?? true;
+    const status = (0, $929021681b822bb4$export$1094b4db5e23d27c)(hass, definition);
+    const stateObj = definition.entityId ? hass.states[definition.entityId] : undefined;
+    const notSet = status === 'not_set';
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+    <div
+      style="display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--divider-color);"
+    >
+      <span
+        style="flex: 0 0 auto; min-width: 28px; text-align: center; font-size: 0.8em; color: var(--secondary-text-color);"
+        >${definition.badge}</span
+      >
+      <div style="flex: 1; min-width: 0;">
+        ${notSet ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="color: var(--secondary-text-color); font-style: italic;">
+              ${$4783b00079e8724f$var$tp('done.no-sensor')}
+            </div>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+              <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${stateObj ? (0, $929021681b822bb4$export$f52e1a142ed579d)(stateObj) : definition.entityId}
+              </div>
+              <div
+                style="font-family: var(--code-font-family, monospace); font-size: 0.75em; color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+              >
+                ${definition.entityId}
+              </div>
+            `}
+      </div>
+      ${showStatus ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span
+            style="flex: 0 0 auto; width: 28px; display: flex; align-items: center; justify-content: center;"
+            >${$4783b00079e8724f$export$fb3bddae799d3201(status)}</span
+          >` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      <button
+        style="flex: 0 0 auto; width: 108px; text-align: right; white-space: nowrap; background: none; border: none; padding: 4px 0; color: var(--primary-color); cursor: pointer; font-size: 0.95em;"
+        @click=${()=>opts.onChoose(definition)}
+      >
+        ${notSet ? $4783b00079e8724f$var$tp('row.choose') : $4783b00079e8724f$var$tp('row.change')}
+      </button>
+    </div>
+  `;
+}
+
+
+// Bridge between the stored grid connection settings and the role/status model
+// (redesign, Fase 3 plumbing).
+//
+// "Roles" are a light internal helper only — storage stays the four existing
+// lists (consumption/production entities and registers). These functions derive
+// RoleDefinitions from those lists for rendering, and map a role key back to the
+// list + index the user's choice must be written to.
+function $15d4c5d680e517d6$export$4a00346298d70185(phases, consumption, production) {
+    const roles = [];
+    for(let phase = 1; phase <= phases; phase++)roles.push({
+        key: `consumption_l${phase}`,
+        role: 'power',
+        badge: `L${phase}`,
+        entityId: consumption[phase - 1] || null
+    });
+    for(let phase = 1; phase <= phases; phase++)roles.push({
+        key: `production_l${phase}`,
+        role: 'power',
+        badge: `L${phase}`,
+        entityId: production[phase - 1] || null
+    });
+    return roles;
+}
+function $15d4c5d680e517d6$export$9142f209d16b0a8a(consumptionRegisters, productionRegisters) {
+    return [
+        {
+            key: 'import_t1',
+            role: 'meter_reading',
+            badge: 'T1',
+            entityId: consumptionRegisters[0] || null
+        },
+        {
+            key: 'import_t2',
+            role: 'meter_reading',
+            badge: 'T2',
+            entityId: consumptionRegisters[1] || null
+        },
+        {
+            key: 'export_t1',
+            role: 'meter_reading',
+            badge: 'T1',
+            entityId: productionRegisters[0] || null
+        },
+        {
+            key: 'export_t2',
+            role: 'meter_reading',
+            badge: 'T2',
+            entityId: productionRegisters[1] || null
+        }
+    ];
+}
+function $15d4c5d680e517d6$export$d66896b981a903db(key) {
+    const power = key.match(/^(consumption|production)_l(\d+)$/);
+    if (power) return {
+        list: power[1] === 'consumption' ? 'consumption_entities' : 'production_entities',
+        index: Number(power[2]) - 1
+    };
+    const meter = key.match(/^(import|export)_t(\d+)$/);
+    if (meter) return {
+        list: meter[1] === 'import' ? 'consumption_registers' : 'production_registers',
+        index: Number(meter[2]) - 1
+    };
+    return null;
+}
+function $15d4c5d680e517d6$export$6f60e56286389e91(...roleLists) {
+    return roleLists.flat().map((r)=>r.entityId).filter((e)=>!!e);
+}
+
+
+// Side-step dialog: pick a sensor for one role (redesign, Fase 4).
+//
+// The candidate list is filtered on device_class / unit / state_class, never on
+// entity id text. Entities already used by another role stay in the list but are
+// marked "already in use". Switching to "All sensors" drops the filter and
+// labels each unsuitable candidate with what it actually measures; picking one
+// then needs a second OK (a stated-consequence override).
+//
+// Copy lives in strings.json / nl.json under settings.grid-connection.choose-sensor.
+
+
+
+
+
+
+
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */ const $107bb7d062dde330$export$9ba3b3f20a85bfa = {
+    ATTRIBUTE: 1,
+    CHILD: 2,
+    PROPERTY: 3,
+    BOOLEAN_ATTRIBUTE: 4,
+    EVENT: 5,
+    ELEMENT: 6
+}, $107bb7d062dde330$export$99b43ad1ed32e735 = (t)=>(...e)=>({
+            _$litDirective$: t,
+            values: e
+        });
+class $107bb7d062dde330$export$befdefbdce210f91 {
+    constructor(t){}
+    get _$AU() {
+        return this._$AM._$AU;
+    }
+    _$AT(t, e, i) {
+        this._$Ct = t, this._$AM = e, this._$Ci = i;
+    }
+    _$AS(t, e) {
+        return this.update(t, e);
+    }
+    update(t, e) {
+        return this.render(...e);
+    }
+}
+
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */ class $a4df01ff0b0132fe$export$3bebd1f0e3943985 extends (0, $107bb7d062dde330$export$befdefbdce210f91) {
+    constructor(i){
+        if (super(i), this.et = (0, $f58f44579a4747ac$export$45b790e32b2810ee), i.type !== (0, $107bb7d062dde330$export$9ba3b3f20a85bfa).CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
+    }
+    render(r) {
+        if (r === (0, $f58f44579a4747ac$export$45b790e32b2810ee) || null == r) return this.ft = void 0, this.et = r;
+        if (r === (0, $f58f44579a4747ac$export$9c068ae9cc5db4e8)) return r;
+        if ("string" != typeof r) throw Error(this.constructor.directiveName + "() called with a non-string value");
+        if (r === this.et) return this.ft;
+        this.et = r;
+        const s = [
+            r
+        ];
+        return s.raw = s, this.ft = {
+            _$litType$: this.constructor.resultType,
+            strings: s,
+            values: []
+        };
+    }
+}
+$a4df01ff0b0132fe$export$3bebd1f0e3943985.directiveName = "unsafeHTML", $a4df01ff0b0132fe$export$3bebd1f0e3943985.resultType = 1;
+const $a4df01ff0b0132fe$export$b6e69390c23686fb = (0, $107bb7d062dde330$export$99b43ad1ed32e735)($a4df01ff0b0132fe$export$3bebd1f0e3943985);
+
+
+
+
+
+const $9ab7994a7f6bff81$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.grid-connection.choose-sensor');
+const $9ab7994a7f6bff81$export$45e0b80f1e500bd4 = 'v2g-liberty-choose-sensor-dialog';
+class $9ab7994a7f6bff81$export$c3cfd0d6798395e4 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog(params) {
+        super.showDialog();
+        this._params = params;
+        this._query = (params.searchTerms ?? []).join(' ');
+        this._selected = params.definition.entityId;
+        this._unfiltered = false;
+        this._warnedUnsuitable = false;
+        this._triedConfirmEmpty = false;
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const newApi = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const title = $9ab7994a7f6bff81$var$tp('title');
+        const isPower = this._params.definition.role === 'power';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .headerTitle=${newApi ? title : undefined}
+        .headerSubtitle=${newApi ? this._params.subtitle : undefined}
+        .heading=${newApi ? undefined : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, title)}
+      >
+        <div class="content">
+          ${newApi ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="subtitle">${this._params.subtitle}</p>`}
+
+          ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._query,
+            onChange: (e)=>this._query = e.target?.value ?? '',
+            label: $9ab7994a7f6bff81$var$tp('search-label'),
+            style: 'width: 100%',
+            testId: 'sensor-search',
+            suffix: (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+              ${this._query ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<button
+                    class="icon-btn"
+                    title=${$9ab7994a7f6bff81$var$tp('clear-title')}
+                    @click=${()=>this._query = ''}
+                  >
+                    ✕
+                  </button>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+              <span class="info" title=${$9ab7994a7f6bff81$var$tp('search-info')}>
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+              </span>
+            `
+        })}
+
+          <div class="filters">
+            <button
+              class="chip ${this._unfiltered ? '' : 'active'}"
+              @click=${()=>this._unfiltered = false}
+            >
+              ${isPower ? $9ab7994a7f6bff81$var$tp('filter-power') : $9ab7994a7f6bff81$var$tp('filter-meter')}
+            </button>
+            <button
+              class="chip ${this._unfiltered ? 'active' : ''}"
+              @click=${()=>this._unfiltered = true}
+            >
+              ${$9ab7994a7f6bff81$var$tp('filter-all')}
+            </button>
+          </div>
+
+          <div class="list">
+            ${this._visibleCandidates().map((stateObj)=>this._renderCandidate(stateObj))}
+            ${this._visibleCandidates().length === 0 ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="empty">${$9ab7994a7f6bff81$var$tp('empty')}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          </div>
+
+          ${this._triedConfirmEmpty && !this._selected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${$9ab7994a7f6bff81$var$tp('select-first')}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+          ${this._renderUnsuitableWarning()} ${this._renderHelp(isPower)}
+        </div>
+
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.closeDialog(), false, $9ab7994a7f6bff81$var$tp('cancel'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._confirm(), true, $9ab7994a7f6bff81$var$tp('ok'))}
+      </ha-dialog>
+    `;
+    }
+    _visibleCandidates() {
+        const role = this._params.definition.role;
+        const all = this._unfiltered ? Object.values(this.hass.states).filter((s)=>s.entity_id.startsWith('sensor.'))// Fitting sensors (the right unit/class for this role) first, the
+        // rest below; alphabetical by friendly name within each group.
+        .sort((a, b)=>{
+            const aFits = (0, $929021681b822bb4$export$3131e24fbd7f4c64)(a, role) ? 0 : 1;
+            const bFits = (0, $929021681b822bb4$export$3131e24fbd7f4c64)(b, role) ? 0 : 1;
+            if (aFits !== bFits) return aFits - bFits;
+            return (0, $929021681b822bb4$export$f52e1a142ed579d)(a).localeCompare((0, $929021681b822bb4$export$f52e1a142ed579d)(b));
+        }) : (0, $929021681b822bb4$export$dbc45d2f37c52c28)(this.hass, role, this._params.inUse);
+        const terms = this._query.toLowerCase().split(/\s+/).filter((term)=>term.length > 0);
+        return all.filter((stateObj)=>{
+            if (terms.length === 0) return true;
+            const haystack = `${(0, $929021681b822bb4$export$f52e1a142ed579d)(stateObj)} ${stateObj.entity_id}`.toLowerCase();
+            return terms.every((term)=>haystack.includes(term));
+        }).slice(0, 100);
+    }
+    _renderCandidate(stateObj) {
+        const role = this._params.definition.role;
+        const used = this._params.inUse.includes(stateObj.entity_id);
+        const misfit = !(0, $929021681b822bb4$export$3131e24fbd7f4c64)(stateObj, role);
+        const selected = this._selected === stateObj.entity_id;
+        const unit = stateObj.attributes.unit_of_measurement ?? '';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div
+        class="candidate ${selected ? 'selected' : ''} ${used ? 'used' : ''}"
+        @click=${()=>this._select(stateObj.entity_id)}
+      >
+        <div class="labels">
+          <div class="name">${(0, $929021681b822bb4$export$f52e1a142ed579d)(stateObj)}</div>
+          <div class="entity-id">${stateObj.entity_id}</div>
+        </div>
+        ${used ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="note">${$9ab7994a7f6bff81$var$tp('already-in-use')}</span>` : misfit && this._unfiltered ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="warn">${$9ab7994a7f6bff81$var$tp('measures', {
+            unit: unit || '?'
+        })}</span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      </div>
+    `;
+    }
+    _renderUnsuitableWarning() {
+        if (!this._warnedUnsuitable || !this._selected) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const stateObj = this.hass.states[this._selected];
+        if (stateObj && (0, $929021681b822bb4$export$3131e24fbd7f4c64)(stateObj, this._params.definition.role)) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const unit = stateObj?.attributes?.unit_of_measurement ?? $9ab7994a7f6bff81$var$tp('unsuitable-fallback-unit');
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title=${$9ab7994a7f6bff81$var$tp('unsuitable-title')}>
+        ${$9ab7994a7f6bff81$var$tp('unsuitable-body', {
+            unit: unit
+        })}
+      </ha-alert>
+    `;
+    }
+    _renderHelp(isPower) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <details class="help">
+        <summary>${$9ab7994a7f6bff81$var$tp('help-summary')}</summary>
+        <div class="help-body">
+          ${isPower ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <p>${(0, $a4df01ff0b0132fe$export$b6e69390c23686fb)($9ab7994a7f6bff81$var$tp('help-power-1'))}</p>
+                <p>${$9ab7994a7f6bff81$var$tp('help-power-2')}</p>
+              ` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+                <p>${(0, $a4df01ff0b0132fe$export$b6e69390c23686fb)($9ab7994a7f6bff81$var$tp('help-meter-1'))}</p>
+                <p>${$9ab7994a7f6bff81$var$tp('help-meter-2')}</p>
+              `}
+        </div>
+      </details>
+    `;
+    }
+    _select(entityId) {
+        this._selected = entityId;
+        this._warnedUnsuitable = false;
+        this._triedConfirmEmpty = false;
+    }
+    _confirm() {
+        if (!this._selected) {
+            this._triedConfirmEmpty = true;
+            return;
+        }
+        const stateObj = this.hass.states[this._selected];
+        const suitable = stateObj && (0, $929021681b822bb4$export$3131e24fbd7f4c64)(stateObj, this._params.definition.role);
+        if (!suitable && !this._warnedUnsuitable) {
+            this._warnedUnsuitable = true; // first OK explains; second OK proceeds
+            return;
+        }
+        this._params.onSelect(this._selected);
+        this.closeDialog();
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .subtitle {
+        color: var(--secondary-text-color);
+        margin: 0 0 12px;
+      }
+      .icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-size: 1em;
+        padding: 0 4px;
+      }
+      .info {
+        color: var(--secondary-text-color);
+        --mdc-icon-size: 20px;
+        display: inline-flex;
+        align-items: center;
+        cursor: help;
+      }
+      .filters {
+        display: flex;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .chip {
+        border: 1px solid var(--divider-color);
+        border-radius: 16px;
+        padding: 4px 12px;
+        background: none;
+        color: var(--primary-text-color);
+        cursor: pointer;
+        font-size: 0.85em;
+      }
+      .chip.active {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+      }
+      .list {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        overflow: hidden auto;
+        max-height: 320px;
+      }
+      .candidate {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        cursor: pointer;
+        border-top: 1px solid var(--divider-color);
+      }
+      .candidate:first-child {
+        border-top: none;
+      }
+      .candidate.selected {
+        background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+      }
+      .candidate.used {
+        opacity: 0.5;
+      }
+      .labels {
+        flex: 1;
+        min-width: 0;
+      }
+      .name {
+        font-size: 0.95em;
+      }
+      .entity-id {
+        font-family: var(--code-font-family, monospace);
+        font-size: 0.7em;
+        color: var(--secondary-text-color);
+      }
+      .note {
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+      }
+      .warn {
+        font-size: 0.8em;
+        color: var(--warning-color);
+      }
+      .empty {
+        padding: 16px;
+        color: var(--secondary-text-color);
+      }
+      .help {
+        margin-top: 12px;
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+      }
+      .help summary {
+        cursor: pointer;
+        color: var(--primary-color);
+      }
+    `
         ];
     }
+    constructor(...args){
+        super(...args), this._query = '', this._unfiltered = false, this._selected = null, this._warnedUnsuitable = false, this._triedConfirmEmpty = false;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $9cd908ed2625c047$export$d541bacb2bda4494)({
+        attribute: false
+    })
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_params", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_query", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_unfiltered", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_selected", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_warnedUnsuitable", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4.prototype, "_triedConfirmEmpty", void 0);
+$9ab7994a7f6bff81$export$c3cfd0d6798395e4 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($9ab7994a7f6bff81$export$45e0b80f1e500bd4)
+], $9ab7994a7f6bff81$export$c3cfd0d6798395e4);
+
+
+
+
+const $c39c194e2cc8bd35$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.grid-connection');
+const $c39c194e2cc8bd35$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-grid-connection-settings-dialog';
+class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     async showDialog() {
         super.showDialog();
         this._step = "intro";
@@ -14417,20 +15006,18 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             '',
             ''
         ];
-        this._entityStatus = {};
-        this._entityNegative = {};
-        this._cleanupEntityListeners();
         this._autoDetected = false;
-        this._triedContinueStep2 = false;
-        this._triedSave = false;
+        this._triedContinueConnection = false;
         this._phaseChangeConfirmed = false;
+        this._triedContinuePower = false;
+        this._triedContinueMeter = false;
+        this._triedSave = false;
         this._saving = false;
         this._saveError = '';
-        this._saveConfirmed = false;
-        // Fresh FlexMeasures reachability probe (non-blocking; updates _fmProbe when
-        // it resolves). The intro gate stays closed until it reports back.
+        // Fresh FlexMeasures reachability probe — the intro gate stays closed until
+        // it reports back (Save provisions sensors on FlexMeasures).
         this._probeFm();
-        // Load existing settings if configured
+        // Load existing settings if configured.
         try {
             const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_grid_connection_settings');
             if (data.consumption_entities?.length > 0) {
@@ -14442,9 +15029,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             if (data.consumption_registers?.length > 0) this._consumptionRegisters = this._padTo2(data.consumption_registers);
             if (data.production_registers?.length > 0) this._productionRegisters = this._padTo2(data.production_registers);
         } catch (e) {
-        // Ignore — start fresh
+        // Ignore — start fresh.
         }
-        // Auto-detect from available HA entities (only if not already configured)
+        // Auto-detect only when nothing is configured yet.
         if (!this._phases) try {
             const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
             if (detected.phases || detected.capacity_per_phase || detected.consumption_entities?.length > 0) this._autoDetected = true;
@@ -14461,12 +15048,9 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 this._productionRegisters = this._padTo2(detected.production_registers);
             }
         } catch (e) {
-        // Auto-detect failed, no problem — user fills in manually
+        // Detection failed — the user fills things in manually.
         }
-        this._buildSensorEntityList();
-        // Load existing solar panels so we can warn the user when their new
-        // phases choice would invalidate any of them (plan task 30a). Failure
-        // is non-fatal — we just won't warn.
+        // Existing solar panels, to warn when a phase change would invalidate one.
         try {
             const sp = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_solar_panels');
             this._existingSolarPanels = sp.solar_panels ?? [];
@@ -14475,185 +15059,144 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         }
         await this.updateComplete;
     }
-    closeDialog() {
-        this._cleanupEntityListeners();
-        super.closeDialog();
-    }
-    _cleanupEntityListeners() {
-        for (const unsub of Object.values(this._entityListeners))try {
-            if (typeof unsub === 'function') unsub();
-        } catch (e) {}
-        this._entityListeners = {};
-    }
-    _buildSensorEntityList() {
-        const states = this.hass.states;
-        this._sensorEntities = [];
-        for (const entityId of Object.keys(states)){
-            if (!entityId.startsWith('sensor.')) continue;
-            const stateObj = states[entityId];
-            const deviceClass = stateObj.attributes.device_class ?? '';
-            const unit = stateObj.attributes.unit_of_measurement ?? '';
-            const stateClass = stateObj.attributes.state_class ?? '';
-            const isPower = deviceClass === 'power' || [
-                'W',
-                'kW',
-                'MW'
-            ].includes(unit);
-            // Cumulative meter register: an energy sensor whose value only ever
-            // increases (the meter's kWh total per tariff).
-            const isEnergyRegister = deviceClass === 'energy' && stateClass === 'total_increasing' && [
-                'Wh',
-                'kWh',
-                'MWh'
-            ].includes(unit);
-            const name = stateObj.attributes.friendly_name || entityId;
-            this._sensorEntities.push({
-                id: entityId,
-                name: name,
-                isPower: isPower,
-                isEnergyRegister: isEnergyRegister
-            });
-        }
-        // Sort: power sensors first, then alphabetically
-        this._sensorEntities.sort((a, b)=>{
-            if (a.isPower !== b.isPower) return a.isPower ? -1 : 1;
-            return a.name.localeCompare(b.name);
-        });
+    _padTo2(arr) {
+        return [
+            arr[0] ?? '',
+            arr[1] ?? ''
+        ];
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
-        const header = 'Grid connection';
+        const isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = this._headerFor(this._step);
         let content;
         switch(this._step){
             case "intro":
                 content = this._renderIntro();
                 break;
-            case "phases_and_capacity":
-                content = this._renderPhasesAndCapacity();
+            case "connection":
+                content = this._renderConnection();
                 break;
-            case "entities":
-                content = this._renderEntities();
+            case "power":
+                content = this._renderPower();
+                break;
+            case "meter":
+                content = this._renderMeter();
+                break;
+            case "done":
+                content = this._renderDone();
                 break;
         }
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
         @closed=${this.closeDialog}
-        .heading=${_isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
-        .headerTitle=${_isNew ? header : null}
+        .heading=${isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${isNew ? header : null}
       >
         ${content}
       </ha-dialog>
     `;
     }
-    // ── Step 1: Introduction ────────────────────────────────────────────
+    _headerFor(step) {
+        switch(step){
+            case "connection":
+                return $c39c194e2cc8bd35$var$tp('header.connection');
+            case "power":
+                return $c39c194e2cc8bd35$var$tp('header.power');
+            case "meter":
+                return $c39c194e2cc8bd35$var$tp('header.meter');
+            case "done":
+                return $c39c194e2cc8bd35$var$tp('header.done');
+            default:
+                return $c39c194e2cc8bd35$var$tp('title');
+        }
+    }
+    // ── Step 1: Intro ───────────────────────────────────────────────────
     _renderIntro() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      ${this._renderFmGate('grid connection')}
+      ${this._renderFmGate($c39c194e2cc8bd35$var$tp('fm-gate-subject'))}
 
-      <p>By monitoring your grid connection, the system learns your household energy
-      patterns. Over time, this leads to <strong>better predictions</strong> and
-      <strong>smarter schedules</strong> that fit your specific situation.</p>
-
-      <p><strong>For Dutch users:</strong> this is a valuable preparation for the
-      end of "saldering" (net metering). Once net metering ends, a grid connection
-      configuration will be required.</p>
+      <p>${(0, $a4df01ff0b0132fe$export$b6e69390c23686fb)($c39c194e2cc8bd35$var$tp('intro.p1'))}</p>
+      <p>${(0, $a4df01ff0b0132fe$export$b6e69390c23686fb)($c39c194e2cc8bd35$var$tp('intro.p2'))}</p>
 
       <div class="requirements-box">
-        <div class="requirements-header">What you need*</div>
+        <div class="requirements-header">${$c39c194e2cc8bd35$var$tp('intro.req-header')}</div>
         <div class="requirement-item">
           <ha-icon icon="mdi:meter-electric" class="requirement-icon"></ha-icon>
           <div>
-            <strong>Smart meter</strong><br/>
-            Capable of reporting power usage per phase in real-time.
+            <strong>${$c39c194e2cc8bd35$var$tp('intro.req-smart-meter-title')}</strong><br />
+            ${$c39c194e2cc8bd35$var$tp('intro.req-smart-meter-desc')}
           </div>
         </div>
         <div class="requirement-item">
           <ha-icon icon="mdi:cable-data" class="requirement-icon"></ha-icon>
           <div>
-            <strong>P1 cable</strong><br/>
-            A USB P1 port cable or similar to connect the meter.
+            <strong>${$c39c194e2cc8bd35$var$tp('intro.req-cable-title')}</strong><br />
+            ${$c39c194e2cc8bd35$var$tp('intro.req-cable-desc')}
           </div>
         </div>
         <div class="requirement-item">
           <ha-icon icon="mdi:home-assistant" class="requirement-icon"></ha-icon>
           <div>
-            <strong>Home Assistant integration</strong><br/>
-            A functional integration that exposes meter data as sensor entities
-            (e.g. a DSMR integration).
+            <strong>${$c39c194e2cc8bd35$var$tp('intro.req-integration-title')}</strong><br />
+            ${$c39c194e2cc8bd35$var$tp('intro.req-integration-desc')}
           </div>
-        </div>
-        <div class="requirements-footer">
-          * Typical setup. Other setups are possible, as long as usage and production
-          can be read from HA sensors.
         </div>
       </div>
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
-            this._step = "phases_and_capacity";
+            this._step = "connection";
         }, true, null, !this._fmReachable)}
     `;
     }
-    // ── Step 2: Phases and Capacity ─────────────────────────────────────
-    _renderPhasesAndCapacity() {
+    // ── Step 2: Connection (phases + capacity) ──────────────────────────
+    _renderConnection() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <p style="margin: 0;"><strong>How many phases does your grid connection have?</strong></p>
-          ${this._autoDetected && this._phases !== null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <div class="section-head">
+          <p style="margin: 0;">
+            <strong>${$c39c194e2cc8bd35$var$tp('connection.phases-question')}</strong>
+          </p>
+          ${this._autoDetected && this._phases !== null ? this._autoBadge() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         </div>
         <div class="phase-cards">
           <div
             class="phase-card ${this._phases === 1 ? 'selected' : ''}"
-            @click=${()=>{
-            this._selectPhases(1);
-        }}
+            @click=${()=>this._selectPhases(1)}
           >
             ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 1)}
             <div>
-              <strong>1 phase</strong><br/>
-              <span class="phase-subtitle">Small apartment connection</span>
+              <strong>${$c39c194e2cc8bd35$var$tp('connection.phase-1-title')}</strong><br />
+              <span class="phase-subtitle">${$c39c194e2cc8bd35$var$tp('connection.phase-1-sub')}</span>
             </div>
           </div>
           <div
             class="phase-card ${this._phases === 3 ? 'selected' : ''}"
-            @click=${()=>{
-            this._selectPhases(3);
-        }}
+            @click=${()=>this._selectPhases(3)}
           >
             ${(0, $4dbea3927e6cdc74$export$6784655213c448c5)(this._phases === 3)}
             <div>
-              <strong>3 phases</strong><br/>
-              <span class="phase-subtitle">Standard connection</span>
+              <strong>${$c39c194e2cc8bd35$var$tp('connection.phase-3-title')}</strong><br />
+              <span class="phase-subtitle">${$c39c194e2cc8bd35$var$tp('connection.phase-3-sub')}</span>
             </div>
           </div>
         </div>
-        ${this._triedContinueStep2 && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please select the number of phases.</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._triedContinueConnection && this._phases === null ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">${$c39c194e2cc8bd35$var$tp('connection.phases-error')}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         <details class="hint">
-          <summary>Not sure?</summary>
-          <p>Check your smart meter integration in Home Assistant. Look for separate
-          L1, L2, and L3 sensors — if you have them, you have 3 phases. If you only
-          see L1, you have 1 phase.</p>
+          <summary>${$c39c194e2cc8bd35$var$tp('connection.phases-hint-summary')}</summary>
+          <p>${$c39c194e2cc8bd35$var$tp('connection.phases-hint-body')}</p>
         </details>
       </div>
 
       <div style="margin-top: 16px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <p style="margin: 0;"><strong>Capacity per phase (ampere)</strong></p>
-          ${this._autoDetected && this._capacityPerPhase !== '' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <div class="section-head">
+          <p style="margin: 0;"><strong>${$c39c194e2cc8bd35$var$tp('connection.capacity-label')}</strong></p>
+          ${this._autoDetected && this._capacityPerPhase !== '' ? this._autoBadge() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         </div>
         ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
             value: this._capacityPerPhase,
-            onChange: (e)=>{
-                this._capacityPerPhase = e.target.value;
-            },
+            onChange: (e)=>this._capacityPerPhase = e.target.value,
             type: 'number',
             inputmode: 'numeric',
             min: 6,
@@ -14664,25 +15207,20 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         })}
         ${this._renderCapacityError()}
         <details class="hint">
-          <summary>Where to find this</summary>
-          <p>You can find this on your energy contract, or in your smart meter
-          integration in Home Assistant. Look for a sensor with "fuse" or "threshold"
-          in the name. Common values are 25A or 35A.</p>
-          <p>Please enter the actual value — do not enter a lower value as a safety margin.</p>
+          <summary>${$c39c194e2cc8bd35$var$tp('connection.capacity-hint-summary')}</summary>
+          <p>${$c39c194e2cc8bd35$var$tp('connection.capacity-hint-body')}</p>
         </details>
       </div>
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
-            this._triedContinueStep2 = false;
+            this._triedContinueConnection = false;
             this._step = "intro";
         }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${this._renderSolarPanelWarning()}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToEntities(), true, this._phaseChangeConfirmed ? 'Continue anyway' : this.hass.localize('ui.common.continue'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToPower(), true, this._phaseChangeConfirmed ? $c39c194e2cc8bd35$var$tp('connection.continue-anyway') : this.hass.localize('ui.common.continue'))}
     `;
     }
     _selectPhases(phases) {
-        // Any change in the phase choice invalidates a previous
-        // "Continue anyway" acknowledgement — re-warn for the new selection.
         if (this._phases !== phases) this._phaseChangeConfirmed = false;
         this._phases = phases;
     }
@@ -14692,362 +15230,319 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         return !isNaN(cap) && Number.isInteger(cap) && cap >= 6 && cap <= 80;
     }
     _renderCapacityError() {
-        if (this._capacityPerPhase === '' && this._triedContinueStep2) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Please enter the capacity.</div>`;
-        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">Must be a whole number between 6 and 80.</div>`;
+        if (this._capacityPerPhase === '' && this._triedContinueConnection) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        ${$c39c194e2cc8bd35$var$tp('connection.capacity-error-empty')}
+      </div>`;
+        if (this._capacityPerPhase !== '' && !this._isCapacityValid()) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+        ${$c39c194e2cc8bd35$var$tp('connection.capacity-error-range')}
+      </div>`;
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     }
-    _continueToEntities() {
-        this._triedContinueStep2 = true;
-        if (this._phases === null) return;
-        if (!this._isCapacityValid()) return;
-        // Soft warning: would the new phase choice make existing solar panels
-        // inconsistent? First Continue click reveals the warning; the second
-        // (now "Continue anyway") actually moves to the next step. Nothing on
-        // the panels is changed — they get flagged on the solar panels card.
+    _continueToPower() {
+        this._triedContinueConnection = true;
+        if (this._phases === null || !this._isCapacityValid()) return;
+        // Soft warning: would the new phase choice invalidate existing panels?
         if (this._panelsThatWillBecomeInconsistent().length > 0 && !this._phaseChangeConfirmed) {
             this._phaseChangeConfirmed = true;
             return;
         }
-        // Initialise entity arrays to correct length if needed
+        // Size the power arrays to the phase count.
         const count = this._phases;
-        if (this._consumptionEntities.length !== count) this._consumptionEntities = new Array(count).fill('');
-        if (this._productionEntities.length !== count) this._productionEntities = new Array(count).fill('');
-        this._triedSave = false;
-        this._saveConfirmed = false;
-        this._step = "entities";
-        // Start listening for already-selected entities
-        for (const entityId of [
-            ...this._consumptionEntities,
-            ...this._productionEntities
-        ])if (entityId) this._startListeningEntity(entityId);
+        if (this._consumptionEntities.length !== count) this._consumptionEntities = this._resize(this._consumptionEntities, count);
+        if (this._productionEntities.length !== count) this._productionEntities = this._resize(this._productionEntities, count);
+        this._triedContinuePower = false;
+        this._step = "power";
     }
-    // ── Step 3: Entity Selection (with inline validation) ───────────────
-    _renderEntities() {
-        const count = this._phases ?? 1;
-        const allSelected = this._getAllSelectedEntities();
+    _resize(arr, count) {
+        const copy = arr.slice(0, count);
+        while(copy.length < count)copy.push('');
+        return copy;
+    }
+    // ── Step 3: Power ───────────────────────────────────────────────────
+    _renderPower() {
+        const roles = (0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities);
+        const consumption = roles.filter((r)=>r.key.startsWith('consumption'));
+        const production = roles.filter((r)=>r.key.startsWith('production'));
+        const noCandidates = (0, $929021681b822bb4$export$dbc45d2f37c52c28)(this.hass, 'power').length === 0;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      ${this._renderPowerHelp()}
-      <div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <p style="margin: 0; flex: 1;"><strong>Consumption sensors</strong> (grid power drawn from the grid)</p>
-          ${this._autoDetected && this._consumptionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-          <span class="column-header">Active</span>
-        </div>
-        ${Array.from({
-            length: count
-        }, (_, i)=>this._renderEntityDropdown(`Consumption phase ${i + 1} (L${i + 1})`, this._consumptionEntities[i] ?? '', (val)=>{
-                const old = this._consumptionEntities[i];
-                if (old) this._stopListeningEntity(old);
-                const copy = [
-                    ...this._consumptionEntities
-                ];
-                copy[i] = val;
-                this._consumptionEntities = copy;
-                if (val) this._startListeningEntity(val);
-            }, allSelected))}
+      <div class="sensors-intro">
+        <p style="margin: 0;"><strong>${$c39c194e2cc8bd35$var$tp('sensors-heading')}</strong></p>
+        <p class="muted">${$c39c194e2cc8bd35$var$tp('power.intro')}</p>
       </div>
 
-      <div style="margin-top: 24px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <p style="margin: 0; flex: 1;"><strong>Production sensors</strong> (power fed back to the grid)</p>
-          ${this._autoDetected && this._productionEntities.some((e)=>e !== '') ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-          <span class="column-header">Active</span>
-        </div>
-        ${Array.from({
-            length: count
-        }, (_, i)=>this._renderEntityDropdown(`Production phase ${i + 1} (L${i + 1})`, this._productionEntities[i] ?? '', (val)=>{
-                const old = this._productionEntities[i];
-                if (old) this._stopListeningEntity(old);
-                const copy = [
-                    ...this._productionEntities
-                ];
-                copy[i] = val;
-                this._productionEntities = copy;
-                if (val) this._startListeningEntity(val);
-            }, allSelected))}
+      ${noCandidates ? this._renderNotRecognised($c39c194e2cc8bd35$var$tp('power.not-recognised-what')) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      <div class="group-head">
+        <span class="gh-title"><strong>${$c39c194e2cc8bd35$var$tp('power.consumption-title')}</strong> <span class="muted">${$c39c194e2cc8bd35$var$tp('power.consumption-sub')}</span></span>
+        <span class="gh-live">LIVE</span>
       </div>
+      ${consumption.map((role)=>(0, $4783b00079e8724f$export$f6154e7ea1c4e2d5)(this.hass, role, {
+                onChoose: (def)=>this._openChooseSensor(def)
+            }))}
 
-      ${this._renderRegisters()}
+      <div class="group-head" style="margin-top: 16px;">
+        <span class="gh-title"><strong>${$c39c194e2cc8bd35$var$tp('power.production-title')}</strong> <span class="muted">${$c39c194e2cc8bd35$var$tp('power.production-sub')}</span></span>
+        <span class="gh-live">LIVE</span>
+      </div>
+      ${production.map((role)=>(0, $4783b00079e8724f$export$f6154e7ea1c4e2d5)(this.hass, role, {
+                onChoose: (def)=>this._openChooseSensor(def)
+            }))}
 
-      ${this._triedSave ? this._renderEntityErrors() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-      ${this._renderNegativeWarning()}
-      ${this._renderSaveWarning()}
-      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error save-error" role="alert">${this._saveError}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._triedContinuePower && this._powerIncomplete() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error" style="margin-top: 12px;">
+            ${$c39c194e2cc8bd35$var$tp('power.incomplete-alert')}
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
 
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
-            this._cleanupEntityListeners();
-            this._triedSave = false;
-            this._step = "phases_and_capacity";
+            this._step = "connection";
         }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
-      ${this._saving ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saveConfirmed ? 'Save anyway' : this.hass.localize('ui.common.save'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToMeter(), true)}
     `;
     }
-    _renderEntityDropdown(label, selected, onChange, allSelected) {
-        const hasPowerGroup = this._sensorEntities.some((e)=>e.isPower);
-        const status = selected ? this._entityStatus[selected] : undefined;
-        const isNegative = selected ? this._entityNegative[selected] : false;
-        const statusIcon = !selected ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : isNegative ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:alert" title="This sensor reported a negative value" style="color: var(--warning-color, #ff9800); --mdc-icon-size: 20px;"></ha-icon>` : status === true ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:check-circle" style="color: var(--success-color, #4caf50); --mdc-icon-size: 20px;"></ha-icon>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>`;
+    _continueToMeter() {
+        this._triedContinuePower = true;
+        if (this._powerIncomplete()) return;
+        this._triedContinueMeter = false;
+        this._step = "meter";
+    }
+    // ── Step 4: Meter readings ──────────────────────────────────────────
+    _renderMeter() {
+        const roles = (0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters);
+        // roles = [import_t1, import_t2, export_t1, export_t2]
+        // Grouped by direction (import/export) to match step 3's consumption/
+        // production grouping; the tariff distinguishes the two rows in each group.
+        const importRoles = [
+            roles[0],
+            roles[1]
+        ];
+        const exportRoles = [
+            roles[2],
+            roles[3]
+        ];
+        const noCandidates = (0, $929021681b822bb4$export$dbc45d2f37c52c28)(this.hass, 'meter_reading').length === 0;
+        const rows = (rs)=>rs.map((role)=>(0, $4783b00079e8724f$export$f6154e7ea1c4e2d5)(this.hass, role, {
+                    showStatus: false,
+                    onChoose: (def)=>this._openChooseSensor(def)
+                }));
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div style="margin: 8px 0;">
-        <label style="font-size: 0.875em; color: var(--secondary-text-color);">${label}</label>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <select
-            .value=${selected}
-            @change=${(e)=>onChange(e.target.value)}
-            style="flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
-          >
-            <option value="">Select a sensor...</option>
-            ${hasPowerGroup ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<optgroup label="Power sensors">
-              ${this._sensorEntities.filter((e)=>e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <option
-                    value=${e.id}
-                    ?selected=${e.id === selected}
-                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
-                  >${e.name} (${e.id})</option>
-                `)}
-            </optgroup>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-            <optgroup label="${hasPowerGroup ? 'Other sensors' : 'Sensors'}">
-              ${this._sensorEntities.filter((e)=>!e.isPower).map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <option
-                    value=${e.id}
-                    ?selected=${e.id === selected}
-                    ?disabled=${e.id !== selected && allSelected.has(e.id)}
-                  >${e.name} (${e.id})</option>
-                `)}
-            </optgroup>
-          </select>
-          <span style="width: 28px; text-align: center; display: flex; align-items: center; justify-content: center;">${statusIcon}</span>
-        </div>
+      <div class="sensors-intro">
+        <p style="margin: 0;"><strong>${$c39c194e2cc8bd35$var$tp('sensors-heading')}</strong></p>
+        <p class="muted">${$c39c194e2cc8bd35$var$tp('meter.intro')}</p>
       </div>
+
+      ${noCandidates ? this._renderNotRecognised($c39c194e2cc8bd35$var$tp('meter.not-recognised-what')) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      <div class="group-head">
+        <span class="gh-title"><strong>${$c39c194e2cc8bd35$var$tp('meter.import-title')}</strong> <span class="muted">${$c39c194e2cc8bd35$var$tp('meter.import-sub')}</span></span>
+      </div>
+      ${rows(importRoles)}
+      <div class="group-head" style="margin-top: 16px;">
+        <span class="gh-title"><strong>${$c39c194e2cc8bd35$var$tp('meter.export-title')}</strong> <span class="muted">${$c39c194e2cc8bd35$var$tp('meter.export-sub')}</span></span>
+      </div>
+      ${rows(exportRoles)}
+
+      ${this._triedContinueMeter && this._metersIncomplete() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error" style="margin-top: 12px;">
+            ${$c39c194e2cc8bd35$var$tp('meter.incomplete-alert')}
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "power";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._continueToDone(), true)}
     `;
     }
-    // ── Cumulative energy meter registers (optional) ────────────────────
-    _renderRegisterDropdown(selected, onChange, allSelected) {
-        const registers = this._sensorEntities.filter((e)=>e.isEnergyRegister);
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <select
-        .value=${selected}
-        @change=${(e)=>onChange(e.target.value)}
-        style="width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--divider-color); border-radius: 4px; background: var(--card-background-color); color: var(--primary-text-color); font-size: 0.95em;"
-      >
-        <option value="">Select a sensor...</option>
-        ${registers.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <option
-            value=${e.id}
-            ?selected=${e.id === selected}
-            ?disabled=${e.id !== selected && allSelected.has(e.id)}
-          >${e.name} (${e.id})</option>
-        `)}
-      </select>
-    `;
+    _continueToDone() {
+        this._triedContinueMeter = true;
+        if (this._metersIncomplete()) return;
+        this._triedSave = false;
+        this._step = "done";
     }
-    _renderIntegrationHint() {
+    // ── Step 5: Done ────────────────────────────────────────────────────
+    _renderDone() {
+        const powerList = (0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities);
+        const meterList = (0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters);
+        const linked = (0, $15d4c5d680e517d6$export$6f60e56286389e91)(powerList, meterList).length;
+        const complete = !this._powerIncomplete() && !this._metersIncomplete();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <p style="margin: 4px 0;">
-        <strong>If the sensor you need is missing from the list, it may still
-        need to be enabled on the meter integration</strong> (Settings →
-        Devices &amp; Services → your meter → Entities → show disabled
-        entities).
+      ${complete ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success">
+            ${$c39c194e2cc8bd35$var$tp('done.all-set', {
+            count: linked
+        })}
+          </ha-alert>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="warning">
+            ${$c39c194e2cc8bd35$var$tp('done.incomplete-warning')}
+          </ha-alert>`}
+
+      <div class="summary-group">${$c39c194e2cc8bd35$var$tp('header.connection')}</div>
+      <div class="summary-row"><span>${$c39c194e2cc8bd35$var$tp('done.phases-label')}</span><span>${$c39c194e2cc8bd35$var$tp('done.phases-value', {
+            smart_count: this._phases ?? 0
+        })}</span></div>
+      <div class="summary-row"><span>${$c39c194e2cc8bd35$var$tp('done.capacity-label')}</span><span>${this._capacityPerPhase} A</span></div>
+
+      <div class="summary-group">${$c39c194e2cc8bd35$var$tp('header.power')}</div>
+      ${powerList.map((role)=>this._summaryRow(role))}
+
+      <div class="summary-group">${$c39c194e2cc8bd35$var$tp('header.meter')}</div>
+      ${meterList.map((role)=>this._summaryRow(role, false))}
+
+      <p class="muted" style="margin-top: 12px;">
+        ${$c39c194e2cc8bd35$var$tp('done.keeps-monitoring')}
       </p>
+
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error" class="save-error">
+            ${this._saveError}
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${this._triedSave && !complete ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">
+            ${$c39c194e2cc8bd35$var$tp('done.save-incomplete')}
+          </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>{
+            this._step = "meter";
+        }, false, this.hass.localize('ui.common.back'), false, 'back', true)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._handleSave(), true, this._saving ? $c39c194e2cc8bd35$var$tp('done.saving') : this.hass.localize('ui.common.save'), this._saving)}
     `;
     }
-    _renderPowerHelp() {
-        const count = this._phases ?? 1;
+    _summaryRow(role, showStatus = true) {
+        const label = role.entityId ?? $c39c194e2cc8bd35$var$tp('done.no-sensor');
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <details style="margin: 4px 0 12px; font-size: 0.85em; color: var(--secondary-text-color);">
-        <summary style="cursor: pointer;">Help — which sensors do I pick?</summary>
-        <div style="margin-top: 6px;">
-          <p style="margin: 4px 0;">
-            Pick the <strong>power</strong> sensors (in W or kW) for each phase:
-            how much the connection draws from the grid (consumption) and feeds
-            back (production). Select one per phase (L1..L${count}).
-          </p>
-          ${this._renderIntegrationHint()}
-        </div>
-      </details>
-    `;
-    }
-    _renderRegisterHelp() {
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <details style="margin: 4px 0; font-size: 0.85em; color: var(--secondary-text-color);">
-        <summary style="cursor: pointer;">What are these? (optional)</summary>
-        <div style="margin-top: 6px;">
-          <p style="margin: 4px 0;">
-            These are the meter's <strong>cumulative</strong> import/export
-            registers — the ever-increasing kWh totals, one per tariff. V2G
-            Liberty uses their per-interval increase to send the exact
-            whole-connection energy to FlexMeasures. Leave them empty to skip
-            this; it is optional.
-          </p>
-          <p style="margin: 4px 0;">
-            Only sensors of device class <em>energy</em> with state class
-            <em>total_increasing</em> are listed.
-          </p>
-          ${this._renderIntegrationHint()}
-        </div>
-      </details>
-    `;
-    }
-    _renderRegisters() {
-        const allSelected = this._getAllSelectedEntities();
-        const hasRegisters = this._sensorEntities.some((e)=>e.isEnergyRegister);
-        const anyDetected = this._autoDetected && [
-            ...this._consumptionRegisters,
-            ...this._productionRegisters
-        ].some((e)=>e !== '');
-        const th = 'text-align: left; font-size: 0.8em; color: var(--secondary-text-color); font-weight: normal; padding: 4px;';
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <div style="margin-top: 24px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <p style="margin: 0; flex: 1;"><strong>Energy meter registers</strong> (cumulative import/export, optional)</p>
-          ${anyDetected ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
-                <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
-                Auto-detected
-              </span>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-        </div>
-        ${this._renderRegisterHelp()}
-        ${hasRegisters ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-            <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
-              <thead>
-                <tr>
-                  <th style=${th}></th>
-                  <th style=${th}>Consumption (import)</th>
-                  <th style=${th}>Production (export)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${[
-            0,
-            1
-        ].map((i)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-                  <tr>
-                    <td style="padding: 4px; font-size: 0.875em; color: var(--secondary-text-color); white-space: nowrap;">Tariff ${i + 1}</td>
-                    <td style="padding: 4px;">
-                      ${this._renderRegisterDropdown(this._consumptionRegisters[i] ?? '', (v)=>this._setRegister('c', i, v), allSelected)}
-                    </td>
-                    <td style="padding: 4px;">
-                      ${this._renderRegisterDropdown(this._productionRegisters[i] ?? '', (v)=>this._setRegister('p', i, v), allSelected)}
-                    </td>
-                  </tr>
-                `)}
-              </tbody>
-            </table>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p style="font-size: 0.85em; color: var(--secondary-text-color); margin: 8px 0;">
-              No cumulative energy sensors were found. See the note above.
-            </p>`}
+      <div class="summary-row">
+        <span>${role.badge} ${label}</span>
+        ${showStatus ? (0, $4783b00079e8724f$export$fb3bddae799d3201)((0, $929021681b822bb4$export$1094b4db5e23d27c)(this.hass, role)) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       </div>
     `;
     }
-    _startListeningEntity(entityId) {
-        if (this._entityListeners[entityId]) return; // already listening
-        this._entityStatus = {
-            ...this._entityStatus,
-            [entityId]: undefined
-        }; // pending
-        // Fresh subscription: clear any stale negative flag for this entity.
-        const negReset = {
-            ...this._entityNegative
+    // ── Choose-sensor side-step ─────────────────────────────────────────
+    _openChooseSensor(def) {
+        const { subtitle: subtitle, searchTerms: searchTerms } = this._pickerContext(def);
+        const inUse = (0, $15d4c5d680e517d6$export$6f60e56286389e91)((0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities), (0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters)).filter((id)=>id !== def.entityId);
+        const params = {
+            definition: def,
+            subtitle: subtitle,
+            inUse: inUse,
+            searchTerms: searchTerms,
+            onSelect: (entityId)=>this._applyChoice(def, entityId)
         };
-        delete negReset[entityId];
-        this._entityNegative = negReset;
-        // Subscribe to state changes for this entity
-        const unsub = this.hass.connection.subscribeEvents((event)=>{
-            const data = event.data;
-            if (data.entity_id !== entityId) return;
-            const newState = data.new_state?.state;
-            if (newState == null || newState === '' || newState === 'unknown' || newState === 'unavailable') return;
-            // Numeric check
-            const value = parseFloat(newState);
-            if (isNaN(value)) return;
-            this._entityStatus = {
-                ...this._entityStatus,
-                [entityId]: true
-            };
-            // Consumption/production should be directional (>= 0). A negative value
-            // points at a bidirectional/net or wrong sensor; flag it (sticky).
-            if (value < 0) this._entityNegative = {
-                ...this._entityNegative,
-                [entityId]: true
-            };
-        }, 'state_changed');
-        unsub.then((unsubFn)=>{
-            this._entityListeners[entityId] = unsubFn;
+        (0, $ee1328194d522913$export$43835e9acf248a15)(this, 'show-dialog', {
+            dialogTag: (0, $9ab7994a7f6bff81$export$45e0b80f1e500bd4),
+            dialogImport: ()=>Promise.resolve(),
+            dialogParams: params
         });
     }
-    _stopListeningEntity(entityId) {
-        const unsub = this._entityListeners[entityId];
-        if (unsub) {
-            try {
-                if (typeof unsub === 'function') unsub();
-            } catch (e) {}
-            delete this._entityListeners[entityId];
+    _pickerContext(def) {
+        const power = def.key.match(/^(consumption|production)_l(\d+)$/);
+        if (power) {
+            const dir = power[1];
+            const phase = power[2];
+            const label = dir === 'consumption' ? $c39c194e2cc8bd35$var$tp('picker.consumption') : $c39c194e2cc8bd35$var$tp('picker.production');
+            // Prefill with terms that actually appear in entity names: the direction
+            // and the phase as "l1"/"l2"/"l3" (matches "L1" and "..._l1"). Avoid the
+            // word "phase" — many integrations do not use it. The ✕ clears it.
+            return {
+                subtitle: $c39c194e2cc8bd35$var$tp('picker.power-subtitle', {
+                    direction: label,
+                    phase: phase
+                }),
+                searchTerms: [
+                    dir,
+                    `l${phase}`
+                ]
+            };
         }
-        const copy = {
-            ...this._entityStatus
+        const meter = def.key.match(/^(import|export)_t(\d+)$/);
+        if (meter) {
+            const dir = meter[1];
+            const tariff = meter[2];
+            // DSMR names import as "consumption", export as "production", with the
+            // tariff as "tarif_1"/"tarif_2" — so search the direction + the number,
+            // not the word "tariff".
+            const term = dir === 'import' ? 'consumption' : 'production';
+            const direction = dir === 'import' ? $c39c194e2cc8bd35$var$tp('picker.import') : $c39c194e2cc8bd35$var$tp('picker.export');
+            return {
+                subtitle: $c39c194e2cc8bd35$var$tp('picker.meter-subtitle', {
+                    tariff: tariff,
+                    direction: direction
+                }),
+                searchTerms: [
+                    term,
+                    tariff
+                ]
+            };
+        }
+        return {
+            subtitle: '',
+            searchTerms: []
         };
-        delete copy[entityId];
-        this._entityStatus = copy;
-        const negCopy = {
-            ...this._entityNegative
+    }
+    _applyChoice(def, entityId) {
+        const target = (0, $15d4c5d680e517d6$export$d66896b981a903db)(def.key);
+        if (!target) return;
+        const update = (arr)=>{
+            const copy = [
+                ...arr
+            ];
+            while(copy.length <= target.index)copy.push('');
+            copy[target.index] = entityId;
+            return copy;
         };
-        delete negCopy[entityId];
-        this._entityNegative = negCopy;
-    }
-    _getAllSelectedEntities() {
-        const all = [
-            ...this._consumptionEntities,
-            ...this._productionEntities,
-            ...this._consumptionRegisters,
-            ...this._productionRegisters
-        ].filter((e)=>e !== '');
-        return new Set(all);
-    }
-    _setRegister(side, i, val) {
-        if (side === 'c') {
-            const copy = [
-                ...this._consumptionRegisters
-            ];
-            copy[i] = val;
-            this._consumptionRegisters = copy;
-        } else {
-            const copy = [
-                ...this._productionRegisters
-            ];
-            copy[i] = val;
-            this._productionRegisters = copy;
+        switch(target.list){
+            case 'consumption_entities':
+                this._consumptionEntities = update(this._consumptionEntities);
+                break;
+            case 'production_entities':
+                this._productionEntities = update(this._productionEntities);
+                break;
+            case 'consumption_registers':
+                this._consumptionRegisters = update(this._consumptionRegisters);
+                break;
+            case 'production_registers':
+                this._productionRegisters = update(this._productionRegisters);
+                break;
         }
     }
-    _hasDuplicateEntities() {
-        const all = [
-            ...this._consumptionEntities,
-            ...this._productionEntities
-        ].filter((e)=>e !== '');
-        return new Set(all).size !== all.length;
+    // ── Detection variant, badges ───────────────────────────────────────
+    _renderNotRecognised(what) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="warning" title=${$c39c194e2cc8bd35$var$tp('detect.title')}>
+        ${$c39c194e2cc8bd35$var$tp('detect.body', {
+            what: what
+        })}
+        <div style="margin-top: 8px;">
+          <button class="link" @click=${()=>this._searchAgain()}>
+            ${$c39c194e2cc8bd35$var$tp('detect.search-again')}
+          </button>
+          <a
+            href="/config/integrations"
+            target="_blank"
+            rel="noopener"
+            style="margin-left: 12px; color: var(--primary-color);"
+          >
+            ${$c39c194e2cc8bd35$var$tp('detect.open-integrations')}
+            <ha-icon icon="mdi:open-in-new" style="--mdc-icon-size: 14px;"></ha-icon>
+          </a>
+        </div>
+      </ha-alert>
+    `;
     }
-    _hasEmptyEntities() {
-        const count = this._phases ?? 1;
-        return this._consumptionEntities.filter((e)=>e !== '').length < count || this._productionEntities.filter((e)=>e !== '').length < count;
+    async _searchAgain() {
+        try {
+            const detected = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_grid_entities');
+            if (detected.consumption_entities?.length > 0) this._consumptionEntities = detected.consumption_entities;
+            if (detected.production_entities?.length > 0) this._productionEntities = detected.production_entities;
+            if (detected.consumption_registers?.length > 0) this._consumptionRegisters = this._padTo2(detected.consumption_registers);
+            if (detected.production_registers?.length > 0) this._productionRegisters = this._padTo2(detected.production_registers);
+        } catch (e) {
+        // Nothing found — the alert stays; the user can enable and retry.
+        }
     }
-    _hasPendingEntities() {
-        const all = [
-            ...this._consumptionEntities,
-            ...this._productionEntities
-        ].filter((e)=>e !== '');
-        return all.some((e)=>this._entityStatus[e] !== true);
+    _autoBadge() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<span class="auto-detected-badge">
+      <ha-icon icon="mdi:auto-fix" style="--mdc-icon-size: 14px;"></ha-icon>
+      ${$c39c194e2cc8bd35$var$tp('badge.auto-detected')}
+    </span>`;
     }
-    // Meter registers are required, not optional. Per direction the selection is
-    // only complete when it is either a single cumulative TOTAL register (1.8.0 /
-    // 2.8.0 — already sums the tariffs), or BOTH tariff registers. A single
-    // tariff register leaves the other tariff's energy uncounted, so it does not
-    // count as complete.
+    // ── Validation ──────────────────────────────────────────────────────
+    _powerIncomplete() {
+        return (0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities).some((r)=>!r.entityId);
+    }
     _isTotalRegister(entityId) {
-        // The detector marks totals with "total" in the entity id
-        // (e.g. ..._energy_consumption_total). Tariff registers carry "tarif".
         return /total/i.test(entityId);
     }
     _directionIncomplete(registers) {
@@ -15056,96 +15551,42 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         if (filled.some((e)=>this._isTotalRegister(e))) return false;
         return filled.length < 2;
     }
-    _hasMissingRegisters() {
+    _metersIncomplete() {
         return this._directionIncomplete(this._consumptionRegisters) || this._directionIncomplete(this._productionRegisters);
     }
-    _renderEntityErrors() {
-        const errors = [];
-        if (this._hasEmptyEntities()) errors.push('Please select a sensor for each field.');
-        if (this._hasDuplicateEntities()) errors.push('Each sensor can only be selected once.');
-        if (this._hasMissingRegisters()) errors.push("For both import and export, select a total meter register or both tariff 1 and tariff 2 (cumulative kWh).");
-        if (errors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${errors.map((e)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${e}</ha-alert>`)}`;
-    }
-    _renderNegativeWarning() {
-        const selected = this._getAllSelectedEntities();
-        const hasNegative = Object.keys(this._entityNegative).some((e)=>this._entityNegative[e] && selected.has(e));
-        if (!hasNegative) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <ha-alert alert-type="warning" title="A sensor reported a negative value">
-        A selected grid sensor reported a negative value. These fields each need
-        a sensor that reports only one direction and stays zero or positive: one
-        for power drawn from the grid, and one for power fed back to the grid. A
-        negative value means the sensor measures both directions at once (a net
-        value) — for example a CT clamp that also sees the car feeding back.
-        <p>
-          <strong>Tip:</strong> V2G Liberty does not support a single net sensor.
-          If your meter offers separate sensors for power drawn from and fed back
-          to the grid, select those; if not, please contact V2G Liberty to
-          request support.
-        </p>
-      </ha-alert>
-    `;
-    }
-    _renderSaveWarning() {
-        if (!this._triedSave || this._hasEmptyEntities() || this._hasDuplicateEntities() || this._hasMissingRegisters()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        if (!this._hasPendingEntities()) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-      <ha-alert alert-type="warning" title="Some sensors have not responded yet">
-        This could mean the entity ID is incorrect, or the sensor is not reporting
-        data at this time. For production sensors, this can be normal if there is
-        currently no or little solar production — the meter may report 0 continuously,
-        which does not generate a state change.
-      </ha-alert>
-    `;
-    }
-    // ── Solar panel consistency warning (plan task 30a) ─────────────────
+    // ── Solar panel consistency warning ─────────────────────────────────
     _panelsThatWillBecomeInconsistent() {
         if (this._phases === null) return [];
         const newPhases = this._phases;
         return this._existingSolarPanels.filter((p)=>{
-            if (typeof p.phases !== 'number') return true; // unknown counts as broken
+            if (typeof p.phases !== 'number') return true;
             if (p.phases > newPhases) return true;
             if (p.phases === 1 && newPhases === 3 && p.connected_to_phase !== 1 && p.connected_to_phase !== 2 && p.connected_to_phase !== 3) return true;
             return false;
-        }).map((p)=>p.name ?? '(unnamed)');
+        }).map((p)=>p.name ?? $c39c194e2cc8bd35$var$tp('solar-warning.unnamed'));
     }
     _renderSolarPanelWarning() {
         if (!this._phaseChangeConfirmed) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         const affected = this._panelsThatWillBecomeInconsistent();
         if (affected.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const list = affected.map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${n}</li>`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-alert
         alert-type="warning"
-        title="This change will break ${affected.length === 1 ? 'a solar panel' : 'solar panels'}"
+        title=${affected.length === 1 ? $c39c194e2cc8bd35$var$tp('solar-warning.title-one') : $c39c194e2cc8bd35$var$tp('solar-warning.title-many')}
         style="margin-top: 16px;"
       >
-        <p style="margin: 0 0 8px 0;">
-          The new phase count no longer matches the configuration of:
-        </p>
-        <ul style="margin: 0 0 8px 16px; padding: 0;">${list}</ul>
-        <p style="margin: 0;">
-          Continue anyway is allowed — the affected panel(s) will be flagged
-          on the solar panels card so you can edit them afterwards. Nothing
-          on the panels is changed automatically.
-        </p>
+        <p style="margin: 0 0 8px 0;">${$c39c194e2cc8bd35$var$tp('solar-warning.body-intro')}</p>
+        <ul style="margin: 0 0 8px 16px; padding: 0;">
+          ${affected.map((n)=>(0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${n}</li>`)}
+        </ul>
+        <p style="margin: 0;">${$c39c194e2cc8bd35$var$tp('solar-warning.body-outro')}</p>
       </ha-alert>
     `;
     }
     // ── Save ────────────────────────────────────────────────────────────
     async _handleSave() {
         this._triedSave = true;
-        // Block if empty, duplicate, or required registers missing
-        if (this._hasEmptyEntities() || this._hasDuplicateEntities() || this._hasMissingRegisters()) return;
-        // If some entities still pending and not yet confirmed
-        if (this._hasPendingEntities() && !this._saveConfirmed) {
-            this._saveConfirmed = true; // next click will be "Save anyway"
-            return;
-        }
-        // FlexMeasures may have dropped between the intro probe and here; the
-        // backend save is the authority — it provisions atomically and returns a
-        // clear fm_error if FM is unreachable, which _save() surfaces below.
+        if (this._powerIncomplete() || this._metersIncomplete()) return;
         await this._save();
     }
     async _save() {
@@ -15161,12 +15602,10 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
                 production_registers: this._productionRegisters.filter((e)=>e !== '')
             });
             if (result.fm_error) {
-                // Provisioning at FlexMeasures failed (unreachable or too slow). Nothing
-                // was saved; Lit preserves the form so the user can retry once FM is
-                // healthy (ensure_* is idempotent). Back/Cancel closes without saving.
-                this._saveError = `Could not create the grid sensors in FlexMeasures: ${result.fm_error}. ` + `Please check FlexMeasures and try again.`;
+                this._saveError = $c39c194e2cc8bd35$var$tp('save-error.fm', {
+                    error: result.fm_error
+                });
                 this._saving = false;
-                this._saveConfirmed = false;
                 return;
             }
             if (result.error) {
@@ -15176,7 +15615,7 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
             }
             this.closeDialog();
         } catch (e) {
-            this._saveError = "Could not reach the add-on. Please check that V2G Liberty is running and try again.";
+            this._saveError = $c39c194e2cc8bd35$var$tp('save-error.unreachable');
             this._saving = false;
         }
     }
@@ -15191,7 +15630,76 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
       }
       .save-error {
         margin-top: 12px;
-        font-weight: 500;
+      }
+      .muted {
+        color: var(--secondary-text-color);
+      }
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .sensors-intro {
+        border-bottom: 1px solid var(--divider-color);
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .sensors-intro .muted {
+        font-size: 0.9em;
+        line-height: 1.4;
+        margin: 4px 0 0 0;
+      }
+      .group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 0.95em;
+        margin-bottom: 2px;
+        /* Match the rows' horizontal padding so columns line up. */
+        padding: 0 4px;
+      }
+      .gh-title {
+        flex: 1;
+        min-width: 0;
+      }
+      .gh-live {
+        flex: 0 0 auto;
+        width: 28px;
+        text-align: center;
+        white-space: nowrap;
+        /* Sit centred above the 28px status column: the row's action column
+           is 108px wide with a 12px gap before the status icon. */
+        margin-right: 120px;
+        font-size: 0.7em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: var(--secondary-text-color);
+      }
+      .summary-group {
+        text-transform: uppercase;
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: var(--secondary-text-color);
+        margin: 16px 0 4px 0;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0;
+        border-top: 1px solid var(--divider-color);
+        font-size: 0.9em;
+      }
+      .link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--primary-color);
+        cursor: pointer;
+        font-size: 1em;
       }
       details.hint {
         margin-top: 8px;
@@ -15232,16 +15740,6 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
       .phase-subtitle {
         font-size: 0.85em;
         color: var(--secondary-text-color);
-      }
-      .column-header {
-        font-size: 0.75em;
-        font-weight: 600;
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        width: 28px;
-        text-align: center;
-        flex-shrink: 0;
       }
       .auto-detected-badge {
         display: inline-flex;
@@ -15288,42 +15786,19 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
         font-size: 0.9em;
         line-height: 1.4;
       }
-      .requirements-footer {
-        margin-top: 12px;
-        font-size: 0.8em;
-        color: var(--secondary-text-color);
-        font-style: italic;
-      }
     `
         ];
     }
     constructor(...args){
-        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', this._consumptionEntities = [], this._productionEntities = [], // Cumulative meter registers (total_increasing energy). Index 0 = tariff 1,
-        // index 1 = tariff 2. Optional and summed downstream; empty = feature off.
-        // The common NL case is two tariffs (or a single total register in slot 0).
-        this._consumptionRegisters = [
+        super(...args), this._step = "intro", this._phases = null, this._capacityPerPhase = '', // Storage stays the four lists; roles are derived for rendering.
+        this._consumptionEntities = [], this._productionEntities = [], this._consumptionRegisters = [
             '',
             ''
         ], this._productionRegisters = [
             '',
             ''
-        ], // Inline entity validation state (per entity: true=ok, undefined=pending)
-        this._entityStatus = {}, // Entities that reported a negative value (likely a bidirectional/net or
-        // wrong sensor, since consumption/production should be directional).
-        this._entityNegative = {}, this._entityListeners = {}, // Auto-detection state
-        this._autoDetected = false, // Form validation state
-        this._triedContinueStep2 = false, this._triedSave = false, // Set on the first Continue click of step 2 when the new phases would
-        // make existing solar panels inconsistent. While true, the Continue
-        // button reads "Continue anyway" and the warning is visible. Reset
-        // whenever the user changes the phase selection so a different choice
-        // requires its own acknowledgement.
-        this._phaseChangeConfirmed = false, // Saving state
-        this._saving = false, this._saveError = '', this._saveConfirmed = false, // Existing solar panels (loaded at open) so the dialog can warn the user
-        // when a phases change would leave one or more panels inconsistent with
-        // the new grid configuration. The dialog never auto-fixes panels — see
-        // plan task 30a.
-        this._existingSolarPanels = [], // Available sensor entities for dropdowns
-        this._sensorEntities = [];
+        ], this._autoDetected = false, // Per-step "the user pressed on with something missing" flags.
+        this._triedContinueConnection = false, this._phaseChangeConfirmed = false, this._triedContinuePower = false, this._triedContinueMeter = false, this._triedSave = false, this._saving = false, this._saveError = '', this._existingSolarPanels = [];
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -15349,22 +15824,22 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_productionRegisters", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityStatus", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_entityNegative", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_autoDetected", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueStep2", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueConnection", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_phaseChangeConfirmed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinuePower", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedContinueMeter", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_triedSave", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saving", void 0);
@@ -15373,13 +15848,11 @@ class $c39c194e2cc8bd35$export$7bc40f611da49691 extends (0, $942308f826de48c4$ex
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveError", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_saveConfirmed", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c39c194e2cc8bd35$export$7bc40f611da49691.prototype, "_existingSolarPanels", void 0);
 $c39c194e2cc8bd35$export$7bc40f611da49691 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($c39c194e2cc8bd35$export$45e0b80f1e500bd4)
 ], $c39c194e2cc8bd35$export$7bc40f611da49691);
+
 
 
 
@@ -16553,6 +17026,13 @@ const $de105ef1fecb85b1$export$dc47fab9d3063d57 = (element)=>{
         dialogTag: (0, $c39c194e2cc8bd35$export$45e0b80f1e500bd4),
         dialogImport: ()=>Promise.resolve(),
         dialogParams: {}
+    });
+};
+const $de105ef1fecb85b1$export$b901c39e7c5877ae = (element, dialogParams)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $9ab7994a7f6bff81$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: dialogParams
     });
 };
 const $de105ef1fecb85b1$export$73ad1784b2d8a352 = (element, params = {})=>{
@@ -18777,16 +19257,29 @@ $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00df
 
 
 
-const $fcb07f75f9ef44be$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
+
+
+const $fcb07f75f9ef44be$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.grid-connection');
 class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
-    setConfig(config) {}
+    setConfig(_config) {}
     set hass(hass) {
-        const firstSet = !this._hass;
+        const old = this._hass;
         this._hass = hass;
-        if (firstSet) {
+        if (!old) {
             this._loadSettings();
             this._subscribeToSaveEvents();
+            return;
         }
+        // Re-render only when a configured entity's state object changed (including
+        // it appearing or disappearing), so the status dot / Problem state stays
+        // current without re-rendering on every hass tick.
+        const ids = [
+            ...this._consumptionEntities,
+            ...this._productionEntities,
+            ...this._consumptionRegisters,
+            ...this._productionRegisters
+        ].filter(Boolean);
+        if (ids.some((id)=>old.states[id] !== hass.states[id])) this.requestUpdate();
     }
     async _subscribeToSaveEvents() {
         this._unsubscribe = await this._hass.connection.subscribeEvents(()=>this._loadSettings(), 'save_grid_connection_settings.result');
@@ -18806,6 +19299,8 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
             this._capacityPerPhase = data.capacity_per_phase ?? null;
             this._consumptionEntities = data.consumption_entities ?? [];
             this._productionEntities = data.production_entities ?? [];
+            this._consumptionRegisters = data.consumption_registers ?? [];
+            this._productionRegisters = data.production_registers ?? [];
             this._isConfigured = this._consumptionEntities.length > 0;
         } catch (e) {
             console.error('Failed to load grid connection settings', e);
@@ -18813,38 +19308,114 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
         }
         this._loading = false;
     }
-    render() {
-        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">
-        <div class="card-content">
-          <ha-spinner></ha-spinner>
-        </div>
-      </ha-card>`;
-        const content = this._isConfigured ? this._renderConfiguredContent() : this._renderEmptyContent();
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Grid connection">${content}</ha-card>`;
+    _roles() {
+        return [
+            ...(0, $15d4c5d680e517d6$export$4a00346298d70185)(this._phases ?? 1, this._consumptionEntities, this._productionEntities),
+            ...(0, $15d4c5d680e517d6$export$9142f209d16b0a8a)(this._consumptionRegisters, this._productionRegisters)
+        ];
     }
-    _renderEmptyContent() {
-        const editCallback = ()=>this._openDialog();
+    _state() {
+        if (!this._isConfigured) return 'not_set';
+        return (0, $929021681b822bb4$export$5b7c125220f68fd5)(this._roles().map((r)=>(0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r)));
+    }
+    _roleLabel(role) {
+        const p = role.key.match(/^(consumption|production)_l(\d+)$/);
+        if (p) return $fcb07f75f9ef44be$var$tp(p[1] === 'consumption' ? 'role.consumption' : 'role.production', {
+            n: p[2]
+        });
+        const m = role.key.match(/^(import|export)_t(\d+)$/);
+        if (m) return $fcb07f75f9ef44be$var$tp(m[1] === 'import' ? 'role.import' : 'role.export', {
+            n: m[2]
+        });
+        return role.key;
+    }
+    render() {
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header=${$fcb07f75f9ef44be$var$tp('title')}>
+        <div class="card-content"><ha-spinner></ha-spinner></div>
+      </ha-card>`;
+        const state = this._state();
+        // The status dot reads the state without reading the alert: green = active,
+        // red = a problem, amber = not fully set up, outlined = nothing set.
+        const dotClass = state === 'problem' ? 'problem' : state === 'incomplete' ? 'incomplete' : state === 'not_set' ? 'not-set' : 'ok';
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-card>
+        <div class="gc-header">
+          <span class="dot ${dotClass}"></span>
+          <span>${$fcb07f75f9ef44be$var$tp('title')}</span>
+        </div>
+        ${state === 'not_set' ? this._renderNotSetUp() : state === 'problem' ? this._renderProblem() : state === 'incomplete' ? this._renderIncomplete() : this._renderActive()}
+      </ha-card>
+    `;
+    }
+    _renderActive() {
+        const roles = this._roles();
+        const reporting = roles.filter((r)=>(0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r) === 'ok').length;
+        const phaseLabel = $fcb07f75f9ef44be$var$tp(this._phases === 1 ? 'card.phase-1' : 'card.phase-3');
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        <ha-alert alert-type="info">Not yet configured. This is optional but recommended.</ha-alert>
-        <p>Track your household energy usage to improve charging schedules over time.</p>
+        <ha-alert alert-type="success">
+          ${$fcb07f75f9ef44be$var$tp('card.active-alert', {
+            reporting: reporting,
+            total: roles.length
+        })}
+        </ha-alert>
+        <p>
+          ${$fcb07f75f9ef44be$var$tp('card.active-summary', {
+            phase: phaseLabel,
+            capacity: this._capacityPerPhase ?? ''
+        })}
+        </p>
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, $fcb07f75f9ef44be$var$tc('configure'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
     }
-    _renderConfiguredContent() {
-        const editCallback = ()=>this._openDialog();
-        const phaseLabel = this._phases === 1 ? '1-phase' : '3-phase';
-        const sensorCount = this._consumptionEntities.length + this._productionEntities.length;
+    _renderProblem() {
+        const failing = this._roles().find((r)=>{
+            const s = (0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r);
+            return s === 'stale' || s === 'wrong_type';
+        });
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        <p>${phaseLabel}, ${this._capacityPerPhase}A per phase</p>
-        <p>Monitoring active on ${sensorCount} sensors.</p>
+        <ha-alert alert-type="error" title=${$fcb07f75f9ef44be$var$tp('card.problem-title')}>
+          ${failing ? $fcb07f75f9ef44be$var$tp('card.problem-alert', {
+            role: this._roleLabel(failing)
+        }) : $fcb07f75f9ef44be$var$tp('card.problem-alert-generic')}
+        </ha-alert>
       </div>
       <div class="card-actions">
-        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, $fcb07f75f9ef44be$var$tp('card.fix'))}
+      </div>
+    `;
+    }
+    _renderIncomplete() {
+        const roles = this._roles();
+        const missing = roles.filter((r)=>(0, $929021681b822bb4$export$1094b4db5e23d27c)(this._hass, r) === 'not_set');
+        const set = roles.length - missing.length;
+        const names = missing.map((m)=>this._roleLabel(m)).join(', ');
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <ha-alert alert-type="warning" title=${$fcb07f75f9ef44be$var$tp('card.incomplete-title')}>
+          ${$fcb07f75f9ef44be$var$tp('card.incomplete-alert', {
+            set: set,
+            total: roles.length,
+            names: names
+        })}
+        </ha-alert>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, $fcb07f75f9ef44be$var$tp('card.fix'))}
+      </div>
+    `;
+    }
+    _renderNotSetUp() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        <p>${$fcb07f75f9ef44be$var$tp('card.not-set-up')}</p>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, $fcb07f75f9ef44be$var$tp('card.set-up'))}
       </div>
     `;
     }
@@ -18853,11 +19424,40 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
     }
     static{
         this.styles = [
-            (0, $120c5a859c012378$export$9dd6ff9ea0189349)
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .gc-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px 0 16px;
+        font-size: 1.2em;
+        font-weight: 500;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+      }
+      .dot.ok {
+        background: var(--success-color, #4caf50);
+      }
+      .dot.problem {
+        background: var(--error-color, #f44336);
+      }
+      .dot.incomplete {
+        background: var(--warning-color, #ff9800);
+      }
+      .dot.not-set {
+        background: transparent;
+        border: 2px solid var(--disabled-text-color, var(--secondary-text-color));
+      }
+    `
         ];
     }
     constructor(...args){
-        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._loading = true, this._unsubscribe = null;
+        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._consumptionRegisters = [], this._productionRegisters = [], this._loading = true, this._unsubscribe = null;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -18875,6 +19475,12 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionEntities", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_consumptionRegisters", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_productionRegisters", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loading", void 0);

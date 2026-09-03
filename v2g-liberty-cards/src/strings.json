@@ -179,6 +179,154 @@
     }
   },
   "settings": {
+    "grid-connection": {
+      "title": "Grid connection",
+      "role": {
+        "consumption": "Consumption L%{n}",
+        "production": "Production L%{n}",
+        "import": "Import tariff %{n}",
+        "export": "Export tariff %{n}"
+      },
+      "card": {
+        "active-alert": "Active · %{reporting} of %{total} sensors reporting",
+        "active-summary": "%{phase}, %{capacity} A per phase.",
+        "phase-1": "1-phase",
+        "phase-3": "3-phase",
+        "problem-title": "A sensor needs attention",
+        "problem-alert": "%{role} is not reporting correctly. Monitoring is paused until it is resolved.",
+        "problem-alert-generic": "A sensor is not reporting correctly. Monitoring is paused until it is resolved.",
+        "incomplete-title": "Not fully set up",
+        "incomplete-alert": "%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.",
+        "not-set-up": "Configure your grid connection so V2G Liberty learns your household energy patterns — for better predictions and smarter schedules, and to be ready for the end of net metering.",
+        "set-up": "Set up",
+        "fix": "Fix this"
+      },
+      "header": {
+        "connection": "Connection",
+        "power": "Power",
+        "meter": "Meter readings",
+        "done": "Done"
+      },
+      "fm-gate-subject": "grid connection",
+      "intro": {
+        "p1": "By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.",
+        "p2": "<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.",
+        "req-header": "What you need",
+        "req-smart-meter-title": "Smart meter",
+        "req-smart-meter-desc": "Reports power per phase in real time.",
+        "req-cable-title": "P1 cable",
+        "req-cable-desc": "A USB P1 port cable or similar (~€15).",
+        "req-integration-title": "Home Assistant integration",
+        "req-integration-desc": "E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."
+      },
+      "connection": {
+        "phases-question": "How many phases does your grid connection have?",
+        "phase-1-title": "1 phase",
+        "phase-1-sub": "Small connection",
+        "phase-3-title": "3 phases",
+        "phase-3-sub": "Standard connection",
+        "phases-error": "Please select the number of phases.",
+        "phases-hint-summary": "Not sure?",
+        "phases-hint-body": "Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.",
+        "capacity-label": "Capacity per phase (ampere)",
+        "capacity-error-empty": "Please enter the capacity.",
+        "capacity-error-range": "Must be a whole number between 6 and 80.",
+        "capacity-hint-summary": "Where to find this",
+        "capacity-hint-body": "On your energy contract or your main fuse — typically 25 A or 35 A. Enter the actual value, not a lower safety margin.",
+        "continue-anyway": "Continue anyway"
+      },
+      "badge": {
+        "auto-detected": "Auto-detected"
+      },
+      "solar-warning": {
+        "title-one": "This change will break a solar panel",
+        "title-many": "This change will break solar panels",
+        "body-intro": "The new phase count no longer matches the configuration of:",
+        "body-outro": "Continue anyway is allowed — the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.",
+        "unnamed": "(unnamed)"
+      },
+      "sensors-heading": "Sensors",
+      "power": {
+        "intro": "To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically — please check that each one is right before continuing.",
+        "consumption-title": "Consumption",
+        "consumption-sub": "power drawn from the grid",
+        "production-title": "Production",
+        "production-sub": "power fed back to the grid",
+        "incomplete-alert": "Sensor(s) still missing — choose a sensor for every phase, for both consumption and production, to continue.",
+        "not-recognised-what": "power per phase"
+      },
+      "meter": {
+        "intro": "The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs — with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically — please check them before continuing.",
+        "import-title": "Import",
+        "import-sub": "total energy taken from the grid",
+        "export-title": "Export",
+        "export-sub": "total energy fed back to the grid",
+        "incomplete-alert": "Sensor(s) still missing — for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).",
+        "not-recognised-what": "cumulative kWh readings"
+      },
+      "done": {
+        "all-set": "All set — %{count} sensors linked.",
+        "incomplete-warning": "Not everything is set yet. Go back and complete the missing rows.",
+        "phases-label": "Phases",
+        "phases-value": "%{smart_count} phase |||| %{smart_count} phases",
+        "capacity-label": "Capacity per phase",
+        "no-sensor": "No sensor selected yet",
+        "keeps-monitoring": "V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.",
+        "save-incomplete": "Some rows are still missing — go back and complete them before saving.",
+        "saving": "Saving…"
+      },
+      "detect": {
+        "title": "Sensors not recognised — or not yet enabled",
+        "body": "No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default — check Settings → Devices & services → your meter → entities and enable them.",
+        "search-again": "Search again",
+        "open-integrations": "Open integrations"
+      },
+      "save-error": {
+        "fm": "Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.",
+        "unreachable": "Could not reach the add-on. Please check that V2G Liberty is running and try again."
+      },
+      "picker": {
+        "consumption": "Consumption",
+        "production": "Production",
+        "import": "Import",
+        "export": "Export",
+        "power-subtitle": "%{direction} phase %{phase} · power",
+        "meter-subtitle": "Tariff %{tariff} · %{direction} · meter reading"
+      },
+      "choose-sensor": {
+        "title": "Choose sensor",
+        "search-label": "Search",
+        "clear-title": "Clear the search",
+        "search-info": "Prefilled with what you are setting up — every word has to match. Clear or edit it if your integration names things differently.",
+        "filter-power": "W / kW only",
+        "filter-meter": "kWh readings only",
+        "filter-all": "All sensors",
+        "empty": "No matching sensors.",
+        "already-in-use": "already in use",
+        "measures": "measures %{unit}",
+        "select-first": "Choose a sensor from the list first — search above if you don't see it.",
+        "unsuitable-title": "This sensor does not fit here",
+        "unsuitable-body": "This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.",
+        "unsuitable-fallback-unit": "the wrong quantity",
+        "help-summary": "Help — which sensor do I pick?",
+        "help-power-1": "Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter — a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.",
+        "help-power-2": "A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.",
+        "help-meter-1": "Pick a total in kWh that only ever goes up — the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.",
+        "help-meter-2": "Not sure between two? Compare the value with the display on your meter — the numbers should match.",
+        "cancel": "Cancel",
+        "ok": "OK"
+      },
+      "status": {
+        "reporting": "Reporting",
+        "waiting": "Waiting for data",
+        "wrong-type": "This sensor does not fit here",
+        "stale": "No update for a long time"
+      },
+      "row": {
+        "choose": "Choose sensor",
+        "change": "Change"
+      }
+    },
     "common": {
       "configure": "Configure",
       "validation_error": "Problem with input (not specified)"

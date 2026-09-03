@@ -531,13 +531,21 @@ class V2GLibertyGlobals:
 
     # ── Grid connection settings (entity-free, JSON-based) ─────────────
 
+    # Canonical schema of the persisted ``grid_connection`` settings object.
+    # NB two different kinds of sensor are stored here (JSON cannot carry
+    # comments, so the distinction is documented in code):
+    #   - ``consumption_entities`` / ``production_entities`` — per-phase POWER
+    #     sensors (W/kW): power drawn from / fed back to the grid.
+    #   - ``consumption_registers`` / ``production_registers`` — cumulative
+    #     ENERGY meter registers (kWh, state_class total_increasing; OBIS
+    #     1.8.x import / 2.8.x export), summed per tariff.
     _GRID_CONNECTION_DEFAULTS = {
         "phases": 3,
         "capacity_per_phase": 25,
-        "consumption_entities": [],
-        "production_entities": [],
-        "consumption_registers": [],
-        "production_registers": [],
+        "consumption_entities": [],  # power sensors (W/kW), per phase
+        "production_entities": [],  # power sensors (W/kW), per phase
+        "consumption_registers": [],  # cumulative energy registers (kWh, import)
+        "production_registers": [],  # cumulative energy registers (kWh, export)
     }
 
     def __initialise_solar_panel_settings(self):
