@@ -1,6 +1,6 @@
 # What's changed?
 
-## 0.8.3 2026-08-??
+## 0.8.3 2026-09-??
 
 ### Fixed
 
@@ -19,6 +19,7 @@
 - 🚀 FEAT: Warn negative grid power (#472)
 - 🚀 FEAT: Live reregister grid listeners (#473)
 - 🚀 FEAT: Aggregate import/export meter energy from the meter registers to FlexMeasures (#487)
+- 🚀 FEAT: Grid connection redesign (#488)
 
 ### Changed
 
