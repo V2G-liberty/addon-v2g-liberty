@@ -78,8 +78,10 @@
       },
       "meter": {
         "intro": "De cumulatieve meterstanden zijn waarop je energierekening wordt afgerekend, per tarief. Er zijn altijd twee tarieven — bij één tarief blijft tarief 2 simpelweg op dezelfde waarde. Deze zijn automatisch herkend — controleer ze voordat je verdergaat.",
-        "tariff-1": "Tarief 1",
-        "tariff-2": "Tarief 2",
+        "import-title": "Inkoop",
+        "import-sub": "totale energie die van het net is afgenomen",
+        "export-title": "Verkoop",
+        "export-sub": "totale energie die aan het net is teruggeleverd",
         "incomplete-alert": "Sensor(en) ontbreken nog — kies voor zowel inkoop als verkoop een totaalregister of zowel tarief 1 als tarief 2 (cumulatieve kWh).",
         "not-recognised-what": "cumulatieve kWh-standen"
       },

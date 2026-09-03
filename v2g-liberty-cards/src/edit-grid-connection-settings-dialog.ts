@@ -500,8 +500,10 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
       this._productionRegisters
     );
     // roles = [import_t1, import_t2, export_t1, export_t2]
-    const tariff1 = [roles[0], roles[2]];
-    const tariff2 = [roles[1], roles[3]];
+    // Grouped by direction (import/export) to match step 3's consumption/
+    // production grouping; the tariff distinguishes the two rows in each group.
+    const importRoles = [roles[0], roles[1]];
+    const exportRoles = [roles[2], roles[3]];
     const noCandidates = candidatesFor(this.hass, 'meter_reading').length === 0;
 
     const rows = (rs: RoleDefinition[]) =>
@@ -522,10 +524,14 @@ export class EditGridConnectionSettingsDialog extends DialogBase {
         ? this._renderNotRecognised(tp('meter.not-recognised-what'))
         : nothing}
 
-      <div class="group-head"><strong>${tp('meter.tariff-1')}</strong></div>
-      ${rows(tariff1)}
-      <div class="group-head" style="margin-top: 16px;"><strong>${tp('meter.tariff-2')}</strong></div>
-      ${rows(tariff2)}
+      <div class="group-head">
+        <span class="gh-title"><strong>${tp('meter.import-title')}</strong> <span class="muted">${tp('meter.import-sub')}</span></span>
+      </div>
+      ${rows(importRoles)}
+      <div class="group-head" style="margin-top: 16px;">
+        <span class="gh-title"><strong>${tp('meter.export-title')}</strong> <span class="muted">${tp('meter.export-sub')}</span></span>
+      </div>
+      ${rows(exportRoles)}
 
       ${this._triedContinueMeter && this._metersIncomplete()
         ? html`<ha-alert alert-type="error" style="margin-top: 12px;">

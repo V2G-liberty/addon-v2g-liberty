@@ -8,9 +8,6 @@
 
 import { RoleDefinition } from './grid-connection-status';
 
-const IMPORT_BADGE = '↓';
-const EXPORT_BADGE = '↑';
-
 /** Which stored list a role writes to, and at which index. */
 export interface RoleTarget {
   list:
@@ -47,7 +44,13 @@ export function powerRoles(
   return roles;
 }
 
-/** Meter-reading roles: import and export, tariff 1 and 2 (always dual). */
+/**
+ * Meter-reading roles: import and export, tariff 1 and 2 (always dual).
+ *
+ * The rows are grouped by direction (import/export) in the dialog, so the badge
+ * is the within-group distinguisher — the tariff number — mirroring how the
+ * power roles carry the phase (L1/L2/L3) as their badge.
+ */
 export function meterRoles(
   consumptionRegisters: string[],
   productionRegisters: string[]
@@ -56,25 +59,25 @@ export function meterRoles(
     {
       key: 'import_t1',
       role: 'meter_reading',
-      badge: IMPORT_BADGE,
+      badge: 'T1',
       entityId: consumptionRegisters[0] || null,
     },
     {
       key: 'import_t2',
       role: 'meter_reading',
-      badge: IMPORT_BADGE,
+      badge: 'T2',
       entityId: consumptionRegisters[1] || null,
     },
     {
       key: 'export_t1',
       role: 'meter_reading',
-      badge: EXPORT_BADGE,
+      badge: 'T1',
       entityId: productionRegisters[0] || null,
     },
     {
       key: 'export_t2',
       role: 'meter_reading',
-      badge: EXPORT_BADGE,
+      badge: 'T2',
       entityId: productionRegisters[1] || null,
     },
   ];

@@ -257,8 +257,10 @@
       },
       "meter": {
         "intro": "The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs — with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically — please check them before continuing.",
-        "tariff-1": "Tariff 1",
-        "tariff-2": "Tariff 2",
+        "import-title": "Import",
+        "import-sub": "total energy taken from the grid",
+        "export-title": "Export",
+        "export-sub": "total energy fed back to the grid",
         "incomplete-alert": "Sensor(s) still missing — for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).",
         "not-recognised-what": "cumulative kWh readings"
       },
