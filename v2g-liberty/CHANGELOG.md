@@ -24,6 +24,7 @@
 ### Changed
 
 - Explain the 'charger phase not set' warning and keep it in sync (#474)
+- ⬆️ Bump flexmeasures-client to 0.9.5 (#489)
 
 #### Removing
 
@@ -33,5 +34,6 @@
 
 To keep things readable here a separate document is maintained
 with [the complete list of all changes for all past releases](changelog_of_all_releases.md).
+
 
 &nbsp;

@@ -27,6 +27,7 @@ That file also contains possible changes that the next release might include.
 ### Changed
 
 - Explain the 'charger phase not set' warning and keep it in sync (#474)
+- ⬆️ Bump flexmeasures-client to 0.9.5 (#489)
 
 
 ## 0.8.2 2026-06-19
