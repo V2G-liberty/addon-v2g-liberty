@@ -24,6 +24,7 @@
 ### Changed
 
 - Explain the 'charger phase not set' warning and keep it in sync (#474)
+- ⬆️ Bump flexmeasures-client to 0.9.5 for poll-based schedule retrieval (robust against FlexMeasures returning 202/"in progress" for schedules)
 
 #### Removing
 
