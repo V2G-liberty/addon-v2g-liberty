@@ -25,6 +25,7 @@
 
 - Explain the 'charger phase not set' warning and keep it in sync (#474)
 - ⬆️ Bump flexmeasures-client to 0.9.5 (#489)
+- 🛠️ Harden shared Modbus client: retries=0 and 10s timeout - (#490)
 
 #### Removing
 

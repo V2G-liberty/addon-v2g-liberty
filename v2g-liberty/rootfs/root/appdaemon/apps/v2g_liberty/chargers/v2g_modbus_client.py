@@ -88,9 +88,18 @@ class V2GmodbusClient(AsyncIOEventEmitter):
             return None
 
         try:
+            # retries=0 is required: after a timeout the charger's late duplicate
+            # response desynchronises pymodbus's transaction-id stream, so every
+            # subsequent read returns the previous request's answer until the
+            # socket is dropped. Fail cleanly and reconnect instead. The timeout is
+            # generous because some chargers (e.g. EVtec BiDiPro) stall for several
+            # seconds. Unit/slave id stays configurable per register via
+            # MBR.device_id (default 1).
             client = amtc(
                 host=host,
                 port=port,
+                retries=0,
+                timeout=10,
             )
             await client.connect()
         except ModbusException as me:
