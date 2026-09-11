@@ -6,6 +6,7 @@ v2g-liberty/logs/
 # Claude Code configuration (local only)
 CLAUDE.md
 .claude/
+.claude-home/
 
 # Local devcontainer overrides (private)
 .devcontainer/**/*.override.*
