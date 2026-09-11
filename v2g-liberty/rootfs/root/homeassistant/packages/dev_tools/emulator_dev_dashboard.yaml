@@ -8,10 +8,11 @@ views:
     cards:
       - type: markdown
         content: |
-          ## Charger emulator (dev)
-          Makes the static Wallbox-Quasar mock respond to V2G Liberty, so you can
-          test charging, phase detection and error handling without real hardware.
-          Full tick-by-tick detail is in `charger_emulator.log`.
+          ## Charger emulators (dev)
+          Make the static charger mocks (Wallbox Quasar, EVtec BiDiPro) respond to
+          V2G Liberty, so you can test charging, phase detection and error handling
+          without real hardware. Full tick-by-tick detail is in
+          `charger_emulator.log` and `charger_emulator_evtec.log`.
 
       - type: vertical-stack
         cards:
@@ -36,6 +37,37 @@ views:
 
               **Car connected** — connect/disconnect the car; a disconnect→connect
               triggers automatic phase detection and a fresh SoC read.
+
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: EVtec emulator controls
+            show_header_toggle: false
+            entities:
+              - entity: input_select.emulator_evtec_scenario
+                name: Scenario
+              - entity: input_boolean.emulator_evtec_car_connected
+                name: Car connected
+              - entity: input_number.emulator_evtec_soc
+                name: Set SoC
+          - type: markdown
+            content: |
+              **EVtec BiDiPro** (`evtec-mock:5020`, ECP4 / Modbus 2.0 map) — what the
+              mock simulates:
+              - `normal`: bidirectional session, V2G offered; follows V2G's setpoint (X+86).
+              - `v2g_not_offered`: X+22 ≥ 0 — charging only; a discharge request is
+                refused (0 W + warning in the log). Not an error.
+              - `session_not_bidirectional`: session type 1 — a discharge request is
+                refused (0 W + warning).
+              - `not_recognised`: model string without `crema` → connection test
+                reports `not_recognised`.
+              - `booting_connector`: connector state 0 while offsets 2/4 are set
+                (discovery must scan offsets 0/2/4). Frozen.
+              - `error_state`: connector state 12 (error). Frozen.
+              - `internal_error`: error bitmask X+54 ≠ 0. Frozen.
+
+              Suspend mode (X+88) is ignored, as on the real charger: only a setpoint
+              of 0 stops power flow.
 
       - type: vertical-stack
         cards:

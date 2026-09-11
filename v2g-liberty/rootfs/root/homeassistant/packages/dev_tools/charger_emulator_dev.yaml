@@ -1,5 +1,6 @@
-# Dev-only: real HA input entities for the charger and grid/PV emulators, so the
-# scenario picker and toggles are interactive in the dev dashboard.
+# Dev-only: real HA input entities for the charger emulators (Wallbox Quasar,
+# EVtec BiDiPro) and the grid/PV emulator, so the scenario pickers and toggles
+# are interactive in the dev dashboard.
 #
 # Setup (dev environment only):
 #   1. Copy this file AND emulator_dev_dashboard.yaml into your HA config under
@@ -29,10 +30,27 @@ input_select:
       - reduced_max_power
       - error_state
       - internal_error
+  # EVtec BiDiPro emulator (read by charger_emulator_evtec).
+  emulator_evtec_scenario:
+    name: EVtec emulator scenario
+    icon: mdi:ev-station
+    initial: normal
+    options:
+      - normal
+      - v2g_not_offered
+      - session_not_bidirectional
+      - not_recognised
+      - booting_connector
+      - error_state
+      - internal_error
 
 input_boolean:
   emulator_car_connected:
     name: "Charger emulator: car connected"
+    icon: mdi:car-electric
+    initial: true
+  emulator_evtec_car_connected:
+    name: "EVtec emulator: car connected"
     icon: mdi:car-electric
     initial: true
   # Grid / PV emulator toggles (read by grid_pv_emulator).
@@ -49,6 +67,15 @@ input_number:
   # Jump the emulated SoC to a value (read by charger_emulator).
   emulator_soc:
     name: "Charger emulator: set SoC"
+    icon: mdi:battery-charging
+    min: 0
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: slider
+  # Jump the emulated SoC of the EVtec emulator (read by charger_emulator_evtec).
+  emulator_evtec_soc:
+    name: "EVtec emulator: set SoC"
     icon: mdi:battery-charging
     min: 0
     max: 100

@@ -45,3 +45,11 @@ services:
       - ../charger-mocks/configs/quasar_charging_33pct.json:/srvr_conf.json:ro
     ports:
       - "5020:5020"
+
+  evtec-mock:
+    image: oitc/modbus-server:latest
+    command: ["-f", "/srvr_conf.json"]
+    volumes:
+      - ../charger-mocks/configs/evtec_bidipro_33pct.json:/srvr_conf.json:ro
+    ports:
+      - "5021:5020"

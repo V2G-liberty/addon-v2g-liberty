@@ -45,3 +45,26 @@ charger_emulator:
   hw_soc_ceiling_pct: 97
   hw_max_charge_power_w: 5600
   hw_max_discharge_power_w: 5600
+
+# Dev-only: EVtec BiDiPro charger emulator (ECP4 / Modbus 2.0 map).
+# Same idea as charger_emulator, against the static EVtec mock (evtec-mock:5020,
+# host port 5021). Has its own HA control entities (input_select.emulator_evtec_*)
+# so both emulators can run side by side. Connector 9 mirrors the lab charger.
+charger_emulator_evtec:
+  module: dev_tools.charger_emulator_evtec
+  class: EVtecChargerEmulator
+  log: charger_emulator_evtec_log
+  charger_host: evtec-mock
+  charger_port: 5020
+  connector: 9
+  update_interval: 0.5
+  soc_speedup: 1
+  status_log_seconds: 10
+  ramp_up_seconds: 15
+  ramp_down_seconds: 2
+  power_target_fraction: 0.92
+  battery_capacity_wh: 58000
+  hw_soc_floor_pct: 10
+  hw_soc_ceiling_pct: 97
+  hw_max_charge_power_w: 10000
+  hw_max_discharge_power_w: 10000

@@ -282,3 +282,27 @@ async def test_resume_soc_ignores_invalid_value():
     e = make_emulator(fake, soc=33)
     await e._resume_soc_from_mock()
     assert e._soc == 33.0
+
+
+# --- seed branches (guard the base-class refactor) -------------------------
+@pytest.mark.asyncio
+async def test_seed_reports_disconnected_when_car_is_off():
+    """The refactor collapsed the seed's three branches into two; a mirror
+    scenario with the car unplugged must still seed the disconnected state."""
+    fake = FakeModbusClient()
+    e = make_emulator(fake, car_connected=False)
+    await e._apply_scenario("normal")
+    assert fake.store[REG_STATE] == STATE_DISCONNECTED
+    assert fake.store[REG_SOC] == 0
+    assert fake.store[REG_MAX_POWER] == QUASAR_1.hw_max_charge_power_w
+
+
+@pytest.mark.asyncio
+async def test_frozen_scenario_seeds_a_connected_car():
+    """A frozen scenario keeps the connected start state, whatever the toggle:
+    its point is the fault, not the plug."""
+    fake = FakeModbusClient()
+    e = make_emulator(fake, car_connected=False, soc=42)
+    await e._apply_scenario("error_state")
+    assert fake.store[REG_SOC] == 42
+    assert fake.store[REG_STATE] == STATE_ERROR  # scenario override wins
