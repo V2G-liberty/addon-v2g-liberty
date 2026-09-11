@@ -2,13 +2,14 @@
 charger emulator.
 
 Pure data — no Home Assistant, pymodbus or AppDaemon imports — so this module
-is importable by both the dev emulator and by pytest (which can drive the same
-scenarios against a fake Modbus client to assert the real ``evtec_bidipro``
-driver behaviour). Mirrors the sibling ``charger_scenarios.py`` (Wallbox Quasar)
-but for the structurally different EVtec register model.
+is importable by both the dev emulator (``dev_tools.charger_emulator_evtec``)
+and by pytest (which can drive the same scenarios against a fake Modbus client
+to assert the real ``evtec_bidipro`` driver behaviour). Mirrors the sibling
+``charger_scenarios.py`` (Wallbox Quasar) but for the structurally different
+EVtec register model.
 
 Register layout, enums and the discharge/charge windows are the hardware-tested
-contract from ``.private/Integrating EVtec BiDi Pro/MODBUS_PROXY.md`` (2.0 map):
+contract from ``.private/~2-doing/025 Integrating EVtec BiDi Pro/MODBUS_PROXY.md`` (2.0 map):
 nine 100-register objects on one unit; the ChargePoint object at absolute
 0..43, connector ``X`` at base ``X*100`` with fields at ``X*100 + offset``.
 Multi-register values are **big-endian**: int32/float32 occupy 2 registers,
@@ -25,13 +26,19 @@ from dataclasses import dataclass, field
 # OFFSETS relative to the connector base (connector X -> base X*100). The lab
 # charger binds connector 9 (see MODBUS_PROXY.md §2), so that is the default.
 DEFAULT_CONNECTOR = 9
+CONNECTOR_STRIDE = 100
 
 # --- ChargePoint object (absolute addresses) -------------------------------
 CP_VERSION = 0  # string, 16 regs
 CP_SERIAL = 16  # string, 10 regs
 CP_MODEL = 26  # string, 10 regs — must contain 'crema' on supported firmware
 CP_NUM_CONNECTORS = 36  # int32
+CP_FALLBACK_POWER = 38  # int32, W — writable per spec; the emulator leaves it alone
 CP_STATE = 40  # int32
+CP_COMMUNICATION_TIMEOUT = 42  # int32, s — V2G Liberty WRITES this at kick-off
+
+CP_STATE_READY = 1
+CP_STATE_IN_USE = 5
 
 # --- Connector object field offsets (relative to X*100) --------------------
 # Registers V2G Liberty WRITES (the emulator only reads these):
@@ -47,15 +54,32 @@ OFF_CURRENT = 8  # float32, A
 OFF_POWER = 10  # float32, signed W — measured power
 OFF_SOC = 12  # int32, per-mille (‰)
 OFF_CONNECTOR_TYPE = 14  # int32 (0=type2,1=ccs,2=chademo,3=gbt)
+OFF_CHARGED_ENERGY = 18  # float32, Wh
 OFF_DISCHARGED_ENERGY = 20  # float32, Wh
 OFF_LOWER_LIMIT_POTENTIAL = 22  # float32, W — < 0 ⇒ V2G offered; discharge floor
 OFF_UPPER_LIMIT = 30  # float32, W — charge ceiling
 OFF_LOWER_LIMIT = 38  # float32, W — charge floor
-OFF_PRESENT_CONSUMPTION = 46  # float32, W — live realized setpoint
+OFF_PRESENT_CONSUMPTION = 46  # float32, W — live realised setpoint
 OFF_ERROR = 54  # int64/uint64, 40-bit bitmask
 OFF_BATTERY_CAPACITY = 58  # float32, Wh
 OFF_MIN_BATTERY_CAPACITY = 62  # float32, Wh
-OFF_CAR_ID = 76  # string — non-empty ⇒ a car is connected (EvccId)
+OFF_CAR_ID = 76  # string, 10 regs — non-empty ⇒ a car is connected (EvccId)
+
+# Connector offsets the emulator must never write: V2G's two command registers
+# (and the register after each, as they are 2 words wide).
+COMMAND_OFFSETS = frozenset(
+    {OFF_INPUT_POWER, OFF_INPUT_POWER + 1, OFF_SUSPEND_MODE, OFF_SUSPEND_MODE + 1}
+)
+# ChargePoint addresses the emulator must never write: spec-writable fields
+# (V2G writes the communication timeout at kick-off).
+PROTECTED_CP_ADDRESSES = frozenset(
+    {
+        CP_FALLBACK_POWER,
+        CP_FALLBACK_POWER + 1,
+        CP_COMMUNICATION_TIMEOUT,
+        CP_COMMUNICATION_TIMEOUT + 1,
+    }
+)
 
 # --- Connector state codes (offset 0) --------------------------------------
 STATE_BOOT = 0
@@ -66,9 +90,30 @@ STATE_INIT_CONNECTION = 6
 STATE_CURRENT_DEMAND = 7  # charging
 STATE_GRID_FEED = 8  # discharging (V2G)
 STATE_SESSION_STOP = 9
-STATE_WAIT_FOR_GRID = 10
+STATE_WAIT_FOR_GRID = 10  # connected, idle: waiting for a (grid/EMS) command
 STATE_CHARGING_END = 11  # car still connected, awaiting unplug
 STATE_ERROR = 12
+
+STATE_NAMES = {
+    STATE_BOOT: "boot",
+    STATE_READY: "ready",
+    STATE_UNAVAILABLE: "unavailable",
+    STATE_PLUGGED: "plugged",
+    STATE_INIT_CONNECTION: "initConnection",
+    STATE_CURRENT_DEMAND: "currentDemand",
+    STATE_GRID_FEED: "gridFeed",
+    STATE_SESSION_STOP: "sessionStop",
+    STATE_WAIT_FOR_GRID: "waitForGrid",
+    STATE_CHARGING_END: "chargingEnd",
+    STATE_ERROR: "error",
+}
+
+# --- Charge session state, CCS (offset 2) ----------------------------------
+SESSION_STATE_READY = 0
+SESSION_STATE_PLUGGED_IN = 2
+SESSION_STATE_CURRENT_DEMAND = 16  # charging
+SESSION_STATE_GRID_FEED_IN = 17  # discharging
+SESSION_STATE_POWER_DELIVERY_STOPPED = 18
 
 # --- Charge session type (offset 4) ----------------------------------------
 SESSION_OTHER = 0
@@ -85,7 +130,7 @@ CONNECTOR_TYPE_CCS = 1
 # --- Big-endian register encoding ------------------------------------------
 # oitc/modbus-server stores uint16 holding registers; multi-register values are
 # consecutive big-endian words. These helpers return the uint16 word list to
-# seed/write, mirroring MBR.encode() in chargers/modbus_types.py.
+# seed/write, mirroring MBR.encode()/decode() in chargers/modbus_types.py.
 def enc_int32(value: int) -> list[int]:
     """Signed int32 → [hi, lo] big-endian uint16 words."""
     hi, lo = struct.unpack(">HH", struct.pack(">i", int(value)))
@@ -112,8 +157,29 @@ def enc_string(text: str, length_regs: int) -> list[int]:
     return list(struct.unpack(f">{length_regs}H", raw))
 
 
+def dec_int32(words: list[int]) -> int:
+    """[hi, lo] big-endian uint16 words → signed int32."""
+    return struct.unpack(">i", struct.pack(">HH", *words[:2]))[0]
+
+
+def dec_float32(words: list[int]) -> float:
+    """[hi, lo] big-endian uint16 words → float32."""
+    return struct.unpack(">f", struct.pack(">HH", *words[:2]))[0]
+
+
+def dec_int64(words: list[int]) -> int:
+    """4 big-endian uint16 words → uint64 (the error bitmask decodes unsigned)."""
+    return struct.unpack(">Q", struct.pack(">HHHH", *words[:4]))[0]
+
+
+def dec_string(words: list[int]) -> str:
+    """uint16 words → string (2 chars per register, NUL-terminated)."""
+    raw = struct.pack(f">{len(words)}H", *words)
+    return raw.split(b"\x00", 1)[0].decode("ascii", "ignore")
+
+
 def words_at(base: int, words: list[int]) -> dict[int, int]:
-    """Expand a big-endian word list into an {absolute_address: uint16} map."""
+    """Expand a big-endian word list into an {address: uint16} map from base."""
     return {base + i: w for i, w in enumerate(words)}
 
 
@@ -137,6 +203,7 @@ class EVtecProfile:  # pylint: disable=too-many-instance-attributes
     hw_soc_ceiling_pct: float = 97.0
     battery_capacity_wh: float = 58000.0
     min_battery_capacity_wh: float = 6000.0
+    voltage_v: float = 400.0
     model: str = "cremacharge"
     serial: str = "EVTEC-DEV-01"
     version: str = "ECP4-2.0-dev"
@@ -160,9 +227,11 @@ class EVtecScenario:
 
     ``mirror=True`` (dynamic): each tick the emulator derives state and power
     from V2G's setpoint (X+86) and ramps SoC. ``mirror=False`` (frozen): holds
-    the seeded registers (error/fault scenarios). ``registers`` are extra raw
-    {absolute_address: uint16} words written on activation (they win over the
-    seed). ``profile_overrides`` tweak the device profile for this scenario.
+    the seeded registers (error/fault scenarios). Extra raw uint16 words written
+    on activation (they win over the seed): ``registers`` are keyed by absolute
+    address (ChargePoint fields), ``connector_registers`` by connector offset —
+    the emulator relocates them to the configured connector's base.
+    ``profile_overrides`` tweak the device profile for this scenario.
     """
 
     name: str
@@ -170,12 +239,8 @@ class EVtecScenario:
     mirror: bool = True
     start_soc: int = 33
     registers: dict[int, int] = field(default_factory=dict)
+    connector_registers: dict[int, int] = field(default_factory=dict)
     profile_overrides: dict = field(default_factory=dict)
-
-
-def _connector_reg(offset: int, words: list[int], connector: int = DEFAULT_CONNECTOR):
-    """Helper: {absolute_address: uint16} for a connector field (base X*100)."""
-    return words_at(connector * 100 + offset, words)
 
 
 SCENARIOS: dict[str, EVtecScenario] = {
@@ -222,7 +287,7 @@ SCENARIOS: dict[str, EVtecScenario] = {
             "unconfigured; the contract says scan offsets 0/2/4. Frozen."
         ),
         mirror=False,
-        registers=_connector_reg(OFF_CONNECTOR_STATE, enc_int32(STATE_BOOT)),
+        connector_registers=words_at(OFF_CONNECTOR_STATE, enc_int32(STATE_BOOT)),
     ),
     "error_state": EVtecScenario(
         name="error_state",
@@ -231,9 +296,9 @@ SCENARIOS: dict[str, EVtecScenario] = {
             "triggers the driver's un-recoverable-error handling."
         ),
         mirror=False,
-        registers={
-            **_connector_reg(OFF_CONNECTOR_STATE, enc_int32(STATE_ERROR)),
-            **_connector_reg(OFF_POWER, enc_float32(0.0)),
+        connector_registers={
+            **words_at(OFF_CONNECTOR_STATE, enc_int32(STATE_ERROR)),
+            **words_at(OFF_POWER, enc_float32(0.0)),
         },
     ),
     "internal_error": EVtecScenario(
@@ -243,9 +308,9 @@ SCENARIOS: dict[str, EVtecScenario] = {
             "powerUnitError), power 0. Decode as unsigned."
         ),
         mirror=False,
-        registers={
-            **_connector_reg(OFF_ERROR, enc_int64(1)),
-            **_connector_reg(OFF_POWER, enc_float32(0.0)),
+        connector_registers={
+            **words_at(OFF_ERROR, enc_int64(1)),
+            **words_at(OFF_POWER, enc_float32(0.0)),
         },
     ),
 }

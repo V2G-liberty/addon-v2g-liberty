@@ -26,6 +26,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEVCONTAINER_DIR="$REPO_ROOT/.devcontainer"
 CHARGER_MOCKS_DIR="$REPO_ROOT/charger-mocks"
 QUASAR_MOCK_PORT=5020
+EVTEC_MOCK_PORT=5021
 HA_URL="http://localhost:8123"
 HA_USER="gebruiker"
 HA_PASSWORD="wachtwoord"
@@ -61,32 +62,52 @@ function test_quasar_mock_running() {
     [ "$state" = "running" ]
 }
 
+function test_evtec_mock_running() {
+    local state
+    state=$(docker ps --filter "name=evtec-mock" --format "{{.State}}" 2>/dev/null || echo "")
+    [ "$state" = "running" ]
+}
+
+function test_charger_mocks_running() {
+    test_quasar_mock_running && test_evtec_mock_running
+}
+
 function start_quasar_mock() {
-    print_header "Starting Wallbox Quasar Mock Server"
+    print_header "Starting charger mock servers (Wallbox Quasar + EVtec BiDiPro)"
 
     if ! test_docker_running; then
         exit 1
     fi
 
-    # Check if already running
-    if test_quasar_mock_running; then
-        echo -e "${GREEN}Quasar mock is already running on port $QUASAR_MOCK_PORT${NC}"
+    # Only skip when both mocks are up; "compose up" is a no-op for a running one.
+    if test_charger_mocks_running; then
+        echo -e "${GREEN}Both charger mocks are already running (Quasar $QUASAR_MOCK_PORT, EVtec $EVTEC_MOCK_PORT)${NC}"
         return 0
     fi
 
     echo -e "${GREEN}Starting Wallbox Quasar mock server on port $QUASAR_MOCK_PORT...${NC}"
     echo -e "${GRAY}Config: $CHARGER_MOCKS_DIR/configs/quasar_charging_33pct.json${NC}"
+    echo -e "${GREEN}Starting EVtec BiDiPro mock server on port $EVTEC_MOCK_PORT...${NC}"
+    echo -e "${GRAY}Config: $CHARGER_MOCKS_DIR/configs/evtec_bidipro_33pct.json${NC}"
 
     cd "$DEVCONTAINER_DIR"
-    docker compose --project-name v2g-liberty_devcontainer up -d quasar-mock
+    docker compose --project-name v2g-liberty_devcontainer up -d quasar-mock evtec-mock
     sleep 2
 
     if test_quasar_mock_running; then
         echo -e "${GREEN}Quasar mock server started successfully!${NC}"
-        echo -e "${CYAN}  Port: $QUASAR_MOCK_PORT${NC}"
+        echo -e "${CYAN}  Port: $QUASAR_MOCK_PORT (quasar-mock:5020 inside Docker)${NC}"
         echo -e "${CYAN}  Initial state: Charging at 5750W, SoC 33%${NC}"
     else
         echo -e "${YELLOW}WARNING: Failed to verify Quasar mock is running${NC}"
+    fi
+
+    if test_evtec_mock_running; then
+        echo -e "${GREEN}EVtec BiDiPro mock server started successfully!${NC}"
+        echo -e "${CYAN}  Port: $EVTEC_MOCK_PORT (evtec-mock:5020 inside Docker)${NC}"
+        echo -e "${CYAN}  Initial state: connector 9, car connected, idle, SoC 33%${NC}"
+    else
+        echo -e "${YELLOW}WARNING: Failed to verify EVtec mock is running${NC}"
     fi
 
     cd - >/dev/null
@@ -95,9 +116,9 @@ function start_quasar_mock() {
 function stop_devcontainers() {
     print_header "Stopping All Services"
 
-    echo -e "${YELLOW}Stopping Quasar mock...${NC}"
+    echo -e "${YELLOW}Stopping charger mocks...${NC}"
     cd "$DEVCONTAINER_DIR"
-    docker compose --project-name v2g-liberty_devcontainer stop quasar-mock 2>/dev/null || true
+    docker compose --project-name v2g-liberty_devcontainer stop quasar-mock evtec-mock 2>/dev/null || true
 
     echo -e "${YELLOW}Stopping DevContainers...${NC}"
     docker compose --project-name v2g-liberty_devcontainer down
@@ -199,6 +220,15 @@ function get_container_status() {
         echo -e "${YELLOW}  ✗ NOT RUNNING${NC}"
     fi
 
+    echo -e "\n${CYAN}EVtec BiDiPro Mock Server:${NC}"
+    if test_evtec_mock_running; then
+        echo -e "${GREEN}  ✓ RUNNING on port $EVTEC_MOCK_PORT${NC}"
+        echo -e "${GREEN}  Hostname: evtec-mock${NC}"
+        echo -e "${GREEN}  Host IP: localhost${NC}"
+    else
+        echo -e "${YELLOW}  ✗ NOT RUNNING${NC}"
+    fi
+
     echo -e "\n${CYAN}All DevContainer Services:${NC}"
     docker ps --filter "label=com.docker.compose.project=v2g-liberty_devcontainer" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 }
@@ -206,13 +236,13 @@ function get_container_status() {
 function start_dev_with_config() {
     print_header "Starting V2G-Liberty Development Session"
 
-    # Step 1: Start Quasar mock server
-    if ! test_quasar_mock_running; then
-        echo -e "${CYAN}Step 1/4: Starting Quasar mock server...${NC}"
+    # Step 1: Start the charger mock servers
+    if ! test_charger_mocks_running; then
+        echo -e "${CYAN}Step 1/4: Starting charger mock servers...${NC}"
         start_quasar_mock
         echo ""
     else
-        echo -e "${GREEN}Step 1/4: Quasar mock already running on port $QUASAR_MOCK_PORT${NC}"
+        echo -e "${GREEN}Step 1/4: Charger mocks already running (Quasar $QUASAR_MOCK_PORT, EVtec $EVTEC_MOCK_PORT)${NC}"
         echo ""
     fi
 
@@ -270,6 +300,7 @@ function start_dev_with_config() {
     echo -e "${CYAN}2. Click 'V2G Liberty' tab → 'Go to settings' → 'Configure' charger${NC}"
     echo -e "${YELLOW}   Host: quasar-mock${NC}"
     echo -e "${YELLOW}   Port: 5020${NC}"
+    echo -e "${GRAY}   (EVtec BiDiPro: Host evtec-mock, Port 5020)${NC}"
     echo ""
     echo -e "${GRAY}TIP: Control the mock charger in another terminal:${NC}"
     echo -e "${GRAY}  cd $CHARGER_MOCKS_DIR/quasar${NC}"
@@ -338,6 +369,7 @@ GETTING STARTED (New Developers):
        - Click "Go to settings" → "Configure" charger
        - Host: quasar-mock
        - Port: $QUASAR_MOCK_PORT
+       (EVtec BiDiPro: Host evtec-mock, Port 5020)
     5. In another terminal, control the mock charger:
        cd $CHARGER_MOCKS_DIR/quasar
        python cli.py
