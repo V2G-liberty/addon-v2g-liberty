@@ -553,3 +553,16 @@ def test_static_mock_json_matches_the_normal_seed():
     with open("/workspaces/charger-mocks/configs/evtec_bidipro_33pct.json") as f:
         doc = json.load(f)
     assert doc["registers"]["holdingRegister"] == seed
+
+
+def test_static_mock_json_defines_all_four_register_blocks():
+    """modbus-server 1.4.1 indexes registers["inputRegister"] directly, so a
+    missing block is a KeyError at boot and the mock never starts."""
+    with open("/workspaces/charger-mocks/configs/evtec_bidipro_33pct.json") as f:
+        doc = json.load(f)
+    assert set(doc["registers"]) >= {
+        "discreteInput",
+        "coils",
+        "holdingRegister",
+        "inputRegister",
+    }
