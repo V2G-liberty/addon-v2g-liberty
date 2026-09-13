@@ -1,0 +1,37 @@
+# Home Assistant configuration for the DEV environment (devcontainer only).
+#
+# This is the dev counterpart of
+# v2g-liberty/rootfs/root/homeassistant/v2g_liberty_example_configuration.yaml,
+# which is the template shipped to users and must therefore stay free of dev
+# tooling. Keep the shared part of both files in sync; everything that is
+# dev-only is marked as such below.
+#
+# Copied to .devcontainer/config/configuration.yaml by script/init-config (on a
+# fresh environment) and by script/copy-config (on every setup-devcontainer.sh
+# run). Editing .devcontainer/config/configuration.yaml directly is pointless:
+# the next setup run overwrites it.
+
+homeassistant:
+  packages:
+    v2g_pack: !include packages/v2g_liberty/v2g_liberty_package.yaml
+    # Dev-only: the input entities that drive the charger and grid/PV
+    # emulators. Without these the emulators fall back to virtual entities and
+    # input_number.emulator_soc / .emulator_evtec_soc cannot exist at all.
+    emulator_dev_pack: !include packages/dev_tools/charger_emulator_dev.yaml
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Dev-only: the emulator dashboard, as an extra YAML-mode dashboard. The
+# default (UI-managed) dashboard is unaffected.
+lovelace:
+  dashboards:
+    emulator-dev:
+      mode: yaml
+      filename: packages/dev_tools/emulator_dev_dashboard.yaml
+      title: Emulator (dev)
+      icon: mdi:test-tube
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
