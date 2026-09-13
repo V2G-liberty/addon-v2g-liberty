@@ -166,7 +166,7 @@ class FMClient(AsyncIOEventEmitter):
         from flexmeasures_client.exceptions import EmailValidationError
 
         host, ssl = get_host_and_ssl_from_url(host_url)
-        self.__log("host: '{host}', ssl: '{ssl}'.")
+        self.__log(f"host: '{host}', ssl: '{ssl}'.")
 
         try:
             client = FlexMeasuresClient(
@@ -176,13 +176,13 @@ class FMClient(AsyncIOEventEmitter):
                 ssl=ssl,
             )
         except ValueError as ve:
-            self.__log("CLIENT ERROR: {ve}.", level="WARNING")
+            self.__log(f"CLIENT ERROR: {ve}.", level="WARNING")
             # ValueErrors:
             # 'xxx' is not an email address format string (= also for empty email)
             # password cannot be empty
             raise ve
         except EmailValidationError as eve:
-            self.__log("CLIENT ERROR: {eve}.", level="WARNING")
+            self.__log(f"CLIENT ERROR: {eve}.", level="WARNING")
             raise eve
 
         self.__log("successfully connect to flexmeasures")
@@ -1031,7 +1031,7 @@ class FMClient(AsyncIOEventEmitter):
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
                     )
-                    self.__log("window_duration: {window_duration} minutes.")
+                    self.__log(f"window_duration: {window_duration} minutes.")
                     # srw = start_relaxation_window, erw = end_relaxation_window
                     srw = time_round(
                         (soc_minimum_start - timedelta(minutes=window_duration)),

@@ -1595,7 +1595,14 @@ class V2GLibertyGlobals:
         username = data["username"]
         password = data["password"]
         use_other_server = data["useOtherServer"]
-        host = data["host"] if use_other_server else c.FM_BASE_URL
+        # Not c.FM_BASE_URL: that global holds the *configured* URL, which is
+        # still the custom one while the user is switching back to the default.
+        # Testing against it would silently keep hitting the old server.
+        host = (
+            data["host"]
+            if use_other_server
+            else self.SETTING_FM_BASE_URL["factory_default"]
+        )
 
         try:
             assets = await self.fm_client_app.test_fm_connection(
