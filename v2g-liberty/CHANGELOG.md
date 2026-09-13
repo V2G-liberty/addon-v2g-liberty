@@ -11,6 +11,7 @@
 - 🪲 BUG: Fix ttl-based notification clearing (unpack AppDaemon's kwargs dict) - (#484)
 - 🪲 BUG: Fix grid connection save fm gate - (#485)
 - 🪲 BUG: FlexMeasures connection wrongly shows "Error" when a single sensor's data is rejected (#486)
+- 🪲 BUG: Turning off "use other than default server" still tests against the configured FlexMeasures URL (#494)
 
 
 ### Added
