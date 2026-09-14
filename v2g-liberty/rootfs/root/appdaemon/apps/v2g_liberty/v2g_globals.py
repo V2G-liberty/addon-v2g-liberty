@@ -2183,6 +2183,8 @@ class V2GLibertyGlobals:
             {
                 "relax-soc-constraints": True,
                 "relax-capacity-constraints": True,
+                "aggregate-consumption": {"sensor": c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID},
+                "aggregate-production": {"sensor": c.FM_AGGREGATE_PRODUCTION_SENSOR_ID},
             }
         )
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
