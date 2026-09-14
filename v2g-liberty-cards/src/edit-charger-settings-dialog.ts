@@ -49,6 +49,7 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _selectedPhase: number | number[] | null = null;
   @state() private _triedSavePhase: boolean = false;
   @state() private _savingPhase: boolean = false;
+  @state() private _phaseSaveError: string | null = null;
   @state() private _detecting: boolean = false;
   @state() private _detectStep: string = '';
   @state() private _detectError: string = '';
@@ -77,6 +78,7 @@ class EditChargerSettingsDialog extends DialogBase {
     this._showPhaseStep = false;
     this._triedSavePhase = false;
     this._savingPhase = false;
+    this._phaseSaveError = null;
     this._detecting = false;
     this._detectStep = '';
     this._detectError = '';
@@ -361,6 +363,12 @@ class EditChargerSettingsDialog extends DialogBase {
 
   // ── Phase Step ──────────────────────────────────────────────────────
 
+  private _renderPhaseSaveError() {
+    return this._phaseSaveError
+      ? html`<ha-alert alert-type="error">${this._phaseSaveError}</ha-alert>`
+      : nothing;
+  }
+
   private _renderPhaseStep() {
     const gridPhases = this._gridPhases;
     const chargerPhases = this._chargerPhases;
@@ -379,6 +387,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // Scenario: 1-phase grid + 1-phase charger → informational
     if (gridPhases === 1 || gridPhases === null) {
       return html`
+        ${this._renderPhaseSaveError()}
         <p>Your charger is connected to the only available phase (L1).</p>
         ${this._renderPhaseBackButton()}
         ${renderButton(this.hass, () => this._savePhase(1), true, this.hass.localize('ui.common.save'))}
@@ -388,6 +397,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // Scenario: 3-phase grid + 3-phase charger → informational
     if (chargerPhases === 3) {
       return html`
+        ${this._renderPhaseSaveError()}
         <p>Your 3-phase charger is connected to all three phases.</p>
         ${this._renderPhaseBackButton()}
         ${renderButton(this.hass, () => this._savePhase([1, 2, 3]), true, this.hass.localize('ui.common.save'))}
@@ -400,6 +410,7 @@ class EditChargerSettingsDialog extends DialogBase {
 
   private _renderPhaseSelection() {
     return html`
+      ${this._renderPhaseSaveError()}
       <p><strong>Which phase is your charger connected to?</strong></p>
 
       <div class="phase-options">
@@ -562,12 +573,22 @@ class EditChargerSettingsDialog extends DialogBase {
 
   private async _savePhase(phase: number | number[]) {
     this._savingPhase = true;
+    this._phaseSaveError = null;
     try {
-      await callFunction(this.hass, 'save_charger_phase', {
+      // callFunction resolves with the result event, so a refused save arrives
+      // as an `error` field rather than a rejection. Closing the dialog without
+      // looking at it would report success while nothing was stored.
+      const result = await callFunction(this.hass, 'save_charger_phase', {
         connected_to_phase: phase,
       });
+      if (result?.error) {
+        this._phaseSaveError = result.error;
+        this._savingPhase = false;
+        return;
+      }
       this.closeDialog();
     } catch (e) {
+      this._phaseSaveError = `${e}`;
       this._savingPhase = false;
     }
   }

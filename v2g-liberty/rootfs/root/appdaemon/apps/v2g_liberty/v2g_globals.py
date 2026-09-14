@@ -1325,17 +1325,53 @@ class V2GLibertyGlobals:
         c.CHARGER_CONNECTED_TO_PHASE = data.get("connected_to_phase", None)
         self.__log(f"Charger connected to phase: {c.CHARGER_CONNECTED_TO_PHASE}")
 
+    VALID_CHARGER_PHASES = (1, 2, 3)
+
+    @staticmethod
+    def normalise_charger_phases(value) -> list | None:
+        """Normalise a charger phase setting to a sorted list of phase numbers.
+
+        A charger occupies one or more phases: a Wallbox Quasar 1 sits on a
+        single one, an EVtec BiDiPro on all three, and a 2-phase charger on
+        e.g. [2, 3]. Accepts a bare phase number (as older settings and the
+        manual 1-phase selection supply) as well as a list.
+
+        Returns None when the value is not a usable phase set, so callers can
+        reject it rather than store something no consumer can interpret.
+        """
+        phases = value if isinstance(value, list) else [value]
+        if not 0 < len(phases) <= len(V2GLibertyGlobals.VALID_CHARGER_PHASES):
+            return None
+        if any(isinstance(p, bool) for p in phases):
+            return None
+        if any(p not in V2GLibertyGlobals.VALID_CHARGER_PHASES for p in phases):
+            return None
+        if len(set(phases)) != len(phases):
+            return None
+        return sorted(phases)
+
     async def __save_charger_phase(self, event, data, kwargs):
         """Handle save_charger_phase event from UI."""
-        phase = data.get("connected_to_phase")
-        if phase not in (1, 2, 3):
+        raw_phase = data.get("connected_to_phase")
+        phases = self.normalise_charger_phases(raw_phase)
+        if phases is None:
+            # Logged as well as returned: a rejected save used to be silent,
+            # which is how a 3-phase charger could keep the phase of the
+            # 1-phase charger it replaced.
+            self.__log(
+                f"rejected connected_to_phase={raw_phase!r}",
+                level="WARNING",
+            )
             self.hass.fire_event(
                 "save_charger_phase.result",
-                error="connected_to_phase must be 1, 2, or 3",
+                error=(
+                    "connected_to_phase must be a phase (1, 2 or 3) "
+                    "or a list of distinct phases"
+                ),
             )
             return
 
-        self.v2g_settings.store_object("charger_phase", {"connected_to_phase": phase})
+        self.v2g_settings.store_object("charger_phase", {"connected_to_phase": phases})
         self.__initialise_charger_phase_settings()
 
         self.hass.fire_event("save_charger_phase.result")
@@ -1362,7 +1398,7 @@ class V2GLibertyGlobals:
         """
         if not self.charger_phase_is_required():
             return True
-        return c.CHARGER_CONNECTED_TO_PHASE in (1, 2, 3)
+        return self.normalise_charger_phases(c.CHARGER_CONNECTED_TO_PHASE) is not None
 
     async def __get_charger_phase(self, event, data, kwargs):
         """Handle get_charger_phase event from UI.
