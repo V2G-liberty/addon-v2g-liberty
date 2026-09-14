@@ -2949,7 +2949,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-unavailable":"Savings data not available yet","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"grid-connection":{"title":"Grid connection","role":{"consumption":"Consumption L%{n}","production":"Production L%{n}","import":"Import tariff %{n}","export":"Export tariff %{n}"},"card":{"active-alert":"Active \xb7 %{reporting} of %{total} sensors reporting","active-summary":"%{phase}, %{capacity} A per phase.","phase-1":"1-phase","phase-3":"3-phase","problem-title":"A sensor needs attention","problem-alert":"%{role} is not reporting correctly. Monitoring is paused until it is resolved.","problem-alert-generic":"A sensor is not reporting correctly. Monitoring is paused until it is resolved.","incomplete-title":"Not fully set up","incomplete-alert":"%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.","not-set-up":"Configure your grid connection so V2G Liberty learns your household energy patterns \u2014 for better predictions and smarter schedules, and to be ready for the end of net metering.","set-up":"Set up","fix":"Fix this"},"header":{"connection":"Connection","power":"Power","meter":"Meter readings","done":"Done"},"fm-gate-subject":"grid connection","intro":{"p1":"By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.","p2":"<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.","req-header":"What you need","req-smart-meter-title":"Smart meter","req-smart-meter-desc":"Reports power per phase in real time.","req-cable-title":"P1 cable","req-cable-desc":"A USB P1 port cable or similar (~\u20AC15).","req-integration-title":"Home Assistant integration","req-integration-desc":"E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."},"connection":{"phases-question":"How many phases does your grid connection have?","phase-1-title":"1 phase","phase-1-sub":"Small connection","phase-3-title":"3 phases","phase-3-sub":"Standard connection","phases-error":"Please select the number of phases.","phases-hint-summary":"Not sure?","phases-hint-body":"Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.","capacity-label":"Capacity per phase (ampere)","capacity-error-empty":"Please enter the capacity.","capacity-error-range":"Must be a whole number between 6 and 80.","capacity-hint-summary":"Where to find this","capacity-hint-body":"On your energy contract or your main fuse \u2014 typically 25 A or 35 A. Enter the actual value, not a lower safety margin.","continue-anyway":"Continue anyway"},"badge":{"auto-detected":"Auto-detected"},"solar-warning":{"title-one":"This change will break a solar panel","title-many":"This change will break solar panels","body-intro":"The new phase count no longer matches the configuration of:","body-outro":"Continue anyway is allowed \u2014 the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.","unnamed":"(unnamed)"},"sensors-heading":"Sensors","power":{"intro":"To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically \u2014 please check that each one is right before continuing.","consumption-title":"Consumption","consumption-sub":"power drawn from the grid","production-title":"Production","production-sub":"power fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 choose a sensor for every phase, for both consumption and production, to continue.","not-recognised-what":"power per phase"},"meter":{"intro":"The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs \u2014 with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically \u2014 please check them before continuing.","import-title":"Import","import-sub":"total energy taken from the grid","export-title":"Export","export-sub":"total energy fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).","not-recognised-what":"cumulative kWh readings"},"done":{"all-set":"All set \u2014 %{count} sensors linked.","incomplete-warning":"Not everything is set yet. Go back and complete the missing rows.","phases-label":"Phases","phases-value":"%{smart_count} phase |||| %{smart_count} phases","capacity-label":"Capacity per phase","no-sensor":"No sensor selected yet","keeps-monitoring":"V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.","save-incomplete":"Some rows are still missing \u2014 go back and complete them before saving.","saving":"Saving\u2026"},"detect":{"title":"Sensors not recognised \u2014 or not yet enabled","body":"No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default \u2014 check Settings \u2192 Devices & services \u2192 your meter \u2192 entities and enable them.","search-again":"Search again","open-integrations":"Open integrations"},"save-error":{"fm":"Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.","unreachable":"Could not reach the add-on. Please check that V2G Liberty is running and try again."},"picker":{"consumption":"Consumption","production":"Production","import":"Import","export":"Export","power-subtitle":"%{direction} phase %{phase} \xb7 power","meter-subtitle":"Tariff %{tariff} \xb7 %{direction} \xb7 meter reading"},"choose-sensor":{"title":"Choose sensor","search-label":"Search","clear-title":"Clear the search","search-info":"Prefilled with what you are setting up \u2014 every word has to match. Clear or edit it if your integration names things differently.","filter-power":"W / kW only","filter-meter":"kWh readings only","filter-all":"All sensors","empty":"No matching sensors.","already-in-use":"already in use","measures":"measures %{unit}","select-first":"Choose a sensor from the list first \u2014 search above if you don\'t see it.","unsuitable-title":"This sensor does not fit here","unsuitable-body":"This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.","unsuitable-fallback-unit":"the wrong quantity","help-summary":"Help \u2014 which sensor do I pick?","help-power-1":"Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter \u2014 a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.","help-power-2":"A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.","help-meter-1":"Pick a total in kWh that only ever goes up \u2014 the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.","help-meter-2":"Not sure between two? Compare the value with the display on your meter \u2014 the numbers should match.","cancel":"Cancel","ok":"OK"},"status":{"reporting":"Reporting","waiting":"Waiting for data","wrong-type":"This sensor does not fit here","stale":"No update for a long time"},"row":{"choose":"Choose sensor","change":"Change"}},"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","alert":"Please configure the charger, V2G Liberty needs this to work.","invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","connection-details":{"description":"To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\\nOpen the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.","port-description":"Default is 502, so if you haven\u2019t changed it, keep this."},"charger-details":{"description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","charger_type":"Charger type","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-unavailable":"Savings data not available yet","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"grid-connection":{"title":"Grid connection","role":{"consumption":"Consumption L%{n}","production":"Production L%{n}","import":"Import tariff %{n}","export":"Export tariff %{n}"},"card":{"active-alert":"Active \xb7 %{reporting} of %{total} sensors reporting","active-summary":"%{phase}, %{capacity} A per phase.","phase-1":"1-phase","phase-3":"3-phase","problem-title":"A sensor needs attention","problem-alert":"%{role} is not reporting correctly. Monitoring is paused until it is resolved.","problem-alert-generic":"A sensor is not reporting correctly. Monitoring is paused until it is resolved.","incomplete-title":"Not fully set up","incomplete-alert":"%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.","not-set-up":"Configure your grid connection so V2G Liberty learns your household energy patterns \u2014 for better predictions and smarter schedules, and to be ready for the end of net metering.","set-up":"Set up","fix":"Fix this"},"header":{"connection":"Connection","power":"Power","meter":"Meter readings","done":"Done"},"fm-gate-subject":"grid connection","intro":{"p1":"By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.","p2":"<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.","req-header":"What you need","req-smart-meter-title":"Smart meter","req-smart-meter-desc":"Reports power per phase in real time.","req-cable-title":"P1 cable","req-cable-desc":"A USB P1 port cable or similar (~\u20AC15).","req-integration-title":"Home Assistant integration","req-integration-desc":"E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."},"connection":{"phases-question":"How many phases does your grid connection have?","phase-1-title":"1 phase","phase-1-sub":"Small connection","phase-3-title":"3 phases","phase-3-sub":"Standard connection","phases-error":"Please select the number of phases.","phases-hint-summary":"Not sure?","phases-hint-body":"Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.","capacity-label":"Capacity per phase (ampere)","capacity-error-empty":"Please enter the capacity.","capacity-error-range":"Must be a whole number between 6 and 80.","capacity-hint-summary":"Where to find this","capacity-hint-body":"On your energy contract or your main fuse \u2014 typically 25 A or 35 A. Enter the actual value, not a lower safety margin.","continue-anyway":"Continue anyway"},"badge":{"auto-detected":"Auto-detected"},"solar-warning":{"title-one":"This change will break a solar panel","title-many":"This change will break solar panels","body-intro":"The new phase count no longer matches the configuration of:","body-outro":"Continue anyway is allowed \u2014 the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.","unnamed":"(unnamed)"},"sensors-heading":"Sensors","power":{"intro":"To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically \u2014 please check that each one is right before continuing.","consumption-title":"Consumption","consumption-sub":"power drawn from the grid","production-title":"Production","production-sub":"power fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 choose a sensor for every phase, for both consumption and production, to continue.","not-recognised-what":"power per phase"},"meter":{"intro":"The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs \u2014 with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically \u2014 please check them before continuing.","import-title":"Import","import-sub":"total energy taken from the grid","export-title":"Export","export-sub":"total energy fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).","not-recognised-what":"cumulative kWh readings"},"done":{"all-set":"All set \u2014 %{count} sensors linked.","incomplete-warning":"Not everything is set yet. Go back and complete the missing rows.","phases-label":"Phases","phases-value":"%{smart_count} phase |||| %{smart_count} phases","capacity-label":"Capacity per phase","no-sensor":"No sensor selected yet","keeps-monitoring":"V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.","save-incomplete":"Some rows are still missing \u2014 go back and complete them before saving.","saving":"Saving\u2026"},"detect":{"title":"Sensors not recognised \u2014 or not yet enabled","body":"No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default \u2014 check Settings \u2192 Devices & services \u2192 your meter \u2192 entities and enable them.","search-again":"Search again","open-integrations":"Open integrations"},"save-error":{"fm":"Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.","unreachable":"Could not reach the add-on. Please check that V2G Liberty is running and try again."},"picker":{"consumption":"Consumption","production":"Production","import":"Import","export":"Export","power-subtitle":"%{direction} phase %{phase} \xb7 power","meter-subtitle":"Tariff %{tariff} \xb7 %{direction} \xb7 meter reading"},"choose-sensor":{"title":"Choose sensor","search-label":"Search","clear-title":"Clear the search","search-info":"Prefilled with what you are setting up \u2014 every word has to match. Clear or edit it if your integration names things differently.","filter-power":"W / kW only","filter-meter":"kWh readings only","filter-all":"All sensors","empty":"No matching sensors.","already-in-use":"already in use","measures":"measures %{unit}","select-first":"Choose a sensor from the list first \u2014 search above if you don\'t see it.","unsuitable-title":"This sensor does not fit here","unsuitable-body":"This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.","unsuitable-fallback-unit":"the wrong quantity","help-summary":"Help \u2014 which sensor do I pick?","help-power-1":"Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter \u2014 a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.","help-power-2":"A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.","help-meter-1":"Pick a total in kWh that only ever goes up \u2014 the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.","help-meter-2":"Not sure between two? Compare the value with the display on your meter \u2014 the numbers should match.","cancel":"Cancel","ok":"OK"},"status":{"reporting":"Reporting","waiting":"Waiting for data","wrong-type":"This sensor does not fit here","stale":"No update for a long time"},"row":{"choose":"Choose sensor","change":"Change"}},"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","wallbox-quasar-1":"Wallbox Quasar 1","evtec-bidi-pro-10":"EVtec BiDiPro 10","alert":"Please configure the charger, V2G Liberty needs this to work.","1-select-charger-type":{"header":"Select charger type","description":"Please select the type of charger you are using:","validation-error":"Please select a charger type to continue."},"invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","charger-not-recognised-error":"Connected successfully, but the charger at this address does not appear to be the selected type. Please verify the charger type selection.","no-active-plug-error":"Connected to the charger, but no active plug was found. Please check the charger configuration.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","2-connection-details":{"header":"connection settings","description":{"generic":"To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.","evtec-bidi-pro-10":"You can find this in your network router or in the EVtec manager via the webbrowser.","wallbox-quasar-1":"You can find these in the Wallbox app: in the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."},"port-description":"Default is %{value}, so if you haven\u2019t changed it, keep this."},"3-power-details":{"header":"power settings","description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
 
 
 var $4db9c280a88445d4$exports = {};
@@ -3935,6 +3935,7 @@ const $755a87c9ee93218f$export$c541138e582b8ea2 = 'input_boolean.use_reduced_max
 const $755a87c9ee93218f$export$7644ad7394071de6 = 'input_number.charger_max_charging_power';
 const $755a87c9ee93218f$export$8a6641dff4159913 = 'input_number.charger_max_discharging_power';
 const $755a87c9ee93218f$export$f48daca8eb58f881 = 'sensor.quasar_loadbalancer_limit';
+const $755a87c9ee93218f$export$c85d806694fc5565 = 'input_text.charger_type';
 const $755a87c9ee93218f$export$6803b8e9884353c8 = 'input_boolean.electricity_contract_settings_initialised';
 const $755a87c9ee93218f$export$6106300be9012ff7 = 'input_select.electricity_provider';
 const $755a87c9ee93218f$export$8f62940f89c0da8a = 'input_number.energy_price_vat';
@@ -13320,11 +13321,35 @@ $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = (0, $24c52f3434
 
 const $4163850e13316b31$export$45e0b80f1e500bd4 = 'edit-charger-settings-dialog';
 const $4163850e13316b31$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.charger');
+// The type id doubles as the strings.json key of its human-readable label.
+const $4163850e13316b31$var$CHARGER_OPTIONS = [
+    {
+        value: "evtec-bidi-pro-10",
+        defaultPort: '5020',
+        phases: 3
+    },
+    {
+        value: "wallbox-quasar-1",
+        defaultPort: '502',
+        phases: 1
+    }
+];
+function $4163850e13316b31$var$chargerOption(type) {
+    return $4163850e13316b31$var$CHARGER_OPTIONS.find((option)=>option.value === type) ?? null;
+}
 class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    get _chargerPhases() {
+        return $4163850e13316b31$var$chargerOption(this._selectedChargerType)?.phases ?? 1;
+    }
     async showDialog() {
         super.showDialog();
+        this._currentPage = '1-select-charger-type';
+        this._hasTriedToSelectType = false;
+        this._hasTypedPort = false;
+        this._hasConfiguredPort = this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11]?.state !== 'unknown';
+        this._selectedChargerType = $4163850e13316b31$var$chargerOption(this.hass.states[$755a87c9ee93218f$export$c85d806694fc5565]?.state)?.value ?? null;
         this._chargerHost = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89], '');
-        this._chargerPort = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11], '502');
+        this._chargerPort = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11], this._defaultPort());
         this._chargerConnectionStatus = '';
         this._useReducedMaxPower = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2].state;
         this._quasarLoadBalancerLimit = this.hass.states[$755a87c9ee93218f$export$f48daca8eb58f881].state;
@@ -13332,6 +13357,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         this._showPhaseStep = false;
         this._triedSavePhase = false;
         this._savingPhase = false;
+        this._phaseSaveError = null;
         this._detecting = false;
         this._detectStep = '';
         this._detectError = '';
@@ -13353,9 +13379,9 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        const header = $4163850e13316b31$var$tp('header');
+        const header = this._getDialogHeader();
         const _isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
-        const content = this._showPhaseStep ? this._renderPhaseStep() : this._hasTriedToConnect && this._isConnected() ? this._renderChargerDetails() : this._renderConnectionDetails();
+        const content = this._showPhaseStep ? this._renderPhaseStep() : this._currentPage === '1-select-charger-type' ? this._renderChargerSelection() : this._currentPage === '2-connection-details' ? this._renderConnectionDetails() : this._renderPowerDetails();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <ha-dialog
         open
@@ -13367,39 +13393,112 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       </ha-dialog>
     `;
     }
+    _getDialogHeader() {
+        if (this._showPhaseStep) return $4163850e13316b31$var$tp('header');
+        const typeLabel = this._selectedChargerType ? $4163850e13316b31$var$tp(this._selectedChargerType) : '';
+        switch(this._currentPage){
+            case '1-select-charger-type':
+                return $4163850e13316b31$var$tp('1-select-charger-type.header');
+            case '2-connection-details':
+                return `${typeLabel}: ${$4163850e13316b31$var$tp('2-connection-details.header')}`;
+            case '3-power-details':
+                return `${typeLabel}: ${$4163850e13316b31$var$tp('3-power-details.header')}`;
+            default:
+                return $4163850e13316b31$var$tp('header');
+        }
+    }
     _isConnected() {
         return this._chargerConnectionStatus === "Successfully connected";
     }
+    // ── Step 1: charger type ─────────────────────────────────────────────
+    _renderChargerSelection() {
+        const showError = this._hasTriedToSelectType && this._selectedChargerType === null;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-markdown
+        breaks
+        .content=${$4163850e13316b31$var$tp('1-select-charger-type.description')}
+      ></ha-markdown>
+      ${showError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+            <ha-alert test-id="charger-type-error" alert-type="error">
+              ${$4163850e13316b31$var$tp('1-select-charger-type.validation-error')}
+            </ha-alert>
+          ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      <div role="radiogroup" test-id="charger-type">
+        ${$4163850e13316b31$var$CHARGER_OPTIONS.map((option)=>(0, $4dbea3927e6cdc74$export$4554bf7c8c968942)(option.value, $4163850e13316b31$var$tp(option.value), this._selectedChargerType === option.value, ()=>this._selectChargerType(option.value)))}
+      </div>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goToConnectionDetails, true, this.hass.localize('ui.common.continue'))}
+    `;
+    }
+    _selectChargerType(type) {
+        if (type === this._selectedChargerType) return;
+        this._selectedChargerType = type;
+        if (!this._hasTypedPort && !this._hasConfiguredPort) this._chargerPort = this._defaultPort();
+    }
+    _defaultPort() {
+        return $4163850e13316b31$var$chargerOption(this._selectedChargerType)?.defaultPort ?? '502';
+    }
+    _goToConnectionDetails() {
+        this._hasTriedToSelectType = true;
+        if (this._selectedChargerType === null) return;
+        this._currentPage = '2-connection-details';
+        this._hasTriedToConnect = false;
+        this._chargerConnectionStatus = '';
+    }
+    _goBackToChargerSelection() {
+        this._currentPage = '1-select-charger-type';
+        this._hasTriedToConnect = false;
+        this._chargerConnectionStatus = '';
+    }
+    // ── Step 2: connection details ───────────────────────────────────────
     _renderConnectionDetails() {
         const chargerHostState = this.hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89];
         const chargerPortState = this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
-        const portDescription = $4163850e13316b31$var$tp('connection-details.port-description');
+        const portDescription = $4163850e13316b31$var$tp('2-connection-details.port-description', {
+            value: this._defaultPort()
+        });
         const _isLoadBalancerEnabled = (0, $4dbea3927e6cdc74$export$e5b3375ee042fbb7)(this._quasarLoadBalancerLimit);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       ${this._renderConnectionError()}
       ${_isLoadBalancerEnabled ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <ha-markdown breaks .content="${$4163850e13316b31$var$tp('connection-details.description')}"></ha-markdown><br/>
+          <ha-markdown breaks .content=${$4163850e13316b31$var$tp('2-connection-details.description.generic')}></ha-markdown>
+          <ha-markdown breaks .content=${$4163850e13316b31$var$tp(`2-connection-details.description.${this._selectedChargerType}`)}></ha-markdown><br/>
         `}
       ${(0, $4dbea3927e6cdc74$export$bc401cf358a8ff27)((0, $4dbea3927e6cdc74$export$7034fcb7d6351061).Hostname, this._chargerHost, chargerHostState, (evt)=>this._chargerHost = evt.target.value, $4163850e13316b31$var$tp('invalid-host-error'), "text", this.hass)}
       ${this._renderInvalidHostError()}
-      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerPort, chargerPortState, (evt)=>this._chargerPort = evt.target.value, '[0-9]+')}
+      ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerPort, chargerPortState, (evt)=>{
+            this._hasTypedPort = true;
+            this._chargerPort = evt.target.value;
+        }, '[0-9]+')}
       ${this._renderInvalidPortError()}
       ${_isLoadBalancerEnabled ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
           <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
         `}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
-      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'))}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goBackToChargerSelection, false, this.hass.localize('ui.common.back'), this._isBusyConnecting(), 'back', true)}
+      ${this._isBusyConnecting() ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goToPowerDetails, true, this.hass.localize('ui.common.continue'))}
     `;
     }
     _renderConnectionError() {
-        const hasConnectionError = this._chargerConnectionStatus == "Failed to connect" || this._chargerConnectionStatus == "Timed out";
-        return hasConnectionError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
-          <p>
-            <ha-alert test-id="connection-error" alert-type="error">
-              ${$4163850e13316b31$var$tp('connection-error')}
-            </ha-alert>
-          </p>
-        ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        switch(this._chargerConnectionStatus){
+            case "Charger not recognised":
+                return this._renderConnectionAlert('warning', 'not-recognised-error', $4163850e13316b31$var$tp('charger-not-recognised-error'));
+            case "No active plug found":
+                return this._renderConnectionAlert('warning', 'no-active-plug-error', $4163850e13316b31$var$tp('no-active-plug-error'));
+            case "Failed to connect":
+            case "Timed out":
+                return this._renderConnectionAlert('error', 'connection-error', $4163850e13316b31$var$tp('connection-error'));
+            default:
+                return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        }
+    }
+    _renderConnectionAlert(alertType, testId, message) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <p>
+        <ha-alert test-id=${testId} alert-type=${alertType}>
+          ${message}
+        </ha-alert>
+      </p>
+    `;
     }
     _renderInvalidHostError() {
         return !this._hasTriedToConnect || this._isChargerHostValid() ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div test-id="invalid-host" class="invalid">
@@ -13420,8 +13519,9 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
     _isBusyConnecting() {
         return this._chargerConnectionStatus === "Trying to connect...";
     }
-    _renderChargerDetails() {
-        const description = $4163850e13316b31$var$tp('charger-details.description', {
+    // ── Step 3: power details ────────────────────────────────────────────
+    _renderPowerDetails() {
+        const description = $4163850e13316b31$var$tp('3-power-details.description', {
             value: this._maxAvailablePower
         });
         const useReducedMaxPowerState = this.hass.states[$755a87c9ee93218f$export$c541138e582b8ea2];
@@ -13433,11 +13533,17 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $4dbea3927e6cdc74$export$c0105cf8fd33cdd7)(isUsingReducedMaxPower, useReducedMaxPowerState, (evt)=>this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goBackToConnectionDetails, false, this.hass.localize('ui.common.back'), false, 'back', true)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.continue'), false, 'continue')}
     `;
     }
+    _goBackToConnectionDetails() {
+        this._currentPage = '2-connection-details';
+        this._hasTriedToConnect = false;
+        this._chargerConnectionStatus = '';
+    }
     _renderReducedMaxPower() {
-        const reduceMaxPowerDescription = $4163850e13316b31$var$tp('charger-details.reduce-max-power-description');
+        const reduceMaxPowerDescription = $4163850e13316b31$var$tp('3-power-details.reduce-max-power-description');
         const chargerMaxChargingPowerState = this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6];
         const chargerMaxDischargingPowerState = this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913];
         chargerMaxChargingPowerState.attributes.max = this._maxAvailablePower;
@@ -13448,7 +13554,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${(0, $4dbea3927e6cdc74$export$4560e40fc05e15cf)(this._chargerMaxDischargingPower, chargerMaxDischargingPowerState, (evt)=>this._chargerMaxDischargingPower = evt.target.value, '[0-9]+')}
     `;
     }
-    async _continue() {
+    async _goToPowerDetails() {
         this._hasTriedToConnect = true;
         if (!this._isChargerHostValid()) {
             this._chargerHostField.focus();
@@ -13459,23 +13565,30 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             return;
         }
         this._chargerPort = `${parseInt(this._chargerPort, 10)}`;
+        // The test cannot be cancelled, so remember what it is testing: if the
+        // user goes back and picks another type meanwhile, its answer says
+        // nothing about the now-selected charger and must be dropped.
+        const testedType = this._selectedChargerType;
         try {
             this._chargerConnectionStatus = "Trying to connect...";
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'test_charger_connection', {
+                charger_type: this._selectedChargerType,
                 host: this._chargerHost,
                 port: this._chargerPort
             }, 5000);
+            if (this._currentPage !== '2-connection-details' || this._selectedChargerType !== testedType) return;
             this._chargerConnectionStatus = result.msg;
             if (this._isConnected()) {
                 this._maxAvailablePower = result.max_available_power;
                 this._chargerMaxChargingPower = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$7644ad7394071de6], this._maxAvailablePower);
                 this._chargerMaxDischargingPower = defaultMaxPower(this.hass.states[$755a87c9ee93218f$export$8a6641dff4159913], this._maxAvailablePower);
+                this._currentPage = '3-power-details';
             }
             function defaultMaxPower(stateObj, defaultValue) {
                 return parseInt(stateObj.state, 10) === 1380 || stateObj.state === 'unknown' ? defaultValue : stateObj.state;
             }
         } catch (err) {
-            this._chargerConnectionStatus = "Timed out";
+            if (this._currentPage === '2-connection-details' && this._selectedChargerType === testedType) this._chargerConnectionStatus = "Timed out";
         }
     }
     async _save() {
@@ -13488,6 +13601,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         // TODO: Add validation
         const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
         const args = {
+            charger_type: this._selectedChargerType,
             host: this._chargerHost,
             port: this._chargerPort,
             useReducedMaxChargePower: isUsingReducedMaxPower,
@@ -13502,6 +13616,9 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         else this.closeDialog();
     }
     // ── Phase Step ──────────────────────────────────────────────────────
+    _renderPhaseSaveError() {
+        return this._phaseSaveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${this._phaseSaveError}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+    }
     _renderPhaseStep() {
         const gridPhases = this._gridPhases;
         const chargerPhases = this._chargerPhases;
@@ -13515,12 +13632,14 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       `;
         // Scenario: 1-phase grid + 1-phase charger → informational
         if (gridPhases === 1 || gridPhases === null) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        ${this._renderPhaseSaveError()}
         <p>Your charger is connected to the only available phase (L1).</p>
         ${this._renderPhaseBackButton()}
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._savePhase(1), true, this.hass.localize('ui.common.save'))}
       `;
         // Scenario: 3-phase grid + 3-phase charger → informational
         if (chargerPhases === 3) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        ${this._renderPhaseSaveError()}
         <p>Your 3-phase charger is connected to all three phases.</p>
         ${this._renderPhaseBackButton()}
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._savePhase([
@@ -13534,6 +13653,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
     }
     _renderPhaseSelection() {
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._renderPhaseSaveError()}
       <p><strong>Which phase is your charger connected to?</strong></p>
 
       <div class="phase-options">
@@ -13650,12 +13770,22 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
     }
     async _savePhase(phase) {
         this._savingPhase = true;
+        this._phaseSaveError = null;
         try {
-            await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_phase', {
+            // callFunction resolves with the result event, so a refused save arrives
+            // as an `error` field rather than a rejection. Closing the dialog without
+            // looking at it would report success while nothing was stored.
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_phase', {
                 connected_to_phase: phase
             });
+            if (result?.error) {
+                this._phaseSaveError = result.error;
+                this._savingPhase = false;
+                return;
+            }
             this.closeDialog();
         } catch (e) {
+            this._phaseSaveError = `${e}`;
             this._savingPhase = false;
         }
     }
@@ -13735,11 +13865,24 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         ];
     }
     constructor(...args){
-        super(...args), // Phase step state
-        this._showPhaseStep = false, this._gridPhases = null, this._chargerPhases = 1 // TODO: derive from charger type in branch 359
-        , this._selectedPhase = null, this._triedSavePhase = false, this._savingPhase = false, this._detecting = false, this._detectStep = '', this._detectError = '', this._detectSuccess = '';
+        super(...args), this._currentPage = '1-select-charger-type', this._selectedChargerType = null, this._hasTriedToSelectType = false, // Phase step state
+        this._showPhaseStep = false, this._gridPhases = null, this._selectedPhase = null, this._triedSavePhase = false, this._savingPhase = false, this._phaseSaveError = null, this._detecting = false, this._detectStep = '', this._detectError = '', this._detectSuccess = '', // True once the user has edited the port in this dialog session; until then
+        // switching the charger type prefills that type's default Modbus port.
+        this._hasTypedPort = false, // Whether a port was already stored in the settings. Selecting another
+        // charger type then keeps it: an existing user may run a deliberate
+        // non-default port (the load balancer proxies the Quasar on 5020).
+        this._hasConfiguredPort = false;
     }
 }
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_currentPage", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_selectedChargerType", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_hasTriedToSelectType", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerHost", void 0);
@@ -13772,9 +13915,6 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_gridPhases", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_chargerPhases", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_selectedPhase", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
@@ -13782,6 +13922,9 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_savingPhase", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_phaseSaveError", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $4163850e13316b31$var$EditChargerSettingsDialog.prototype, "_detecting", void 0);
@@ -18697,6 +18840,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
             this._subscribeToPhaseEvents();
         }
         this._chargerSettingsInitialised = hass.states[$755a87c9ee93218f$export$2b7224725565ef34];
+        this._chargerType = hass.states[$755a87c9ee93218f$export$c85d806694fc5565];
         this._chargerHost = hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89];
         this._chargerPort = hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11];
         this._chargerConnectionStatus = hass.states[$755a87c9ee93218f$export$daa3d3280ce4a564];
@@ -18728,6 +18872,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
+        ${this._renderChargerType()}
         ${(0, $4dbea3927e6cdc74$export$4652ab6ca7300a71)(this._hass, this._chargerHost)}
         ${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
@@ -18738,6 +18883,14 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, editCallback, true, this._hass.localize('ui.common.edit'))}
       </div>
     `;
+    }
+    _renderChargerType() {
+        // The entity holds the charger type id (e.g. "wallbox-quasar-1"); the
+        // human-readable label lives in strings.json under that id.
+        if (!this._chargerType) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(this._chargerType, {
+            state: $8462057a459186b4$var$tp(this._chargerType.state)
+        });
     }
     _renderChargerConnectionStatus() {
         const state = this._chargerConnectionStatus.state;
@@ -18846,6 +18999,9 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerSettingsInitialised", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerType", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_chargerHost", void 0);
