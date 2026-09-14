@@ -411,6 +411,9 @@ input_text:
   charger_host_url:
     name: Charger host URL
     icon: mdi:lan-pending
+  charger_type:
+    name: Charger type
+    icon: mdi:ev-station
 
   #############  flexmeasures related entities #############
   fm_account_username:
