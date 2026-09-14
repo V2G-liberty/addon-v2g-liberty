@@ -37,6 +37,7 @@ class SettingsManager:
 
     def __upgrade(self, settings: dict):
         settings = self.__upgrade_obsolete_settings(settings)
+        settings = self.__upgrade_charger_type(settings)
         settings = self.__upgrade_administrator_settings_initialised(settings)
         settings = self.__upgrade_calendar_settings_initialised(settings)
         settings = self.__upgrade_charger_settings_initialised(settings)
@@ -107,6 +108,22 @@ class SettingsManager:
             and "input_text.integration_calendar_entity_name" in settings
         ):
             settings["input_boolean.calendar_settings_initialised"] = True
+        return settings
+
+    def __upgrade_charger_type(self, settings: dict):
+        """Installations from before the charger-type setting (phase 3 of the
+        359 migration) can only have a Wallbox Quasar 1: that was the only
+        supported charger. Assume it when the charger is configured but the type
+        is missing, so an upgrade keeps working without a visit to the settings.
+        """
+        if (
+            "input_text.charger_host_url" in settings
+            and "input_number.charger_port" in settings
+            and "input_boolean.use_reduced_max_charge_power" in settings
+            and "input_text.charger_type" not in settings
+        ):
+            settings["input_text.charger_type"] = "wallbox-quasar-1"
+            self.__log("Assuming charger_type to be 'wallbox-quasar-1'.")
         return settings
 
     def __upgrade_charger_settings_initialised(self, settings: dict):

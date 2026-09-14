@@ -895,3 +895,42 @@ async def test_soc_getter_derivations(driver):
     assert await e.get_car_remaining_range() == int(
         round(soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM, 0)
     )
+
+
+# --- connection test with signature validation (phase 3, task 26b) ---------
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reads, expected",
+    [
+        # (max power read, firmware read) -> (status, max power)
+        ([(False, None)], ("connection_failed", None)),
+        ([(True, 7400), (False, None)], ("connection_failed", None)),
+        ([(True, 7400), (True, 0)], ("not_recognised", 7400)),
+        ([(True, 7400), (True, 3400)], ("success", 7400)),
+    ],
+)
+async def test_charger_connection_validates_the_quasar_signature(
+    driver, reads, expected
+):
+    e, _ = driver
+    e._mb_client.adhoc_read_register = AsyncMock(side_effect=reads)
+    assert await e.test_charger_connection("host", 502) == expected
+
+
+# --- per-instance register cache (runtime charger-type switch) -------------
+def test_each_driver_instance_has_its_own_register_cache():
+    """A driver can be replaced at runtime, so a new one must not inherit the
+    previous driver's cached values: its first poll would find them unchanged
+    and emit no charger_state_change / soc_change at all."""
+    hass = MagicMock()
+    first = WallboxQuasar1Client(hass, EventBus(hass), MagicMock())
+    first._MCE_CAR_SOC.current_value = 77
+    first._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    first._MCE_ERROR_1.current_value = 4
+
+    second = WallboxQuasar1Client(hass, EventBus(hass), MagicMock())
+    assert second._MCE_CAR_SOC.current_value is None
+    assert second._MCE_CHARGER_STATE.current_value is None
+    assert second._MCE_ERROR_1.current_value is None
+    # and the fresh instance must not disturb the running one
+    assert first._MCE_CAR_SOC.current_value == 77

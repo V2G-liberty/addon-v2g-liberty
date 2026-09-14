@@ -17,6 +17,7 @@ external callers need no edits.
 """
 
 import asyncio
+from dataclasses import replace
 
 from pymodbus.exceptions import ModbusException
 
@@ -25,7 +26,7 @@ from appdaemon.plugins.hass.hassapi import Hass
 from .. import constants as c
 from ..log_wrapper import get_class_method_logger
 from ..notifier_util import Notifier
-from ..v2g_globals import parse_to_int
+from ..util.conversion_util import parse_to_int
 from ..event_bus import EventBus
 from ..timer_utils import cancel_timer_silent, set_oneshot_timer
 from .base_bidirectional_evse import BidirectionalEVSE
@@ -41,6 +42,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     Values of the EVSE (like charger status or car SoC) are emitted onto the
     event_bus for other modules to use / subscribe to.
     """
+
+    CHARGER_TYPE = "wallbox-quasar-1"
 
     event_bus: EventBus = None
 
@@ -280,6 +283,27 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # Raw modbus transport; the exception/grace-timer state machine stays on this charger.
         self._mb_client = V2GmodbusClient(hass)
 
+        # The MCE definitions above are class attributes, and their
+        # current_value is mutated in place. A driver can be replaced at
+        # runtime (charger-type switch), so give each instance its own copies:
+        # a new driver must not inherit the previous one's cached values, or
+        # its first poll would find them unchanged and emit no events.
+        for name in (
+            "_MCE_ACTUAL_POWER",
+            "_MCE_CHARGER_STATE",
+            "_MCE_CAR_SOC",
+            "_MCE_ERROR_1",
+            "_MCE_ERROR_2",
+            "_MCE_ERROR_3",
+            "_MCE_ERROR_4",
+            "_MCE_CHARGER_LOCKED",
+        ):
+            setattr(
+                self,
+                name,
+                replace(getattr(self, name), current_value=None, last_updated=None),
+            )
+
         self.CHARGER_ERROR_ENTITIES = [
             self._MCE_ERROR_1,
             self._MCE_ERROR_2,
@@ -296,15 +320,25 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._MCE_ERROR_4,
         ]
         self.poll_timer_handle = None
+        # Set by shutdown(): stops a poll that was already in flight from
+        # re-arming timers on a driver that is no longer the active one.
+        self._is_shut_down = False
 
     ######################################################################
     #                     PUBLIC FUNCTIONAL METHODS                      #
     ######################################################################
 
-    async def test_charger_connection(self, host, port):
-        """Test client settings and return max_available_power in Watt.
-        To be called from UI (via globals). Works even if this module has not been
-        initialised yet."""
+    # Firmware version register; non-zero on a Quasar, used as its signature.
+    FIRMWARE_VERSION_REGISTER: int = 1
+
+    async def test_charger_connection(self, host, port) -> tuple[str, int | None]:
+        """Test client settings, validate the charger signature and return the
+        max_available_power in Watt. To be called from UI (via globals). Works
+        even if this module has not been initialised yet.
+
+        Returns (status, max_available_power) with status one of
+        "connection_failed", "not_recognised", "success".
+        """
         self._log(f"Testing Modbus EVSE client at {host}:{port}")
 
         success, max_available_power = await self._mb_client.adhoc_read_register(
@@ -312,10 +346,29 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             host=host,
             port=port,
         )
-
         if not success:
-            return False, None
-        return True, max_available_power
+            return "connection_failed", None
+
+        read_ok, firmware_version = await self._mb_client.adhoc_read_register(
+            modbus_address=self.FIRMWARE_VERSION_REGISTER, host=host, port=port
+        )
+        if not read_ok:
+            # Each adhoc read opens its own connection, so the second one can
+            # fail on its own. That is a connection problem, not proof that the
+            # charger is a different make.
+            self._log(
+                f"Could not read the firmware version at {host}:{port}.",
+                level="WARNING",
+            )
+            return "connection_failed", None
+        if not firmware_version:
+            self._log(
+                f"Connected at {host}:{port} but charger not recognised as a Wallbox "
+                f"Quasar 1: firmware version '{firmware_version}'.",
+                level="WARNING",
+            )
+            return "not_recognised", max_available_power
+        return "success", max_available_power
 
     async def initialise_charger(self, v2g_args=None):
         """Initialise charger
@@ -419,6 +472,26 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._get_car_soc(do_not_use_cache=True)
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self._set_poll_strategy()
+
+    async def shutdown(self):
+        """Release the charger: stop polling and timers, close the connection.
+        Used when the configured charger type changes at runtime.
+        """
+        self._log("shutting down")
+        self._is_shut_down = True
+        await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
+        self.timer_id_check_modus_exception_state = None
+        await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
+        self.timer_id_check_error_state = None
+        await self._cancel_polling(reason="shutdown")
+        self._am_i_active = False
+        self._mb_client.terminate()
+        # Closing the socket makes an in-flight read raise; cancel once more so
+        # a timer armed by that exception cannot outlive this driver.
+        await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
+        self.timer_id_check_modus_exception_state = None
+        await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
+        self.timer_id_check_error_state = None
 
     async def get_car_soc(self) -> int:
         """Helper to get SoC in percent"""
@@ -1478,6 +1551,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         :param source: Only for logging
         :return: Is the exception persistent for longer than the set timeout.
         """
+        if self._is_shut_down:
+            self._log("shut down, ignoring modbus exception.", level="DEBUG")
+            return False
         self._log("called")
         is_unrecoverable = False
         # The counter is initiated at None.
@@ -1548,6 +1624,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         :param source: for debug/logging only
         :return: Nothing
         """
+        if self._is_shut_down:
+            self._log("shut down, not handling un-recoverable error.", level="DEBUG")
+            return
         self._log(f"{source=}, {reason=}.")
 
         # This method could be called from two timers. Make sure both are canceled so no double

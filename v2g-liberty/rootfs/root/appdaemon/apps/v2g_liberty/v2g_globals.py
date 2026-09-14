@@ -16,7 +16,9 @@ from .log_wrapper import get_class_method_logger
 from .grid_connection.charger_phase_detector import ChargerPhaseDetector
 from .grid_connection.grid_entity_detector import detect_grid_entities
 from .grid_connection.meter_register_detector import detect_meter_registers
+from .chargers.factory import DEFAULT_CHARGER_TYPE, create_evse_client
 from .settings_manager import SettingsManager
+from .util.conversion_util import parse_to_int  # noqa: F401  re-exported for main_app
 
 
 class V2GLibertyGlobals:
@@ -25,6 +27,7 @@ class V2GLibertyGlobals:
     v2g_settings: SettingsManager
     v2g_main_app: object
     evse_client_app: object
+    data_monitor: object = None
     fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
@@ -144,6 +147,12 @@ class V2GLibertyGlobals:
         "entity_type": "input_boolean",
         "value_type": "bool",
         "factory_default": False,
+    }
+    SETTING_CHARGER_TYPE = {
+        "entity_name": "charger_type",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
     }
     SETTING_CHARGER_HOST_URL = {
         "entity_name": "charger_host_url",
@@ -387,6 +396,16 @@ class V2GLibertyGlobals:
     #                    INITIALISATION METHODS                          #
     ######################################################################
 
+    def get_configured_charger_type(self) -> str:
+        """The charger type to build the driver for at start-up: the stored
+        setting, or the default for installations that predate the setting.
+        Reads the settings file if that has not happened yet.
+        """
+        if not self.v2g_settings.settings:
+            self.v2g_settings.retrieve_settings()
+        charger_type = self.v2g_settings.get("input_text.charger_type")
+        return charger_type or DEFAULT_CHARGER_TYPE
+
     async def kick_off_settings(self):
         # To be called from initialise or restart event
         self.__log("called")
@@ -446,6 +465,8 @@ class V2GLibertyGlobals:
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_charger_settings(self, event, data, kwargs):
+        charger_type = data.get("charger_type") or self.evse_client_app.CHARGER_TYPE
+        self.__store_setting("input_text.charger_type", charger_type)
         self.__store_setting("input_text.charger_host_url", data["host"])
         self.__store_setting("input_number.charger_port", data["port"])
         self.__store_setting(
@@ -464,9 +485,32 @@ class V2GLibertyGlobals:
 
         self.hass.fire_event("save_charger_settings.result")
 
+        if charger_type != self.evse_client_app.CHARGER_TYPE:
+            await self.__switch_evse_client(charger_type)
         await self.__initialise_charger_settings()
         await self.__try_historical_import()
         await self.v2g_main_app.kick_off_v2g_liberty()
+
+    async def __switch_evse_client(self, charger_type: str):
+        """Replace the running charger driver by one for ``charger_type``.
+
+        The driver is created at start-up from the stored type; when the user
+        selects another type it is swapped here without a restart: the old
+        driver releases its polling, timers and connection, the new one is
+        wired to the same consumers and initialised by the caller.
+        """
+        self.__log(f"switching charger driver to '{charger_type}'")
+        new_evse = create_evse_client(
+            charger_type, self.hass, self.event_bus, self.notifier
+        )
+        old_evse = self.evse_client_app
+        if old_evse is not None:
+            await old_evse.shutdown()
+        new_evse.v2g_main_app = self.v2g_main_app
+        self.evse_client_app = new_evse
+        self.v2g_main_app.evse_client_app = new_evse
+        if self.data_monitor is not None:
+            self.data_monitor.evse_client_app = new_evse
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         self.__log("Saving electricity contract settings")
@@ -1608,18 +1652,39 @@ class V2GLibertyGlobals:
         await self.hass.call_service("homeassistant/restart")
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
+    _CHARGER_CONNECTION_MESSAGES = {
+        "success": "Successfully connected",
+        "connection_failed": "Failed to connect",
+        "not_recognised": "Charger not recognised",
+        "no_active_plug": "No active plug found",
+    }
+
     async def __test_charger_connection(self, event, data, kwargs):
-        """Tests the connection with the charger and processes the maximum charge power read from the charger
-        Called from the settings page."""
+        """Tests the connection with the charger of the selected type, validates
+        its signature and reads the maximum charge power. Called from the
+        settings page, possibly for a type other than the running driver's.
+        """
         self.__log("Called")
         host = data["host"]
         port = data["port"]
-        (
-            success,
-            max_available_power,
-        ) = await self.evse_client_app.test_charger_connection(host, port)
-        msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f'result: "{msg}", {max_available_power}')
+        charger_type = data.get("charger_type") or self.evse_client_app.CHARGER_TYPE
+
+        max_available_power = None
+        try:
+            if charger_type == self.evse_client_app.CHARGER_TYPE:
+                evse = self.evse_client_app
+            else:
+                # A temporary, unconnected driver of the selected type.
+                evse = create_evse_client(
+                    charger_type, self.hass, self.event_bus, self.notifier
+                )
+            status, max_available_power = await evse.test_charger_connection(host, port)
+        except ValueError as e:
+            self.__log(f"Cannot test charger connection: {e}", level="WARNING")
+            status = "connection_failed"
+
+        msg = self._CHARGER_CONNECTION_MESSAGES.get(status, "Failed to connect")
+        self.__log(f'result: "{msg}" ({status}), {max_available_power}')
         self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,
@@ -1873,6 +1938,12 @@ class V2GLibertyGlobals:
         )
         if not is_initialised:
             return
+
+        charger_type = await self.__process_setting(
+            setting_object=self.SETTING_CHARGER_TYPE
+        )
+        if charger_type and charger_type != self.evse_client_app.CHARGER_TYPE:
+            await self.__switch_evse_client(charger_type)
 
         c.CHARGER_HOST_URL = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL
@@ -2587,15 +2658,3 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
 
     result = start_dt <= now <= end_dt
     return result
-
-
-def parse_to_int(number_string, default_value: int):
-    """Reliably parse a string, float or int to an int. If un-parsable return the default value.
-    :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if parsing failed.
-    :return: parsed int
-    """
-    try:
-        return int(float(number_string))
-    except (TypeError, ValueError):
-        return default_value
