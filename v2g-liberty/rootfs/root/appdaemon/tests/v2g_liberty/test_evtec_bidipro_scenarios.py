@@ -501,6 +501,30 @@ async def test_exception_before_first_connection_posts_sticky_memo(driver):
 
 
 @pytest.mark.asyncio
+async def test_unrecoverable_error_unpacks_an_appdaemon_timer_kwargs_dict(
+    driver, caplog
+):
+    """The handler is both called directly and scheduled as a one-shot timer.
+    AppDaemon hands a timer its kwargs as a single positional dict, which lands
+    in `reason`; logging that dict as the reason would make the escalation
+    untraceable -- and taak 26h builds the user-facing text on it."""
+    e, _ = driver
+    e.client.store.update(connector_words(state=7))
+    await poll(e)
+
+    e._log = MagicMock()
+    await e._handle_un_recoverable_error(
+        {"reason": "no Modbus response", "source": "read", "__thread_id": "MainThread"}
+    )
+
+    e.v2g_main_app.handle_none_responsive_charger.assert_awaited_once()
+    logged = " ".join(str(call) for call in e._log.call_args_list)
+    assert "reason='no Modbus response'" in logged
+    assert "source='read'" in logged
+    assert "__thread_id" not in logged
+
+
+@pytest.mark.asyncio
 async def test_unrecoverable_error_deactivates_and_notifies(driver):
     e, rec = driver
     e.client.store.update(connector_words(state=7))

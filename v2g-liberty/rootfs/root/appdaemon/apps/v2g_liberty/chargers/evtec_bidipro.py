@@ -1204,6 +1204,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 self.timer_id_check_modus_exception_state,
                 self._handle_un_recoverable_error,
                 delay=self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS,
+                reason="no Modbus response",
+                source=source,
             )
             self.modbus_exception_counter = 1
             is_unrecoverable = False
@@ -1233,6 +1235,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         deactivate, notify the user via v2g_main_app and mark SoC/power unknown.
         A manual restart of charger and V2G Liberty is needed.
         """
+        # Called directly with a reason, and scheduled as a one-shot timer.
+        # AppDaemon delivers a timer's kwargs as a single positional dict, which
+        # lands in `reason`; unpack it so the reason stays a reason.
+        if isinstance(reason, dict):
+            source = reason.get("source", source)
+            reason = reason.get("reason")
         if self._is_shut_down:
             self._log("shut down, not handling un-recoverable error.", level="DEBUG")
             return
