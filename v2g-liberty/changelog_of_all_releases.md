@@ -31,7 +31,6 @@ That file also contains possible changes that the next release might include.
 - Explain the 'charger phase not set' warning and keep it in sync (#474)
 - ⬆️ Bump flexmeasures-client to 0.9.5 (#489)
 - 🛠️ Harden shared Modbus client: retries=0 and 10s timeout - (#490)
-- 🛠️ Refactor: charger driver factory and `charger_type` setting; existing installations are migrated to `wallbox-quasar-1` automatically (#359)
 
 ## 0.8.2 2026-06-19
 
