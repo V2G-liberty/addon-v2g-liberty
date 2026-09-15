@@ -131,6 +131,10 @@
               border-top-left-radius: 0;
               border-top-right-radius: 0;
               margin-top: -28px;
+              /* Without this the grid row height clips the content: the
+                 numbered recovery steps were cut off halfway. Same fix as on
+                 the markdown card under the chart. */
+              height: auto !important;
             }
         content: >-
           <ha-alert alert-type="error" title="The charger is not
