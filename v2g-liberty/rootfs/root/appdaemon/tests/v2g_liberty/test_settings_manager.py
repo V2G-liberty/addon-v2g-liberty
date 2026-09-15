@@ -1,7 +1,8 @@
 """Unit test (pytest) for settings_manager module."""
 
-from unittest.mock import ANY, Mock, mock_open, patch
 import json
+from unittest.mock import ANY, Mock, mock_open, patch
+
 import pytest
 from apps.v2g_liberty.settings_manager import SettingsManager
 
@@ -168,6 +169,76 @@ class TestRetrieveSettings:
         assert (
             settings_manager.get("input_boolean.charger_settings_initialised") is True
         )
+
+    # Following four tests
+    # Check the charger_type migration: users who configured a charger before the
+    # charger_type setting existed get "wallbox-quasar-1", the only charger type
+    # available back then. Anything else is left alone.
+
+    @patch("os.path.exists", lambda _: True)
+    @patch("os.replace")
+    def test_upgrade_charger_type_existing_user(
+        self, os_replace_mock, settings_manager, json_dump_mock
+    ):
+        # Arrange: charger configured, but from before charger_type existed
+        saved_settings = json.dumps(
+            {
+                "input_text.charger_host_url": "192.168.1.1",
+                "input_number.charger_port": 502,
+                "input_boolean.use_reduced_max_charge_power": False,
+            }
+        )
+        with (
+            patch("builtins.open", mock_open(read_data=saved_settings)),
+            patch("json.dump", json_dump_mock),
+        ):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert settings_manager.get("input_text.charger_type") == "wallbox-quasar-1"
+        # The migrated settings must be written back to the file
+        json_dump_mock.assert_called_once()
+        written_settings = json_dump_mock.call_args.args[0]
+        assert written_settings["input_text.charger_type"] == "wallbox-quasar-1"
+
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_charger_type_already_set(self, settings_manager):
+        # Arrange
+        saved_settings = json.dumps(
+            {
+                "input_text.charger_host_url": "192.168.1.1",
+                "input_number.charger_port": 5020,
+                "input_boolean.use_reduced_max_charge_power": False,
+                "input_text.charger_type": "evtec-bidi-pro-10",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert settings_manager.get("input_text.charger_type") == "evtec-bidi-pro-10"
+
+    @patch("os.path.exists", lambda _: True)
+    @patch("builtins.open", mock_open(read_data="{}"))
+    def test_upgrade_charger_type_fresh_install(self, settings_manager):
+        # Act
+        settings_manager.retrieve_settings()
+        # Assert
+        assert "input_text.charger_type" not in settings_manager.settings
+
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_charger_type_partial_charger_settings(self, settings_manager):
+        # Arrange: only the host is present, charger never fully configured
+        saved_settings = json.dumps(
+            {
+                "input_text.charger_host_url": "192.168.1.1",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert "input_text.charger_type" not in settings_manager.settings
 
     @patch("os.path.exists", lambda _: True)
     def test_upgrade_electricity_contract_settings_initialised(self, settings_manager):

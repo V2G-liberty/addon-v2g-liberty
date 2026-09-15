@@ -969,12 +969,12 @@ class V2Gliberty:
             old_state in ["Max boost now", "Max discharge now"]
             and new_state == "Automatic"
         ):
-            # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
-            # Let schedule (later) decide if starting is needed
+            # Leaving a manual mode for "Automatic" must stop the (dis)charging it
+            # started. Let schedule (later) decide if starting is needed.
             await self.__set_charge_power(
                 {
                     "charge_power": 0,
-                    "source": "Reset for 'Max boost now' to 'Automatic'",
+                    "source": f"Reset for '{old_state}' to '{new_state}'",
                 }
             )
 

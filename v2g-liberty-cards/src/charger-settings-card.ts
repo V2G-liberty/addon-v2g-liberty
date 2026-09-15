@@ -23,6 +23,7 @@ enum ChargerConnectionStatus {
 @customElement('v2g-liberty-charger-settings-card')
 export class ChargerSettingsCard extends LitElement {
   @state() private _chargerSettingsInitialised: HassEntity;
+  @state() private _chargerType: HassEntity;
   @state() private _chargerHost: HassEntity;
   @state() private _chargerPort: HassEntity;
   @state() private _chargerConnectionStatus: HassEntity;
@@ -53,6 +54,7 @@ export class ChargerSettingsCard extends LitElement {
     }
     this._chargerSettingsInitialised =
       hass.states[entityIds.chargerSettingsInitialised];
+    this._chargerType = hass.states[entityIds.chargerType];
     this._chargerHost = hass.states[entityIds.chargerHostname];
     this._chargerPort = hass.states[entityIds.chargerPort];
     this._chargerConnectionStatus =
@@ -98,6 +100,7 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
+        ${this._renderChargerType()}
         ${renderEntityBlock(this._hass, this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
@@ -113,6 +116,15 @@ export class ChargerSettingsCard extends LitElement {
         )}
       </div>
     `;
+  }
+
+  private _renderChargerType() {
+    // The entity holds the charger type id (e.g. "wallbox-quasar-1"); the
+    // human-readable label lives in strings.json under that id.
+    if (!this._chargerType) return nothing;
+    return renderEntityRow(this._chargerType, {
+      state: tp(this._chargerType.state),
+    });
   }
 
   private _renderChargerConnectionStatus() {

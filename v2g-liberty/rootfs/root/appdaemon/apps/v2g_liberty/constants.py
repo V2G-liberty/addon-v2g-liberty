@@ -207,10 +207,11 @@ ROUNDTRIP_EFFICIENCY_FACTOR: float = 0.85
 # Defaults to 85, used in settings UI
 CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: int = 85
 
-# Which phase the charger is connected to (1, 2, or 3).
-# Only relevant when GRID_PHASES == 3. Stored via JSON (no HA entity).
+# Which phase(s) the charger is connected to: a list such as [2] or [1, 2, 3].
+# A bare int is accepted from older settings. Only relevant when
+# GRID_PHASES == 3. Stored via JSON (no HA entity).
 # None means not yet configured.
-CHARGER_CONNECTED_TO_PHASE: int | None = None
+CHARGER_CONNECTED_TO_PHASE: int | list[int] | None = None
 
 # Defaults to min current setting of 6A * 230V = 1380W
 # FSC: Used in fm_client, v2g_liberty, evse_client keep here.

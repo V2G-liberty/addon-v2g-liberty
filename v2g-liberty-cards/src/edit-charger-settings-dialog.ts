@@ -13,6 +13,7 @@ import {
   renderInputBoolean,
   renderInputNumber,
   renderInputText,
+  renderSelectOptionWithLabel,
   isNewHaDialogAPI,
   renderRadioIndicator,
 } from './util/render';
@@ -29,10 +30,39 @@ const enum ConnectionStatus {
   Connecting = 'Trying to connect...',
   Failed = 'Failed to connect',
   TimedOut = 'Timed out',
+  NotRecognised = 'Charger not recognised',
+  NoActivePlug = 'No active plug found',
 }
+
+const enum ChargerType {
+  EVtecBiDiPro10 = 'evtec-bidi-pro-10',
+  WallboxQuasar1 = 'wallbox-quasar-1',
+}
+
+// The type id doubles as the strings.json key of its human-readable label.
+const CHARGER_OPTIONS: {
+  value: ChargerType;
+  defaultPort: string;
+  phases: number;
+}[] = [
+  { value: ChargerType.EVtecBiDiPro10, defaultPort: '5020', phases: 3 },
+  { value: ChargerType.WallboxQuasar1, defaultPort: '502', phases: 1 },
+];
+
+function chargerOption(type: string | null | undefined) {
+  return CHARGER_OPTIONS.find(option => option.value === type) ?? null;
+}
+
+type DialogPage =
+  | '1-select-charger-type'
+  | '2-connection-details'
+  | '3-power-details';
 
 @customElement(tagName)
 class EditChargerSettingsDialog extends DialogBase {
+  @state() private _currentPage: DialogPage = '1-select-charger-type';
+  @state() private _selectedChargerType: ChargerType | null = null;
+  @state() private _hasTriedToSelectType: boolean = false;
   @state() private _chargerHost: string;
   @state() private _chargerPort: string;
   @state() private _useReducedMaxPower: string;
@@ -45,10 +75,10 @@ class EditChargerSettingsDialog extends DialogBase {
   // Phase step state
   @state() private _showPhaseStep: boolean = false;
   @state() private _gridPhases: number | null = null;
-  @state() private _chargerPhases: number = 1; // TODO: derive from charger type in branch 359
   @state() private _selectedPhase: number | number[] | null = null;
   @state() private _triedSavePhase: boolean = false;
   @state() private _savingPhase: boolean = false;
+  @state() private _phaseSaveError: string | null = null;
   @state() private _detecting: boolean = false;
   @state() private _detectStep: string = '';
   @state() private _detectError: string = '';
@@ -58,16 +88,35 @@ class EditChargerSettingsDialog extends DialogBase {
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
 
   private _maxAvailablePower: string;
+  // True once the user has edited the port in this dialog session; until then
+  // switching the charger type prefills that type's default Modbus port.
+  private _hasTypedPort: boolean = false;
+  // Whether a port was already stored in the settings. Selecting another
+  // charger type then keeps it: an existing user may run a deliberate
+  // non-default port (the load balancer proxies the Quasar on 5020).
+  private _hasConfiguredPort: boolean = false;
+
+  private get _chargerPhases(): number {
+    return chargerOption(this._selectedChargerType)?.phases ?? 1;
+  }
 
   public async showDialog(): Promise<void> {
     super.showDialog();
+    this._currentPage = '1-select-charger-type';
+    this._hasTriedToSelectType = false;
+    this._hasTypedPort = false;
+    this._hasConfiguredPort =
+      this.hass.states[entityIds.chargerPort]?.state !== 'unknown';
+    this._selectedChargerType =
+      chargerOption(this.hass.states[entityIds.chargerType]?.state)?.value ??
+      null;
     this._chargerHost = defaultState(
       this.hass.states[entityIds.chargerHostname],
       ''
     );
     this._chargerPort = defaultState(
       this.hass.states[entityIds.chargerPort],
-      '502'
+      this._defaultPort()
     );
     this._chargerConnectionStatus = '';
     this._useReducedMaxPower =
@@ -77,6 +126,7 @@ class EditChargerSettingsDialog extends DialogBase {
     this._showPhaseStep = false;
     this._triedSavePhase = false;
     this._savingPhase = false;
+    this._phaseSaveError = null;
     this._detecting = false;
     this._detectStep = '';
     this._detectError = '';
@@ -102,13 +152,15 @@ class EditChargerSettingsDialog extends DialogBase {
   protected render() {
     if (!this.isOpen) return nothing;
 
-    const header = tp('header');
+    const header = this._getDialogHeader();
     const _isNew = isNewHaDialogAPI(this.hass);
     const content = this._showPhaseStep
       ? this._renderPhaseStep()
-      : this._hasTriedToConnect && this._isConnected()
-        ? this._renderChargerDetails()
-        : this._renderConnectionDetails();
+      : this._currentPage === '1-select-charger-type'
+        ? this._renderChargerSelection()
+        : this._currentPage === '2-connection-details'
+          ? this._renderConnectionDetails()
+          : this._renderPowerDetails();
     return html`
       <ha-dialog
         open
@@ -121,14 +173,98 @@ class EditChargerSettingsDialog extends DialogBase {
     `;
   }
 
+  private _getDialogHeader(): string {
+    if (this._showPhaseStep) return tp('header');
+    const typeLabel = this._selectedChargerType
+      ? tp(this._selectedChargerType)
+      : '';
+    switch (this._currentPage) {
+      case '1-select-charger-type':
+        return tp('1-select-charger-type.header');
+      case '2-connection-details':
+        return `${typeLabel}: ${tp('2-connection-details.header')}`;
+      case '3-power-details':
+        return `${typeLabel}: ${tp('3-power-details.header')}`;
+      default:
+        return tp('header');
+    }
+  }
+
   private _isConnected() {
     return this._chargerConnectionStatus === ConnectionStatus.Connected;
   }
 
+  // ── Step 1: charger type ─────────────────────────────────────────────
+
+  private _renderChargerSelection() {
+    const showError =
+      this._hasTriedToSelectType && this._selectedChargerType === null;
+
+    return html`
+      <ha-markdown
+        breaks
+        .content=${tp('1-select-charger-type.description')}
+      ></ha-markdown>
+      ${showError
+        ? html`
+            <ha-alert test-id="charger-type-error" alert-type="error">
+              ${tp('1-select-charger-type.validation-error')}
+            </ha-alert>
+          `
+        : nothing}
+      <div role="radiogroup" test-id="charger-type">
+        ${CHARGER_OPTIONS.map(option =>
+          renderSelectOptionWithLabel(
+            option.value,
+            tp(option.value),
+            this._selectedChargerType === option.value,
+            () => this._selectChargerType(option.value)
+          )
+        )}
+      </div>
+      ${renderButton(
+        this.hass,
+        this._goToConnectionDetails,
+        true,
+        this.hass.localize('ui.common.continue')
+      )}
+    `;
+  }
+
+  private _selectChargerType(type: ChargerType) {
+    if (type === this._selectedChargerType) return;
+    this._selectedChargerType = type;
+    if (!this._hasTypedPort && !this._hasConfiguredPort) {
+      this._chargerPort = this._defaultPort();
+    }
+  }
+
+  private _defaultPort(): string {
+    return chargerOption(this._selectedChargerType)?.defaultPort ?? '502';
+  }
+
+  private _goToConnectionDetails() {
+    this._hasTriedToSelectType = true;
+    if (this._selectedChargerType === null) return;
+    this._currentPage = '2-connection-details';
+    this._hasTriedToConnect = false;
+    this._chargerConnectionStatus = '';
+  }
+
+  private _goBackToChargerSelection() {
+    this._currentPage = '1-select-charger-type';
+    this._hasTriedToConnect = false;
+    this._chargerConnectionStatus = '';
+  }
+
+  // ── Step 2: connection details ───────────────────────────────────────
+
   private _renderConnectionDetails() {
     const chargerHostState = this.hass.states[entityIds.chargerHostname];
     const chargerPortState = this.hass.states[entityIds.chargerPort];
-    const portDescription = tp('connection-details.port-description');
+    const portDescription = tp('2-connection-details.port-description', {
+      value: this._defaultPort(),
+    });
     const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
@@ -136,7 +272,8 @@ class EditChargerSettingsDialog extends DialogBase {
       ${_isLoadBalancerEnabled
         ? nothing
         : html`
-          <ha-markdown breaks .content="${tp('connection-details.description')}"></ha-markdown><br/>
+          <ha-markdown breaks .content=${tp('2-connection-details.description.generic')}></ha-markdown>
+          <ha-markdown breaks .content=${tp(`2-connection-details.description.${this._selectedChargerType}`)}></ha-markdown><br/>
         `
       }
       ${renderInputText(
@@ -152,7 +289,10 @@ class EditChargerSettingsDialog extends DialogBase {
       ${renderInputNumber(
         this._chargerPort,
         chargerPortState,
-        evt => (this._chargerPort = evt.target.value),
+        evt => {
+          this._hasTypedPort = true;
+          this._chargerPort = evt.target.value;
+        },
         '[0-9]+'
       )}
       ${this._renderInvalidPortError()}
@@ -163,11 +303,20 @@ class EditChargerSettingsDialog extends DialogBase {
         `
       }
       ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+      ${renderButton(
+        this.hass,
+        this._goBackToChargerSelection,
+        false,
+        this.hass.localize('ui.common.back'),
+        this._isBusyConnecting(),
+        'back',
+        true
+      )}
       ${this._isBusyConnecting()
         ? renderSpinner(this.hass)
         : renderButton(
           this.hass,
-          this._continue,
+          this._goToPowerDetails,
           true,
           this.hass.localize('ui.common.continue')
         )}
@@ -175,18 +324,43 @@ class EditChargerSettingsDialog extends DialogBase {
   }
 
   private _renderConnectionError() {
-    const hasConnectionError =
-      this._chargerConnectionStatus == ConnectionStatus.Failed ||
-      this._chargerConnectionStatus == ConnectionStatus.TimedOut;
-    return hasConnectionError
-      ? html`
-          <p>
-            <ha-alert test-id="connection-error" alert-type="error">
-              ${tp('connection-error')}
-            </ha-alert>
-          </p>
-        `
-      : nothing;
+    switch (this._chargerConnectionStatus) {
+      case ConnectionStatus.NotRecognised:
+        return this._renderConnectionAlert(
+          'warning',
+          'not-recognised-error',
+          tp('charger-not-recognised-error')
+        );
+      case ConnectionStatus.NoActivePlug:
+        return this._renderConnectionAlert(
+          'warning',
+          'no-active-plug-error',
+          tp('no-active-plug-error')
+        );
+      case ConnectionStatus.Failed:
+      case ConnectionStatus.TimedOut:
+        return this._renderConnectionAlert(
+          'error',
+          'connection-error',
+          tp('connection-error')
+        );
+      default:
+        return nothing;
+    }
+  }
+
+  private _renderConnectionAlert(
+    alertType: string,
+    testId: string,
+    message: string
+  ) {
+    return html`
+      <p>
+        <ha-alert test-id=${testId} alert-type=${alertType}>
+          ${message}
+        </ha-alert>
+      </p>
+    `;
   }
 
   private _renderInvalidHostError() {
@@ -225,8 +399,10 @@ class EditChargerSettingsDialog extends DialogBase {
     return this._chargerConnectionStatus === ConnectionStatus.Connecting;
   }
 
-  private _renderChargerDetails() {
-    const description = tp('charger-details.description', {
+  // ── Step 3: power details ────────────────────────────────────────────
+
+  private _renderPowerDetails() {
+    const description = tp('3-power-details.description', {
       value: this._maxAvailablePower,
     });
     const useReducedMaxPowerState =
@@ -246,6 +422,15 @@ class EditChargerSettingsDialog extends DialogBase {
       ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
       ${renderButton(
         this.hass,
+        this._goBackToConnectionDetails,
+        false,
+        this.hass.localize('ui.common.back'),
+        false,
+        'back',
+        true
+      )}
+      ${renderButton(
+        this.hass,
         this._save,
         true,
         this.hass.localize('ui.common.continue'),
@@ -255,9 +440,15 @@ class EditChargerSettingsDialog extends DialogBase {
     `;
   }
 
+  private _goBackToConnectionDetails() {
+    this._currentPage = '2-connection-details';
+    this._hasTriedToConnect = false;
+    this._chargerConnectionStatus = '';
+  }
+
   private _renderReducedMaxPower() {
     const reduceMaxPowerDescription = tp(
-      'charger-details.reduce-max-power-description'
+      '3-power-details.reduce-max-power-description'
     );
     const chargerMaxChargingPowerState =
       this.hass.states[entityIds.chargerMaxChargingPower];
@@ -284,7 +475,7 @@ class EditChargerSettingsDialog extends DialogBase {
     `;
   }
 
-  private async _continue(): Promise<void> {
+  private async _goToPowerDetails(): Promise<void> {
     this._hasTriedToConnect = true;
     if (!this._isChargerHostValid()) {
       this._chargerHostField.focus();
@@ -295,17 +486,28 @@ class EditChargerSettingsDialog extends DialogBase {
       return;
     }
     this._chargerPort = `${parseInt(this._chargerPort, 10)}`;
+    // The test cannot be cancelled, so remember what it is testing: if the
+    // user goes back and picks another type meanwhile, its answer says
+    // nothing about the now-selected charger and must be dropped.
+    const testedType = this._selectedChargerType;
     try {
       this._chargerConnectionStatus = ConnectionStatus.Connecting;
       const result = await callFunction(
         this.hass,
         'test_charger_connection',
         {
+          charger_type: this._selectedChargerType,
           host: this._chargerHost,
           port: this._chargerPort,
         },
         5 * 1000
       );
+      if (
+        this._currentPage !== '2-connection-details' ||
+        this._selectedChargerType !== testedType
+      ) {
+        return;
+      }
       this._chargerConnectionStatus = result.msg;
       if (this._isConnected()) {
         this._maxAvailablePower = result.max_available_power;
@@ -317,6 +519,7 @@ class EditChargerSettingsDialog extends DialogBase {
           this.hass.states[entityIds.chargerMaxDischargingPower],
           this._maxAvailablePower
         );
+        this._currentPage = '3-power-details';
       }
 
       function defaultMaxPower(stateObj, defaultValue) {
@@ -326,7 +529,12 @@ class EditChargerSettingsDialog extends DialogBase {
           : stateObj.state;
       }
     } catch (err) {
-      this._chargerConnectionStatus = ConnectionStatus.TimedOut;
+      if (
+        this._currentPage === '2-connection-details' &&
+        this._selectedChargerType === testedType
+      ) {
+        this._chargerConnectionStatus = ConnectionStatus.TimedOut;
+      }
     }
   }
 
@@ -340,6 +548,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // TODO: Add validation
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
     const args = {
+      charger_type: this._selectedChargerType,
       host: this._chargerHost,
       port: this._chargerPort,
       useReducedMaxChargePower: isUsingReducedMaxPower,
@@ -361,6 +570,12 @@ class EditChargerSettingsDialog extends DialogBase {
 
   // ── Phase Step ──────────────────────────────────────────────────────
 
+  private _renderPhaseSaveError() {
+    return this._phaseSaveError
+      ? html`<ha-alert alert-type="error">${this._phaseSaveError}</ha-alert>`
+      : nothing;
+  }
+
   private _renderPhaseStep() {
     const gridPhases = this._gridPhases;
     const chargerPhases = this._chargerPhases;
@@ -379,6 +594,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // Scenario: 1-phase grid + 1-phase charger → informational
     if (gridPhases === 1 || gridPhases === null) {
       return html`
+        ${this._renderPhaseSaveError()}
         <p>Your charger is connected to the only available phase (L1).</p>
         ${this._renderPhaseBackButton()}
         ${renderButton(this.hass, () => this._savePhase(1), true, this.hass.localize('ui.common.save'))}
@@ -388,6 +604,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // Scenario: 3-phase grid + 3-phase charger → informational
     if (chargerPhases === 3) {
       return html`
+        ${this._renderPhaseSaveError()}
         <p>Your 3-phase charger is connected to all three phases.</p>
         ${this._renderPhaseBackButton()}
         ${renderButton(this.hass, () => this._savePhase([1, 2, 3]), true, this.hass.localize('ui.common.save'))}
@@ -400,6 +617,7 @@ class EditChargerSettingsDialog extends DialogBase {
 
   private _renderPhaseSelection() {
     return html`
+      ${this._renderPhaseSaveError()}
       <p><strong>Which phase is your charger connected to?</strong></p>
 
       <div class="phase-options">
@@ -562,12 +780,22 @@ class EditChargerSettingsDialog extends DialogBase {
 
   private async _savePhase(phase: number | number[]) {
     this._savingPhase = true;
+    this._phaseSaveError = null;
     try {
-      await callFunction(this.hass, 'save_charger_phase', {
+      // callFunction resolves with the result event, so a refused save arrives
+      // as an `error` field rather than a rejection. Closing the dialog without
+      // looking at it would report success while nothing was stored.
+      const result = await callFunction(this.hass, 'save_charger_phase', {
         connected_to_phase: phase,
       });
+      if (result?.error) {
+        this._phaseSaveError = result.error;
+        this._savingPhase = false;
+        return;
+      }
       this.closeDialog();
     } catch (e) {
+      this._phaseSaveError = `${e}`;
       this._savingPhase = false;
     }
   }

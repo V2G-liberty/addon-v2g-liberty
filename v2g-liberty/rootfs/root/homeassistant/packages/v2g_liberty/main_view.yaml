@@ -203,7 +203,7 @@
                 var(--success-color);
               {% endif %};
 
-              {% if states('sensor.charger_state_text') in ['No car connected', 'Error', 'No car connected and charger locked'] %}
+              {% if states('sensor.charger_state_text') in ['No car connected', 'Error', 'Error: charger unavailable', 'Starting up', 'No car connected and charger locked'] %}
               --v2g-state-grayscale: 1;
               {% else %}
               --v2g-state-grayscale: 0;
