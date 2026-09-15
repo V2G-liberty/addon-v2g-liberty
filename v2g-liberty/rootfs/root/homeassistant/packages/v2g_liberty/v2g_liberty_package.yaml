@@ -116,11 +116,6 @@ input_boolean:
   error_no_new_schedule_available:
     name: "Error: No new schedule available"
 
-  # Used for signaling in the UI that Modbus communication with the charger is no longer possible
-  # This usually indicates the Modbus Module in the charger has crashed and the charger should be restarted externally.
-  charger_modbus_communication_fault:
-    name: "Error: charger Modbus communication fault"
-
   #Three booleans to mimic a radio button group for the charge mode the user can set in the UI
   chargemodeautomatic:
     name: ChargeModeAutomatic

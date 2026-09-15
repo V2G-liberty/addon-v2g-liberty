@@ -148,10 +148,12 @@ class V2Gliberty:
 
         # Reset at init
         try:
-            await self.hass.turn_off("input_boolean.charger_modbus_communication_fault")
+            await self.hass.set_state(
+                self.CHARGER_PROBLEM_ENTITY, state=self.CHARGER_PROBLEM_NONE
+            )
         except Exception:
             self.__log(
-                "Could not reset charger_modbus_communication_fault (HA not ready yet).",
+                f"Could not reset {self.CHARGER_PROBLEM_ENTITY} (HA not ready yet).",
                 level="WARNING",
             )
         await self.set_price_is_up_to_date(is_up_to_date=True)
@@ -829,8 +831,32 @@ class V2Gliberty:
         self.no_schedule_errors[error_name] = error_state
         await self.__notify_no_new_schedule()
 
-    async def handle_none_responsive_charger(self, was_car_connected: bool):
-        """Handle a none-responsive charger:
+    # One entity carries *why* the charger is unusable, so the UI can say
+    # something true instead of blaming communication for both cases. It
+    # replaces input_boolean.charger_modbus_communication_fault, which named
+    # only one of the two situations that reach this handler.
+    CHARGER_PROBLEM_ENTITY = "sensor.charger_problem"
+    CHARGER_PROBLEM_NONE = "none"
+    CHARGER_PROBLEM_COMMUNICATION = "communication"
+    CHARGER_PROBLEM_CHARGER_ERROR = "charger_error"
+
+    # The driver's reason string -> the problem state shown to the user.
+    # Anything unknown is treated as a communication problem: that is the older
+    # of the two paths and the safer thing to tell someone.
+    _CHARGER_PROBLEM_BY_REASON = {
+        "no Modbus response": CHARGER_PROBLEM_COMMUNICATION,
+        "charger reports error": CHARGER_PROBLEM_CHARGER_ERROR,
+    }
+
+    _CHARGER_PROBLEM_TITLES = {
+        CHARGER_PROBLEM_COMMUNICATION: "Charger communication error",
+        CHARGER_PROBLEM_CHARGER_ERROR: "Charger reports a fault",
+    }
+
+    async def handle_none_responsive_charger(
+        self, was_car_connected: bool, reason: str | None = None
+    ):
+        """Handle a charger that can no longer be used:
         - Stop charging
         - Set message in UI
         - Notify admin with (critical) message
@@ -838,19 +864,22 @@ class V2Gliberty:
         :param was_car_connected: Was the car connected at the moment the charger became
                                   none-responsive. Determines if the notification needs to
                                   be critical or not.
+        :param reason: why the driver escalated. Two very different situations end
+                       up here -- the charger is unreachable, or it is perfectly
+                       reachable and reporting a fault -- and the user needs a
+                       different first step for each.
         :returns: Noting
         """
-        self.__log(
-            "The charger probably crashed: Stop charging, set Error in UI and notify user"
+        problem = self._CHARGER_PROBLEM_BY_REASON.get(
+            reason, self.CHARGER_PROBLEM_COMMUNICATION
         )
+        self.__log(f"Charger unusable ({problem}, {reason=}): stop, signal UI, notify")
         await self.__set_charge_mode_in_ui("Stop")
 
-        await self.hass.set_state(
-            "input_boolean.charger_modbus_communication_fault", state="on"
-        )
+        await self.hass.set_state(self.CHARGER_PROBLEM_ENTITY, state=problem)
         await self.hass.set_state(entity_id="sensor.charger_state_text", state="Error")
 
-        title = "Charger communication error"
+        title = self._CHARGER_PROBLEM_TITLES[problem]
         message = (
             "Automatic charging has been stopped!\n"
             "Please click this notification to open the V2G Liberty App "
@@ -871,7 +900,7 @@ class V2Gliberty:
         """To clear UI alert and notification if it is still present."""
         self.__log("Called")
         await self.hass.set_state(
-            "input_boolean.charger_modbus_communication_fault", state="off"
+            self.CHARGER_PROBLEM_ENTITY, state=self.CHARGER_PROBLEM_NONE
         )
         identification = {
             "recipient": c.ADMIN_MOBILE_NAME,

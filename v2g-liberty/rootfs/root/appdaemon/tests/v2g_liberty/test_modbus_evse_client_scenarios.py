@@ -13,7 +13,7 @@ what keeps this net green across the refactor.
 """
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 from pymodbus.exceptions import ModbusException
@@ -476,7 +476,7 @@ async def test_force_get_register_timeout_returns_none_and_escalates(driver):
     assert result is None
     assert e._am_i_active is False
     e.v2g_main_app.handle_none_responsive_charger.assert_awaited_once_with(
-        was_car_connected=True
+        was_car_connected=True, reason=ANY
     )
     assert _comm_states(rec)[-1] is False
     assert rec.find("evse_polled")[-1]["stop"] is True
@@ -543,7 +543,7 @@ async def test_grace_timer_firing_escalates_to_unrecoverable(driver):
     assert rec.find("evse_polled")[-1]["stop"] is True
     assert e._am_i_active is False
     e.v2g_main_app.handle_none_responsive_charger.assert_awaited_once_with(
-        was_car_connected=True
+        was_car_connected=True, reason=ANY
     )
     assert _comm_states(rec)[-1] is False
     assert e._MCE_ACTUAL_POWER.current_value == "unavailable"
@@ -759,7 +759,7 @@ async def test_charger_error_final_check_escalates_to_unrecoverable(driver):
     assert rec.find("evse_polled")[-1]["stop"] is True
     assert e._am_i_active is False
     e.v2g_main_app.handle_none_responsive_charger.assert_awaited_once_with(
-        was_car_connected=True
+        was_car_connected=True, reason=ANY
     )
     assert _comm_states(rec)[-1] is False
     assert e._MCE_ACTUAL_POWER.current_value == "unavailable"

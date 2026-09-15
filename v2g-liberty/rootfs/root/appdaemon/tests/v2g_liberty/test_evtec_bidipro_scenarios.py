@@ -530,8 +530,10 @@ async def test_unrecoverable_error_deactivates_and_notifies(driver):
     e.client.store.update(connector_words(state=7))
     await poll(e)
     await e._handle_un_recoverable_error(reason="test", source="test")
+    # The reason travels on: main_app needs it to tell the user whether the
+    # charger is unreachable or reporting a fault.
     e.v2g_main_app.handle_none_responsive_charger.assert_awaited_once_with(
-        was_car_connected=True
+        was_car_connected=True, reason="test"
     )
     assert (
         rec.find("charger_communication_state_change")[-1]["can_communicate"] is False
