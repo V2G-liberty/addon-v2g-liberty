@@ -62,6 +62,22 @@ class EventBus(AsyncIOEventEmitter):
             - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
             - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
 
+    - `discharge_refused`:
+        - **Description**: The charger accepted the connection and the car is plugged in,
+          but it refuses to discharge right now. Emitted on every refusal and again with
+          `reason=None` as soon as a discharge is accepted or the car leaves, so a
+          listener can show and clear a message. Not an error: the charger is behaving
+          within its contract.
+        - **Emitted by** the charger driver (evtec_bidipro)
+        - **Arguments**:
+            - `reason` (str | None): why, or None when it no longer applies. One of
+              `session_not_bidirectional` (the session type does not permit V2G),
+              `v2g_not_offered` (the station offers no discharge window right now) or
+              `window_unknown` (the window has not been read yet).
+            - `is_manual` (bool): True when the request came from the user pressing
+              "Max discharge now", False when it came from the schedule. The user is
+              standing there in the first case and deserves to hear about it at once.
+
     - `evse_polled`:
         - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
           change in frequency. Mainly aimed at showing in the UI.

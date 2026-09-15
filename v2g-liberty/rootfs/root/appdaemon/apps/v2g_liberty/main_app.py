@@ -187,6 +187,12 @@ class V2Gliberty:
 
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
+        self.event_bus.add_event_listener(
+            "discharge_refused", self.__handle_discharge_refused
+        )
+        self.discharge_refusal_timer_handle = None
+        await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
+
         self.scheduling_timer_handles = []
 
         # Set to initial 'empty' values, makes rendering of graph faster.
@@ -853,6 +859,10 @@ class V2Gliberty:
         CHARGER_PROBLEM_CHARGER_ERROR: "Charger reports a fault",
     }
 
+    # Replaces the tag "charger_modbus_crashed", which named only one of the
+    # two problems that end up here.
+    CHARGER_PROBLEM_TAG = "charger_problem"
+
     async def handle_none_responsive_charger(
         self, was_car_connected: bool, reason: str | None = None
     ):
@@ -890,11 +900,89 @@ class V2Gliberty:
         await self.notifier.notify_user(
             message=message,
             title=title,
-            tag="charger_modbus_crashed",
+            tag=self.CHARGER_PROBLEM_TAG,
             critical=critical,
             send_to_all=False,
         )
         return
+
+    # ── A discharge the charger refuses ────────────────────────────────
+
+    DISCHARGE_REFUSED_ENTITY = "sensor.discharge_refused"
+    DISCHARGE_REFUSED_TAG = "discharge_refused"
+
+    # How long a refusal has to persist before the user hears about it, when
+    # the request came from the schedule. "Not offered right now" can be brief
+    # and normal, and notifying on every refusal turns into noise people learn
+    # to ignore. A manual request skips this: the user is standing there.
+    DISCHARGE_REFUSED_NOTIFICATION_DELAY = 60 * 60
+
+    # What the user can do about each refusal. Provisional (2026-09-15) --
+    # confirmation was asked from the authors of the EVtec Modbus contract.
+    # Deliberately a table: replacing an entry must not mean touching logic.
+    _DISCHARGE_REMEDIES = {
+        # The session type is fixed when the session starts, so a new session
+        # is the only way out.
+        "session_not_bidirectional": (
+            "Your charger started a session that does not allow discharging.\n"
+            "Unplug the car and plug it back in to start a new session."
+        ),
+        # The car is not offering V2G; usually something in the car itself.
+        "v2g_not_offered": (
+            "Your car is not offering to discharge right now.\n"
+            "Check the bidirectional charging settings in the car."
+        ),
+        # Nothing has been read yet; give it time.
+        "window_unknown": (
+            "V2G Liberty cannot tell yet whether your car will discharge.\n"
+            "This usually resolves by itself."
+        ),
+    }
+    _DISCHARGE_REMEDY_FALLBACK = (
+        "Your charger is refusing to discharge.\n"
+        "If this keeps happening, please contact your administrator."
+    )
+
+    async def __handle_discharge_refused(self, reason: str | None, is_manual: bool):
+        """A charger that refuses to discharge shows nothing at all: the car is
+        connected, charging works, and the schedule simply never runs. Surface
+        it, and say what the user can do about it."""
+        if reason is None:
+            await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
+            self.discharge_refusal_timer_handle = None
+            await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
+            self.notifier.clear_notification(tag=self.DISCHARGE_REFUSED_TAG)
+            return
+
+        await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state=reason)
+
+        if is_manual:
+            # No waiting: the user just pressed a button and nothing happened.
+            await self.__notify_discharge_refused({"reason": reason})
+            return
+
+        if self.discharge_refusal_timer_handle is None:
+            self.discharge_refusal_timer_handle = await set_oneshot_timer(
+                self.hass,
+                self.discharge_refusal_timer_handle,
+                self.__notify_discharge_refused,
+                delay=self.DISCHARGE_REFUSED_NOTIFICATION_DELAY,
+                reason=reason,
+            )
+
+    async def __notify_discharge_refused(self, kwargs: dict = None):
+        """AppDaemon passes a timer's kwargs as a single positional dict."""
+        reason = (kwargs or {}).get("reason")
+        self.discharge_refusal_timer_handle = None
+        await self.notifier.notify_user(
+            message=self._DISCHARGE_REMEDIES.get(
+                reason, self._DISCHARGE_REMEDY_FALLBACK
+            ),
+            title="Your car is not discharging",
+            tag=self.DISCHARGE_REFUSED_TAG,
+            critical=False,
+            send_to_all=True,
+        )
 
     async def reset_charger_communication_fault(self):
         """To clear UI alert and notification if it is still present."""
@@ -904,7 +992,7 @@ class V2Gliberty:
         )
         identification = {
             "recipient": c.ADMIN_MOBILE_NAME,
-            "tag": "charger_modbus_crashed",
+            "tag": self.CHARGER_PROBLEM_TAG,
         }
         self.notifier.clear_notification(identification)
 

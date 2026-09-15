@@ -626,6 +626,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
             # Make sure a stale setpoint cannot resume when the car reconnects.
             await self._set_charger_action("stop", reason="car disconnected")
+            # Whatever the charger refused applied to the session that just
+            # ended; do not keep telling the user about it.
+            self._report_discharge_refusal(None)
             await self._set_poll_strategy()
             self.event_bus.emit_event("is_car_connected", is_car_connected=False)
         elif old_charger_state in self.DISCONNECTED_STATES or old_charger_state is None:
@@ -871,6 +874,24 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         if not all(e.is_value_fresh(max_age) for e in self.CHARGER_WINDOW_ENTITIES):
             await self._get_and_process_registers(self.CHARGER_WINDOW_ENTITIES)
 
+    # Refusal reasons, emitted on `discharge_refused` so the UI can explain
+    # what the user can do about each. Deliberately codes, not sentences: the
+    # remedy is decided in main_app, which knows about users; the driver does
+    # not.
+    REFUSED_SESSION_NOT_BIDIRECTIONAL = "session_not_bidirectional"
+    REFUSED_V2G_NOT_OFFERED = "v2g_not_offered"
+    REFUSED_WINDOW_UNKNOWN = "window_unknown"
+
+    def _report_discharge_refusal(self, reason: str | None, source: str = ""):
+        """Tell the rest of the app that a discharge was refused, or (reason
+        None) that it no longer is. Refusing is silent otherwise: the charger
+        reports no error and the UI shows a car that simply never discharges."""
+        self.event_bus.emit_event(
+            "discharge_refused",
+            reason=reason,
+            is_manual="__start_max_discharge_now" in source,
+        )
+
     async def _apply_discharge_interlocks(self, charge_power: int, source: str) -> int:
         """Discharge only when the session type permits it and the station
         offers V2G right now; then clamp into the offered window [X+22, 0].
@@ -887,6 +908,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 f"bidirectional (5). Not discharging.",
                 level="WARNING",
             )
+            self._report_discharge_refusal(
+                self.REFUSED_SESSION_NOT_BIDIRECTIONAL, source
+            )
             return 0
         if floor is None:
             self._log(
@@ -894,6 +918,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 f"window (X+22) is unknown. Not discharging.",
                 level="WARNING",
             )
+            self._report_discharge_refusal(self.REFUSED_WINDOW_UNKNOWN, source)
             return 0
         if floor >= 0:
             # Not an error: the station simply does not offer V2G right now.
@@ -901,7 +926,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 f"Discharge of {charge_power}W requested from {source=} but V2G is not "
                 f"offered right now (X+22 = {floor:g} W). Not discharging."
             )
+            self._report_discharge_refusal(self.REFUSED_V2G_NOT_OFFERED, source)
             return 0
+
+        # Accepted: whatever was blocking discharge is no longer in the way.
+        self._report_discharge_refusal(None, source)
         clamped = max(charge_power, int(floor))
         if clamped != charge_power:
             self._log(
