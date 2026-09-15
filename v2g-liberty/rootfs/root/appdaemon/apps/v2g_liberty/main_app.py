@@ -460,6 +460,10 @@ class V2Gliberty:
                     "Starting 'Max discharge now' based on charge_mode = Max discharge now"
                 )
                 await self.__start_max_discharge_now()
+                if self.discharge_refused_reason is not None:
+                    # The request was just refused; a prognosis of it would
+                    # contradict the warning shown for that refusal.
+                    return
                 max_discharge_now_prognoses = [dict(time=now.isoformat(), soc=soc)]
                 delta_to_min_soc_wh = (
                     (soc - c.CAR_MIN_SOC_IN_PERCENT) * c.CAR_MAX_CAPACITY_IN_KWH * 10
@@ -979,13 +983,12 @@ class V2Gliberty:
         self.discharge_refused_reason = reason
         await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state=reason)
 
-        # The schedule's SoC prognosis assumes the discharging that is being
-        # refused, so drawing it next to "the car is not discharging" would
-        # contradict the message. The next schedule redraws it once the refusal
-        # is gone.
-        await self.set_records_in_chart(
-            chart_line_name=ChartLine.SCHEDULE, records=None
-        )
+        # Both prognoses assume the discharging that is being refused, so
+        # drawing either next to "the car is not discharging" would contradict
+        # the message. MAX_CHARGE_NOW survives a schedule refresh, so it has to
+        # be cleared here explicitly.
+        for line in (ChartLine.SCHEDULE, ChartLine.MAX_CHARGE_NOW):
+            await self.set_records_in_chart(chart_line_name=line, records=None)
 
         if is_manual:
             # No waiting: the user just pressed a button and nothing happened.

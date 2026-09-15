@@ -10,7 +10,7 @@ mapping is provisional and must be replaceable without touching logic.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from apps.v2g_liberty.main_app import V2Gliberty
+from apps.v2g_liberty.main_app import ChartLine, V2Gliberty
 
 
 @pytest.fixture
@@ -121,15 +121,20 @@ async def test_an_unknown_reason_still_says_something_useful(v2g):
 
 
 @pytest.mark.asyncio
-async def test_the_schedule_line_is_hidden_while_refused(v2g):
-    """The prognosis assumes the discharging that is being refused; drawing it
-    next to "the car is not discharging" would contradict the message."""
+async def test_both_discharge_prognoses_are_hidden_while_refused(v2g):
+    """Both lines assume the discharging that is being refused. MAX_CHARGE_NOW
+    survives a schedule refresh, so leaving it drawn kept a discharge curve on
+    the chart next to "the car is not discharging"."""
     v2g.set_records_in_chart = AsyncMock()
 
     await _refuse(v2g, "v2g_not_offered")
 
-    v2g.set_records_in_chart.assert_awaited_once()
-    assert v2g.set_records_in_chart.await_args.kwargs["records"] is None
+    cleared = {
+        call.kwargs["chart_line_name"]
+        for call in v2g.set_records_in_chart.await_args_list
+        if call.kwargs["records"] is None
+    }
+    assert cleared == {ChartLine.SCHEDULE, ChartLine.MAX_CHARGE_NOW}
 
 
 @pytest.mark.asyncio
