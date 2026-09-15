@@ -18917,8 +18917,8 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
         // A grid settings change clears the charger phase (and changes whether it
         // is required), so reload the phase info to reflect it immediately.
         this._unsubGrid = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_grid_connection_settings.result');
-        // Phase detection (automatic on connect, or manual) sets the phase, so
-        // reload so the warning clears without a page reload.
+        // Phase detection from the charger settings sets the phase, so reload so
+        // the warning clears without a page reload.
         this._unsubDetect = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'detect_charger_phase.result');
     }
     disconnectedCallback() {
@@ -18939,7 +18939,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     _renderChargerPhase() {
         if (!this._phaseLoaded) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         if (this._connectedToPhase === null) {
-            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">It is detected automatically the next time the car is connected. If this message keeps showing, open the charger settings to detect or set it manually.</ha-alert></div>`;
+            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">Open the charger settings to set it, or have it detected there. Until then the energy per phase cannot be attributed to the charger.</ha-alert></div>`;
             return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         }
         const phaseValue = Array.isArray(this._connectedToPhase) ? this._connectedToPhase.map((p)=>`L${p}`).join(', ') : `L${this._connectedToPhase}`;

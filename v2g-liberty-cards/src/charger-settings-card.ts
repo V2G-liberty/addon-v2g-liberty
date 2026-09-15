@@ -165,8 +165,8 @@ export class ChargerSettingsCard extends LitElement {
       () => this._loadPhaseInfo(),
       'save_grid_connection_settings.result'
     );
-    // Phase detection (automatic on connect, or manual) sets the phase, so
-    // reload so the warning clears without a page reload.
+    // Phase detection from the charger settings sets the phase, so reload so
+    // the warning clears without a page reload.
     this._unsubDetect = await this._hass.connection.subscribeEvents<HassEvent>(
       () => this._loadPhaseInfo(),
       'detect_charger_phase.result'
@@ -194,7 +194,7 @@ export class ChargerSettingsCard extends LitElement {
 
     if (this._connectedToPhase === null) {
       if (this._phaseRequired) {
-        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">It is detected automatically the next time the car is connected. If this message keeps showing, open the charger settings to detect or set it manually.</ha-alert></div>`;
+        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">Open the charger settings to set it, or have it detected there. Until then the energy per phase cannot be attributed to the charger.</ha-alert></div>`;
       }
       return nothing;
     }
