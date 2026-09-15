@@ -25,6 +25,7 @@ def v2g():
     instance = V2Gliberty(hass=hass, event_bus=MagicMock(), notifier=notifier)
     instance.discharge_refusal_timer_handle = None
     instance.notified_discharge_refusal = None
+    instance.discharge_refused_reason = None
     instance.set_records_in_chart = AsyncMock()
     return instance
 
@@ -170,3 +171,17 @@ async def test_a_different_reason_does_notify_again(v2g):
     await _refuse(v2g, "session_not_bidirectional", is_manual=True)
 
     assert v2g.notifier.notify_user.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_the_schedule_prognosis_is_not_redrawn_while_refused(v2g):
+    """Clearing the line once when the refusal arrives is not enough: every new
+    schedule painted it straight back, next to a warning saying the car is not
+    discharging."""
+    await _refuse(v2g, "session_not_bidirectional")
+
+    assert v2g.discharge_refused_reason == "session_not_bidirectional"
+
+    await _refuse(v2g, None)
+
+    assert v2g.discharge_refused_reason is None
