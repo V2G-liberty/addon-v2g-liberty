@@ -194,6 +194,10 @@ class V2Gliberty:
         # Which refusal the user has already been notified about, so a
         # condition that comes and goes does not notify on every flip.
         self.notified_discharge_refusal = None
+        # The refusal that currently stands, if any. Read by
+        # __process_schedule, which must not draw a prognosis of the very
+        # discharging the charger is refusing.
+        self.discharge_refused_reason = None
         await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
 
         self.scheduling_timer_handles = []
@@ -926,26 +930,26 @@ class V2Gliberty:
     # "the car" rather than "your car": the rest of the UI speaks that way, and
     # a future installation may charge more than one car -- possibly someone
     # else's.
+    DISCHARGE_REFUSED_INTRO = (
+        "The charger accepts the connection but refuses to discharge."
+    )
+
     _DISCHARGE_REMEDIES = {
         # The session type is fixed when the session starts, so a new session
         # is the only way out.
         "session_not_bidirectional": (
-            "The charger started a session that does not allow discharging.\n"
-            "Unplug the car and plug it back in to start a new session."
+            "Unplug the car and plug it back in to start a new session "
+            "and check if problem is solved."
         ),
         # The car is not offering V2G; usually something in the car itself.
         "v2g_not_offered": (
-            "The car is not offering to discharge right now.\n"
-            "Check the bidirectional charging settings in the car."
+            "Check the bidirectional charging settings in the car "
+            "and check if problem is solved."
         ),
         # Nothing has been read yet; give it time.
-        "window_unknown": (
-            "V2G Liberty cannot tell yet whether the car will discharge.\n"
-            "This usually resolves by itself."
-        ),
+        "window_unknown": "This usually resolves by itself.",
     }
     _DISCHARGE_REMEDY_FALLBACK = (
-        "The charger is refusing to discharge.\n"
         "If this keeps happening, please contact your administrator."
     )
 
@@ -957,10 +961,12 @@ class V2Gliberty:
             await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
             self.discharge_refusal_timer_handle = None
             self.notified_discharge_refusal = None
+            self.discharge_refused_reason = None
             await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
             self.notifier.clear_notification(tag=self.DISCHARGE_REFUSED_TAG)
             return
 
+        self.discharge_refused_reason = reason
         await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state=reason)
 
         # The schedule's SoC prognosis assumes the discharging that is being
@@ -995,8 +1001,9 @@ class V2Gliberty:
         self.discharge_refusal_timer_handle = None
         self.notified_discharge_refusal = reason
         await self.notifier.notify_user(
-            message=self._DISCHARGE_REMEDIES.get(
-                reason, self._DISCHARGE_REMEDY_FALLBACK
+            message=(
+                f"{self.DISCHARGE_REFUSED_INTRO}\n"
+                + self._DISCHARGE_REMEDIES.get(reason, self._DISCHARGE_REMEDY_FALLBACK)
             ),
             title="The car is not discharging",
             tag=self.DISCHARGE_REFUSED_TAG,
@@ -1468,6 +1475,17 @@ class V2Gliberty:
                 )
             )
         )
+
+        if self.discharge_refused_reason is not None:
+            # The prognosis assumes the discharging the charger is refusing, so
+            # it would contradict the warning shown next to it. Clearing it once
+            # when the refusal arrives is not enough: every new schedule would
+            # paint it straight back.
+            self.__log("Discharge refused: not drawing the schedule prognosis.")
+            await self.set_records_in_chart(
+                chart_line_name=ChartLine.SCHEDULE, records=None
+            )
+            return
 
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [

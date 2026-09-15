@@ -862,17 +862,15 @@
 
         {% if refused not in ['none', 'unknown', 'unavailable'] %}
         <ha-alert alert-type="warning" title="The car is not discharging">The
-        charger accepts the connection but refuses to discharge, so the
-        schedule cannot earn anything back.<br/>
+        charger accepts the connection but refuses to discharge.<br/>
         {% if refused == 'session_not_bidirectional' %}
-        The charger started a session that does not allow discharging. Unplug
-        the car and plug it back in to start a new session.
+        Unplug the car and plug it back in to start a new session and check if
+        problem is solved.
         {% elif refused == 'v2g_not_offered' %}
-        The car is not offering to discharge right now. Check the
-        bidirectional charging settings in the car.
+        Check the bidirectional charging settings in the car and check if
+        problem is solved.
         {% elif refused == 'window_unknown' %}
-        V2G Liberty cannot tell yet whether the car will discharge. This
-        usually resolves by itself.
+        This usually resolves by itself.
         {% else %}
         If this keeps happening, please contact your administrator.
         {% endif %}
