@@ -3,6 +3,85 @@
 ###############################
 # To be included in the v2g_liberty_dashboard.yaml
 
+# A charger that can no longer be used stops automatic charging altogether, so
+# this sits above everything, full width: it is a state of the system, not a
+# property of the charger tile. The two advisory cards ("controlled by Wallbox
+# App", "charger locked") stay attached to that tile -- they warn, this one
+# reports that something has already stopped.
+- type: grid
+  cards:
+    - type: conditional
+      conditions:
+        - entity: sensor.charger_problem
+          state_not: "none"
+        - entity: sensor.charger_problem
+          state_not: "unknown"
+        - entity: sensor.charger_problem
+          state_not: "unavailable"
+      card:
+        type: markdown
+        layout_options:
+          grid_columns: full
+        card_mod:
+          style: |
+            ha-card {
+              /* Without this the grid row height clips the content: the
+                 numbered recovery steps were cut off halfway. */
+              height: auto !important;
+            }
+        content: >-
+          {% if states('sensor.charger_problem') == 'charger_error' %}
+
+          <ha-alert alert-type="error" title="The charger reports a
+          fault.">Automatic charging has been stopped.</ha-alert>
+
+          The charger is reachable, but it is reporting an internal fault, so
+          V2G&nbsp;Liberty cannot use it.
+
+          **You can fix this:**
+
+          1. Check the charger's own display or app for a fault code
+
+          2. Restart the charger
+
+          3. Wait 5 minutes
+
+          4. Restart V2G Liberty add-on<br/>`V2G Liberty > Settings > ↺
+          Restart V2G Liberty` (bottom right)
+
+          5. Switch charge mode to automatic
+
+          {% else %}
+
+          <ha-alert alert-type="error" title="The charger is not
+          responding.">Automatic charging has been stopped.</ha-alert>
+
+          {% if states('input_text.charger_type') == 'wallbox-quasar-1' %}
+
+          **You can fix this:**
+
+          1. Restart the charger manually<br/>Via the Wallbox app or
+          my.wallbox.com<br/>`Settings > Advanced options > Restart`
+
+          {% else %}
+
+          **You can fix this:**
+
+          1. Restart the charger
+
+          {% endif %}
+
+          2. Wait 5 minutes
+
+          3. Restart V2G Liberty add-on<br/>`V2G Liberty > Settings > ↺
+          Restart V2G Liberty` (bottom right)
+
+          4. Wait 2 minutes
+
+          5. Switch charge mode to automatic
+
+          {% endif %}
+
 - type: grid
   cards:
     - type: markdown
@@ -115,40 +194,6 @@
 
           Unlock the charger manually via the Wallbox app or -if used- the
           RFID card.
-
-    - type: conditional
-      conditions:
-        - entity: input_boolean.charger_modbus_communication_fault
-          state: "on"
-      card:
-        type: markdown
-        layout_options:
-          grid_columns: full
-        card_mod:
-          style: |
-            ha-card {
-              border-top: none;
-              border-top-left-radius: 0;
-              border-top-right-radius: 0;
-              margin-top: -28px;
-            }
-        content: >-
-          <ha-alert alert-type="error" title="The charger is not
-          responding.">Automatic charging has been stopped.</ha-alert>
-
-          **You can fix this:**
-
-          1. Restart the charger manually<br/>Via the Wallbox app or
-          my.wallbox.com<br/>`Settings > Advanced options > Restart`
-
-          2. Wait 5 minutes
-
-          3. Restart V2G Liberty add-on<br/>`V2G Liberty > Settings > ↺
-          Restart V2G Liberty` (bottom right)
-
-          4. Wait 2 minutes
-
-          5. Switch charge mode to automatic
 
 - type: grid
   cards:
@@ -794,6 +839,7 @@
         - entity: sensor.utility_display_name
         - entity: input_boolean.error_no_new_schedule_available
         - entity: input_boolean.error_epex_prices_cannot_be_retrieved
+        - entity: sensor.discharge_refused
       content: >-
         <table><tbody><tr><th>Optimised on
         <span>{{states("input_select.optimisation_mode")}}</span> </th><td>
@@ -810,6 +856,29 @@
 
         {% if states('input_boolean.error_epex_prices_cannot_be_retrieved') == "on" %}
         <ha-alert alert-type="warning" title="Price and/or emissions data not complete (yet)."></ha-alert>
+        {% endif %}
+
+        {% set refused = states('sensor.discharge_refused') %}
+
+        {% if refused not in ['none', 'unknown', 'unavailable'] %}
+        <ha-alert alert-type="warning" title="The car is not discharging">
+        {% if refused == 'session_not_bidirectional' %}
+        The charger is connected and operational but refuses to
+        discharge.<br/>Unplug the car and plug it back in to start a new
+        session and check if problem is solved.
+        {% elif refused == 'v2g_not_offered' %}
+        The charger is connected and operational but the car refuses to
+        discharge.<br/>Check the bidirectional charging settings in the car
+        and check if problem is solved.
+        {% elif refused == 'window_unknown' %}
+        The charger is connected and operational but cannot discharge
+        yet.<br/>This usually resolves by itself.
+        {% else %}
+        The charger is connected and operational but refuses to
+        discharge.<br/>If this keeps happening, please contact your
+        administrator.
+        {% endif %}
+        </ha-alert>
         {% endif %}
 
       card_mod:

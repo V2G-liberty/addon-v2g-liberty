@@ -57,6 +57,7 @@ _EVENTS = [
     "evse_polled",
     "update_charger_info",
     "charger_communication_state_change",
+    "discharge_refused",
 ]
 
 
@@ -530,8 +531,10 @@ async def test_unrecoverable_error_deactivates_and_notifies(driver):
     e.client.store.update(connector_words(state=7))
     await poll(e)
     await e._handle_un_recoverable_error(reason="test", source="test")
+    # The reason travels on: main_app needs it to tell the user whether the
+    # charger is unreachable or reporting a fault.
     e.v2g_main_app.handle_none_responsive_charger.assert_awaited_once_with(
-        was_car_connected=True
+        was_car_connected=True, reason="test"
     )
     assert (
         rec.find("charger_communication_state_change")[-1]["can_communicate"] is False
@@ -680,3 +683,53 @@ async def test_shutdown_stops_an_in_flight_poll_from_re_arming_timers(driver):
     assert e.timer_id_check_modus_exception_state is None
     await e._handle_un_recoverable_error(reason="late timer", source="test")
     e.v2g_main_app.handle_none_responsive_charger.assert_not_awaited()
+
+
+class TestDischargeRefusalClearsItself:
+    """Refusing is tied to a request; clearing must not be, or the warning
+    outlives the problem. A charger that starts offering V2G again would keep
+    being reported as refusing until someone happens to ask for a discharge,
+    which can be hours.
+
+    These drive _base_polling rather than the poll() helper: the check belongs
+    to the full polling cycle, where the window registers have just been read.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_resolved_refusal_is_cleared_on_the_next_poll(self, driver):
+        e, rec = driver
+        e.client.store.update(connector_words(state=8, session_type=1))
+        await e._base_polling({})
+        await e._set_charge_power(-4000, source="schedule")
+        assert (
+            rec.find("discharge_refused")[-1]["reason"] == "session_not_bidirectional"
+        )
+
+        # The charger starts a bidirectional session; nobody asks to discharge.
+        e.client.store.update(connector_words(state=8, session_type=5))
+        await e._base_polling({})
+
+        assert rec.find("discharge_refused")[-1]["reason"] is None
+
+    @pytest.mark.asyncio
+    async def test_polling_does_not_raise_a_refusal_by_itself(self, driver):
+        """Warning about a discharge nobody asked for would be its own noise."""
+        e, rec = driver
+        e.client.store.update(connector_words(state=8, session_type=1))
+        await e._base_polling({})
+
+        assert rec.find("discharge_refused") == []
+
+    @pytest.mark.asyncio
+    async def test_a_standing_refusal_is_not_cleared_while_it_still_applies(
+        self, driver
+    ):
+        e, rec = driver
+        e.client.store.update(connector_words(state=8, session_type=1))
+        await e._base_polling({})
+        await e._set_charge_power(-4000, source="schedule")
+        await e._base_polling({})
+
+        assert (
+            rec.find("discharge_refused")[-1]["reason"] == "session_not_bidirectional"
+        )

@@ -177,6 +177,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._mb_client = V2GmodbusClient(hass)
 
         self.poll_timer_handle = None
+        # Which refusal, if any, the rest of the app has been told about.
+        self._refusing_discharge_because: str | None = None
         # Set by shutdown(): stops a poll that was already in flight from
         # re-arming timers on a driver that is no longer the active one.
         self._is_shut_down = False
@@ -626,6 +628,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
             # Make sure a stale setpoint cannot resume when the car reconnects.
             await self._set_charger_action("stop", reason="car disconnected")
+            # Whatever the charger refused applied to the session that just
+            # ended; do not keep telling the user about it.
+            self._report_discharge_refusal(None)
             await self._set_poll_strategy()
             self.event_bus.emit_event("is_car_connected", is_car_connected=False)
         elif old_charger_state in self.DISCONNECTED_STATES or old_charger_state is None:
@@ -871,6 +876,56 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         if not all(e.is_value_fresh(max_age) for e in self.CHARGER_WINDOW_ENTITIES):
             await self._get_and_process_registers(self.CHARGER_WINDOW_ENTITIES)
 
+    # Refusal reasons, emitted on `discharge_refused` so the UI can explain
+    # what the user can do about each. Deliberately codes, not sentences: the
+    # remedy is decided in main_app, which knows about users; the driver does
+    # not.
+    REFUSED_SESSION_NOT_BIDIRECTIONAL = "session_not_bidirectional"
+    REFUSED_V2G_NOT_OFFERED = "v2g_not_offered"
+    REFUSED_WINDOW_UNKNOWN = "window_unknown"
+
+    def _report_discharge_refusal(self, reason: str | None, source: str = ""):
+        """Tell the rest of the app that a discharge was refused, or (reason
+        None) that it no longer is. Refusing is silent otherwise: the charger
+        reports no error and the UI shows a car that simply never discharges."""
+        self._refusing_discharge_because = reason
+        self.event_bus.emit_event(
+            "discharge_refused",
+            reason=reason,
+            is_manual="__start_max_discharge_now" in source,
+        )
+
+    def _clear_refusal_if_resolved(self):
+        """Drop a standing refusal as soon as its cause is gone.
+
+        Refusing is tied to a request -- the interlocks only run when someone
+        asks to discharge -- but *clearing* must not be, or the warning
+        outlives the problem: a charger that starts offering V2G again would
+        keep being reported as refusing until the next discharge happens to be
+        asked for, which can be hours. The registers this depends on are read
+        every base poll anyway.
+
+        Only clears; never raises a refusal on its own. Warning someone about a
+        discharge nobody asked for would be its own kind of noise.
+        """
+        reason = self._refusing_discharge_because
+        if reason is None:
+            return
+
+        session_type = self._MCE_SESSION_TYPE.current_value
+        floor = self._MCE_LOWER_LIMIT_POTENTIAL.current_value
+        still_applies = {
+            self.REFUSED_SESSION_NOT_BIDIRECTIONAL: (
+                session_type not in BIDIRECTIONAL_SESSION_TYPES
+            ),
+            self.REFUSED_WINDOW_UNKNOWN: floor is None,
+            self.REFUSED_V2G_NOT_OFFERED: floor is not None and floor >= 0,
+        }.get(reason, False)
+
+        if not still_applies:
+            self._log(f"Discharge is possible again (was refused: {reason}).")
+            self._report_discharge_refusal(None)
+
     async def _apply_discharge_interlocks(self, charge_power: int, source: str) -> int:
         """Discharge only when the session type permits it and the station
         offers V2G right now; then clamp into the offered window [X+22, 0].
@@ -887,6 +942,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 f"bidirectional (5). Not discharging.",
                 level="WARNING",
             )
+            self._report_discharge_refusal(
+                self.REFUSED_SESSION_NOT_BIDIRECTIONAL, source
+            )
             return 0
         if floor is None:
             self._log(
@@ -894,6 +952,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 f"window (X+22) is unknown. Not discharging.",
                 level="WARNING",
             )
+            self._report_discharge_refusal(self.REFUSED_WINDOW_UNKNOWN, source)
             return 0
         if floor >= 0:
             # Not an error: the station simply does not offer V2G right now.
@@ -901,7 +960,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 f"Discharge of {charge_power}W requested from {source=} but V2G is not "
                 f"offered right now (X+22 = {floor:g} W). Not discharging."
             )
+            self._report_discharge_refusal(self.REFUSED_V2G_NOT_OFFERED, source)
             return 0
+
+        # Accepted: whatever was blocking discharge is no longer in the way.
+        self._report_discharge_refusal(None, source)
         clamped = max(charge_power, int(floor))
         if clamped != charge_power:
             self._log(
@@ -1059,6 +1122,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     async def _base_polling(self, kwargs):
         """Car connected: poll state, session type, power, SoC, windows, error."""
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        self._clear_refusal_if_resolved()
         self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################
@@ -1252,7 +1316,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # The only exception to the rule that _am_i_active is set from set_(in)active().
         self._am_i_active = False
         await self.v2g_main_app.handle_none_responsive_charger(
-            was_car_connected=await self.is_car_connected()
+            was_car_connected=await self.is_car_connected(),
+            reason=reason,
         )
         await self._update_charger_communication_state(can_communicate=False)
 
