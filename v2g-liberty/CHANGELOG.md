@@ -21,7 +21,7 @@
 - 🚀 FEAT: Live reregister grid listeners (#473)
 - 🚀 FEAT: Aggregate import/export meter energy from the meter registers to FlexMeasures (#487)
 - 🚀 FEAT: Grid connection redesign (#488)
-- 🚀 FEAT: Support for the EVtec BiDiPro 10 charger: charger type selection in the settings, a driver on the hardware-tested Modbus contract, and the dev emulator to test it without hardware (#359)
+- 🚀 FEAT: Support for the EVtec BiDiPro 10 charger and multiple cars (#478, #482, #496)
 
 ### Changed
 
