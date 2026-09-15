@@ -920,26 +920,29 @@ class V2Gliberty:
     # What the user can do about each refusal. Provisional (2026-09-15) --
     # confirmation was asked from the authors of the EVtec Modbus contract.
     # Deliberately a table: replacing an entry must not mean touching logic.
+    # "the car" rather than "your car": the rest of the UI speaks that way, and
+    # a future installation may charge more than one car -- possibly someone
+    # else's.
     _DISCHARGE_REMEDIES = {
         # The session type is fixed when the session starts, so a new session
         # is the only way out.
         "session_not_bidirectional": (
-            "Your charger started a session that does not allow discharging.\n"
+            "The charger started a session that does not allow discharging.\n"
             "Unplug the car and plug it back in to start a new session."
         ),
         # The car is not offering V2G; usually something in the car itself.
         "v2g_not_offered": (
-            "Your car is not offering to discharge right now.\n"
+            "The car is not offering to discharge right now.\n"
             "Check the bidirectional charging settings in the car."
         ),
         # Nothing has been read yet; give it time.
         "window_unknown": (
-            "V2G Liberty cannot tell yet whether your car will discharge.\n"
+            "V2G Liberty cannot tell yet whether the car will discharge.\n"
             "This usually resolves by itself."
         ),
     }
     _DISCHARGE_REMEDY_FALLBACK = (
-        "Your charger is refusing to discharge.\n"
+        "The charger is refusing to discharge.\n"
         "If this keeps happening, please contact your administrator."
     )
 
@@ -955,6 +958,14 @@ class V2Gliberty:
             return
 
         await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state=reason)
+
+        # The schedule's SoC prognosis assumes the discharging that is being
+        # refused, so drawing it next to "the car is not discharging" would
+        # contradict the message. The next schedule redraws it once the refusal
+        # is gone.
+        await self.set_records_in_chart(
+            chart_line_name=ChartLine.SCHEDULE, records=None
+        )
 
         if is_manual:
             # No waiting: the user just pressed a button and nothing happened.
@@ -978,7 +989,7 @@ class V2Gliberty:
             message=self._DISCHARGE_REMEDIES.get(
                 reason, self._DISCHARGE_REMEDY_FALLBACK
             ),
-            title="Your car is not discharging",
+            title="The car is not discharging",
             tag=self.DISCHARGE_REFUSED_TAG,
             critical=False,
             send_to_all=True,

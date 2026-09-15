@@ -114,3 +114,27 @@ async def test_an_unknown_reason_still_says_something_useful(v2g):
 
     message = v2g.notifier.notify_user.await_args.kwargs["message"]
     assert "contact your administrator" in message
+
+
+@pytest.mark.asyncio
+async def test_the_schedule_line_is_hidden_while_refused(v2g):
+    """The prognosis assumes the discharging that is being refused; drawing it
+    next to "the car is not discharging" would contradict the message."""
+    v2g.set_records_in_chart = AsyncMock()
+
+    await _refuse(v2g, "v2g_not_offered")
+
+    v2g.set_records_in_chart.assert_awaited_once()
+    assert v2g.set_records_in_chart.await_args.kwargs["records"] is None
+
+
+@pytest.mark.asyncio
+async def test_texts_do_not_claim_the_car_belongs_to_the_reader(v2g):
+    """The rest of the UI says "the car"; a future installation may charge more
+    than one, possibly someone else's."""
+    for text in (
+        *V2Gliberty._DISCHARGE_REMEDIES.values(),
+        V2Gliberty._DISCHARGE_REMEDY_FALLBACK,
+    ):
+        assert "your car" not in text.lower()
+        assert "your charger" not in text.lower()
