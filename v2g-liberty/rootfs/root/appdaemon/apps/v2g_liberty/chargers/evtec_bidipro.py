@@ -1252,7 +1252,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # The only exception to the rule that _am_i_active is set from set_(in)active().
         self._am_i_active = False
         await self.v2g_main_app.handle_none_responsive_charger(
-            was_car_connected=await self.is_car_connected()
+            was_car_connected=await self.is_car_connected(),
+            reason=reason,
         )
         await self._update_charger_communication_state(can_communicate=False)
 
