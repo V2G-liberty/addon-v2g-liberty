@@ -861,18 +861,22 @@
         {% set refused = states('sensor.discharge_refused') %}
 
         {% if refused not in ['none', 'unknown', 'unavailable'] %}
-        <ha-alert alert-type="warning" title="The car is not discharging">The
-        charger accepts the connection but refuses to discharge.<br/>
+        <ha-alert alert-type="warning" title="The car is not discharging">
         {% if refused == 'session_not_bidirectional' %}
-        Unplug the car and plug it back in to start a new session and check if
-        problem is solved.
+        The charger is connected and operational but refuses to
+        discharge.<br/>Unplug the car and plug it back in to start a new
+        session and check if problem is solved.
         {% elif refused == 'v2g_not_offered' %}
-        Check the bidirectional charging settings in the car and check if
-        problem is solved.
+        The charger is connected and operational but the car refuses to
+        discharge.<br/>Check the bidirectional charging settings in the car
+        and check if problem is solved.
         {% elif refused == 'window_unknown' %}
-        This usually resolves by itself.
+        The charger is connected and operational but cannot discharge
+        yet.<br/>This usually resolves by itself.
         {% else %}
-        If this keeps happening, please contact your administrator.
+        The charger is connected and operational but refuses to
+        discharge.<br/>If this keeps happening, please contact your
+        administrator.
         {% endif %}
         </ha-alert>
         {% endif %}

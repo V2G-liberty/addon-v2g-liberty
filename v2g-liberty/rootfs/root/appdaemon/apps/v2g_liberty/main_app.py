@@ -934,26 +934,35 @@ class V2Gliberty:
     # "the car" rather than "your car": the rest of the UI speaks that way, and
     # a future installation may charge more than one car -- possibly someone
     # else's.
-    DISCHARGE_REFUSED_INTRO = (
-        "The charger accepts the connection but refuses to discharge."
-    )
-
-    _DISCHARGE_REMEDIES = {
+    # Whole messages rather than a shared intro plus a remedy: who is refusing
+    # differs per reason. X+22 is the car declining to offer a discharge
+    # window; X+04 is the session the charger set up. Saying "the car" for both
+    # would point the user at the wrong device.
+    _DISCHARGE_MESSAGES = {
         # The session type is fixed when the session starts, so a new session
         # is the only way out.
         "session_not_bidirectional": (
+            "The charger is connected and operational but refuses to "
+            "discharge.\n"
             "Unplug the car and plug it back in to start a new session "
             "and check if problem is solved."
         ),
         # The car is not offering V2G; usually something in the car itself.
         "v2g_not_offered": (
+            "The charger is connected and operational but the car refuses to "
+            "discharge.\n"
             "Check the bidirectional charging settings in the car "
             "and check if problem is solved."
         ),
         # Nothing has been read yet; give it time.
-        "window_unknown": "This usually resolves by itself.",
+        "window_unknown": (
+            "The charger is connected and operational but cannot discharge "
+            "yet.\n"
+            "This usually resolves by itself."
+        ),
     }
-    _DISCHARGE_REMEDY_FALLBACK = (
+    _DISCHARGE_MESSAGE_FALLBACK = (
+        "The charger is connected and operational but refuses to discharge.\n"
         "If this keeps happening, please contact your administrator."
     )
 
@@ -1014,9 +1023,8 @@ class V2Gliberty:
         self.discharge_refusal_timer_handle = None
         self.notified_discharge_refusal = reason
         await self.notifier.notify_user(
-            message=(
-                f"{self.DISCHARGE_REFUSED_INTRO}\n"
-                + self._DISCHARGE_REMEDIES.get(reason, self._DISCHARGE_REMEDY_FALLBACK)
+            message=self._DISCHARGE_MESSAGES.get(
+                reason, self._DISCHARGE_MESSAGE_FALLBACK
             ),
             title="The car is not discharging",
             tag=self.DISCHARGE_REFUSED_TAG,

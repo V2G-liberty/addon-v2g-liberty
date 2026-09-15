@@ -102,12 +102,12 @@ async def test_each_reason_has_its_own_remedy(v2g):
     """The remedies differ per reason: wait, replug, or change a car setting.
     One generic text would make the whole feature pointless."""
     messages = set()
-    for reason in V2Gliberty._DISCHARGE_REMEDIES:
+    for reason in V2Gliberty._DISCHARGE_MESSAGES:
         v2g.notifier.notify_user.reset_mock()
         await _refuse(v2g, reason, is_manual=True)
         messages.add(v2g.notifier.notify_user.await_args.kwargs["message"])
 
-    assert len(messages) == len(V2Gliberty._DISCHARGE_REMEDIES)
+    assert len(messages) == len(V2Gliberty._DISCHARGE_MESSAGES)
 
 
 @pytest.mark.asyncio
@@ -142,8 +142,8 @@ async def test_texts_do_not_claim_the_car_belongs_to_the_reader(v2g):
     """The rest of the UI says "the car"; a future installation may charge more
     than one, possibly someone else's."""
     for text in (
-        *V2Gliberty._DISCHARGE_REMEDIES.values(),
-        V2Gliberty._DISCHARGE_REMEDY_FALLBACK,
+        *V2Gliberty._DISCHARGE_MESSAGES.values(),
+        V2Gliberty._DISCHARGE_MESSAGE_FALLBACK,
     ):
         assert "your car" not in text.lower()
         assert "your charger" not in text.lower()
