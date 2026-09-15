@@ -177,6 +177,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._mb_client = V2GmodbusClient(hass)
 
         self.poll_timer_handle = None
+        # Which refusal, if any, the rest of the app has been told about.
+        self._refusing_discharge_because: str | None = None
         # Set by shutdown(): stops a poll that was already in flight from
         # re-arming timers on a driver that is no longer the active one.
         self._is_shut_down = False
@@ -886,11 +888,43 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         """Tell the rest of the app that a discharge was refused, or (reason
         None) that it no longer is. Refusing is silent otherwise: the charger
         reports no error and the UI shows a car that simply never discharges."""
+        self._refusing_discharge_because = reason
         self.event_bus.emit_event(
             "discharge_refused",
             reason=reason,
             is_manual="__start_max_discharge_now" in source,
         )
+
+    def _clear_refusal_if_resolved(self):
+        """Drop a standing refusal as soon as its cause is gone.
+
+        Refusing is tied to a request -- the interlocks only run when someone
+        asks to discharge -- but *clearing* must not be, or the warning
+        outlives the problem: a charger that starts offering V2G again would
+        keep being reported as refusing until the next discharge happens to be
+        asked for, which can be hours. The registers this depends on are read
+        every base poll anyway.
+
+        Only clears; never raises a refusal on its own. Warning someone about a
+        discharge nobody asked for would be its own kind of noise.
+        """
+        reason = self._refusing_discharge_because
+        if reason is None:
+            return
+
+        session_type = self._MCE_SESSION_TYPE.current_value
+        floor = self._MCE_LOWER_LIMIT_POTENTIAL.current_value
+        still_applies = {
+            self.REFUSED_SESSION_NOT_BIDIRECTIONAL: (
+                session_type not in BIDIRECTIONAL_SESSION_TYPES
+            ),
+            self.REFUSED_WINDOW_UNKNOWN: floor is None,
+            self.REFUSED_V2G_NOT_OFFERED: floor is not None and floor >= 0,
+        }.get(reason, False)
+
+        if not still_applies:
+            self._log(f"Discharge is possible again (was refused: {reason}).")
+            self._report_discharge_refusal(None)
 
     async def _apply_discharge_interlocks(self, charge_power: int, source: str) -> int:
         """Discharge only when the session type permits it and the station
@@ -1088,6 +1122,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     async def _base_polling(self, kwargs):
         """Car connected: poll state, session type, power, SoC, windows, error."""
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        self._clear_refusal_if_resolved()
         self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################

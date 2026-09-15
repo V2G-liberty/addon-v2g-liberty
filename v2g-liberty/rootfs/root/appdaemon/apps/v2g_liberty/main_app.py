@@ -191,6 +191,9 @@ class V2Gliberty:
             "discharge_refused", self.__handle_discharge_refused
         )
         self.discharge_refusal_timer_handle = None
+        # Which refusal the user has already been notified about, so a
+        # condition that comes and goes does not notify on every flip.
+        self.notified_discharge_refusal = None
         await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
 
         self.scheduling_timer_handles = []
@@ -953,6 +956,7 @@ class V2Gliberty:
         if reason is None:
             await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
             self.discharge_refusal_timer_handle = None
+            self.notified_discharge_refusal = None
             await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
             self.notifier.clear_notification(tag=self.DISCHARGE_REFUSED_TAG)
             return
@@ -969,7 +973,11 @@ class V2Gliberty:
 
         if is_manual:
             # No waiting: the user just pressed a button and nothing happened.
-            await self.__notify_discharge_refused({"reason": reason})
+            # Once per standing refusal though -- "not offered right now" can
+            # come and go, and a notification per flip is noise.
+            if reason != self.notified_discharge_refusal:
+                self.notified_discharge_refusal = reason
+                await self.__notify_discharge_refused({"reason": reason})
             return
 
         if self.discharge_refusal_timer_handle is None:
@@ -985,6 +993,7 @@ class V2Gliberty:
         """AppDaemon passes a timer's kwargs as a single positional dict."""
         reason = (kwargs or {}).get("reason")
         self.discharge_refusal_timer_handle = None
+        self.notified_discharge_refusal = reason
         await self.notifier.notify_user(
             message=self._DISCHARGE_REMEDIES.get(
                 reason, self._DISCHARGE_REMEDY_FALLBACK

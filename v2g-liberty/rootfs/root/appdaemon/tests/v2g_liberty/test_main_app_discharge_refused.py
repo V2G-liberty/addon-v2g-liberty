@@ -24,6 +24,8 @@ def v2g():
 
     instance = V2Gliberty(hass=hass, event_bus=MagicMock(), notifier=notifier)
     instance.discharge_refusal_timer_handle = None
+    instance.notified_discharge_refusal = None
+    instance.set_records_in_chart = AsyncMock()
     return instance
 
 
@@ -138,3 +140,33 @@ async def test_texts_do_not_claim_the_car_belongs_to_the_reader(v2g):
     ):
         assert "your car" not in text.lower()
         assert "your charger" not in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_a_condition_that_comes_and_goes_notifies_once(v2g):
+    """v2g_not_offered can flip repeatedly. Clearing and re-raising it must not
+    notify every time, or the user learns to ignore the message."""
+    await _refuse(v2g, "v2g_not_offered", is_manual=True)
+    await _refuse(v2g, None)
+    await _refuse(v2g, "v2g_not_offered", is_manual=True)
+
+    assert v2g.notifier.notify_user.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_repeated_manual_attempts_notify_once(v2g):
+    """Pressing the button twice while the same refusal stands is one problem,
+    not two."""
+    await _refuse(v2g, "v2g_not_offered", is_manual=True)
+    await _refuse(v2g, "v2g_not_offered", is_manual=True)
+
+    v2g.notifier.notify_user.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_different_reason_does_notify_again(v2g):
+    """A new cause means a new remedy, so it has to be said."""
+    await _refuse(v2g, "v2g_not_offered", is_manual=True)
+    await _refuse(v2g, "session_not_bidirectional", is_manual=True)
+
+    assert v2g.notifier.notify_user.await_count == 2
