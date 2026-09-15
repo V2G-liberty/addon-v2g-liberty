@@ -26,6 +26,7 @@ def v2g():
     instance.discharge_refusal_timer_handle = None
     instance.notified_discharge_refusal = None
     instance.discharge_refused_reason = None
+    instance.set_next_action = AsyncMock()
     instance.set_records_in_chart = AsyncMock()
     return instance
 
@@ -185,3 +186,25 @@ async def test_the_schedule_prognosis_is_not_redrawn_while_refused(v2g):
     await _refuse(v2g, None)
 
     assert v2g.discharge_refused_reason is None
+
+
+@pytest.mark.asyncio
+async def test_discharging_is_retried_when_the_refusal_resolves(v2g):
+    """Taking the message away is not enough: the refused request is not
+    repeated by itself, so the charger would sit idle with the user's
+    "Max discharge now" still selected."""
+    await _refuse(v2g, "session_not_bidirectional")
+    v2g.set_next_action.reset_mock()
+
+    await _refuse(v2g, None)
+
+    v2g.set_next_action.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_no_retry_when_there_was_nothing_to_resolve(v2g):
+    """A clear without a standing refusal (start-up, a second clear) must not
+    kick off work."""
+    await _refuse(v2g, None)
+
+    v2g.set_next_action.assert_not_awaited()

@@ -958,12 +958,22 @@ class V2Gliberty:
         connected, charging works, and the schedule simply never runs. Surface
         it, and say what the user can do about it."""
         if reason is None:
-            await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
+            was_refused = self.discharge_refused_reason is not None
+            # Cleared before the awaits below: a second call must not see a
+            # refusal that is on its way out.
             self.discharge_refusal_timer_handle = None
             self.notified_discharge_refusal = None
             self.discharge_refused_reason = None
+            await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
             await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
             self.notifier.clear_notification(tag=self.DISCHARGE_REFUSED_TAG)
+            if was_refused:
+                # Taking the message away is not enough: the request that was
+                # refused is not repeated by itself, so the charger would sit
+                # idle with the user's "Max discharge now" still selected --
+                # the same silence this feature exists to end, one step later.
+                self.__log("Discharge possible again, re-evaluating what to do.")
+                await self.set_next_action(v2g_args="discharge_refusal_resolved")
             return
 
         self.discharge_refused_reason = reason
