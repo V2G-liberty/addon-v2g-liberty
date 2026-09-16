@@ -53,6 +53,17 @@ function chargerOption(type: string | null | undefined) {
   return CHARGER_OPTIONS.find(option => option.value === type) ?? null;
 }
 
+// The setting holds a phase *set*, so a charger on L2 is stored as [2]. The
+// manual selection compares against a bare phase number, so a single-phase set
+// is unwrapped for it -- without this the stored phase never lights up. Larger
+// sets belong to chargers that skip the selection altogether.
+function asSelectablePhase(
+  value: number | number[] | null | undefined
+): number | number[] | null {
+  if (Array.isArray(value) && value.length === 1) return value[0];
+  return value ?? null;
+}
+
 type DialogPage =
   | '1-select-charger-type'
   | '2-connection-details'
@@ -164,7 +175,7 @@ class EditChargerSettingsDialog extends DialogBase {
     }
     try {
       const phaseData = await callFunction(this.hass, 'get_charger_phase');
-      this._selectedPhase = phaseData.connected_to_phase ?? null;
+      this._selectedPhase = asSelectablePhase(phaseData.connected_to_phase);
     } catch (e) {
       this._selectedPhase = null;
     }
@@ -804,7 +815,7 @@ class EditChargerSettingsDialog extends DialogBase {
       );
 
       if (result.success) {
-        this._selectedPhase = result.connected_to_phase;
+        this._selectedPhase = asSelectablePhase(result.connected_to_phase);
         this._detectError = '';
         const phase = result.connected_to_phase;
         const label = Array.isArray(phase)

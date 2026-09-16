@@ -13337,6 +13337,14 @@ const $4163850e13316b31$var$CHARGER_OPTIONS = [
 function $4163850e13316b31$var$chargerOption(type) {
     return $4163850e13316b31$var$CHARGER_OPTIONS.find((option)=>option.value === type) ?? null;
 }
+// The setting holds a phase *set*, so a charger on L2 is stored as [2]. The
+// manual selection compares against a bare phase number, so a single-phase set
+// is unwrapped for it -- without this the stored phase never lights up. Larger
+// sets belong to chargers that skip the selection altogether.
+function $4163850e13316b31$var$asSelectablePhase(value) {
+    if (Array.isArray(value) && value.length === 1) return value[0];
+    return value ?? null;
+}
 class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     get _chargerPhases() {
         return $4163850e13316b31$var$chargerOption(this._selectedChargerType)?.phases ?? 1;
@@ -13381,7 +13389,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         }
         try {
             const phaseData = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_charger_phase');
-            this._selectedPhase = phaseData.connected_to_phase ?? null;
+            this._selectedPhase = $4163850e13316b31$var$asSelectablePhase(phaseData.connected_to_phase);
         } catch (e) {
             this._selectedPhase = null;
         }
@@ -13792,7 +13800,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_charger_phase', {}, 180000 // 3 min timeout
             );
             if (result.success) {
-                this._selectedPhase = result.connected_to_phase;
+                this._selectedPhase = $4163850e13316b31$var$asSelectablePhase(result.connected_to_phase);
                 this._detectError = '';
                 const phase = result.connected_to_phase;
                 const label = Array.isArray(phase) ? phase.map((p)=>`L${p}`).join(', ') : `L${phase}`;
