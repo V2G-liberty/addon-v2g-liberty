@@ -13337,9 +13337,27 @@ const $4163850e13316b31$var$CHARGER_OPTIONS = [
 function $4163850e13316b31$var$chargerOption(type) {
     return $4163850e13316b31$var$CHARGER_OPTIONS.find((option)=>option.value === type) ?? null;
 }
+// The setting holds a phase *set*, so a charger on L2 is stored as [2]. The
+// manual selection compares against a bare phase number, so a single-phase set
+// is unwrapped for it -- without this the stored phase never lights up. Larger
+// sets belong to chargers that skip the selection altogether.
+function $4163850e13316b31$var$asSelectablePhase(value) {
+    if (Array.isArray(value) && value.length === 1) return value[0];
+    return value ?? null;
+}
 class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
     get _chargerPhases() {
         return $4163850e13316b31$var$chargerOption(this._selectedChargerType)?.phases ?? 1;
+    }
+    // True while the type, host or port in this dialog differ from what is
+    // stored. Detection measures the charger the running driver talks to, which
+    // is the stored one until this flow is saved -- so with unsaved changes it
+    // would measure the wrong charger.
+    get _chargerSettingsChanged() {
+        const storedType = $4163850e13316b31$var$chargerOption(this.hass.states[$755a87c9ee93218f$export$c85d806694fc5565]?.state)?.value ?? null;
+        const storedHost = (0, $942308f826de48c4$export$49d5fc8cba920a0)(this.hass.states[$755a87c9ee93218f$export$bb6b29d6e8205d89], '');
+        const storedPort = parseInt(this.hass.states[$755a87c9ee93218f$export$6b510d2e1eeb3e11]?.state ?? '', 10);
+        return this._selectedChargerType !== storedType || this._chargerHost !== storedHost || parseInt(`${this._chargerPort}`, 10) !== storedPort;
     }
     async showDialog() {
         super.showDialog();
@@ -13371,7 +13389,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         }
         try {
             const phaseData = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_charger_phase');
-            this._selectedPhase = phaseData.connected_to_phase ?? null;
+            this._selectedPhase = $4163850e13316b31$var$asSelectablePhase(phaseData.connected_to_phase);
         } catch (e) {
             this._selectedPhase = null;
         }
@@ -13534,7 +13552,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
       ${(0, $4dbea3927e6cdc74$export$ce5035b7317f6169)(_isLoadBalancerEnabled)}
       ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._goBackToConnectionDetails, false, this.hass.localize('ui.common.back'), false, 'back', true)}
-      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._save, true, this.hass.localize('ui.common.continue'), false, 'continue')}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, this._continue, true, this.hass.localize('ui.common.continue'), false, 'continue')}
     `;
     }
     _goBackToConnectionDetails() {
@@ -13591,7 +13609,21 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             if (this._currentPage === '2-connection-details' && this._selectedChargerType === testedType) this._chargerConnectionStatus = "Timed out";
         }
     }
-    async _save() {
+    async _continue() {
+        // Nothing is stored before the whole flow is done: the phase belongs to
+        // the charger settings, and saving the type here (which swaps the driver)
+        // left anyone who backed out of the phase step with a new charger and the
+        // phase of the one it replaced.
+        if (this._gridPhases === null) {
+            // No grid connection configured, so there is no phase to ask for.
+            await this._saveAll(null);
+            return;
+        }
+        this._showPhaseStep = true;
+    }
+    // Writes every charger setting, the phase included, in one call. A phase of
+    // null means "not asked for" and leaves the stored phase untouched.
+    async _saveAll(phase) {
         // NOTE: charger settings are currently local/Modbus only — this Save does
         // NOT create or edit anything on the Smart schedule server (FlexMeasures).
         // When the charger asset gets provisioned/edited from here (planned, branch
@@ -13608,12 +13640,28 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             ...isUsingReducedMaxPower ? {
                 maxChargingPower: this._chargerMaxChargingPower,
                 maxDischargingPower: this._chargerMaxDischargingPower
+            } : {},
+            ...phase !== null ? {
+                connected_to_phase: phase
             } : {}
         };
-        const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_settings', args);
-        // Only show phase step if grid connection is configured
-        if (this._gridPhases !== null) this._showPhaseStep = true;
-        else this.closeDialog();
+        this._savingPhase = true;
+        this._phaseSaveError = null;
+        try {
+            // callFunction resolves with the result event, so a refused save arrives
+            // as an `error` field rather than a rejection. Closing the dialog without
+            // looking at it would report success while nothing was stored.
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_settings', args);
+            if (result?.error) {
+                this._phaseSaveError = result.error;
+                this._savingPhase = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._phaseSaveError = `${e}`;
+            this._savingPhase = false;
+        }
     }
     // ── Phase Step ──────────────────────────────────────────────────────
     _renderPhaseSaveError() {
@@ -13712,6 +13760,17 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
           ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._startDetection(), false, 'Retry')}
         </div>
       `;
+        if (this._chargerSettingsChanged) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <p style="font-size: 0.875em; color: var(--secondary-text-color);">
+            Select the phase above and save. Detection is unavailable until
+            then: it measures the charger that is connected right now, and the
+            settings you changed are not saved yet. Once they are, reopen these
+            settings to have the phase detected.
+          </p>
+        </div>
+      `;
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="auto-detect-box">
         <p><strong>Automatic phase detection</strong></p>
@@ -13741,7 +13800,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
             const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'detect_charger_phase', {}, 180000 // 3 min timeout
             );
             if (result.success) {
-                this._selectedPhase = result.connected_to_phase;
+                this._selectedPhase = $4163850e13316b31$var$asSelectablePhase(result.connected_to_phase);
                 this._detectError = '';
                 const phase = result.connected_to_phase;
                 const label = Array.isArray(phase) ? phase.map((p)=>`L${p}`).join(', ') : `L${phase}`;
@@ -13769,25 +13828,7 @@ class $4163850e13316b31$var$EditChargerSettingsDialog extends (0, $942308f826de4
         this._savePhase(this._selectedPhase);
     }
     async _savePhase(phase) {
-        this._savingPhase = true;
-        this._phaseSaveError = null;
-        try {
-            // callFunction resolves with the result event, so a refused save arrives
-            // as an `error` field rather than a rejection. Closing the dialog without
-            // looking at it would report success while nothing was stored.
-            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_charger_phase', {
-                connected_to_phase: phase
-            });
-            if (result?.error) {
-                this._phaseSaveError = result.error;
-                this._savingPhase = false;
-                return;
-            }
-            this.closeDialog();
-        } catch (e) {
-            this._phaseSaveError = `${e}`;
-            this._savingPhase = false;
-        }
+        await this._saveAll(phase);
     }
     static{
         this.styles = [
@@ -18907,18 +18948,24 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
             const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_charger_phase');
             this._connectedToPhase = data.connected_to_phase ?? null;
             this._phaseRequired = data.required ?? false;
+            // The backend already judges whether the stored value is a usable phase
+            // set. Deciding that here too (by testing for null) showed a hand-edited
+            // `[null]` as "LNone" instead of as "not set".
+            this._phaseValid = data.valid ?? false;
             this._phaseLoaded = true;
         } catch (e) {
         // Ignore — phase info not available
         }
     }
     async _subscribeToPhaseEvents() {
-        this._unsubPhase = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_charger_phase.result');
+        // The phase is saved as part of the charger settings, in one call at the
+        // end of the settings flow.
+        this._unsubPhase = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_charger_settings.result');
         // A grid settings change clears the charger phase (and changes whether it
         // is required), so reload the phase info to reflect it immediately.
         this._unsubGrid = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'save_grid_connection_settings.result');
-        // Phase detection (automatic on connect, or manual) sets the phase, so
-        // reload so the warning clears without a page reload.
+        // Phase detection from the charger settings sets the phase, so reload so
+        // the warning clears without a page reload.
         this._unsubDetect = await this._hass.connection.subscribeEvents(()=>this._loadPhaseInfo(), 'detect_charger_phase.result');
     }
     disconnectedCallback() {
@@ -18938,8 +18985,8 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     }
     _renderChargerPhase() {
         if (!this._phaseLoaded) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
-        if (this._connectedToPhase === null) {
-            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">It is detected automatically the next time the car is connected. If this message keeps showing, open the charger settings to detect or set it manually.</ha-alert></div>`;
+        if (!this._phaseValid || this._connectedToPhase === null) {
+            if (this._phaseRequired) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">Open the charger settings to set it, or have it detected there. Until then the energy per phase cannot be attributed to the charger.</ha-alert></div>`;
             return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
         }
         const phaseValue = Array.isArray(this._connectedToPhase) ? this._connectedToPhase.map((p)=>`L${p}`).join(', ') : `L${this._connectedToPhase}`;
@@ -18993,7 +19040,7 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
     }
     constructor(...args){
         super(...args), // Charger phase (from JSON settings, not HA entity)
-        this._connectedToPhase = null, this._phaseRequired = false, this._phaseLoaded = false, this._unsubPhase = null, this._unsubGrid = null, this._unsubDetect = null;
+        this._connectedToPhase = null, this._phaseRequired = false, this._phaseValid = false, this._phaseLoaded = false, this._unsubPhase = null, this._unsubGrid = null, this._unsubDetect = null;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -19029,6 +19076,9 @@ class $8462057a459186b4$export$bfa1cde860c39587 extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_phaseRequired", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $8462057a459186b4$export$bfa1cde860c39587.prototype, "_phaseValid", void 0);
 $8462057a459186b4$export$bfa1cde860c39587 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-charger-settings-card')
 ], $8462057a459186b4$export$bfa1cde860c39587);

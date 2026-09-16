@@ -5,10 +5,10 @@ Quasar 1 sits on a single one, an EVtec BiDiPro on all three, and a 2-phase
 charger on e.g. [2, 3]. Covers:
 
 - normalise_charger_phases: the accepted shapes and everything rejected.
-- __save_charger_phase: stores a normalised list, accepts the bare phase
-  number older settings and the manual 1-phase selection supply, and refuses
-  anything else loudly (result event *and* a log line).
 - charger_phase_is_valid: list-aware, and tolerant of a legacy bare int.
+
+Storing a phase is part of saving the charger settings; that is covered in
+test_v2g_globals_charger_settings.py.
 """
 
 from unittest.mock import MagicMock, Mock
@@ -43,14 +43,6 @@ def globals_instance(log_mock, settings_manager_mock):
     instance.hass.fire_event = Mock()
     instance.v2g_settings = settings_manager_mock
     return instance
-
-
-def _fire_event_kwargs(instance) -> dict:
-    """The kwargs of the single fired save_charger_phase.result event."""
-    calls = instance.hass.fire_event.call_args_list
-    assert len(calls) == 1
-    assert calls[0].args[0] == "save_charger_phase.result"
-    return calls[0].kwargs
 
 
 # ── normalise_charger_phases ──────────────────────────────────────────
@@ -91,61 +83,6 @@ def test_normalise_accepts_and_sorts_phase_sets(value, expected):
 )
 def test_normalise_rejects_unusable_values(value):
     assert V2GLibertyGlobals.normalise_charger_phases(value) is None
-
-
-# ── __save_charger_phase ──────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_save_stores_all_three_phases_for_a_3_phase_charger(globals_instance):
-    """The regression: [1, 2, 3] used to be refused, leaving the phase of the
-    1-phase charger it replaced in place."""
-    await globals_instance._V2GLibertyGlobals__save_charger_phase(
-        None, {"connected_to_phase": [1, 2, 3]}, None
-    )
-
-    assert globals_instance.v2g_settings.objects["charger_phase"] == {
-        "connected_to_phase": [1, 2, 3]
-    }
-    assert _fire_event_kwargs(globals_instance) == {}
-
-
-@pytest.mark.asyncio
-async def test_save_normalises_a_bare_phase_number(globals_instance):
-    """The manual 1-phase selection sends a plain int; it is stored as a list."""
-    await globals_instance._V2GLibertyGlobals__save_charger_phase(
-        None, {"connected_to_phase": 2}, None
-    )
-
-    assert globals_instance.v2g_settings.objects["charger_phase"] == {
-        "connected_to_phase": [2]
-    }
-
-
-@pytest.mark.asyncio
-async def test_save_stores_a_two_phase_charger(globals_instance):
-    await globals_instance._V2GLibertyGlobals__save_charger_phase(
-        None, {"connected_to_phase": [3, 2]}, None
-    )
-
-    assert globals_instance.v2g_settings.objects["charger_phase"] == {
-        "connected_to_phase": [2, 3]
-    }
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("value", [None, 0, 4, [], [1, 1], "1"])
-async def test_save_refuses_unusable_values_loudly(globals_instance, log_mock, value):
-    """Nothing is stored, the UI is told why, and it is logged -- a silent
-    refusal is how the wrong phase survived unnoticed."""
-    await globals_instance._V2GLibertyGlobals__save_charger_phase(
-        None, {"connected_to_phase": value}, None
-    )
-
-    assert "charger_phase" not in globals_instance.v2g_settings.objects
-    assert "error" in _fire_event_kwargs(globals_instance)
-    assert log_mock.call_count == 1
-    assert log_mock.call_args.kwargs.get("level") == "WARNING"
 
 
 # ── charger_phase_is_valid ────────────────────────────────────────────

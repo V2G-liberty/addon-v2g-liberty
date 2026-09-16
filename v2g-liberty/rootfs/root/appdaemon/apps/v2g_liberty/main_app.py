@@ -672,16 +672,10 @@ class V2Gliberty:
         # if the car gets connected this notification can be removed.
         self.notifier.clear_notification(tag="reminder_to_connect")
 
-        # Trigger charger phase detection if not yet detected and grid is 3-phase
-        if (
-            c.GRID_PHASES == 3
-            and c.GRID_CONSUMPTION_ENTITIES
-            and c.CHARGER_CONNECTED_TO_PHASE is None
-        ):
-            self.__log(
-                "Car connected, charger phase not yet detected — starting detection"
-            )
-            self.hass.fire_event("detect_charger_phase")
+        # Deliberately no phase detection here. Detection is an invasive test:
+        # it forces the charge mode to Stop and charges the car to measure. That
+        # is not something to do unasked on every connect, so it is offered as a
+        # button in the charger settings instead (see the phase step there).
 
         await self.set_next_action(v2g_args="handle_car_connect")
 

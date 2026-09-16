@@ -532,57 +532,6 @@ class TestInitialiseChargerPhaseSettings:
         assert c.CHARGER_CONNECTED_TO_PHASE == 2
 
 
-class TestSaveChargerPhase:
-    @pytest.mark.asyncio
-    async def test_save_valid_phase(
-        self, globals_instance, settings_manager_mock, hass_mock
-    ):
-        """Valid phase value is stored, normalised to a phase list.
-
-        A charger can sit on more than one phase, so the setting holds a list;
-        a bare phase number is accepted and normalised. See
-        test_v2g_globals_charger_phase.py for the full contract.
-        """
-        await globals_instance._V2GLibertyGlobals__save_charger_phase(
-            "event", {"connected_to_phase": 3}, {}
-        )
-
-        settings_manager_mock.store_object.assert_called_once_with(
-            "charger_phase", {"connected_to_phase": [3]}
-        )
-        hass_mock.fire_event.assert_called_with("save_charger_phase.result")
-        assert c.CHARGER_CONNECTED_TO_PHASE == [3]
-
-    @pytest.mark.asyncio
-    async def test_save_invalid_phase(
-        self, globals_instance, settings_manager_mock, hass_mock
-    ):
-        """Invalid phase value is rejected."""
-        await globals_instance._V2GLibertyGlobals__save_charger_phase(
-            "event", {"connected_to_phase": 4}, {}
-        )
-
-        settings_manager_mock.store_object.assert_not_called()
-        hass_mock.fire_event.assert_called_with(
-            "save_charger_phase.result",
-            error=(
-                "connected_to_phase must be a phase (1, 2 or 3) "
-                "or a list of distinct phases"
-            ),
-        )
-
-    @pytest.mark.asyncio
-    async def test_save_none_phase(
-        self, globals_instance, settings_manager_mock, hass_mock
-    ):
-        """None phase value is rejected."""
-        await globals_instance._V2GLibertyGlobals__save_charger_phase(
-            "event", {"connected_to_phase": None}, {}
-        )
-
-        settings_manager_mock.store_object.assert_not_called()
-
-
 class TestChargerPhaseValidation:
     def test_not_required_when_1_phase(self, globals_instance, settings_manager_mock):
         """Phase selection is not required for 1-phase grid."""

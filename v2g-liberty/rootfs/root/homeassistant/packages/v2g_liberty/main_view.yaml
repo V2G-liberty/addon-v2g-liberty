@@ -4,13 +4,26 @@
 # To be included in the v2g_liberty_dashboard.yaml
 
 # A charger that can no longer be used stops automatic charging altogether, so
-# this sits above everything, full width: it is a state of the system, not a
-# property of the charger tile. The two advisory cards ("controlled by Wallbox
-# App", "charger locked") stay attached to that tile -- they warn, this one
-# reports that something has already stopped.
+# this sits above everything: it is a state of the system, not a property of
+# the charger tile. The two advisory cards ("controlled by Wallbox App",
+# "charger locked") stay attached to that tile -- they warn, this one reports
+# that something has already stopped.
+#
+# Full width. This is a sections view, so a section without an explicit
+# column_span is placed automatically and lands in a single column. At two
+# columns the charger tile gets pulled up beside this card, which pushes the
+# chart section down until two adjacent columns are free again and leaves a
+# gap. At three, the row belongs to this card alone and sections 2-6 arrange
+# themselves underneath exactly as they do without it.
 - type: grid
+  column_span: 3
   cards:
     - type: conditional
+      # On the conditional, not on the markdown inside it: the section lays out
+      # the conditional card, so layout_options on the inner card is ignored and
+      # the section's second column stayed empty.
+      layout_options:
+        grid_columns: full
       conditions:
         - entity: sensor.charger_problem
           state_not: "none"
@@ -20,8 +33,6 @@
           state_not: "unavailable"
       card:
         type: markdown
-        layout_options:
-          grid_columns: full
         card_mod:
           style: |
             ha-card {
@@ -89,7 +100,7 @@
         - entity: sensor.charger_state_text
         - entity: sensor.charger_real_charging_power
       content: >-
-        <ha-icon icon="mdi:ev-station"></ha-icon> <div title="Polling
+        <p><ha-icon icon="mdi:ev-station"></ha-icon></p> <div title="Polling
         charger">&nbsp;{{
         states('sensor.poll_refresh_indicator')}}</div>
         <table><tbody><tr><th> {{ states('sensor.charger_state_text') }}
@@ -112,7 +123,7 @@
           ha-markdown$: |
             div {
               color: #999999;
-              font-size: 70%
+              font-size: 90%;
               font-weight: bold;
               position: absolute;
               top: 10px;
@@ -121,12 +132,12 @@
             div:hover:before {
               content: "Receiving data";
               color: var(--success-color);
-              font-size: 70%;
+              font-size: 90%;
             }
             table {
               width: 100%;
               max-width: 100%;
-              margin: 8px 0;
+              margin: 0;
             }
             th {
               border: none !important;
