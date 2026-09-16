@@ -35,6 +35,7 @@ export class ChargerSettingsCard extends LitElement {
   // Charger phase (from JSON settings, not HA entity)
   @state() private _connectedToPhase: number | number[] | null = null;
   @state() private _phaseRequired: boolean = false;
+  @state() private _phaseValid: boolean = false;
 
   private _hass: HomeAssistant;
   private _phaseLoaded: boolean = false;
@@ -148,6 +149,10 @@ export class ChargerSettingsCard extends LitElement {
       const data = await callFunction(this._hass, 'get_charger_phase');
       this._connectedToPhase = data.connected_to_phase ?? null;
       this._phaseRequired = data.required ?? false;
+      // The backend already judges whether the stored value is a usable phase
+      // set. Deciding that here too (by testing for null) showed a hand-edited
+      // `[null]` as "LNone" instead of as "not set".
+      this._phaseValid = data.valid ?? false;
       this._phaseLoaded = true;
     } catch (e) {
       // Ignore — phase info not available
@@ -155,9 +160,11 @@ export class ChargerSettingsCard extends LitElement {
   }
 
   private async _subscribeToPhaseEvents() {
+    // The phase is saved as part of the charger settings, in one call at the
+    // end of the settings flow.
     this._unsubPhase = await this._hass.connection.subscribeEvents<HassEvent>(
       () => this._loadPhaseInfo(),
-      'save_charger_phase.result'
+      'save_charger_settings.result'
     );
     // A grid settings change clears the charger phase (and changes whether it
     // is required), so reload the phase info to reflect it immediately.
@@ -192,7 +199,7 @@ export class ChargerSettingsCard extends LitElement {
   private _renderChargerPhase() {
     if (!this._phaseLoaded) return nothing;
 
-    if (this._connectedToPhase === null) {
+    if (!this._phaseValid || this._connectedToPhase === null) {
       if (this._phaseRequired) {
         return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">Open the charger settings to set it, or have it detected there. Until then the energy per phase cannot be attributed to the charger.</ha-alert></div>`;
       }

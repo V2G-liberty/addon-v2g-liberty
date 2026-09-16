@@ -100,6 +100,29 @@ class EditChargerSettingsDialog extends DialogBase {
     return chargerOption(this._selectedChargerType)?.phases ?? 1;
   }
 
+  // True while the type, host or port in this dialog differ from what is
+  // stored. Detection measures the charger the running driver talks to, which
+  // is the stored one until this flow is saved -- so with unsaved changes it
+  // would measure the wrong charger.
+  private get _chargerSettingsChanged(): boolean {
+    const storedType =
+      chargerOption(this.hass.states[entityIds.chargerType]?.state)?.value ??
+      null;
+    const storedHost = defaultState(
+      this.hass.states[entityIds.chargerHostname],
+      ''
+    );
+    const storedPort = parseInt(
+      this.hass.states[entityIds.chargerPort]?.state ?? '',
+      10
+    );
+    return (
+      this._selectedChargerType !== storedType ||
+      this._chargerHost !== storedHost ||
+      parseInt(`${this._chargerPort}`, 10) !== storedPort
+    );
+  }
+
   public async showDialog(): Promise<void> {
     super.showDialog();
     this._currentPage = '1-select-charger-type';
@@ -431,7 +454,7 @@ class EditChargerSettingsDialog extends DialogBase {
       )}
       ${renderButton(
         this.hass,
-        this._save,
+        this._continue,
         true,
         this.hass.localize('ui.common.continue'),
         false,
@@ -538,7 +561,22 @@ class EditChargerSettingsDialog extends DialogBase {
     }
   }
 
-  private async _save(): Promise<void> {
+  private async _continue(): Promise<void> {
+    // Nothing is stored before the whole flow is done: the phase belongs to
+    // the charger settings, and saving the type here (which swaps the driver)
+    // left anyone who backed out of the phase step with a new charger and the
+    // phase of the one it replaced.
+    if (this._gridPhases === null) {
+      // No grid connection configured, so there is no phase to ask for.
+      await this._saveAll(null);
+      return;
+    }
+    this._showPhaseStep = true;
+  }
+
+  // Writes every charger setting, the phase included, in one call. A phase of
+  // null means "not asked for" and leaves the stored phase untouched.
+  private async _saveAll(phase: number | number[] | null): Promise<void> {
     // NOTE: charger settings are currently local/Modbus only — this Save does
     // NOT create or edit anything on the Smart schedule server (FlexMeasures).
     // When the charger asset gets provisioned/edited from here (planned, branch
@@ -558,13 +596,24 @@ class EditChargerSettingsDialog extends DialogBase {
             maxDischargingPower: this._chargerMaxDischargingPower,
           }
         : {}),
+      ...(phase !== null ? { connected_to_phase: phase } : {}),
     };
-    const result = await callFunction(this.hass, 'save_charger_settings', args);
-    // Only show phase step if grid connection is configured
-    if (this._gridPhases !== null) {
-      this._showPhaseStep = true;
-    } else {
+    this._savingPhase = true;
+    this._phaseSaveError = null;
+    try {
+      // callFunction resolves with the result event, so a refused save arrives
+      // as an `error` field rather than a rejection. Closing the dialog without
+      // looking at it would report success while nothing was stored.
+      const result = await callFunction(this.hass, 'save_charger_settings', args);
+      if (result?.error) {
+        this._phaseSaveError = result.error;
+        this._savingPhase = false;
+        return;
+      }
       this.closeDialog();
+    } catch (e) {
+      this._phaseSaveError = `${e}`;
+      this._savingPhase = false;
     }
   }
 
@@ -696,6 +745,20 @@ class EditChargerSettingsDialog extends DialogBase {
       `;
     }
 
+    if (this._chargerSettingsChanged) {
+      return html`
+        <div class="auto-detect-box">
+          <p><strong>Automatic phase detection</strong></p>
+          <p style="font-size: 0.875em; color: var(--secondary-text-color);">
+            Select the phase above and save. Detection is unavailable until
+            then: it measures the charger that is connected right now, and the
+            settings you changed are not saved yet. Once they are, reopen these
+            settings to have the phase detected.
+          </p>
+        </div>
+      `;
+    }
+
     return html`
       <div class="auto-detect-box">
         <p><strong>Automatic phase detection</strong></p>
@@ -779,25 +842,7 @@ class EditChargerSettingsDialog extends DialogBase {
   }
 
   private async _savePhase(phase: number | number[]) {
-    this._savingPhase = true;
-    this._phaseSaveError = null;
-    try {
-      // callFunction resolves with the result event, so a refused save arrives
-      // as an `error` field rather than a rejection. Closing the dialog without
-      // looking at it would report success while nothing was stored.
-      const result = await callFunction(this.hass, 'save_charger_phase', {
-        connected_to_phase: phase,
-      });
-      if (result?.error) {
-        this._phaseSaveError = result.error;
-        this._savingPhase = false;
-        return;
-      }
-      this.closeDialog();
-    } catch (e) {
-      this._phaseSaveError = `${e}`;
-      this._savingPhase = false;
-    }
+    await this._saveAll(phase);
   }
 
 

@@ -368,7 +368,6 @@ class V2GLibertyGlobals:
         self.hass.listen_event(
             self.__get_grid_connection_settings, "get_grid_connection_settings"
         )
-        self.hass.listen_event(self.__save_charger_phase, "save_charger_phase")
         self.hass.listen_event(self.__get_charger_phase, "get_charger_phase")
         self.hass.listen_event(self.__test_grid_entities, "test_grid_entities")
         self.hass.listen_event(self.__detect_grid_entities, "detect_grid_entities")
@@ -466,6 +465,31 @@ class V2GLibertyGlobals:
 
     async def __save_charger_settings(self, event, data, kwargs):
         charger_type = data.get("charger_type") or self.evse_client_app.CHARGER_TYPE
+
+        # The phase arrives together with the rest of the charger settings: the
+        # dialog collects everything and saves once, at the end. Saving the type
+        # earlier (and swapping the driver with it) left whoever abandoned the
+        # flow with a new charger and the phase of the one it replaced.
+        # Validate before storing anything, so a refused phase does not leave
+        # half of the settings applied -- the very thing this prevents.
+        raw_phase = data.get("connected_to_phase")
+        phases = None
+        if raw_phase is not None:
+            phases = self.normalise_charger_phases(raw_phase)
+            if phases is None:
+                self.__log(
+                    f"rejected connected_to_phase={raw_phase!r}",
+                    level="WARNING",
+                )
+                self.hass.fire_event(
+                    "save_charger_settings.result",
+                    error=(
+                        "connected_to_phase must be a phase (1, 2 or 3) "
+                        "or a list of distinct phases"
+                    ),
+                )
+                return
+
         self.__store_setting("input_text.charger_type", charger_type)
         self.__store_setting("input_text.charger_host_url", data["host"])
         self.__store_setting("input_number.charger_port", data["port"])
@@ -481,6 +505,12 @@ class V2GLibertyGlobals:
                 "input_number.charger_max_discharging_power",
                 data["maxDischargingPower"],
             )
+        if phases is not None:
+            self.v2g_settings.store_object(
+                "charger_phase", {"connected_to_phase": phases}
+            )
+            self.__initialise_charger_phase_settings()
+
         self.__store_setting("input_boolean.charger_settings_initialised", True)
 
         self.hass.fire_event("save_charger_settings.result")
@@ -1393,32 +1423,6 @@ class V2GLibertyGlobals:
         if len(set(phases)) != len(phases):
             return None
         return sorted(phases)
-
-    async def __save_charger_phase(self, event, data, kwargs):
-        """Handle save_charger_phase event from UI."""
-        raw_phase = data.get("connected_to_phase")
-        phases = self.normalise_charger_phases(raw_phase)
-        if phases is None:
-            # Logged as well as returned: a rejected save used to be silent,
-            # which is how a 3-phase charger could keep the phase of the
-            # 1-phase charger it replaced.
-            self.__log(
-                f"rejected connected_to_phase={raw_phase!r}",
-                level="WARNING",
-            )
-            self.hass.fire_event(
-                "save_charger_phase.result",
-                error=(
-                    "connected_to_phase must be a phase (1, 2 or 3) "
-                    "or a list of distinct phases"
-                ),
-            )
-            return
-
-        self.v2g_settings.store_object("charger_phase", {"connected_to_phase": phases})
-        self.__initialise_charger_phase_settings()
-
-        self.hass.fire_event("save_charger_phase.result")
 
     # TODO: Should charger_settings_initialised be set to False when
     # charger_phase_is_valid() returns False? This would block charging

@@ -2,9 +2,10 @@
 
 Covers the charger-type selection contract:
 - __save_charger_settings: stores the charger type (both types), the
-  reduced-power fields only when enabled, fires the result event and then
-  runs init -> historical import -> kick-off; a changed type swaps the
-  driver in place (no restart), an unchanged type does not.
+  reduced-power fields only when enabled, the charger phase when the settings
+  flow supplies one, fires the result event and then runs init -> historical
+  import -> kick-off; a changed type swaps the driver in place (no restart),
+  an unchanged type does not.
 - __switch_evse_client: shuts the old driver down and rewires main_app
   and data_monitor to the new one.
 - __test_charger_connection: maps the driver's status to the four UI
@@ -58,12 +59,17 @@ def hass_mock():
 
 @pytest.fixture
 def settings_manager_mock():
-    """Fake settings manager: a real dict behind get()/retrieve_settings()."""
+    """Fake settings manager: real dicts behind get()/store_object()."""
     mock = MagicMock()
     mock.settings = {}
+    mock.objects = {}
     mock.store_setting = Mock()
     mock.get = Mock(side_effect=lambda key: mock.settings.get(key, None))
     mock.retrieve_settings = Mock()
+    mock.store_object = Mock(
+        side_effect=lambda key, value: mock.objects.__setitem__(key, value)
+    )
+    mock.get_object = Mock(side_effect=lambda key: mock.objects.get(key))
     return mock
 
 
@@ -278,6 +284,81 @@ class TestSaveChargerSettings:
         )
 
         assert call_order == ["event", "switch", "init"]
+
+
+# ── __save_charger_settings: the phase ────────────────────────────────
+
+
+class TestSaveChargerPhase:
+    """The phase is saved with the rest of the charger settings, in one call.
+
+    Saving it separately (and later) is what let someone abandon the settings
+    flow at the phase step and keep a new charger type with the phase of the
+    charger it replaced.
+    """
+
+    @pytest.mark.asyncio
+    async def test_phase_is_stored_with_the_settings(
+        self, globals_instance, settings_manager_mock
+    ):
+        data = _save_payload(charger_type=_EVTEC, connected_to_phase=[1, 2, 3])
+
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", data, {}
+        )
+
+        assert settings_manager_mock.objects["charger_phase"] == {
+            "connected_to_phase": [1, 2, 3]
+        }
+
+    @pytest.mark.asyncio
+    async def test_bare_phase_number_is_normalised(
+        self, globals_instance, settings_manager_mock
+    ):
+        """The manual 1-phase selection sends a plain int."""
+        data = _save_payload(connected_to_phase=2)
+
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", data, {}
+        )
+
+        assert settings_manager_mock.objects["charger_phase"] == {
+            "connected_to_phase": [2]
+        }
+
+    @pytest.mark.asyncio
+    async def test_without_a_phase_nothing_phase_related_is_touched(
+        self, globals_instance, settings_manager_mock
+    ):
+        """No grid connection configured means no phase step, so the stored
+        phase (if any) stays as it is."""
+        settings_manager_mock.objects["charger_phase"] = {"connected_to_phase": [2]}
+
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", _save_payload(), {}
+        )
+
+        assert settings_manager_mock.objects["charger_phase"] == {
+            "connected_to_phase": [2]
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("value", [0, 4, [], [1, 1], "1"])
+    async def test_unusable_phase_refuses_the_whole_save(
+        self, globals_instance, settings_manager_mock, hass_mock, log_mock, value
+    ):
+        """Not a single setting is stored: a refused phase must not leave the
+        charger half-configured, which is the failure this call prevents."""
+        data = _save_payload(charger_type=_EVTEC, connected_to_phase=value)
+
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", data, {}
+        )
+
+        settings_manager_mock.store_setting.assert_not_called()
+        assert "charger_phase" not in settings_manager_mock.objects
+        assert "error" in hass_mock.fire_event.call_args.kwargs
+        assert log_mock.call_args.kwargs.get("level") == "WARNING"
 
 
 # ── __switch_evse_client ──────────────────────────────────────────────
