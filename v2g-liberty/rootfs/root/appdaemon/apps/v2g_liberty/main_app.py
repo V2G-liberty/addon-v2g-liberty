@@ -867,6 +867,10 @@ class V2Gliberty:
     # Replaces the tag "charger_modbus_crashed", which named only one of the
     # two problems that end up here.
     CHARGER_PROBLEM_TAG = "charger_problem"
+    # The charge mode the user had before the driver gave up on the charger,
+    # so a recovery can put it back. "Stop" here means the user had it there
+    # already, and a recovery must leave it alone.
+    charge_mode_before_charger_problem: str | None = None
 
     async def handle_none_responsive_charger(
         self, was_car_connected: bool, reason: str | None = None
@@ -889,6 +893,9 @@ class V2Gliberty:
             reason, self.CHARGER_PROBLEM_COMMUNICATION
         )
         self.__log(f"Charger unusable ({problem}, {reason=}): stop, signal UI, notify")
+        self.charge_mode_before_charger_problem = await self.hass.get_state(
+            "input_select.charge_mode"
+        )
         await self.__set_charge_mode_in_ui("Stop")
 
         await self.hass.set_state(self.CHARGER_PROBLEM_ENTITY, state=problem)
@@ -1037,6 +1044,35 @@ class V2Gliberty:
             "tag": self.CHARGER_PROBLEM_TAG,
         }
         self.notifier.clear_notification(identification)
+
+    async def handle_charger_recovered(self):
+        """The driver's recovery probe found the charger back: clear the
+        problem and, if this app forced the charge mode to Stop, put it back on
+        Automatic -- set_active() then follows from the mode change. A user who
+        had Stop before keeps it. To be called from evse_client_app.
+        """
+        previous = self.charge_mode_before_charger_problem
+        self.charge_mode_before_charger_problem = None
+        self.__log(f"Charger recovered; charge mode before the problem: '{previous}'.")
+        await self.reset_charger_communication_fault()
+
+        # Always back to Automatic, never to the boost mode that may have been
+        # on: a boost is a deliberate, momentary action and hours may have
+        # passed. Unknown counts as Stop -- overriding a deliberate Stop is
+        # worse than asking for a click.
+        resume = previous in ["Automatic", "Max boost now", "Max discharge now"]
+        if resume:
+            await self.__set_charge_mode_in_ui("Automatic")
+        message = "The charger is working again."
+        if resume:
+            message += " Automatic charging has been resumed."
+        await self.notifier.notify_user(
+            message=message,
+            title="Charger recovered",
+            tag=self.CHARGER_PROBLEM_TAG,
+            critical=False,
+            send_to_all=False,
+        )
 
     async def set_records_in_chart(self, chart_line_name: ChartLine, records):
         """Write or remove records in lines in the chart.

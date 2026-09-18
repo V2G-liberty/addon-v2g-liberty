@@ -96,3 +96,49 @@ async def test_reset_clears_the_problem(v2g):
 
     assert _state_writes(v2g)["sensor.charger_problem"] == "none"
     v2g.notifier.clear_notification.assert_called_once()
+
+
+# ── Recovery ──────────────────────────────────────────────────────────
+# The driver's probe reports the charger back; the main app clears the
+# problem and puts the charge mode back only if it was the one that forced
+# Stop. A user who had Stop before keeps it.
+
+
+@pytest.mark.asyncio
+async def test_escalation_remembers_the_charge_mode_it_overrides(v2g):
+    v2g.hass.get_state = AsyncMock(return_value="Automatic")
+    await v2g.handle_none_responsive_charger(was_car_connected=True, reason="x")
+
+    assert v2g.charge_mode_before_charger_problem == "Automatic"
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_awaited_once_with("Stop")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "previous", ["Automatic", "Max boost now", "Max discharge now"]
+)
+async def test_recovery_resumes_automatic_when_the_app_forced_stop(v2g, previous):
+    """Always Automatic, never the boost that may have been on: a boost is a
+    deliberate, momentary action and hours may have passed."""
+    v2g.charge_mode_before_charger_problem = previous
+    await v2g.handle_charger_recovered()
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_awaited_once_with("Automatic")
+    assert _state_writes(v2g)[v2g.CHARGER_PROBLEM_ENTITY] == v2g.CHARGER_PROBLEM_NONE
+    kwargs = v2g.notifier.notify_user.await_args.kwargs
+    assert kwargs["title"] == "Charger recovered"
+    assert kwargs["tag"] == v2g.CHARGER_PROBLEM_TAG
+    assert kwargs["critical"] is False
+    assert "resumed" in kwargs["message"]
+    assert v2g.charge_mode_before_charger_problem is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("previous", ["Stop", None, "unknown"])
+async def test_recovery_leaves_a_deliberate_or_unknown_stop_alone(v2g, previous):
+    v2g.charge_mode_before_charger_problem = previous
+    await v2g.handle_charger_recovered()
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_not_awaited()
+    assert _state_writes(v2g)[v2g.CHARGER_PROBLEM_ENTITY] == v2g.CHARGER_PROBLEM_NONE
+    assert "resumed" not in v2g.notifier.notify_user.await_args.kwargs["message"]

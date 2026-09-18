@@ -29,6 +29,7 @@ from ..notifier_util import Notifier
 from ..util.conversion_util import parse_to_int
 from ..event_bus import EventBus
 from ..timer_utils import cancel_timer_silent, set_oneshot_timer
+from .recovery_probe import RecoveryProbe
 from .base_bidirectional_evse import BidirectionalEVSE
 from .modbus_types import MBR, ModbusConfigEntity
 from .v2g_modbus_client import V2GmodbusClient
@@ -260,6 +261,9 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     timer_id_check_modus_exception_state: str = None
     timer_id_check_error_state: str = None
     MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS: int = 60
+    # After an un-recoverable error the recovery probe re-checks the charger
+    # this often; a probe blocks for at most the Modbus timeout (10 s).
+    RECOVERY_PROBE_INTERVAL_SECONDS: int = 60
 
     # For (un)blocking of calls and keeping the client in-active when it should
     # Set only(!) by set_inactive and set_active.
@@ -282,6 +286,15 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
         # Raw modbus transport; the exception/grace-timer state machine stays on this charger.
         self._mb_client = V2GmodbusClient(hass)
+        # Re-checks the charger after an un-recoverable error, when polling has
+        # stopped and nothing else would notice it coming back.
+        self._recovery_probe = RecoveryProbe(
+            hass,
+            self._log,
+            self.RECOVERY_PROBE_INTERVAL_SECONDS,
+            check=self._charger_is_healthy,
+            on_recovered=self._handle_charger_recovered,
+        )
 
         # The MCE definitions above are class attributes, and their
         # current_value is mutated in place. A driver can be replaced at
@@ -467,6 +480,8 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             self._log("Client not initialised, aborting", level="WARNING")
             return
         self._log("activated")
+        # A manual switch back to Automatic is a recovery too.
+        await self._recovery_probe.cancel()
         self._am_i_active = True
         await self._set_charger_control("take")
         await self._get_car_soc(do_not_use_cache=True)
@@ -483,6 +498,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self.timer_id_check_modus_exception_state = None
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
         self.timer_id_check_error_state = None
+        await self._recovery_probe.cancel()
         await self._cancel_polling(reason="shutdown")
         self._am_i_active = False
         self._mb_client.terminate()
@@ -1230,6 +1246,13 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         When car is disconnected
         Only poll for charger status to see if car is connected again.
         """
+        if self._recovery_probe.is_armed:
+            # We gave up on this charger, so polling was cancelled -- but
+            # AppDaemon had already queued these callbacks. Each would block
+            # for the full Modbus timeout on a dead socket, filling the log
+            # and pushing the probe's own tick minutes behind. Skip them; the
+            # probe is what decides whether the charger is back.
+            return
         # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
         await self._get_and_process_registers([self._MCE_CHARGER_STATE])
@@ -1242,6 +1265,13 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         When car is connected
         Poll for soc, state, power, lock etc...
         """
+        if self._recovery_probe.is_armed:
+            # We gave up on this charger, so polling was cancelled -- but
+            # AppDaemon had already queued these callbacks. Each would block
+            # for the full Modbus timeout on a dead socket, filling the log
+            # and pushing the probe's own tick minutes behind. Skip them; the
+            # probe is what decides whether the charger is back.
+            return
         # These needs to be in different lists because the
         # modbus addresses in between them do not exist in the EVSE.
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
@@ -1601,7 +1631,18 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         """
         if self.modbus_exception_counter == 1:
             self._log("There was an modbus exception, now solved.")
-            await self.v2g_main_app.reset_charger_communication_fault()
+            if self._recovery_probe.is_armed:
+                # We have given up on this charger and the probe owns the way
+                # back. A poll that was already queued when polling was
+                # cancelled must not clear the error card by itself: that
+                # hides the problem while the charge mode is still Stop and
+                # nothing is polling.
+                self._log(
+                    "Un-recoverable error still standing; "
+                    "leaving recovery to the probe."
+                )
+            else:
+                await self.v2g_main_app.reset_charger_communication_fault()
         self.modbus_exception_counter = 0
         await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
         self.timer_id_check_modus_exception_state = None
@@ -1658,6 +1699,56 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await self._update_evse_entity(
             evse_entity=self._MCE_CAR_SOC, new_value="unavailable"
         )
+
+        # From here on nothing polls, so nothing would notice the charger
+        # coming back; the probe does.
+        await self._recovery_probe.arm()
+
+    # ── Recovery after an un-recoverable error ─────────────────────────
+
+    async def _charger_is_healthy(self) -> bool:
+        """Recovery-probe check, straight through the transport so it never
+        touches the exception state machine. Healthy means all of: reachable,
+        not in an error state, and no error bits. The last two matter for the
+        charger that stayed reachable but reported a fault -- there a live
+        connection proves nothing.
+        """
+        if not self._mb_client.connected:
+            await self._mb_client.connect()
+        mbrs = [self._MCE_CHARGER_STATE.modbus_register] + [
+            entity.modbus_register for entity in self.CHARGER_ERROR_ENTITIES
+        ]
+        state, *errors = await self._mb_client.read_registers(mbrs)
+        if state is None or state in self.ERROR_STATES:
+            return False
+        # None is an error response, not "no error".
+        return all(error == 0 for error in errors)
+
+    async def _handle_charger_recovered(self):
+        """The probe found the charger back: resume polling and let the main
+        app clear the problem and restore the charge mode."""
+        self._log("Charger reachable and without error again; resuming.")
+        self.modbus_exception_counter = 0
+        # A forced SoC read that the crash cut short would otherwise keep
+        # _set_poll_strategy() from doing anything, for good.
+        self.try_get_new_soc_in_process = False
+        await self._update_charger_communication_state(can_communicate=True)
+        # Re-broadcast the state, changed or not. The main app wrote "Error"
+        # into the UI and only a charger_state_change replaces it; a charger
+        # that comes back in the state it failed in would otherwise never emit
+        # one. Not by clearing the cache: None -> connected reads as a
+        # reconnect and rings the reconnect monitor.
+        await self._get_and_process_registers([self._MCE_CHARGER_STATE])
+        if self._MCE_CHARGER_STATE.current_value is not None:
+            await self._update_evse_entity(
+                self._MCE_CHARGER_STATE,
+                self._MCE_CHARGER_STATE.current_value,
+                force_emit=True,
+            )
+        # Polling resumes whatever the charge mode is; the main app's mode
+        # change (if it restores Automatic) brings set_active() after this.
+        await self._set_poll_strategy()
+        await self.v2g_main_app.handle_charger_recovered()
 
     def _get_2comp(self, number):
         """Util function to covert a modbus read value to in with two's complement values

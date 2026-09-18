@@ -55,12 +55,9 @@
 
           2. Restart the charger
 
-          3. Wait 5 minutes
 
-          4. Restart V2G Liberty add-on<br/>`V2G Liberty > Settings > ↺
-          Restart V2G Liberty` (bottom right)
-
-          5. Switch charge mode to automatic
+          V2G Liberty keeps checking every minute and picks up again by
+          itself once the charger works — no need to restart V2G Liberty.
 
           {% else %}
 
@@ -71,25 +68,24 @@
 
           **You can fix this:**
 
-          1. Restart the charger manually<br/>Via the Wallbox app or
+          1. Check that the charger has power and is on the network
+
+          2. Restart the charger manually<br/>Via the Wallbox app or
           my.wallbox.com<br/>`Settings > Advanced options > Restart`
 
           {% else %}
 
           **You can fix this:**
 
-          1. Restart the charger
+          1. Check that the charger has power and is on the network
+
+          2. Restart the charger
 
           {% endif %}
 
-          2. Wait 5 minutes
 
-          3. Restart V2G Liberty add-on<br/>`V2G Liberty > Settings > ↺
-          Restart V2G Liberty` (bottom right)
-
-          4. Wait 2 minutes
-
-          5. Switch charge mode to automatic
+          V2G Liberty keeps checking every minute and picks up again by
+          itself once the charger responds — no need to restart V2G Liberty.
 
           {% endif %}
 

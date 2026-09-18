@@ -934,3 +934,162 @@ def test_each_driver_instance_has_its_own_register_cache():
     assert second._MCE_ERROR_1.current_value is None
     # and the fresh instance must not disturb the running one
     assert first._MCE_CAR_SOC.current_value == 77
+
+
+# ---------------------------------------------------------------------------
+# Recovery after an un-recoverable error (Fase 2b)
+# ---------------------------------------------------------------------------
+# Escalation stops the polling, so a probe has to notice the charger coming
+# back: reachable again, not in an error state, and no error registers set.
+
+
+@pytest.mark.asyncio
+async def test_unrecoverable_error_arms_the_recovery_probe(driver):
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    await e._handle_un_recoverable_error(reason="test", source="test")
+
+    assert e._recovery_probe.is_armed
+    e.hass.run_every.assert_awaited_with(
+        e._recovery_probe._tick,
+        "now",
+        e.RECOVERY_PROBE_INTERVAL_SECONDS,
+    )
+
+
+@pytest.mark.asyncio
+async def test_healthy_means_reachable_without_error_state_or_error_registers(
+    driver,
+):
+    e, _ = driver
+    e.client.store[REG_STATE] = STATE_CHARGING
+    assert await e._charger_is_healthy() is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state, error", [(STATE_ERROR, 0), (STATE_PAUSED, 1234)])
+async def test_a_reported_fault_is_not_healthy_even_though_reachable(
+    driver, state, error
+):
+    e, _ = driver
+    e.client.store[REG_STATE] = state
+    e.client.store[REG_ERROR_1] = error
+    assert await e._charger_is_healthy() is False
+
+
+@pytest.mark.asyncio
+async def test_an_unreachable_charger_raises_out_of_the_health_check(driver):
+    """Raising is the probe's "not yet" signal; the check must not swallow it
+    and must not arm a grace timer or bump the exception counter."""
+    e, _ = driver
+    e.client.fault = "raise"
+
+    with pytest.raises(ModbusException):
+        await e._charger_is_healthy()
+
+    assert e.modbus_exception_counter == 0
+    e.hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_recovery_resumes_polling_and_hands_over_to_the_main_app(driver):
+    e, rec = driver
+    e.v2g_main_app = AsyncMock()
+    e._am_i_active = False
+    e.modbus_exception_counter = 1
+    # Back in the very state it failed in: a plain poll would emit nothing.
+    e.client.store[REG_STATE] = STATE_CHARGING
+    e._MCE_CHARGER_STATE.current_value = STATE_CHARGING
+    e.try_get_new_soc_in_process = True  # a forced read the crash cut short
+
+    await e._handle_charger_recovered()
+
+    assert e.modbus_exception_counter == 0
+    assert e.try_get_new_soc_in_process is False
+    # Re-broadcast with old == new: the UI leaves "Error" without the driver
+    # mistaking it for a reconnect (that would need old None/disconnected).
+    state_change = rec.find("charger_state_change")[-1]
+    assert (state_change["new_charger_state"], state_change["old_charger_state"]) == (
+        STATE_CHARGING,
+        STATE_CHARGING,
+    )
+    assert _comm_states(rec)[-1] is True
+    e._set_poll_strategy.assert_awaited_once()
+    e.v2g_main_app.handle_charger_recovered.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_manual_recovery_cancels_the_probe(driver):
+    """set_active() -- the user switching back to Automatic -- is a recovery too."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e.hass.timer_running = AsyncMock(return_value=True)
+    await e._handle_un_recoverable_error(reason="test", source="test")
+    assert e._recovery_probe.is_armed
+
+    e._set_charger_control = AsyncMock()
+    await e.set_active()
+
+    assert not e._recovery_probe.is_armed
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cancels_the_probe(driver):
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e.hass.timer_running = AsyncMock(return_value=True)
+    await e._handle_un_recoverable_error(reason="test", source="test")
+
+    await e.shutdown()
+
+    assert not e._recovery_probe.is_armed
+
+
+@pytest.mark.asyncio
+async def test_a_straggler_poll_does_not_clear_the_error_card(driver):
+    """Cancelling the polling does not cancel the callbacks AppDaemon has
+    already queued. One of those succeeding (the charger came back) used to
+    clear the charger problem through the exception state machine -- leaving
+    no error card while the charge mode was still Stop and nothing polled.
+    Recovery belongs to the probe.
+    """
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    await e._handle_un_recoverable_error(reason="no Modbus response", source="test")
+    e.v2g_main_app.reset_charger_communication_fault.reset_mock()
+    e.modbus_exception_counter = 1
+
+    await e._reset_modbus_exception()
+
+    assert e.modbus_exception_counter == 0
+    e.v2g_main_app.reset_charger_communication_fault.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_transient_exception_still_clears_the_error_card(driver):
+    """Without a standing un-recoverable error nothing changes: a short
+    hiccup that recovers on its own clears as before."""
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    e.modbus_exception_counter = 1
+
+    await e._reset_modbus_exception()
+
+    e.v2g_main_app.reset_charger_communication_fault.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("poll", ["_base_polling", "_minimal_polling"])
+async def test_queued_polls_are_skipped_while_the_probe_owns_recovery(driver, poll):
+    """Cancelling the poll timer leaves AppDaemon's queued callbacks in place.
+    On a dead socket each blocks for the full Modbus timeout, which filled the
+    log and pushed the probe's first tick well past its interval.
+    """
+    e, _ = driver
+    e.v2g_main_app = AsyncMock()
+    await e._handle_un_recoverable_error(reason="no Modbus response", source="test")
+    e._get_and_process_registers = AsyncMock()
+
+    await getattr(e, poll)({})
+
+    e._get_and_process_registers.assert_not_awaited()
