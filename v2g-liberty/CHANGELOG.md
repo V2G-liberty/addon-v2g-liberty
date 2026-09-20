@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: The app fails to start when Home Assistant does not know a new entity yet
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
 - 🪲 BUG: Fix db schema validation (#470)
 - 🪲 BUG: Paused app lets the charger charge the car to full on reconnect (#480, #481)
