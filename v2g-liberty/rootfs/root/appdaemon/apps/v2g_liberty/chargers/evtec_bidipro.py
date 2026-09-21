@@ -91,6 +91,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     """
 
     CHARGER_TYPE = "evtec-bidi-pro-10"
+    # The BiDiPro reports the ISO 15118 EvccId of the connected car (X+76).
+    IDENTIFIES_CAR = True
 
     event_bus: EventBus = None
 
@@ -518,6 +520,36 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         )
         self._log(f"is_connected: {is_connected}", level="DEBUG")
         return is_connected
+
+    async def read_connected_car_id(self) -> tuple[str, str]:
+        """The explicit step behind the dialog's "Read car ID": check the plug
+        first (this may read the charger state through the normal path when
+        the cache is empty) and then read the id register. Works while the
+        app is inactive too (charge mode Stop): that is exactly when a user
+        wants to read the id of an unknown car."""
+        if not await self.is_car_connected():
+            return "", "no_car"
+        return await self._read_car_id_register()
+
+    async def _read_car_id_register(self) -> tuple[str, str]:
+        """Read X+76 straight through the transport, like the recovery probe's
+        health check, so the read never touches the exception state machine:
+        a user pressing "Read ID" must not push a struggling charger over the
+        escalation threshold, and a lucky read must not reset a genuine
+        exception count. X+76 also lies outside the polled span. Never raises.
+        """
+        if not self._mb_client.is_initialised:
+            return "", "read_failed"
+        try:
+            if not self._mb_client.connected:
+                await self._mb_client.connect()
+            value = (await self._mb_client.read_registers([self._MBR_CAR_ID]))[0]
+        except Exception as e:
+            self._log(f"Could not read the car id: {e}", level="WARNING")
+            return "", "read_failed"
+        # decode returns None on an error response or undecodable bytes.
+        ev_id = value.strip() if isinstance(value, str) else ""
+        return (ev_id, "ok") if ev_id else ("", "no_id")
 
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""

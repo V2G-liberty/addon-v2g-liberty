@@ -638,3 +638,85 @@ async def test_switching_to_an_identifying_charger_unfinishes_a_car_without_id(
     )
 
     assert _flag_writes(hass_mock) == ["off"]
+
+
+# ── get_connected_car_id ──────────────────────────────────────────────
+
+
+def _get_id(instance):
+    return instance._V2GLibertyGlobals__get_connected_car_id("event", {}, {})
+
+
+def _identifying_evse(result=("DEVCAR-EVCCID-01", "ok")) -> MagicMock:
+    evse = _evse(True)
+    evse.read_connected_car_id = AsyncMock(return_value=result)
+    return evse
+
+
+@pytest.mark.asyncio
+async def test_get_id_on_a_charger_that_does_not_identify_cars(
+    get_save_instance, hass_mock
+):
+    """Unsupported without asking the driver: a Quasar has nothing to read."""
+    get_save_instance.evse_client_app = _evse(False)
+
+    await _get_id(get_save_instance)
+
+    assert _result(hass_mock, "get_connected_car_id.result") == {
+        "ev_id": "",
+        "reason": "unsupported",
+        "stored_ev_id": "",
+        "identifies_car": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_id_without_a_driver(get_save_instance, hass_mock):
+    get_save_instance.evse_client_app = None
+
+    await _get_id(get_save_instance)
+
+    assert _result(hass_mock, "get_connected_car_id.result")["reason"] == "unsupported"
+
+
+@pytest.mark.parametrize(
+    "driver_result",
+    [
+        ("DEVCAR-EVCCID-01", "ok"),
+        ("", "no_car"),
+        ("", "no_id"),
+        ("", "read_failed"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_get_id_passes_the_driver_answer_on(
+    get_save_instance, settings_manager_mock, hass_mock, driver_result
+):
+    settings_manager_mock.objects["cars"] = [dict(_CAR, ev_id="STORED-ID")]
+    get_save_instance.evse_client_app = _identifying_evse(driver_result)
+
+    await _get_id(get_save_instance)
+
+    ev_id, reason = driver_result
+    assert _result(hass_mock, "get_connected_car_id.result") == {
+        "ev_id": ev_id,
+        "reason": reason,
+        "stored_ev_id": "STORED-ID",
+        "identifies_car": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_id_always_answers_even_when_the_driver_raises(
+    get_save_instance, hass_mock
+):
+    """The dialog's call would otherwise wait for its timeout."""
+    get_save_instance.evse_client_app = _identifying_evse()
+    get_save_instance.evse_client_app.read_connected_car_id.side_effect = RuntimeError(
+        "boom"
+    )
+
+    await _get_id(get_save_instance)
+
+    result = _result(hass_mock, "get_connected_car_id.result")
+    assert (result["ev_id"], result["reason"]) == ("", "read_failed")

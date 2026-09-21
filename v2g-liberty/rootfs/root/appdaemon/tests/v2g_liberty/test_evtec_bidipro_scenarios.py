@@ -19,6 +19,7 @@ import apps.v2g_liberty.constants as c
 import pytest
 from apps.dev_tools.charger_scenarios_evtec import (
     CP_MODEL,
+    OFF_CAR_ID,
     OFF_CONNECTOR_STATE,
     OFF_ERROR,
     OFF_INPUT_POWER,
@@ -882,3 +883,85 @@ async def test_queued_polls_are_skipped_while_the_probe_owns_recovery(driver, po
     await getattr(e, poll)({})
 
     e._get_and_process_registers.assert_not_awaited()
+
+
+# --- car identification ----------------------------------------------------
+def car_id_words(ev_id: str) -> dict[int, int]:
+    return words_at(BASE + OFF_CAR_ID, enc_string(ev_id, 10))
+
+
+def test_the_bidipro_identifies_cars():
+    assert EVtecBiDiProClient.IDENTIFIES_CAR is True
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_returns_the_id_of_the_connected_car(driver):
+    e, _ = driver
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words("DEVCAR-EVCCID-01"))
+
+    assert await e.read_connected_car_id() == ("DEVCAR-EVCCID-01", "ok")
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_without_a_car(driver):
+    """No car: the register is not even read."""
+    e, _ = driver
+    e.client.store.update(connector_words(state=1))
+    e.client.store.update(car_id_words("STALE-ID"))
+
+    assert await e.read_connected_car_id() == ("", "no_car")
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_connected_but_no_id_yet(driver):
+    """Plugged in, but the ISO 15118 session has not delivered an id (yet)."""
+    e, _ = driver
+    e.client.store.update(connector_words(state=10))
+
+    assert await e.read_connected_car_id() == ("", "no_id")
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_works_while_inactive(driver):
+    """Charge mode Stop is exactly when the user wants to read the id."""
+    e, _ = driver
+    e._am_i_active = False
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words("DEVCAR-EVCCID-01"))
+
+    assert await e.read_connected_car_id() == ("DEVCAR-EVCCID-01", "ok")
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_failure_stays_outside_the_exception_machinery(driver):
+    """A failing id read reports read_failed and does not count as a modbus
+    exception: a user pressing "Read ID" must not push a struggling charger
+    over the escalation threshold."""
+    e, rec = driver
+    e._MCE_CHARGER_STATE.current_value = 10
+    e.client.fault = "raise"
+
+    assert await e._read_car_id_register() == ("", "read_failed")
+    assert e.modbus_exception_counter == 0
+    assert not rec.find("charger_communication_state_change")
+    e.hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_error_response_is_no_id(driver):
+    e, _ = driver
+    e._MCE_CHARGER_STATE.current_value = 10
+    e.client.store.update(car_id_words("DEVCAR-EVCCID-01"))
+    e.client.fault = "error"
+
+    assert await e._read_car_id_register() == ("", "no_id")
+
+
+@pytest.mark.asyncio
+async def test_read_car_id_without_a_transport(driver):
+    e, _ = driver
+    e._mb_client._mbc = None
+
+    assert await e._read_car_id_register() == ("", "read_failed")
+    assert await e.read_connected_car_id() == ("", "no_car")

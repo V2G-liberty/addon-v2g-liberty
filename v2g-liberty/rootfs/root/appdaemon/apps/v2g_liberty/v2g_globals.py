@@ -390,6 +390,7 @@ class V2GLibertyGlobals:
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
         self.hass.listen_event(self.__save_car_settings, "save_car_settings")
         self.hass.listen_event(self.__get_car_settings, "get_car_settings")
+        self.hass.listen_event(self.__get_connected_car_id, "get_connected_car_id")
         self.hass.listen_event(
             self.__save_electricity_contract_settings,
             "save_electricity_contract_settings",
@@ -653,6 +654,28 @@ class V2GLibertyGlobals:
             # Restoring the charge mode already re-activates the driver through
             # the charge-mode listener; a kick-off on top would race it.
             await self.v2g_main_app.kick_off_v2g_liberty()
+
+    async def __get_connected_car_id(self, event, data, kwargs):
+        """Read the id of the connected car on request from the car dialog.
+        Always fires its result: the dialog's call would otherwise wait for
+        its timeout."""
+        evse = self.evse_client_app
+        identifies_car = self.__charger_identifies_car()
+        ev_id, reason = "", "unsupported"
+        if identifies_car:
+            try:
+                ev_id, reason = await evse.read_connected_car_id()
+            except Exception as e:
+                # The driver catches its own errors; this is the safety net.
+                self.__log(f"reading the car id failed: {e}", level="WARNING")
+                ev_id, reason = "", "read_failed"
+        self.hass.fire_event(
+            "get_connected_car_id.result",
+            ev_id=ev_id,
+            reason=reason,
+            stored_ev_id=str(self.__stored_car().get("ev_id") or ""),
+            identifies_car=identifies_car,
+        )
 
     def __refuse_car_settings(self, error: str):
         self.__log(f"refused car settings: {error}", level="WARNING")

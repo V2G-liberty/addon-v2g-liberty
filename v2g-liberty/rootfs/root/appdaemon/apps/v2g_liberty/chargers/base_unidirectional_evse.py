@@ -23,5 +23,18 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     pyee emitter).
     """
 
+    # Whether this charger can tell cars apart (ISO 15118 EvccId). Not
+    # abstract: a driver that cannot simply inherits "no", and callers can
+    # read it without hasattr.
+    IDENTIFIES_CAR: bool = False
+
     def __init__(self):
         super().__init__()
+
+    async def read_connected_car_id(self) -> tuple[str, str]:
+        """Read the id of the connected car, on request from the car dialog.
+
+        Returns ``(ev_id, reason)`` with reason one of ``ok``, ``no_car``,
+        ``no_id``, ``read_failed`` or ``unsupported``. Never raises.
+        """
+        return "", "unsupported"
