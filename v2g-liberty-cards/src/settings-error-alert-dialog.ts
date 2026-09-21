@@ -3,7 +3,10 @@ import { customElement, state } from 'lit/decorators';
 import { navigate } from 'custom-card-helpers';
 import { renderDialogHeader, renderButton, isNewHaDialogAPI } from './util/render';
 import { partial } from './util/translate';
-import { renderUninitializedEntitiesList } from './util/settings-error-alert';
+import {
+  hasUninitializedEntities,
+  renderUninitializedEntitiesList,
+} from './util/settings-error-alert';
 import { DialogBase } from './dialog-base';
 
 export const tagName = 'settings-error-alert-dialog';
@@ -17,6 +20,16 @@ export class SettingsErrorAlertDialog extends DialogBase {
   public async showDialog(): Promise<void> {
     super.showDialog();
     await this.updateComplete;
+  }
+
+  protected updated() {
+    // The dialog keeps receiving state updates while it is open, and it renders
+    // its list from the state of this moment. A problem that resolves in the
+    // meantime would leave the dialog standing with an empty list -- telling the
+    // user to fix something that is no longer wrong. Close instead.
+    if (this.isOpen && this.hass && !hasUninitializedEntities(this.hass)) {
+      this.closeDialog();
+    }
   }
 
   protected render() {
