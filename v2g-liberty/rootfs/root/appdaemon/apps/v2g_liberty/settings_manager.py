@@ -9,6 +9,30 @@ class SettingsManager:
     _FM_USER_ID_KEY = "fm_user_id"
     _FM_POWER_SOURCE_ID_KEY = "fm_power_source_id"
 
+    # The car(s) live in one list of objects, one element per car. In this
+    # release the list holds exactly one car; the list form is there so more
+    # cars can follow without another migration.
+    _CARS_KEY = "cars"
+    _LEGACY_CAR_KEYS = {
+        "input_number.car_max_capacity_in_kwh": "capacity_kwh",
+        "input_number.charger_plus_car_roundtrip_efficiency": "roundtrip_efficiency",
+        "input_number.car_consumption_wh_per_km": "consumption_wh_per_km",
+        "input_number.car_min_soc_in_percent": "min_soc_percent",
+        "input_number.car_max_soc_in_percent": "max_soc_percent",
+        "input_number.allowed_duration_above_max_soc_in_hrs": "allowed_duration_above_max_soc_hrs",
+    }
+    # Factory defaults, only used to tell "the user chose this" from "the app
+    # wrote the default on the very first boot". Kept in sync with the setting
+    # dicts in v2g_globals by a test.
+    _CAR_FACTORY_DEFAULTS = {
+        "capacity_kwh": 24,
+        "roundtrip_efficiency": 85,
+        "consumption_wh_per_km": 175,
+        "min_soc_percent": 20,
+        "max_soc_percent": 80,
+        "allowed_duration_above_max_soc_hrs": 4,
+    }
+
     def __init__(self, log):
         self.__log = log
 
@@ -43,6 +67,7 @@ class SettingsManager:
         settings = self.__upgrade_charger_settings_initialised(settings)
         settings = self.__upgrade_electricity_contract_settings_initialised(settings)
         settings = self.__upgrade_schedule_settings_initialised(settings)
+        settings = self.__upgrade_car_settings(settings)
         return settings
 
     def __upgrade_obsolete_settings(self, settings: dict):
@@ -180,6 +205,46 @@ class SettingsManager:
             and "input_text.fm_asset" in settings
         ):
             settings["input_boolean.schedule_settings_initialised"] = True
+        return settings
+
+    def __upgrade_car_settings(self, settings: dict):
+        """The car values used to live in six separate entity-keyed settings.
+        They now live in one object in the ``cars`` list, so the values of a car
+        can later be stored per car. No name is invented: the user picks one at
+        the first edit.
+
+        ``configured`` is only set when this installation really had a
+        configured car. The six factory defaults are written to the settings
+        file on the very first boot, so their mere presence proves nothing:
+        the installation must have been in use (a configured charger) or the
+        user must have changed at least one value.
+        """
+        if self._CARS_KEY in settings:
+            return settings
+        car = {
+            new: settings[old]
+            for old, new in self._LEGACY_CAR_KEYS.items()
+            if old in settings
+        }
+        if not car:
+            return settings
+        car.setdefault("name", "")
+        car.setdefault("ev_id", "")
+        was_in_use = bool(settings.get("input_boolean.charger_settings_initialised"))
+        user_changed_a_value = any(
+            car.get(key) not in (None, default)
+            for key, default in self._CAR_FACTORY_DEFAULTS.items()
+        )
+        car["configured"] = was_in_use or user_changed_a_value
+        settings[self._CARS_KEY] = [car]
+        # TODO: Review if the legacy flat keys can be removed once all users have
+        # upgraded past version 0.9.x. Keeping them one release makes a roll-back
+        # to the previous add-on version land on the real values instead of on
+        # the factory defaults. The new version no longer reads them.
+        self.__log(
+            f"Migrated {len(car) - 3} car settings into the 'cars' list "
+            f"(configured={car['configured']})."
+        )
         return settings
 
     def store_setting(self, entity_id: str, value: any):

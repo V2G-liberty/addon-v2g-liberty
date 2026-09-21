@@ -224,6 +224,12 @@ CHARGER_MAX_DISCHARGE_POWER: int = 1380
 # FSC: Used in fm_client, v2g_liberty, keep here.
 CAR_MAX_CAPACITY_IN_KWH: int = 24
 
+# Display name of the (single) configured car; "" until the user names it.
+CAR_NAME: str = ""
+# ISO 15118 EvccId of the configured car; "" = not known. Only a charger that
+# identifies cars (EVtec) uses it, to tell a known car from an unknown one.
+CAR_EV_ID: str = ""
+
 # GRID CONNECTION CONSTANTS
 # These are set from grid connection settings (JSON, no HA entities).
 # Empty lists mean grid monitoring is not configured.
