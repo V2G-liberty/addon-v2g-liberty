@@ -1853,6 +1853,20 @@ class V2GLibertyGlobals:
     #                           CORE METHODS                             #
     ######################################################################
 
+    # Entities Home Assistant did not know about, logged once each so a boot
+    # without a restart does not fill the log with the same warning per setting.
+    _missing_entities: set = set()
+
+    def _log_missing_entity(self, entity_id: str):
+        if entity_id in self._missing_entities:
+            return
+        self._missing_entities.add(entity_id)
+        self.__log(
+            f"'{entity_id}' is unknown to Home Assistant; using the stored value. "
+            f"Restart Home Assistant to pick up new entities.",
+            level="WARNING",
+        )
+
     async def __process_setting(self, setting_object: dict):
         """
         This method checks if the setting-entity is empty, if so:
@@ -1864,6 +1878,19 @@ class V2GLibertyGlobals:
         entity_type = setting_object["entity_type"]
         entity_id = f"{entity_type}.{entity_name}"
         setting_entity = await self.hass.get_state(entity_id, attribute="all")
+        if setting_entity is None:
+            # Home Assistant does not know this entity (yet). The add-on copies
+            # the package on every start but does not restart HA, so a release
+            # that adds a helper runs one boot without it. Everything below
+            # works from the stored settings; only what is read FROM the entity
+            # has to be guarded. Crashing here would abort kick_off_settings and
+            # with it the whole app -- no charger, no schedules.
+            self._log_missing_entity(entity_id)
+            # An empty entity rather than {}: the code below reads .state and
+            # .attributes, and "no value in the UI" is exactly what an unknown
+            # entity means. That keeps the documented "" as the empty answer
+            # instead of leaking a None into the constants.
+            setting_entity = {"state": "", "attributes": {}}
 
         # Get the setting from store
         stored_setting_value = self.v2g_settings.get(entity_id)
@@ -1919,13 +1946,14 @@ class V2GLibertyGlobals:
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
         message = f"set c.{entity_name.upper()} to"
-        mode = setting_entity["attributes"].get("mode", "none").lower()
+        attributes = setting_entity.get("attributes", {})
+        mode = attributes.get("mode", "none").lower()
         if mode == "password":
             message = f"{message} ********"
         else:
             message = f"{message} '{return_value}'"
 
-        uom = setting_entity["attributes"].get("unit_of_measurement")
+        uom = attributes.get("unit_of_measurement")
         if uom:
             message = f"{message} {uom}."
         else:
