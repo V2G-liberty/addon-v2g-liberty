@@ -349,3 +349,292 @@ async def test_general_settings_no_longer_touch_the_car(globals_instance):
     await globals_instance._V2GLibertyGlobals__initialise_general_settings()
 
     assert processed == ["optimisation_mode"]
+
+
+# ── get_car_settings ──────────────────────────────────────────────────
+
+
+def _get(instance):
+    return instance._V2GLibertyGlobals__get_car_settings("event", {}, {})
+
+
+def _result(hass_mock, event: str) -> dict:
+    calls = [kw for args, kw in hass_mock.fire_event.call_args_list if args[0] == event]
+    assert len(calls) == 1, hass_mock.fire_event.call_args_list
+    return calls[0]
+
+
+@pytest.fixture
+def get_save_instance(globals_instance, hass_mock, settings_manager_mock):
+    """The read/save path: the follow-up work of a save is mocked so the tests
+    observe orchestration only."""
+    hass_mock.fire_event = Mock()
+    settings_manager_mock.store_object = Mock(
+        side_effect=lambda key, value: settings_manager_mock.objects.__setitem__(
+            key, value
+        )
+    )
+    settings_manager_mock.store_setting = Mock()
+    globals_instance.v2g_main_app = MagicMock()
+    globals_instance.v2g_main_app.handle_car_settings_saved = AsyncMock(
+        return_value=False
+    )
+    globals_instance.v2g_main_app.kick_off_v2g_liberty = AsyncMock()
+    globals_instance._V2GLibertyGlobals__initialise_car_settings = AsyncMock()
+    return globals_instance
+
+
+@pytest.mark.asyncio
+async def test_get_answers_with_the_stored_car(
+    get_save_instance, settings_manager_mock, hass_mock
+):
+    settings_manager_mock.objects["cars"] = [dict(_CAR)]
+    get_save_instance.evse_client_app = _evse(True)
+
+    await _get(get_save_instance)
+
+    assert _result(hass_mock, "get_car_settings.result") == {
+        **_CAR,
+        "identifies_car": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_always_answers_with_defaults_when_there_is_no_car(
+    get_save_instance, hass_mock
+):
+    """The dialog would otherwise hang in its timeout; and it needs no
+    defaults of its own."""
+    await _get(get_save_instance)
+
+    assert _result(hass_mock, "get_car_settings.result") == {
+        "name": "",
+        "ev_id": "",
+        "configured": False,
+        "identifies_car": False,
+        "capacity_kwh": 24,
+        "roundtrip_efficiency": 85,
+        "consumption_wh_per_km": 175,
+        "min_soc_percent": 20,
+        "max_soc_percent": 80,
+        "allowed_duration_above_max_soc_hrs": 4,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_fills_in_a_missing_field(
+    get_save_instance, settings_manager_mock, hass_mock
+):
+    car = dict(_CAR)
+    del car["max_soc_percent"]
+    settings_manager_mock.objects["cars"] = [car]
+
+    await _get(get_save_instance)
+
+    assert _result(hass_mock, "get_car_settings.result")["max_soc_percent"] == 80
+
+
+# ── save_car_settings ─────────────────────────────────────────────────
+
+_PAYLOAD = {
+    "name": "Ioniq 5",
+    "capacity_kwh": 74,
+    "efficiency": 90,
+    "consumption_wh_km": 160,
+    "min_soc": 25,
+    "max_soc": 85,
+    "allowed_duration_above_max": 6,
+}
+
+
+def _save(instance, **overrides):
+    data = {**_PAYLOAD, **overrides}
+    for key, value in list(data.items()):
+        if value is ...:
+            del data[key]
+    return instance._V2GLibertyGlobals__save_car_settings("event", data, {})
+
+
+@pytest.mark.asyncio
+async def test_save_stores_the_whole_car_and_runs_the_follow_up_in_order(
+    get_save_instance, settings_manager_mock, hass_mock
+):
+    order = []
+    settings_manager_mock.store_object.side_effect = lambda *a: order.append("store")
+    hass_mock.fire_event.side_effect = lambda *a, **kw: order.append("result")
+    get_save_instance._V2GLibertyGlobals__initialise_car_settings.side_effect = lambda: (
+        order.append("init")
+    )
+    main_app = get_save_instance.v2g_main_app
+    main_app.handle_car_settings_saved.side_effect = lambda: order.append("handle")
+    main_app.kick_off_v2g_liberty.side_effect = lambda: order.append("kickoff")
+
+    await _save(get_save_instance, ev_id="DEVCAR-EVCCID-01")
+
+    settings_manager_mock.store_object.assert_called_once_with("cars", [_CAR])
+    hass_mock.fire_event.assert_called_once_with("save_car_settings.result")
+    assert order == ["store", "result", "init", "handle", "kickoff"]
+
+
+@pytest.mark.asyncio
+async def test_save_skips_the_kick_off_when_the_charge_mode_was_restored(
+    get_save_instance,
+):
+    """Restoring the mode already re-activates the driver; a kick-off on top
+    would race it."""
+    main_app = get_save_instance.v2g_main_app
+    main_app.handle_car_settings_saved.return_value = True
+
+    await _save(get_save_instance)
+
+    main_app.handle_car_settings_saved.assert_awaited_once()
+    main_app.kick_off_v2g_liberty.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_save_without_an_id_keeps_the_stored_one(
+    get_save_instance, settings_manager_mock
+):
+    settings_manager_mock.objects["cars"] = [dict(_CAR)]
+
+    await _save(get_save_instance, name="Renamed")
+
+    car = settings_manager_mock.objects["cars"][0]
+    assert car["ev_id"] == "DEVCAR-EVCCID-01"
+    assert car["name"] == "Renamed"
+
+
+@pytest.mark.asyncio
+async def test_save_with_an_id_replaces_the_stored_one(
+    get_save_instance, settings_manager_mock
+):
+    settings_manager_mock.objects["cars"] = [dict(_CAR)]
+
+    await _save(get_save_instance, ev_id=" NEW-ID ")
+
+    assert settings_manager_mock.objects["cars"][0]["ev_id"] == "NEW-ID"
+
+
+@pytest.mark.asyncio
+async def test_save_accepts_numbers_as_strings_and_trims_the_name(
+    get_save_instance, settings_manager_mock
+):
+    await _save(
+        get_save_instance, name="  " + "x" * 50, capacity_kwh="74", min_soc="25.0"
+    )
+
+    car = settings_manager_mock.objects["cars"][0]
+    assert car["name"] == "x" * 40
+    assert car["capacity_kwh"] == 74
+    assert car["min_soc_percent"] == 25
+
+
+@pytest.mark.asyncio
+async def test_save_without_an_id_on_an_identifying_charger_is_refused(
+    get_save_instance, settings_manager_mock, hass_mock
+):
+    get_save_instance.evse_client_app = _evse(True)
+
+    await _save(get_save_instance)
+
+    assert "ID" in _result(hass_mock, "save_car_settings.result")["error"]
+    settings_manager_mock.store_object.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_without_an_id_on_a_quasar_is_fine(
+    get_save_instance, settings_manager_mock
+):
+    await _save(get_save_instance)
+
+    assert settings_manager_mock.objects["cars"][0]["ev_id"] == ""
+
+
+@pytest.mark.parametrize(
+    "overrides, fragment",
+    [
+        ({"name": ""}, "name"),
+        ({"name": "   "}, "name"),
+        ({"name": ...}, "name"),
+        ({"capacity_kwh": 9}, "Usable capacity must be between 10 and 200"),
+        ({"capacity_kwh": 201}, "Usable capacity must be between 10 and 200"),
+        ({"capacity_kwh": "abc"}, "whole number between 10 and 200"),
+        ({"capacity_kwh": ...}, "whole number between 10 and 200"),
+        ({"efficiency": 49}, "Roundtrip efficiency must be between 50 and 100"),
+        ({"efficiency": 101}, "Roundtrip efficiency must be between 50 and 100"),
+        ({"consumption_wh_km": 99}, "Energy consumption must be between 100 and 400"),
+        ({"consumption_wh_km": 401}, "Energy consumption must be between 100 and 400"),
+        ({"min_soc": 9}, "Schedule lower limit must be between 10 and 55"),
+        ({"min_soc": 56}, "Schedule lower limit must be between 10 and 55"),
+        ({"max_soc": 59}, "Schedule upper limit must be between 60 and 95"),
+        ({"max_soc": 96}, "Schedule upper limit must be between 60 and 95"),
+        ({"allowed_duration_above_max": 0}, "must be between 1 and 12"),
+        ({"allowed_duration_above_max": 13}, "must be between 1 and 12"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_save_refuses_and_stores_nothing(
+    get_save_instance, settings_manager_mock, hass_mock, overrides, fragment
+):
+    await _save(get_save_instance, **overrides)
+
+    error = _result(hass_mock, "save_car_settings.result")["error"]
+    assert fragment in error
+    settings_manager_mock.store_object.assert_not_called()
+    settings_manager_mock.store_setting.assert_not_called()
+    get_save_instance._V2GLibertyGlobals__initialise_car_settings.assert_not_awaited()
+    get_save_instance.v2g_main_app.kick_off_v2g_liberty.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_boundary_values_are_accepted(get_save_instance, settings_manager_mock):
+    await _save(
+        get_save_instance,
+        capacity_kwh=10,
+        efficiency=100,
+        consumption_wh_km=400,
+        min_soc=55,
+        max_soc=60,
+        allowed_duration_above_max=12,
+    )
+
+    assert settings_manager_mock.objects["cars"][0]["capacity_kwh"] == 10
+
+
+# ── The flag after a charger save ─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_switching_to_an_identifying_charger_unfinishes_a_car_without_id(
+    globals_instance, settings_manager_mock, hass_mock
+):
+    """A migrated Quasar user (configured, no id) who moves to an EVtec gets
+    the car back in the blocking dialog, asking for the id."""
+    settings_manager_mock.objects["cars"] = [dict(_CAR, ev_id="")]
+    settings_manager_mock.store_setting = Mock()
+    settings_manager_mock.store_object = Mock()
+    hass_mock.fire_event = Mock()
+    globals_instance.v2g_main_app = MagicMock()
+    globals_instance.v2g_main_app.kick_off_v2g_liberty = AsyncMock()
+    globals_instance._V2GLibertyGlobals__initialise_charger_settings = AsyncMock()
+    globals_instance._V2GLibertyGlobals__try_historical_import = AsyncMock()
+    globals_instance.evse_client_app = _evse(False)
+    globals_instance.evse_client_app.CHARGER_TYPE = "wallbox-quasar-1"
+
+    async def switch(charger_type):
+        globals_instance.evse_client_app = _evse(True)
+
+    globals_instance._V2GLibertyGlobals__switch_evse_client = switch
+
+    await globals_instance._V2GLibertyGlobals__save_charger_settings(
+        "event",
+        {
+            "charger_type": "evtec-bidi-pro-10",
+            "host": "192.168.1.100",
+            "port": 5020,
+            "useReducedMaxChargePower": False,
+        },
+        {},
+    )
+
+    assert _flag_writes(hass_mock) == ["off"]

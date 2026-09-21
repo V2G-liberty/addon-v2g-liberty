@@ -1045,6 +1045,18 @@ class V2Gliberty:
         }
         self.notifier.clear_notification(identification)
 
+    async def handle_car_settings_saved(self) -> bool:
+        """Called by v2g_globals after a successful car save, once c.CAR_EV_ID
+        has been refreshed. Returns whether the charge mode was restored, so
+        the caller can skip its kick-off. A direct call rather than an event:
+        an event would wake the pause-at-reconnect monitor while the mode is
+        still Stop and produce a spurious prompt.
+
+        Nothing to restore yet: the unknown-car handling that can force a Stop
+        arrives with the car identification of the EVtec driver.
+        """
+        return False
+
     async def handle_charger_recovered(self):
         """The driver's recovery probe found the charger back: clear the
         problem and, if this app forced the charge mode to Stop, put it back on

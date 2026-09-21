@@ -264,6 +264,20 @@ class V2GLibertyGlobals:
     # Assistant restart is needed to get it, and it can never trip
     # __process_setting over an entity HA does not know yet.
     CAR_SETTINGS_INITIALISED_ENTITY = "sensor.car_settings_initialised"
+    # The numbers of a save_car_settings payload: payload key, object key, label.
+    CAR_FIELDS = (
+        ("capacity_kwh", "capacity_kwh", "Usable capacity"),
+        ("efficiency", "roundtrip_efficiency", "Roundtrip efficiency"),
+        ("consumption_wh_km", "consumption_wh_per_km", "Energy consumption"),
+        ("min_soc", "min_soc_percent", "Schedule lower limit"),
+        ("max_soc", "max_soc_percent", "Schedule upper limit"),
+        (
+            "allowed_duration_above_max",
+            "allowed_duration_above_max_soc_hrs",
+            "Allowed duration above the upper limit",
+        ),
+    )
+    CAR_NAME_MAX_LENGTH = 40
 
     # Settings related to notifications
     ADMIN_SETTINGS_INITIALISED = {
@@ -374,6 +388,8 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
+        self.hass.listen_event(self.__save_car_settings, "save_car_settings")
+        self.hass.listen_event(self.__get_car_settings, "get_car_settings")
         self.hass.listen_event(
             self.__save_electricity_contract_settings,
             "save_electricity_contract_settings",
@@ -549,6 +565,9 @@ class V2GLibertyGlobals:
 
         if charger_type != self.evse_client_app.CHARGER_TYPE:
             await self.__switch_evse_client(charger_type)
+        # The car flag depends on the charger: a car without an id is finished
+        # on a Quasar but not on a charger that identifies cars.
+        await self.__refresh_car_settings_initialised()
         await self.__initialise_charger_settings()
         await self.__try_historical_import()
         await self.v2g_main_app.kick_off_v2g_liberty()
@@ -573,6 +592,88 @@ class V2GLibertyGlobals:
         self.v2g_main_app.evse_client_app = new_evse
         if self.data_monitor is not None:
             self.data_monitor.evse_client_app = new_evse
+
+    async def __get_car_settings(self, event, data, kwargs):
+        """Answer the car card and dialog with everything they show: the stored
+        car, or the factory defaults when there is none. Always fires its
+        result, so the card's call never waits for its timeout."""
+        car = self.__stored_car()
+        payload = {
+            "name": str(car.get("name") or ""),
+            "ev_id": str(car.get("ev_id") or ""),
+            "configured": bool(car.get("configured")),
+            "identifies_car": self.__charger_identifies_car(),
+        }
+        for key, setting in self.CAR_VALUE_SETTINGS.items():
+            value = car.get(key)
+            payload[key] = setting["factory_default"] if value in (None, "") else value
+        self.hass.fire_event("get_car_settings.result", **payload)
+
+    async def __save_car_settings(self, event, data, kwargs):
+        """Store the car in one go, from the last page of the car dialog.
+
+        Everything is validated first; a refusal stores nothing and answers
+        with an error, so an abandoned or faulty dialog never leaves half a
+        car behind. On success the bare result goes out before the follow-up
+        work, so the dialog closes at once.
+        """
+        stored = self.__stored_car()
+
+        name = str(data.get("name") or "").strip()[: self.CAR_NAME_MAX_LENGTH]
+        if not name:
+            self.__refuse_car_settings("Please give the car a name.")
+            return
+
+        values = {}
+        for payload_key, object_key, label in self.CAR_FIELDS:
+            setting = self.CAR_VALUE_SETTINGS[object_key]
+            value, error = self.__validate_car_number(
+                setting, data.get(payload_key), label
+            )
+            if error:
+                self.__refuse_car_settings(error)
+                return
+            values[object_key] = value
+
+        # An empty id keeps the stored one: the dialog only sends an id when
+        # the user read (and accepted) a new one.
+        ev_id = str(data.get("ev_id") or "").strip() or str(stored.get("ev_id") or "")
+        if not ev_id and self.__charger_identifies_car():
+            self.__refuse_car_settings(
+                "Connect the car to the charger so its ID can be read, then try again."
+            )
+            return
+
+        self.__store_car({"name": name, "ev_id": ev_id, "configured": True, **values})
+        self.hass.fire_event("save_car_settings.result")
+
+        await self.__initialise_car_settings()
+        resumed = await self.v2g_main_app.handle_car_settings_saved()
+        if not resumed:
+            # Restoring the charge mode already re-activates the driver through
+            # the charge-mode listener; a kick-off on top would race it.
+            await self.v2g_main_app.kick_off_v2g_liberty()
+
+    def __refuse_car_settings(self, error: str):
+        self.__log(f"refused car settings: {error}", level="WARNING")
+        self.hass.fire_event("save_car_settings.result", error=error)
+
+    @staticmethod
+    def __validate_car_number(setting: dict, raw, label: str):
+        """Refuse, do not clamp: a settings dialog must say no. (Clamping with a
+        memo is right for a stored value at boot, wrong for user input.)"""
+        low, high = setting["min"], setting["max"]
+        try:
+            value = int(float(raw))
+        except (TypeError, ValueError):
+            return None, f"{label} must be a whole number between {low} and {high}."
+        if not low <= value <= high:
+            return None, f"{label} must be between {low} and {high}."
+        return value, None
+
+    def __store_car(self, car: dict):
+        """This release holds one car: the list is replaced by that one."""
+        self.v2g_settings.store_object("cars", [car])
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         self.__log("Saving electricity contract settings")

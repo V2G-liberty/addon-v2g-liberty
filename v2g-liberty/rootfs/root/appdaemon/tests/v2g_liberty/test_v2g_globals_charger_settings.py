@@ -119,6 +119,7 @@ def globals_instance(
     instance._V2GLibertyGlobals__initialise_charger_settings = AsyncMock()
     instance._V2GLibertyGlobals__try_historical_import = AsyncMock()
     instance._V2GLibertyGlobals__switch_evse_client = AsyncMock()
+    instance._V2GLibertyGlobals__refresh_car_settings_initialised = AsyncMock()
     return instance
 
 
@@ -284,6 +285,27 @@ class TestSaveChargerSettings:
         )
 
         assert call_order == ["event", "switch", "init"]
+
+    @pytest.mark.asyncio
+    async def test_car_flag_is_refreshed_after_the_switch(
+        self, globals_instance, hass_mock
+    ):
+        """Whether the car is finished depends on the charger (a car without an
+        id is fine on a Quasar, not on an EVtec), so the flag is derived again
+        once the new driver is in place."""
+        call_order = []
+        globals_instance._V2GLibertyGlobals__switch_evse_client.side_effect = (
+            lambda charger_type: call_order.append("switch")
+        )
+        globals_instance._V2GLibertyGlobals__refresh_car_settings_initialised.side_effect = (
+            lambda: call_order.append("refresh")
+        )
+
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", _save_payload(charger_type=_EVTEC, port=5020), {}
+        )
+
+        assert call_order == ["switch", "refresh"]
 
 
 # ── __save_charger_settings: the phase ────────────────────────────────
