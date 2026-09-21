@@ -30,11 +30,25 @@ const CONNECTION_STATUS_SENSORS = [
 
 const tp = partial('settings-alert-dialog');
 
-function hasConnectionErrors(hass: HomeAssistant): boolean {
-  return CONNECTION_STATUS_SENSORS.some(({ sensorId, requiresInitId }) => {
+// States that carry no information about the connection. V2G Liberty writes
+// these sensors with set_state, so Home Assistant does not restore them: after
+// an HA restart they are 'unknown', then '' for a few seconds, until the app
+// rewrites them. Reading that as "not connected" made the blocking dialog open
+// on every HA restart -- and by the time it rendered, the sensor had moved on
+// and the list was empty.
+const NO_INFORMATION_STATES = ['', 'unknown', 'unavailable'];
+
+/**
+ * The connection sensors that report an actual error, for a settings category
+ * that has been configured. One implementation, used both to decide whether to
+ * warn and to render what is wrong, so the two can never disagree.
+ */
+function connectionErrorSensors(hass: HomeAssistant) {
+  return CONNECTION_STATUS_SENSORS.filter(({ sensorId, requiresInitId }) => {
     if (hass.states[requiresInitId]?.state !== 'on') return false;
     const state = hass.states[sensorId]?.state;
-    return !!state && state !== 'Successfully connected';
+    if (!state || NO_INFORMATION_STATES.includes(state)) return false;
+    return state !== 'Successfully connected';
   });
 }
 
@@ -49,13 +63,9 @@ export function renderUninitializedEntitiesList(hass: HomeAssistant) {
 
   const uninitializedEntities = entities.filter(entity => entity?.state === 'off');
 
-  const connectionErrorSensors = CONNECTION_STATUS_SENSORS.filter(({ sensorId, requiresInitId }) => {
-    if (hass.states[requiresInitId]?.state !== 'on') return false;
-    const state = hass.states[sensorId]?.state;
-    return !!state && state !== 'Successfully connected';
-  });
+  const errorSensors = connectionErrorSensors(hass);
 
-  if (uninitializedEntities.length === 0 && connectionErrorSensors.length === 0) {
+  if (uninitializedEntities.length === 0 && errorSensors.length === 0) {
     return nothing;
   }
 
@@ -65,7 +75,7 @@ export function renderUninitializedEntitiesList(hass: HomeAssistant) {
         const localizedName = tp(`entity_names.${entity.entity_id}`);
         return html`<li>${localizedName}</li>`;
       })}
-      ${connectionErrorSensors.map(({ sensorId }) => {
+      ${errorSensors.map(({ sensorId }) => {
         const localizedName = tp(`entity_names.${sensorId}`);
         return html`<li>${localizedName}</li>`;
       })}
@@ -84,5 +94,8 @@ export function hasUninitializedEntities(hass: HomeAssistant): boolean {
     .map(id => hass.states[id])
     .filter(Boolean);
 
-  return entities.some(entity => entity?.state === 'off') || hasConnectionErrors(hass);
+  return (
+    entities.some(entity => entity?.state === 'off') ||
+    connectionErrorSensors(hass).length > 0
+  );
 }

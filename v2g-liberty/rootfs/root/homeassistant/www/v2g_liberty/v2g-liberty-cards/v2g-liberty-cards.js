@@ -2993,6 +2993,20 @@ const $aa1795080f053cd4$export$2c618a4308a30424 = $aa1795080f053cd4$export$e4594
 
 
 const $c5d85a824175067e$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('ping-card');
+// How long the add-on has to stay unreachable before the toast appears.
+// A Home Assistant restart takes the app with it: AppDaemon reconnects and only
+// then re-initialises the apps, so the ping has nobody to answer it for a few
+// seconds -- measured on 2026-09-21: HA back at 09:52:07, the app serving again
+// at 09:52:11. Alarming in that window blames the add-on for a restart it did
+// not choose, and tells the user to restart something that is already coming
+// back. A genuinely dead add-on outlasts this.
+//
+// 20 s is a little over twice the measured window, chosen over 30 s to report a
+// real outage sooner. Do not go much lower: on slower hardware with a real
+// charger, AppDaemon's 5 s reconnect retry plus the app's initialisation (which
+// includes a Modbus connection test) can take noticeably longer than it does on
+// a dev machine.
+const $c5d85a824175067e$var$ALARM_AFTER_MS = 20000;
 class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     set hass(hass) {
         this._hass = hass;
@@ -3024,14 +3038,46 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
     get _toast() {
         return this.renderRoot?.querySelector('ha-toast') ?? null;
     }
+    // Whether the frontend itself still has a connection to Home Assistant.
+    // Ask the socket, not `hass.connected`: while HA is away the frontend stops
+    // handing cards a fresh `hass`, so the copy this card holds keeps saying
+    // `connected: true`. The same stale object still references the live
+    // Connection, whose `connected` is a getter over the actual socket.
+    get _haConnected() {
+        const connection = this.hass?.connection;
+        if (connection && typeof connection.connected === 'boolean') return connection.connected;
+        return this.hass?.connected ?? true;
+    }
     async _ping() {
+        // While Home Assistant itself is away, a failing ping says nothing about the
+        // add-on: it travels over the very connection that is down. Do not even try,
+        // and leave an already-shown toast alone -- if the add-on really was
+        // unreachable before HA went away, that is still true.
+        if (!this._haConnected) {
+            if (this._connected) this._timeout = setTimeout(()=>this._ping(), 1000);
+            return;
+        }
         try {
             await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'ping', {}, this._config.ping_timeout);
             this._isResponding = true;
             this._isRestarting = false;
+            this._failingSince = null;
             this._toast?.hide('dismiss');
             if (this._connected) this._timeout = setTimeout(()=>this._ping(), this._config.interval);
         } catch (_) {
+            if (!this._haConnected) {
+                // Home Assistant went away while this ping was in flight: HA's problem,
+                // not the add-on's. Try again once the connection is back.
+                if (this._connected) this._timeout = setTimeout(()=>this._ping(), 1000);
+                return;
+            }
+            if (this._failingSince === null) this._failingSince = Date.now();
+            const failingFor = Date.now() - this._failingSince;
+            if (failingFor < $c5d85a824175067e$var$ALARM_AFTER_MS && !this._isRestarting) {
+                // Too early to blame anyone; keep trying so recovery stays instant.
+                if (this._connected) this._timeout = setTimeout(()=>this._ping(), 1000);
+                return;
+            }
             // If the ping fails, show the toast (again)
             this._isResponding = false;
             if (this._connected) {
@@ -3076,7 +3122,8 @@ class $c5d85a824175067e$export$b6e3440b5366703f extends (0, $ab210b2da7b39b9d$ex
         });
     }
     constructor(...args){
-        super(...args), this._isResponding = true, this._isRestarting = false, // Timings in milliseconds
+        super(...args), this._isResponding = true, this._isRestarting = false, // When the current run of failures started; null while the app is answering.
+        this._failingSince = null, // Timings in milliseconds
         this.defaultConfig = {
             ping_timeout: 5000,
             interval: 15000
@@ -16923,29 +16970,41 @@ const $fe3d519835c26128$var$REQUIRED_ENTITY_IDS = [
     }
 ];
 const $fe3d519835c26128$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings-alert-dialog');
-function $fe3d519835c26128$var$hasConnectionErrors(hass) {
-    return $fe3d519835c26128$var$CONNECTION_STATUS_SENSORS.some(({ sensorId: sensorId, requiresInitId: requiresInitId })=>{
+// States that carry no information about the connection. V2G Liberty writes
+// these sensors with set_state, so Home Assistant does not restore them: after
+// an HA restart they are 'unknown', then '' for a few seconds, until the app
+// rewrites them. Reading that as "not connected" made the blocking dialog open
+// on every HA restart -- and by the time it rendered, the sensor had moved on
+// and the list was empty.
+const $fe3d519835c26128$var$NO_INFORMATION_STATES = [
+    '',
+    'unknown',
+    'unavailable'
+];
+/**
+ * The connection sensors that report an actual error, for a settings category
+ * that has been configured. One implementation, used both to decide whether to
+ * warn and to render what is wrong, so the two can never disagree.
+ */ function $fe3d519835c26128$var$connectionErrorSensors(hass) {
+    return $fe3d519835c26128$var$CONNECTION_STATUS_SENSORS.filter(({ sensorId: sensorId, requiresInitId: requiresInitId })=>{
         if (hass.states[requiresInitId]?.state !== 'on') return false;
         const state = hass.states[sensorId]?.state;
-        return !!state && state !== 'Successfully connected';
+        if (!state || $fe3d519835c26128$var$NO_INFORMATION_STATES.includes(state)) return false;
+        return state !== 'Successfully connected';
     });
 }
 function $fe3d519835c26128$export$650588b5465ce857(hass) {
     const entities = $fe3d519835c26128$var$REQUIRED_ENTITY_IDS.map((id)=>hass.states[id]).filter(Boolean);
     const uninitializedEntities = entities.filter((entity)=>entity?.state === 'off');
-    const connectionErrorSensors = $fe3d519835c26128$var$CONNECTION_STATUS_SENSORS.filter(({ sensorId: sensorId, requiresInitId: requiresInitId })=>{
-        if (hass.states[requiresInitId]?.state !== 'on') return false;
-        const state = hass.states[sensorId]?.state;
-        return !!state && state !== 'Successfully connected';
-    });
-    if (uninitializedEntities.length === 0 && connectionErrorSensors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+    const errorSensors = $fe3d519835c26128$var$connectionErrorSensors(hass);
+    if (uninitializedEntities.length === 0 && errorSensors.length === 0) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
     <ul>
       ${uninitializedEntities.map((entity)=>{
         const localizedName = $fe3d519835c26128$var$tp(`entity_names.${entity.entity_id}`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${localizedName}</li>`;
     })}
-      ${connectionErrorSensors.map(({ sensorId: sensorId })=>{
+      ${errorSensors.map(({ sensorId: sensorId })=>{
         const localizedName = $fe3d519835c26128$var$tp(`entity_names.${sensorId}`);
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<li>${localizedName}</li>`;
     })}
@@ -16954,7 +17013,7 @@ function $fe3d519835c26128$export$650588b5465ce857(hass) {
 }
 function $fe3d519835c26128$export$a013b40e08750c0c(hass) {
     const entities = $fe3d519835c26128$var$REQUIRED_ENTITY_IDS.map((id)=>hass.states[id]).filter(Boolean);
-    return entities.some((entity)=>entity?.state === 'off') || $fe3d519835c26128$var$hasConnectionErrors(hass);
+    return entities.some((entity)=>entity?.state === 'off') || $fe3d519835c26128$var$connectionErrorSensors(hass).length > 0;
 }
 
 
@@ -16965,6 +17024,13 @@ class $5dbf4f8d923d5746$export$814ec9585813edb4 extends (0, $942308f826de48c4$ex
     async showDialog() {
         super.showDialog();
         await this.updateComplete;
+    }
+    updated() {
+        // The dialog keeps receiving state updates while it is open, and it renders
+        // its list from the state of this moment. A problem that resolves in the
+        // meantime would leave the dialog standing with an empty list -- telling the
+        // user to fix something that is no longer wrong. Close instead.
+        if (this.isOpen && this.hass && !(0, $fe3d519835c26128$export$a013b40e08750c0c)(this.hass)) this.closeDialog();
     }
     render() {
         if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
@@ -19309,6 +19375,12 @@ $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29
 
 
 
+// How long a settings problem has to persist before the blocking dialog opens.
+// Right after a Home Assistant restart the *_settings_initialised booleans are
+// briefly 'off'/'unknown' (they have no `initial:` in the package) until V2G
+// Liberty writes them, and a connection sensor can be empty for a moment. A
+// real misconfiguration outlasts this; a start-up window does not.
+const $089309bcd79355b2$var$SETTLE_DELAY_MS = 2000;
 class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     connectedCallback() {
         super.connectedCallback();
@@ -19317,6 +19389,7 @@ class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$ex
     disconnectedCallback() {
         super.disconnectedCallback();
         window.removeEventListener('location-changed', this._handleLocationChanged);
+        this._cancelSettleTimer();
     }
     setConfig(config) {}
     set hass(hass) {
@@ -19326,11 +19399,32 @@ class $089309bcd79355b2$export$dffc6da272e49631 extends (0, $ab210b2da7b39b9d$ex
     }
     _checkUnInitialisedEntities() {
         const hasUninitialized = (0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass);
-        if (hasUninitialized && hasUninitialized !== this._hasUninitialisedEntities) {
-            this._hasUninitialisedEntities = hasUninitialized;
-            // Defer one frame so the Lovelace dialog manager is ready.
-            requestAnimationFrame(()=>(0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this));
-        } else if (!hasUninitialized) this._hasUninitialisedEntities = false;
+        if (!hasUninitialized) {
+            this._hasUninitialisedEntities = false;
+            this._cancelSettleTimer();
+            return;
+        }
+        // Already reported, or already waiting to report: nothing to do. `set hass`
+        // runs on every state change, so this is the common path.
+        if (hasUninitialized === this._hasUninitialisedEntities) return;
+        if (this._settleTimer !== undefined) return;
+        this._settleTimer = window.setTimeout(()=>{
+            this._settleTimer = undefined;
+            // Check again instead of trusting the decision made SETTLE_DELAY_MS ago:
+            // the dialog renders its list from the state of this moment, so a problem
+            // that resolved in the meantime would open a dialog with an empty list.
+            if (!(0, $fe3d519835c26128$export$a013b40e08750c0c)(this._hass)) {
+                this._hasUninitialisedEntities = false;
+                return;
+            }
+            this._hasUninitialisedEntities = true;
+            (0, $de105ef1fecb85b1$export$6384a2ff4b012cae)(this);
+        }, $089309bcd79355b2$var$SETTLE_DELAY_MS);
+    }
+    _cancelSettleTimer() {
+        if (this._settleTimer === undefined) return;
+        clearTimeout(this._settleTimer);
+        this._settleTimer = undefined;
     }
     render() {
         return 0, $f58f44579a4747ac$export$45b790e32b2810ee;

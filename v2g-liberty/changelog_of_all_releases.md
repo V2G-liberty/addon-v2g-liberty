@@ -8,6 +8,7 @@ That file also contains possible changes that the next release might include.
 ### Fixed
 
 - 🪲 BUG: The app fails to start on unknow new entity (#500)
+- 🪲 BUG: Home Assistant restarts rais false alarms about settings / add-on (#501)
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
 - 🪲 BUG: Fix db schema validation (#470)
 - 🪲 BUG: Paused app lets the charger charge the car to full on reconnect (#480, #481)

@@ -5,11 +5,19 @@ import { showSettingsErrorAlertDialog } from './show-dialogs';
 import { hasUninitializedEntities } from './util/settings-error-alert';
 import { setLanguage } from './util/translate';
 
+// How long a settings problem has to persist before the blocking dialog opens.
+// Right after a Home Assistant restart the *_settings_initialised booleans are
+// briefly 'off'/'unknown' (they have no `initial:` in the package) until V2G
+// Liberty writes them, and a connection sensor can be empty for a moment. A
+// real misconfiguration outlasts this; a start-up window does not.
+const SETTLE_DELAY_MS = 2000;
+
 @customElement('v2g-liberty-settings-error-alert-card')
 export class SettingsErrorAlertCard extends LitElement {
   private _hass: HomeAssistant;
   private _hasUninitialisedEntities: boolean | undefined = undefined;
   private _wentToSettings = false;
+  private _settleTimer: number | undefined;
 
   connectedCallback() {
     super.connectedCallback();
@@ -19,6 +27,7 @@ export class SettingsErrorAlertCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('location-changed', this._handleLocationChanged);
+    this._cancelSettleTimer();
   }
 
   private _handleLocationChanged = () => {
@@ -42,13 +51,35 @@ export class SettingsErrorAlertCard extends LitElement {
 
   private _checkUnInitialisedEntities() {
     const hasUninitialized = hasUninitializedEntities(this._hass);
-    if (hasUninitialized && hasUninitialized !== this._hasUninitialisedEntities) {
-      this._hasUninitialisedEntities = hasUninitialized;
-      // Defer one frame so the Lovelace dialog manager is ready.
-      requestAnimationFrame(() => showSettingsErrorAlertDialog(this));
-    } else if (!hasUninitialized) {
+
+    if (!hasUninitialized) {
       this._hasUninitialisedEntities = false;
+      this._cancelSettleTimer();
+      return;
     }
+    // Already reported, or already waiting to report: nothing to do. `set hass`
+    // runs on every state change, so this is the common path.
+    if (hasUninitialized === this._hasUninitialisedEntities) return;
+    if (this._settleTimer !== undefined) return;
+
+    this._settleTimer = window.setTimeout(() => {
+      this._settleTimer = undefined;
+      // Check again instead of trusting the decision made SETTLE_DELAY_MS ago:
+      // the dialog renders its list from the state of this moment, so a problem
+      // that resolved in the meantime would open a dialog with an empty list.
+      if (!hasUninitializedEntities(this._hass)) {
+        this._hasUninitialisedEntities = false;
+        return;
+      }
+      this._hasUninitialisedEntities = true;
+      showSettingsErrorAlertDialog(this);
+    }, SETTLE_DELAY_MS);
+  }
+
+  private _cancelSettleTimer() {
+    if (this._settleTimer === undefined) return;
+    clearTimeout(this._settleTimer);
+    this._settleTimer = undefined;
   }
 
   protected render() {
