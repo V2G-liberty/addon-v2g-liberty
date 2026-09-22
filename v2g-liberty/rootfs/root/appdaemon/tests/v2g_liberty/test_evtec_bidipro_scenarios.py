@@ -59,6 +59,7 @@ _EVENTS = [
     "update_charger_info",
     "charger_communication_state_change",
     "discharge_refused",
+    "unknown_car_connected",
 ]
 
 
@@ -965,3 +966,221 @@ async def test_read_car_id_without_a_transport(driver):
 
     assert await e._read_car_id_register() == ("", "read_failed")
     assert await e.read_connected_car_id() == ("", "no_car")
+
+
+# --- classifying the connected car ------------------------------------------
+# On connect the driver compares the car's id with the registered one. Nothing
+# registered, or no readable id yet, means "known": fail-open, the charger's
+# own authorisation stays the safety net.
+
+REGISTERED = "DEVCAR-EVCCID-01"
+
+
+def _event_names(rec):
+    return [name for name, _ in rec.events]
+
+
+@pytest.mark.asyncio
+async def test_known_car_connects_as_before(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words(REGISTERED))
+
+    await poll(e)
+
+    assert rec.find("is_car_connected")[-1]["is_car_connected"] is True
+    assert not rec.find("unknown_car_connected")
+    assert e._car_id_retries_left == 0
+
+
+@pytest.mark.asyncio
+async def test_unknown_car_is_announced_instead_of_connected(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10, soc_permille=550))
+    e.client.store.update(car_id_words("VISITOR-01"))
+
+    await poll(e)
+
+    assert rec.find("unknown_car_connected") == [{"ev_id": "VISITOR-01"}]
+    assert not rec.find("is_car_connected")
+    # The guard in set_next_action relies on the unknown-car listener being
+    # queued before anything that reaches it (soc_change).
+    names = _event_names(rec)
+    assert names.index("unknown_car_connected") < names.index("soc_change")
+    # The plug is still in: the method keeps saying so.
+    assert await e.is_car_connected() is True
+
+
+@pytest.mark.asyncio
+async def test_case_of_the_id_does_not_matter(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED.lower())
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words(REGISTERED))
+
+    await poll(e)
+
+    assert not rec.find("unknown_car_connected")
+    assert rec.find("is_car_connected")[-1]["is_car_connected"] is True
+
+
+@pytest.mark.asyncio
+async def test_nothing_registered_means_every_car_is_known_without_a_read(
+    driver, monkeypatch
+):
+    """This is what keeps test_full_poll_decodes_and_emits green, and the app
+    working for a user who has not gone through the id step."""
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", "")
+    e._read_car_id_register = AsyncMock()
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words("VISITOR-01"))
+
+    await poll(e)
+
+    e._read_car_id_register.assert_not_awaited()
+    assert rec.find("is_car_connected")[-1]["is_car_connected"] is True
+    assert not rec.find("unknown_car_connected")
+
+
+@pytest.mark.asyncio
+async def test_unreadable_id_is_pending_and_fails_open(driver, monkeypatch):
+    """A car or firmware that fills X+76 late (or never) must still charge."""
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+
+    await poll(e)
+
+    assert rec.find("is_car_connected")[-1]["is_car_connected"] is True
+    assert not rec.find("unknown_car_connected")
+    assert e._car_id_retries_left == e._CAR_ID_RETRIES
+
+
+@pytest.mark.asyncio
+async def test_pending_id_is_re_read_while_polling(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    await poll(e)
+    assert e._car_id_retries_left == e._CAR_ID_RETRIES
+
+    # Still nothing: one retry used.
+    await e._base_polling({})
+    assert e._car_id_retries_left == e._CAR_ID_RETRIES - 1
+    assert not rec.find("unknown_car_connected")
+
+    # The id arrives and differs.
+    e.client.store.update(car_id_words("VISITOR-01"))
+    await e._base_polling({})
+    assert rec.find("unknown_car_connected") == [{"ev_id": "VISITOR-01"}]
+    assert e._car_id_retries_left == 0
+
+
+@pytest.mark.asyncio
+async def test_matching_id_that_arrives_late_ends_the_retries_quietly(
+    driver, monkeypatch
+):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    await poll(e)
+
+    e.client.store.update(car_id_words(REGISTERED))
+    await e._base_polling({})
+
+    assert e._car_id_retries_left == 0
+    assert not rec.find("unknown_car_connected")
+
+
+@pytest.mark.asyncio
+async def test_retries_are_bounded(driver, monkeypatch):
+    e, _ = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    await poll(e)
+
+    for _ in range(e._CAR_ID_RETRIES):
+        await e._base_polling({})
+    assert e._car_id_retries_left == 0
+
+    e._read_car_id_register = AsyncMock()
+    await e._base_polling({})
+    e._read_car_id_register.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_resets_the_retries(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    await poll(e)
+    assert e._car_id_retries_left
+
+    e.client.store.update(connector_words(state=1, soc_permille=0))
+    await poll(e)
+
+    assert e._car_id_retries_left == 0
+    assert rec.find("is_car_connected")[-1]["is_car_connected"] is False
+
+
+@pytest.mark.asyncio
+async def test_unknown_car_leaving_is_still_reported(driver, monkeypatch):
+    """The main app needs the False to see the unknown car leave."""
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words("VISITOR-01"))
+    await poll(e)
+
+    e.client.store.update(connector_words(state=1, soc_permille=0))
+    await poll(e)
+
+    assert rec.find("is_car_connected") == [{"is_car_connected": False}]
+
+
+@pytest.mark.asyncio
+async def test_unrecoverable_error_resets_the_retries(driver, monkeypatch):
+    e, _ = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e._car_id_retries_left = 5
+
+    await e._handle_un_recoverable_error(reason="test", source="test")
+
+    assert e._car_id_retries_left == 0
+
+
+@pytest.mark.asyncio
+async def test_recovery_reclassifies_a_car_swapped_during_the_outage(
+    driver, monkeypatch
+):
+    """Polling was off, so a car swap went unseen: the recovered charger
+    re-broadcasts "connected -> connected", which never classifies."""
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.v2g_main_app.handle_charger_recovered = AsyncMock()
+    e._MCE_CHARGER_STATE.current_value = 7
+    e.client.store.update(connector_words(state=7))
+    e.client.store.update(car_id_words("VISITOR-01"))
+
+    await e._handle_charger_recovered()
+
+    assert rec.find("unknown_car_connected") == [{"ev_id": "VISITOR-01"}]
+    e.v2g_main_app.handle_charger_recovered.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_recovery_without_a_car_does_not_classify(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.v2g_main_app.handle_charger_recovered = AsyncMock()
+    e._read_car_id_register = AsyncMock()
+    e._MCE_CHARGER_STATE.current_value = 1
+    e.client.store.update(connector_words(state=1))
+
+    await e._handle_charger_recovered()
+
+    e._read_car_id_register.assert_not_awaited()
+    assert not rec.find("unknown_car_connected")
