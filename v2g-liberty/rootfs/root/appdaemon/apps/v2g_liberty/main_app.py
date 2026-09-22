@@ -105,6 +105,8 @@ class V2Gliberty:
     notifier: Notifier = None
     event_bus: EventBus = None
     hass: Hass = None
+    # The settings store, for bookkeeping that has to survive a restart.
+    v2g_settings: object = None
 
     def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
@@ -186,6 +188,11 @@ class V2Gliberty:
         )
 
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
+
+        self.event_bus.add_event_listener(
+            "unknown_car_connected", self.__handle_unknown_car
+        )
+        await self.__restore_unknown_car_bookkeeping()
 
         self.event_bus.add_event_listener(
             "discharge_refused", self.__handle_discharge_refused
@@ -271,6 +278,17 @@ class V2Gliberty:
             "input_select.charge_mode", attribute="state"
         )
         self.__log(f"Setting next action based on charge_mode '{charge_mode}'.")
+
+        if self.unknown_car_ev_id and charge_mode not in [
+            "Max boost now",
+            "Max discharge now",
+        ]:
+            # Closes the window between the unknown-car event and the Stop it
+            # forces (that lands through a HA round trip), and covers the
+            # watchdog and the kick-off at start-up. The two manual boosts are
+            # let through on purpose: the user asked for them, standing there.
+            self.__log(f"Unknown car '{self.unknown_car_ev_id}' connected, abort.")
+            return
 
         # Needed in many of the cases further in this method
         now = get_local_now()
@@ -409,6 +427,15 @@ class V2Gliberty:
             # self.set_charger_control("take")
             # If charger_state = "not connected", the UI shows an (error) message.
             if soc >= c.CAR_MAX_CAPACITY_IN_PERCENT:
+                if self.unknown_car_ev_id:
+                    # Falling back to Automatic would show a mode the guard
+                    # above blocks, and leave nothing for the unknown-car
+                    # restore to put back. Just stop; the mode stays.
+                    self.__log("Max charge reached with an unknown car: stop.")
+                    await self.__set_charge_power(
+                        {"charge_power": 0, "source": "unknown car at max charge"}
+                    )
+                    return
                 self.__log(
                     "Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
@@ -451,6 +478,13 @@ class V2Gliberty:
 
         elif charge_mode == "Max discharge now":
             if soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1):
+                if self.unknown_car_ev_id:
+                    # See the boost branch: stop, keep the mode.
+                    self.__log("Minimum SoC reached with an unknown car: stop.")
+                    await self.__set_charge_power(
+                        {"charge_power": 0, "source": "unknown car at min soc"}
+                    )
+                    return
                 self.__log(
                     "Minimum soc reached: set charge_mode from 'Max discharge now' to 'Automatic'."
                 )
@@ -685,6 +719,17 @@ class V2Gliberty:
         Goes to this status when the plug is removed from the socket (not when disconnect is
         requested from the UI)
         """
+        if self.unknown_car_ev_id and await self.__restore_after_unknown_car():
+            await self.notifier.notify_user(
+                message="The unknown car was unplugged; automatic charging "
+                "has been resumed.",
+                title=None,
+                tag="charge_mode_change",
+                critical=False,
+                send_to_all=True,
+                ttl=15 * 60,
+            )
+
         # Reset any possible target for discharge due to SoC > max-soc
         self.back_to_max_soc = None
 
@@ -1045,16 +1090,122 @@ class V2Gliberty:
         }
         self.notifier.clear_notification(identification)
 
+    # ── An unknown car ─────────────────────────────────────────────────
+    # A charger that identifies cars (EVtec) reports a car whose id differs
+    # from the registered one. The app must not charge or discharge it on the
+    # owner's schedule, so it forces the charge mode to Stop and tells the
+    # user. The bookkeeping is persisted: a guest stays plugged in for hours
+    # or days and easily outlives a restart, while input_select.charge_mode
+    # does get its Stop back. Separate from the charger-problem bookkeeping.
+
+    UNKNOWN_CAR_ENTITY = "sensor.unknown_car_connected"  # "none" | ev_id
+    UNKNOWN_CAR_TAG = "unknown_car_connected"
+    FORCED_STOP_KEY = "forced_stop"  # {"reason", "ev_id", "previous_mode"}
+    # The id of the unregistered car that is plugged in now; None = none. Set
+    # before the first await so set_next_action can close the window until
+    # the Stop lands.
+    unknown_car_ev_id: str | None = None
+
+    async def __restore_unknown_car_bookkeeping(self):
+        """At start-up: an unknown car may still be plugged in from before the
+        restart. Restoring the id makes the guard work at once and a second
+        detection idempotent."""
+        record = self.__forced_stop_record()
+        if record.get("reason") == "unknown_car" and record.get("ev_id"):
+            self.unknown_car_ev_id = str(record["ev_id"])
+            self.__log(f"Unknown car '{self.unknown_car_ev_id}' still standing.")
+        await self.hass.set_state(
+            self.UNKNOWN_CAR_ENTITY,
+            state=self.unknown_car_ev_id or "none",
+            attributes={"registered_ev_id": c.CAR_EV_ID},
+        )
+
+    def __forced_stop_record(self) -> dict:
+        if self.v2g_settings is None:
+            return {}
+        return self.v2g_settings.get_object(self.FORCED_STOP_KEY, default={}) or {}
+
+    async def __handle_unknown_car(self, ev_id: str):
+        """Emitted by the driver instead of is_car_connected=True. Idempotent:
+        a second emit for the same standing car (a driver swap or a restart
+        runs the connect transition again) must not overwrite the bookkeeping
+        with the Stop we forced ourselves, and must not notify twice."""
+        already_forced = self.__forced_stop_record().get("reason") == "unknown_car"
+        self.unknown_car_ev_id = ev_id  # before any await: the guard needs it now
+        await self.hass.set_state(
+            self.UNKNOWN_CAR_ENTITY,
+            state=ev_id,
+            attributes={"registered_ev_id": c.CAR_EV_ID},
+        )
+        self.event_bus.emit_event("unknown_car_connected_state", is_unknown_car=True)
+        if already_forced:
+            self.__log(f"Unknown car '{ev_id}' reported again; already handled.")
+            return
+        previous_mode = await self.hass.get_state("input_select.charge_mode")
+        self.__log(f"Unknown car '{ev_id}': forcing Stop (was '{previous_mode}').")
+        self.v2g_settings.store_object(
+            self.FORCED_STOP_KEY,
+            {"reason": "unknown_car", "ev_id": ev_id, "previous_mode": previous_mode},
+        )
+        await self.__set_charge_mode_in_ui("Stop")
+        name = c.CAR_NAME or "your car"
+        await self.notifier.notify_user(
+            message=(
+                f"A car that is not '{name}' is plugged in (ID {ev_id}). "
+                "V2G Liberty has paused automatic charging.\n"
+                "A visitor? Nothing to do, charging resumes when the car is "
+                "unplugged.\n"
+                "Your new car? Go to Settings > Car > Edit and read its ID."
+            ),
+            title="Unknown car connected",
+            tag=self.UNKNOWN_CAR_TAG,
+            critical=False,
+            send_to_all=True,
+        )
+
+    async def __restore_after_unknown_car(self) -> bool:
+        """Lift the forced Stop if -- and only if -- this app forced it and the
+        user has not changed the mode since. Mirrors handle_charger_recovered's
+        rule, with its own persisted bookkeeping. Returns whether the mode was
+        restored."""
+        record = self.__forced_stop_record()
+        if self.v2g_settings is not None:
+            self.v2g_settings.store_object(self.FORCED_STOP_KEY, {})
+        self.unknown_car_ev_id = None
+        self.notifier.clear_notification(tag=self.UNKNOWN_CAR_TAG)
+        await self.hass.set_state(
+            self.UNKNOWN_CAR_ENTITY,
+            state="none",
+            attributes={"registered_ev_id": c.CAR_EV_ID},
+        )
+        self.event_bus.emit_event("unknown_car_connected_state", is_unknown_car=False)
+        if record.get("reason") != "unknown_car":
+            return False
+        previous = record.get("previous_mode")
+        current = await self.hass.get_state("input_select.charge_mode")
+        # Never back to a boost: a boost is a deliberate, momentary action and
+        # hours may have passed. A Stop the user set since is left alone.
+        if previous in ["Automatic", "Max boost now", "Max discharge now"] and (
+            current == "Stop"
+        ):
+            await self.__set_charge_mode_in_ui("Automatic")
+            return True
+        return False
+
     async def handle_car_settings_saved(self) -> bool:
         """Called by v2g_globals after a successful car save, once c.CAR_EV_ID
-        has been refreshed. Returns whether the charge mode was restored, so
-        the caller can skip its kick-off. A direct call rather than an event:
-        an event would wake the pause-at-reconnect monitor while the mode is
-        still Stop and produce a spurious prompt.
-
-        Nothing to restore yet: the unknown-car handling that can force a Stop
-        arrives with the car identification of the EVtec driver.
+        has been refreshed. If the car standing there as unknown is the one
+        just registered, lift the forced Stop. Returns whether the charge mode
+        was restored, so the caller can skip its kick-off. A direct call rather
+        than an event: an event would wake the pause-at-reconnect monitor while
+        the mode is still Stop and produce a spurious prompt.
         """
+        if (
+            self.unknown_car_ev_id
+            and c.CAR_EV_ID
+            and self.unknown_car_ev_id.casefold() == c.CAR_EV_ID.casefold()
+        ):
+            return await self.__restore_after_unknown_car()
         return False
 
     async def handle_charger_recovered(self):

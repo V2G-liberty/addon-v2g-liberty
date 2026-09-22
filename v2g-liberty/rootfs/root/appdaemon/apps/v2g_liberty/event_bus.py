@@ -103,6 +103,15 @@ class EventBus(AsyncIOEventEmitter):
         - **Arguments**:
             - `ev_id` (str): the id of the connected car.
 
+    - `unknown_car_connected_state`:
+        - **Description**: The app-wide state "an unknown car is standing at the
+          charger" (see `unknown_car_connected`). True when the main app forces its
+          Stop, False when the car leaves or gets registered. The pause-at-reconnect
+          monitor must neither prompt nor count down while it is True.
+        - **Emitted by** main_app
+        - **Arguments**:
+            - `is_unknown_car` (bool): whether an unknown car is standing.
+
     #### FlexMeasures related
 
     - `fm_connection_status`:
