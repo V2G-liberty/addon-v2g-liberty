@@ -242,3 +242,72 @@ async def test_charge_mode_unchanged_does_not_cancel(monitor, mock_hass):
     )
     mock_hass.cancel_timer.assert_not_awaited()
     assert monitor._auto_switch_timer_handle == "pending_handle"
+
+
+# --- an unknown car is standing ---------------------------------------------
+# Its Stop is the app's safety measure, not a forgotten Pause: no prompt, and
+# the fallback must never lift it.
+
+
+@pytest.mark.asyncio
+async def test_initialize_registers_unknown_car_listener(monitor, mock_event_bus):
+    await monitor.initialize()
+    mock_event_bus.add_event_listener.assert_any_call(
+        "unknown_car_connected_state", monitor._handle_unknown_car_state
+    )
+
+
+@pytest.mark.asyncio
+async def test_unknown_car_withdraws_a_pending_prompt_and_fallback(
+    monitor, mock_hass, mock_notifier
+):
+    """The pending case: the car connected before its id was readable, so the
+    prompt and the fallback were already armed."""
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+
+    await monitor._handle_unknown_car_state(True)
+
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+    assert monitor._auto_switch_timer_handle == ""
+    mock_notifier.clear_notification.assert_called_once_with(
+        tag=monitor.NOTIFICATION_TAG
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_prompt_and_no_fallback_while_an_unknown_car_stands(
+    monitor, mock_hass, mock_notifier
+):
+    await monitor._handle_unknown_car_state(True)
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_not_called()
+    mock_hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_still_cancels_while_an_unknown_car_stands(monitor, mock_hass):
+    await monitor._handle_unknown_car_state(True)
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+
+    await monitor._handle_connected_state_change(False)
+
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+
+
+@pytest.mark.asyncio
+async def test_normal_behaviour_returns_once_the_unknown_car_is_gone(
+    monitor, mock_hass, mock_notifier
+):
+    await monitor._handle_unknown_car_state(True)
+    await monitor._handle_unknown_car_state(False)
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()
+    mock_hass.run_in.assert_awaited_once()

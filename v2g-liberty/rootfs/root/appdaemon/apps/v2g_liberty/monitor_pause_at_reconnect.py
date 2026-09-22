@@ -30,6 +30,9 @@ class MonitorPauseAtReconnect:
     # If the user does not respond to the reconnect prompt within this period,
     # the charge mode is switched to Automatic automatically.
     AUTO_SWITCH_TIMEOUT_SECONDS: int = 10 * 60
+    # An unregistered car is standing at the charger (see main_app). Its Stop
+    # is a safety measure of the app, not a forgotten Pause of the user.
+    _is_unknown_car: bool = False
 
     def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
@@ -57,7 +60,28 @@ class MonitorPauseAtReconnect:
             self._handle_charge_mode_change,
             "input_select.charge_mode",
         )
+        self.event_bus.add_event_listener(
+            "unknown_car_connected_state", self._handle_unknown_car_state
+        )
         self.__log("Registered charge_mode listener.")
+
+    async def _handle_unknown_car_state(self, is_unknown_car: bool):
+        """An unregistered car must never trigger the reconnect prompt, and the
+        10-minute fallback must never undo the app's safety Stop.
+
+        Both can happen without this: a car whose id is not readable yet
+        connects as a normal car (so the prompt and fallback are armed before
+        the id is known), and forcing a mode that is already Stop does not
+        change input_select.charge_mode, so the charge-mode listener does not
+        cancel the fallback either.
+        """
+        self._is_unknown_car = is_unknown_car
+        if not is_unknown_car:
+            return
+        await cancel_timer_silent(self.hass, self._auto_switch_timer_handle)
+        self._auto_switch_timer_handle = ""
+        self.notifier.clear_notification(tag=self.NOTIFICATION_TAG)
+        self.__log("Unknown car standing: reconnect prompt and fallback withdrawn.")
 
     async def _handle_charge_mode_change(self, entity, attribute, old, new, kwargs):
         """Cancel a pending auto-switch fallback when the charge mode changes.
@@ -112,6 +136,10 @@ class MonitorPauseAtReconnect:
             # auto-switch fallback from an earlier reconnect.
             await cancel_timer_silent(self.hass, self._auto_switch_timer_handle)
             self._auto_switch_timer_handle = ""
+            return
+
+        if self._is_unknown_car:
+            # The Stop is the app's own safety measure; do not offer to lift it.
             return
 
         charge_mode = await self.hass.get_state("input_select.charge_mode", None)
