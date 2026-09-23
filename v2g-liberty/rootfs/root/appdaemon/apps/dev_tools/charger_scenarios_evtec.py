@@ -313,6 +313,16 @@ SCENARIOS: dict[str, EVtecScenario] = {
             **words_at(OFF_POWER, enc_float32(0.0)),
         },
     ),
+    "other_car": EVtecScenario(
+        name="other_car",
+        description=(
+            "Like normal, but the connected car reports another EvccId (X+76) "
+            "than the registered one. With a registered id the driver must "
+            "announce an unknown car on connect (disconnect and reconnect to "
+            "trigger it) and the app must pause instead of charging it."
+        ),
+        profile_overrides={"car_id": "GUEST-EVCCID-99"},
+    ),
 }
 
 DEFAULT_SCENARIO = "normal"

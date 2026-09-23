@@ -1117,8 +1117,13 @@ class V2Gliberty:
         await self.hass.set_state(
             self.UNKNOWN_CAR_ENTITY,
             state=self.unknown_car_ev_id or "none",
-            attributes={"registered_ev_id": c.CAR_EV_ID},
+            attributes=self.__unknown_car_attributes(),
         )
+
+    @staticmethod
+    def __unknown_car_attributes() -> dict:
+        """What the banner on the main screen shows next to the connected id."""
+        return {"registered_ev_id": c.CAR_EV_ID, "registered_car_name": c.CAR_NAME}
 
     def __forced_stop_record(self) -> dict:
         if self.v2g_settings is None:
@@ -1135,7 +1140,7 @@ class V2Gliberty:
         await self.hass.set_state(
             self.UNKNOWN_CAR_ENTITY,
             state=ev_id,
-            attributes={"registered_ev_id": c.CAR_EV_ID},
+            attributes=self.__unknown_car_attributes(),
         )
         self.event_bus.emit_event("unknown_car_connected_state", is_unknown_car=True)
         if already_forced:
@@ -1176,7 +1181,7 @@ class V2Gliberty:
         await self.hass.set_state(
             self.UNKNOWN_CAR_ENTITY,
             state="none",
-            attributes={"registered_ev_id": c.CAR_EV_ID},
+            attributes=self.__unknown_car_attributes(),
         )
         self.event_bus.emit_event("unknown_car_connected_state", is_unknown_car=False)
         if record.get("reason") != "unknown_car":

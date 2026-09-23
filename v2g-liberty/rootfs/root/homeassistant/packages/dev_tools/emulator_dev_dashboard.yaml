@@ -65,6 +65,9 @@ views:
                 (discovery must scan offsets 0/2/4). Frozen.
               - `error_state`: connector state 12 (error). Frozen.
               - `internal_error`: error bitmask X+54 ≠ 0. Frozen.
+              - `other_car`: like `normal`, but the car reports EvccId
+                `GUEST-EVCCID-99`. Disconnect → connect with a registered id:
+                V2G pauses and reports an unknown car.
 
               Suspend mode (X+88) is ignored, as on the real charger: only a setpoint
               of 0 stops power flow.
@@ -183,6 +186,12 @@ views:
           **10. `internal_error`**
           - Do: scenario `internal_error`.
           - See: non-zero error register; after ~60 s → un-recoverable.
+
+          **10b. `other_car`** (EVtec, with a car id registered in the car settings)
+          - Do: scenario `other_car`, **Car connected** off → on.
+          - See: charge mode `Stop`, banner on the main screen with both ids,
+            notification to all users, no "switch to Automatic?" prompt (also
+            not after 10 min). **Car connected** off → mode back to `Automatic`.
 
       - type: markdown
         content: |

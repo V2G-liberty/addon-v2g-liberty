@@ -89,6 +89,40 @@
 
           {% endif %}
 
+    # An unknown car (a charger that identifies cars, EVtec): the app has
+    # paused automatic charging. sensor.unknown_car_connected is a runtime
+    # sensor written by main_app: "none", or the id of the connected car.
+    - type: conditional
+      layout_options:
+        grid_columns: full
+      conditions:
+        - entity: sensor.unknown_car_connected
+          state_not: "none"
+        - entity: sensor.unknown_car_connected
+          state_not: "unknown"
+        - entity: sensor.unknown_car_connected
+          state_not: "unavailable"
+      card:
+        type: markdown
+        card_mod:
+          style: |
+            ha-card {
+              height: auto !important;
+            }
+        content: |
+          {% set name = state_attr('sensor.unknown_car_connected', 'registered_car_name') or 'your car' %}
+          {% set registered = state_attr('sensor.unknown_car_connected', 'registered_ev_id') or 'none' %}
+          <ha-alert alert-type="warning" title="Unknown car connected">Automatic charging has been paused.</ha-alert>
+
+          A car that is not '{{ name }}' is plugged in.
+
+          Registered car ID: **{{ registered }}**<br/>
+          Connected car ID: **{{ states('sensor.unknown_car_connected') }}**
+
+          **A visitor?** Nothing to do: charging resumes when the car is unplugged.
+
+          **Your new car?** Go to Settings > Car > Edit and read its ID.
+
 - type: grid
   cards:
     - type: markdown

@@ -84,7 +84,10 @@ async def test_unknown_car_forces_stop_and_tells_the_user(v2g):
     v2g._V2Gliberty__set_charge_mode_in_ui.assert_awaited_once_with("Stop")
     assert _sensor_writes(v2g) == [GUEST]
     sensor_call = v2g.hass.set_state.await_args_list[0]
-    assert sensor_call.kwargs["attributes"] == {"registered_ev_id": OWNER}
+    assert sensor_call.kwargs["attributes"] == {
+        "registered_ev_id": OWNER,
+        "registered_car_name": "Ioniq 5",
+    }
     assert _state_events(v2g) == [True]
     kwargs = v2g.notifier.notify_user.await_args.kwargs
     assert GUEST in kwargs["message"]

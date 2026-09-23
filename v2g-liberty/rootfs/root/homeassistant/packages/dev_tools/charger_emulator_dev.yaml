@@ -43,6 +43,7 @@ input_select:
       - booting_connector
       - error_state
       - internal_error
+      - other_car
 
 input_boolean:
   emulator_car_connected:
