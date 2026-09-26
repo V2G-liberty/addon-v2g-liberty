@@ -422,6 +422,31 @@ async def test_get_always_answers_with_defaults_when_there_is_no_car(
 
 
 @pytest.mark.asyncio
+async def test_get_coerces_values_that_were_stored_as_text(
+    get_save_instance, settings_manager_mock, hass_mock
+):
+    """A value migrated from the old entity-keyed settings can be a string;
+    the card would show "59.0 kWh" and the dialog would put it in a number
+    field."""
+    settings_manager_mock.objects["cars"] = [dict(_CAR, capacity_kwh="59.0")]
+
+    await _get(get_save_instance)
+
+    assert _result(hass_mock, "get_car_settings.result")["capacity_kwh"] == 59
+
+
+@pytest.mark.asyncio
+async def test_get_falls_back_when_a_value_is_not_a_number(
+    get_save_instance, settings_manager_mock, hass_mock
+):
+    settings_manager_mock.objects["cars"] = [dict(_CAR, capacity_kwh="abc")]
+
+    await _get(get_save_instance)
+
+    assert _result(hass_mock, "get_car_settings.result")["capacity_kwh"] == 24
+
+
+@pytest.mark.asyncio
 async def test_get_fills_in_a_missing_field(
     get_save_instance, settings_manager_mock, hass_mock
 ):

@@ -330,7 +330,9 @@
     },
     "common": {
       "configure": "Configure",
-      "validation_error": "Problem with input (not specified)"
+      "validation_error": "Problem with input (not specified)",
+      "retry": "Retry",
+      "load-failed": "Could not reach V2G Liberty, so these settings could not be loaded. They have not been changed."
     },
     "administrator": {
       "header": "Administrator",
@@ -352,7 +354,23 @@
     },
     "car": {
       "header": "Car",
-      "alert": "Please configure all data elements, V2G Liberty needs this to work."
+      "alert": "V2G Liberty needs your car's details to plan its charging.",
+      "alert-with-id": "V2G Liberty needs your car's details to plan its charging. Connect the car to the charger first, so its ID can be read.",
+      "car-id": "Car ID",
+      "car-id-missing": "Not read yet",
+      "fields": {
+        "capacity": "Usable capacity",
+        "efficiency": "Roundtrip efficiency",
+        "consumption": "Energy consumption",
+        "min-soc": "Schedule lower limit",
+        "max-soc": "Schedule upper limit",
+        "allowed-duration": "Allowed above upper limit",
+        "limits": "Schedule limits",
+        "limits-duration": "Up to %{hours} h above the limit"
+      },
+      "alert-title": "Car not set up yet",
+      "missing-id-title": "Car ID missing",
+      "missing-id": "This charger identifies cars. Read this car's ID so V2G Liberty can tell it apart from a visitor's car. The settings below stay as they are."
     },
     "car-reservation-calendar": {
       "header": "Car reservation calendar",
@@ -493,6 +511,45 @@
       "multiple-asset-description": "Which asset is to be controlled via V2G Liberty?",
       "no-asset-selected-error": "Please select an option",
       "login-success": "Login successful"
+    },
+    "car-dialog": {
+      "add": {
+        "header": "Set up your car"
+      },
+      "edit": {
+        "header": "Edit %{name}",
+        "header-unnamed": "Edit car"
+      },
+      "details": {
+        "description": "V2G Liberty uses these to work out how much energy the car holds and how far it can get on it."
+      },
+      "limits": {
+        "description": "Within these limits the schedule is free to charge and discharge the car."
+      },
+      "name-label": "Car name",
+      "name-placeholder": "e.g. Nissan Leaf",
+      "learn-more": "Learn more",
+      "errors": {
+        "name-required": "Please give the car a name.",
+        "out-of-range": "Enter a whole number between %{min} and %{max}.",
+        "load-failed": "Could not load the car settings. Try again."
+      },
+      "car-id": {
+        "header": "Car identification",
+        "explain": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\n\nPlug the car into the charger, then read its ID.",
+        "read": "Read car ID",
+        "read-again": "Read again",
+        "reading": "Reading the ID of the connected car…",
+        "found": "Car ID %{id} read from the connected car.",
+        "registered": "Registered car ID: %{id}",
+        "no-car": "No car is connected. Plug the car in and try again.",
+        "no-id": "The car is connected but has not reported its ID yet. Try again in a moment.",
+        "failed": "The car ID could not be read. Check the charger connection and try again.",
+        "different": "A different car is connected (ID %{id}).",
+        "use-connected": "Use connected car",
+        "will-replace": "The connected car (ID %{id}) becomes the registered car when you save.",
+        "explain-edit": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\\n\\nPlug the car into the charger, then read its ID. Everything else you set up stays as it is."
+      }
     }
   }
 }

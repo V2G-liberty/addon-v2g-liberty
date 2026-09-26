@@ -606,9 +606,21 @@ class V2GLibertyGlobals:
             "identifies_car": self.__charger_identifies_car(),
         }
         for key, setting in self.CAR_VALUE_SETTINGS.items():
-            value = car.get(key)
-            payload[key] = setting["factory_default"] if value in (None, "") else value
+            payload[key] = self.__car_value_or_default(setting, car.get(key))
         self.hass.fire_event("get_car_settings.result", **payload)
+
+    @staticmethod
+    def __car_value_or_default(setting: dict, value):
+        """One stored car value as a number, or the factory default when there
+        is none. Coerced because a value migrated from the old entity-keyed
+        settings can be a string ("59.0"), and the card would show that as it
+        is -- and the dialog would put it in a number field."""
+        if value is None or value == "":
+            return setting["factory_default"]
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return setting["factory_default"]
 
     async def __save_car_settings(self, event, data, kwargs):
         """Store the car in one go, from the last page of the car dialog.
