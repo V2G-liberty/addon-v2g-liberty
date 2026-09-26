@@ -356,8 +356,6 @@
       "header": "Car",
       "alert": "V2G Liberty needs your car's details to plan its charging.",
       "alert-with-id": "V2G Liberty needs your car's details to plan its charging. Connect the car to the charger first, so its ID can be read.",
-      "car-id": "Car ID",
-      "car-id-missing": "Not read yet",
       "fields": {
         "capacity": "Usable capacity",
         "efficiency": "Roundtrip efficiency",
@@ -370,7 +368,8 @@
       },
       "alert-title": "Car not set up yet",
       "missing-id-title": "Car ID missing",
-      "missing-id": "This charger identifies cars. Read this car's ID so V2G Liberty can tell it apart from a visitor's car. The settings below stay as they are."
+      "missing-id": "This charger identifies cars. Read this car's ID so V2G Liberty can tell it apart from a visitor's car. The settings below stay as they are.",
+      "car-id-subtitle": "ID: %{id}"
     },
     "car-reservation-calendar": {
       "header": "Car reservation calendar",

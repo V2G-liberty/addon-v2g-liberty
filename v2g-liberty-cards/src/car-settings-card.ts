@@ -64,6 +64,16 @@ class CarSettingsCard extends LitElement {
         font-size: 0.875em;
         color: var(--secondary-text-color);
       }
+      /* ha-card pads its header 20px 16px 24px; with a subtitle underneath
+         the bottom padding moves to the subtitle so the two read as one. */
+      .card-header.has-subtitle {
+        padding-bottom: 0;
+      }
+      .card-subtitle {
+        padding: 0 var(--ha-space-4, 16px) var(--ha-space-4, 16px);
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
     `,
   ];
 
@@ -143,12 +153,26 @@ class CarSettingsCard extends LitElement {
       !this._settings?.ev_id;
     const header =
       ((isInitialised || needsId) && this._settings?.name) || tp('header');
+    // The ID is not a setting the user edits but a fact about the car, so it
+    // belongs with the name rather than in the list of values. ha-card has no
+    // subtitle of its own; it does style a slotted .card-header exactly like
+    // the header it renders itself, so the header is ours and the subtitle
+    // sits directly under it.
+    const evId = this._settings?.identifies_car ? this._settings?.ev_id : '';
+    const subtitle =
+      (isInitialised || needsId) && evId
+        ? tp('car-id-subtitle', { id: evId })
+        : null;
     const content = isInitialised
       ? this._renderInitialisedContent()
       : needsId
         ? this._renderInitialisedContent(true)
         : this._renderUninitialisedContent();
-    return html`<ha-card header="${header}">${content}</ha-card>`;
+    return html`<ha-card>
+      <h1 class="card-header ${subtitle ? 'has-subtitle' : ''}">${header}</h1>
+      ${subtitle ? html`<div class="card-subtitle">${subtitle}</div>` : nothing}
+      ${content}
+    </ha-card>`;
   }
 
   private _renderUninitialisedContent() {
@@ -180,7 +204,6 @@ class CarSettingsCard extends LitElement {
               ${tp('missing-id')}
             </ha-alert>`
           : nothing}
-        ${this._renderCarId()}
         ${CAR_DETAIL_FIELDS.map(field => this._renderField(field))}
         ${this._renderScheduleLimits()}
       </div>
@@ -193,15 +216,6 @@ class CarSettingsCard extends LitElement {
         )}
       </div>
     `;
-  }
-
-  private _renderCarId() {
-    if (!this._settings?.identifies_car) return nothing;
-    return this._renderRow(
-      'mdi:identifier',
-      tp('car-id'),
-      this._settings.ev_id || tp('car-id-missing')
-    );
   }
 
   /**
