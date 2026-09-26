@@ -39,6 +39,28 @@ function _haDialogFooterSlot(hass: HomeAssistant): string {
   return isNewHaDialogAPI(hass) ? 'footer' : null;
 }
 
+/**
+ * What a settings card shows when it could not load its data. Saying it plainly
+ * matters: drawing the configured layout without values leaves an empty card,
+ * and drawing the "not set up" one invites the user to configure something that
+ * is already configured.
+ */
+export function renderLoadFailedCard(
+  hass: HomeAssistant,
+  header: string,
+  onRetry: () => void
+) {
+  const tc = partial('settings.common');
+  return html`<ha-card header=${header}>
+    <div class="card-content">
+      <ha-alert alert-type="error">${tc('load-failed')}</ha-alert>
+    </div>
+    <div class="card-actions">
+      ${renderButton(hass, onRetry, true, tc('retry'))}
+    </div>
+  </ha-card>`;
+}
+
 export function renderButton(
   hass: HomeAssistant,
   action: (() => void),
@@ -57,12 +79,17 @@ export function renderButton(
   }
   const footerSlot = _haDialogFooterSlot(hass);
   const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
-  const appearance = isPrimaryAction
-    ? 'filled'
-    : 'outlined'
-  const variant = isPrimaryAction
-    ? 'brand'
-    : 'secondary'
+  // ha-button accepts appearance accent|filled|outlined|plain and variant
+  // brand|neutral|success|warning|danger (default brand). 'secondary' was
+  // never one of them, so every non-primary button silently fell back to the
+  // brand styling -- which is why the back button's outline read as heavy as
+  // the primary action. 'neutral' is the muted variant that was meant.
+  // Leaving appearance off is not an option: the component's default is a
+  // filled button, which made the back button louder than the primary action.
+  // 'outlined' with 'neutral' is the muted pairing that was intended all
+  // along; 'plain' (no border at all) is the next step down if wanted.
+  const appearance = isPrimaryAction ? 'filled' : 'outlined';
+  const variant = isPrimaryAction ? 'brand' : 'neutral';
   const chevronIcon = isBackButton
     ? html`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>`
     : nothing;
