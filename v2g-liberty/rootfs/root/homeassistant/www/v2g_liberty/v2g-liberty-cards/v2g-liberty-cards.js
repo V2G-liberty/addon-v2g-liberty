@@ -2211,6 +2211,7 @@ function $563fcf7ce7e6c5aa$export$4682af2d9ee91415(n) {
 
 
 
+const $1288c864b62d557b$export$9153b1a7e25d0caa = 10000;
 function $1288c864b62d557b$export$d883fbf232f0d35a(hass, eventName, args = {}, timeoutInMillsec = 60000) {
     return new Promise(async (resolve, reject)=>{
         const unsubscribe = await hass.connection.subscribeEvents(onResult, `${eventName}.result`);
@@ -2949,7 +2950,7 @@ $a7208d9fde1d2afd$exports = $a7208d9fde1d2afd$var$Polyglot;
 
 
 var $3b34ac5ccae6bad9$exports = {};
-$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","charger_type":"Charger type","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-unavailable":"Savings data not available yet","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"grid-connection":{"title":"Grid connection","role":{"consumption":"Consumption L%{n}","production":"Production L%{n}","import":"Import tariff %{n}","export":"Export tariff %{n}"},"card":{"active-alert":"Active \xb7 %{reporting} of %{total} sensors reporting","active-summary":"%{phase}, %{capacity} A per phase.","phase-1":"1-phase","phase-3":"3-phase","problem-title":"A sensor needs attention","problem-alert":"%{role} is not reporting correctly. Monitoring is paused until it is resolved.","problem-alert-generic":"A sensor is not reporting correctly. Monitoring is paused until it is resolved.","incomplete-title":"Not fully set up","incomplete-alert":"%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.","not-set-up":"Configure your grid connection so V2G Liberty learns your household energy patterns \u2014 for better predictions and smarter schedules, and to be ready for the end of net metering.","set-up":"Set up","fix":"Fix this"},"header":{"connection":"Connection","power":"Power","meter":"Meter readings","done":"Done"},"fm-gate-subject":"grid connection","intro":{"p1":"By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.","p2":"<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.","req-header":"What you need","req-smart-meter-title":"Smart meter","req-smart-meter-desc":"Reports power per phase in real time.","req-cable-title":"P1 cable","req-cable-desc":"A USB P1 port cable or similar (~\u20AC15).","req-integration-title":"Home Assistant integration","req-integration-desc":"E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."},"connection":{"phases-question":"How many phases does your grid connection have?","phase-1-title":"1 phase","phase-1-sub":"Small connection","phase-3-title":"3 phases","phase-3-sub":"Standard connection","phases-error":"Please select the number of phases.","phases-hint-summary":"Not sure?","phases-hint-body":"Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.","capacity-label":"Capacity per phase (ampere)","capacity-error-empty":"Please enter the capacity.","capacity-error-range":"Must be a whole number between 6 and 80.","capacity-hint-summary":"Where to find this","capacity-hint-body":"On your energy contract or your main fuse \u2014 typically 25 A or 35 A. Enter the actual value, not a lower safety margin.","continue-anyway":"Continue anyway"},"badge":{"auto-detected":"Auto-detected"},"solar-warning":{"title-one":"This change will break a solar panel","title-many":"This change will break solar panels","body-intro":"The new phase count no longer matches the configuration of:","body-outro":"Continue anyway is allowed \u2014 the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.","unnamed":"(unnamed)"},"sensors-heading":"Sensors","power":{"intro":"To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically \u2014 please check that each one is right before continuing.","consumption-title":"Consumption","consumption-sub":"power drawn from the grid","production-title":"Production","production-sub":"power fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 choose a sensor for every phase, for both consumption and production, to continue.","not-recognised-what":"power per phase"},"meter":{"intro":"The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs \u2014 with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically \u2014 please check them before continuing.","import-title":"Import","import-sub":"total energy taken from the grid","export-title":"Export","export-sub":"total energy fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).","not-recognised-what":"cumulative kWh readings"},"done":{"all-set":"All set \u2014 %{count} sensors linked.","incomplete-warning":"Not everything is set yet. Go back and complete the missing rows.","phases-label":"Phases","phases-value":"%{smart_count} phase |||| %{smart_count} phases","capacity-label":"Capacity per phase","no-sensor":"No sensor selected yet","keeps-monitoring":"V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.","save-incomplete":"Some rows are still missing \u2014 go back and complete them before saving.","saving":"Saving\u2026"},"detect":{"title":"Sensors not recognised \u2014 or not yet enabled","body":"No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default \u2014 check Settings \u2192 Devices & services \u2192 your meter \u2192 entities and enable them.","search-again":"Search again","open-integrations":"Open integrations"},"save-error":{"fm":"Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.","unreachable":"Could not reach the add-on. Please check that V2G Liberty is running and try again."},"picker":{"consumption":"Consumption","production":"Production","import":"Import","export":"Export","power-subtitle":"%{direction} phase %{phase} \xb7 power","meter-subtitle":"Tariff %{tariff} \xb7 %{direction} \xb7 meter reading"},"choose-sensor":{"title":"Choose sensor","search-label":"Search","clear-title":"Clear the search","search-info":"Prefilled with what you are setting up \u2014 every word has to match. Clear or edit it if your integration names things differently.","filter-power":"W / kW only","filter-meter":"kWh readings only","filter-all":"All sensors","empty":"No matching sensors.","already-in-use":"already in use","measures":"measures %{unit}","select-first":"Choose a sensor from the list first \u2014 search above if you don\'t see it.","unsuitable-title":"This sensor does not fit here","unsuitable-body":"This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.","unsuitable-fallback-unit":"the wrong quantity","help-summary":"Help \u2014 which sensor do I pick?","help-power-1":"Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter \u2014 a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.","help-power-2":"A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.","help-meter-1":"Pick a total in kWh that only ever goes up \u2014 the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.","help-meter-2":"Not sure between two? Compare the value with the display on your meter \u2014 the numbers should match.","cancel":"Cancel","ok":"OK"},"status":{"reporting":"Reporting","waiting":"Waiting for data","wrong-type":"This sensor does not fit here","stale":"No update for a long time"},"row":{"choose":"Choose sensor","change":"Change"}},"common":{"configure":"Configure","validation_error":"Problem with input (not specified)"},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"Please configure all data elements, V2G Liberty needs this to work."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","wallbox-quasar-1":"Wallbox Quasar 1","evtec-bidi-pro-10":"EVtec BiDiPro 10","alert":"Please configure the charger, V2G Liberty needs this to work.","1-select-charger-type":{"header":"Select charger type","description":"Please select the type of charger you are using:","validation-error":"Please select a charger type to continue."},"invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","charger-not-recognised-error":"Connected successfully, but the charger at this address does not appear to be the selected type. Please verify the charger type selection.","no-active-plug-error":"Connected to the charger, but no active plug was found. Please check the charger configuration.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","2-connection-details":{"header":"connection settings","description":{"generic":"To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.","evtec-bidi-pro-10":"You can find this in your network router or in the EVtec manager via the webbrowser.","wallbox-quasar-1":"You can find these in the Wallbox app: in the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."},"port-description":"Default is %{value}, so if you haven\u2019t changed it, keep this."},"3-power-details":{"header":"power settings","description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"}}}');
+$3b34ac5ccae6bad9$exports = JSON.parse('{"input_boolean":{"fm_show_option_to_change_url":"Use an other than the default server","use_reduced_max_charge_power":"Reduce the max. (dis)charge power"},"input_number":{"allowed_duration_above_max_soc_in_hrs":"Allowed duration above max soc","car_consumption_wh_per_km":"Car energy consumption","car_min_soc_in_percent":"Schedule lower limit","car_max_capacity_in_kwh":"Usable capacity","car_max_soc_in_percent":"Schedule upper limit","charger_max_charging_power":"Max. charging power","charger_max_discharging_power":"Max. discharging power","charger_plus_car_roundtrip_efficiency":"Roundtrip efficiency","charger_port":"Port number","energy_price_markup_per_kwh":"Markup","energy_price_vat":"VAT"},"input_select":{"admin_mobile_platform":"Operating system of the administrator device","car_calendar_name":"Calendar name","electricity_provider":"Electricity contract","gb_dno_region":"Great Brittain DNO region","optimisation_mode":"Optimisation mode"},"input_text":{"admin_mobile_name":"Administrator device","calendar_account_init_url":"Calendar host URL","calendar_account_username":"Username","calendar_account_password":"Password","charger_host_url":"Charger hostname","charger_type":"Charger type","fm_account_username":"Username","fm_account_password":"Password","fm_asset":"Asset name","fm_host_url":"Host URL","octopus_export_code":"Export code","octopus_import_code":"Import code","own_consumption_price_entity_id":"Source entity_id consumption prices","own_production_price_entity_id":"Source entity_id production prices"},"option":{"android":"Android","ios":"iOS","emission":"Emissions","price":"Price","au_amber_electric":"Amber","gb_octopus_energy":"Octopus Energy","nl_generic":"Generic","nl_anwb_energie":"ANWB Energie","nl_greenchoice":"Greenchoice","nl_next_energy":"Next Energy","nl_tibber":"Tibber","no_generic":"xxx"},"homepage-stats":{"header":"Today","details":"details"},"data-table":{"granularity":{"quarter_hours":"15 min","hours":"Hours","days":"Days","weeks":"Weeks","months":"Months","years":"Years"},"now":"Now","loading":"Loading data...","no-data":"No data for this period","no-data-hint":"First data available from:","error":"Could not load data. Please try again.","error-timeout":"Loading timed out. Please try again later.","all-time":"All time","page-title":"Smart energy","card-title":"Charging","app-state":{"automatic":"Automatic","charge":"Charge","discharge":"Discharge","pause":"Pause","max_boost":"Max boost","not_connected":"Not connected","error":"Error","unknown":"Unknown","mixed":"other states"},"price-rating":{"very-low":"Very low","low":"Low","average":"Average","high":"High","very-high":"Very high"},"col":{"period":"Period","status":"Status","soc":"SoC","consumption":"Buy price","production":"Sell price","avg-price":"Avg. price","rate":"Price level","energy":"Energy","cost-revenue":"Net cost","charge":"Charge","charge-kwh":"Charge","charge-cost":"Charge cost","discharge":"Discharge","discharge-kwh":"Discharge","discharge-revenue":"Discharge revenue","availability":"Availability","availability-tooltip":"Percentage of the time the vehicle was connected and available for charging/discharging during this period.","net":"Net","net-cost":"Net cost","cost":"Cost","revenue":"Revenue","emissions":"Emissions","avoided-emissions":"Avoided","duration":"Duration"},"totals":{"card-title":"Totals","period":"Period","soc-range":"SoC range","avg-cons-price":"Buy price (avg.)","avg-prod-price":"Sell price (avg.)","avg-price":"Avg. price","net-avg-price":"Avg. net price","availability":"Availability","charge-duration":"Charge duration","discharge-duration":"Discharge duration","savings":"Savings","savings-label":"Savings vs fixed","savings-fixed-label":"vs non-smart charging + fixed contract","savings-dyn-label":"vs non-smart charging + dyn. contract","savings-unavailable":"Savings data not available yet","savings-tooltip":"This is your savings compared to standard charging.\\n\\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage \u2014 without a smart schedule.\\n\\nThe cost of standard charging is calculated based on your charging history in two variants:\\n \u2022 Fixed: standard charging kWh \xd7 monthly average contract prices (CBS).\\n \u2022 Dynamic: standard charging kWh \xd7 the same dynamic energy prices."},"row-details-show":"Show details","row-details-hide":"Hide details","estimated-note":"Partly based on estimated data","estimated-tooltip":"Historical data was not always complete. Missing values have been interpolated where possible. There may still be gaps in the data. The charging status was not historically logged and is therefore unknown.","overflow-reset-database":"Reset history","reset-dialog":{"header":"Reset history","reimport-label":"Re-import history","reimport-explanation":"Re-runs the historical data import from FlexMeasures. Existing data is kept; missing data is added. Use this when the initial import was incomplete or after a software update.","full-label":"Full database reset","full-explanation":"Deletes all charging history and statistics, then re-imports from FlexMeasures. Use this when the database is corrupted or after a schema change.","duration-note":"Importing historical charging data from FlexMeasures takes up to **5 minutes per month** of history.","full-warning":"This will permanently delete all local charging data. This cannot be undone.","confirm-prompt":"Type \\"Yes\\" or \\"Ja\\" to confirm:","confirm-placeholder":"Yes / Ja","confirm-button":"Continue","error":"Reset failed. Please try again.","success":"Done. Historical data is being re-imported \u2014 the Data page will gradually fill up.","close":"Close"}},"ping-card":{"error":"Connection with V2G Liberty lost, please restart the add-on.","restarting":"Connection with V2G Liberty lost. Restarting...","restart":"Restart"},"settings-alert-dialog":{"header":"App not configured correctly","error":"The app is not configured correctly and probably does not work.","message":"The following settings are incomplete or have errors:","cta":"Please go to the settings page and correct all settings.","go_to_settings":"Go to settings","entity_names":{"input_boolean.schedule_settings_initialised":"Schedule Settings","input_boolean.admin_settings_initialised":"Administrator Settings","input_boolean.calendar_settings_initialised":"Calendar Settings","input_boolean.electricity_contract_settings_initialised":"Electricity Contract Settings","input_boolean.charger_settings_initialised":"Charger Settings","sensor.fm_connection_status":"FlexMeasures connection","sensor.calendar_account_connection_status":"Calendar connection"}},"settings":{"grid-connection":{"title":"Grid connection","role":{"consumption":"Consumption L%{n}","production":"Production L%{n}","import":"Import tariff %{n}","export":"Export tariff %{n}"},"card":{"active-alert":"Active \xb7 %{reporting} of %{total} sensors reporting","active-summary":"%{phase}, %{capacity} A per phase.","phase-1":"1-phase","phase-3":"3-phase","problem-title":"A sensor needs attention","problem-alert":"%{role} is not reporting correctly. Monitoring is paused until it is resolved.","problem-alert-generic":"A sensor is not reporting correctly. Monitoring is paused until it is resolved.","incomplete-title":"Not fully set up","incomplete-alert":"%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.","not-set-up":"Configure your grid connection so V2G Liberty learns your household energy patterns \u2014 for better predictions and smarter schedules, and to be ready for the end of net metering.","set-up":"Set up","fix":"Fix this"},"header":{"connection":"Connection","power":"Power","meter":"Meter readings","done":"Done"},"fm-gate-subject":"grid connection","intro":{"p1":"By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.","p2":"<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.","req-header":"What you need","req-smart-meter-title":"Smart meter","req-smart-meter-desc":"Reports power per phase in real time.","req-cable-title":"P1 cable","req-cable-desc":"A USB P1 port cable or similar (~\u20AC15).","req-integration-title":"Home Assistant integration","req-integration-desc":"E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."},"connection":{"phases-question":"How many phases does your grid connection have?","phase-1-title":"1 phase","phase-1-sub":"Small connection","phase-3-title":"3 phases","phase-3-sub":"Standard connection","phases-error":"Please select the number of phases.","phases-hint-summary":"Not sure?","phases-hint-body":"Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.","capacity-label":"Capacity per phase (ampere)","capacity-error-empty":"Please enter the capacity.","capacity-error-range":"Must be a whole number between 6 and 80.","capacity-hint-summary":"Where to find this","capacity-hint-body":"On your energy contract or your main fuse \u2014 typically 25 A or 35 A. Enter the actual value, not a lower safety margin.","continue-anyway":"Continue anyway"},"badge":{"auto-detected":"Auto-detected"},"solar-warning":{"title-one":"This change will break a solar panel","title-many":"This change will break solar panels","body-intro":"The new phase count no longer matches the configuration of:","body-outro":"Continue anyway is allowed \u2014 the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.","unnamed":"(unnamed)"},"sensors-heading":"Sensors","power":{"intro":"To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically \u2014 please check that each one is right before continuing.","consumption-title":"Consumption","consumption-sub":"power drawn from the grid","production-title":"Production","production-sub":"power fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 choose a sensor for every phase, for both consumption and production, to continue.","not-recognised-what":"power per phase"},"meter":{"intro":"The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs \u2014 with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically \u2014 please check them before continuing.","import-title":"Import","import-sub":"total energy taken from the grid","export-title":"Export","export-sub":"total energy fed back to the grid","incomplete-alert":"Sensor(s) still missing \u2014 for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).","not-recognised-what":"cumulative kWh readings"},"done":{"all-set":"All set \u2014 %{count} sensors linked.","incomplete-warning":"Not everything is set yet. Go back and complete the missing rows.","phases-label":"Phases","phases-value":"%{smart_count} phase |||| %{smart_count} phases","capacity-label":"Capacity per phase","no-sensor":"No sensor selected yet","keeps-monitoring":"V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.","save-incomplete":"Some rows are still missing \u2014 go back and complete them before saving.","saving":"Saving\u2026"},"detect":{"title":"Sensors not recognised \u2014 or not yet enabled","body":"No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default \u2014 check Settings \u2192 Devices & services \u2192 your meter \u2192 entities and enable them.","search-again":"Search again","open-integrations":"Open integrations"},"save-error":{"fm":"Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.","unreachable":"Could not reach the add-on. Please check that V2G Liberty is running and try again."},"picker":{"consumption":"Consumption","production":"Production","import":"Import","export":"Export","power-subtitle":"%{direction} phase %{phase} \xb7 power","meter-subtitle":"Tariff %{tariff} \xb7 %{direction} \xb7 meter reading"},"choose-sensor":{"title":"Choose sensor","search-label":"Search","clear-title":"Clear the search","search-info":"Prefilled with what you are setting up \u2014 every word has to match. Clear or edit it if your integration names things differently.","filter-power":"W / kW only","filter-meter":"kWh readings only","filter-all":"All sensors","empty":"No matching sensors.","already-in-use":"already in use","measures":"measures %{unit}","select-first":"Choose a sensor from the list first \u2014 search above if you don\'t see it.","unsuitable-title":"This sensor does not fit here","unsuitable-body":"This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.","unsuitable-fallback-unit":"the wrong quantity","help-summary":"Help \u2014 which sensor do I pick?","help-power-1":"Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter \u2014 a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.","help-power-2":"A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.","help-meter-1":"Pick a total in kWh that only ever goes up \u2014 the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.","help-meter-2":"Not sure between two? Compare the value with the display on your meter \u2014 the numbers should match.","cancel":"Cancel","ok":"OK"},"status":{"reporting":"Reporting","waiting":"Waiting for data","wrong-type":"This sensor does not fit here","stale":"No update for a long time"},"row":{"choose":"Choose sensor","change":"Change"}},"common":{"configure":"Configure","validation_error":"Problem with input (not specified)","retry":"Retry","load-failed":"Could not reach V2G Liberty, so these settings could not be loaded. They have not been changed."},"administrator":{"header":"Administrator","alert":"Please configure your administrator device.","sub-header":"High priority notifications get sent to the administrator\'s mobile device.","error":"Please select an option"},"test_notification":{"send-test-notification":"Send a test notification (with sound)","notification-title":"Test notification","notification-message":"Did you hear a loud alarm sound? Long press this notification to see the buttons.","notification-loud-alarm-label":"Loud alarm sound","notification-soft-or-no-sound-label":"Soft beep / no sound","how-to-react-on-mobile-device":"A critical test notification has been sent to your mobile phone. It should play a loud alarm sound, even if your phone is on silent. Long press the notification and two buttons will show up. Please select whether you heard a loud alarm sound or not.","sound-issue-android":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, go to **Android Settings > Apps > Special app access > Alarms & reminders** and enable access for the Home Assistant app. Menu names may vary between Android versions.\\n\\nAfter changing this setting, try the test again.","sound-issue-ios":"The notification was received, but without the expected alarm sound.\\n\\nTo fix this, open the **Home Assistant Companion App > Settings > Notifications** and make sure critical notifications are enabled.\\n\\nAfter changing this setting, try the test again.","test-notification-timeout":"The test timed out. Please check the administrator configuration.","test-notification-success":"The administrator setup is perfect! Notification received with alarm sound."},"car":{"header":"Car","alert":"V2G Liberty needs your car\'s details to plan its charging.","alert-with-id":"V2G Liberty needs your car\'s details to plan its charging. Connect the car to the charger first, so its ID can be read.","car-id":"Car ID","car-id-missing":"Not read yet","fields":{"capacity":"Usable capacity","efficiency":"Roundtrip efficiency","consumption":"Energy consumption","min-soc":"Schedule lower limit","max-soc":"Schedule upper limit","allowed-duration":"Allowed above upper limit","limits":"Schedule limits","limits-duration":"Up to %{hours} h above the limit"},"alert-title":"Car not set up yet","missing-id-title":"Car ID missing","missing-id":"This charger identifies cars. Read this car\'s ID so V2G Liberty can tell it apart from a visitor\'s car. The settings below stay as they are."},"car-reservation-calendar":{"header":"Car reservation calendar","alert":"Please configure your car reservation calendar, V2G Liberty needs this to work.","type":"Type","connection-error":"Could not login to caldav server, please check account.","connection-success":"Connected, last contact %{time} ago","source-selection":{"description":"V2G Liberty uses the car reservation calendar to make sure the car is charged and ready to use when you need it. It does this smart, reaching the desired state of charge at in time at the lowest cost.","select-name":"Calendar type","remoteCaldav":{"title":"Remote caldav source","description":"Use this for calendars that are directly accessible via the caldav protocol, e.g. icloud, Nextcloud, etc."},"localIntegration":{"title":"Home Assistant local integration","description":"Use this for Home Assistant calendar integrations, e.g. local calendar integration, Google calendar integration, etc. This must be installed before it can configured here."},"no-selection-error":"Please select an option"},"caldav":{"description":"Please enter your calendar caldav details.\\nIf possible, create and use a separate app-password.","url-error":"Please enter a valid URL","username-error":"Please enter a username of minimal 4 characters","password-error":"Please enter a password of minimal 6 characters","login-success":"Login successful","error":"No calendar found in account, please check your account."},"homeassistant":{"description":"Please choose which calendar to use for car reservations.","error":"No calendar integration found in Home Assistant, please add a calendar integration."}},"charger":{"header":"Charger","wallbox-quasar-1":"Wallbox Quasar 1","evtec-bidi-pro-10":"EVtec BiDiPro 10","alert":"Please configure the charger, V2G Liberty needs this to work.","1-select-charger-type":{"header":"Select charger type","description":"Please select the type of charger you are using:","validation-error":"Please select a charger type to continue."},"invalid-host-error":"Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).","invalid-port-error":"Please provide a valid port.","connection-error":"No communication with charger, please check connection.","charger-not-recognised-error":"Connected successfully, but the charger at this address does not appear to be the selected type. Please verify the charger type selection.","no-active-plug-error":"Connected to the charger, but no active plug was found. Please check the charger configuration.","connection-success":"Succesfully connected","connected-since":"Connected, last contact %{time} ago","max-power-description":"The charger is configured to (dis)charge at max. **%{value}** W.","load-balancer":{"enabled":{"title":"V2G Liberty load balancer module enabled","info":"The V2G Liberty load balancer module is currently enabled.\\n\\n**Important**\\nThis module is provided without any guarantees. Use it at your own risk.\\n\\nPlease consult a certified electrician what maximum power can be set on the charger.\\n\\n**Configuration**\\n\\n- The Charger hostname must be set to `127.0.0.1`\\n\\n- The port number must be set to `5020`\\n\\nFor further details please consult `readme.md` in the folder `load_balancer`."},"not_enabled":{"title":"V2G Liberty load balancer module not enabled","info":"A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\\n\\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\\n\\nPlease consult a certified electrician what maximum power can be set on the charger."}},"reduce-max-power-description":"Reduce max. (dis)charge power.","2-connection-details":{"header":"connection settings","description":{"generic":"To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.","evtec-bidi-pro-10":"You can find this in your network router or in the EVtec manager via the webbrowser.","wallbox-quasar-1":"You can find these in the Wallbox app: in the app, go to Settings (\u2699-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."},"port-description":"Default is %{value}, so if you haven\u2019t changed it, keep this."},"3-power-details":{"header":"power settings","description":"The charger is configured to (dis)charge at max. **%{value}** W.","reduce-max-power-description":"Use this to further limit the (dis)charge power below the maximum set in the charger."}},"dialogs":{"inputnumber":{"error":"Please provide a value between %{min} and %{max}."},"car-battery-usable-capacity":{"header":"Usable capacity for car battery","description":"This is the the maximum energy storage capacity of the car\'s battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\\n\\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\\n\\n**Battery health**\\nIf a battery get\u2019s older it usually degrades and cannot contain as much energy as when it was new. It\u2019s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu\u2019s.\\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"},"roundtrip-efficiency":{"header":"Roundtrip efficiency","description":"This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."},"car-energy-consumption":{"header":"Car energy consumption","description":"The average electricity usage of your car in Watt-hour (Wh) per kilometer.\\n\\nIn most cars you can find historical data in the menu\'s or see [Electric Vehicle Database](https://ev-database.org).\\n\\nNormally this is between 140 (very efficient) and 300 (rather in-efficient vans).\\n\\nMake sure you use the right \'unit of measure\': Wh/km."},"allowed-duration-above-max":{"header":"Allowed duration above max soc","description":"When the car connects with a SoC higher than the upper limit, how long may the schedule take to bring the SoC back to this maximum?\\n\\nA longer duration gives opportunity for a more optimal schedule but might have a (minor) degradation effect on the battery.\\nThis duration is excluding the (minimum) time it takes to get back to the desired maximum under normal cycling conditions."},"car-battery-lower-charge-limit":{"header":"Lower charge limit for car battery","description":"The automated schedule will never discharge below this value.\\n**Effects on automated charging**\\nIf the car returns with and SoC below this value, the battery will directly be charged to this limit, before automated (scheduled) charging.\\n\\n**Effects on earnings**\\nA high value results in always having a greater driving range available, even when not planned, but less capacity available for dis-charge and so lesser earnings.\\nA lower value results in sometimes a smaller driving range available for un-planned drives but there is always more capacity for discharge and so more earnings.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is below 15% for a longer period.\\n\\n**Odd car behaviour**\\nIn some cars the SoC every now and then skips a number, eg. from 21 to 19%, skipping 20%. This might result in toggling charging behaviour around this minimum SoC. If this happens try a value one higher or lower."},"car-battery-upper-charge-limit":{"header":"Upper charge limit for car battery","description":"The schedule will use this limit for regular automated /scheduled charging.\\n**Effects on earnings**\\nA low setting reduces schedule flexibility and so the capability to earn money and reduce emissions.\\n\\nWhen a calendar item is present with a charge target above this limit, the schedule will ignore this limit and try to charge the battery to the target at the start of the calendar.\\n\\n**Battery life**\\nSome research suggests battery life is shorter if the SoC is above 85% for a longer period (days)."},"optimisation-mode":{"header":"Optimisation mode","description":"**Price optimisation**\\nThis will maximise revenues / savings based on dynamic tarifs.\\n\\n**Emission minimisation**\\nThis minimises CO\u2082 emissions due to electricity production.\\n\\nIf you choose either the other will benefit in general."}},"electricity-contract":{"au":"Australia","gb":"Great Britain","nl":"Netherlands","header":"Electricity contract","alert":"Please configure an electricity contract, V2G Liberty needs this to work.","selection-header":"What electricity contract do you have?","amber-description":"For the electricity contract **Amber Electric (Australia)** V2G Liberty gets electricity prices via the [Amber Electric Home Assistant integration](https://www.home-assistant.io/integrations/amberelectric). Please make sure this is installed and functioning.\\n\\nPlease enter the entity_id of the consumption (`sensor.****_general_forecast`) and production (`sensor.****_feed_in_forecast`) entities that are populated by the Amber Electric integration.","octopus-description":"For the electricity contract **Octopus Energy (Great Britain)** V2G Liberty gets electricity prices via the Octopus API.\\n\\nPlease enter the import / export code that is specific for your contract. E.g. `AGILE-FLEX-22-11-25` / `AGILE-OUTGOING-19-05-13`. If you do not have them, the Octopus help-desk can supply them.","nl-sub-header":"For the electricity contract **%{contract} (%{country})** you get an all included price from our backend.","nl-generic-description":"While not needed, you can add extra price components.\\n\\nVAT and markup are used for transforming the raw price data (from the cloud) to net price to be shown in UI:\\n(market-price-per-kwh + markup-per-kwh) * (100 + VAT)/100\\n\\nIf both are 0 the price from the cloud remains unchanged."},"optimisation":{"header":"Optimisation","description":"How to optimise the charging schedules."},"schedule":{"header":"Smart schedule","alert":"Please configure the smart schedule, V2G Liberty needs this to work.","connection-error":"Could not login to Smart Schedule server, please check account.","connection-success":"Connected, last contact %{time} ago","use-other-server":"Use other server","account-description":"An account for the default server can be requested at https://v2g-liberty.eu.","email-error":"Please enter a valid e-mail address as username","password-error":"Please enter a password of minimal 6 characters","url-error":"Please enter a valid URL","no-asset-error":"No assets found in account, please contact the smart schedule servers administrator.","multiple-asset-description":"Which asset is to be controlled via V2G Liberty?","no-asset-selected-error":"Please select an option","login-success":"Login successful"},"car-dialog":{"add":{"header":"Set up your car"},"edit":{"header":"Edit %{name}","header-unnamed":"Edit car"},"details":{"description":"V2G Liberty uses these to work out how much energy the car holds and how far it can get on it."},"limits":{"description":"Within these limits the schedule is free to charge and discharge the car."},"name-label":"Car name","name-placeholder":"e.g. Nissan Leaf","learn-more":"Learn more","errors":{"name-required":"Please give the car a name.","out-of-range":"Enter a whole number between %{min} and %{max}.","load-failed":"Could not load the car settings. Try again."},"car-id":{"header":"Car identification","explain":"This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor\'s car on your schedule.\\n\\nPlug the car into the charger, then read its ID.","read":"Read car ID","read-again":"Read again","reading":"Reading the ID of the connected car\u2026","found":"Car ID %{id} read from the connected car.","registered":"Registered car ID: %{id}","no-car":"No car is connected. Plug the car in and try again.","no-id":"The car is connected but has not reported its ID yet. Try again in a moment.","failed":"The car ID could not be read. Check the charger connection and try again.","different":"A different car is connected (ID %{id}).","use-connected":"Use connected car","will-replace":"The connected car (ID %{id}) becomes the registered car when you save.","explain-edit":"This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor\'s car on your schedule.\\\\n\\\\nPlug the car into the charger, then read its ID. Everything else you set up stays as it is."}}}}');
 
 
 var $4db9c280a88445d4$exports = {};
@@ -3962,9 +3963,8 @@ var $ee1328194d522913$export$8d080c28108db9dd = function(e, t, r) {
 const $755a87c9ee93218f$export$e912a4111e48f543 = 'input_boolean.admin_settings_initialised';
 const $755a87c9ee93218f$export$750f693c799177e2 = 'input_text.admin_mobile_name';
 const $755a87c9ee93218f$export$d70389959f86dee4 = 'input_select.admin_mobile_platform';
-const $755a87c9ee93218f$export$511a96d8a8b167fa = 'input_number.car_max_capacity_in_kwh';
-const $755a87c9ee93218f$export$7c53730103b0e952 = 'input_number.charger_plus_car_roundtrip_efficiency';
-const $755a87c9ee93218f$export$a6bd64d0b150c939 = 'input_number.car_consumption_wh_per_km';
+const $755a87c9ee93218f$export$d2234deac8a139c6 = 'sensor.car_settings_initialised';
+const $755a87c9ee93218f$export$51935392396870c1 = 'sensor.last_reboot_at';
 const $755a87c9ee93218f$export$327a7fa57ac6cc54 = 'input_boolean.calendar_settings_initialised';
 const $755a87c9ee93218f$export$9c93c6d1ceae75f4 = 'input_text.car_calendar_source';
 const $755a87c9ee93218f$export$2af59ed4d7901cb0 = 'input_text.calendar_account_init_url';
@@ -3993,9 +3993,6 @@ const $755a87c9ee93218f$export$7264ac5bb217f690 = 'input_text.octopus_import_cod
 const $755a87c9ee93218f$export$43beb8995cb3e288 = 'input_text.octopus_export_code';
 const $755a87c9ee93218f$export$54e0b838c6a76104 = 'input_select.gb_dno_region';
 const $755a87c9ee93218f$export$29a786ee773985a = 'input_select.optimisation_mode';
-const $755a87c9ee93218f$export$a81a922cb2dc8458 = 'input_number.car_min_soc_in_percent';
-const $755a87c9ee93218f$export$e39cc2ab91dbbf48 = 'input_number.car_max_soc_in_percent';
-const $755a87c9ee93218f$export$bcf5813544a68726 = 'input_number.allowed_duration_above_max_soc_in_hrs';
 const $755a87c9ee93218f$export$20d139f4f3aeb4ae = 'sensor.v2g_liberty_charged_today_kwh';
 const $755a87c9ee93218f$export$909fe49ce6b9cee5 = 'sensor.v2g_liberty_charge_cost_today';
 const $755a87c9ee93218f$export$5fb82d6848912fff = 'sensor.v2g_liberty_discharged_today_kwh';
@@ -12522,6 +12519,17 @@ function $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass) {
 function $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass) {
     return $4dbea3927e6cdc74$export$1c4516d5ce51d99c(hass) ? 'footer' : null;
 }
+function $4dbea3927e6cdc74$export$1450309a48738c4f(hass, header, onRetry) {
+    const tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
+    return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header=${header}>
+    <div class="card-content">
+      <ha-alert alert-type="error">${tc('load-failed')}</ha-alert>
+    </div>
+    <div class="card-actions">
+      ${$4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, onRetry, true, tc('retry'))}
+    </div>
+  </ha-card>`;
+}
 function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction = true, label = null, isDisabled = false, testId = null, isBackButton = false) {
     if (label === null) {
         if (isPrimaryAction) label = hass.localize('ui.common.continue');
@@ -12529,8 +12537,17 @@ function $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b(hass, action, isPrimaryAction
     }
     const footerSlot = $4dbea3927e6cdc74$var$_haDialogFooterSlot(hass);
     const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
+    // ha-button accepts appearance accent|filled|outlined|plain and variant
+    // brand|neutral|success|warning|danger (default brand). 'secondary' was
+    // never one of them, so every non-primary button silently fell back to the
+    // brand styling -- which is why the back button's outline read as heavy as
+    // the primary action. 'neutral' is the muted variant that was meant.
+    // Leaving appearance off is not an option: the component's default is a
+    // filled button, which made the back button louder than the primary action.
+    // 'outlined' with 'neutral' is the muted pairing that was intended all
+    // along; 'plain' (no border at all) is the next step down if wanted.
     const appearance = isPrimaryAction ? 'filled' : 'outlined';
-    const variant = isPrimaryAction ? 'brand' : 'secondary';
+    const variant = isPrimaryAction ? 'brand' : 'neutral';
     const chevronIcon = isBackButton ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
     if (testId === null) testId = isPrimaryAction ? 'continue' : 'previous';
     return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
@@ -12857,10 +12874,25 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
     color: var(--primary-color) !important;
   }
 
+  /* Only the horizontal padding is ours: the card content already provides
+     it, and HA's own would double it. Deliberately no height and no overflow
+     rule -- ha-settings-row sizes itself from its content with a min-height
+     (56px for two lines, 88px for three) and clips its children, not itself.
+     Forcing 64px with the overflow hidden made every row taller than HA
+     intends and cut off anything that did not fit, which is what clipped the
+     recovery steps in the charger error card. Use HA's own
+     --settings-row-body-padding-top/-bottom if the rows need to be tighter. */
   ha-settings-row {
     padding: 0;
-    overflow: hidden !important;
-    height: 64px;
+    /* The row is two flex columns: the body with the heading, and a wrapper
+       for the value slot. That wrapper is
+         .prefix-wrap { flex: var(--settings-row-prefix-flex, 1); }
+       so by default it grows and takes half the row -- 160px for a "87 %" --
+       and the label wraps while there is room to spare. Both are the
+       component's own knobs: a flex of 0 stops the wrapper growing, and a
+       content width of auto lets the value take only what it needs. */
+    --settings-row-prefix-flex: 0;
+    --settings-row-content-width: auto;
   }
 
   ha-settings-row div.state {
@@ -12868,17 +12900,48 @@ const $120c5a859c012378$export$9dd6ff9ea0189349 = (0, $def2de46b9306e8a$export$d
     margin-right: 4px;
   }
 
-  ha-settings-row span[slot="heading"] {
-    margin-top: 6px !important;
-  }
-
-  ha-settings-row span[slot="heading"] ha-icon, ha-icon {
+  /* Every icon in a card or dialog. (This used to name the heading span as
+     well, which a bare ha-icon already covers.) */
+  ha-icon {
     color: var(--paper-item-icon-color, #44739e);
   }
 
-  div.card-actions {
-    margin-top:16px;
+  /* The bare ha-icon rule above paints every icon in this shadow root with the
+     card palette. An icon inside a button is part of that button and has to
+     follow its text colour -- otherwise the chevron on the back button stays
+     blue while the label turns white. */
+  ha-button ha-icon {
+    color: inherit;
   }
+
+  /* A secondary action should recede next to the primary one. The outlined
+     button paints its border with
+     var(--wa-color-border-loud, var(--wa-color-neutral-border-loud)), and
+     'loud' is the darkest of the three rungs the component defines (loud,
+     normal, quiet) -- which is why Back competed with Save.
+
+     Set through the custom property on the host, not through ::part(button):
+     a part only accepts styling when the component publishes it, and this one
+     apparently does not (the rule built fine and changed nothing, twice).
+     Custom properties inherit across the shadow boundary, so this reaches the
+     component's own rule whatever it names its internals.
+
+     The value is --wa-form-control-border-color: the same hairline the
+     component library draws around inputs and selects, so the button's
+     outline matches the fields it sits next to in the same dialog. Home
+     Assistant maps it to --ha-color-border-neutral-quiet (#e6e6e6 in the
+     default light theme), so light and dark mode both keep working -- which a
+     fixed colour could not do.
+
+     Note this goes against the component's intent: an outlined button has no
+     fill, so its border is meant to carry the emphasis. If the hairline turns
+     out to read as "not a button", move the secondary action to appearance
+     'plain' rather than darkening this again -- that follows the design
+     system instead of working around it. */
+  ha-button[appearance~='outlined'] {
+    --wa-color-border-loud: var(--wa-form-control-border-color);
+  }
+
 
   .error {
     color: var(--error-color);
@@ -13355,6 +13418,526 @@ class $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog extends (0,
 $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($056feaf1842f603f$export$45e0b80f1e500bd4)
 ], $056feaf1842f603f$var$EditCarReservationCalendarSettingsDialog);
+
+
+
+
+
+
+
+
+
+
+/**
+ * The car's values: what they are called, how they are shown and what the
+ * backend accepts. Shared by the car card and the car settings dialog, so a
+ * limit or a label exists in exactly one place on this side.
+ *
+ * The limits mirror v2g_globals.CAR_VALUE_SETTINGS (which mirrors the Home
+ * Assistant package, pinned by a python test). Deliberately duplicated here:
+ * the dialog gives immediate feedback, the backend is the truth and refuses
+ * anything outside these bounds.
+ */ const $22adaedaa4c9c073$export$5f1628b3ff98bf33 = [
+    {
+        key: 'capacity_kwh',
+        payloadKey: 'capacity_kwh',
+        label: 'capacity',
+        help: 'car-battery-usable-capacity.description',
+        icon: 'mdi:battery-high',
+        suffix: 'kWh',
+        min: 10,
+        max: 200
+    },
+    {
+        key: 'roundtrip_efficiency',
+        payloadKey: 'efficiency',
+        label: 'efficiency',
+        help: 'roundtrip-efficiency.description',
+        icon: 'mdi:arrow-u-left-bottom',
+        suffix: '%',
+        min: 50,
+        max: 100
+    },
+    {
+        key: 'consumption_wh_per_km',
+        payloadKey: 'consumption_wh_km',
+        label: 'consumption',
+        help: 'car-energy-consumption.description',
+        icon: 'mdi:gauge-low',
+        suffix: 'Wh/km',
+        min: 100,
+        max: 400
+    }
+];
+const $22adaedaa4c9c073$export$b15f80d3c1599db4 = [
+    {
+        key: 'min_soc_percent',
+        payloadKey: 'min_soc',
+        label: 'min-soc',
+        help: 'car-battery-lower-charge-limit.description',
+        icon: 'mdi:chart-bell-curve-cumulative',
+        suffix: '%',
+        min: 10,
+        max: 55
+    },
+    {
+        key: 'max_soc_percent',
+        payloadKey: 'max_soc',
+        label: 'max-soc',
+        help: 'car-battery-upper-charge-limit.description',
+        icon: 'mdi:chart-sankey',
+        suffix: '%',
+        min: 60,
+        max: 95
+    },
+    {
+        key: 'allowed_duration_above_max_soc_hrs',
+        payloadKey: 'allowed_duration_above_max',
+        label: 'allowed-duration',
+        help: 'allowed-duration-above-max.description',
+        icon: 'mdi:timer-lock-outline',
+        suffix: 'h',
+        min: 1,
+        max: 12
+    }
+];
+const $22adaedaa4c9c073$export$b1dd8a691b92aabe = [
+    ...$22adaedaa4c9c073$export$5f1628b3ff98bf33,
+    ...$22adaedaa4c9c073$export$b15f80d3c1599db4
+];
+const $22adaedaa4c9c073$export$da6845ad34bf109 = 40;
+function $22adaedaa4c9c073$export$cb6e57f8dee2170d(field, raw) {
+    const value = Number(raw);
+    return raw !== null && `${raw}`.trim() !== '' && Number.isFinite(value) && Number.isInteger(value) && value >= field.min && value <= field.max;
+}
+
+
+const $1c99e93d5e0f446e$export$45e0b80f1e500bd4 = 'v2g-liberty-edit-car-settings-dialog';
+const $1c99e93d5e0f446e$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.car-dialog');
+const $1c99e93d5e0f446e$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
+const $1c99e93d5e0f446e$var$tf = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.car.fields');
+const $1c99e93d5e0f446e$var$th = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.dialogs');
+/**
+ * The one way into the car settings. Collects everything and saves once, at
+ * the end: nothing is stored while the user is still walking through the
+ * flow, so backing out leaves the stored car exactly as it was.
+ *
+ * Entity-free: every value is loaded from get_car_settings and written back
+ * through save_car_settings. No DialogBase FM gate -- car values never touch
+ * an asset on the Smart schedule server.
+ */ class $1c99e93d5e0f446e$var$EditCarSettingsDialog extends (0, $942308f826de48c4$export$569e42c9a98af7b7) {
+    async showDialog() {
+        super.showDialog();
+        const token = ++this._openToken;
+        this._loading = true;
+        this._loadFailed = false;
+        this._page = "2-car-details";
+        this._name = '';
+        this._values = {};
+        this._isEdit = false;
+        this._identifiesCar = false;
+        this._storedEvId = '';
+        this._pendingEvId = null;
+        this._idState = 'idle';
+        this._readEvId = '';
+        this._startedOnIdStep = false;
+        this._hasTriedToContinue = false;
+        this._saving = false;
+        this._saveError = null;
+        await this._load(token);
+        await this.updateComplete;
+    }
+    async _load(token) {
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_car_settings');
+            if (token !== this._openToken) return;
+            this._name = data.name ?? '';
+            this._values = Object.fromEntries((0, $22adaedaa4c9c073$export$b1dd8a691b92aabe).map((field)=>[
+                    field.key,
+                    `${data[field.key] ?? ''}`
+                ]));
+            this._isEdit = !!data.configured;
+            this._identifiesCar = !!data.identifies_car;
+            this._storedEvId = data.ev_id ?? '';
+            // A charger that identifies cars needs an ID, and a fresh install has
+            // none: ask for it first, because it can only be read while the car is
+            // plugged in.
+            this._startedOnIdStep = this._identifiesCar && !this._storedEvId;
+            this._page = this._startedOnIdStep ? "1-car-id" : "2-car-details";
+            this._loadFailed = false;
+        } catch (e) {
+            if (token !== this._openToken) return;
+            // Without the current values a save would overwrite the stored car with
+            // invented defaults, so show no form at all.
+            console.error('Failed to load car settings', e);
+            this._loadFailed = true;
+        }
+        if (token === this._openToken) this._loading = false;
+    }
+    render() {
+        if (!this.isOpen) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const isNew = (0, $4dbea3927e6cdc74$export$1c4516d5ce51d99c)(this.hass);
+        const header = this._header();
+        const content = this._loading ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner></ha-spinner>` : this._loadFailed ? this._renderLoadError() : this._page === "1-car-id" ? this._renderCarIdStep() : this._page === "2-car-details" ? this._renderDetails() : this._renderLimits();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-dialog
+        open
+        @closed=${this.closeDialog}
+        .heading=${isNew ? null : (0, $4dbea3927e6cdc74$export$c695b36f298a6297)(this.hass, header)}
+        .headerTitle=${isNew ? header : null}
+      >
+        ${content}
+      </ha-dialog>
+    `;
+    }
+    _header() {
+        if (!this._isEdit) return $1c99e93d5e0f446e$var$tp('add.header');
+        return this._name.trim() ? $1c99e93d5e0f446e$var$tp('edit.header', {
+            name: this._name.trim()
+        }) : $1c99e93d5e0f446e$var$tp('edit.header-unnamed');
+    }
+    _renderLoadError() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-alert alert-type="error">${$1c99e93d5e0f446e$var$tp('errors.load-failed')}</ha-alert>
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this.showDialog(), true, $1c99e93d5e0f446e$var$tc('retry'))}
+    `;
+    }
+    // ── Step 1: the car's ID ─────────────────────────────────────────────
+    // No Close button anywhere in this dialog: the X, Escape and a click outside
+    // all close it, and the other settings dialogs do the same.
+    _renderCarIdStep() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-markdown
+        breaks
+        .content=${this._isEdit ? $1c99e93d5e0f446e$var$tp('car-id.explain-edit') : $1c99e93d5e0f446e$var$tp('car-id.explain')}
+      ></ha-markdown>
+      ${this._renderIdFeedback()}
+      ${this._idState === 'reading' ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._readCarId(), true, this._idState === 'idle' ? $1c99e93d5e0f446e$var$tp('car-id.read') : $1c99e93d5e0f446e$var$tp('car-id.read-again'))}
+    `;
+    }
+    _renderIdFeedback() {
+        switch(this._idState){
+            case 'reading':
+                return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="info"
+          >${$1c99e93d5e0f446e$var$tp('car-id.reading')}</ha-alert
+        >`;
+            case 'ok':
+                return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="success"
+          >${$1c99e93d5e0f446e$var$tp('car-id.found', {
+                    id: this._readEvId
+                })}</ha-alert
+        >`;
+            case 'no_car':
+                return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="warning"
+          >${$1c99e93d5e0f446e$var$tp('car-id.no-car')}</ha-alert
+        >`;
+            case 'no_id':
+                return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="warning"
+          >${$1c99e93d5e0f446e$var$tp('car-id.no-id')}</ha-alert
+        >`;
+            case 'read_failed':
+                return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error"
+          >${$1c99e93d5e0f446e$var$tp('car-id.failed')}</ha-alert
+        >`;
+            default:
+                return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        }
+    }
+    async _readCarId() {
+        const token = this._openToken;
+        this._idState = 'reading';
+        let reason = 'read_failed';
+        let evId = '';
+        try {
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'get_connected_car_id', {}, 20000);
+            reason = data.reason ?? 'read_failed';
+            evId = `${data.ev_id ?? ''}`;
+        } catch (e) {
+            // The backend always answers; a throw means it could not be reached.
+            console.error('Failed to read the car id', e);
+        }
+        // The dialog was closed or reopened while we waited.
+        if (token !== this._openToken || !this.isOpen) return;
+        this._idState = reason;
+        this._readEvId = evId;
+        if (reason === 'unsupported') {
+            // The charger cannot identify cars after all: no ID step at all.
+            this._identifiesCar = false;
+            this._page = "2-car-details";
+            return;
+        }
+        if (reason === 'ok') {
+            this._pendingEvId = evId;
+            // Nothing is stored yet; Save is what registers this car.
+            if (this._page === "1-car-id") this._page = "2-car-details";
+        }
+    }
+    // ── Step 2: name, battery and consumption ────────────────────────────
+    _renderDetails() {
+        const nameError = this._hasTriedToContinue && !this._name.trim() ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">${$1c99e93d5e0f446e$var$tp('errors.name-required')}</div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-markdown breaks .content=${$1c99e93d5e0f446e$var$tp('details.description')}></ha-markdown>
+      ${this._renderIdentificationBlock()}
+      <div style="margin-top: 16px;">
+        <label class="field-label" for="car-name">${$1c99e93d5e0f446e$var$tp('name-label')}</label>
+        ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: this._name,
+            onChange: (e)=>this._name = `${e.target.value}`.slice(0, (0, $22adaedaa4c9c073$export$da6845ad34bf109)),
+            id: 'car-name',
+            placeholder: $1c99e93d5e0f446e$var$tp('name-placeholder'),
+            required: true
+        })}
+        ${nameError}
+      </div>
+      ${(0, $22adaedaa4c9c073$export$5f1628b3ff98bf33).map((field)=>this._renderField(field))}
+      ${this._startedOnIdStep ? (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._goBackToCarId(), false, this.hass.localize('ui.common.back'), false, 'back', true) : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._goToLimits(), true, this.hass.localize('ui.common.continue'))}
+    `;
+    }
+    /**
+   * In edit mode on a charger that identifies cars: show which car is
+   * registered and let the user read the connected one. Reading never stores
+   * anything -- only Save does.
+   */ _renderIdentificationBlock() {
+        if (!this._identifiesCar) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        const registered = this._pendingEvId || this._storedEvId;
+        const isDifferent = this._idState === 'ok' && !!this._readEvId && !!this._storedEvId && this._readEvId.toLowerCase() !== this._storedEvId.toLowerCase();
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="id-block">
+        <p class="id-title">${$1c99e93d5e0f446e$var$tp('car-id.header')}</p>
+        <p class="id-value">${$1c99e93d5e0f446e$var$tp('car-id.registered', {
+            id: registered || "\u2014"
+        })}</p>
+        ${this._pendingEvId && this._pendingEvId !== this._storedEvId ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="info"
+              >${$1c99e93d5e0f446e$var$tp('car-id.will-replace', {
+            id: this._pendingEvId
+        })}</ha-alert
+            >` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${isDifferent && this._pendingEvId !== this._readEvId ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+              <ha-alert alert-type="warning">
+                ${$1c99e93d5e0f446e$var$tp('car-id.different', {
+            id: this._readEvId
+        })}
+                <ha-button
+                  slot="action"
+                  @click=${()=>this._pendingEvId = this._readEvId}
+                >
+                  ${$1c99e93d5e0f446e$var$tp('car-id.use-connected')}
+                </ha-button>
+              </ha-alert>
+            ` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._idState !== 'ok' ? this._renderIdFeedback() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._idState === 'reading' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button
+              appearance="plain"
+              variant="brand"
+              size="s"
+              @click=${()=>this._readCarId()}
+              >${$1c99e93d5e0f446e$var$tp('car-id.read-again')}</ha-button
+            >`}
+      </div>
+    `;
+    }
+    _goBackToCarId() {
+        this._hasTriedToContinue = false;
+        this._page = "1-car-id";
+    }
+    _goToLimits() {
+        this._hasTriedToContinue = true;
+        if (!this._detailsValid()) return;
+        this._hasTriedToContinue = false;
+        this._page = "3-scheduling-limits";
+    }
+    _detailsValid() {
+        return !!this._name.trim() && (0, $22adaedaa4c9c073$export$5f1628b3ff98bf33).every((field)=>(0, $22adaedaa4c9c073$export$cb6e57f8dee2170d)(field, this._values[field.key]));
+    }
+    // ── Step 3: the scheduling limits ────────────────────────────────────
+    _renderLimits() {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-markdown breaks .content=${$1c99e93d5e0f446e$var$tp('limits.description')}></ha-markdown>
+      ${(0, $22adaedaa4c9c073$export$b15f80d3c1599db4).map((field)=>this._renderField(field))}
+      ${this._saveError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="error">${this._saveError}</ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+      ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._goBackToDetails(), false, this.hass.localize('ui.common.back'), this._saving, 'back', true)}
+      ${this._saving ? (0, $4dbea3927e6cdc74$export$403c249a0a70d814)(this.hass) : (0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this.hass, ()=>this._save(), true, this.hass.localize('ui.common.save'))}
+    `;
+    }
+    _goBackToDetails() {
+        this._hasTriedToContinue = false;
+        this._saveError = null;
+        this._page = "2-car-details";
+    }
+    // ── A single number field ────────────────────────────────────────────
+    _renderField(field) {
+        const value = this._values[field.key] ?? '';
+        const showError = this._hasTriedToContinue && !(0, $22adaedaa4c9c073$export$cb6e57f8dee2170d)(field, value);
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div style="margin-top: 16px;">
+        <label class="field-label" for="car-${field.key}"
+          >${$1c99e93d5e0f446e$var$tf(field.label)}</label
+        >
+        ${(0, $4dbea3927e6cdc74$export$849e03e1dc76274b)({
+            value: value,
+            onChange: (e)=>this._setValue(field, `${e.target.value}`),
+            id: `car-${field.key}`,
+            testId: `car-${field.key}`,
+            type: 'number',
+            inputmode: 'numeric',
+            min: field.min,
+            max: field.max,
+            step: 1,
+            suffix: field.suffix,
+            style: 'width: 220px;'
+        })}
+        ${showError ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div class="error">
+              ${$1c99e93d5e0f446e$var$tp('errors.out-of-range', {
+            min: field.min,
+            max: field.max
+        })}
+            </div>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        <!-- One shared name makes these an accordion: opening one closes the
+             other. The explanations are long (they were a dialog of their own
+             per value before), so several open at once turns this into a page
+             the user has to scroll. A browser without exclusive <details>
+             simply keeps today's behaviour. -->
+        <details class="hint" name="car-help">
+          <summary>${$1c99e93d5e0f446e$var$tp('learn-more')}</summary>
+          <ha-markdown breaks .content=${$1c99e93d5e0f446e$var$th(field.help)}></ha-markdown>
+        </details>
+      </div>
+    `;
+    }
+    _setValue(field, value) {
+        // Replace the object: Lit compares by reference.
+        this._values = {
+            ...this._values,
+            [field.key]: value
+        };
+    }
+    // ── Saving, once, at the end ─────────────────────────────────────────
+    async _save() {
+        this._hasTriedToContinue = true;
+        if (!(0, $22adaedaa4c9c073$export$b15f80d3c1599db4).every((f)=>(0, $22adaedaa4c9c073$export$cb6e57f8dee2170d)(f, this._values[f.key]))) return;
+        if (!this._detailsValid()) {
+            // Something on the previous page is wrong after all; show it there.
+            this._page = "2-car-details";
+            return;
+        }
+        const args = {
+            name: this._name.trim()
+        };
+        for (const field of (0, $22adaedaa4c9c073$export$b1dd8a691b92aabe))args[field.payloadKey] = Number(this._values[field.key]);
+        // Only send an ID that was read in this session; an empty one keeps the
+        // stored ID.
+        if (this._pendingEvId) args.ev_id = this._pendingEvId;
+        this._saving = true;
+        this._saveError = null;
+        try {
+            const result = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this.hass, 'save_car_settings', args, 15000);
+            if (result?.error) {
+                this._saveError = `${result.error}`;
+                this._saving = false;
+                return;
+            }
+            this.closeDialog();
+        } catch (e) {
+            this._saveError = `${e}`;
+            this._saving = false;
+        }
+    }
+    static{
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      .error {
+        color: var(--error-color);
+        font-size: 0.875em;
+        margin-top: 4px;
+      }
+      .field-label {
+        display: block;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+        margin-bottom: 4px;
+      }
+      .id-block {
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-top: 16px;
+      }
+      .id-title {
+        margin: 0 0 4px 0;
+        font-weight: 600;
+      }
+      .id-value {
+        margin: 0 0 8px 0;
+        color: var(--secondary-text-color);
+      }
+      details.hint {
+        margin-top: 4px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+      details.hint summary {
+        cursor: pointer;
+      }
+    `
+        ];
+    }
+    constructor(...args){
+        super(...args), this._loading = true, this._loadFailed = false, this._page = "2-car-details", this._name = '', this._values = {}, this._isEdit = false, this._identifiesCar = false, this._storedEvId = '', /** An ID read in this session, accepted but not yet saved. */ this._pendingEvId = null, this._idState = 'idle', this._readEvId = '', /** Whether this session opened on the ID step, so page 2 can go back to it. */ this._startedOnIdStep = false, this._hasTriedToContinue = false, this._saving = false, this._saveError = null, /**
+   * Which dialog session a pending answer belongs to. The element is reused,
+   * so a slow read from a previous opening must not fill in fields here.
+   */ this._openToken = 0;
+    }
+}
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_loading", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_loadFailed", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_page", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_name", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_values", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_isEdit", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_identifiesCar", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_storedEvId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_pendingEvId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_idState", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_readEvId", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_startedOnIdStep", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_hasTriedToContinue", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_saving", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog.prototype, "_saveError", void 0);
+$1c99e93d5e0f446e$var$EditCarSettingsDialog = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $14742f68afc766d6$export$da64fc29f17f9d0e)($1c99e93d5e0f446e$export$45e0b80f1e500bd4)
+], $1c99e93d5e0f446e$var$EditCarSettingsDialog);
 
 
 
@@ -16421,7 +17004,7 @@ class $69c2d5e8861124e5$export$49872103a5fed138 extends (0, $942308f826de48c4$ex
         }}
             slot=${slot}
             appearance="outlined"
-            variant="secondary"
+            variant="neutral"
             test-id="delete"
             size="s"
             style="width: auto; margin-right: auto;"
@@ -17243,25 +17826,11 @@ const $de105ef1fecb85b1$export$37fb422a613a50b6 = (element)=>{
         dialogParams: {}
     });
 };
-const $de105ef1fecb85b1$export$55fd632de47ce4c1 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('car-battery-usable-capacity.header'),
-        description: $de105ef1fecb85b1$var$tp('car-battery-usable-capacity.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$ba081ffd3b039ad0 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('roundtrip-efficiency.header'),
-        description: $de105ef1fecb85b1$var$tp('roundtrip-efficiency.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$ebe2794f5ddc465 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('car-energy-consumption.header'),
-        description: $de105ef1fecb85b1$var$tp('car-energy-consumption.description'),
-        ...dialogParams
+const $de105ef1fecb85b1$export$f65787da8a28ec8b = (element)=>{
+    (0, $ee1328194d522913$export$43835e9acf248a15)(element, 'show-dialog', {
+        dialogTag: (0, $1c99e93d5e0f446e$export$45e0b80f1e500bd4),
+        dialogImport: ()=>Promise.resolve(),
+        dialogParams: {}
     });
 };
 const $de105ef1fecb85b1$export$b220f18fecfa2078 = (element)=>{
@@ -17310,27 +17879,6 @@ const $de105ef1fecb85b1$export$309e5e69c95a337d = (element, dialogParams)=>{
     $de105ef1fecb85b1$export$71b3137c010ebfae(element, {
         header: $de105ef1fecb85b1$var$tp('optimisation-mode.header'),
         description: $de105ef1fecb85b1$var$tp('optimisation-mode.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$dc42f1b3097c9ee2 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('car-battery-lower-charge-limit.header'),
-        description: $de105ef1fecb85b1$var$tp('car-battery-lower-charge-limit.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$532d37680862eb69 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('car-battery-upper-charge-limit.header'),
-        description: $de105ef1fecb85b1$var$tp('car-battery-upper-charge-limit.description'),
-        ...dialogParams
-    });
-};
-const $de105ef1fecb85b1$export$415f9c0b9250dca7 = (element, dialogParams)=>{
-    $de105ef1fecb85b1$export$bbbb7179ac5f852e(element, {
-        header: $de105ef1fecb85b1$var$tp('allowed-duration-above-max.header'),
-        description: $de105ef1fecb85b1$var$tp('allowed-duration-above-max.description'),
         ...dialogParams
     });
 };
@@ -18706,83 +19254,215 @@ $ce5bce3a7c4706d2$export$4eef4984dcaac30c = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
+
 const $5d8785103791dbcd$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.car');
+const $5d8785103791dbcd$var$tc = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.common');
 class $5d8785103791dbcd$var$CarSettingsCard extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
     set hass(hass) {
+        const firstSet = !this._hass;
         this._hass = hass;
         (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
-        this._usableCapacity = hass.states[$755a87c9ee93218f$export$511a96d8a8b167fa];
-        this._roundtripEfficiency = hass.states[$755a87c9ee93218f$export$7c53730103b0e952];
-        this._carEnergyConsumption = hass.states[$755a87c9ee93218f$export$a6bd64d0b150c939];
+        if (firstSet) {
+            this._rebootedAt = hass.states[$755a87c9ee93218f$export$51935392396870c1]?.state ?? null;
+            this._loadSettings();
+            this._subscribe();
+            return;
+        }
+        // The add-on stamps this at the end of every start-up. Reloading on a
+        // change covers the two cases where the first attempt could not be
+        // answered: the page was open (or refreshed) while the add-on was still
+        // starting, and the add-on restarted afterwards.
+        const rebootedAt = hass.states[$755a87c9ee93218f$export$51935392396870c1]?.state ?? null;
+        if (rebootedAt && rebootedAt !== this._rebootedAt) {
+            this._rebootedAt = rebootedAt;
+            this._loadSettings();
+        }
     }
     static{
-        this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
+        this.styles = [
+            (0, $120c5a859c012378$export$9dd6ff9ea0189349),
+            (0, $def2de46b9306e8a$export$dbf350e5966cf602)`
+      /* A note under its row, not a second line inside it. Inside the row the
+         value ends up centred against both lines, and that is the component's
+         own doing (its default slot sits in a shadow element that is centred),
+         so it cannot be fixed from out here. As a note the row stays one line,
+         the value lines up with the label, and this sits underneath it.
+         The indent matches the icon plus the gap the heading uses, so it
+         starts where the label starts; the negative top margin pulls it back
+         up against the row's own bottom padding. */
+      .row-note {
+        margin: -16px 0 4px 36px;
+        font-size: 0.875em;
+        color: var(--secondary-text-color);
+      }
+    `
+        ];
+    }
+    async _loadSettings() {
+        this._loading = true;
+        try {
+            this._settings = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_car_settings', {}, (0, $1288c864b62d557b$export$9153b1a7e25d0caa));
+            this._loadFailed = false;
+        } catch (e) {
+            // The backend answers this one even without a car, so a failure means
+            // the add-on could not be reached -- not that nothing is configured.
+            // Saying so is the point: drawing the configured card without any
+            // values leaves an empty card, and drawing the unconfigured one invites
+            // the user to set up a car that is already set up.
+            console.error('Failed to load car settings', e);
+            this._settings = null;
+            this._loadFailed = true;
+        }
+        this._loading = false;
+    }
+    async _subscribe() {
+        this._unsubCar = await this._hass.connection.subscribeEvents(()=>this._loadSettings(), 'save_car_settings.result');
+        // Whether the charger identifies cars decides if the car ID is shown and
+        // required, so a charger save can change what this card has to say.
+        this._unsubCharger = await this._hass.connection.subscribeEvents(()=>this._loadSettings(), 'save_charger_settings.result');
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._unsubCar) {
+            this._unsubCar();
+            this._unsubCar = null;
+        }
+        if (this._unsubCharger) {
+            this._unsubCharger();
+            this._unsubCharger = null;
+        }
     }
     render() {
-        const header = $5d8785103791dbcd$var$tp('header');
-        const content = this._renderContent();
+        if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header=${$5d8785103791dbcd$var$tp('header')}>
+        <div class="card-content"><ha-spinner></ha-spinner></div>
+      </ha-card>`;
+        if (this._loadFailed) return (0, $4dbea3927e6cdc74$export$1450309a48738c4f)(this._hass, $5d8785103791dbcd$var$tp('header'), ()=>this._loadSettings());
+        // The flag is derived by the backend (a configured car without an ID is
+        // not finished on a charger that identifies cars) and published as a
+        // runtime sensor, which the blocking settings dialog reads too. Taking it
+        // from there keeps card and dialog from ever disagreeing.
+        const isInitialised = this._hass.states[$755a87c9ee93218f$export$d2234deac8a139c6]?.state === 'on';
+        // A third state, between "nothing set up" and "done": the car is fully
+        // configured but sits on a charger that identifies cars and has no ID yet
+        // -- a user who switched charger type. Only the ID is missing, so hiding
+        // the values and asking them to configure a car they already configured
+        // would be a lie.
+        const needsId = !isInitialised && !!this._settings?.configured && !!this._settings?.identifies_car && !this._settings?.ev_id;
+        const header = (isInitialised || needsId) && this._settings?.name || $5d8785103791dbcd$var$tp('header');
+        const content = isInitialised ? this._renderInitialisedContent() : needsId ? this._renderInitialisedContent(true) : this._renderUninitialisedContent();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
     }
-    _renderContent() {
+    _renderUninitialisedContent() {
+        // A charger that identifies cars needs the car's ID as well, and that can
+        // only be read while the car is plugged in -- say so up front.
+        const alert = this._settings?.identifies_car ? $5d8785103791dbcd$var$tp('alert-with-id') : $5d8785103791dbcd$var$tp('alert');
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
       <div class="card-content">
-        ${this._renderNotInitialisedAlert()} ${this._renderUsableCapacity()}
-        ${this._renderRoundtripEfficiency()}
-        ${this._renderCarEnergyConsumption()}
+        <ha-alert alert-type="warning" title=${$5d8785103791dbcd$var$tp('alert-title')}>
+          ${alert}
+        </ha-alert>
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, $5d8785103791dbcd$var$tc('configure'))}
       </div>
     `;
     }
-    _renderNotInitialisedAlert() {
-        const isInitialised = this._usableCapacity.attributes.initialised && this._roundtripEfficiency.attributes.initialised && this._carEnergyConsumption.attributes.initialised;
-        return isInitialised ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert alert-type="warning">${$5d8785103791dbcd$var$tp('alert')}</ha-alert`;
+    _renderInitialisedContent(needsId = false) {
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <div class="card-content">
+        ${needsId ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-alert
+              alert-type="warning"
+              title=${$5d8785103791dbcd$var$tp('missing-id-title')}
+            >
+              ${$5d8785103791dbcd$var$tp('missing-id')}
+            </ha-alert>` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._renderCarId()}
+        ${(0, $22adaedaa4c9c073$export$5f1628b3ff98bf33).map((field)=>this._renderField(field))}
+        ${this._renderScheduleLimits()}
+      </div>
+      <div class="card-actions">
+        ${(0, $4dbea3927e6cdc74$export$9b8b2ad360b4fa1b)(this._hass, ()=>this._openDialog(), true, this._hass.localize('ui.common.edit'))}
+      </div>
+    `;
     }
-    _renderUsableCapacity() {
-        const stateObj = this._usableCapacity;
-        // @ts-ignore
-        const state = this._hass.formatEntityState(stateObj);
-        const callback = ()=>(0, $de105ef1fecb85b1$export$55fd632de47ce4c1)(this, {
-                entity_id: $755a87c9ee93218f$export$511a96d8a8b167fa
-            });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback,
-            state: state
-        })}</div>`;
+    _renderCarId() {
+        if (!this._settings?.identifies_car) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return this._renderRow('mdi:identifier', $5d8785103791dbcd$var$tp('car-id'), this._settings.ev_id || $5d8785103791dbcd$var$tp('car-id-missing'));
     }
-    _renderRoundtripEfficiency() {
-        const stateObj = this._roundtripEfficiency;
-        // @ts-ignore
-        const state = this._hass.formatEntityState(stateObj);
-        const callback = ()=>(0, $de105ef1fecb85b1$export$ba081ffd3b039ad0)(this, {
-                entity_id: $755a87c9ee93218f$export$7c53730103b0e952
-            });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback,
-            state: state
-        })}</div>`;
+    /**
+   * The lower and upper limit are one range, so one row says it better than
+   * two -- and the card is a summary, not the settings themselves. The
+   * allowed duration rides along as a second line: it only means anything in
+   * relation to the upper limit.
+   */ _renderScheduleLimits() {
+        const low = this._settings?.min_soc_percent;
+        const high = this._settings?.max_soc_percent;
+        const hours = this._settings?.allowed_duration_above_max_soc_hrs;
+        if (low === undefined || high === undefined) return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      ${this._renderRow('mdi:chart-bell-curve-cumulative', $5d8785103791dbcd$var$tp('fields.limits'), `${low} \u{2013} ${high} %`)}
+      ${hours === undefined ? (0, $f58f44579a4747ac$export$45b790e32b2810ee) : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<p class="row-note">
+            ${$5d8785103791dbcd$var$tp('fields.limits-duration', {
+            hours: hours
+        })}
+          </p>`}
+    `;
     }
-    _renderCarEnergyConsumption() {
-        const stateObj = this._carEnergyConsumption;
-        // @ts-ignore
-        const state = this._hass.formatEntityState(stateObj);
-        const callback = ()=>(0, $de105ef1fecb85b1$export$ebe2794f5ddc465)(this, {
-                entity_id: $755a87c9ee93218f$export$a6bd64d0b150c939
-            });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<div>${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback,
-            state: state
-        })}</div>`;
+    _renderField(field) {
+        const value = this._settings?.[field.key];
+        if (value === undefined || value === null || value === '') return 0, $f58f44579a4747ac$export$45b790e32b2810ee;
+        return this._renderRow(field.icon, $5d8785103791dbcd$var$tp(`fields.${field.label}`), `${value} ${field.suffix}`);
+    }
+    /**
+   * A read-only row. Deliberately not renderEntityRow: that takes its label,
+   * icon and value from a HassEntity, and the car values no longer live in
+   * entities -- with one input_number per installation a second car could
+   * never have its own.
+   */ _renderRow(icon, label, value) {
+        // The row's value wrapper is, in the component's own stylesheet,
+        //   .content { flex: 1 1 0%; min-width: 0 }
+        // -- it grows greedily and has no variable for it. The heading only gets
+        // its minimum width, and a heading that may wrap has a minimum of one
+        // word, so even "Car ID" broke in two. Keeping the label on one line
+        // makes its full width the minimum, and the greedy column can only take
+        // what is left. A label that truly does not fit is cut with an ellipsis
+        // rather than bent around the icon.
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+      <ha-settings-row>
+        <span slot="heading" style="display: flex; align-items: center;">
+          <ha-icon icon="${icon}"></ha-icon>
+          <span
+            style="margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+            >${label}</span
+          >
+        </span>
+        <div
+          class="text-content value state"
+          style="flex: 0 0 auto; white-space: nowrap;"
+        >
+          ${value}
+        </div>
+      </ha-settings-row>
+    `;
+    }
+    _openDialog() {
+        (0, $de105ef1fecb85b1$export$f65787da8a28ec8b)(this);
+    }
+    constructor(...args){
+        super(...args), this._settings = null, this._loading = true, this._loadFailed = false, this._unsubCar = null, this._unsubCharger = null, this._rebootedAt = null;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_usableCapacity", void 0);
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_settings", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_roundtripEfficiency", void 0);
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_loading", void 0);
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_carEnergyConsumption", void 0);
+], $5d8785103791dbcd$var$CarSettingsCard.prototype, "_loadFailed", void 0);
 $5d8785103791dbcd$var$CarSettingsCard = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-car-settings-card')
 ], $5d8785103791dbcd$var$CarSettingsCard);
@@ -19277,34 +19957,29 @@ $31e0aca5546fddf6$export$f58cebbb0e887608 = (0, $24c52f343453d62d$export$29e00df
 
 
 const $c4bb759c2bcf586c$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.optimisation');
-class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
+/**
+ * What to optimise the schedules for. The three scheduling limits that used to
+ * sit here (lower limit, upper limit, allowed duration above the upper limit)
+ * moved to the car settings: they belong to a car, not to the installation,
+ * and different cars can have different limits.
+ */ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(config) {}
     set hass(hass) {
         this._hass = hass;
         (0, $aa1795080f053cd4$export$4b6bf64406ec64af)(hass.locale?.language ?? hass.language);
         this._optimisationMode = hass.states[$755a87c9ee93218f$export$29a786ee773985a];
-        this._lowerChargeLimit = hass.states[$755a87c9ee93218f$export$a81a922cb2dc8458];
-        this._upperChargeLimit = hass.states[$755a87c9ee93218f$export$e39cc2ab91dbbf48];
-        this._allowedDurationAboveMax = hass.states[$755a87c9ee93218f$export$bcf5813544a68726];
     }
     static{
         this.styles = (0, $120c5a859c012378$export$9dd6ff9ea0189349);
     }
     render() {
         const header = $c4bb759c2bcf586c$var$tp('header');
-        const content = this._renderContent();
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">${content}</ha-card>`;
-    }
-    _renderContent() {
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`
+        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="${header}">
       <div class="card-content">
         <p>${$c4bb759c2bcf586c$var$tp('description')}</p>
         ${this._renderOptimisationMode()}
-        ${this._renderLowerChargeLimit()}
-        ${this._renderUpperChargeLimit()}
-        ${this._renderAllowedDurationAboveMax()}
       </div>
-    `;
+    </ha-card>`;
     }
     _renderOptimisationMode() {
         const stateObj = this._optimisationMode;
@@ -19315,55 +19990,10 @@ class $c4bb759c2bcf586c$var$OptimisationSettingsCard extends (0, $ab210b2da7b39b
             callback: callback
         })}`;
     }
-    _renderLowerChargeLimit() {
-        const stateObj = this._lowerChargeLimit;
-        // @ts-ignore
-        const state = this._hass.formatEntityState(stateObj);
-        const callback = ()=>(0, $de105ef1fecb85b1$export$dc42f1b3097c9ee2)(this, {
-                entity_id: $755a87c9ee93218f$export$a81a922cb2dc8458
-            });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback,
-            state: state
-        })}`;
-    }
-    _renderUpperChargeLimit() {
-        const stateObj = this._upperChargeLimit;
-        // @ts-ignore
-        const state = this._hass.formatEntityState(stateObj);
-        const callback = ()=>(0, $de105ef1fecb85b1$export$532d37680862eb69)(this, {
-                entity_id: $755a87c9ee93218f$export$e39cc2ab91dbbf48
-            });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback,
-            state: state
-        })}`;
-    }
-    _renderAllowedDurationAboveMax() {
-        const stateObj = this._allowedDurationAboveMax;
-        // @ts-ignore
-        const state = this._hass.formatEntityState(stateObj);
-        const callback = ()=>(0, $de105ef1fecb85b1$export$415f9c0b9250dca7)(this, {
-                entity_id: $755a87c9ee93218f$export$bcf5813544a68726
-            });
-        return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`${(0, $4dbea3927e6cdc74$export$555d2b0b4c35578d)(stateObj, {
-            callback: callback,
-            state: state
-        })}`;
-    }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_optimisationMode", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_lowerChargeLimit", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_upperChargeLimit", void 0);
-(0, $24c52f343453d62d$export$29e00dfd3077644b)([
-    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
-], $c4bb759c2bcf586c$var$OptimisationSettingsCard.prototype, "_allowedDurationAboveMax", void 0);
 $c4bb759c2bcf586c$var$OptimisationSettingsCard = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-optimisation-settings-card')
 ], $c4bb759c2bcf586c$var$OptimisationSettingsCard);
@@ -19559,6 +20189,7 @@ $8fab4e1af811a2cc$export$cbe6bee2f3c0a7fa = (0, $24c52f343453d62d$export$29e00df
 
 
 
+
 const $fcb07f75f9ef44be$var$tp = (0, $aa1795080f053cd4$export$e45945969df8035a)('settings.grid-connection');
 class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$export$3f2f9f5909897157) {
     setConfig(_config) {}
@@ -19566,8 +20197,18 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
         const old = this._hass;
         this._hass = hass;
         if (!old) {
+            this._rebootedAt = hass.states[$755a87c9ee93218f$export$51935392396870c1]?.state ?? null;
             this._loadSettings();
             this._subscribeToSaveEvents();
+            return;
+        }
+        // The add-on stamps this at the end of every start-up. Reloading on a
+        // change covers the page being open (or refreshed) while the add-on was
+        // still starting, and the add-on restarting afterwards.
+        const rebootedAt = hass.states[$755a87c9ee93218f$export$51935392396870c1]?.state ?? null;
+        if (rebootedAt && rebootedAt !== this._rebootedAt) {
+            this._rebootedAt = rebootedAt;
+            this._loadSettings();
             return;
         }
         // Re-render only when a configured entity's state object changed (including
@@ -19594,7 +20235,7 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
     async _loadSettings() {
         this._loading = true;
         try {
-            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_grid_connection_settings');
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_grid_connection_settings', {}, (0, $1288c864b62d557b$export$9153b1a7e25d0caa));
             this._phases = data.phases ?? null;
             this._capacityPerPhase = data.capacity_per_phase ?? null;
             this._consumptionEntities = data.consumption_entities ?? [];
@@ -19602,9 +20243,13 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
             this._consumptionRegisters = data.consumption_registers ?? [];
             this._productionRegisters = data.production_registers ?? [];
             this._isConfigured = this._consumptionEntities.length > 0;
+            this._loadFailed = false;
         } catch (e) {
+            // Not reaching the add-on is not the same as nothing being configured:
+            // saying "not set up" would invite the user to set up what is already
+            // there. Say what actually happened and offer a Retry.
             console.error('Failed to load grid connection settings', e);
-            this._isConfigured = false;
+            this._loadFailed = true;
         }
         this._loading = false;
     }
@@ -19633,6 +20278,7 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
         if (this._loading) return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header=${$fcb07f75f9ef44be$var$tp('title')}>
         <div class="card-content"><ha-spinner></ha-spinner></div>
       </ha-card>`;
+        if (this._loadFailed) return (0, $4dbea3927e6cdc74$export$1450309a48738c4f)(this._hass, $fcb07f75f9ef44be$var$tp('title'), ()=>this._loadSettings());
         const state = this._state();
         // The status dot reads the state without reading the alert: green = active,
         // red = a problem, amber = not fully set up, outlined = nothing set.
@@ -19757,7 +20403,7 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
         ];
     }
     constructor(...args){
-        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._consumptionRegisters = [], this._productionRegisters = [], this._loading = true, this._unsubscribe = null;
+        super(...args), this._isConfigured = false, this._phases = null, this._capacityPerPhase = null, this._consumptionEntities = [], this._productionEntities = [], this._consumptionRegisters = [], this._productionRegisters = [], this._loading = true, this._loadFailed = false, this._unsubscribe = null, this._rebootedAt = null;
     }
 }
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
@@ -19784,9 +20430,13 @@ class $fcb07f75f9ef44be$export$fc44a86842da187a extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loading", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $fcb07f75f9ef44be$export$fc44a86842da187a.prototype, "_loadFailed", void 0);
 $fcb07f75f9ef44be$export$fc44a86842da187a = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-grid-connection-settings-card')
 ], $fcb07f75f9ef44be$export$fc44a86842da187a);
+
 
 
 
@@ -19803,8 +20453,18 @@ class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$ex
         const firstSet = !this._hass;
         this._hass = hass;
         if (firstSet) {
+            this._rebootedAt = hass.states[$755a87c9ee93218f$export$51935392396870c1]?.state ?? null;
             this._loadPanels();
             this._subscribeToUpdates();
+            return;
+        }
+        // The add-on stamps this at the end of every start-up. Reloading on a
+        // change covers the page being open (or refreshed) while the add-on was
+        // still starting, and the add-on restarting afterwards.
+        const rebootedAt = hass.states[$755a87c9ee93218f$export$51935392396870c1]?.state ?? null;
+        if (rebootedAt && rebootedAt !== this._rebootedAt) {
+            this._rebootedAt = rebootedAt;
+            this._loadPanels();
         }
     }
     async _subscribeToUpdates() {
@@ -19830,11 +20490,16 @@ class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$ex
     async _loadPanels() {
         this._loading = true;
         try {
-            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_solar_panels');
+            const data = await (0, $1288c864b62d557b$export$d883fbf232f0d35a)(this._hass, 'get_solar_panels', {}, (0, $1288c864b62d557b$export$9153b1a7e25d0caa));
             this._panels = data.solar_panels ?? [];
+            this._loadFailed = false;
         } catch (e) {
+            // Not reaching the add-on is not the same as having no panels: showing
+            // the empty state would invite the user to add panels that already
+            // exist. Say what happened and offer a Retry.
             console.error('Failed to load solar panels', e);
             this._panels = [];
+            this._loadFailed = true;
         }
         this._loading = false;
     }
@@ -19844,6 +20509,7 @@ class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$ex
           <ha-spinner></ha-spinner>
         </div>
       </ha-card>`;
+        if (this._loadFailed) return (0, $4dbea3927e6cdc74$export$1450309a48738c4f)(this._hass, 'Solar panels', ()=>this._loadPanels());
         const content = this._panels.length === 0 ? this._renderEmptyContent() : this._renderPanelList();
         return (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-card header="Solar panels">${content}</ha-card>`;
     }
@@ -19914,7 +20580,7 @@ class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$ex
         ];
     }
     constructor(...args){
-        super(...args), this._panels = [], this._loading = true, this._unsubscribeSave = null, this._unsubscribeDelete = null, // Inconsistency_reason depends on grid phases, so also refresh on grid
+        super(...args), this._panels = [], this._loading = true, this._loadFailed = false, this._rebootedAt = null, this._unsubscribeSave = null, this._unsubscribeDelete = null, // Inconsistency_reason depends on grid phases, so also refresh on grid
         // save events — otherwise the alert icon would only appear after a
         // manual page reload.
         this._unsubscribeGridSave = null;
@@ -19926,6 +20592,9 @@ class $35ba43e7ac8b244d$export$34371b2164e98a89 extends (0, $ab210b2da7b39b9d$ex
 (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
 ], $35ba43e7ac8b244d$export$34371b2164e98a89.prototype, "_loading", void 0);
+(0, $24c52f343453d62d$export$29e00dfd3077644b)([
+    (0, $04c21ea1ce1f6057$export$ca000e230c0caa3e)()
+], $35ba43e7ac8b244d$export$34371b2164e98a89.prototype, "_loadFailed", void 0);
 $35ba43e7ac8b244d$export$34371b2164e98a89 = (0, $24c52f343453d62d$export$29e00dfd3077644b)([
     (0, $14742f68afc766d6$export$da64fc29f17f9d0e)('v2g-liberty-solar-panels-settings-card')
 ], $35ba43e7ac8b244d$export$34371b2164e98a89);

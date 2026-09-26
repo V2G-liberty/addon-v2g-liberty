@@ -3,9 +3,9 @@ import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { HassEvent } from 'home-assistant-js-websocket';
 
-import { renderButton } from './util/render';
+import { renderButton, renderLoadFailedCard } from './util/render';
 import { styles } from './card.styles';
-import { callFunction } from './util/appdaemon';
+import { callFunction, SETTINGS_LOAD_TIMEOUT_MS } from './util/appdaemon';
 import { showGridConnectionSettingsDialog } from './show-dialogs';
 import {
   RoleDefinition,
@@ -14,6 +14,7 @@ import {
 } from './grid-connection-status';
 import { powerRoles, meterRoles } from './grid-connection-roles';
 import { partial } from './util/translate';
+import * as entityIds from './entity-ids';
 
 const tp = partial('settings.grid-connection');
 
@@ -27,9 +28,11 @@ export class GridConnectionSettingsCard extends LitElement {
   @state() private _consumptionRegisters: string[] = [];
   @state() private _productionRegisters: string[] = [];
   @state() private _loading = true;
+  @state() private _loadFailed = false;
 
   private _hass!: HomeAssistant;
   private _unsubscribe: (() => void) | null = null;
+  private _rebootedAt: string | null = null;
 
   setConfig(_config: LovelaceCardConfig) {}
 
@@ -37,8 +40,18 @@ export class GridConnectionSettingsCard extends LitElement {
     const old = this._hass;
     this._hass = hass;
     if (!old) {
+      this._rebootedAt = hass.states[entityIds.appRebootedAt]?.state ?? null;
       this._loadSettings();
       this._subscribeToSaveEvents();
+      return;
+    }
+    // The add-on stamps this at the end of every start-up. Reloading on a
+    // change covers the page being open (or refreshed) while the add-on was
+    // still starting, and the add-on restarting afterwards.
+    const rebootedAt = hass.states[entityIds.appRebootedAt]?.state ?? null;
+    if (rebootedAt && rebootedAt !== this._rebootedAt) {
+      this._rebootedAt = rebootedAt;
+      this._loadSettings();
       return;
     }
     // Re-render only when a configured entity's state object changed (including
@@ -73,7 +86,12 @@ export class GridConnectionSettingsCard extends LitElement {
   private async _loadSettings() {
     this._loading = true;
     try {
-      const data = await callFunction(this._hass, 'get_grid_connection_settings');
+      const data = await callFunction(
+        this._hass,
+        'get_grid_connection_settings',
+        {},
+        SETTINGS_LOAD_TIMEOUT_MS
+      );
       this._phases = data.phases ?? null;
       this._capacityPerPhase = data.capacity_per_phase ?? null;
       this._consumptionEntities = data.consumption_entities ?? [];
@@ -81,9 +99,13 @@ export class GridConnectionSettingsCard extends LitElement {
       this._consumptionRegisters = data.consumption_registers ?? [];
       this._productionRegisters = data.production_registers ?? [];
       this._isConfigured = this._consumptionEntities.length > 0;
+      this._loadFailed = false;
     } catch (e) {
+      // Not reaching the add-on is not the same as nothing being configured:
+      // saying "not set up" would invite the user to set up what is already
+      // there. Say what actually happened and offer a Retry.
       console.error('Failed to load grid connection settings', e);
-      this._isConfigured = false;
+      this._loadFailed = true;
     }
     this._loading = false;
   }
@@ -123,6 +145,12 @@ export class GridConnectionSettingsCard extends LitElement {
       return html`<ha-card header=${tp('title')}>
         <div class="card-content"><ha-spinner></ha-spinner></div>
       </ha-card>`;
+    }
+
+    if (this._loadFailed) {
+      return renderLoadFailedCard(this._hass, tp('title'), () =>
+        this._loadSettings()
+      );
     }
 
     const state = this._state();
