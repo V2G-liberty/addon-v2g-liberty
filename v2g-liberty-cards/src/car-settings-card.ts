@@ -3,7 +3,11 @@ import { customElement, state } from 'lit/decorators';
 import { HassEvent } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderButton, renderLoadFailedCard } from './util/render';
+import {
+  renderButton,
+  renderLoadFailedCard,
+  renderSettingsRow,
+} from './util/render';
 import { partial, setLanguage } from './util/translate';
 import { callFunction, SETTINGS_LOAD_TIMEOUT_MS } from './util/appdaemon';
 import { styles } from './card.styles';
@@ -230,7 +234,7 @@ class CarSettingsCard extends LitElement {
     const hours = this._settings?.allowed_duration_above_max_soc_hrs;
     if (low === undefined || high === undefined) return nothing;
     return html`
-      ${this._renderRow(
+      ${renderSettingsRow(
         'mdi:chart-bell-curve-cumulative',
         tp('fields.limits'),
         `${low} – ${high} %`
@@ -246,45 +250,11 @@ class CarSettingsCard extends LitElement {
   private _renderField(field: CarField) {
     const value = this._settings?.[field.key];
     if (value === undefined || value === null || value === '') return nothing;
-    return this._renderRow(
+    return renderSettingsRow(
       field.icon,
       tp(`fields.${field.label}`),
       `${value} ${field.suffix}`
     );
-  }
-
-  /**
-   * A read-only row. Deliberately not renderEntityRow: that takes its label,
-   * icon and value from a HassEntity, and the car values no longer live in
-   * entities -- with one input_number per installation a second car could
-   * never have its own.
-   */
-  private _renderRow(icon: string, label: string, value: string) {
-    // The row's value wrapper is, in the component's own stylesheet,
-    //   .content { flex: 1 1 0%; min-width: 0 }
-    // -- it grows greedily and has no variable for it. The heading only gets
-    // its minimum width, and a heading that may wrap has a minimum of one
-    // word, so even "Car ID" broke in two. Keeping the label on one line
-    // makes its full width the minimum, and the greedy column can only take
-    // what is left. A label that truly does not fit is cut with an ellipsis
-    // rather than bent around the icon.
-    return html`
-      <ha-settings-row>
-        <span slot="heading" style="display: flex; align-items: center;">
-          <ha-icon icon="${icon}"></ha-icon>
-          <span
-            style="margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-            >${label}</span
-          >
-        </span>
-        <div
-          class="text-content value state"
-          style="flex: 0 0 auto; white-space: nowrap;"
-        >
-          ${value}
-        </div>
-      </ha-settings-row>
-    `;
   }
 
   private _openDialog() {

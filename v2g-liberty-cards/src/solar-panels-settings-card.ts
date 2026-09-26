@@ -196,12 +196,23 @@ export class SolarPanelsSettingsCard extends LitElement {
           style="color: var(--error-color);"
         ></ha-svg-icon>`
       : html`<ha-svg-icon .path=${mdiSolarPower}></ha-svg-icon>`;
+    // Same shape as every other settings row, but with its own leading icon:
+    // a panel can carry an error marker instead of the solar symbol.
     return html`
       <ha-settings-row>
-        <span slot="heading">
-          ${leadingIcon}&nbsp; &nbsp; ${panel.name}
+        <span slot="heading" style="display: flex; align-items: center;">
+          ${leadingIcon}
+          <span
+            style="margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+            >${panel.name}</span
+          >
         </span>
-        <div class="value">${summary}</div>
+        <div
+          class="text-content value state"
+          style="flex: 0 0 auto; white-space: nowrap;"
+        >
+          ${summary}
+        </div>
         <ha-icon-button
           .label=${'Edit'}
           .path=${mdiPencil}
