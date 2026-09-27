@@ -296,6 +296,70 @@ async def test_saving_without_an_unknown_car_returns_false(v2g):
     v2g._V2Gliberty__set_charge_mode_in_ui.assert_not_awaited()
 
 
+# ── The registered car comes back ─────────────────────────────────────
+# The verdict is persisted, so a car swapped while the app was down (an add-on
+# restart, or an HA restart, which stops every AppDaemon app) is only noticed
+# because the driver announces "known" as well.
+
+
+def _handle_known(v2g, ev_id=OWNER):
+    return v2g._V2Gliberty__handle_known_car(ev_id)
+
+
+@pytest.mark.asyncio
+async def test_the_registered_car_returning_lifts_a_stale_stop(v2g):
+    await _handle_unknown(v2g)
+    v2g.hass.get_state = AsyncMock(return_value="Stop")
+
+    await _handle_known(v2g)
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_awaited_with("Automatic")
+    v2g.notifier.clear_notification.assert_called_once_with(tag="unknown_car_connected")
+    assert v2g.unknown_car_ev_id is None
+    assert v2g.v2g_settings.objects["forced_stop"] == {}
+    assert _sensor_writes(v2g)[-1] == "none"
+    assert _state_events(v2g)[-1] is False
+
+
+@pytest.mark.asyncio
+async def test_a_stale_stop_is_lifted_at_start_up_too(v2g):
+    """The restore runs before the driver's first classification, so the two
+    must land in this order without leaving the Stop behind."""
+    v2g.v2g_settings = FakeSettings({"forced_stop": FORCED})
+    await v2g._V2Gliberty__restore_unknown_car_bookkeeping()
+    assert v2g.unknown_car_ev_id == GUEST
+    v2g.hass.get_state = AsyncMock(return_value="Stop")
+
+    await _handle_known(v2g)
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_awaited_with("Automatic")
+    assert v2g.unknown_car_ev_id is None
+
+
+@pytest.mark.asyncio
+async def test_a_known_car_without_a_standing_verdict_is_silent(v2g):
+    """A plain connect must not wake the pause-at-reconnect monitor."""
+    await _handle_known(v2g)
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_not_awaited()
+    v2g.notifier.clear_notification.assert_not_called()
+    assert _sensor_writes(v2g) == []
+    assert _state_events(v2g) == []
+
+
+@pytest.mark.asyncio
+async def test_a_stop_the_user_set_since_survives_the_registered_car(v2g):
+    """Same rule as unplugging: only a Stop this app forced is lifted."""
+    v2g.v2g_settings = FakeSettings({"forced_stop": {"reason": "charger_problem"}})
+    v2g.unknown_car_ev_id = GUEST
+    v2g.hass.get_state = AsyncMock(return_value="Stop")
+
+    await _handle_known(v2g)
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_not_awaited()
+    assert v2g.unknown_car_ev_id is None
+
+
 # ── The car leaves ────────────────────────────────────────────────────
 
 

@@ -103,6 +103,16 @@ class EventBus(AsyncIOEventEmitter):
         - **Arguments**:
             - `ev_id` (str): the id of the connected car.
 
+    - `known_car_connected`:
+        - **Description**: The counterpart of `unknown_car_connected`: the standing
+          car is confirmed to be the registered one (or nothing is registered, so no
+          car can be unknown). Only emitted on a definitive verdict, never while the
+          id is still unreadable. The main app needs it to drop a persisted unknown-car
+          verdict that a swap during a restart has made stale.
+        - **Emitted by** the charger driver (evtec_bidipro; never wallbox_quasar_1)
+        - **Arguments**:
+            - `ev_id` (str): the id of the connected car; empty if none is registered.
+
     - `unknown_car_connected_state`:
         - **Description**: The app-wide state "an unknown car is standing at the
           charger" (see `unknown_car_connected`). True when the main app forces its

@@ -60,6 +60,7 @@ _EVENTS = [
     "charger_communication_state_change",
     "discharge_refused",
     "unknown_car_connected",
+    "known_car_connected",
 ]
 
 
@@ -1059,6 +1060,65 @@ async def test_unreadable_id_is_pending_and_fails_open(driver, monkeypatch):
     assert e._car_id_retries_left == e._CAR_ID_RETRIES
 
 
+# --- announcing the other verdict --------------------------------------------
+# "Known" is announced too, but only when it is definitive. The main app
+# persists an unknown-car verdict, so without this a car swapped while the app
+# was down would keep its forced Stop until the next unplug.
+
+
+@pytest.mark.asyncio
+async def test_a_matching_id_is_announced_as_known(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words(REGISTERED))
+
+    await poll(e)
+
+    assert rec.find("known_car_connected") == [{"ev_id": REGISTERED}]
+
+
+@pytest.mark.asyncio
+async def test_nothing_registered_is_announced_as_known_without_an_id(
+    driver, monkeypatch
+):
+    """No registration means no car can be unknown, so a standing verdict is
+    stale by definition."""
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", "")
+    e.client.store.update(connector_words(state=10))
+
+    await poll(e)
+
+    assert rec.find("known_car_connected") == [{"ev_id": ""}]
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_car_is_not_announced_as_known(driver, monkeypatch):
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+    e.client.store.update(car_id_words("VISITOR-01"))
+
+    await poll(e)
+
+    assert not rec.find("known_car_connected")
+
+
+@pytest.mark.asyncio
+async def test_a_pending_id_announces_no_verdict_at_all(driver, monkeypatch):
+    """Neither way: a guest whose id is not readable yet must keep its Stop
+    until the retry decides."""
+    e, rec = driver
+    monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
+    e.client.store.update(connector_words(state=10))
+
+    await poll(e)
+
+    assert not rec.find("known_car_connected")
+    assert not rec.find("unknown_car_connected")
+
+
 @pytest.mark.asyncio
 async def test_pending_id_is_re_read_while_polling(driver, monkeypatch):
     e, rec = driver
@@ -1080,9 +1140,7 @@ async def test_pending_id_is_re_read_while_polling(driver, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_matching_id_that_arrives_late_ends_the_retries_quietly(
-    driver, monkeypatch
-):
+async def test_matching_id_that_arrives_late_ends_the_retries(driver, monkeypatch):
     e, rec = driver
     monkeypatch.setattr(c, "CAR_EV_ID", REGISTERED)
     e.client.store.update(connector_words(state=10))
@@ -1093,6 +1151,8 @@ async def test_matching_id_that_arrives_late_ends_the_retries_quietly(
 
     assert e._car_id_retries_left == 0
     assert not rec.find("unknown_car_connected")
+    # The verdict the main app needs to drop a stale unknown-car record.
+    assert rec.find("known_car_connected") == [{"ev_id": REGISTERED}]
 
 
 @pytest.mark.asyncio

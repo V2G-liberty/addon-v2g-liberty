@@ -719,6 +719,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         """
         if not c.CAR_EV_ID:
             self._car_id_retries_left = 0
+            self.event_bus.emit_event("known_car_connected", ev_id="")
             return "known"
         ev_id, reason = await self._read_car_id_register()
         if reason != "ok":
@@ -736,6 +737,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
             self.event_bus.emit_event("unknown_car_connected", ev_id=ev_id)
             return "unknown"
+        self.event_bus.emit_event("known_car_connected", ev_id=ev_id)
         return "known"
 
     async def _retry_car_id(self):
@@ -754,6 +756,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 level="WARNING",
             )
             self.event_bus.emit_event("unknown_car_connected", ev_id=ev_id)
+            return
+        self.event_bus.emit_event("known_car_connected", ev_id=ev_id)
 
     ######################################################################
     #                    PRIVATE FUNCTIONAL METHODS                      #

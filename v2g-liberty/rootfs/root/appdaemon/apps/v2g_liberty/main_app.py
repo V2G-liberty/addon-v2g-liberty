@@ -192,6 +192,9 @@ class V2Gliberty:
         self.event_bus.add_event_listener(
             "unknown_car_connected", self.__handle_unknown_car
         )
+        self.event_bus.add_event_listener(
+            "known_car_connected", self.__handle_known_car
+        )
         await self.__restore_unknown_car_bookkeeping()
 
         self.event_bus.add_event_listener(
@@ -1167,6 +1170,26 @@ class V2Gliberty:
             critical=False,
             send_to_all=True,
         )
+
+    async def __handle_known_car(self, ev_id: str):
+        """The driver confirmed the standing car is the registered one. Only
+        of interest while this app still has an unknown car on its books: that
+        bookkeeping is persisted, so a car swapped while the app was down --
+        an add-on restart, or an HA restart, which stops every AppDaemon app --
+        would otherwise keep the forced Stop until the next unplug.
+
+        Silent when nothing stands: a plain connect must not emit
+        unknown_car_connected_state and wake the pause-at-reconnect monitor.
+        Never reached on a 'pending' verdict, so a guest car whose id is not
+        readable yet keeps its Stop until the retry decides.
+        """
+        if not self.unknown_car_ev_id:
+            return
+        self.__log(
+            f"Car '{ev_id or c.CAR_NAME}' is the registered one; "
+            f"dropping the stale verdict on '{self.unknown_car_ev_id}'."
+        )
+        await self.__restore_after_unknown_car()
 
     async def __restore_after_unknown_car(self) -> bool:
         """Lift the forced Stop if -- and only if -- this app forced it and the
