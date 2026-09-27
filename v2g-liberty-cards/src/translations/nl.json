@@ -249,6 +249,73 @@
       "inputnumber": {
         "error": "Vul een waarde tussen %{min} en %{max} in."
       }
+    },
+    "charger": {
+      "header": "Lader",
+      "wallbox-quasar-1": "Wallbox Quasar 1",
+      "evtec-bidi-pro-10": "EVtec BiDiPro 10",
+      "alert": "Stel de lader in, V2G Liberty heeft dit nodig om te werken.",
+      "1-select-charger-type": {
+        "header": "Kies het type lader",
+        "description": "Kies het type lader dat je gebruikt:",
+        "validation-error": "Kies een type lader om verder te gaan."
+      },
+      "invalid-host-error": "Vul een geldige hostnaam of IP-adres in (alleen letters, cijfers, punten, koppeltekens en liggende streepjes).",
+      "invalid-port-error": "Vul een geldige poort in.",
+      "connection-error": "Geen verbinding met de lader, controleer de aansluiting.",
+      "charger-not-recognised-error": "De verbinding is gelukt, maar de lader op dit adres lijkt niet het gekozen type te zijn. Controleer je keuze.",
+      "no-active-plug-error": "Verbonden met de lader, maar er is geen actieve aansluiting gevonden. Controleer de configuratie van de lader.",
+      "connection-success": "Verbinding gelukt",
+      "connected-since": "Verbonden, laatste contact %{time} geleden",
+      "max-power-description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
+      "load-balancer": {
+        "enabled": {
+          "title": "Load balancer van V2G Liberty is ingeschakeld",
+          "info": "De load balancer van V2G Liberty staat aan.\n\n**Belangrijk**\nDeze module wordt geleverd zonder enige garantie. Gebruik op eigen risico.\n\nVraag een erkend installateur welk maximumvermogen je op de lader mag instellen.\n\n**Configuratie**\n\n- De hostnaam van de lader moet `127.0.0.1` zijn\n\n- Het poortnummer moet `5020` zijn\n\nMeer hierover staat in `readme.md` in de map `load_balancer`."
+        },
+        "not_enabled": {
+          "title": "Load balancer van V2G Liberty is niet ingeschakeld",
+          "info": "Een load balancer is aan te raden, maar niet verplicht. Hiermee kun je op de lader een hogere maximumstroom instellen terwijl het vermogen veilig blijft. Dat laadt efficiënter en levert meer op.\n\n_De load balancer van de Wallbox Quasar 1 werkt helaas niet goed samen met V2G&nbsp;Liberty; in `readme.md` in de map `load_balancer` staat een omweg._\n\nVraag een erkend installateur welk maximumvermogen je op de lader mag instellen."
+        }
+      },
+      "reduce-max-power-description": "Beperk het maximale laad- en ontlaadvermogen.",
+      "2-connection-details": {
+        "header": "verbindingsinstellingen",
+        "description": {
+          "generic": "Om verbinding te maken met de lader heb je het adres (meestal het IP-adres) en de poort van de lader nodig.",
+          "evtec-bidi-pro-10": "Die vind je in je router of in de EVtec-manager via de webbrowser.",
+          "wallbox-quasar-1": "Die vind je in de Wallbox-app: ga naar Instellingen (het tandwiel rechtsboven) → Netwerk → Ethernet (of wifi) → IP-adres. Daarna wordt gevraagd via bluetooth verbinding te maken met de lader."
+        },
+        "port-description": "Standaard is dit %{value}; heb je dat niet gewijzigd, laat het dan zo."
+      },
+      "3-power-details": {
+        "header": "vermogensinstellingen",
+        "description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
+        "reduce-max-power-description": "Hiermee beperk je het laad- en ontlaadvermogen verder, onder het maximum dat in de lader zelf is ingesteld."
+      },
+      "phase": {
+        "grid-mismatch": "Je 3-fase lader heeft een 3-fase netaansluiting nodig. Controleer je netaansluiting-instellingen of het type lader.",
+        "single-phase": "Je lader is aangesloten op de enige beschikbare fase (L1).",
+        "three-phase": "Je 3-fase lader is op alle drie de fasen aangesloten.",
+        "question": "Op welke fase is je lader aangesloten?",
+        "option": "Fase %{n}",
+        "select-error": "Kies op welke fase je lader is aangesloten.",
+        "hint-summary": "Niet zeker?",
+        "hint-body": "Kijk op het label in je meterkast, of gebruik de automatische detectie hieronder.",
+        "detect": {
+          "title": "Automatische fasedetectie",
+          "explain": "De fase kan ook automatisch worden vastgesteld. Daarbij wordt kort geladen (en bij een bidirectionele lader ook ontladen) terwijl de sensoren van je netaansluiting worden gevolgd. De laadmodus gaat tijdens de detectie tijdelijk op Pauze. Zorg dat je auto is aangesloten.",
+          "start": "Detectie starten",
+          "unavailable": "Kies de fase hierboven en sla op. Detectie kan nu niet: die meet de lader die op dit moment is aangesloten, en je wijzigingen zijn nog niet opgeslagen. Open deze instellingen daarna opnieuw om de fase te laten vaststellen.",
+          "starting": "Bezig met starten…",
+          "baseline": "Nulmeting…",
+          "charge-test": "Laadtest…",
+          "discharge-test": "Ontlaadtest…",
+          "success": "Vastgesteld: fase %{label}",
+          "failed": "De detectie is mislukt. Je kunt de fase handmatig kiezen.",
+          "timeout": "De detectie duurde te lang. Je kunt de fase handmatig kiezen."
+        }
+      }
     }
   },
   "data-table": {
@@ -375,6 +442,16 @@
     "car_consumption_wh_per_km": "Energieverbruik van de auto",
     "car_min_soc_in_percent": "Ondergrens schema",
     "car_max_soc_in_percent": "Bovengrens schema",
-    "allowed_duration_above_max_soc_in_hrs": "Toegestane duur boven de bovengrens"
+    "allowed_duration_above_max_soc_in_hrs": "Toegestane duur boven de bovengrens",
+    "charger_port": "Poortnummer",
+    "charger_max_charging_power": "Max. laadvermogen",
+    "charger_max_discharging_power": "Max. ontlaadvermogen"
+  },
+  "input_text": {
+    "charger_host_url": "Hostnaam van de lader",
+    "charger_type": "Type lader"
+  },
+  "input_boolean": {
+    "use_reduced_max_charge_power": "Beperk het maximale vermogen"
   }
 }

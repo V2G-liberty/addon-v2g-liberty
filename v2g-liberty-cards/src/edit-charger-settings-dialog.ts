@@ -24,6 +24,7 @@ import * as entityIds from './entity-ids';
 
 export const tagName = 'edit-charger-settings-dialog';
 const tp = partial('settings.charger');
+const tc = partial('settings.common');
 
 const enum ConnectionStatus {
   Connected = 'Successfully connected',
@@ -643,10 +644,7 @@ class EditChargerSettingsDialog extends DialogBase {
     // Scenario: 1-phase grid + 3-phase charger → error
     if (gridPhases === 1 && chargerPhases === 3) {
       return html`
-        <ha-alert alert-type="error">
-          Your 3-phase charger requires a 3-phase grid connection.
-          Please check your grid connection settings or charger type.
-        </ha-alert>
+        <ha-alert alert-type="error">${tp('phase.grid-mismatch')}</ha-alert>
         ${renderButton(this.hass, () => this.closeDialog(), true, this.hass.localize('ui.common.close'))}
       `;
     }
@@ -655,7 +653,7 @@ class EditChargerSettingsDialog extends DialogBase {
     if (gridPhases === 1 || gridPhases === null) {
       return html`
         ${this._renderPhaseSaveError()}
-        <p>Your charger is connected to the only available phase (L1).</p>
+        <p>${tp('phase.single-phase')}</p>
         ${this._renderPhaseBackButton()}
         ${renderButton(this.hass, () => this._savePhase(1), true, this.hass.localize('ui.common.save'))}
       `;
@@ -665,7 +663,7 @@ class EditChargerSettingsDialog extends DialogBase {
     if (chargerPhases === 3) {
       return html`
         ${this._renderPhaseSaveError()}
-        <p>Your 3-phase charger is connected to all three phases.</p>
+        <p>${tp('phase.three-phase')}</p>
         ${this._renderPhaseBackButton()}
         ${renderButton(this.hass, () => this._savePhase([1, 2, 3]), true, this.hass.localize('ui.common.save'))}
       `;
@@ -678,7 +676,7 @@ class EditChargerSettingsDialog extends DialogBase {
   private _renderPhaseSelection() {
     return html`
       ${this._renderPhaseSaveError()}
-      <p><strong>Which phase is your charger connected to?</strong></p>
+      <p><strong>${tp('phase.question')}</strong></p>
 
       <div class="phase-options">
         ${[1, 2, 3].map(phase => html`
@@ -687,19 +685,22 @@ class EditChargerSettingsDialog extends DialogBase {
             @click=${() => { this._selectedPhase = phase; }}
           >
             ${renderRadioIndicator(this._selectedPhase === phase)}
-            <span><strong>Phase ${phase}</strong> (L${phase})</span>
+            <span
+              ><strong>${tp('phase.option', { n: phase })}</strong>
+              (L${phase})</span
+            >
           </div>
         `)}
       </div>
 
       ${this._triedSavePhase && this._selectedPhase === null
-        ? html`<div class="invalid">Please select which phase your charger is connected to.</div>`
+        ? html`<div class="invalid">${tp('phase.select-error')}</div>`
         : nothing
       }
 
       <details class="hint">
-        <summary>Not sure?</summary>
-        <p>Check the label on your fuse box, or use the automatic detection below.</p>
+        <summary>${tp('phase.hint-summary')}</summary>
+        <p>${tp('phase.hint-body')}</p>
       </details>
 
       ${this._renderAutoDetect()}
@@ -721,10 +722,10 @@ class EditChargerSettingsDialog extends DialogBase {
     if (this._detecting) {
       return html`
         <div class="auto-detect-box">
-          <p><strong>Automatic phase detection</strong></p>
+          <p><strong>${tp('phase.detect.title')}</strong></p>
           <div style="display: flex; align-items: center; gap: 8px;">
             <ha-spinner size="small"></ha-spinner>
-            <span>${this._detectStep || 'Starting...'}</span>
+            <span>${this._detectStep || tp('phase.detect.starting')}</span>
           </div>
         </div>
       `;
@@ -733,7 +734,7 @@ class EditChargerSettingsDialog extends DialogBase {
     if (this._detectSuccess) {
       return html`
         <div class="auto-detect-box">
-          <p><strong>Automatic phase detection</strong></p>
+          <p><strong>${tp('phase.detect.title')}</strong></p>
           <ha-alert alert-type="success">${this._detectSuccess}</ha-alert>
         </div>
       `;
@@ -742,7 +743,7 @@ class EditChargerSettingsDialog extends DialogBase {
     if (this._detectError) {
       return html`
         <div class="auto-detect-box">
-          <p><strong>Automatic phase detection</strong></p>
+          <p><strong>${tp('phase.detect.title')}</strong></p>
           <div style="margin-bottom: 12px;">
             <ha-alert alert-type="warning">${this._detectError}</ha-alert>
           </div>
@@ -750,7 +751,7 @@ class EditChargerSettingsDialog extends DialogBase {
             this.hass,
             () => this._startDetection(),
             false,
-            'Retry',
+            tc('retry')
           )}
         </div>
       `;
@@ -759,12 +760,9 @@ class EditChargerSettingsDialog extends DialogBase {
     if (this._chargerSettingsChanged) {
       return html`
         <div class="auto-detect-box">
-          <p><strong>Automatic phase detection</strong></p>
+          <p><strong>${tp('phase.detect.title')}</strong></p>
           <p style="font-size: 0.875em; color: var(--secondary-text-color);">
-            Select the phase above and save. Detection is unavailable until
-            then: it measures the charger that is connected right now, and the
-            settings you changed are not saved yet. Once they are, reopen these
-            settings to have the phase detected.
+            ${tp('phase.detect.unavailable')}
           </p>
         </div>
       `;
@@ -772,18 +770,15 @@ class EditChargerSettingsDialog extends DialogBase {
 
     return html`
       <div class="auto-detect-box">
-        <p><strong>Automatic phase detection</strong></p>
+        <p><strong>${tp('phase.detect.title')}</strong></p>
         <p style="font-size: 0.875em; color: var(--secondary-text-color);">
-          Optionally, the phase can be detected automatically. This briefly
-          charges (and discharges for bidirectional chargers) while monitoring
-          the grid sensors. The charge mode will be temporarily set to Stop
-          during detection. Make sure your car is connected.
+          ${tp('phase.detect.explain')}
         </p>
         ${renderButton(
           this.hass,
           () => this._startDetection(),
           false,
-          'Start detection',
+          tp('phase.detect.start')
         )}
       </div>
     `;
@@ -799,9 +794,12 @@ class EditChargerSettingsDialog extends DialogBase {
     const unsub = await this.hass.connection.subscribeEvents<HassEvent>(
       (event: HassEvent) => {
         const step = event.data.step;
-        if (step === 'baseline') this._detectStep = 'Measuring baseline...';
-        else if (step === 'charge_test') this._detectStep = 'Charge test...';
-        else if (step === 'discharge_test') this._detectStep = 'Discharge test...';
+        if (step === 'baseline')
+          this._detectStep = tp('phase.detect.baseline');
+        else if (step === 'charge_test')
+          this._detectStep = tp('phase.detect.charge-test');
+        else if (step === 'discharge_test')
+          this._detectStep = tp('phase.detect.discharge-test');
       },
       'charger_phase_detection.progress'
     );
@@ -821,13 +819,13 @@ class EditChargerSettingsDialog extends DialogBase {
         const label = Array.isArray(phase)
           ? phase.map(p => `L${p}`).join(', ')
           : `L${phase}`;
-        this._detectSuccess = `Detected: Phase ${label}`;
+        this._detectSuccess = tp('phase.detect.success', { label });
       } else {
         this._detectSuccess = '';
-        this._detectError = result.error || 'Detection failed. You can select the phase manually.';
+        this._detectError = result.error || tp('phase.detect.failed');
       }
     } catch (e) {
-      this._detectError = 'Detection timed out. You can select the phase manually.';
+      this._detectError = tp('phase.detect.timeout');
     } finally {
       unsub();
       this._detecting = false;

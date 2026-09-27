@@ -447,6 +447,29 @@
         "header": "power settings",
         "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
         "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger."
+      },
+      "phase": {
+        "grid-mismatch": "Your 3-phase charger requires a 3-phase grid connection. Please check your grid connection settings or charger type.",
+        "single-phase": "Your charger is connected to the only available phase (L1).",
+        "three-phase": "Your 3-phase charger is connected to all three phases.",
+        "question": "Which phase is your charger connected to?",
+        "option": "Phase %{n}",
+        "select-error": "Please select which phase your charger is connected to.",
+        "hint-summary": "Not sure?",
+        "hint-body": "Check the label on your fuse box, or use the automatic detection below.",
+        "detect": {
+          "title": "Automatic phase detection",
+          "explain": "Optionally, the phase can be detected automatically. This briefly charges (and discharges for bidirectional chargers) while monitoring the grid sensors. The charge mode will be temporarily set to Stop during detection. Make sure your car is connected.",
+          "start": "Start detection",
+          "unavailable": "Select the phase above and save. Detection is unavailable until then: it measures the charger that is connected right now, and the settings you changed are not saved yet. Once they are, reopen these settings to have the phase detected.",
+          "starting": "Starting…",
+          "baseline": "Measuring baseline…",
+          "charge-test": "Charge test…",
+          "discharge-test": "Discharge test…",
+          "success": "Detected: phase %{label}",
+          "failed": "Detection failed. You can select the phase manually.",
+          "timeout": "Detection timed out. You can select the phase manually."
+        }
       }
     },
     "dialogs": {
