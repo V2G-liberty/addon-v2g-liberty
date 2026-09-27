@@ -11,7 +11,7 @@
     "car_max_soc_in_percent": "Schedule upper limit",
     "charger_max_charging_power": "Max. charging power",
     "charger_max_discharging_power": "Max. discharging power",
-    "charger_plus_car_roundtrip_efficiency": "Roundtrip efficiency",
+    "charger_plus_car_roundtrip_efficiency": "Charging efficiency (round-trip)",
     "charger_port": "Port number",
     "energy_price_markup_per_kwh": "Markup",
     "energy_price_vat": "VAT"
@@ -359,13 +359,14 @@
       "alert-with-id": "V2G Liberty needs your car's details to plan its charging. Connect the car to the charger first, so its ID can be read.",
       "fields": {
         "capacity": "Usable capacity",
-        "efficiency": "Roundtrip efficiency",
+        "efficiency": "Charging efficiency",
         "consumption": "Energy consumption",
         "min-soc": "Schedule lower limit",
         "max-soc": "Schedule upper limit",
         "allowed-duration": "Allowed above upper limit",
         "limits": "Schedule limits",
-        "limits-duration": "Up to %{hours} h above the limit"
+        "limits-duration": "Up to %{hours} h above the limit",
+        "efficiency-dialog": "Charging efficiency (round-trip)"
       },
       "alert-title": "Car not set up yet",
       "missing-id-title": "Car ID missing",
@@ -457,8 +458,8 @@
         "description": "This is the the maximum energy storage capacity of the car's battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\n\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\n\n**Battery health**\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"
       },
       "roundtrip-efficiency": {
-        "header": "Roundtrip efficiency",
-        "description": "This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."
+        "header": "Charging efficiency (round-trip)",
+        "description": "This is the efficiency of a cycle of charge and discharge and includes charger and car. Note that it covers the whole round trip, not charging alone. A typical value is 85%.\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."
       },
       "car-energy-consumption": {
         "header": "Car energy consumption",

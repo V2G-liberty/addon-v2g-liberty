@@ -432,7 +432,7 @@ class EditCarSettingsDialog extends DialogBase {
     return html`
       <div style="margin-top: 16px;">
         <label class="field-label" for="car-${field.key}"
-          >${tf(field.label)}</label
+          >${tf(`${field.label}-dialog`) || tf(field.label)}</label
         >
         ${renderHaInput({
           value,
