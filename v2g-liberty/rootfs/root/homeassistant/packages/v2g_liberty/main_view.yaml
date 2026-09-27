@@ -119,7 +119,9 @@
           Registered car ID: **{{ registered }}**<br/>
           Connected car ID: **{{ states('sensor.unknown_car_connected') }}**
 
-          **A visitor?** Nothing to do: charging resumes when the car is unplugged.
+          **A visitor?** Nothing to do: automatic charging resumes when the car
+          is unplugged. Want to charge it anyway? Press **Charge** — that still
+          works, and it charges at full power.
 
           **Your new car?** Go to Settings > Car > Edit and read its ID.
 

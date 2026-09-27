@@ -1158,8 +1158,8 @@ class V2Gliberty:
             message=(
                 f"A car that is not '{name}' is plugged in (ID {ev_id}). "
                 "V2G Liberty has paused automatic charging.\n"
-                "A visitor? Nothing to do, charging resumes when the car is "
-                "unplugged.\n"
+                "A visitor? Nothing to do, automatic charging resumes when the "
+                "car is unplugged. To charge it anyway, press Charge.\n"
                 "Your new car? Go to Settings > Car > Edit and read its ID."
             ),
             title="Unknown car connected",
