@@ -23,7 +23,8 @@
 - 🚀 FEAT: Live reregister grid listeners (#473)
 - 🚀 FEAT: Aggregate import/export meter energy from the meter registers to FlexMeasures (#487)
 - 🚀 FEAT: Grid connection redesign (#488)
-- 🚀 FEAT: Support for the EVtec BiDiPro 10 charger and multiple cars (#478, #482, #496, #497, #498)
+- 🚀 FEAT: Support for the EVtec BiDiPro 10 charger (#482, #496, #497, #498)
+- 🚀 FEAT: All car settings in one dialog + unregistered car pauses automatic charging (#478, #502)
 - 🚀 FEAT: Recover automatically once an unusable charger is back (#499)
 
 ### Changed
