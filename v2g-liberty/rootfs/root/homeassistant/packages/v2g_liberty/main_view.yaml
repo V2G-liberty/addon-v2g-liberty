@@ -110,20 +110,21 @@
               height: auto !important;
             }
         content: |
+          {#- A <br/> must have text after it on the same line: a newline
+              right behind the tag makes the renderer start a new paragraph,
+              which pulls each question away from its own answer. -#}
           {% set name = state_attr('sensor.unknown_car_connected', 'registered_car_name') or 'your car' %}
-          {% set registered = state_attr('sensor.unknown_car_connected', 'registered_ev_id') or 'none' %}
           <ha-alert alert-type="warning" title="Unknown car connected">Automatic charging has been paused.</ha-alert>
 
-          A car that is not '{{ name }}' is plugged in.
+          The connected car (**{{ states('sensor.unknown_car_connected') }}**) is not '{{ name }}'.
 
-          Registered car ID: **{{ registered }}**<br/>
-          Connected car ID: **{{ states('sensor.unknown_car_connected') }}**
+          **A visitor asked to charge?**<br/>Press **Charge** — it charges at full power.
 
-          **A visitor?** Nothing to do: automatic charging resumes when the car
-          is unplugged. Want to charge it anyway? Press **Charge** — that still
-          works, and it charges at full power.
+          **Not expecting anyone?**<br/>No power is flowing: V2G Liberty has set the charger to 0 W.
 
-          **Your new car?** Go to Settings > Car > Edit and read its ID.
+          **Your new car?**<br/>Go to Settings > Car > Edit and read its ID.
+
+          Automatic charging resumes by itself once the car is unplugged.
 
 - type: grid
   cards:

@@ -1160,9 +1160,10 @@ class V2Gliberty:
         await self.notifier.notify_user(
             message=(
                 f"A car that is not '{name}' is plugged in (ID {ev_id}). "
-                "V2G Liberty has paused automatic charging.\n"
-                "A visitor? Nothing to do, automatic charging resumes when the "
-                "car is unplugged. To charge it anyway, press Charge.\n"
+                "V2G Liberty has paused automatic charging and set the "
+                "charger to 0 W.\n"
+                "A visitor asked to charge? Press Charge.\n"
+                "Not expecting anyone? No power is flowing.\n"
                 "Your new car? Go to Settings > Car > Edit and read its ID."
             ),
             title="Unknown car connected",
