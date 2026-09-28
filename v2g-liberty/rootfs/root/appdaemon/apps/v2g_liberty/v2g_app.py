@@ -134,6 +134,7 @@ class V2GLibertyApp(Hass):
         v2g_globals.fm_data_retrieve_client = get_fm_data
         evse_client.v2g_main_app = main_app
         main_app.evse_client_app = evse_client
+        main_app.pause_at_reconnect = pause_at_reconnect
         main_app.electric_vehicle = electric_vehicle
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client

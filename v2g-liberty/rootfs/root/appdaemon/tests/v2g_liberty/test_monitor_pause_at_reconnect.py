@@ -311,3 +311,57 @@ async def test_normal_behaviour_returns_once_the_unknown_car_is_gone(
 
     mock_notifier.notify_user.assert_called_once()
     mock_hass.run_in.assert_awaited_once()
+
+
+# --- V21: no prompt while the app is restoring the mode itself ---------------
+
+
+@pytest.mark.asyncio
+async def test_skip_next_reconnect_prompt_swallows_one_connect(
+    monitor, mock_hass, mock_notifier
+):
+    """The restore sets Automatic through HA, so the connect that follows still
+    reads Stop. Prompting there offers to lift a Stop already being lifted."""
+    monitor.skip_next_reconnect_prompt()
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_not_called()
+    mock_hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_skip_next_reconnect_prompt_is_one_shot(
+    monitor, mock_hass, mock_notifier
+):
+    """It must not swallow a later, genuine reconnect prompt."""
+    monitor.skip_next_reconnect_prompt()
+    mock_hass.get_state.return_value = "Stop"
+    await monitor._handle_connected_state_change(True)
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a_disconnect_drops_the_skip(monitor, mock_hass, mock_notifier):
+    """Armed just before a connect that is certain to follow; if it does not
+    come, the flag must not survive into the next session."""
+    monitor.skip_next_reconnect_prompt()
+    await monitor._handle_connected_state_change(False)
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_without_the_skip_nothing_changes(monitor, mock_hass, mock_notifier):
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()

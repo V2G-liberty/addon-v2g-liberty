@@ -102,6 +102,7 @@ class V2Gliberty:
     electric_vehicle: object = None
     fm_client_app: object = None
     reservations_client: object = None
+    pause_at_reconnect: object = None
     notifier: Notifier = None
     event_bus: EventBus = None
     hass: Hass = None
@@ -1190,6 +1191,10 @@ class V2Gliberty:
             f"Car '{ev_id or c.CAR_NAME}' is the registered one; "
             f"dropping the stale verdict on '{self.unknown_car_ev_id}'."
         )
+        # The driver emits is_car_connected=True right after this, while the
+        # mode below is still travelling through Home Assistant (V21).
+        if self.pause_at_reconnect is not None:
+            self.pause_at_reconnect.skip_next_reconnect_prompt()
         await self.__restore_after_unknown_car()
 
     async def __restore_after_unknown_car(self) -> bool:

@@ -337,6 +337,41 @@ async def test_a_stale_stop_is_lifted_at_start_up_too(v2g):
 
 
 @pytest.mark.asyncio
+async def test_the_reconnect_prompt_is_held_back_during_the_restore(v2g):
+    """V21: the driver announces the connect right after this, while the mode
+    is still travelling through HA. Without this the user gets a prompt
+    offering to lift a Stop the app is already lifting."""
+    v2g.pause_at_reconnect = MagicMock()
+    await _handle_unknown(v2g)
+    v2g.hass.get_state = AsyncMock(return_value="Stop")
+
+    await _handle_known(v2g)
+
+    v2g.pause_at_reconnect.skip_next_reconnect_prompt.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_no_verdict_means_no_reason_to_hold_the_prompt_back(v2g):
+    v2g.pause_at_reconnect = MagicMock()
+
+    await _handle_known(v2g)
+
+    v2g.pause_at_reconnect.skip_next_reconnect_prompt.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_the_restore_works_without_a_monitor(v2g):
+    """Wiring is optional: the restore itself must not depend on it."""
+    v2g.pause_at_reconnect = None
+    await _handle_unknown(v2g)
+    v2g.hass.get_state = AsyncMock(return_value="Stop")
+
+    await _handle_known(v2g)
+
+    v2g._V2Gliberty__set_charge_mode_in_ui.assert_awaited_with("Automatic")
+
+
+@pytest.mark.asyncio
 async def test_a_known_car_without_a_standing_verdict_is_silent(v2g):
     """A plain connect must not wake the pause-at-reconnect monitor."""
     await _handle_known(v2g)
