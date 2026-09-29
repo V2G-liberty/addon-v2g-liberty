@@ -196,6 +196,7 @@ Own entities, so both emulators can run side by side: `input_select.emulator_evt
 | `error_state` | Connector state 12 (error), power 0. Frozen. |
 | `internal_error` | Error bitmask `X+54` non-zero (bit 0 = powerUnitError), decode unsigned. Frozen. |
 | `other_car` | Like `normal`, but the car reports EvccId `GUEST-EVCCID-99` instead of the profile's `car_id`. With an id registered in the car settings, a disconnect → connect makes the driver report an unknown car and the app pause. |
+| `no_car_id` | Like `normal`, but X+76 stays empty, as on a car or firmware that reports its id late or never. The driver must fail open — connect as usual, no unknown car, no pause — and re-read the id while polling. Switch back to `normal` within ~1 minute of reconnecting to see the retry pick it up; the retries are bounded, so after that only a reconnect compares again. |
 
 Communication loss is faked with the container, as for the Quasar mock: `docker compose pause evtec-mock` (hung charger) / `docker compose stop evtec-mock` (no connection), from `.devcontainer/`.
 

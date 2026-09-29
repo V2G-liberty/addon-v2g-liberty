@@ -755,6 +755,14 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._car_id_retries_left -= 1
         ev_id, reason = await self._read_car_id_register()
         if reason != "ok":
+            if not self._car_id_retries_left:
+                # Say so: from here on nothing re-reads until the next connect,
+                # and a silent stop is indistinguishable from a late success.
+                self._log(
+                    f"Car id still unreadable ({reason}) after the last retry; "
+                    "not reading again until the car reconnects.",
+                    level="WARNING",
+                )
             return
         self._car_id_retries_left = 0
         if ev_id.casefold() != c.CAR_EV_ID.casefold():
@@ -764,6 +772,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
             self.event_bus.emit_event("unknown_car_connected", ev_id=ev_id)
             return
+        self._log(f"Car id '{ev_id}' arrived late and matches the registered car.")
         self.event_bus.emit_event("known_car_connected", ev_id=ev_id)
 
     ######################################################################

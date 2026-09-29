@@ -323,6 +323,17 @@ SCENARIOS: dict[str, EVtecScenario] = {
         ),
         profile_overrides={"car_id": "GUEST-EVCCID-99"},
     ),
+    "no_car_id": EVtecScenario(
+        name="no_car_id",
+        description=(
+            "Like normal, but the car never reports an EvccId (X+76 stays "
+            "empty). The driver must fail open -- connect as usual, no unknown "
+            "car, no pause -- and re-read the id while polling. Switch back to "
+            "'normal' within ~1 minute of reconnecting to see the retry pick "
+            "the id up; after that the bounded retries have run out."
+        ),
+        profile_overrides={"car_id": ""},
+    ),
 }
 
 DEFAULT_SCENARIO = "normal"
