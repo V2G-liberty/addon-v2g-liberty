@@ -182,9 +182,6 @@
         "header": "%{name} bewerken",
         "header-unnamed": "Auto bewerken"
       },
-      "details": {
-        "description": "Hiermee berekent V2G Liberty hoeveel energie de auto bevat en hoe ver hij daarmee komt."
-      },
       "limits": {
         "description": "Binnen deze grenzen mag het schema de auto laden en ontladen."
       },
@@ -209,8 +206,10 @@
         "no-id": "De auto is aangesloten maar heeft zijn ID nog niet doorgegeven. Probeer het zo nog eens.",
         "failed": "Het auto-ID kon niet worden uitgelezen. Controleer de verbinding met de lader en probeer het opnieuw.",
         "different": "Er is een andere auto aangesloten (ID %{id}).",
-        "use-connected": "Aangesloten auto gebruiken",
-        "will-replace": "De aangesloten auto (ID %{id}) wordt de geregistreerde auto zodra je opslaat."
+        "will-replace": "De aangesloten auto (ID %{id}) wordt de geregistreerde auto zodra je opslaat.",
+        "keep-current": "Huidige auto behouden",
+        "use-connected-option": "Aangesloten auto gebruiken",
+        "check-values": "De naam en de waarden hieronder horen bij de auto die nu geregistreerd is. Controleer ze voor de nieuwe auto voordat je opslaat."
       }
     },
     "optimisation": {

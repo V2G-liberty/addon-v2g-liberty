@@ -4,6 +4,7 @@ import { customElement, state } from 'lit/decorators';
 import { callFunction } from './util/appdaemon';
 import {
   renderButton,
+  renderControlSelect,
   renderDialogHeader,
   renderHaInput,
   renderSpinner,
@@ -68,6 +69,10 @@ class EditCarSettingsDialog extends DialogBase {
   @state() private _storedEvId = '';
   /** An ID read in this session, accepted but not yet saved. */
   @state() private _pendingEvId: string | null = null;
+  // Only a read the user asked for explains itself. The read on opening is
+  // there to surface a different car early, and must stay quiet about an
+  // unplugged one: editing the name with the car in the garage is normal.
+  @state() private _idFeedbackVisible = false;
   @state() private _idState: IdState = 'idle';
   @state() private _readEvId = '';
   /** Whether this session opened on the ID step, so page 2 can go back to it. */
@@ -98,6 +103,7 @@ class EditCarSettingsDialog extends DialogBase {
     this._pendingEvId = null;
     this._idState = 'idle';
     this._readEvId = '';
+    this._idFeedbackVisible = false;
     this._startedOnIdStep = false;
     this._hasTriedToContinue = false;
     this._saving = false;
@@ -127,6 +133,12 @@ class EditCarSettingsDialog extends DialogBase {
       this._startedOnIdStep = this._identifiesCar && !this._storedEvId;
       this._page = this._startedOnIdStep ? Page.CarId : Page.Details;
       this._loadFailed = false;
+      // We can know right away whether another car is plugged in, so say so
+      // instead of waiting for the user to press a button they have no reason
+      // to press. Not awaited: the form must not wait on a Modbus read.
+      if (!this._startedOnIdStep && this._identifiesCar && this._storedEvId) {
+        void this._readCarId(false);
+      }
     } catch (e) {
       if (token !== this._openToken) return;
       // Without the current values a save would overwrite the stored car with
@@ -236,7 +248,8 @@ class EditCarSettingsDialog extends DialogBase {
     }
   }
 
-  private async _readCarId(): Promise<void> {
+  private async _readCarId(manual = true): Promise<void> {
+    this._idFeedbackVisible = manual;
     const token = this._openToken;
     this._idState = 'reading';
     let reason: IdState = 'read_failed';
@@ -266,8 +279,11 @@ class EditCarSettingsDialog extends DialogBase {
       return;
     }
     if (reason === 'ok') {
-      this._pendingEvId = evId;
-      // Nothing is stored yet; Save is what registers this car.
+      // Adopt the connected car only when there is nothing to replace: Save is
+      // what registers it. With a car already registered, swapping to another
+      // one is a deliberate step -- the user confirms it with "use connected
+      // car" on the warning below, which adopting here would suppress.
+      if (!this._storedEvId) this._pendingEvId = evId;
       if (this._page === Page.CarId) this._page = Page.Details;
     }
   }
@@ -281,7 +297,6 @@ class EditCarSettingsDialog extends DialogBase {
         : nothing;
 
     return html`
-      <ha-markdown breaks .content=${tp('details.description')}></ha-markdown>
       ${this._renderIdentificationBlock()}
       <div style="margin-top: 16px;">
         <label class="field-label" for="car-name">${tp('name-label')}</label>
@@ -323,7 +338,9 @@ class EditCarSettingsDialog extends DialogBase {
    */
   private _renderIdentificationBlock() {
     if (!this._identifiesCar) return nothing;
-    const registered = this._pendingEvId || this._storedEvId;
+    // What is registered right now, not what Save would register: the
+    // "will replace" alert below says that, and the two must not disagree.
+    const registered = this._storedEvId;
     const isDifferent =
       this._idState === 'ok' &&
       !!this._readEvId &&
@@ -334,35 +351,66 @@ class EditCarSettingsDialog extends DialogBase {
       <div class="id-block">
         <p class="id-title">${tp('car-id.header')}</p>
         <p class="id-value">${tp('car-id.registered', { id: registered || '—' })}</p>
-        ${this._pendingEvId && this._pendingEvId !== this._storedEvId
+        ${!this._storedEvId && this._pendingEvId
           ? html`<ha-alert alert-type="info"
               >${tp('car-id.will-replace', { id: this._pendingEvId })}</ha-alert
             >`
           : nothing}
-        ${isDifferent && this._pendingEvId !== this._readEvId
-          ? html`
-              <ha-alert alert-type="warning">
-                ${tp('car-id.different', { id: this._readEvId })}
-                <ha-button
-                  slot="action"
-                  @click=${() => (this._pendingEvId = this._readEvId)}
-                >
-                  ${tp('car-id.use-connected')}
-                </ha-button>
-              </ha-alert>
-            `
+        ${isDifferent
+          ? html`<ha-alert alert-type="info"
+              >${tp('car-id.different', { id: this._readEvId })}</ha-alert
+            >`
           : nothing}
-        ${this._idState !== 'ok' ? this._renderIdFeedback() : nothing}
-        ${this._idState === 'reading'
-          ? html`<ha-spinner size="small"></ha-spinner>`
-          : html`<ha-button
-              appearance="plain"
-              variant="brand"
-              size="s"
-              @click=${() => this._readCarId()}
-              >${tp('car-id.read-again')}</ha-button
-            >`}
+        ${this._idState !== 'ok' && this._idFeedbackVisible
+          ? this._renderIdFeedback()
+          : nothing}
+        <div class="id-reread">
+          ${this._idState === 'reading'
+            ? html`<ha-spinner size="small"></ha-spinner>`
+            : html`<ha-button
+                appearance="plain"
+                variant="brand"
+                size="s"
+                @click=${() => this._readCarId(true)}
+                >${tp('car-id.read-again')}</ha-button
+              >`}
+        </div>
+        ${isDifferent ? this._renderCarChoice() : nothing}
       </div>
+    `;
+  }
+
+  /**
+   * Another car is plugged in. Both ways out are spelled out and the safe one
+   * is preselected, because "use connected car" as a lone button did not say
+   * what it would do -- nor that the name and values below still belong to the
+   * car being replaced. A car cannot change its ID, so a different ID always
+   * means a different vehicle.
+   */
+  private _renderCarChoice() {
+    const KEEP = 'keep';
+    const CONNECTED = 'connected';
+    const useConnected = this._pendingEvId === this._readEvId;
+    return html`
+      <div class="id-choice">
+        ${renderControlSelect(
+          useConnected ? CONNECTED : KEEP,
+          [KEEP, CONNECTED],
+          (e: { target: { value: string } }) => {
+            this._pendingEvId =
+              e.target.value === CONNECTED ? this._readEvId : null;
+          },
+          (option: string) =>
+            option === KEEP
+              ? tp('car-id.keep-current')
+              : tp('car-id.use-connected-option')
+        )}
+      </div>
+      ${useConnected
+        ? html`<ha-alert alert-type="warning"
+            >${tp('car-id.check-values')}</ha-alert
+          >`
+        : nothing}
     `;
   }
 
@@ -541,6 +589,14 @@ class EditCarSettingsDialog extends DialogBase {
       .id-value {
         margin: 0 0 8px 0;
         color: var(--secondary-text-color);
+      }
+      /* Sits right under the message it re-checks, just clear of it. */
+      .id-reread {
+        margin-top: 4px;
+      }
+      /* Set apart from the message above: this is where the user decides. */
+      .id-choice {
+        margin-top: 12px;
       }
       details.hint {
         margin-top: 4px;

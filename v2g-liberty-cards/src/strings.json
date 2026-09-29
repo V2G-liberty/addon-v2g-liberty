@@ -544,9 +544,6 @@
         "header": "Edit %{name}",
         "header-unnamed": "Edit car"
       },
-      "details": {
-        "description": "V2G Liberty uses these to work out how much energy the car holds and how far it can get on it."
-      },
       "limits": {
         "description": "Within these limits the schedule is free to charge and discharge the car."
       },
@@ -570,9 +567,11 @@
         "no-id": "The car is connected but has not reported its ID yet. Try again in a moment.",
         "failed": "The car ID could not be read. Check the charger connection and try again.",
         "different": "A different car is connected (ID %{id}).",
-        "use-connected": "Use connected car",
         "will-replace": "The connected car (ID %{id}) becomes the registered car when you save.",
-        "explain-edit": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\\n\\nPlug the car into the charger, then read its ID. Everything else you set up stays as it is."
+        "explain-edit": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\n\nPlug the car into the charger, then read its ID. Everything else you set up stays as it is.",
+        "keep-current": "Keep the current car",
+        "use-connected-option": "Use the connected car",
+        "check-values": "The name and the values below belong to the car that is registered now. Check them for the new car before you save."
       }
     }
   }
