@@ -681,11 +681,18 @@ class V2GLibertyGlobals:
                 # The driver catches its own errors; this is the safety net.
                 self.__log(f"reading the car id failed: {e}", level="WARNING")
                 ev_id, reason = "", "read_failed"
+        stored_ev_id = str(self.__stored_car().get("ev_id") or "")
+        # The dialog shows the user whatever comes back here, so a complaint
+        # about what it shows is only diagnosable if the answer is in the log.
+        self.__log(
+            f"answering with ev_id='{ev_id}', reason='{reason}', "
+            f"stored_ev_id='{stored_ev_id}', identifies_car={identifies_car}."
+        )
         self.hass.fire_event(
             "get_connected_car_id.result",
             ev_id=ev_id,
             reason=reason,
-            stored_ev_id=str(self.__stored_car().get("ev_id") or ""),
+            stored_ev_id=stored_ev_id,
             identifies_car=identifies_car,
         )
 

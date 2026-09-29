@@ -533,9 +533,16 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         the cache is empty) and then read the id register. Works while the
         app is inactive too (charge mode Stop): that is exactly when a user
         wants to read the id of an unknown car."""
-        if not await self.is_car_connected():
+        is_connected = await self.is_car_connected()
+        if not is_connected:
+            self._log("no car connected, returning 'no_car'.")
             return "", "no_car"
-        return await self._read_car_id_register()
+        result = await self._read_car_id_register()
+        # Which of the two steps decided the outcome is exactly what a report
+        # about the dialog needs: a wrong plug verdict and an empty register
+        # look the same from the outside.
+        self._log(f"car connected; register read returned {result}.")
+        return result
 
     async def _read_car_id_register(self) -> tuple[str, str]:
         """Read X+76 straight through the transport, like the recovery probe's

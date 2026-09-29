@@ -13740,7 +13740,7 @@ const $1c99e93d5e0f446e$var$th = (0, $aa1795080f053cd4$export$e45945969df8035a)(
             id: this._readEvId
         })}</ha-alert
             >` : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
-        ${this._idState !== 'ok' && this._idFeedbackVisible ? this._renderIdFeedback() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
+        ${this._idFeedbackVisible && !(this._idState === 'ok' && isDifferent) ? this._renderIdFeedback() : (0, $f58f44579a4747ac$export$45b790e32b2810ee)}
         <div class="id-reread">
           ${this._idState === 'reading' ? (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-spinner size="small"></ha-spinner>` : (0, $f58f44579a4747ac$export$c0bb0b647f701bb5)`<ha-button
                 appearance="plain"

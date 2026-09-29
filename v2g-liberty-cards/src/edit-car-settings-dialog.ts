@@ -361,7 +361,7 @@ class EditCarSettingsDialog extends DialogBase {
               >${tp('car-id.different', { id: this._readEvId })}</ha-alert
             >`
           : nothing}
-        ${this._idState !== 'ok' && this._idFeedbackVisible
+        ${this._idFeedbackVisible && !(this._idState === 'ok' && isDifferent)
           ? this._renderIdFeedback()
           : nothing}
         <div class="id-reread">
