@@ -22,6 +22,15 @@ def json_dump_mock():
     return Mock()
 
 
+@pytest.fixture(autouse=True)
+def no_fsync():
+    """__write_to_file fsyncs the temporary file before renaming it, and
+    mock_open's file object has no real descriptor. These tests are about what
+    gets written, not about whether it reached the platter."""
+    with patch("os.fsync"):
+        yield
+
+
 class TestRetrieveSettings:
     @patch("os.path.exists", lambda _: False)
     def test_retrieve_initial_settings(self, log_mock, settings_manager):
@@ -629,3 +638,43 @@ class TestUpgradeCarSettings:
             f"{setting['entity_type']}.{setting['entity_name']}": key
             for key, setting in V2GLibertyGlobals.CAR_VALUE_SETTINGS.items()
         }
+
+
+class TestWriteDurability:
+    """The settings file is the only record of what the user configured, and
+    losing it has been seen in the wild. Writing to a temporary file and
+    renaming only helps if the bytes are on disk before the rename."""
+
+    def test_the_temporary_file_is_fsynced_before_the_rename(self, settings_manager):
+        calls = []
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync", side_effect=lambda fd: calls.append(("fsync", fd))),
+            patch("os.replace", side_effect=lambda *a: calls.append(("replace", a))),
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        assert [name for name, _ in calls] == ["fsync", "replace"], (
+            "a rename without a preceding fsync can publish an empty file over "
+            "a good one, which is exactly what the rename is meant to prevent"
+        )
+        assert calls[0][1] == 7
+
+    def test_it_renames_onto_the_real_path(self, settings_manager):
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        tmp_path, target = replace_mock.call_args.args
+        assert target == SettingsManager._SETTINGS_FILE_PATH
+        assert tmp_path != target

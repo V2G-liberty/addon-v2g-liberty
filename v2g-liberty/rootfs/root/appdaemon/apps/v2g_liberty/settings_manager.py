@@ -269,6 +269,12 @@ class SettingsManager:
         tmp_path = self._SETTINGS_FILE_PATH + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as write_file:
             json.dump(self.settings, write_file, indent=2)
+            # Closing only hands the bytes to the kernel. Without this they can
+            # still be in the page cache when the power goes, and the rename
+            # below then publishes an empty or half-written file over the good
+            # one -- the very outcome the rename is here to prevent.
+            write_file.flush()
+            os.fsync(write_file.fileno())
         os.replace(tmp_path, self._SETTINGS_FILE_PATH)
 
     def reset(self):
