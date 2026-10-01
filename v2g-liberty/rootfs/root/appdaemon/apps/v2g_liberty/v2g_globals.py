@@ -189,24 +189,34 @@ class V2GLibertyGlobals:
         "max": 25000,
     }  # min is not used yet...
 
-    # Settings related to car
+    # Settings related to car.
+    # The values live in the "cars" list in the settings file (one car in this
+    # release); these dicts only describe the HA entities the values are
+    # projected to, and the limits (mirrored from the HA package, pinned by a
+    # test) that a stored value is clamped to.
     SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = {
         "entity_name": "charger_plus_car_roundtrip_efficiency",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 85,
+        "min": 50,
+        "max": 100,
     }
     SETTING_CAR_MAX_CAPACITY_IN_KWH = {
         "entity_name": "car_max_capacity_in_kwh",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 24,
+        "min": 10,
+        "max": 200,
     }
     SETTING_CAR_CONSUMPTION_WH_PER_KM = {
         "entity_name": "car_consumption_wh_per_km",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 175,
+        "min": 100,
+        "max": 400,
     }
 
     # Settings related to optimisation
@@ -221,12 +231,16 @@ class V2GLibertyGlobals:
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 20,
+        "min": 10,
+        "max": 55,
     }
     SETTING_CAR_MAX_SOC_IN_PERCENT = {
         "entity_name": "car_max_soc_in_percent",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 80,
+        "min": 60,
+        "max": 95,
     }
     SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS = {
         "entity_name": "allowed_duration_above_max_soc_in_hrs",
@@ -236,6 +250,34 @@ class V2GLibertyGlobals:
         "min": 1,
         "max": 12,
     }
+    # Which key in the stored car object feeds which setting dict.
+    CAR_VALUE_SETTINGS = {
+        "capacity_kwh": SETTING_CAR_MAX_CAPACITY_IN_KWH,
+        "roundtrip_efficiency": SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+        "consumption_wh_per_km": SETTING_CAR_CONSUMPTION_WH_PER_KM,
+        "min_soc_percent": SETTING_CAR_MIN_SOC_IN_PERCENT,
+        "max_soc_percent": SETTING_CAR_MAX_SOC_IN_PERCENT,
+        "allowed_duration_above_max_soc_hrs": SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
+    }
+    # Whether the car is configured is derived, not stored, and lives in a
+    # runtime sensor written with set_state: no package entry, so no Home
+    # Assistant restart is needed to get it, and it can never trip
+    # __process_setting over an entity HA does not know yet.
+    CAR_SETTINGS_INITIALISED_ENTITY = "sensor.car_settings_initialised"
+    # The numbers of a save_car_settings payload: payload key, object key, label.
+    CAR_FIELDS = (
+        ("capacity_kwh", "capacity_kwh", "Usable capacity"),
+        ("efficiency", "roundtrip_efficiency", "Roundtrip efficiency"),
+        ("consumption_wh_km", "consumption_wh_per_km", "Energy consumption"),
+        ("min_soc", "min_soc_percent", "Schedule lower limit"),
+        ("max_soc", "max_soc_percent", "Schedule upper limit"),
+        (
+            "allowed_duration_above_max",
+            "allowed_duration_above_max_soc_hrs",
+            "Allowed duration above the upper limit",
+        ),
+    )
+    CAR_NAME_MAX_LENGTH = 40
 
     # Settings related to notifications
     ADMIN_SETTINGS_INITIALISED = {
@@ -346,6 +388,9 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
+        self.hass.listen_event(self.__save_car_settings, "save_car_settings")
+        self.hass.listen_event(self.__get_car_settings, "get_car_settings")
+        self.hass.listen_event(self.__get_connected_car_id, "get_connected_car_id")
         self.hass.listen_event(
             self.__save_electricity_contract_settings,
             "save_electricity_contract_settings",
@@ -412,6 +457,10 @@ class V2GLibertyGlobals:
         self.v2g_settings.retrieve_settings()
         await self.__initialise_notification_settings()
 
+        # The car before the charger: initialising the charger runs its first
+        # poll, and with a car already plugged in that is a connect transition
+        # that compares the connected car against c.CAR_EV_ID.
+        await self.__initialise_car_settings()
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
         await self.__initialise_general_settings()
@@ -517,6 +566,9 @@ class V2GLibertyGlobals:
 
         if charger_type != self.evse_client_app.CHARGER_TYPE:
             await self.__switch_evse_client(charger_type)
+        # The car flag depends on the charger: a car without an id is finished
+        # on a Quasar but not on a charger that identifies cars.
+        await self.__refresh_car_settings_initialised()
         await self.__initialise_charger_settings()
         await self.__try_historical_import()
         await self.v2g_main_app.kick_off_v2g_liberty()
@@ -541,6 +593,129 @@ class V2GLibertyGlobals:
         self.v2g_main_app.evse_client_app = new_evse
         if self.data_monitor is not None:
             self.data_monitor.evse_client_app = new_evse
+
+    async def __get_car_settings(self, event, data, kwargs):
+        """Answer the car card and dialog with everything they show: the stored
+        car, or the factory defaults when there is none. Always fires its
+        result, so the card's call never waits for its timeout."""
+        car = self.__stored_car()
+        payload = {
+            "name": str(car.get("name") or ""),
+            "ev_id": str(car.get("ev_id") or ""),
+            "configured": bool(car.get("configured")),
+            "identifies_car": self.__charger_identifies_car(),
+        }
+        for key, setting in self.CAR_VALUE_SETTINGS.items():
+            payload[key] = self.__car_value_or_default(setting, car.get(key))
+        self.hass.fire_event("get_car_settings.result", **payload)
+
+    @staticmethod
+    def __car_value_or_default(setting: dict, value):
+        """One stored car value as a number, or the factory default when there
+        is none. Coerced because a value migrated from the old entity-keyed
+        settings can be a string ("59.0"), and the card would show that as it
+        is -- and the dialog would put it in a number field."""
+        if value is None or value == "":
+            return setting["factory_default"]
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return setting["factory_default"]
+
+    async def __save_car_settings(self, event, data, kwargs):
+        """Store the car in one go, from the last page of the car dialog.
+
+        Everything is validated first; a refusal stores nothing and answers
+        with an error, so an abandoned or faulty dialog never leaves half a
+        car behind. On success the bare result goes out before the follow-up
+        work, so the dialog closes at once.
+        """
+        stored = self.__stored_car()
+
+        name = str(data.get("name") or "").strip()[: self.CAR_NAME_MAX_LENGTH]
+        if not name:
+            self.__refuse_car_settings("Please give the car a name.")
+            return
+
+        values = {}
+        for payload_key, object_key, label in self.CAR_FIELDS:
+            setting = self.CAR_VALUE_SETTINGS[object_key]
+            value, error = self.__validate_car_number(
+                setting, data.get(payload_key), label
+            )
+            if error:
+                self.__refuse_car_settings(error)
+                return
+            values[object_key] = value
+
+        # An empty id keeps the stored one: the dialog only sends an id when
+        # the user read (and accepted) a new one.
+        ev_id = str(data.get("ev_id") or "").strip() or str(stored.get("ev_id") or "")
+        if not ev_id and self.__charger_identifies_car():
+            self.__refuse_car_settings(
+                "Connect the car to the charger so its ID can be read, then try again."
+            )
+            return
+
+        self.__store_car({"name": name, "ev_id": ev_id, "configured": True, **values})
+        self.hass.fire_event("save_car_settings.result")
+
+        await self.__initialise_car_settings()
+        resumed = await self.v2g_main_app.handle_car_settings_saved()
+        if not resumed:
+            # Restoring the charge mode already re-activates the driver through
+            # the charge-mode listener; a kick-off on top would race it.
+            await self.v2g_main_app.kick_off_v2g_liberty()
+
+    async def __get_connected_car_id(self, event, data, kwargs):
+        """Read the id of the connected car on request from the car dialog.
+        Always fires its result: the dialog's call would otherwise wait for
+        its timeout."""
+        evse = self.evse_client_app
+        identifies_car = self.__charger_identifies_car()
+        ev_id, reason = "", "unsupported"
+        if identifies_car:
+            try:
+                ev_id, reason = await evse.read_connected_car_id()
+            except Exception as e:
+                # The driver catches its own errors; this is the safety net.
+                self.__log(f"reading the car id failed: {e}", level="WARNING")
+                ev_id, reason = "", "read_failed"
+        stored_ev_id = str(self.__stored_car().get("ev_id") or "")
+        # The dialog shows the user whatever comes back here, so a complaint
+        # about what it shows is only diagnosable if the answer is in the log.
+        self.__log(
+            f"answering with ev_id='{ev_id}', reason='{reason}', "
+            f"stored_ev_id='{stored_ev_id}', identifies_car={identifies_car}."
+        )
+        self.hass.fire_event(
+            "get_connected_car_id.result",
+            ev_id=ev_id,
+            reason=reason,
+            stored_ev_id=stored_ev_id,
+            identifies_car=identifies_car,
+        )
+
+    def __refuse_car_settings(self, error: str):
+        self.__log(f"refused car settings: {error}", level="WARNING")
+        self.hass.fire_event("save_car_settings.result", error=error)
+
+    @staticmethod
+    def __validate_car_number(setting: dict, raw, label: str):
+        """Refuse, do not clamp: a settings dialog must say no. (Clamping with a
+        memo is right for a stored value at boot, wrong for user input.)"""
+        low, high = setting["min"], setting["max"]
+        try:
+            value = int(float(raw))
+        except (TypeError, ValueError):
+            return None, f"{label} must be a whole number between {low} and {high}."
+        if not low <= value <= high:
+            return None, f"{label} must be between {low} and {high}."
+        return value, None
+
+    def __store_car(self, car: dict):
+        """This release holds one car: the list is replaced by that one."""
+        self.v2g_settings.store_object("cars", [car])
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         self.__log("Saving electricity contract settings")
@@ -2066,25 +2241,47 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
-        c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
-            setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
-        )
+        self.__log("completed")
+
+    def __stored_car(self) -> dict:
+        """The configured car, or {} when there is none. The settings hold a
+        list of cars; this release uses exactly one, so this is cars[0]."""
+        cars = self.v2g_settings.get_object("cars", default=[]) or []
+        return dict(cars[0]) if cars else {}
+
+    async def __initialise_car_settings(self):
+        """Load the car object, set every car constant and its derived values,
+        write the values to the HA entities that feed the graph, the dashboard
+        and FlexMeasures, and derive the initialised flag.
+
+        Called at start-up, before the charger (whose first poll compares the
+        connected car against c.CAR_EV_ID), and after every successful save.
+        The constants are always set, also for an unconfigured car: nine
+        modules read them, and an empty capacity would break FlexMeasures
+        requests and the simulator. Adds no HA helper of its own: the name
+        lives in the car object and the flag is a runtime sensor.
+        """
+        self.__log("called")
+        car = self.__stored_car()
+        c.CAR_NAME = str(car.get("name") or "")
+        c.CAR_EV_ID = str(car.get("ev_id") or "")
+
+        values = {}
+        for key, setting in self.CAR_VALUE_SETTINGS.items():
+            values[key] = await self.__apply_car_value(setting, car.get(key))
+
+        c.CAR_MAX_CAPACITY_IN_KWH = values["capacity_kwh"]
+        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = values["roundtrip_efficiency"]
+        c.CAR_CONSUMPTION_WH_PER_KM = values["consumption_wh_per_km"]
+        c.CAR_MIN_SOC_IN_PERCENT = values["min_soc_percent"]
+        c.CAR_MAX_SOC_IN_PERCENT = values["max_soc_percent"]
+        c.ALLOWED_DURATION_ABOVE_MAX_SOC = values["allowed_duration_above_max_soc_hrs"]
+
         c.USAGE_PER_EVENT_TIME_INTERVAL = (
             c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000
         ) / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
-
-        c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
-            setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
-        )
-
-        c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
-            setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
-        )
         c.CAR_MIN_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
-        c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
-            setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
         c.CAR_MAX_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
@@ -2095,17 +2292,48 @@ class V2GLibertyGlobals:
             / c.CAR_CONSUMPTION_WH_PER_KM
             * 1000
         )
-
-        c.ALLOWED_DURATION_ABOVE_MAX_SOC = await self.__process_setting(
-            setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
-        )
-
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
-            setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
-        )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
 
-        self.__log("completed")
+        await self.__refresh_car_settings_initialised(car)
+        self.__log(
+            f"completed, name='{c.CAR_NAME}', ev_id='{c.CAR_EV_ID}', "
+            f"configured={bool(car.get('configured'))}."
+        )
+
+    async def __apply_car_value(self, setting: dict, value):
+        """One car value: fall back to the factory default when absent, clamp to
+        the dict's min/max (the same safety net __process_setting has for
+        stored values) and project it to the HA entity. Returns the value the
+        constant is set to."""
+        source = "settings"
+        if value is None or value == "":
+            value = setting["factory_default"]
+            source = "factory_default"
+        value, _ = await self.__check_and_convert_value(setting, value)
+        await self.__write_setting_to_ha(
+            setting=setting, setting_value=value, source=source
+        )
+        return value
+
+    async def __refresh_car_settings_initialised(self, car: dict | None = None):
+        """The flag is derived, not latched: a car without an id on a charger
+        that identifies cars is not finished, so the moment the charger becomes
+        an identifying one the car goes back into the blocking dialog. Also
+        called after a charger save, when the driver may have been swapped."""
+        if car is None:
+            car = self.__stored_car()
+        is_initialised = bool(car.get("configured")) and (
+            bool(car.get("ev_id")) or not self.__charger_identifies_car()
+        )
+        await self.hass.set_state(
+            self.CAR_SETTINGS_INITIALISED_ENTITY,
+            state="on" if is_initialised else "off",
+        )
+
+    def __charger_identifies_car(self) -> bool:
+        """Whether the running charger driver can read the id of the connected
+        car. A class attribute on the driver, no I/O; drivers without it do not."""
+        return bool(getattr(self.evse_client_app, "IDENTIFIES_CAR", False))
 
     async def __initialise_calendar_settings(self):
         self.__log("called")

@@ -9,6 +9,11 @@ const REQUIRED_ENTITY_IDS = [
   entityIds.calendarSettingsInitialised,
   entityIds.electricityContractSettingsInitialised,
   entityIds.chargerSettingsInitialised,
+  // Derived, and a runtime sensor rather than a helper: a configured car
+  // without an ID on a charger that identifies cars is not finished either.
+  // If the add-on has not written it yet the .filter(Boolean) below drops it
+  // and the dialog simply does not block -- the right way round to fail.
+  entityIds.carSettingsInitialised,
 ];
 
 /**

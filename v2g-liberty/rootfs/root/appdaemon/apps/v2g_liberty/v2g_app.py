@@ -123,6 +123,8 @@ class V2GLibertyApp(Hass):
         self._log_init_time("ManageOctopusPriceData", start_module)
 
         v2g_globals.v2g_main_app = main_app
+        # For bookkeeping that must survive a restart (an unknown car standing).
+        main_app.v2g_settings = v2g_globals.v2g_settings
         v2g_globals.evse_client_app = evse_client
         v2g_globals.fm_client_app = fm_client
         v2g_globals.data_store = data_store
@@ -132,6 +134,7 @@ class V2GLibertyApp(Hass):
         v2g_globals.fm_data_retrieve_client = get_fm_data
         evse_client.v2g_main_app = main_app
         main_app.evse_client_app = evse_client
+        main_app.pause_at_reconnect = pause_at_reconnect
         main_app.electric_vehicle = electric_vehicle
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client

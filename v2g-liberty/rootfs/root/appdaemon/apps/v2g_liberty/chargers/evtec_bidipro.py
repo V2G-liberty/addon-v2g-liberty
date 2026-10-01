@@ -91,6 +91,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     """
 
     CHARGER_TYPE = "evtec-bidi-pro-10"
+    # The BiDiPro reports the ISO 15118 EvccId of the connected car (X+76).
+    IDENTIFIES_CAR = True
 
     event_bus: EventBus = None
 
@@ -158,6 +160,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     # After an un-recoverable error the recovery probe re-checks the charger
     # this often; a probe blocks for at most the Modbus timeout (10 s).
     RECOVERY_PROBE_INTERVAL_SECONDS: int = 60
+
+    # A car that connects without a readable id (yet) gets its id re-read this
+    # many polls (about a minute on the base cadence), then we stop asking: a
+    # car that never reports one must not cost an extra Modbus read forever.
+    _CAR_ID_RETRIES: int = 12
+    _car_id_retries_left: int = 0
 
     # Set only(!) by set_inactive and set_active.
     _am_i_active: bool = None
@@ -519,6 +527,43 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._log(f"is_connected: {is_connected}", level="DEBUG")
         return is_connected
 
+    async def read_connected_car_id(self) -> tuple[str, str]:
+        """The explicit step behind the dialog's "Read car ID": check the plug
+        first (this may read the charger state through the normal path when
+        the cache is empty) and then read the id register. Works while the
+        app is inactive too (charge mode Stop): that is exactly when a user
+        wants to read the id of an unknown car."""
+        is_connected = await self.is_car_connected()
+        if not is_connected:
+            self._log("no car connected, returning 'no_car'.")
+            return "", "no_car"
+        result = await self._read_car_id_register()
+        # Which of the two steps decided the outcome is exactly what a report
+        # about the dialog needs: a wrong plug verdict and an empty register
+        # look the same from the outside.
+        self._log(f"car connected; register read returned {result}.")
+        return result
+
+    async def _read_car_id_register(self) -> tuple[str, str]:
+        """Read X+76 straight through the transport, like the recovery probe's
+        health check, so the read never touches the exception state machine:
+        a user pressing "Read ID" must not push a struggling charger over the
+        escalation threshold, and a lucky read must not reset a genuine
+        exception count. X+76 also lies outside the polled span. Never raises.
+        """
+        if not self._mb_client.is_initialised:
+            return "", "read_failed"
+        try:
+            if not self._mb_client.connected:
+                await self._mb_client.connect()
+            value = (await self._mb_client.read_registers([self._MBR_CAR_ID]))[0]
+        except Exception as e:
+            self._log(f"Could not read the car id: {e}", level="WARNING")
+            return "", "read_failed"
+        # decode returns None on an error response or undecodable bytes.
+        ev_id = value.strip() if isinstance(value, str) else ""
+        return (ev_id, "ok") if ev_id else ("", "no_id")
+
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""
         if not self._am_i_active:
@@ -647,16 +692,88 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             # Whatever the charger refused applied to the session that just
             # ended; do not keep telling the user about it.
             self._report_discharge_refusal(None)
+            self._car_id_retries_left = 0
             await self._set_poll_strategy()
+            # Unconditional, also for an unknown car: the main app needs to see
+            # it leave, and a False without a preceding True is harmless.
             self.event_bus.emit_event("is_car_connected", is_car_connected=False)
         elif old_charger_state in self.DISCONNECTED_STATES or old_charger_state is None:
+            # unknown_car_connected must be emitted before any event whose
+            # listener reaches set_next_action (the SoC refresh below emits
+            # soc_change): the guard there relies on its listener being
+            # queued first.
+            verdict = await self._classify_connected_car()
             self._log("From disconnected to connected: refresh the SoC")
             await self._get_car_soc(do_not_use_cache=True)
             await self._set_poll_strategy()
-            self.event_bus.emit_event("is_car_connected", is_car_connected=True)
+            if verdict != "unknown":
+                self.event_bus.emit_event("is_car_connected", is_car_connected=True)
         else:
             # From one connected state to another: nothing to react upon.
             pass
+
+    async def _classify_connected_car(self) -> str:
+        """Compare the connected car against the registered id: 'known',
+        'unknown' or 'pending' (no readable id yet, re-read while polling).
+
+        Nothing registered means every car is known: the app must keep working
+        for a user who has not gone through the id step yet, and the charger's
+        own authorisation remains the safety net. An unknown car is announced
+        with unknown_car_connected; the driver itself keeps no car state.
+        Reads the register directly: the state machine already knows the car
+        is connected, and going through is_car_connected() here could escalate
+        a struggling charger.
+        """
+        if not c.CAR_EV_ID:
+            self._car_id_retries_left = 0
+            self.event_bus.emit_event("known_car_connected", ev_id="")
+            return "known"
+        ev_id, reason = await self._read_car_id_register()
+        if reason != "ok":
+            self._log(
+                f"Car id not readable yet ({reason}); retrying while polling.",
+                level="WARNING",
+            )
+            self._car_id_retries_left = self._CAR_ID_RETRIES
+            return "pending"
+        self._car_id_retries_left = 0
+        if ev_id.casefold() != c.CAR_EV_ID.casefold():
+            self._log(
+                f"Unknown car '{ev_id}' connected (registered '{c.CAR_EV_ID}').",
+                level="WARNING",
+            )
+            self.event_bus.emit_event("unknown_car_connected", ev_id=ev_id)
+            return "unknown"
+        self.event_bus.emit_event("known_car_connected", ev_id=ev_id)
+        return "known"
+
+    async def _retry_car_id(self):
+        """The bounded re-read for a car that connected without a readable id
+        (see _classify_connected_car). Runs in the base poll."""
+        if not self._car_id_retries_left:
+            return
+        self._car_id_retries_left -= 1
+        ev_id, reason = await self._read_car_id_register()
+        if reason != "ok":
+            if not self._car_id_retries_left:
+                # Say so: from here on nothing re-reads until the next connect,
+                # and a silent stop is indistinguishable from a late success.
+                self._log(
+                    f"Car id still unreadable ({reason}) after the last retry; "
+                    "not reading again until the car reconnects.",
+                    level="WARNING",
+                )
+            return
+        self._car_id_retries_left = 0
+        if ev_id.casefold() != c.CAR_EV_ID.casefold():
+            self._log(
+                f"Unknown car '{ev_id}' connected (registered '{c.CAR_EV_ID}').",
+                level="WARNING",
+            )
+            self.event_bus.emit_event("unknown_car_connected", ev_id=ev_id)
+            return
+        self._log(f"Car id '{ev_id}' arrived late and matches the registered car.")
+        self.event_bus.emit_event("known_car_connected", ev_id=ev_id)
 
     ######################################################################
     #                    PRIVATE FUNCTIONAL METHODS                      #
@@ -1152,6 +1269,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             # probe is what decides whether the charger is back.
             return
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        await self._retry_car_id()
         self._clear_refusal_if_resolved()
         self.event_bus.emit_event("evse_polled", stop=False)
 
@@ -1354,6 +1472,8 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
 
         await self._cancel_polling(reason="un_recoverable charger error")
+        # Nothing polls from here on, so the id re-read is unreachable anyway.
+        self._car_id_retries_left = 0
         # The only exception to the rule that _am_i_active is set from set_(in)active().
         self._am_i_active = False
         await self.v2g_main_app.handle_none_responsive_charger(
@@ -1415,3 +1535,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # change (if it restores Automatic) brings set_active() after this.
         await self._set_poll_strategy()
         await self.v2g_main_app.handle_charger_recovered()
+        if self._MCE_CHARGER_STATE.current_value not in self.DISCONNECTED_STATES:
+            # Polling was off during the outage, so a car swap in the meantime
+            # was never seen: the re-broadcast above lands in the "connected
+            # to connected" branch. After the main app's own restore, so an
+            # unknown car keeps the Stop.
+            await self._classify_connected_car()

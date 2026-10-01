@@ -39,6 +39,28 @@ function _haDialogFooterSlot(hass: HomeAssistant): string {
   return isNewHaDialogAPI(hass) ? 'footer' : null;
 }
 
+/**
+ * What a settings card shows when it could not load its data. Saying it plainly
+ * matters: drawing the configured layout without values leaves an empty card,
+ * and drawing the "not set up" one invites the user to configure something that
+ * is already configured.
+ */
+export function renderLoadFailedCard(
+  hass: HomeAssistant,
+  header: string,
+  onRetry: () => void
+) {
+  const tc = partial('settings.common');
+  return html`<ha-card header=${header}>
+    <div class="card-content">
+      <ha-alert alert-type="error">${tc('load-failed')}</ha-alert>
+    </div>
+    <div class="card-actions">
+      ${renderButton(hass, onRetry, true, tc('retry'))}
+    </div>
+  </ha-card>`;
+}
+
 export function renderButton(
   hass: HomeAssistant,
   action: (() => void),
@@ -57,12 +79,17 @@ export function renderButton(
   }
   const footerSlot = _haDialogFooterSlot(hass);
   const slot = footerSlot ?? (isPrimaryAction ? 'primaryAction' : 'secondaryAction');
-  const appearance = isPrimaryAction
-    ? 'filled'
-    : 'outlined'
-  const variant = isPrimaryAction
-    ? 'brand'
-    : 'secondary'
+  // ha-button accepts appearance accent|filled|outlined|plain and variant
+  // brand|neutral|success|warning|danger (default brand). 'secondary' was
+  // never one of them, so every non-primary button silently fell back to the
+  // brand styling -- which is why the back button's outline read as heavy as
+  // the primary action. 'neutral' is the muted variant that was meant.
+  // Leaving appearance off is not an option: the component's default is a
+  // filled button, which made the back button louder than the primary action.
+  // 'outlined' with 'neutral' is the muted pairing that was intended all
+  // along; 'plain' (no border at all) is the next step down if wanted.
+  const appearance = isPrimaryAction ? 'filled' : 'outlined';
+  const variant = isPrimaryAction ? 'brand' : 'neutral';
   const chevronIcon = isBackButton
     ? html`<ha-icon icon="mdi:chevron-left" slot="start"></ha-icon>`
     : nothing;
@@ -138,19 +165,49 @@ export function renderEntityBlock(
   `;
 }
 
-export function renderEntityRow(
-  stateObj: HassEntity,
-  { callback, state }: { callback?: any; state?: string } = {}
-) {
-  state = state || to(stateObj.state) || stateObj.state;
-  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+/**
+ * One read-only row of a settings card: icon, label, value.
+ *
+ * The label is kept on one line on purpose. ha-settings-row puts the value in
+ * a wrapper its own stylesheet gives `flex: 1 1 0%`, so that column grows
+ * greedily and the heading is left with its minimum width; a heading that may
+ * wrap has a minimum of one word, which is how "Charger type" ended up broken
+ * over two lines with room to spare. With nowrap the label's full width *is*
+ * the minimum, and the greedy column can only take what is left. A label that
+ * genuinely does not fit is cut with an ellipsis rather than bent around the
+ * icon. The icon is a flex sibling rather than inline text for the same
+ * reason -- inline, a second line slides back underneath it.
+ */
+export function renderSettingsRowHeading(
+  icon: string | undefined,
+  label: string
+): TemplateResult {
   return html`
-    <ha-settings-row>
-      <span slot="heading">
-        <ha-icon .icon=${stateObj.attributes.icon}></ha-icon>&nbsp; &nbsp;
-        ${name}
-      </span>
-      <div class="text-content value state">${state}</div>
+    <span slot="heading" style="display: flex; align-items: center;">
+      <ha-icon .icon=${icon}></ha-icon>
+      <span
+        style="margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+        >${label}</span
+      >
+    </span>
+  `;
+}
+
+export function renderSettingsRow(
+  icon: string | undefined,
+  label: string,
+  value: unknown,
+  { callback, testId }: { callback?: any; testId?: string } = {}
+) {
+  return html`
+    <ha-settings-row test-id=${ifDefined(testId)}>
+      ${renderSettingsRowHeading(icon, label)}
+      <div
+        class="text-content value state"
+        style="flex: 0 0 auto; white-space: nowrap;"
+      >
+        ${value}
+      </div>
       ${callback
         ? html`
             <ha-icon-button
@@ -161,6 +218,15 @@ export function renderEntityRow(
         : nothing}
     </ha-settings-row>
   `;
+}
+
+export function renderEntityRow(
+  stateObj: HassEntity,
+  { callback, state }: { callback?: any; state?: string } = {}
+) {
+  state = state || to(stateObj.state) || stateObj.state;
+  const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
+  return renderSettingsRow(stateObj.attributes.icon, name, state, { callback });
 }
 
 export function renderDialogHeader(
@@ -190,10 +256,7 @@ export function renderInputBoolean(
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
-      <span slot="heading">
-        <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${name}
-      </span>
+      ${renderSettingsRowHeading(stateObj.attributes.icon, name)}
       <ha-switch
         .checked=${isOn}
         @change=${changedCallback}
@@ -403,10 +466,7 @@ export function renderInputNumber(
   const name = t(stateObj.entity_id) || stateObj.attributes.friendly_name;
   return html`
     <ha-settings-row>
-      <span slot="heading">
-        <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-        ${name}
-      </span>
+      ${renderSettingsRowHeading(stateObj.attributes.icon, name)}
       ${renderHaInput({
         value: Number(value).toString(),
         onChange: changedCallback,
@@ -474,9 +534,9 @@ export function renderInputText(
 
   return html`
     <ha-settings-row style="height: 85px;">
-      <span slot="heading">
-        <ha-icon .icon="${stateObj.attributes.icon}"></ha-icon>
-      </span>
+      <span slot="heading"
+        ><ha-icon .icon="${stateObj.attributes.icon}"></ha-icon
+      ></span>
       ${textField}
     </ha-settings-row>
   `;

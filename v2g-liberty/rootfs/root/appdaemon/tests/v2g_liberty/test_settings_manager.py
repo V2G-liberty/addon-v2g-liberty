@@ -512,3 +512,120 @@ class TestStoreObject:
         # Assert
         assert settings_manager.settings["input_text.charger_host_url"] == "192.168.1.1"
         assert settings_manager.settings["grid_connection"] == obj
+
+
+# ── Car settings migration ────────────────────────────────────────────
+# The six car values used to be six entity-keyed settings; they now live in
+# one object in the "cars" list. The flat keys stay one release (roll-back).
+
+_FLAT_CAR_DEFAULTS = {
+    "input_number.car_max_capacity_in_kwh": 24,
+    "input_number.charger_plus_car_roundtrip_efficiency": 85,
+    "input_number.car_consumption_wh_per_km": 175,
+    "input_number.car_min_soc_in_percent": 20,
+    "input_number.car_max_soc_in_percent": 80,
+    "input_number.allowed_duration_above_max_soc_in_hrs": 4,
+}
+
+
+def _retrieve(settings_manager, saved: dict, json_dump_mock=None):
+    with (
+        patch("os.path.exists", lambda _: True),
+        patch("os.replace"),
+        patch("builtins.open", mock_open(read_data=json.dumps(saved))),
+        patch("json.dump", json_dump_mock or Mock()),
+    ):
+        settings_manager.retrieve_settings()
+
+
+class TestUpgradeCarSettings:
+    def test_changed_values_migrate_as_configured(
+        self, settings_manager, json_dump_mock
+    ):
+        saved = {
+            "input_number.car_max_capacity_in_kwh": 62,
+            "input_number.charger_plus_car_roundtrip_efficiency": 90,
+            "input_number.car_consumption_wh_per_km": 160,
+            "input_number.car_min_soc_in_percent": 25,
+            "input_number.car_max_soc_in_percent": 85,
+            "input_number.allowed_duration_above_max_soc_in_hrs": 6,
+        }
+        _retrieve(settings_manager, saved, json_dump_mock)
+
+        assert settings_manager.get_object("cars") == [
+            {
+                "capacity_kwh": 62,
+                "roundtrip_efficiency": 90,
+                "consumption_wh_per_km": 160,
+                "min_soc_percent": 25,
+                "max_soc_percent": 85,
+                "allowed_duration_above_max_soc_hrs": 6,
+                "name": "",
+                "ev_id": "",
+                "configured": True,
+            }
+        ]
+        # The flat keys stay, so a roll-back finds its values.
+        for key, value in saved.items():
+            assert settings_manager.get(key) == value
+        # And the migrated settings are written back to the file.
+        json_dump_mock.assert_called_once()
+        assert json_dump_mock.call_args.args[0]["cars"][0]["configured"] is True
+
+    def test_untouched_defaults_without_charger_are_not_configured(
+        self, settings_manager
+    ):
+        """The app writes the six defaults on the very first boot, so their
+        presence alone does not mean the user ever configured a car."""
+        _retrieve(settings_manager, dict(_FLAT_CAR_DEFAULTS))
+
+        car = settings_manager.get_object("cars")[0]
+        assert car["configured"] is False
+        assert car["capacity_kwh"] == 24
+
+    def test_untouched_defaults_with_charger_are_configured(self, settings_manager):
+        """An installation that was in use (charger configured) kept the
+        defaults on purpose."""
+        saved = dict(_FLAT_CAR_DEFAULTS)
+        saved["input_boolean.charger_settings_initialised"] = True
+        _retrieve(settings_manager, saved)
+
+        assert settings_manager.get_object("cars")[0]["configured"] is True
+
+    def test_partial_flat_keys_migrate_what_is_there(self, settings_manager):
+        _retrieve(
+            settings_manager,
+            {"input_number.car_max_capacity_in_kwh": 40},
+        )
+
+        assert settings_manager.get_object("cars") == [
+            {"capacity_kwh": 40, "name": "", "ev_id": "", "configured": True}
+        ]
+
+    def test_existing_cars_list_is_left_alone(self, settings_manager):
+        cars = [{"name": "Ioniq 5", "ev_id": "X", "configured": True}]
+        saved = dict(_FLAT_CAR_DEFAULTS)
+        saved["cars"] = cars
+        _retrieve(settings_manager, saved)
+
+        assert settings_manager.get_object("cars") == cars
+
+    def test_no_car_keys_no_object(self, settings_manager):
+        _retrieve(settings_manager, {"input_text.charger_host_url": "192.168.1.1"})
+
+        assert "cars" not in settings_manager.settings
+
+    def test_factory_defaults_match_v2g_globals(self):
+        """The migration's notion of "unchanged" must be the app's defaults."""
+        from apps.v2g_liberty.v2g_globals import V2GLibertyGlobals
+
+        expected = {
+            key: setting["factory_default"]
+            for key, setting in V2GLibertyGlobals.CAR_VALUE_SETTINGS.items()
+        }
+        assert SettingsManager._CAR_FACTORY_DEFAULTS == expected
+        # And the legacy keys are exactly the entities those settings project to.
+        assert SettingsManager._LEGACY_CAR_KEYS == {
+            f"{setting['entity_type']}.{setting['entity_name']}": key
+            for key, setting in V2GLibertyGlobals.CAR_VALUE_SETTINGS.items()
+        }

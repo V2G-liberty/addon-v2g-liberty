@@ -11,7 +11,7 @@
     "car_max_soc_in_percent": "Schedule upper limit",
     "charger_max_charging_power": "Max. charging power",
     "charger_max_discharging_power": "Max. discharging power",
-    "charger_plus_car_roundtrip_efficiency": "Roundtrip efficiency",
+    "charger_plus_car_roundtrip_efficiency": "Charging efficiency (round-trip)",
     "charger_port": "Port number",
     "energy_price_markup_per_kwh": "Markup",
     "energy_price_vat": "VAT"
@@ -175,6 +175,7 @@
       "input_boolean.calendar_settings_initialised": "Calendar Settings",
       "input_boolean.electricity_contract_settings_initialised": "Electricity Contract Settings",
       "input_boolean.charger_settings_initialised": "Charger Settings",
+      "sensor.car_settings_initialised": "Car Settings",
       "sensor.fm_connection_status": "FlexMeasures connection",
       "sensor.calendar_account_connection_status": "Calendar connection"
     }
@@ -330,7 +331,9 @@
     },
     "common": {
       "configure": "Configure",
-      "validation_error": "Problem with input (not specified)"
+      "validation_error": "Problem with input (not specified)",
+      "retry": "Retry",
+      "load-failed": "Could not reach V2G Liberty, so these settings could not be loaded. They have not been changed."
     },
     "administrator": {
       "header": "Administrator",
@@ -352,7 +355,23 @@
     },
     "car": {
       "header": "Car",
-      "alert": "Please configure all data elements, V2G Liberty needs this to work."
+      "alert": "V2G Liberty needs your car's details to plan its charging.",
+      "alert-with-id": "V2G Liberty needs your car's details to plan its charging. Connect the car to the charger first, so its ID can be read.",
+      "fields": {
+        "capacity": "Usable capacity",
+        "efficiency": "Charging efficiency",
+        "consumption": "Energy consumption",
+        "min-soc": "Schedule lower limit",
+        "max-soc": "Schedule upper limit",
+        "allowed-duration": "Allowed above upper limit",
+        "limits": "Schedule limits",
+        "limits-duration": "Up to %{hours} h above the limit",
+        "efficiency-dialog": "Charging efficiency (round-trip)"
+      },
+      "alert-title": "Car not set up yet",
+      "missing-id-title": "Car ID missing",
+      "missing-id": "This charger identifies cars. Read this car's ID so V2G Liberty can tell it apart from a visitor's car. The settings below stay as they are.",
+      "car-id-subtitle": "ID: %{id}"
     },
     "car-reservation-calendar": {
       "header": "Car reservation calendar",
@@ -428,6 +447,29 @@
         "header": "power settings",
         "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
         "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger."
+      },
+      "phase": {
+        "grid-mismatch": "Your 3-phase charger requires a 3-phase grid connection. Please check your grid connection settings or charger type.",
+        "single-phase": "Your charger is connected to the only available phase (L1).",
+        "three-phase": "Your 3-phase charger is connected to all three phases.",
+        "question": "Which phase is your charger connected to?",
+        "option": "Phase %{n}",
+        "select-error": "Please select which phase your charger is connected to.",
+        "hint-summary": "Not sure?",
+        "hint-body": "Check the label on your fuse box, or use the automatic detection below.",
+        "detect": {
+          "title": "Automatic phase detection",
+          "explain": "Optionally, the phase can be detected automatically. This briefly charges (and discharges for bidirectional chargers) while monitoring the grid sensors. The charge mode will be temporarily set to Stop during detection. Make sure your car is connected.",
+          "start": "Start detection",
+          "unavailable": "Select the phase above and save. Detection is unavailable until then: it measures the charger that is connected right now, and the settings you changed are not saved yet. Once they are, reopen these settings to have the phase detected.",
+          "starting": "Starting…",
+          "baseline": "Measuring baseline…",
+          "charge-test": "Charge test…",
+          "discharge-test": "Discharge test…",
+          "success": "Detected: phase %{label}",
+          "failed": "Detection failed. You can select the phase manually.",
+          "timeout": "Detection timed out. You can select the phase manually."
+        }
       }
     },
     "dialogs": {
@@ -439,8 +481,8 @@
         "description": "This is the the maximum energy storage capacity of the car's battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\n\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\n\n**Battery health**\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"
       },
       "roundtrip-efficiency": {
-        "header": "Roundtrip efficiency",
-        "description": "This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."
+        "header": "Charging efficiency (round-trip)",
+        "description": "This is the efficiency of a cycle of charge and discharge and includes charger and car. Note that it covers the whole round trip, not charging alone. A typical value is 85%.\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."
       },
       "car-energy-consumption": {
         "header": "Car energy consumption",
@@ -493,6 +535,44 @@
       "multiple-asset-description": "Which asset is to be controlled via V2G Liberty?",
       "no-asset-selected-error": "Please select an option",
       "login-success": "Login successful"
+    },
+    "car-dialog": {
+      "add": {
+        "header": "Set up your car"
+      },
+      "edit": {
+        "header": "Edit %{name}",
+        "header-unnamed": "Edit car"
+      },
+      "limits": {
+        "description": "Within these limits the schedule is free to charge and discharge the car."
+      },
+      "name-label": "Car name",
+      "name-placeholder": "e.g. Nissan Leaf",
+      "learn-more": "Learn more",
+      "errors": {
+        "name-required": "Please give the car a name.",
+        "out-of-range": "Enter a whole number between %{min} and %{max}.",
+        "load-failed": "Could not load the car settings. Try again."
+      },
+      "car-id": {
+        "header": "Car identification",
+        "explain": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\n\nPlug the car into the charger, then read its ID.",
+        "read": "Read car ID",
+        "read-again": "Read again",
+        "reading": "Reading the ID of the connected car…",
+        "found": "Car ID %{id} read from the connected car.",
+        "registered": "Registered car ID: %{id}",
+        "no-car": "No car is connected. Plug the car in and try again.",
+        "no-id": "The car is connected but has not reported its ID yet. Try again in a moment.",
+        "failed": "The car ID could not be read. Check the charger connection and try again.",
+        "different": "A different car is connected (ID %{id}).",
+        "will-replace": "The connected car (ID %{id}) becomes the registered car when you save.",
+        "explain-edit": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\n\nPlug the car into the charger, then read its ID. Everything else you set up stays as it is.",
+        "keep-current": "Keep the current car",
+        "use-connected-option": "Use the connected car",
+        "check-values": "The name and the values below belong to the car that is registered now. Check them for the new car before you save."
+      }
     }
   }
 }

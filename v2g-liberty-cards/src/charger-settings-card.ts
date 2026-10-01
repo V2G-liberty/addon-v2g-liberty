@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity, HassEvent } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderSettingsRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
 import { partial, setLanguage } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { callFunction } from './util/appdaemon';
@@ -210,15 +210,11 @@ export class ChargerSettingsCard extends LitElement {
       ? this._connectedToPhase.map(p => `L${p}`).join(', ')
       : `L${this._connectedToPhase}`;
 
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon icon="mdi:electric-switch"></ha-icon>&nbsp; &nbsp;
-          Connected to phase
-        </span>
-        <div class="text-content value state">${phaseValue}</div>
-      </ha-settings-row>
-    `;
+    return renderSettingsRow(
+      'mdi:electric-switch',
+      'Connected to phase',
+      phaseValue
+    );
   }
 
   private _renderMaxChargeConfiguration() {

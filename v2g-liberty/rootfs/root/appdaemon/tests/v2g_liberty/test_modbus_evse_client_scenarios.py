@@ -1093,3 +1093,14 @@ async def test_queued_polls_are_skipped_while_the_probe_owns_recovery(driver, po
     await getattr(e, poll)({})
 
     e._get_and_process_registers.assert_not_awaited()
+
+
+# --- car identification: the Quasar cannot -----------------------------------
+def test_the_quasar_does_not_identify_cars():
+    assert WallboxQuasar1Client.IDENTIFIES_CAR is False
+
+
+@pytest.mark.asyncio
+async def test_quasar_read_car_id_is_unsupported(driver):
+    e, _ = driver
+    assert await e.read_connected_car_id() == ("", "unsupported")

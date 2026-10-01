@@ -5,10 +5,17 @@ export const adminMobileName = 'input_text.admin_mobile_name';
 export const adminMobilePlatform = 'input_select.admin_mobile_platform';
 
 // Car
-export const usableCapacity = 'input_number.car_max_capacity_in_kwh';
-export const roundtripEfficiency =
-  'input_number.charger_plus_car_roundtrip_efficiency';
-export const carEnergyConsumption = 'input_number.car_consumption_wh_per_km';
+// Whether the car is fully configured. Derived by the backend (a configured
+// car without an ID is not finished on a charger that identifies cars) and
+// published as a runtime sensor: no helper in the package, so no Home
+// Assistant restart is needed to pick it up.
+export const carSettingsInitialised = 'sensor.car_settings_initialised';
+// Written by the add-on at the end of every start-up. A card that could not
+// reach the add-on can watch this to know it is worth asking again.
+export const appRebootedAt = 'sensor.last_reboot_at';
+// The car's values themselves are no longer entities: they come from
+// get_car_settings. One input_number per installation could never hold the
+// capacity of a second car.
 
 // Car reservation calendar
 export const calendarSettingsInitialised =
@@ -62,10 +69,8 @@ export const gbDnoRegion = 'input_select.gb_dno_region';
 
 // Optimisation
 export const optimisationMode = 'input_select.optimisation_mode';
-export const lowerChargeLimit = 'input_number.car_min_soc_in_percent';
-export const upperChargeLimit = 'input_number.car_max_soc_in_percent';
-export const allowedDurationAboveMax =
-  'input_number.allowed_duration_above_max_soc_in_hrs';
+// The scheduling limits moved to the car: they belong to the car, not to the
+// installation, and different cars can have different limits.
 
 // Homepage stats
 export const chargedTodayKwh = 'sensor.v2g_liberty_charged_today_kwh';

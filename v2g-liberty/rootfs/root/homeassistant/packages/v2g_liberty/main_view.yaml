@@ -89,6 +89,43 @@
 
           {% endif %}
 
+    # An unknown car (a charger that identifies cars, EVtec): the app has
+    # paused automatic charging. sensor.unknown_car_connected is a runtime
+    # sensor written by main_app: "none", or the id of the connected car.
+    - type: conditional
+      layout_options:
+        grid_columns: full
+      conditions:
+        - entity: sensor.unknown_car_connected
+          state_not: "none"
+        - entity: sensor.unknown_car_connected
+          state_not: "unknown"
+        - entity: sensor.unknown_car_connected
+          state_not: "unavailable"
+      card:
+        type: markdown
+        card_mod:
+          style: |
+            ha-card {
+              height: auto !important;
+            }
+        content: |
+          {#- A <br/> must have text after it on the same line: a newline
+              right behind the tag makes the renderer start a new paragraph,
+              which pulls each question away from its own answer. -#}
+          {% set name = state_attr('sensor.unknown_car_connected', 'registered_car_name') or 'your car' %}
+          <ha-alert alert-type="warning" title="Unknown car connected">Automatic charging has been paused.</ha-alert>
+
+          The connected car (**{{ states('sensor.unknown_car_connected') }}**) is not '{{ name }}'.
+
+          **A visitor asked to charge?**<br/>Press **Charge** — it charges at full power.
+
+          **Not expecting anyone?**<br/>No power is flowing: V2G Liberty has set the charger to 0 W.
+
+          **Your new car?**<br/>Go to Settings > Car > Edit and read its ID.
+
+          Automatic charging resumes by itself once the car is unplugged.
+
 - type: grid
   cards:
     - type: markdown

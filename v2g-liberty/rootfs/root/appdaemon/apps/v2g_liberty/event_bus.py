@@ -86,10 +86,41 @@ class EventBus(AsyncIOEventEmitter):
             - `stop` (bool): If True stop the poll indicator, set text to "".
 
     - `is_car_connected`:
-        - **Description**: Monitors if a car is connected to the charger.
-        - **Emitted by** the charger driver (wallbox_quasar_1)
+        - **Description**: Monitors if a car is connected to the charger. True means a
+          car V2G Liberty may act upon: on a charger that identifies cars (EVtec) a
+          car with a matching id, no id registered, or an id not readable yet; on any
+          other charger every car. False on every disconnect, also of an unknown car.
+        - **Emitted by** the charger drivers (wallbox_quasar_1, evtec_bidipro)
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
+
+    - `unknown_car_connected`:
+        - **Description**: A car connected whose readable id differs from the registered
+          one (c.CAR_EV_ID). Emitted instead of `is_car_connected=True`, and before the
+          connect SoC refresh so its listener is queued first. The main app pauses
+          automatic charging and notifies the user.
+        - **Emitted by** the charger driver (evtec_bidipro; never wallbox_quasar_1)
+        - **Arguments**:
+            - `ev_id` (str): the id of the connected car.
+
+    - `known_car_connected`:
+        - **Description**: The counterpart of `unknown_car_connected`: the standing
+          car is confirmed to be the registered one (or nothing is registered, so no
+          car can be unknown). Only emitted on a definitive verdict, never while the
+          id is still unreadable. The main app needs it to drop a persisted unknown-car
+          verdict that a swap during a restart has made stale.
+        - **Emitted by** the charger driver (evtec_bidipro; never wallbox_quasar_1)
+        - **Arguments**:
+            - `ev_id` (str): the id of the connected car; empty if none is registered.
+
+    - `unknown_car_connected_state`:
+        - **Description**: The app-wide state "an unknown car is standing at the
+          charger" (see `unknown_car_connected`). True when the main app forces its
+          Stop, False when the car leaves or gets registered. The pause-at-reconnect
+          monitor must neither prompt nor count down while it is True.
+        - **Emitted by** main_app
+        - **Arguments**:
+            - `is_unknown_car` (bool): whether an unknown car is standing.
 
     #### FlexMeasures related
 

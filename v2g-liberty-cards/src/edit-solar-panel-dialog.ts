@@ -487,7 +487,7 @@ export class EditSolarPanelDialog extends DialogBase {
             }}
             slot=${slot}
             appearance="outlined"
-            variant="secondary"
+            variant="neutral"
             test-id="delete"
             size="s"
             style="width: auto; margin-right: auto;"
