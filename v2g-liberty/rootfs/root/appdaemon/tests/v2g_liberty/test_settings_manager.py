@@ -23,11 +23,12 @@ def json_dump_mock():
 
 
 @pytest.fixture(autouse=True)
-def no_fsync():
-    """__write_to_file fsyncs the temporary file before renaming it, and
-    mock_open's file object has no real descriptor. These tests are about what
-    gets written, not about whether it reached the platter."""
-    with patch("os.fsync"):
+def no_disk_writes():
+    """These tests mock `open`, so there is no temporary file to fsync or
+    rename. Keep both away from the real filesystem; what they are about is the
+    content that gets written, not how it lands. Tests that assert on the
+    rename patch `os.replace` again inside their own block."""
+    with patch("os.fsync"), patch("os.replace"):
         yield
 
 
@@ -47,7 +48,9 @@ class TestRetrieveSettings:
         settings_manager.retrieve_settings()
         # Assert
         log_mock.assert_called_with(
-            "loading file content error, no dict: '[]'.", level="WARNING"
+            "loading file content error, no dict: '[]'. "
+            "Leaving the file alone so it can be repaired.",
+            level="ERROR",
         )
         assert settings_manager.settings == {}
 
@@ -678,3 +681,71 @@ class TestWriteDurability:
         tmp_path, target = replace_mock.call_args.args
         assert target == SettingsManager._SETTINGS_FILE_PATH
         assert tmp_path != target
+
+
+class TestUnreadableFileIsLeftAlone:
+    """A file we could not read still holds the user's configuration. The load
+    leaves an empty dict behind, so writing it back wipes everything -- which
+    is how a hand-edited file with one stray byte cost a user every setting."""
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_corrupt_file_is_not_overwritten(self, log_mock, settings_manager):
+        with patch("builtins.open", mock_open(read_data="{ not json")):
+            settings_manager.retrieve_settings()
+
+        with (
+            patch("builtins.open", mock_open()) as open_mock,
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        open_mock.assert_not_called()
+        replace_mock.assert_not_called()
+        log_mock.assert_called_with(
+            "Refusing to write: the settings file could not be read.", level="ERROR"
+        )
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_file_that_is_not_an_object_is_not_overwritten(self, settings_manager):
+        with patch("builtins.open", mock_open(read_data="[]")):
+            settings_manager.retrieve_settings()
+
+        with patch("os.replace") as replace_mock:
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        replace_mock.assert_not_called()
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_reset_recovers_from_an_unreadable_file(self, settings_manager):
+        """Wiping is deliberate, and it is also the way out of a corrupt file."""
+        with patch("builtins.open", mock_open(read_data="{ not json")):
+            settings_manager.retrieve_settings()
+
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.reset()
+
+        replace_mock.assert_called_once()
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_readable_file_still_writes(self, settings_manager):
+        with patch("builtins.open", mock_open(read_data='{"key": "value"}')):
+            settings_manager.retrieve_settings()
+
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        replace_mock.assert_called_once()

@@ -4,6 +4,9 @@ import os
 
 class SettingsManager:
     settings: dict = {}
+    # Set when the file is there but could not be read. It still holds the
+    # user's configuration, so writing would destroy it -- see __write_to_file.
+    _settings_file_unreadable: bool = False
 
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
     _FM_USER_ID_KEY = "fm_user_id"
@@ -44,20 +47,36 @@ class SettingsManager:
         self.settings = {}
         if not os.path.exists(self._SETTINGS_FILE_PATH):
             self.__log("no settings file found", level="WARNING")
-        else:
-            try:
-                with open(self._SETTINGS_FILE_PATH, "r", encoding="utf-8") as read_file:
-                    settings = json.load(read_file)
-                    if isinstance(settings, dict):
-                        self.settings = self.__upgrade(settings)
-                        self.__write_to_file()
-                    else:
-                        self.__log(
-                            f"loading file content error, no dict: '{settings}'.",
-                            level="WARNING",
-                        )
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                self.__log(f"Error reading settings file: {e}", level="WARNING")
+            return
+
+        # Only the reading is guarded. Writing used to sit inside this try as
+        # well, so a failure to write came back as "cannot read" -- and with the
+        # guard in __write_to_file that would wedge every later save.
+        try:
+            with open(self._SETTINGS_FILE_PATH, "r", encoding="utf-8") as read_file:
+                settings = json.load(read_file)
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            self._settings_file_unreadable = True
+            self.__log(
+                f"Error reading settings file: {e}. Leaving the file alone so it "
+                "can be repaired; nothing will be saved until it is readable "
+                "again.",
+                level="ERROR",
+            )
+            return
+
+        if not isinstance(settings, dict):
+            self._settings_file_unreadable = True
+            self.__log(
+                f"loading file content error, no dict: '{settings}'. "
+                "Leaving the file alone so it can be repaired.",
+                level="ERROR",
+            )
+            return
+
+        self._settings_file_unreadable = False
+        self.settings = self.__upgrade(settings)
+        self.__write_to_file()
 
     def __upgrade(self, settings: dict):
         settings = self.__upgrade_obsolete_settings(settings)
@@ -262,6 +281,16 @@ class SettingsManager:
         self.__write_to_file()
 
     def __write_to_file(self):
+        if self._settings_file_unreadable:
+            # The file is still the user's configuration; we just cannot read
+            # it. Writing would replace it with the little we hold in memory --
+            # which after a failed load is nothing at all. One stray byte used
+            # to be enough to lose every setting.
+            self.__log(
+                "Refusing to write: the settings file could not be read.",
+                level="ERROR",
+            )
+            return
         self.__log(f"__write_to_file, settings: '{self.settings}'.", level="DEBUG")
         # Write to a temporary file first, then atomically replace.
         # This prevents an empty settings file if the process is killed
@@ -278,7 +307,10 @@ class SettingsManager:
         os.replace(tmp_path, self._SETTINGS_FILE_PATH)
 
     def reset(self):
+        # A deliberate wipe is also how you recover from an unreadable file,
+        # so it clears the guard rather than tripping over it.
         self.settings = {}
+        self._settings_file_unreadable = False
         self.__write_to_file()
 
     def get(self, entity_id):
