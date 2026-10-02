@@ -1,12 +1,19 @@
 import json
 import os
+import time
 
 
 class SettingsManager:
     settings: dict = {}
-    # Set when the file is there but could not be read. It still holds the
-    # user's configuration, so writing would destroy it -- see __write_to_file.
-    _settings_file_unreadable: bool = False
+
+    # What the last read made of the settings file. The two failures need the
+    # user to do different things, so v2g_globals turns this into one of two
+    # notifications -- see retrieve_settings.
+    FILE_OK = None
+    FILE_SET_ASIDE = "set_aside"  # content was broken; started fresh
+    FILE_UNREADABLE = "unreadable"  # could not read it; touching nothing
+    file_problem: str | None = FILE_OK
+    set_aside_path: str = ""
 
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
     _FM_USER_ID_KEY = "fm_user_id"
@@ -45,6 +52,10 @@ class SettingsManager:
         self.__log("called")
 
         self.settings = {}
+        # Deliberately not cleared here: only a successful read clears it. The
+        # file is read more than once during start-up, and after setting one
+        # aside the next read finds nothing -- which would otherwise wipe the
+        # very problem we are about to report.
         if not os.path.exists(self._SETTINGS_FILE_PATH):
             self.__log("no settings file found", level="WARNING")
             return
@@ -55,28 +66,60 @@ class SettingsManager:
         try:
             with open(self._SETTINGS_FILE_PATH, "r", encoding="utf-8") as read_file:
                 settings = json.load(read_file)
-        except (json.JSONDecodeError, FileNotFoundError) as e:
-            self._settings_file_unreadable = True
+        except json.JSONDecodeError as e:
+            # The file is there and is demonstrably not JSON.
+            self.__set_file_aside(f"it is not valid JSON ({e})")
+            return
+        except OSError as e:
+            # Permissions, I/O, a volume not mounted yet -- and FileNotFoundError,
+            # which here means the file vanished between the check above and this
+            # open. The content may be perfectly fine and merely out of reach, so
+            # do not touch it: moving it aside could destroy a good file over a
+            # passing fault. A restart is the way out.
+            self.file_problem = self.FILE_UNREADABLE
             self.__log(
-                f"Error reading settings file: {e}. Leaving the file alone so it "
-                "can be repaired; nothing will be saved until it is readable "
-                "again.",
+                f"Could not read the settings file: {e}. Leaving it untouched; "
+                "nothing will be saved until the add-on is restarted.",
                 level="ERROR",
             )
             return
 
         if not isinstance(settings, dict):
-            self._settings_file_unreadable = True
+            self.__set_file_aside(f"it holds {type(settings).__name__}, not an object")
+            return
+
+        self.file_problem = self.FILE_OK
+        self.set_aside_path = ""
+        self.settings = self.__upgrade(settings)
+        self.__write_to_file()
+
+    def __set_file_aside(self, reason: str):
+        """The content is broken beyond use. Leaving it in place strands the
+        app -- running on defaults, saving nothing -- and a user cannot reach
+        /data to repair it, so there would be no way out. Move it aside: the
+        app starts clean and saving works again, and the original is kept for
+        support. The timestamp means one of these can never overwrite another.
+        """
+        path = f"{self._SETTINGS_FILE_PATH}.corrupt-{time.strftime('%Y%m%d-%H%M%S')}"
+        try:
+            os.replace(self._SETTINGS_FILE_PATH, path)
+        except OSError as e:
+            # If it cannot even be moved, fall back to touching nothing.
+            self.file_problem = self.FILE_UNREADABLE
             self.__log(
-                f"loading file content error, no dict: '{settings}'. "
-                "Leaving the file alone so it can be repaired.",
+                f"The settings file is unusable ({reason}) and could not be set "
+                f"aside either: {e}. Leaving it untouched; nothing will be saved "
+                "until the add-on is restarted.",
                 level="ERROR",
             )
             return
-
-        self._settings_file_unreadable = False
-        self.settings = self.__upgrade(settings)
-        self.__write_to_file()
+        self.file_problem = self.FILE_SET_ASIDE
+        self.set_aside_path = path
+        self.__log(
+            f"The settings file was unusable ({reason}) and has been set aside "
+            f"as '{path}'. Starting with factory defaults.",
+            level="ERROR",
+        )
 
     def __upgrade(self, settings: dict):
         settings = self.__upgrade_obsolete_settings(settings)
@@ -281,7 +324,7 @@ class SettingsManager:
         self.__write_to_file()
 
     def __write_to_file(self):
-        if self._settings_file_unreadable:
+        if self.file_problem == self.FILE_UNREADABLE:
             # The file is still the user's configuration; we just cannot read
             # it. Writing would replace it with the little we hold in memory --
             # which after a failed load is nothing at all. One stray byte used
@@ -310,7 +353,7 @@ class SettingsManager:
         # A deliberate wipe is also how you recover from an unreadable file,
         # so it clears the guard rather than tripping over it.
         self.settings = {}
-        self._settings_file_unreadable = False
+        self.file_problem = self.FILE_OK
         self.__write_to_file()
 
     def get(self, entity_id):

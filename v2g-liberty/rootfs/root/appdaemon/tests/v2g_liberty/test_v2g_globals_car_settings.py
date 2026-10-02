@@ -59,6 +59,8 @@ def hass_mock():
 def settings_manager_mock():
     mock = MagicMock()
     mock.objects = {}
+    # A healthy load: kick_off_settings reports anything else to the user.
+    mock.file_problem = SettingsManager.FILE_OK
     mock.get_object = Mock(
         side_effect=lambda key, default=None: mock.objects.get(key, default)
     )

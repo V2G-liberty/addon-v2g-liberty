@@ -450,12 +450,46 @@ class V2GLibertyGlobals:
         charger_type = self.v2g_settings.get("input_text.charger_type")
         return charger_type or DEFAULT_CHARGER_TYPE
 
+    SETTINGS_FILE_PROBLEM_TAG = "settings_file_problem"
+
+    def __report_settings_file_problem(self):
+        """The settings file failed to load. Say so: without this the app runs
+        on factory defaults and the user, who cannot reach /data, has no way to
+        tell that from a fresh install. The two cases need different actions.
+        """
+        problem = self.v2g_settings.file_problem
+        if problem == SettingsManager.FILE_OK:
+            return
+        if problem == SettingsManager.FILE_SET_ASIDE:
+            message = (
+                "Your settings could not be read and have been set aside as "
+                f"'{self.v2g_settings.set_aside_path}'. V2G Liberty has started "
+                "with factory defaults, so please set it up again."
+            )
+        else:
+            message = (
+                "The settings file could not be read. V2G Liberty is running on "
+                "factory defaults and will not save anything until the add-on "
+                "has been restarted."
+            )
+        # A sticky memo, not notify_user: that one pushes to the mobile apps of
+        # the registered recipients, and after a file was set aside there are
+        # none -- the recipients lived in the settings too. This lands in the
+        # Home Assistant sidebar, where the user is already looking, and needs
+        # nothing configured to arrive.
+        self.notifier.post_sticky_memo(
+            message=message,
+            title="V2G Liberty settings could not be read",
+            memo_id=self.SETTINGS_FILE_PROBLEM_TAG,
+        )
+
     async def kick_off_settings(self):
         # To be called from initialise or restart event
         self.__log("called")
 
         self.v2g_settings.retrieve_settings()
         await self.__initialise_notification_settings()
+        self.__report_settings_file_problem()
 
         # The car before the charger: initialising the charger runs its first
         # poll, and with a car already plugged in that is a connect transition
