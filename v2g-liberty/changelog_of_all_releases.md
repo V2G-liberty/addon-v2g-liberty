@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: Settings could be lost when the settings file was damaged (#503)
 - 🪲 BUG: The app fails to start on unknow new entity (#500)
 - 🪲 BUG: Home Assistant restarts rais false alarms about settings / add-on (#501)
 - 🪲 BUG: "Battery at max SoC" notification reports the wrong range after a restart (#469)
