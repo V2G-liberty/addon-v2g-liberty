@@ -261,7 +261,7 @@
       },
       "invalid-host-error": "Vul een geldige hostnaam of IP-adres in (alleen letters, cijfers, punten, koppeltekens en liggende streepjes).",
       "invalid-port-error": "Vul een geldige poort in.",
-      "connection-error": "Geen verbinding met de lader, controleer de aansluiting.",
+      "connection-error": "Geen verbinding met de lader. Controleer de aansluiting, en of Modbus in de lader aanstaat.",
       "charger-not-recognised-error": "De verbinding is gelukt, maar de lader op dit adres lijkt niet het gekozen type te zijn. Controleer je keuze.",
       "no-active-plug-error": "Verbonden met de lader, maar er is geen actieve aansluiting gevonden. Controleer de configuratie van de lader.",
       "connection-success": "Verbinding gelukt",

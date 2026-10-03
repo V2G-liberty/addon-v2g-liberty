@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import pytest
 from apps.v2g_liberty.chargers.factory import DEFAULT_CHARGER_TYPE
+from apps.v2g_liberty.settings_manager import SettingsManager
 from apps.v2g_liberty.v2g_globals import V2GLibertyGlobals
 
 _QUASAR = "wallbox-quasar-1"
@@ -63,6 +64,8 @@ def settings_manager_mock():
     mock = MagicMock()
     mock.settings = {}
     mock.objects = {}
+    # A healthy load: kick_off_settings reports anything else to the user.
+    mock.file_problem = SettingsManager.FILE_OK
     mock.store_setting = Mock()
     mock.get = Mock(side_effect=lambda key: mock.settings.get(key, None))
     mock.retrieve_settings = Mock()

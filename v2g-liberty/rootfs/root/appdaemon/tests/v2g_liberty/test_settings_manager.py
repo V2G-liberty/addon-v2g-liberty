@@ -22,6 +22,16 @@ def json_dump_mock():
     return Mock()
 
 
+@pytest.fixture(autouse=True)
+def no_disk_writes():
+    """These tests mock `open`, so there is no temporary file to fsync or
+    rename. Keep both away from the real filesystem; what they are about is the
+    content that gets written, not how it lands. Tests that assert on the
+    rename patch `os.replace` again inside their own block."""
+    with patch("os.fsync"), patch("os.replace"):
+        yield
+
+
 class TestRetrieveSettings:
     @patch("os.path.exists", lambda _: False)
     def test_retrieve_initial_settings(self, log_mock, settings_manager):
@@ -37,9 +47,7 @@ class TestRetrieveSettings:
         # Act
         settings_manager.retrieve_settings()
         # Assert
-        log_mock.assert_called_with(
-            "loading file content error, no dict: '[]'.", level="WARNING"
-        )
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
         assert settings_manager.settings == {}
 
     @patch("os.path.exists", lambda _: True)
@@ -629,3 +637,177 @@ class TestUpgradeCarSettings:
             f"{setting['entity_type']}.{setting['entity_name']}": key
             for key, setting in V2GLibertyGlobals.CAR_VALUE_SETTINGS.items()
         }
+
+
+class TestWriteDurability:
+    """The settings file is the only record of what the user configured, and
+    losing it has been seen in the wild. Writing to a temporary file and
+    renaming only helps if the bytes are on disk before the rename."""
+
+    def test_the_temporary_file_is_fsynced_before_the_rename(self, settings_manager):
+        calls = []
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync", side_effect=lambda fd: calls.append(("fsync", fd))),
+            patch("os.replace", side_effect=lambda *a: calls.append(("replace", a))),
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        assert [name for name, _ in calls] == ["fsync", "replace"], (
+            "a rename without a preceding fsync can publish an empty file over "
+            "a good one, which is exactly what the rename is meant to prevent"
+        )
+        assert calls[0][1] == 7
+
+    def test_it_renames_onto_the_real_path(self, settings_manager):
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        tmp_path, target = replace_mock.call_args.args
+        assert target == SettingsManager._SETTINGS_FILE_PATH
+        assert tmp_path != target
+
+
+class TestABrokenSettingsFile:
+    """A file that cannot be used is handled two ways, because the user has to
+    do two different things. Content that is demonstrably broken is set aside
+    so the app can start clean -- nobody can reach /data to repair it, so
+    leaving it there would strand the app with no way out. A file we merely
+    could not read may be perfectly fine and briefly out of reach, so that one
+    is left exactly where it is."""
+
+    @patch("os.path.exists", lambda _: True)
+    def test_unparsable_content_is_set_aside(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.retrieve_settings()
+
+        source, destination = replace_mock.call_args.args
+        assert source == SettingsManager._SETTINGS_FILE_PATH
+        assert destination.startswith(SettingsManager._SETTINGS_FILE_PATH + ".corrupt-")
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
+        assert settings_manager.set_aside_path == destination
+
+    @patch("os.path.exists", lambda _: True)
+    def test_content_that_is_not_an_object_is_set_aside(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="[]")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
+
+    @patch("os.path.exists", lambda _: True)
+    def test_saving_works_again_after_the_file_was_set_aside(self, settings_manager):
+        """The whole point: the user can configure the app and it sticks."""
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        replace_mock.assert_called_once()
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_file_we_could_not_read_is_left_exactly_where_it_is(
+        self, log_mock, settings_manager
+    ):
+        """Permissions, I/O, a volume not mounted yet: the content may be fine.
+        Setting it aside on a passing fault would destroy a good file."""
+        with (
+            patch("builtins.open", side_effect=OSError("Input/output error")),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.retrieve_settings()
+
+        replace_mock.assert_not_called()
+        assert settings_manager.file_problem == SettingsManager.FILE_UNREADABLE
+
+        with patch("os.replace") as write_mock:
+            settings_manager.store_setting("input_boolean.whatever", True)
+        write_mock.assert_not_called()
+        log_mock.assert_called_with(
+            "Refusing to write: the settings file could not be read.", level="ERROR"
+        )
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_file_that_cannot_even_be_moved_is_left_alone(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace", side_effect=OSError("Read-only file system")),
+        ):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_UNREADABLE
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_readable_file_still_writes(self, settings_manager):
+        with patch("builtins.open", mock_open(read_data='{"key": "value"}')):
+            settings_manager.retrieve_settings()
+        assert settings_manager.file_problem == SettingsManager.FILE_OK
+
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        replace_mock.assert_called_once()
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_second_read_does_not_wipe_the_problem(self, settings_manager):
+        """Start-up reads the file more than once, and after one is set aside
+        the next read finds nothing. That must not erase what we are about to
+        tell the user."""
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        with patch("os.path.exists", lambda _: False):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_repaired_file_clears_the_problem(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        with patch("builtins.open", mock_open(read_data='{"key": "value"}')):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_OK
+        assert settings_manager.set_aside_path == ""
