@@ -55,6 +55,7 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     # something else for its hardware.
     #
     #   CHARGING_STATE, DISCONNECTED_STATES   the device's own state numbers
+    #   CHARGER_STATES                        state number -> text, for logging
     #   _MCE_CHARGER_STATE                    the charger-state register entity
     #   _am_i_active                          whether the app is driving the charger
     #   _is_shut_down                         set once shutdown() has run
@@ -81,6 +82,22 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
         if soc_kwh in [None, "unavailable", "unknown"]:
             return "unavailable"
         return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
+
+    async def _is_charging_or_discharging(self) -> bool:
+        if not self._am_i_active:
+            self._log("Called while inactive, not blocking.", level="DEBUG")
+
+        state = await self._get_charger_state()
+        if state is None:
+            self._log(
+                "charger state is None (not setup yet?). Assume not (dis-)charging."
+            )
+            return False
+        is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
+        self._log(
+            f"state: {state} ({self.CHARGER_STATES.get(state)}), charging: {is_charging}."
+        )
+        return is_charging
 
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""

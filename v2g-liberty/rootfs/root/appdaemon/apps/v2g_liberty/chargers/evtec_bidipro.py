@@ -739,22 +739,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             return
         self._log(f"set_charger_action: {action} {reason}", level="DEBUG")
 
-    async def _is_charging_or_discharging(self) -> bool:
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        state = await self._get_charger_state()
-        if state is None:
-            self._log(
-                "charger state is None (not setup yet?). Assume not (dis-)charging."
-            )
-            return False
-        is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
-        self._log(
-            f"state: {state} ({self.CHARGER_STATES.get(state)}), charging: {is_charging}."
-        )
-        return is_charging
-
     async def _get_car_soc(self, do_not_use_cache: bool = False):
         """Return the SoC in percent (2..97) or "unavailable".
 
