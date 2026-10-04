@@ -477,13 +477,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
         self.timer_id_check_error_state = None
 
-    async def get_car_remaining_range(self) -> int:
-        """Helper to get remaining range in km"""
-        soc_kwh = await self.get_car_soc_kwh()
-        if soc_kwh in [None, "unavailable", "unknown"]:
-            return "unavailable"
-        return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
-
     def is_available_for_automated_charging(self) -> bool:
         """Whether the car and EVSE are available for automated charging.
         Synchronous on purpose (called from sync code in data_monitor): uses the

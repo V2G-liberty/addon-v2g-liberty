@@ -499,14 +499,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
         self.timer_id_check_error_state = None
 
-    async def get_car_remaining_range(self) -> int:
-        """Helper to get remaining range in km"""
-        soc_kwh = await self.get_car_soc_kwh()
-        if soc_kwh in [None, "unavailable", "unknown"]:
-            return "unavailable"
-        else:
-            return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
-
     # TODO: AVAILABILITY_STATES is knowledge that does not belong here but in data monitor.
     # Move this method out of this module.
     def is_available_for_automated_charging(self) -> bool:

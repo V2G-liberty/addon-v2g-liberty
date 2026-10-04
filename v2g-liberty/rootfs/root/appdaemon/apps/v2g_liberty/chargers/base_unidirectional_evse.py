@@ -75,6 +75,13 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
             return "unavailable"
         return round(soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
 
+    async def get_car_remaining_range(self) -> int:
+        """Helper to get remaining range in km"""
+        soc_kwh = await self.get_car_soc_kwh()
+        if soc_kwh in [None, "unavailable", "unknown"]:
+            return "unavailable"
+        return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
+
     async def is_charging(self) -> bool:
         """Indicates if currently the connected car is charging (not discharging)"""
         if not self._am_i_active:
