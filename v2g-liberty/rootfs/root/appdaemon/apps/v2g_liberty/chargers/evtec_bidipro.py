@@ -399,15 +399,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._log(f"Returning max. power: {self.DEFAULT_HARDWARE_POWER_LIMIT_W}.")
         return True, self.DEFAULT_HARDWARE_POWER_LIMIT_W
 
-    async def stop_charging(self):
-        """Stop charging if it is in process and set charge power to 0."""
-        if not self._am_i_active:
-            self._log(
-                "called while _am_i_active == False. Not blocking call to make stop reliable."
-            )
-        await self._set_charger_action("stop", reason="stop_charging")
-        await self._set_charge_power(charge_power=0, source="stop_charging")
-
     async def start_charge_with_power(self, charge_power: int, source: str = "unknown"):
         """Start a charge session with a given power in Watt (negative = discharge).
         To be called from the v2g-liberty module.
@@ -486,17 +477,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
         self.timer_id_check_error_state = None
 
-    async def get_car_soc(self) -> int:
-        """Helper to get SoC in percent"""
-        return await self._get_car_soc(do_not_use_cache=False)
-
-    async def get_car_soc_kwh(self) -> float:
-        """Helper to get SoC in kWh"""
-        soc = await self._get_car_soc(do_not_use_cache=False)
-        if soc in [None, "unavailable", "unknown"]:
-            return "unavailable"
-        return round(soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
-
     async def get_car_remaining_range(self) -> int:
         """Helper to get remaining range in km"""
         soc_kwh = await self.get_car_soc_kwh()
@@ -513,19 +493,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             self._log("called while _am_i_active == False. Returning False.")
             return False
         return self._MCE_CHARGER_STATE.current_value in self.AVAILABILITY_STATES
-
-    async def is_car_connected(self) -> bool:
-        """Indicates if currently a car is connected to the charger."""
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        is_connected = self._mb_client.is_initialised
-        is_connected = (
-            is_connected
-            and await self._get_charger_state() not in self.DISCONNECTED_STATES
-        )
-        self._log(f"is_connected: {is_connected}", level="DEBUG")
-        return is_connected
 
     async def read_connected_car_id(self) -> tuple[str, str]:
         """The explicit step behind the dialog's "Read car ID": check the plug
@@ -563,22 +530,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         # decode returns None on an error response or undecodable bytes.
         ev_id = value.strip() if isinstance(value, str) else ""
         return (ev_id, "ok") if ev_id else ("", "no_id")
-
-    async def is_charging(self) -> bool:
-        """Indicates if currently the connected car is charging (not discharging)"""
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-        return await self._get_charger_state() == self.CHARGING_STATE
-
-    async def is_discharging(self) -> bool:
-        """Indicates if currently the connected car is discharging (not charging)"""
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-        return await self._get_charger_state() == self.DISCHARGING_STATE
-
-    ######################################################################
-    #                  INITIALISATION RELATED FUNCTIONS                  #
-    ######################################################################
 
     async def complete_init(self):
         """To be called from v2g-liberty once after its own init is complete;
@@ -632,31 +583,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     ######################################################################
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
-
-    async def _handle_soc_change(self, new_soc: int, old_soc: int):
-        self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
-        self.event_bus.emit_event(
-            "remaining_range_change",
-            remaining_range=await self.get_car_remaining_range(),
-        )
-
-    async def _handle_charge_power_change(self, new_power):
-        if not isinstance(new_power, (int, float)):
-            self._log(f"Charge power is not a number: '{new_power}', treating as 0W.")
-            new_power = 0
-        self.event_bus.emit_event("charge_power_change", new_power=new_power)
-        is_deviating = abs(new_power - self.requested_charge_power) > 500
-        if is_deviating and not self._is_power_deviating:
-            self._log(
-                f"Actual charge power ({new_power}W) deviates > 500W from "
-                f"requested ({self.requested_charge_power}W)."
-            )
-        elif not is_deviating and self._is_power_deviating:
-            self._log(
-                f"Charge power deviation resolved, actual: {new_power}W, "
-                f"requested: {self.requested_charge_power}W."
-            )
-        self._is_power_deviating = is_deviating
 
     async def _handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
@@ -862,17 +788,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 )
         self._log(f"returning: '{ecs.current_value}'.")
         return ecs.current_value
-
-    async def _get_charger_state(self) -> int:
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        charger_state = self._MCE_CHARGER_STATE.current_value
-        if charger_state is None:
-            # Before initialisation has finished.
-            await self._get_and_process_registers([self._MCE_CHARGER_STATE])
-            charger_state = self._MCE_CHARGER_STATE.current_value
-        return charger_state
 
     async def _get_and_process_registers(
         self, entities: list, force_emit: bool = False
@@ -1276,11 +1191,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     ######################################################################
     #                   MODBUS RELATED FUNCTIONS                         #
     ######################################################################
-
-    async def _update_charger_communication_state(self, can_communicate: bool):
-        self.event_bus.emit_event(
-            "charger_communication_state_change", can_communicate=can_communicate
-        )
 
     async def _modbus_read_mbrs(self, mbrs: list, source: str = "unknown"):
         """Read and decode a list of MBRs (one span per device). Returns the
