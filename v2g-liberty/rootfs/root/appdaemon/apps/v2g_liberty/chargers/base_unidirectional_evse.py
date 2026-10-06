@@ -22,6 +22,7 @@ from pyee.asyncio import AsyncIOEventEmitter
 
 from .. import constants as c
 from ..event_bus import EventBus
+from ..log_wrapper import get_class_method_logger
 from .modbus_types import ModbusConfigEntity
 from .v2g_modbus_client import V2GmodbusClient
 
@@ -43,6 +44,11 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
 
     def __init__(self):
         super().__init__()
+        # Each driver replaces this with a logger carrying its own module name.
+        # A working one here rather than None: the shared methods below log, and
+        # a driver that forgot should produce a line under the wrong name, not
+        # fall over on the log statement itself.
+        self._log: Callable[..., None] = get_class_method_logger(module_name="evse")
 
     async def read_connected_car_id(self) -> tuple[str, str]:
         """Read the id of the connected car, on request from the car dialog.
@@ -69,7 +75,6 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     CHARGER_STATES: dict[int, str] = None  # state number -> text, for logging
     _MCE_CHARGER_STATE: ModbusConfigEntity = None
     _mb_client: V2GmodbusClient = None
-    _log: Callable[..., None] = None
 
     # Both drivers declared these identically, so they live here now.
     event_bus: EventBus = None
