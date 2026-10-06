@@ -46,8 +46,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     CHARGER_TYPE = "wallbox-quasar-1"
 
-    event_bus: EventBus = None
-
     #######################################################################################
     #   This file contains the Modbus address information for the Wallbox Quasar 1 EVSE.  #
     #   This is provided by the Wallbox Chargers S.L. as is.                              #
@@ -189,7 +187,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     CHARGER_SET_CHARGE_POWER_REGISTER: int = 260
     # Holds the last known requested charge power that was set in the
     # charger register CHARGER_SET_CHARGE_POWER_REGISTER. Used for deviation comparison.
-    requested_charge_power: int = 0
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400
@@ -266,7 +263,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     # For (un)blocking of calls and keeping the client in-active when it should
     # Set only(!) by set_inactive and set_active.
-    _am_i_active: bool = None
 
     hass: Hass = None
     notifier: Notifier = None

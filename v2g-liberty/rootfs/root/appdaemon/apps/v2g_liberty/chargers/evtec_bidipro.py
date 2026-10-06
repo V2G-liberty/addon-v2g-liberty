@@ -94,8 +94,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     # The BiDiPro reports the ISO 15118 EvccId of the connected car (X+76).
     IDENTIFIES_CAR = True
 
-    event_bus: EventBus = None
-
     #######################################################################################
     #   This file contains the Modbus address information for the EVtec BiDiPro 10.       #
     #   This is provided by EV2Grid as is (https://ev2grid.de/bidipro).                    #
@@ -136,7 +134,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
     # Holds the last requested charge power written to X+86, used for the
     # deviation comparison and to skip a duplicate write.
-    requested_charge_power: int = 0
 
     # For handling a non-responsive charger (direct call, not on the bus).
     v2g_main_app: object
@@ -167,7 +164,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     _car_id_retries_left: int = 0
 
     # Set only(!) by set_inactive and set_active.
-    _am_i_active: bool = None
 
     hass: Hass = None
     notifier: Notifier = None

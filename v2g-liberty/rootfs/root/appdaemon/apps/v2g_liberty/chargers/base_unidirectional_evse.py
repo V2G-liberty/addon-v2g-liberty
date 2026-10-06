@@ -16,7 +16,7 @@ differ.
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable
+from collections.abc import Callable
 
 from pyee.asyncio import AsyncIOEventEmitter
 
@@ -58,18 +58,23 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     # quietly means something else for its hardware. These are annotations
     # only, so nothing is created here and nothing is shadowed.
 
-    CHARGING_STATE: int  # the device's own state numbers
-    DISCHARGING_STATE: int
-    DISCONNECTED_STATES: list[int]
-    CHARGER_STATES: dict[int, str]  # state number -> text, for logging
+    # The device's own numbers and register entity; every driver overrides
+    # these. They carry a None rather than no value at all so that reading one
+    # is an ordinary attribute access: a bare annotation creates nothing, and
+    # the editor then flags every use here as a missing member -- which teaches
+    # people to stop reading those warnings.
+    CHARGING_STATE: int = None
+    DISCHARGING_STATE: int = None
+    DISCONNECTED_STATES: list[int] = None
+    CHARGER_STATES: dict[int, str] = None  # state number -> text, for logging
+    _MCE_CHARGER_STATE: ModbusConfigEntity = None
+    _mb_client: V2GmodbusClient = None
+    _log: Callable[..., None] = None
 
-    _MCE_CHARGER_STATE: ModbusConfigEntity
-    _mb_client: V2GmodbusClient
-    event_bus: EventBus
-    _log: Callable[..., None]
-
-    _am_i_active: bool  # whether the app is driving the charger
-    requested_charge_power: int
+    # Both drivers declared these identically, so they live here now.
+    event_bus: EventBus = None
+    _am_i_active: bool = None  # whether the app is driving the charger
+    requested_charge_power: int = 0
 
     # Owned here: only _handle_charge_power_change reads or writes it, and
     # that moved. Left in the drivers it would be state nobody there touches.
