@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Saving charger settings stopped halfway when a power had to be clamped (#504)
 - 🪲 BUG: Settings could be lost when the settings file was damaged (#503)
 - 🪲 BUG: The app fails to start on unknow new entity (#500)
 - 🪲 BUG: Home Assistant restarts rais false alarms about settings / add-on (#501)
@@ -33,6 +34,7 @@
 - Explain the 'charger phase not set' warning and keep it in sync (#474)
 - ⬆️ Bump flexmeasures-client to 0.9.5 (#489)
 - 🛠️ Harden shared Modbus client: retries=0 and 10s timeout - (#490)
+- 🛠️ Refactoring: Share the identical methods of the two charger drivers in the base class (#504)
 
 #### Removing
 
