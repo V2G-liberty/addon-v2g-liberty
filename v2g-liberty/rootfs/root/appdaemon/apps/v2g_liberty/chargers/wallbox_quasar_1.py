@@ -190,7 +190,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     # Holds the last known requested charge power that was set in the
     # charger register CHARGER_SET_CHARGE_POWER_REGISTER. Used for deviation comparison.
     requested_charge_power: int = 0
-    _is_power_deviating: bool = False
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400

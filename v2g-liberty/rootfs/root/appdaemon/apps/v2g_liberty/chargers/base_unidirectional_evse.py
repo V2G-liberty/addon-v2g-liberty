@@ -15,11 +15,15 @@ methods that merely resemble each other differ exactly where the two chargers
 differ.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
+from typing import Callable
 
 from pyee.asyncio import AsyncIOEventEmitter
 
 from .. import constants as c
+from ..event_bus import EventBus
+from .modbus_types import ModbusConfigEntity
+from .v2g_modbus_client import V2GmodbusClient
 
 
 class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
@@ -49,21 +53,47 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
         return "", "unsupported"
 
     # ---- What a concrete driver provides -------------------------------
-    # The shared methods below read these. They are listed rather than
-    # defaulted on purpose: a driver that leaves one out should fail loudly
-    # on first use, not run on a base-class placeholder that quietly means
-    # something else for its hardware.
-    #
-    #   CHARGING_STATE, DISCONNECTED_STATES   the device's own state numbers
-    #   CHARGER_STATES                        state number -> text, for logging
-    #   _MCE_CHARGER_STATE                    the charger-state register entity
-    #   _am_i_active                          whether the app is driving the charger
-    #   _is_shut_down                         set once shutdown() has run
-    #   _mb_client                            the Modbus client
-    #   _log                                  this driver's logger
-    #   event_bus, requested_charge_power
-    #   _get_and_process_registers, _get_car_soc, _is_power_deviating,
-    #   _set_charge_power, _set_charger_action, get_car_remaining_range
+    # Declared, not defaulted: a driver that leaves one of these out should
+    # fail on first use rather than run on a base-class placeholder that
+    # quietly means something else for its hardware. These are annotations
+    # only, so nothing is created here and nothing is shadowed.
+
+    CHARGING_STATE: int  # the device's own state numbers
+    DISCHARGING_STATE: int
+    DISCONNECTED_STATES: list[int]
+    CHARGER_STATES: dict[int, str]  # state number -> text, for logging
+
+    _MCE_CHARGER_STATE: ModbusConfigEntity
+    _mb_client: V2GmodbusClient
+    event_bus: EventBus
+    _log: Callable[..., None]
+
+    _am_i_active: bool  # whether the app is driving the charger
+    requested_charge_power: int
+
+    # Owned here: only _handle_charge_power_change reads or writes it, and
+    # that moved. Left in the drivers it would be state nobody there touches.
+    _is_power_deviating: bool = False
+
+    @abstractmethod
+    async def _get_and_process_registers(
+        self, entities: list, force_emit: bool = False
+    ):
+        """Read the given register entities and apply their new values."""
+
+    @abstractmethod
+    async def _get_car_soc(self, do_not_use_cache: bool = False):
+        """The car's state of charge, as a percentage."""
+
+    @abstractmethod
+    async def _set_charge_power(
+        self, charge_power: int, skip_min_soc_check: bool = False, source: str = None
+    ):
+        """Ask the charger for this power in Watt, positive to charge."""
+
+    @abstractmethod
+    async def _set_charger_action(self, action: str, reason: str = ""):
+        """Start or stop charging, in whatever way this device needs."""
 
     async def get_car_soc(self) -> int:
         """Helper to get SoC in percent"""

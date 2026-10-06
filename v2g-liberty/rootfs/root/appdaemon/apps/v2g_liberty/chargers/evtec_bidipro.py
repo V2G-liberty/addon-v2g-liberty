@@ -137,7 +137,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
     # Holds the last requested charge power written to X+86, used for the
     # deviation comparison and to skip a duplicate write.
     requested_charge_power: int = 0
-    _is_power_deviating: bool = False
 
     # For handling a non-responsive charger (direct call, not on the bus).
     v2g_main_app: object
