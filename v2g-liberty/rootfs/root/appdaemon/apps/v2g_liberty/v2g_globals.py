@@ -2814,7 +2814,7 @@ class V2GLibertyGlobals:
         if has_changed:
             msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
             memo_id = f"auto_adjusted_setting_{entity_id}"
-            await self.notifier.post_sticky_memo(
+            self.notifier.post_sticky_memo(
                 message=msg,
                 title="Automatically adjusted setting",
                 memo_id=memo_id,
