@@ -36,6 +36,27 @@ cp -aR /root/homeassistant/packages/v2g_liberty/* /homeassistant/packages/v2g_li
     || bashio::exit.nok 'Failed to copy V2G-Liberty package'
 bashio::log.info "Home Assistant package files copied"
 
+# Home Assistant serves /local/ with long-lived cache headers and its service
+# worker caches on top of that, so a URL that never changes means an updated
+# bundle is never fetched: after an add-on update the user keeps the old cards,
+# and even a hard refresh does not help. Stamp the add-on version onto our own
+# bundle so the URL changes with every release. The two third-party plugins
+# already carry their version in the filename.
+#
+# extra_module_url is read when Home Assistant starts, so the new URL reaches
+# browsers at the first HA restart after the update, not before.
+PACKAGE_FILE='/homeassistant/packages/v2g_liberty/v2g_liberty_package.yaml'
+if [ -n "${V2G_LIBERTY_VERSION:-}" ]; then
+    sed -i \
+        "s|\(/local/v2g_liberty/v2g-liberty-cards/v2g-liberty-cards\.js\)[^[:space:]]*|\1?v=${V2G_LIBERTY_VERSION}|" \
+        "${PACKAGE_FILE}" \
+        || bashio::exit.nok 'Failed to add the version to the cards bundle URL'
+    bashio::log.info "Cards bundle URL versioned as ?v=${V2G_LIBERTY_VERSION}"
+else
+    bashio::log.warning \
+        "Add-on version unknown; cards bundle URL not versioned. Browsers may keep serving a cached bundle."
+fi
+
 # Create folders for plugins if needed
 if ! bashio::fs.file_exists '/homeassistant/www/v2g_liberty/apexcharts-card'; then
     mkdir -p /homeassistant/www/v2g_liberty/apexcharts-card

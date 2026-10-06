@@ -52,6 +52,10 @@ ARG BUILD_REF
 ARG BUILD_REPOSITORY
 ARG BUILD_VERSION
 
+# The init step stamps this onto the cards bundle URL so browsers fetch a new
+# bundle after an update. with-contenv makes it visible to the s6 scripts.
+ENV V2G_LIBERTY_VERSION=${BUILD_VERSION}
+
 # Labels
 LABEL \
     io.hass.name="${BUILD_NAME}" \
