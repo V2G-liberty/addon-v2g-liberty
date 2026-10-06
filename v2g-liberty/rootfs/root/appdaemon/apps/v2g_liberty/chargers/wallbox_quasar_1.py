@@ -46,8 +46,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     CHARGER_TYPE = "wallbox-quasar-1"
 
-    event_bus: EventBus = None
-
     #######################################################################################
     #   This file contains the Modbus address information for the Wallbox Quasar 1 EVSE.  #
     #   This is provided by the Wallbox Chargers S.L. as is.                              #
@@ -189,8 +187,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     CHARGER_SET_CHARGE_POWER_REGISTER: int = 260
     # Holds the last known requested charge power that was set in the
     # charger register CHARGER_SET_CHARGE_POWER_REGISTER. Used for deviation comparison.
-    requested_charge_power: int = 0
-    _is_power_deviating: bool = False
 
     # AC Max Charging Power (by phase) (hardware) setting in charger (Read/Write)
     # (int16) unit W, min_value 1380, max_value 7400
@@ -267,7 +263,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
 
     # For (un)blocking of calls and keeping the client in-active when it should
     # Set only(!) by set_inactive and set_active.
-    _am_i_active: bool = None
 
     hass: Hass = None
     notifier: Notifier = None
@@ -410,16 +405,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._log(f"Returning max. power: {max_available_power_by_charger}.")
         return True, max_available_power_by_charger
 
-    async def stop_charging(self):
-        """Stop charging if it is in process and set charge power to 0."""
-        if not self._am_i_active:
-            self._log(
-                "called while _am_i_active == False. Not blocking call to make stop reliable."
-            )
-
-        await self._set_charger_action("stop", reason="stop_charging")
-        await self._set_charge_power(charge_power=0, source="stop_charging")
-
     async def start_charge_with_power(self, charge_power: int, source: str = "unknown"):
         """Function to start a charge session with a given power in Watt.
            To be called from v2g-liberty module.
@@ -509,25 +494,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
         self.timer_id_check_error_state = None
 
-    async def get_car_soc(self) -> int:
-        """Helper to get SoC in percent"""
-        return await self._get_car_soc(do_not_use_cache=False)
-
-    async def get_car_soc_kwh(self) -> float:
-        """Helper to get SoC in kWh"""
-        soc = await self._get_car_soc(do_not_use_cache=False)
-        if soc in [None, "unavailable", "unknown"]:
-            return "unavailable"
-        return round(soc * float(c.CAR_MAX_CAPACITY_IN_KWH / 100), 2)
-
-    async def get_car_remaining_range(self) -> int:
-        """Helper to get remaining range in km"""
-        soc_kwh = await self.get_car_soc_kwh()
-        if soc_kwh in [None, "unavailable", "unknown"]:
-            return "unavailable"
-        else:
-            return int(round((soc_kwh * 1000 / c.CAR_CONSUMPTION_WH_PER_KM), 0))
-
     # TODO: AVAILABILITY_STATES is knowledge that does not belong here but in data monitor.
     # Move this method out of this module.
     def is_available_for_automated_charging(self) -> bool:
@@ -543,37 +509,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # The method self._get_charger_state() cannot be used as it is async and this
         # method should not be as it is called from sync code (data_monitor.py).
         return self._MCE_CHARGER_STATE.current_value in self.AVAILABILITY_STATES
-
-    async def is_car_connected(self) -> bool:
-        """Indicates if currently a car is connected to the charger."""
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        is_connected = self._mb_client.is_initialised
-        is_connected = (
-            is_connected
-            and await self._get_charger_state() not in self.DISCONNECTED_STATES
-        )
-        self._log(f"is_connected: {is_connected}", level="DEBUG")
-        return is_connected
-
-    async def is_charging(self) -> bool:
-        """Indicates if currently the connected car is charging (not discharging)"""
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        return await self._get_charger_state() == self.CHARGING_STATE
-
-    async def is_discharging(self) -> bool:
-        """Indicates if currently the connected car is discharging (not charging)"""
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        return await self._get_charger_state() == self.DISCHARGING_STATE
-
-    ######################################################################
-    #                  INITIALISATION RELATED FUNCTIONS                  #
-    ######################################################################
 
     async def complete_init(self):
         """
@@ -691,31 +626,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     #                    PRIVATE CALLBACK FUNCTIONS                      #
     ######################################################################
 
-    async def _handle_soc_change(self, new_soc: int, old_soc: int):
-        self.event_bus.emit_event("soc_change", new_soc=new_soc, old_soc=old_soc)
-        self.event_bus.emit_event(
-            "remaining_range_change",
-            remaining_range=await self.get_car_remaining_range(),
-        )
-
-    async def _handle_charge_power_change(self, new_power):
-        if not isinstance(new_power, (int, float)):
-            self._log(f"Charge power is not a number: '{new_power}', treating as 0W.")
-            new_power = 0
-        self.event_bus.emit_event("charge_power_change", new_power=new_power)
-        is_deviating = abs(new_power - self.requested_charge_power) > 500
-        if is_deviating and not self._is_power_deviating:
-            self._log(
-                f"Actual charge power ({new_power}W) deviates > 500W from "
-                f"requested ({self.requested_charge_power}W)."
-            )
-        elif not is_deviating and self._is_power_deviating:
-            self._log(
-                f"Charge power deviation resolved, actual: {new_power}W, "
-                f"requested: {self.requested_charge_power}W."
-            )
-        self._is_power_deviating = is_deviating
-
     async def _handle_charger_state_change(
         self, new_charger_state: int, old_charger_state: int
     ):
@@ -824,23 +734,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._log(f"{txt}{reason}", level="DEBUG")
         return
 
-    async def _is_charging_or_discharging(self) -> bool:
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        state = await self._get_charger_state()
-        if state is None:
-            # The connection to the charger probably is not setup yet.
-            self._log(
-                "charger state is None (not setup yet?). Assume not (dis-)charging."
-            )
-            return False
-        is_charging = state in [self.CHARGING_STATE, self.DISCHARGING_STATE]
-        self._log(
-            f"state: {state} ({self.CHARGER_STATES[state]}), charging: {is_charging}."
-        )
-        return is_charging
-
     async def _get_car_soc(self, do_not_use_cache: bool = False) -> int:
         """Checks if a SoC value is new enough to return directly or if it should be updated first.
 
@@ -941,18 +834,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             soc_value = soc_in_charger
         self._log(f"returning: '{soc_value}'.")
         return soc_value
-
-    async def _get_charger_state(self) -> int:
-        if not self._am_i_active:
-            self._log("Called while inactive, not blocking.", level="DEBUG")
-
-        charger_state = self._MCE_CHARGER_STATE.current_value
-        if charger_state is None:
-            # This can be the case before initialisation has finished.
-            await self._get_and_process_registers([self._MCE_CHARGER_STATE])
-            charger_state = self._MCE_CHARGER_STATE.current_value
-
-        return charger_state
 
     async def _get_charge_power(self) -> int:
         if not self._am_i_active:
@@ -1281,11 +1162,6 @@ class WallboxQuasar1Client(BidirectionalEVSE):
     ######################################################################
     #                   MODBUS RELATED FUNCTIONS                         #
     ######################################################################
-
-    async def _update_charger_communication_state(self, can_communicate: bool):
-        self.event_bus.emit_event(
-            "charger_communication_state_change", can_communicate=can_communicate
-        )
 
     async def _force_get_register(
         self,

@@ -73,7 +73,9 @@ def globals_instance(hass_mock, settings_manager_mock):
     instance._V2GLibertyGlobals__log = Mock()
     instance.hass = hass_mock
     instance.notifier = MagicMock()
-    instance.notifier.post_sticky_memo = AsyncMock()
+    # post_sticky_memo is a sync method on Notifier; mocking it as async
+    # let a stray `await` in v2g_globals pass the tests for four releases.
+    instance.notifier.post_sticky_memo = Mock()
     instance.v2g_settings = settings_manager_mock
     instance.evse_client_app = _evse(False)
     return instance
@@ -217,7 +219,7 @@ async def test_stored_value_outside_the_limits_is_clamped(
     await _initialise(globals_instance)
 
     assert c.CAR_MAX_CAPACITY_IN_KWH == 200
-    globals_instance.notifier.post_sticky_memo.assert_awaited_once()
+    globals_instance.notifier.post_sticky_memo.assert_called_once()
 
 
 @pytest.mark.asyncio
