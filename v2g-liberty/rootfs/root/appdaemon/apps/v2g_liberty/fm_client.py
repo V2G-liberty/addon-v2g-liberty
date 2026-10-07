@@ -74,22 +74,21 @@ class FMClient(AsyncIOEventEmitter):
     # Constants
     FM_SCHEDULE_DURATION: datetime
     FM_SCHEDULE_DURATION_STR: str
-    MAX_NUMBER_OF_REATTEMPTS: int
-    DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
-    DELAY_FOR_REATTEMPTS: int  # number of seconds
+    # Attempts at trigger_and_get_schedule after the first one fails.
+    SCHEDULE_MAX_RETRIES: int = 2
 
     # A slack for the constraint_relaxation_window in minutes
     WINDOW_SLACK_IN_MINUTES: int
 
     # FM Authentication token
     fm_token: str
-    # Helper to prevent parallel calls to FM for getting a schedule
+    # Helper to prevent parallel calls to FM for getting a schedule. Cleared in a
+    # finally, so an exception or a cancellation cannot leave it standing.
     fm_busy_getting_schedule: bool = False
-    # Helper to prevent blocking the sequence of getting schedules.
-    # Sometimes the previous bool is not reset (why we don't know), then it needs a timed reset.
-    # stores the date_time of the last successful received schedule
+    # When the request in flight started (or, between requests, when the last
+    # schedule arrived). A request older than __schedule_request_budget() is
+    # assumed lost, as a last resort.
     fm_date_time_last_schedule: datetime
-    fm_max_seconds_between_schedules: int
 
     # Helper to see if FM connection/ping has too many errors
     connection_error_counter: int
@@ -122,16 +121,7 @@ class FMClient(AsyncIOEventEmitter):
         self.FM_SCHEDULE_DURATION = isodate.parse_duration(
             self.FM_SCHEDULE_DURATION_STR
         )
-        self.DELAY_FOR_REATTEMPTS = 6
-        self.MAX_NUMBER_OF_REATTEMPTS = 15
-        self.DELAY_FOR_INITIAL_ATTEMPT = 20
         self.WINDOW_SLACK_IN_MINUTES = 60
-
-        # Add an extra attempt to prevent the last attempt not being able to finish.
-        self.fm_max_seconds_between_schedules = (
-            self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1)
-            + self.DELAY_FOR_INITIAL_ATTEMPT
-        )
 
         # Ping every half hour. If offline, a separate process will run to increase frequency.
         self.connection_error_counter = 0
@@ -849,7 +839,7 @@ class FMClient(AsyncIOEventEmitter):
             seconds_since_last_schedule = int(
                 (now - self.fm_date_time_last_schedule).total_seconds()
             )
-            if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
+            if seconds_since_last_schedule > self.__schedule_request_budget():
                 self.__log(
                     f"Retrieving previous schedule is taking too long "
                     f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
@@ -872,6 +862,40 @@ class FMClient(AsyncIOEventEmitter):
         # every call during a fresh request declare it lost and fire a duplicate.
         self.fm_date_time_last_schedule = now
 
+        # The early clears inside keep the flag down while the outcome is being
+        # reported; this finally covers every path that does not reach them —
+        # an exception while the flex model is built, or a cancelled task.
+        # Without it the flag stayed up until the guard above timed it out.
+        try:
+            return await self.__get_new_schedule_while_busy(
+                targets, current_soc_kwh, back_to_max_soc, now
+            )
+        finally:
+            self.fm_busy_getting_schedule = False
+
+    def __schedule_request_budget(self) -> int:
+        """Longest a healthy get_new_schedule can take, from the client's limits.
+
+        Every request the client makes, retries included, ends within
+        request_retry_timeout. One attempt is get_sensor (first call only),
+        the trigger and get_schedule, and on FlexMeasures 0.33+ a wait for the
+        scheduling job of up to job_polling_timeout, plus the status lookup
+        that may start just before that deadline. Then the retries, with a
+        one-second pause between attempts. With the 0.9.6 defaults: 4202 s.
+
+        A request younger than this is still being worked on, so a second one
+        would only duplicate it; the guard in get_new_schedule only treats a
+        request as lost once it has run longer than anything the client allows.
+        """
+        one_request = self.client.request_retry_timeout
+        one_attempt = 3 * one_request + self.client.job_polling_timeout + one_request
+        attempts = self.SCHEDULE_MAX_RETRIES + 1
+        return int(attempts * one_attempt + (attempts - 1))
+
+    async def __get_new_schedule_while_busy(
+        self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime, now
+    ):
+        """The body of get_new_schedule, run while fm_busy_getting_schedule is up."""
         rounded_now = time_round(now, c.EVENT_RESOLUTION)
 
         # The schedule duration, usually just over a day long.
@@ -1219,7 +1243,7 @@ class FMClient(AsyncIOEventEmitter):
             flex_model_str = flex_model_str[:1500] + "..."
         self.__log(f"flex_model: {flex_model_str}.")
         schedule = {}
-        max_retries = 2
+        max_retries = self.SCHEDULE_MAX_RETRIES
         for attempt in range(max_retries + 1):
             # Preferably the retry mechanism would be incorporated in the flexmeasures_client.
             # But this seems to make the system much more reliable so it is implemented here
