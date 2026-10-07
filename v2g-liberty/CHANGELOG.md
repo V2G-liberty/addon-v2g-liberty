@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- 🪲 BUG: After an add-on update the browser keeps serving the old cards (#505)
+- 🪲 BUG: After an add-on update the browser keeps serving the old cards (#506)
 - 🪲 BUG: Saving charger settings stopped halfway when a power had to be clamped (#504)
 - 🪲 BUG: Settings could be lost when the settings file was damaged (#503)
 - 🪲 BUG: The app fails to start on unknow new entity (#500)
