@@ -1,5 +1,6 @@
 """Main app to manage the charging process"""
 
+import asyncio
 import enum
 from itertools import accumulate
 import math
@@ -77,6 +78,11 @@ class V2Gliberty:
     timer_handle_set_next_action: object = None
     call_next_action_at_least_every: int = 15 * 60
     scheduling_timer_handles: List[str]
+    # Serialises the cancel-and-rebuild of those handles. Two schedules can
+    # arrive within milliseconds of each other, and the rebuild awaits ~324
+    # times, so without this both runs cancel an empty list and one set of
+    # timers is left running with no handle to reach it by.
+    scheduling_timers_lock: asyncio.Lock
 
     # This is a target datetime at which the SoC that is above the max_soc must return back to or
     # below this value. It is dependent on the user setting for allowed duration above max soc.
@@ -212,6 +218,7 @@ class V2Gliberty:
         await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
 
         self.scheduling_timer_handles = []
+        self.scheduling_timers_lock = asyncio.Lock()
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
@@ -329,9 +336,11 @@ class V2Gliberty:
                 self.__log(
                     f"Start Boost charge: SoC '{soc}%' < minimum '{c.CAR_MIN_SOC_IN_PERCENT}%'."
                 )
+                # The flag goes up before the awaits: a schedule that acquires
+                # the timer lock after this point must see it and stand down.
+                self.in_boost_to_reach_min_soc = True
                 await self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
-                self.in_boost_to_reach_min_soc = True
 
                 # Create a minimal schedule to show in graph that gives user an estimation of when
                 # the min. SoC will be reached. The schedule starts now with current SoC.
@@ -1596,6 +1605,22 @@ class V2Gliberty:
     ######################################################################
 
     async def __cancel_charging_timers(self):
+        """Cancel the schedule timers, waiting for a rebuild in progress first.
+
+        Called when the user leaves Automatic, when the car disconnects and
+        when a boost to the minimum SoC starts. Each of those can land in the
+        window where __process_schedule has already emptied the handle list
+        but not yet stored the new one; without the lock they would cancel
+        nothing and the fresh set would go live against the user's action.
+
+        Never call this from inside the locked block in __process_schedule:
+        the lock is not re-entrant. Use the _unlocked variant there.
+        """
+        async with self.scheduling_timers_lock:
+            await self.__cancel_charging_timers_unlocked()
+
+    async def __cancel_charging_timers_unlocked(self):
+        """The cancel itself; the caller holds scheduling_timers_lock."""
         count = len(self.scheduling_timer_handles)
         for h in self.scheduling_timer_handles:
             await cancel_timer_silent(self.hass, h)
@@ -1679,38 +1704,67 @@ class V2Gliberty:
 
         self.__log("valid schedule")
 
-        # Cancel previous timers before creating new ones to prevent orphaned timers
-        await self.__cancel_charging_timers()
-
-        # Create new scheduling timers, to send a control signal for each value
-        handles = []
-        now = get_local_now()
-        # To be able to differentiate between different schedules the time is added.
-        str_source = f"schedule@{now.strftime('%H:%M:%S')}"
-        timer_datetimes = [start + i * resolution for i in range(len(values))]
-        # convert from MegaWatt from schedule to Watt for charger
-        mw_to_w_factor = 1000000
-
-        for t, value in zip(timer_datetimes, values):
-            if t > now:
-                # AJO 17-10-2021
-                # ToDo: If value is the same as previous, combine them so we have less timers and
-                # switching moments?
-                h = await self.hass.run_at(
-                    self.__set_charge_power,
-                    t,
-                    charge_power=int(value * mw_to_w_factor),
-                    source=str_source,
+        # One lock around cancel-and-rebuild. The rebuild awaits per timer, so
+        # two schedules arriving together would otherwise both cancel an empty
+        # list and the first set of ~324 timers would keep firing with no handle
+        # left to cancel it by — overruling later schedules and the Charge and
+        # Discharge buttons for the rest of the horizon.
+        async with self.scheduling_timers_lock:
+            # A run that waited here for another one is working on checks made
+            # before it waited. Re-check what the user may have changed in the
+            # meantime; the timers of the run that held the lock are then left
+            # for the cancel that belongs to that change.
+            if (
+                await self.hass.get_state("input_select.charge_mode", None)
+                != "Automatic"
+            ):
+                self.__log(
+                    "aborted at the timer-lock re-check: charge_mode is not automatic (any more)."
                 )
-                handles.append(h)
-            else:
-                await self.__set_charge_power(
-                    {
-                        "charge_power": int(value * mw_to_w_factor),
-                        "source": str_source,
-                    }
+                return
+            if not await self.evse_client_app.is_car_connected():
+                self.__log(
+                    "aborted at the timer-lock re-check: car is not connected (any more)."
                 )
-        self.scheduling_timer_handles = handles
+                return
+            if self.in_boost_to_reach_min_soc:
+                self.__log(
+                    "aborted at the timer-lock re-check: in boost to reach min SoC."
+                )
+                return
+
+            # Cancel previous timers before creating new ones to prevent orphaned timers
+            await self.__cancel_charging_timers_unlocked()
+
+            # Create new scheduling timers, to send a control signal for each value
+            handles = []
+            now = get_local_now()
+            # To be able to differentiate between different schedules the time is added.
+            str_source = f"schedule@{now.strftime('%H:%M:%S')}"
+            timer_datetimes = [start + i * resolution for i in range(len(values))]
+            # convert from MegaWatt from schedule to Watt for charger
+            mw_to_w_factor = 1000000
+
+            for t, value in zip(timer_datetimes, values):
+                if t > now:
+                    # AJO 17-10-2021
+                    # ToDo: If value is the same as previous, combine them so we have less timers and
+                    # switching moments?
+                    h = await self.hass.run_at(
+                        self.__set_charge_power,
+                        t,
+                        charge_power=int(value * mw_to_w_factor),
+                        source=str_source,
+                    )
+                    handles.append(h)
+                else:
+                    await self.__set_charge_power(
+                        {
+                            "charge_power": int(value * mw_to_w_factor),
+                            "source": str_source,
+                        }
+                    )
+            self.scheduling_timer_handles = handles
 
         exp_soc_values = list(
             accumulate(
