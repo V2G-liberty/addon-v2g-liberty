@@ -855,9 +855,6 @@ class FMClient(AsyncIOEventEmitter):
                     f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
                     f"Getting new schedule."
                 )
-                # Reset the timestamp so that subsequent calls during the new
-                # request don't immediately consider it "lost" again.
-                self.fm_date_time_last_schedule = now
             else:
                 self.__log(
                     "Not getting new schedule, still processing previous request."
@@ -869,6 +866,11 @@ class FMClient(AsyncIOEventEmitter):
         # This has to be set here instead of in get_schedule because that function is called with a
         # delay and during this delay this get_new_schedule could be called.
         self.fm_busy_getting_schedule = True
+        # Start the clock here as well. The guard above measures how long the
+        # request we are waiting on has been running; without this it measured
+        # the time since the last *successful* schedule, so a quiet night made
+        # every call during a fresh request declare it lost and fire a duplicate.
+        self.fm_date_time_last_schedule = now
 
         rounded_now = time_round(now, c.EVENT_RESOLUTION)
 
