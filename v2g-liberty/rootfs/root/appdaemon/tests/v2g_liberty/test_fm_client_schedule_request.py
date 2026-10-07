@@ -116,3 +116,28 @@ async def test_job_timeout_on_every_attempt_ends_in_no_new_schedule(fm):
     )
     assert fm.fm_busy_getting_schedule is False
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("url", "password", "error"),
+    [
+        ("https://ems.example.com", "", "password cannot be empty"),
+        ("https://https://ems.example.com", "secret", "should not be included"),
+    ],
+)
+async def test_bad_credentials_at_start_up_are_reported_not_raised(
+    monkeypatch, url, password, error
+):
+    """EmptyPasswordError and WrongHostError do not subclass ValueError. Raised
+    out of initialise_and_test_fm_client they escaped kick_off_settings, and the
+    app did not start; returned, they become a FlexMeasures connection error."""
+    monkeypatch.setattr(c, "TZ", TEST_TZ, raising=False)
+    monkeypatch.setattr(c, "FM_BASE_URL", url, raising=False)
+    monkeypatch.setattr(c, "FM_ACCOUNT_USERNAME", "user@example.com", raising=False)
+    monkeypatch.setattr(c, "FM_ACCOUNT_PASSWORD", password, raising=False)
+    fm = FMClient(AsyncMock(), MagicMock())
+
+    result = await fm.initialise_and_test_fm_client()
+
+    assert error in str(result)
+    assert fm.client is None

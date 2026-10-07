@@ -153,7 +153,11 @@ class FMClient(AsyncIOEventEmitter):
 
         # TODO: Fix this
         from flexmeasures_client import FlexMeasuresClient
-        from flexmeasures_client.exceptions import EmailValidationError
+        from flexmeasures_client.exceptions import (
+            EmailValidationError,
+            EmptyPasswordError,
+            WrongHostError,
+        )
 
         host, ssl = get_host_and_ssl_from_url(host_url)
         self.__log(f"host: '{host}', ssl: '{ssl}'.")
@@ -166,14 +170,14 @@ class FMClient(AsyncIOEventEmitter):
                 ssl=ssl,
             )
         except ValueError as ve:
+            # e.g. a port in the host that is not a number
             self.__log(f"CLIENT ERROR: {ve}.", level="WARNING")
-            # ValueErrors:
-            # 'xxx' is not an email address format string (= also for empty email)
-            # password cannot be empty
             raise ve
-        except EmailValidationError as eve:
-            self.__log(f"CLIENT ERROR: {eve}.", level="WARNING")
-            raise eve
+        except (EmailValidationError, EmptyPasswordError, WrongHostError) as e:
+            # A malformed email, an empty password, or a scheme still in the host.
+            # None of these subclass ValueError.
+            self.__log(f"CLIENT ERROR: {e}.", level="WARNING")
+            raise e
 
         self.__log("successfully connect to flexmeasures")
         try:
@@ -195,7 +199,11 @@ class FMClient(AsyncIOEventEmitter):
         # Unusual place for the import, but it has to be in an async method otherwise it errors out
         # with problems with the async loop.
         from flexmeasures_client import FlexMeasuresClient
-        from flexmeasures_client.exceptions import EmailValidationError
+        from flexmeasures_client.exceptions import (
+            EmailValidationError,
+            EmptyPasswordError,
+            WrongHostError,
+        )
 
         self.fm_token = ""
         self.fm_busy_getting_schedule = False
@@ -216,14 +224,16 @@ class FMClient(AsyncIOEventEmitter):
                 ssl=ssl,
             )
         except ValueError as ve:
+            # e.g. a port in the host that is not a number
             self.__log(f"CLIENT ERROR: {ve}.", level="WARNING")
-            # ValueErrors:
-            # 'xxx' is not an email address format string (= also for empty email)
-            # password cannot be empty
             return ve
-        except EmailValidationError as eve:
-            self.__log(f"CLIENT ERROR: {eve}.", level="WARNING")
-            return eve
+        except (EmailValidationError, EmptyPasswordError, WrongHostError) as e:
+            # A malformed email, an empty password, or a scheme still in the host.
+            # None of these subclass ValueError. Returned, not raised: this runs
+            # inside kick_off_settings at start-up, and an exception there stops
+            # the whole app from starting instead of reporting a settings error.
+            self.__log(f"CLIENT ERROR: {e}.", level="WARNING")
+            return e
 
         self.__log("successfully initialised flexmeasures client")
 

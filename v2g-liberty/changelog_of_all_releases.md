@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: An empty FlexMeasures password or a doubled https:// in the server URL stopped V2G Liberty from starting (#508)
 - 🪲 BUG: Orphaned charging timers overrule later schedules and the Charge/Discharge buttons (#507)
 - 🪲 BUG: A refused discharge below the minimum SoC also stopped the boost to that minimum (#507)
 - 🪲 BUG: After an add-on update the browser keeps serving the old cards (#506)
