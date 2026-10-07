@@ -1362,6 +1362,12 @@ class V2Gliberty:
         await self.__clear_all_soc_chart_lines()
 
         if old_state == "Automatic":
+            # The boost to the minimum SoC belongs to Automatic and ends with it.
+            # Left standing, a return to Automatic finds the flag up, assumes the
+            # boost is still running and does nothing — while the reset below has
+            # just set the charger to 0 W. Cleared before the awaits, so a
+            # set_next_action that slips in between already sees it down.
+            self.in_boost_to_reach_min_soc = False
             self.__log("Cancel scheduled charging (timers).")
             await self.__cancel_charging_timers()
             await self.__reset_no_new_schedule()

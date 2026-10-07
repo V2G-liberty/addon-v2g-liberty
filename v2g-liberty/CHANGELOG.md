@@ -5,6 +5,7 @@
 ### Fixed
 
 - 🪲 BUG: Orphaned charging timers overrule later schedules and the Charge/Discharge buttons (#507)
+- 🪲 BUG: A refused discharge below the minimum SoC also stopped the boost to that minimum (#507)
 - 🪲 BUG: After an add-on update the browser keeps serving the old cards (#506)
 - 🪲 BUG: Saving charger settings stopped halfway when a power had to be clamped (#504)
 - 🪲 BUG: Settings could be lost when the settings file was damaged (#503)
