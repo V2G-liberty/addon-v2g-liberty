@@ -34,6 +34,13 @@ class ReservationsClient(AsyncIOEventEmitter):
 
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
+    # AppDaemon's run_every takes "now" as already past and fires first after a
+    # whole interval, so with start="now" the calendar was first read five
+    # minutes after start-up and the first schedule ran without reservations.
+    # A short delay puts the first poll just after the kick-off's schedule
+    # request; that request is then refused-and-remembered, and the next one
+    # carries the reservations.
+    FIRST_POLL_DELAY_SECONDS: int = 15
     calender_listener_id: str = ""
     event_bus: EventBus = None
     hass: Hass = None
@@ -214,7 +221,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                     self.hass,
                     self.poll_timer_id,
                     self.__poll_calendar_integration,
-                    start="now",
+                    start=self.__first_poll_at(),
                     interval=self.POLLING_INTERVAL_SECONDS,
                 )
                 await self.__set_caldav_connection_status(connected=True)
@@ -273,7 +280,7 @@ class ReservationsClient(AsyncIOEventEmitter):
             self.hass,
             self.poll_timer_id,
             self.__poll_dav_calendar,
-            start="now",
+            start=self.__first_poll_at(),
             interval=self.POLLING_INTERVAL_SECONDS,
         )
         self.__log(
@@ -318,6 +325,10 @@ class ReservationsClient(AsyncIOEventEmitter):
         """
         self.__log("Called from listener")
         await self.__poll_calendar_integration()
+
+    def __first_poll_at(self) -> dt.datetime:
+        """When the polling timer fires first; see FIRST_POLL_DELAY_SECONDS."""
+        return get_local_now() + dt.timedelta(seconds=self.FIRST_POLL_DELAY_SECONDS)
 
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
