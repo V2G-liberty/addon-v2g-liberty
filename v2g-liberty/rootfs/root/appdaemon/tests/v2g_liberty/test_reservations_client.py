@@ -114,3 +114,80 @@ async def test_first_calendar_poll_is_shortly_after_start_up(
         f"first poll {delay:.0f} s after start-up; expected within a minute"
     )
     assert timer.await_args.kwargs["interval"] == client.POLLING_INTERVAL_SECONDS
+
+
+def _client_for_polling(monkeypatch):
+    from datetime import timedelta, timezone
+
+    from apps.v2g_liberty import constants as c
+
+    monkeypatch.setattr(c, "TZ", timezone(timedelta(hours=1)), raising=False)
+
+    monkeypatch.setattr(
+        c, "INTEGRATION_CALENDAR_ENTITY_NAME", "calendar.car", raising=False
+    )
+    hass = AsyncMock()
+    hass.log = MagicMock()
+    client = ReservationsClient(hass, event_bus=AsyncMock(spec=EventBus))
+    client.poll_retries_left = client.MAX_POLL_RETRIES
+    return client
+
+
+@pytest.mark.asyncio
+async def test_a_poll_answered_without_events_data_is_retried(
+    mock_log_wrapper, monkeypatch
+):
+    """Right after start-up AppDaemon may call the calendar service without
+    asking for its response; the answer then has no 'response' key. That is
+    not "no reservations": retry shortly instead of waiting for the next poll."""
+    client = _client_for_polling(monkeypatch)
+    client.hass.call_service = AsyncMock(return_value={"result": {}})
+    retry = AsyncMock(return_value="timer-retry")
+    processed = AsyncMock()
+
+    with (
+        patch("apps.v2g_liberty.reservations_client.set_oneshot_timer", retry),
+        patch.object(client, "_ReservationsClient__process_v2g_events", processed),
+    ):
+        await client._ReservationsClient__poll_calendar_integration()
+
+    processed.assert_not_awaited()
+    retry.assert_awaited_once()
+    assert retry.await_args.kwargs["delay"] == client.POLL_RETRY_DELAY_SECONDS
+    assert client.poll_retries_left == client.MAX_POLL_RETRIES - 1
+
+
+@pytest.mark.asyncio
+async def test_retries_stop_after_the_budget(mock_log_wrapper, monkeypatch):
+    client = _client_for_polling(monkeypatch)
+    client.poll_retries_left = 0
+    client.hass.call_service = AsyncMock(return_value={"result": {}})
+    retry = AsyncMock()
+
+    with patch("apps.v2g_liberty.reservations_client.set_oneshot_timer", retry):
+        await client._ReservationsClient__poll_calendar_integration()
+
+    retry.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_proper_answer_is_processed_and_resets_the_budget(
+    mock_log_wrapper, monkeypatch
+):
+    client = _client_for_polling(monkeypatch)
+    client.poll_retries_left = 1
+    client.hass.call_service = AsyncMock(
+        return_value={"result": {"response": {"calendar.car": {"events": []}}}}
+    )
+    retry = AsyncMock()
+    processed = AsyncMock()
+
+    with (
+        patch("apps.v2g_liberty.reservations_client.set_oneshot_timer", retry),
+        patch.object(client, "_ReservationsClient__process_v2g_events", processed),
+    ):
+        await client._ReservationsClient__poll_calendar_integration()
+
+    processed.assert_awaited_once_with([])
+    retry.assert_not_awaited()
+    assert client.poll_retries_left == client.MAX_POLL_RETRIES

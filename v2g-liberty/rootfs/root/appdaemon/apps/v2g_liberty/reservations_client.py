@@ -12,7 +12,7 @@ from .event_bus import EventBus
 from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now
-from .timer_utils import set_recurring_timer
+from .timer_utils import set_oneshot_timer, set_recurring_timer
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -41,6 +41,14 @@ class ReservationsClient(AsyncIOEventEmitter):
     # request; that request is then refused-and-remembered, and the next one
     # carries the reservations.
     FIRST_POLL_DELAY_SECONDS: int = 15
+    # AppDaemon only asks Home Assistant for a service's response when its own
+    # copy of HA's service list says the service returns one, and it loads that
+    # list in the background after start-up. A poll that lands before then gets
+    # an answer without events in it. Such a poll is retried, a few times.
+    POLL_RETRY_DELAY_SECONDS: int = 10
+    MAX_POLL_RETRIES: int = 6
+    poll_retry_timer_id: str = ""
+    poll_retries_left: int = 0
     calender_listener_id: str = ""
     event_bus: EventBus = None
     hass: Hass = None
@@ -209,6 +217,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                 # TODO: Here we should not be aware of "unknown", "Please choose an option",
                 # fix in globals.
                 self.__log("setting listener")
+                self.poll_retries_left = self.MAX_POLL_RETRIES
                 self.calender_listener_id = await self.hass.listen_state(
                     self.__handle_changed_event,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
@@ -355,13 +364,43 @@ class ReservationsClient(AsyncIOEventEmitter):
         if local_events is None:
             self.__log("Could not retrieve events, aborting", level="WARNING")
             return
+        result = local_events.get("result", {})
+        if "response" not in result:
+            # The call went through but no response data came back: AppDaemon
+            # did not ask for it, because it does not know yet that this
+            # service returns one. Try again shortly rather than treat this as
+            # "no reservations"; the regular poll would otherwise be the next
+            # chance, five minutes on.
+            if self.poll_retries_left > 0:
+                self.poll_retries_left -= 1
+                self.__log(
+                    "Calendar answered without events data (keys: "
+                    f"{sorted(result.keys())}); AppDaemon's service list is "
+                    f"probably not loaded yet. Trying again in "
+                    f"{self.POLL_RETRY_DELAY_SECONDS} s.",
+                    level="WARNING",
+                )
+                self.poll_retry_timer_id = await set_oneshot_timer(
+                    self.hass,
+                    self.poll_retry_timer_id,
+                    self.__poll_calendar_integration,
+                    delay=self.POLL_RETRY_DELAY_SECONDS,
+                )
+            else:
+                self.__log(
+                    "Calendar answered without events data again; giving up "
+                    "until the next regular poll.",
+                    level="WARNING",
+                )
+            return
+        self.poll_retries_left = self.MAX_POLL_RETRIES
         # Peel off some unneeded layers
         local_events = (
-            local_events.get("result", {})
-            .get("response", {})
+            result.get("response", {})
             .get(c.INTEGRATION_CALENDAR_ENTITY_NAME, {})
             .get("events", [])
         )
+        self.__log(f"Polled calendar: {len(local_events)} event(s).")
         tmp_v2g_events = []
 
         for local_event in local_events:
