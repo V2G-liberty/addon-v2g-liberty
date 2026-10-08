@@ -76,28 +76,26 @@ def test_add_target_soc(
 
 
 @pytest.mark.asyncio
-async def test_first_calendar_poll_is_shortly_after_start_up(
+async def test_first_calendar_poll_is_a_one_shot_shortly_after_start_up(
     mock_log_wrapper, monkeypatch
 ):
-    """The polling timer's first fire must be a moment in the near future, not
-    "now": AppDaemon takes "now" as already past and then fires first after a
-    whole interval, which left the first schedule after every restart without
-    reservations for five minutes."""
-    from datetime import datetime, timedelta, timezone
-
+    """The recurring timer's first tick is a whole interval in (AppDaemon takes
+    start="now" as already past), which left the first schedule after every
+    restart without reservations for five minutes. The first poll is therefore
+    its own one-shot timer, within a minute of start-up."""
     from apps.v2g_liberty import constants as c
 
-    now = datetime(2026, 2, 22, 12, 0, 0, tzinfo=timezone(timedelta(hours=1)))
     monkeypatch.setattr(c, "CAR_CALENDAR_SOURCE", "localIntegration", raising=False)
     monkeypatch.setattr(
         c, "INTEGRATION_CALENDAR_ENTITY_NAME", "calendar.car", raising=False
     )
     client = ReservationsClient(AsyncMock(), event_bus=AsyncMock(spec=EventBus))
-    timer = AsyncMock(return_value="timer-1")
+    recurring = AsyncMock(return_value="timer-1")
+    one_shot = AsyncMock(return_value="timer-2")
 
     with (
-        patch("apps.v2g_liberty.reservations_client.set_recurring_timer", timer),
-        patch("apps.v2g_liberty.reservations_client.get_local_now", return_value=now),
+        patch("apps.v2g_liberty.reservations_client.set_recurring_timer", recurring),
+        patch("apps.v2g_liberty.reservations_client.set_oneshot_timer", one_shot),
         patch.object(
             client, "_ReservationsClient__set_caldav_connection_status", AsyncMock()
         ),
@@ -105,15 +103,13 @@ async def test_first_calendar_poll_is_shortly_after_start_up(
         result = await client.initialise_calendar()
 
     assert result == "Successfully connected"
-    start = timer.await_args.kwargs["start"]
-    assert isinstance(start, datetime), (
-        "first fire must be a moment, not the string 'now'"
-    )
-    delay = (start - now).total_seconds()
+    one_shot.assert_awaited_once()
+    delay = one_shot.await_args.kwargs["delay"]
     assert 0 < delay <= 60, (
-        f"first poll {delay:.0f} s after start-up; expected within a minute"
+        f"first poll {delay} s after start-up; expected within a minute"
     )
-    assert timer.await_args.kwargs["interval"] == client.POLLING_INTERVAL_SECONDS
+    assert one_shot.await_args.args[2] == recurring.await_args.args[2], "same poll"
+    assert recurring.await_args.kwargs["interval"] == client.POLLING_INTERVAL_SECONDS
 
 
 def _client_for_polling(monkeypatch):

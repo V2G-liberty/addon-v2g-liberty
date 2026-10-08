@@ -34,13 +34,15 @@ class ReservationsClient(AsyncIOEventEmitter):
 
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
-    # AppDaemon's run_every takes "now" as already past and fires first after a
-    # whole interval, so with start="now" the calendar was first read five
-    # minutes after start-up and the first schedule ran without reservations.
-    # A short delay puts the first poll just after the kick-off's schedule
-    # request; that request is then refused-and-remembered, and the next one
-    # carries the reservations.
+    # AppDaemon's run_every with start="now" fires first after a whole interval,
+    # so the calendar was first read five minutes after start-up and the first
+    # schedule ran without reservations. The first poll is therefore a one-shot
+    # timer of its own, shortly after start-up: just after the kick-off's
+    # schedule request, which is then refused-and-remembered, and the request
+    # that follows carries the reservations. The recurring timer keeps its own
+    # cadence from "now", i.e. its first tick is one interval in.
     FIRST_POLL_DELAY_SECONDS: int = 15
+    first_poll_timer_id: str = ""
     # AppDaemon only asks Home Assistant for a service's response when its own
     # copy of HA's service list says the service returns one, and it loads that
     # list in the background after start-up. A poll that lands before then gets
@@ -230,8 +232,14 @@ class ReservationsClient(AsyncIOEventEmitter):
                     self.hass,
                     self.poll_timer_id,
                     self.__poll_calendar_integration,
-                    start=self.__first_poll_at(),
+                    start="now",
                     interval=self.POLLING_INTERVAL_SECONDS,
+                )
+                self.first_poll_timer_id = await set_oneshot_timer(
+                    self.hass,
+                    self.first_poll_timer_id,
+                    self.__poll_calendar_integration,
+                    delay=self.FIRST_POLL_DELAY_SECONDS,
                 )
                 await self.__set_caldav_connection_status(connected=True)
                 return "Successfully connected"
@@ -289,8 +297,14 @@ class ReservationsClient(AsyncIOEventEmitter):
             self.hass,
             self.poll_timer_id,
             self.__poll_dav_calendar,
-            start=self.__first_poll_at(),
+            start="now",
             interval=self.POLLING_INTERVAL_SECONDS,
+        )
+        self.first_poll_timer_id = await set_oneshot_timer(
+            self.hass,
+            self.first_poll_timer_id,
+            self.__poll_dav_calendar,
+            delay=self.FIRST_POLL_DELAY_SECONDS,
         )
         self.__log(
             f"started polling_time {self.poll_timer_id} "
@@ -335,10 +349,6 @@ class ReservationsClient(AsyncIOEventEmitter):
         self.__log("Called from listener")
         await self.__poll_calendar_integration()
 
-    def __first_poll_at(self) -> dt.datetime:
-        """When the polling timer fires first; see FIRST_POLL_DELAY_SECONDS."""
-        return get_local_now() + dt.timedelta(seconds=self.FIRST_POLL_DELAY_SECONDS)
-
     async def __poll_calendar_integration(
         self, entity=None, attribute=None, old=None, new=None, kwargs=None
     ):
@@ -350,7 +360,7 @@ class ReservationsClient(AsyncIOEventEmitter):
         Ideally the listener would trigger for any change in any future calendar item, then polling
         would not be necessary.
         """
-        self.__log("Called", level="DEBUG")
+        self.__log("Polling the calendar integration.")
 
         now = get_local_now()
         start = now.isoformat()
