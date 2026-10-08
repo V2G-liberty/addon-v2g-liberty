@@ -1,5 +1,6 @@
 """Unit test (pytest) for reservations_client module."""
 
+from datetime import timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -76,22 +77,27 @@ def test_add_target_soc(
 
 
 @pytest.mark.asyncio
-async def test_first_calendar_poll_is_a_one_shot_shortly_after_start_up(
+async def test_the_calendar_is_read_during_initialisation_not_on_a_timer(
     mock_log_wrapper, monkeypatch
 ):
-    """The recurring timer's first tick is a whole interval in (AppDaemon takes
-    start="now" as already past), which left the first schedule after every
-    restart without reservations for five minutes. The first poll is therefore
-    its own one-shot timer, within a minute of start-up."""
+    """AppDaemon discards timer callbacks that fire while initialize() still
+    runs, and ours runs for close to a minute, so a "shortly after start-up"
+    timer never ran and the first schedule did not know the reservations.
+    The first read is therefore awaited directly in initialise_calendar."""
     from apps.v2g_liberty import constants as c
 
+    monkeypatch.setattr(c, "TZ", timezone(timedelta(hours=1)), raising=False)
     monkeypatch.setattr(c, "CAR_CALENDAR_SOURCE", "localIntegration", raising=False)
     monkeypatch.setattr(
         c, "INTEGRATION_CALENDAR_ENTITY_NAME", "calendar.car", raising=False
     )
-    client = ReservationsClient(AsyncMock(), event_bus=AsyncMock(spec=EventBus))
+    hass = AsyncMock()
+    hass.call_service = AsyncMock(
+        return_value={"result": {"response": {"calendar.car": {"events": []}}}}
+    )
+    client = ReservationsClient(hass, event_bus=AsyncMock(spec=EventBus))
     recurring = AsyncMock(return_value="timer-1")
-    one_shot = AsyncMock(return_value="timer-2")
+    one_shot = AsyncMock()
 
     with (
         patch("apps.v2g_liberty.reservations_client.set_recurring_timer", recurring),
@@ -103,13 +109,38 @@ async def test_first_calendar_poll_is_a_one_shot_shortly_after_start_up(
         result = await client.initialise_calendar()
 
     assert result == "Successfully connected"
-    one_shot.assert_awaited_once()
-    delay = one_shot.await_args.kwargs["delay"]
-    assert 0 < delay <= 60, (
-        f"first poll {delay} s after start-up; expected within a minute"
-    )
-    assert one_shot.await_args.args[2] == recurring.await_args.args[2], "same poll"
+    hass.call_service.assert_awaited_once()  # the calendar was read, now
+    one_shot.assert_not_awaited()  # and not left to a timer
+    assert recurring.await_args.kwargs["start"] == "now"
     assert recurring.await_args.kwargs["interval"] == client.POLLING_INTERVAL_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_the_first_read_retries_inline_when_the_answer_has_no_events_data(
+    mock_log_wrapper, monkeypatch
+):
+    """A timer-based retry would be discarded during initialisation too."""
+    client = _client_for_polling(monkeypatch)
+    client.hass.call_service = AsyncMock(
+        side_effect=[
+            {"result": {}},
+            {"result": {}},
+            {"result": {"response": {"calendar.car": {"events": []}}}},
+        ]
+    )
+    processed = AsyncMock()
+
+    with (
+        patch("apps.v2g_liberty.reservations_client.set_oneshot_timer", AsyncMock()),
+        patch("apps.v2g_liberty.reservations_client.asyncio.sleep", AsyncMock()),
+        patch.object(client, "_ReservationsClient__process_v2g_events", processed),
+    ):
+        await client._ReservationsClient__first_poll(
+            client._ReservationsClient__poll_calendar_integration
+        )
+
+    assert client.hass.call_service.await_count == 3
+    processed.assert_awaited_once_with([])
 
 
 def _client_for_polling(monkeypatch):

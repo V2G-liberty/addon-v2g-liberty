@@ -219,6 +219,9 @@ class V2Gliberty:
 
         self.scheduling_timer_handles = []
         self.scheduling_timers_lock = asyncio.Lock()
+        # Up once kick_off_v2g_liberty has run. Before that, a calendar load
+        # must not ask for a schedule: the kick-off does, with the targets.
+        self.has_kicked_off = False
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
@@ -230,6 +233,7 @@ class V2Gliberty:
 
     async def kick_off_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
+        self.has_kicked_off = True
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
@@ -643,6 +647,11 @@ class V2Gliberty:
                 is_first_reservation = False
             # End for car_reservation loop
 
+        if not self.has_kicked_off:
+            self.__log(
+                "Targets loaded before kick-off; the kick-off asks for the schedule."
+            )
+            return
         await self.set_next_action(v2g_args)
 
     ######################################################################

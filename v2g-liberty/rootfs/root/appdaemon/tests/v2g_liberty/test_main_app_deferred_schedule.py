@@ -110,3 +110,22 @@ async def test_a_failed_request_does_not_ask_again(v2g):
     assert v2g.fm_client_app.get_new_schedule.await_count == 1
     process.assert_not_awaited()
     v2g.fm_client_app.pop_deferred_schedule_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_calendar_load_before_kick_off_does_not_ask_for_a_schedule(v2g):
+    """The calendar is now read during initialisation, before kick-off. That
+    load must only set the targets; the kick-off asks for the schedule with
+    them, once. After kick-off a calendar change asks as before."""
+    v2g.has_kicked_off = False
+    ask = AsyncMock()
+    with (
+        patch("apps.v2g_liberty.main_app.get_local_now"),
+        patch.object(v2g, "set_next_action", ask),
+    ):
+        await v2g.handle_calendar_change(v2g_events=[], v2g_args="initial load")
+        ask.assert_not_awaited()
+
+        v2g.has_kicked_off = True
+        await v2g.handle_calendar_change(v2g_events=[], v2g_args="changed v2g_events")
+        ask.assert_awaited_once()
