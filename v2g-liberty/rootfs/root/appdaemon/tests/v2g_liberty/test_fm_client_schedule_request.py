@@ -188,3 +188,38 @@ async def test_starting_a_request_drops_an_older_deferral(fm):
 
     assert fm.schedule_request_deferred is False
 
+
+@pytest.mark.asyncio
+async def test_a_trigger_during_the_reporting_of_an_outcome_is_refused(fm):
+    """The busy flag stays up until get_new_schedule returns. It used to be
+    cleared before the outcome was reported; a trigger landing in that yield
+    then started a second request unrefused, and the finally of the first
+    request cleared the second one's flag — the guard was off from there on."""
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        return_value={
+            "values": [0.001],
+            "duration": "PT5M",
+            "start": "2026-02-22T12:00:00+01:00",
+        }
+    )
+    fm.set_fm_connection_status = AsyncMock()
+    seen_during_reporting = {}
+
+    async def trigger_arrives_while_reporting():
+        if seen_during_reporting:
+            return  # only the first report gets a trigger; the second call reports too
+        seen_during_reporting["busy"] = fm.fm_busy_getting_schedule
+        seen_during_reporting["result"] = await _get(fm)  # the second call
+        seen_during_reporting["deferred"] = fm.schedule_request_deferred
+
+    fm.wait_for_complete = AsyncMock(side_effect=trigger_arrives_while_reporting)
+
+    assert (await _get(fm)) is not None
+
+    assert seen_during_reporting["busy"] is True, (
+        "flag must still be up while reporting"
+    )
+    assert seen_during_reporting["result"] is None, "the second call must be refused"
+    assert seen_during_reporting["deferred"] is True, "... and remembered"
+    assert fm.client.trigger_and_get_schedule.await_count == 1
+    assert fm.fm_busy_getting_schedule is False  # the finally, afterwards

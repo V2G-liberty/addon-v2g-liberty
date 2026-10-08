@@ -82,8 +82,11 @@ class FMClient(AsyncIOEventEmitter):
 
     # FM Authentication token
     fm_token: str
-    # Helper to prevent parallel calls to FM for getting a schedule. Cleared in a
-    # finally, so an exception or a cancellation cannot leave it standing.
+    # Helper to prevent parallel calls to FM for getting a schedule. Up from the
+    # start of a request until get_new_schedule returns — including while the
+    # outcome is being reported — and cleared in a finally only, so neither an
+    # exception nor a cancellation nor an early return can leave it standing or
+    # drop it while a request is still in flight.
     fm_busy_getting_schedule: bool = False
     # Set when a request was refused because one was in flight. The refused
     # call carried newer input (a reservation, a SoC step), so the schedule
@@ -886,10 +889,12 @@ class FMClient(AsyncIOEventEmitter):
         # every call during a fresh request declare it lost and fire a duplicate.
         self.fm_date_time_last_schedule = now
 
-        # The early clears inside keep the flag down while the outcome is being
-        # reported; this finally covers every path that does not reach them —
-        # an exception while the flex model is built, or a cancelled task.
-        # Without it the flag stayed up until the guard above timed it out.
+        # The finally is the only place the flag comes down. It used to be
+        # cleared early, before the outcome was reported; in the yield of that
+        # reporting a trigger could then start a second request unrefused, and
+        # this finally would clear that request's flag. Nothing on the reporting
+        # path asks for a schedule, so keeping the flag up there blocks nothing,
+        # and a trigger landing then is refused and remembered like any other.
         try:
             return await self.__get_new_schedule_while_busy(
                 targets, current_soc_kwh, back_to_max_soc, now
@@ -1305,14 +1310,11 @@ class FMClient(AsyncIOEventEmitter):
                         f"Client exception: {e!r}.",
                         level="WARNING",
                     )
-                    self.fm_busy_getting_schedule = False
                     self.emit(
                         "no_new_schedule", "timeouts_on_schedule", error_state=True
                     )
                     await self.wait_for_complete()
                     return
-
-        self.fm_busy_getting_schedule = False
 
         if schedule == {}:
             self.__log("schedule is empty")
