@@ -435,6 +435,20 @@ class V2Gliberty:
                 else:
                     self.__log(f"New schedule: {schedule}")
                     await self.__process_schedule(schedule=schedule)
+                    # A trigger that landed while this schedule was being
+                    # fetched was refused, and this schedule does not know
+                    # what it brought. Ask again, with the current data — also
+                    # when the schedule was rejected above, because what the
+                    # refused trigger brought is still unused. A request that
+                    # failed never gets here, and if processing raises the
+                    # deferral waits for the next trigger, like after a failed
+                    # request: an outage is not hammered.
+                    if self.fm_client_app.pop_deferred_schedule_request():
+                        self.__log(
+                            "A request was refused while this schedule was on its "
+                            "way; asking again with the current data."
+                        )
+                        await self.set_next_action(v2g_args="deferred_schedule_request")
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")

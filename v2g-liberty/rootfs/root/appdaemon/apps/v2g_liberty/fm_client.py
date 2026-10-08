@@ -85,6 +85,14 @@ class FMClient(AsyncIOEventEmitter):
     # Helper to prevent parallel calls to FM for getting a schedule. Cleared in a
     # finally, so an exception or a cancellation cannot leave it standing.
     fm_busy_getting_schedule: bool = False
+    # Set when a request was refused because one was in flight. The refused
+    # call carried newer input (a reservation, a SoC step), so the schedule
+    # that is on its way is already stale. main_app takes this flag after it
+    # has processed that schedule and asks once more, with the current data.
+    # A refused watchdog tick counts too, on purpose: a schedule that took
+    # longer than the watchdog interval to arrive is older than that interval
+    # when it lands, so the refresh it is owed follows at once.
+    schedule_request_deferred: bool = False
     # When the request in flight started (or, between requests, when the last
     # schedule arrived). A request older than __schedule_request_budget() is
     # assumed lost, as a last resort.
@@ -857,8 +865,10 @@ class FMClient(AsyncIOEventEmitter):
                 )
             else:
                 self.__log(
-                    "Not getting new schedule, still processing previous request."
+                    "Not getting new schedule, still processing previous request; "
+                    "asking again once that one is in."
                 )
+                self.schedule_request_deferred = True
                 return
         else:
             self.__log("Was not busy getting schedule, but i am now!")
@@ -866,6 +876,10 @@ class FMClient(AsyncIOEventEmitter):
         # This has to be set here instead of in get_schedule because that function is called with a
         # delay and during this delay this get_new_schedule could be called.
         self.fm_busy_getting_schedule = True
+        # This request reads the targets and the SoC as they are now, so it
+        # covers whatever a refused call wanted. Also drops a deferral left by
+        # a request that failed: the next trigger starts afresh anyway.
+        self.schedule_request_deferred = False
         # Start the clock here as well. The guard above measures how long the
         # request we are waiting on has been running; without this it measured
         # the time since the last *successful* schedule, so a quiet night made
@@ -882,6 +896,16 @@ class FMClient(AsyncIOEventEmitter):
             )
         finally:
             self.fm_busy_getting_schedule = False
+
+    def pop_deferred_schedule_request(self) -> bool:
+        """Whether a request was refused while the last one was in flight.
+
+        Clears the flag. The caller has just processed the schedule that was
+        in flight and uses this to ask once more with the current data.
+        """
+        deferred = self.schedule_request_deferred
+        self.schedule_request_deferred = False
+        return deferred
 
     def __schedule_request_budget(self) -> int:
         """Longest a healthy get_new_schedule can take, from the client's limits.

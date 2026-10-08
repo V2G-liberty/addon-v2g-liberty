@@ -141,3 +141,50 @@ async def test_bad_credentials_at_start_up_are_reported_not_raised(
 
     assert error in str(result)
     assert fm.client is None
+
+
+@pytest.mark.asyncio
+async def test_a_refused_request_is_remembered_until_the_running_one_is_in(fm):
+    """A reservation arrives while a schedule is being fetched. The call it
+    triggers is refused, but not forgotten: once the running request is in,
+    main_app must be told to ask again, with the reservation in it."""
+    release = asyncio.Event()
+
+    async def slow_trigger(**kwargs):
+        await release.wait()
+        return {
+            "values": [0.001],
+            "duration": "PT5M",
+            "start": "2026-02-22T12:00:00+01:00",
+        }
+
+    fm.client.trigger_and_get_schedule = AsyncMock(side_effect=slow_trigger)
+    fm.set_fm_connection_status = AsyncMock()
+
+    first = asyncio.create_task(_get(fm))
+    while not fm.fm_busy_getting_schedule:
+        await asyncio.sleep(0)
+
+    assert await _get(fm) is None  # refused: one is in flight
+    assert fm.schedule_request_deferred is True
+
+    release.set()
+    assert (await first) is not None
+    assert fm.pop_deferred_schedule_request() is True
+    assert fm.pop_deferred_schedule_request() is False  # taken once
+
+
+@pytest.mark.asyncio
+async def test_starting_a_request_drops_an_older_deferral(fm):
+    """The new request reads the current data, so it covers what the refused
+    call wanted; a deferral left behind by a failed request must not cause an
+    extra round later."""
+    fm.schedule_request_deferred = True
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        side_effect=JobTimeoutError("job did not finish in time")
+    )
+
+    await _get(fm)
+
+    assert fm.schedule_request_deferred is False
+
