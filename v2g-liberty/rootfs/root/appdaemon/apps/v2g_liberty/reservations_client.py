@@ -1,19 +1,18 @@
 """Module to read and process calander data for reservations"""
 
-import asyncio
 import datetime as dt
 import re
-import requests
+
 import caldav
+import requests
+from appdaemon.plugins.hass.hassapi import Hass
 from pyee.asyncio import AsyncIOEventEmitter
 
-from appdaemon.plugins.hass.hassapi import Hass
-from .event_bus import EventBus
-
 from . import constants as c
+from .event_bus import EventBus
 from .log_wrapper import get_class_method_logger
+from .timer_utils import set_recurring_timer
 from .v2g_globals import get_local_now
-from .timer_utils import set_oneshot_timer, set_recurring_timer
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -42,16 +41,6 @@ class ReservationsClient(AsyncIOEventEmitter):
     # "shortly after start-up" never ran and the calendar was first read a
     # whole interval later. Done directly, the reservations are known before
     # the kick-off asks for its first schedule.
-    FIRST_POLL_ATTEMPTS: int = 5
-    FIRST_POLL_RETRY_SECONDS: float = 2.0
-    # AppDaemon only asks Home Assistant for a service's response when its own
-    # copy of HA's service list says the service returns one, and it loads that
-    # list in the background after start-up. A poll that lands before then gets
-    # an answer without events in it. Such a poll is retried, a few times.
-    POLL_RETRY_DELAY_SECONDS: int = 10
-    MAX_POLL_RETRIES: int = 6
-    poll_retry_timer_id: str = ""
-    poll_retries_left: int = 0
     calender_listener_id: str = ""
     event_bus: EventBus = None
     hass: Hass = None
@@ -220,7 +209,6 @@ class ReservationsClient(AsyncIOEventEmitter):
                 # TODO: Here we should not be aware of "unknown", "Please choose an option",
                 # fix in globals.
                 self.__log("setting listener")
-                self.poll_retries_left = self.MAX_POLL_RETRIES
                 self.calender_listener_id = await self.hass.listen_state(
                     self.__handle_changed_event,
                     c.INTEGRATION_CALENDAR_ENTITY_NAME,
@@ -367,36 +355,11 @@ class ReservationsClient(AsyncIOEventEmitter):
             return False
         result = local_events.get("result", {})
         if "response" not in result:
-            # The call went through but no response data came back: AppDaemon
-            # did not ask for it, because it does not know yet that this
-            # service returns one. Try again shortly rather than treat this as
-            # "no reservations"; the regular poll would otherwise be the next
-            # chance, five minutes on.
-            if self.poll_retries_left > 0:
-                self.poll_retries_left -= 1
-                # Note: while initialize() runs this timer is discarded by
-                # AppDaemon; __first_poll retries inline for that case.
-                self.__log(
-                    "Calendar answered without events data (keys: "
-                    f"{sorted(result.keys())}); AppDaemon's service list is "
-                    f"probably not loaded yet. Trying again in "
-                    f"{self.POLL_RETRY_DELAY_SECONDS} s.",
-                    level="WARNING",
-                )
-                self.poll_retry_timer_id = await set_oneshot_timer(
-                    self.hass,
-                    self.poll_retry_timer_id,
-                    self.__poll_calendar_integration,
-                    delay=self.POLL_RETRY_DELAY_SECONDS,
-                )
-            else:
-                self.__log(
-                    "Calendar answered without events data again; giving up "
-                    "until the next regular poll.",
-                    level="WARNING",
-                )
+            self.__log(
+                f"Calendar answered without events data (keys: {sorted(result.keys())}).",
+                level="WARNING",
+            )
             return False
-        self.poll_retries_left = self.MAX_POLL_RETRIES
         # Peel off some unneeded layers
         local_events = (
             result.get("response", {})
@@ -432,19 +395,10 @@ class ReservationsClient(AsyncIOEventEmitter):
 
     async def __first_poll(self, poll) -> None:
         """Read the calendar once, now, so the reservations are known before
-        the kick-off asks for the first schedule. Retried inline a few times
-        when the answer carried no events data (see __poll_calendar_integration);
-        a timer would not do here, as AppDaemon drops timers that fire while
+        the kick-off asks for the first schedule. Awaited directly: a timer
+        would not do here, as AppDaemon drops timers that fire while
         initialize() is still running."""
-        for attempt in range(self.FIRST_POLL_ATTEMPTS):
-            if await poll() is not False:
-                return
-            await asyncio.sleep(self.FIRST_POLL_RETRY_SECONDS)
-        self.__log(
-            f"No usable calendar answer in {self.FIRST_POLL_ATTEMPTS} attempts; "
-            "the regular poll will try again.",
-            level="WARNING",
-        )
+        await poll()
 
     async def __poll_dav_calendar(self, kwargs=None):
         # Get the items in from now to the next week from the calendar
