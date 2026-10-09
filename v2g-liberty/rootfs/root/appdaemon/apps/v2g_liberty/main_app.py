@@ -219,6 +219,9 @@ class V2Gliberty:
 
         self.scheduling_timer_handles = []
         self.scheduling_timers_lock = asyncio.Lock()
+        # Up once kick_off_v2g_liberty has run. Before that, a calendar load
+        # must not ask for a schedule: the kick-off does, with the targets.
+        self.has_kicked_off = False
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
@@ -230,6 +233,7 @@ class V2Gliberty:
 
     async def kick_off_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
+        self.has_kicked_off = True
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
@@ -435,6 +439,20 @@ class V2Gliberty:
                 else:
                     self.__log(f"New schedule: {schedule}")
                     await self.__process_schedule(schedule=schedule)
+                    # A trigger that landed while this schedule was being
+                    # fetched was refused, and this schedule does not know
+                    # what it brought. Ask again, with the current data — also
+                    # when the schedule was rejected above, because what the
+                    # refused trigger brought is still unused. A request that
+                    # failed never gets here, and if processing raises the
+                    # deferral waits for the next trigger, like after a failed
+                    # request: an outage is not hammered.
+                    if self.fm_client_app.pop_deferred_schedule_request():
+                        self.__log(
+                            "A request was refused while this schedule was on its "
+                            "way; asking again with the current data."
+                        )
+                        await self.set_next_action(v2g_args="deferred_schedule_request")
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
@@ -629,6 +647,11 @@ class V2Gliberty:
                 is_first_reservation = False
             # End for car_reservation loop
 
+        if not self.has_kicked_off:
+            self.__log(
+                "Targets loaded before kick-off; the kick-off asks for the schedule."
+            )
+            return
         await self.set_next_action(v2g_args)
 
     ######################################################################
