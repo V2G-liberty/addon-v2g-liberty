@@ -58,6 +58,8 @@ def globals_instance(log_mock, settings_manager_mock, hass_mock, fm_client_mock)
     instance.hass = hass_mock
     instance.fm_client_app = fm_client_mock
     instance.event_bus = MagicMock()
+    # Provisioning rebuilds the flex-context; that has its own tests.
+    instance._V2GLibertyGlobals__set_fm_optimisation_context = AsyncMock()
     return instance
 
 
@@ -858,6 +860,8 @@ def globals_with_fm(log_mock, settings_manager_mock, hass_mock, fm_client_connec
     instance.hass = hass_mock
     instance.fm_client_app = fm_client_connected
     instance.event_bus = MagicMock()
+    # Provisioning rebuilds the flex-context; that has its own tests.
+    instance._V2GLibertyGlobals__set_fm_optimisation_context = AsyncMock()
     return instance
 
 
