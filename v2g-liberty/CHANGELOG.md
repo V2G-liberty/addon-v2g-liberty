@@ -33,6 +33,7 @@
 - 🚀 FEAT: Grid connection redesign (#488)
 - 🚀 FEAT: Support for the EVtec BiDiPro 10 charger (#482, #496, #497, #498)
 - 🚀 FEAT: All car settings in one dialog + unregistered car pauses automatic charging (#478, #502)
+- 🚀 FEAT: FlexMeasures stores the scheduled aggregate consumption and production on the Mains Connection (#495)
 - 🚀 FEAT: Recover automatically once an unusable charger is back (#499)
 
 ### Changed

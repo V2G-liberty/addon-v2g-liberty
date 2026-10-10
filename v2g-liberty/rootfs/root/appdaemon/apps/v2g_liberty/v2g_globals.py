@@ -1553,6 +1553,9 @@ class V2GLibertyGlobals:
             f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
             f"sensors_to_show={sensors_to_show}"
         )
+        # The flex-context is built before provisioning at start-up; rebuild it
+        # so the next schedule request carries the aggregate sensors.
+        await self.__set_fm_optimisation_context()
 
     async def __provision_grid_assets_best_effort(self):
         """Provision FM grid assets in the background (startup / FM reconnect).
@@ -2755,6 +2758,17 @@ class V2GLibertyGlobals:
                 "relax-capacity-constraints": True,
             }
         )
+        # FlexMeasures stores the scheduled aggregate on these sensors. Their
+        # ids exist only once the grid connection is provisioned, and a None
+        # reference makes FlexMeasures reject the whole schedule request.
+        if c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID is not None:
+            c.FM_OPTIMISATION_CONTEXT["aggregate-consumption"] = {
+                "sensor": c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID
+            }
+        if c.FM_AGGREGATE_PRODUCTION_SENSOR_ID is not None:
+            c.FM_OPTIMISATION_CONTEXT["aggregate-production"] = {
+                "sensor": c.FM_AGGREGATE_PRODUCTION_SENSOR_ID
+            }
         self.__log(f"{c.FM_OPTIMISATION_CONTEXT=}")
 
     ######################################################################
