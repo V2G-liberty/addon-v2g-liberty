@@ -1,4 +1,322 @@
 {
+  "settings": {
+    "grid-connection": {
+      "title": "Netaansluiting",
+      "role": {
+        "consumption": "Inkoop L%{n}",
+        "production": "Verkoop L%{n}",
+        "import": "Inkoop tarief %{n}",
+        "export": "Verkoop tarief %{n}"
+      },
+      "card": {
+        "active-alert": "Actief · %{reporting} van %{total} sensoren rapporteren",
+        "active-summary": "%{phase}, %{capacity} A per fase.",
+        "phase-1": "1-fase",
+        "phase-3": "3-fase",
+        "problem-title": "Een sensor heeft aandacht nodig",
+        "problem-alert": "%{role} rapporteert niet correct. De monitoring is gepauzeerd totdat dit is opgelost.",
+        "problem-alert-generic": "Een sensor rapporteert niet correct. De monitoring is gepauzeerd totdat dit is opgelost.",
+        "incomplete-title": "Nog niet volledig ingesteld",
+        "incomplete-alert": "%{set} van %{total} sensoren geselecteerd. Nog niet ingesteld: %{names}. Rond de configuratie af om te starten met monitoren.",
+        "not-set-up": "Configureer je netaansluiting zodat V2G Liberty de energiepatronen van je huishouden leert — voor betere voorspellingen en slimmere schema's, en om klaar te zijn voor het einde van de saldering.",
+        "set-up": "Instellen",
+        "fix": "Herstel dit"
+      },
+      "header": {
+        "connection": "Aansluiting",
+        "power": "Vermogen",
+        "meter": "Meterstanden",
+        "done": "Klaar"
+      },
+      "fm-gate-subject": "netaansluiting",
+      "intro": {
+        "p1": "Door je netaansluiting te monitoren leert V2G Liberty de energiepatronen van je huishouden kennen. Dat leidt tot <strong>betere voorspellingen</strong> en <strong>slimmere schema's</strong>.",
+        "p2": "<strong>Voor Nederlandse gebruikers:</strong> een waardevolle voorbereiding op het einde van de saldering. Zodra die stopt, is deze configuratie vereist.",
+        "req-header": "Wat je nodig hebt",
+        "req-smart-meter-title": "Slimme meter",
+        "req-smart-meter-desc": "Rapporteert het vermogen per fase in real time.",
+        "req-cable-title": "P1-kabel",
+        "req-cable-desc": "Een USB-P1-poortkabel of vergelijkbaar (~€15).",
+        "req-integration-title": "Home Assistant-integratie",
+        "req-integration-desc": "Bijv. de DSMR Smart Meter-integratie, die de meter als sensor-entiteiten beschikbaar maakt."
+      },
+      "connection": {
+        "phases-question": "Hoeveel fasen heeft je netaansluiting?",
+        "phase-1-title": "1 fase",
+        "phase-1-sub": "Kleine aansluiting",
+        "phase-3-title": "3 fasen",
+        "phase-3-sub": "Standaardaansluiting",
+        "phases-error": "Selecteer het aantal fasen.",
+        "phases-hint-summary": "Niet zeker?",
+        "phases-hint-body": "Kijk in je slimme-meter-integratie. Aparte L1-, L2- en L3-sensoren betekenen 3 fasen; alleen L1 betekent 1 fase.",
+        "capacity-label": "Capaciteit per fase (ampère)",
+        "capacity-error-empty": "Vul de capaciteit in.",
+        "capacity-error-range": "Moet een heel getal tussen 6 en 80 zijn.",
+        "capacity-hint-summary": "Waar vind ik dit",
+        "capacity-hint-body": "Op je energiecontract of je hoofdzekering — meestal 25 A of 35 A. Vul de werkelijke waarde in, niet een lagere veiligheidsmarge.",
+        "continue-anyway": "Toch doorgaan"
+      },
+      "badge": {
+        "auto-detected": "Automatisch gedetecteerd"
+      },
+      "solar-warning": {
+        "title-one": "Deze wijziging maakt een zonnepaneel ongeldig",
+        "title-many": "Deze wijziging maakt zonnepanelen ongeldig",
+        "body-intro": "Het nieuwe aantal fasen komt niet meer overeen met de configuratie van:",
+        "body-outro": "Toch doorgaan mag — de betreffende paneel(en) worden gemarkeerd op de zonnepanelen-kaart. Er wordt niets automatisch aan de panelen gewijzigd.",
+        "unnamed": "(naamloos)"
+      },
+      "sensors-heading": "Sensoren",
+      "power": {
+        "intro": "Om te volgen wat je huishouden gebruikt en teruglevert, leest V2G Liberty het vermogen op elke fase. Deze sensoren zijn automatisch herkend — controleer of elke sensor klopt voordat je verdergaat.",
+        "consumption-title": "Inkoop",
+        "consumption-sub": "vermogen dat van het net wordt afgenomen",
+        "production-title": "Verkoop",
+        "production-sub": "vermogen dat aan het net wordt teruggeleverd",
+        "incomplete-alert": "Sensor(en) ontbreken nog — kies voor elke fase een sensor, voor zowel inkoop als verkoop, om verder te gaan.",
+        "not-recognised-what": "vermogen per fase"
+      },
+      "meter": {
+        "intro": "De cumulatieve meterstanden zijn waarop je energierekening wordt afgerekend, per tarief. Er zijn altijd twee tarieven — bij één tarief blijft tarief 2 simpelweg op dezelfde waarde. Deze zijn automatisch herkend — controleer ze voordat je verdergaat.",
+        "import-title": "Inkoop",
+        "import-sub": "totale energie die van het net is afgenomen",
+        "export-title": "Verkoop",
+        "export-sub": "totale energie die aan het net is teruggeleverd",
+        "incomplete-alert": "Sensor(en) ontbreken nog — kies voor zowel inkoop als verkoop een totaalregister of zowel tarief 1 als tarief 2 (cumulatieve kWh).",
+        "not-recognised-what": "cumulatieve kWh-standen"
+      },
+      "done": {
+        "all-set": "Helemaal klaar — %{count} sensoren gekoppeld.",
+        "incomplete-warning": "Nog niet alles is ingesteld. Ga terug en vul de ontbrekende rijen aan.",
+        "phases-label": "Fasen",
+        "phases-value": "%{smart_count} fase |||| %{smart_count} fasen",
+        "capacity-label": "Capaciteit per fase",
+        "no-sensor": "Nog geen sensor geselecteerd",
+        "keeps-monitoring": "V2G Liberty blijft deze sensoren monitoren en waarschuwt je zodra er één stopt met rapporteren.",
+        "save-incomplete": "Sommige rijen ontbreken nog — ga terug en vul ze aan voordat je opslaat.",
+        "saving": "Opslaan…"
+      },
+      "detect": {
+        "title": "Sensoren niet herkend — of nog niet ingeschakeld",
+        "body": "Er zijn geen sensoren gevonden die %{what} rapporteren. Veel integraties leveren ze wel maar laten ze standaard uitgeschakeld — ga naar Instellingen → Apparaten & services → je meter → entiteiten en schakel ze in.",
+        "search-again": "Opnieuw zoeken",
+        "open-integrations": "Integraties openen"
+      },
+      "save-error": {
+        "fm": "Kon de grid-sensoren niet aanmaken in FlexMeasures: %{error}. Controleer FlexMeasures en probeer het opnieuw.",
+        "unreachable": "Kon de add-on niet bereiken. Controleer of V2G Liberty draait en probeer het opnieuw."
+      },
+      "picker": {
+        "consumption": "Inkoop",
+        "production": "Verkoop",
+        "import": "Inkoop",
+        "export": "Verkoop",
+        "power-subtitle": "%{direction} fase %{phase} · vermogen",
+        "meter-subtitle": "Tarief %{tariff} · %{direction} · meterstand"
+      },
+      "choose-sensor": {
+        "title": "Sensor kiezen",
+        "search-label": "Zoeken",
+        "clear-title": "Zoekopdracht wissen",
+        "search-info": "Voorgevuld met wat je instelt — elk woord moet matchen. Wis of pas het aan als je integratie dingen anders benoemt.",
+        "filter-power": "Alleen W / kW",
+        "filter-meter": "Alleen kWh-standen",
+        "filter-all": "Alle sensoren",
+        "empty": "Geen passende sensoren.",
+        "already-in-use": "al in gebruik",
+        "measures": "meet %{unit}",
+        "select-first": "Kies eerst een sensor uit de lijst — zoek hierboven als je 'm niet ziet.",
+        "unsuitable-title": "Deze sensor past hier niet",
+        "unsuitable-body": "Deze sensor meet %{unit}, niet wat dit veld nodig heeft. V2G Liberty kan 'm hier niet gebruiken en de schema's zouden fout zijn. Kies een andere sensor, of druk nogmaals op OK om 'm toch te gebruiken.",
+        "unsuitable-fallback-unit": "de verkeerde grootheid",
+        "help-summary": "Help — welke sensor kies ik?",
+        "help-power-1": "Kies het <strong>vermogen</strong> op één fase, in W of kW, gemeten bij je meter — een waarde die continu verandert. Inkoop is wat je van het net afneemt, verkoop wat je teruglevert. De fasenummering volgt je meter, dus kies de sensor waarvan de fase overeenkomt met de rij die je invult.",
+        "help-power-2": "Een sensor voor één apparaat (een warmtepomp, een lader) meet alleen dat apparaat, niet de hele aansluiting.",
+        "help-meter-1": "Kies een totaal in kWh dat alleen maar oploopt — hetzelfde soort getal dat je meter toont. Inkoop is wat je van het net hebt afgenomen; verkoop is wat je hebt teruggeleverd. Bij DSMR heten deze meestal <em>energy consumption / production tariff 1 / 2</em>.",
+        "help-meter-2": "Twijfel je tussen twee? Vergelijk de waarde met het display op je meter — de getallen moeten overeenkomen.",
+        "cancel": "Annuleren",
+        "ok": "OK"
+      },
+      "status": {
+        "reporting": "Rapporteert",
+        "waiting": "Wachten op data",
+        "wrong-type": "Deze sensor past hier niet",
+        "stale": "Lang geen update"
+      },
+      "row": {
+        "choose": "Sensor kiezen",
+        "change": "Wijzigen"
+      }
+    },
+    "common": {
+      "configure": "Instellen",
+      "validation_error": "Probleem met de invoer (niet gespecificeerd)",
+      "retry": "Opnieuw",
+      "load-failed": "Kon V2G Liberty niet bereiken, dus deze instellingen zijn niet geladen. Er is niets gewijzigd."
+    },
+    "car": {
+      "header": "Auto",
+      "alert": "V2G Liberty heeft de gegevens van je auto nodig om het laden te plannen.",
+      "alert-with-id": "V2G Liberty heeft de gegevens van je auto nodig om het laden te plannen. Sluit de auto eerst aan op de lader, zodat het ID kan worden uitgelezen.",
+      "alert-title": "Auto nog niet ingesteld",
+      "missing-id-title": "Auto-ID ontbreekt",
+      "missing-id": "Deze lader herkent auto's. Lees het ID van deze auto uit, zodat V2G Liberty hem kan onderscheiden van de auto van een bezoeker. De instellingen hieronder blijven zoals ze zijn.",
+      "car-id-subtitle": "ID: %{id}",
+      "fields": {
+        "capacity": "Bruikbare capaciteit",
+        "efficiency": "Laad-efficiëntie",
+        "consumption": "Energieverbruik",
+        "min-soc": "Ondergrens schema",
+        "max-soc": "Bovengrens schema",
+        "allowed-duration": "Toegestaan boven de bovengrens",
+        "limits": "Schemagrenzen",
+        "limits-duration": "Tot %{hours} h boven de grens",
+        "efficiency-dialog": "Laad-efficiëntie (cyclus)"
+      }
+    },
+    "car-dialog": {
+      "add": {
+        "header": "Je auto instellen"
+      },
+      "edit": {
+        "header": "%{name} bewerken",
+        "header-unnamed": "Auto bewerken"
+      },
+      "limits": {
+        "description": "Binnen deze grenzen mag het schema de auto laden en ontladen."
+      },
+      "name-label": "Naam van de auto",
+      "name-placeholder": "bijv. Nissan Leaf",
+      "learn-more": "Meer uitleg",
+      "errors": {
+        "name-required": "Geef de auto een naam.",
+        "out-of-range": "Vul een heel getal tussen %{min} en %{max} in.",
+        "load-failed": "De auto-instellingen konden niet worden geladen. Probeer het opnieuw."
+      },
+      "car-id": {
+        "header": "Auto-identificatie",
+        "explain": "Deze lader leest het ID van de auto die is aangesloten. V2G Liberty gebruikt dat om jouw auto van elke andere te onderscheiden, zodat de auto van een bezoeker nooit op jouw schema wordt geladen of ontladen.\n\nSluit de auto aan op de lader en lees daarna het ID uit.",
+        "explain-edit": "Deze lader leest het ID van de auto die is aangesloten. V2G Liberty gebruikt dat om jouw auto van elke andere te onderscheiden, zodat de auto van een bezoeker nooit op jouw schema wordt geladen of ontladen.\n\nSluit de auto aan op de lader en lees daarna het ID uit. Al het andere dat je hebt ingesteld blijft zoals het is.",
+        "read": "Auto-ID uitlezen",
+        "read-again": "Opnieuw uitlezen",
+        "reading": "Bezig met uitlezen van het ID van de aangesloten auto…",
+        "found": "Auto-ID %{id} uitgelezen van de aangesloten auto.",
+        "registered": "Geregistreerd auto-ID: %{id}",
+        "no-car": "Er is geen auto aangesloten. Sluit de auto aan en probeer het opnieuw.",
+        "no-id": "De auto is aangesloten maar heeft zijn ID nog niet doorgegeven. Probeer het zo nog eens.",
+        "failed": "Het auto-ID kon niet worden uitgelezen. Controleer de verbinding met de lader en probeer het opnieuw.",
+        "different": "Er is een andere auto aangesloten (ID %{id}).",
+        "will-replace": "De aangesloten auto (ID %{id}) wordt de geregistreerde auto zodra je opslaat.",
+        "keep-current": "Huidige auto behouden",
+        "use-connected-option": "Aangesloten auto gebruiken",
+        "check-values": "De naam en de waarden hieronder horen bij de auto die nu geregistreerd is. Controleer ze voor de nieuwe auto voordat je opslaat."
+      }
+    },
+    "optimisation": {
+      "header": "Optimalisatie",
+      "description": "Waarop de laadschema's worden geoptimaliseerd."
+    },
+    "dialogs": {
+      "car-battery-usable-capacity": {
+        "header": "Bruikbare capaciteit van de accu",
+        "description": "Dit is de maximale hoeveelheid energie in de accu van de auto die bruikbaar is om te rijden, laden en ontladen. Vaak is dat minder dan de capaciteit die de fabrikant noemt.\n\nEen betrouwbare waarde vind je op de [Electric Vehicle Database](https://ev-database.org).\n\n**Gezondheid van de accu**\nEen accu die ouder wordt, gaat meestal achteruit en kan minder energie bevatten dan toen hij nieuw was. Houd daar rekening mee. Zoek in de menu's van de auto naar de State of Health (SoH).\n*Bijvoorbeeld: is de SoH 11/12 en was de bruikbare capaciteit oorspronkelijk 59 kWh, gebruik dan 54 kWh.*"
+      },
+      "roundtrip-efficiency": {
+        "header": "Laad-efficiëntie (cyclus)",
+        "description": "Dit is de efficiëntie van één cyclus laden en ontladen, inclusief de lader en de auto. Let op: het gaat dus om de hele cyclus, niet om het laden alleen. Een gebruikelijke waarde is 85%.\nEen hogere waarde leidt tot meer laden en ontladen in het schema, een lagere waarde tot een schema dat vaker stilstaat."
+      },
+      "car-energy-consumption": {
+        "header": "Energieverbruik van de auto",
+        "description": "Het gemiddelde stroomverbruik van je auto in wattuur (Wh) per kilometer.\n\nIn de meeste auto's vind je het verbruik over de afgelopen tijd in de menu's, of kijk op de [Electric Vehicle Database](https://ev-database.org).\n\nNormaal ligt dit tussen 140 (heel zuinig) en 300 (nogal onzuinige bestelauto's).\n\nLet op dat je de juiste eenheid gebruikt: Wh/km."
+      },
+      "car-battery-lower-charge-limit": {
+        "header": "Ondergrens voor de accu",
+        "description": "Het automatische schema ontlaadt nooit onder deze waarde.\n**Gevolgen voor het automatisch laden**\nKomt de auto terug met een lading onder deze waarde, dan wordt de accu eerst tot deze grens opgeladen, vóór het geplande laden begint.\n\n**Gevolgen voor de opbrengst**\nEen hoge waarde betekent dat je altijd een grotere actieradius beschikbaar hebt, ook als je niets gepland had, maar er blijft minder capaciteit over om te ontladen en dus minder opbrengst.\nEen lagere waarde betekent soms een kleinere actieradius voor ongeplande ritten, maar altijd meer capaciteit om te ontladen en dus meer opbrengst.\n\n**Levensduur van de accu**\nUit onderzoek blijkt dat een accu korter meegaat als de lading langere tijd onder de 15% blijft.\n\n**Vreemd gedrag van de auto**\nSommige auto's slaan af en toe een waarde over, bijvoorbeeld van 21 naar 19%, waarbij 20% wordt overgeslagen. Daardoor kan het laden rond die ondergrens gaan schommelen. Gebeurt dat, probeer dan een waarde één procentpunt hoger of lager."
+      },
+      "car-battery-upper-charge-limit": {
+        "header": "Bovengrens voor de accu",
+        "description": "Het schema gebruikt deze grens voor het gewone, geplande laden.\n**Gevolgen voor de opbrengst**\nEen lage waarde geeft het schema minder ruimte en daarmee minder mogelijkheid om geld te verdienen en uitstoot te besparen.\n\nStaat er een agenda-afspraak met een laaddoel boven deze grens, dan negeert het schema de grens en probeert het de accu tot dat doel te laden bij aanvang van de afspraak.\n\n**Levensduur van de accu**\nUit onderzoek blijkt dat een accu korter meegaat als de lading dagenlang boven de 85% blijft."
+      },
+      "allowed-duration-above-max": {
+        "header": "Toegestane duur boven de bovengrens",
+        "description": "Als de auto wordt aangesloten met een lading boven de bovengrens: hoe lang mag het schema erover doen om weer op die grens uit te komen?\n\nEen langere duur geeft ruimte voor een gunstiger schema, maar kan de accu (licht) sneller doen verouderen.\nDeze duur staat los van de tijd die het onder normale omstandigheden minimaal kost om terug te komen op de gewenste bovengrens."
+      },
+      "optimisation-mode": {
+        "header": "Optimalisatiemodus",
+        "description": "**Optimaliseren op prijs**\nDit haalt de hoogste opbrengst of besparing uit dynamische tarieven.\n\n**Uitstoot beperken**\nDit beperkt de CO₂-uitstoot van de elektriciteitsproductie.\n\nWelke je ook kiest, de ander vaart er meestal wel bij."
+      },
+      "inputnumber": {
+        "error": "Vul een waarde tussen %{min} en %{max} in."
+      }
+    },
+    "charger": {
+      "header": "Lader",
+      "wallbox-quasar-1": "Wallbox Quasar 1",
+      "evtec-bidi-pro-10": "EVtec BiDiPro 10",
+      "alert": "Stel de lader in, V2G Liberty heeft dit nodig om te werken.",
+      "1-select-charger-type": {
+        "header": "Kies het type lader",
+        "description": "Kies het type lader dat je gebruikt:",
+        "validation-error": "Kies een type lader om verder te gaan."
+      },
+      "invalid-host-error": "Vul een geldige hostnaam of IP-adres in (alleen letters, cijfers, punten, koppeltekens en liggende streepjes).",
+      "invalid-port-error": "Vul een geldige poort in.",
+      "connection-error": "Geen verbinding met de lader. Controleer de aansluiting, en of Modbus in de lader aanstaat.",
+      "charger-not-recognised-error": "De verbinding is gelukt, maar de lader op dit adres lijkt niet het gekozen type te zijn. Controleer je keuze.",
+      "no-active-plug-error": "Verbonden met de lader, maar er is geen actieve aansluiting gevonden. Controleer de configuratie van de lader.",
+      "connection-success": "Verbinding gelukt",
+      "connected-since": "Verbonden, laatste contact %{time} geleden",
+      "max-power-description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
+      "load-balancer": {
+        "enabled": {
+          "title": "Load balancer van V2G Liberty is ingeschakeld",
+          "info": "De load balancer van V2G Liberty staat aan.\n\n**Belangrijk**\nDeze module wordt geleverd zonder enige garantie. Gebruik op eigen risico.\n\nVraag een erkend installateur welk maximumvermogen je op de lader mag instellen.\n\n**Configuratie**\n\n- De hostnaam van de lader moet `127.0.0.1` zijn\n\n- Het poortnummer moet `5020` zijn\n\nMeer hierover staat in `readme.md` in de map `load_balancer`."
+        },
+        "not_enabled": {
+          "title": "Load balancer van V2G Liberty is niet ingeschakeld",
+          "info": "Een load balancer is aan te raden, maar niet verplicht. Hiermee kun je op de lader een hogere maximumstroom instellen terwijl het vermogen veilig blijft. Dat laadt efficiënter en levert meer op.\n\n_De load balancer van de Wallbox Quasar 1 werkt helaas niet goed samen met V2G&nbsp;Liberty; in `readme.md` in de map `load_balancer` staat een omweg._\n\nVraag een erkend installateur welk maximumvermogen je op de lader mag instellen."
+        }
+      },
+      "reduce-max-power-description": "Beperk het maximale laad- en ontlaadvermogen.",
+      "2-connection-details": {
+        "header": "verbindingsinstellingen",
+        "description": {
+          "generic": "Om verbinding te maken met de lader heb je het adres (meestal het IP-adres) en de poort van de lader nodig.",
+          "evtec-bidi-pro-10": "Die vind je in je router of in de EVtec-manager via de webbrowser.",
+          "wallbox-quasar-1": "Die vind je in de Wallbox-app: ga naar Instellingen (het tandwiel rechtsboven) → Netwerk → Ethernet (of wifi) → IP-adres. Daarna wordt gevraagd via bluetooth verbinding te maken met de lader."
+        },
+        "port-description": "Standaard is dit %{value}; heb je dat niet gewijzigd, laat het dan zo."
+      },
+      "3-power-details": {
+        "header": "vermogensinstellingen",
+        "description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
+        "reduce-max-power-description": "Hiermee beperk je het laad- en ontlaadvermogen verder, onder het maximum dat in de lader zelf is ingesteld."
+      },
+      "phase": {
+        "grid-mismatch": "Je 3-fase lader heeft een 3-fase netaansluiting nodig. Controleer je netaansluiting-instellingen of het type lader.",
+        "single-phase": "Je lader is aangesloten op de enige beschikbare fase (L1).",
+        "three-phase": "Je 3-fase lader is op alle drie de fasen aangesloten.",
+        "question": "Op welke fase is je lader aangesloten?",
+        "option": "Fase %{n}",
+        "select-error": "Kies op welke fase je lader is aangesloten.",
+        "hint-summary": "Niet zeker?",
+        "hint-body": "Kijk op het label in je meterkast, of gebruik de automatische detectie hieronder.",
+        "detect": {
+          "title": "Automatische fasedetectie",
+          "explain": "De fase kan ook automatisch worden vastgesteld. Daarbij wordt kort geladen (en bij een bidirectionele lader ook ontladen) terwijl de sensoren van je netaansluiting worden gevolgd. De laadmodus gaat tijdens de detectie tijdelijk op Pauze. Zorg dat je auto is aangesloten.",
+          "start": "Detectie starten",
+          "unavailable": "Kies de fase hierboven en sla op. Detectie kan nu niet: die meet de lader die op dit moment is aangesloten, en je wijzigingen zijn nog niet opgeslagen. Open deze instellingen daarna opnieuw om de fase te laten vaststellen.",
+          "starting": "Bezig met starten…",
+          "baseline": "Nulmeting…",
+          "charge-test": "Laadtest…",
+          "discharge-test": "Ontlaadtest…",
+          "success": "Vastgesteld: fase %{label}",
+          "failed": "De detectie is mislukt. Je kunt de fase handmatig kiezen.",
+          "timeout": "De detectie duurde te lang. Je kunt de fase handmatig kiezen."
+        }
+      }
+    }
+  },
   "data-table": {
     "granularity": {
       "quarter_hours": "15 min",
@@ -76,6 +394,7 @@
       "savings-label": "Besparing tov vast",
       "savings-fixed-label": "t.o.v. standaard laden + vast contract",
       "savings-dyn-label": "t.o.v. standaard laden + dyn. contract",
+      "savings-unavailable": "Besparingsdata nog niet beschikbaar",
       "savings-tooltip": "Dit is uw besparing t.o.v. standaard laden.\n\nStandaard laden: elke keer dat u de auto aansloot, direct laden tot uw ingestelde maximum batterijpercentage — zonder slim schema.\n\nDe kosten voor standaard laden berekenen we op basis van uw laad-historie in twee varianten:\n • Vast: standaard laden kWh × maandelijkse gemiddelde contractprijzen (CBS).\n • Dynamisch: standaard laden kWh × dezelfde dynamische energieprijzen."
     },
     "row-details-show": "Toon details",
@@ -98,5 +417,40 @@
       "success": "Klaar. Historische data wordt opnieuw geïmporteerd — de Data-pagina wordt geleidelijk gevuld.",
       "close": "Sluiten"
     }
+  },
+  "settings-alert-dialog": {
+    "header": "App niet goed geconfigureerd",
+    "error": "De app is niet goed geconfigureerd en werkt waarschijnlijk niet.",
+    "message": "De volgende instellingen zijn niet compleet of bevatten fouten:",
+    "cta": "Ga naar de instellingen en corrigeer ze.",
+    "go_to_settings": "Naar instellingen",
+    "entity_names": {
+      "input_boolean.schedule_settings_initialised": "Schema-instellingen",
+      "input_boolean.admin_settings_initialised": "Beheerdersinstellingen",
+      "input_boolean.calendar_settings_initialised": "Agenda-instellingen",
+      "input_boolean.electricity_contract_settings_initialised": "Instellingen energiecontract",
+      "input_boolean.charger_settings_initialised": "Laderinstellingen",
+      "sensor.car_settings_initialised": "Auto-instellingen",
+      "sensor.fm_connection_status": "Verbinding met FlexMeasures",
+      "sensor.calendar_account_connection_status": "Verbinding met de agenda"
+    }
+  },
+  "input_number": {
+    "car_max_capacity_in_kwh": "Bruikbare capaciteit",
+    "charger_plus_car_roundtrip_efficiency": "Laad-efficiëntie",
+    "car_consumption_wh_per_km": "Energieverbruik van de auto",
+    "car_min_soc_in_percent": "Ondergrens schema",
+    "car_max_soc_in_percent": "Bovengrens schema",
+    "allowed_duration_above_max_soc_in_hrs": "Toegestane duur boven de bovengrens",
+    "charger_port": "Poortnummer",
+    "charger_max_charging_power": "Max. laadvermogen",
+    "charger_max_discharging_power": "Max. ontlaadvermogen"
+  },
+  "input_text": {
+    "charger_host_url": "Hostnaam van de lader",
+    "charger_type": "Type lader"
+  },
+  "input_boolean": {
+    "use_reduced_max_charge_power": "Beperk het maximale vermogen"
   }
 }

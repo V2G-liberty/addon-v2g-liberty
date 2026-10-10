@@ -32,6 +32,13 @@ def _set_constants():
     """Set runtime constants that are normally initialised by V2GLibertyGlobals."""
     c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
     c.TZ = TEST_TZ
+    # Deterministic defaults for the residential-load attribution; tests that
+    # exercise phases/PV/charger override these explicitly.
+    c.GRID_PHASES = 3
+    c.SOLAR_PANELS = []
+    c.CHARGER_CONNECTED_TO_PHASE = None
+    c.METER_CONSUMPTION_REGISTERS = []
+    c.METER_PRODUCTION_REGISTERS = []
 
 
 @pytest.fixture
@@ -41,6 +48,8 @@ def hass():
     mock_hass.get_state = AsyncMock(return_value="Automatic")
     mock_hass.listen_state = AsyncMock()
     mock_hass.run_every = AsyncMock()
+    mock_hass.call_service = AsyncMock()
+    mock_hass.cancel_listen_state = AsyncMock()
     return mock_hass
 
 
@@ -802,6 +811,113 @@ class TestGridConsumptionHandler:
         assert tracker._current_power == 0.0  # unchanged from reset default
 
 
+class TestGridNegativeWarning:
+    """A negative grid reading warns once and raises a persistent notification."""
+
+    @pytest.mark.asyncio
+    async def test_negative_consumption_notifies(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "-1200", {"phase": 1}
+        )
+
+        hass.call_service.assert_called_once()
+        call = hass.call_service.call_args
+        assert call.args[0] == "persistent_notification/create"
+        assert call.kwargs["notification_id"] == "grid_sensor_negative"
+        # The negative value is still recorded on the tracker (data unchanged).
+        assert monitor._grid_consumption_trackers[1]._current_power == -1200.0
+
+    @pytest.mark.asyncio
+    async def test_warns_only_once_per_channel(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        for _ in range(3):
+            await monitor._handle_grid_consumption_change(
+                "sensor.cons_l1", "state", "0", "-1200", {"phase": 1}
+            )
+
+        assert hass.call_service.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_positive_value_does_not_notify(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "1500", {"phase": 1}
+        )
+
+        hass.call_service.assert_not_called()
+
+
+class TestGridSettingsChanged:
+    """Grid listeners are re-registered live when grid settings change."""
+
+    @pytest.mark.asyncio
+    async def test_setup_stores_listener_handles(self, monitor):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        monitor._grid_listener_handles = []
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1"]
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        # One handle per registered listener (1 consumption + 1 production).
+        assert len(monitor._grid_listener_handles) == 2
+
+    @pytest.mark.asyncio
+    async def test_settings_change_cancels_old_and_registers_new(self, monitor, hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        monitor._grid_listener_handles = []
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1"]
+        await monitor._setup_grid_listeners(TEST_NOW)
+        assert len(monitor._grid_listener_handles) == 2
+
+        # Settings change to a 2-phase set of new entities.
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.new_cons_l1", "sensor.new_cons_l2"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.new_prod_l1", "sensor.new_prod_l2"]
+        hass.listen_state.reset_mock()
+        hass.cancel_listen_state.reset_mock()
+
+        await monitor._on_grid_settings_changed()
+
+        # Old two listeners cancelled, new four registered.
+        assert hass.cancel_listen_state.call_count == 2
+        assert hass.listen_state.call_count == 4
+        assert len(monitor._grid_listener_handles) == 4
+
+    @pytest.mark.asyncio
+    async def test_settings_change_rearms_negative_warning(self, monitor):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        monitor._grid_listener_handles = []
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+        monitor._grid_negative_warned[("consumption", 1)] = True
+
+        await monitor._on_grid_settings_changed()
+
+        # The warned-flags are cleared so a newly configured wrong sensor warns.
+        assert monitor._grid_negative_warned == {}
+
+
 class TestConcludeGridInterval:
     def test_conclude_stores_to_database(self, monitor, data_store):
         """Grid conclude writes avg power per phase to data store."""
@@ -823,10 +939,11 @@ class TestConcludeGridInterval:
         prod_tracker.update(0.0, t0)
         monitor._grid_production_trackers[1] = prod_tracker
 
-        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", t1)
+        # No PV, no charger power: residential = consumption - production.
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", t1, 0.0, {})
 
         data_store.insert_grid_interval.assert_called_once_with(
-            "2026-02-22T12:05:00+01:00", 1, 1500.0, 0.0
+            "2026-02-22T12:05:00+01:00", 1, 1500.0, 0.0, 1500.0
         )
 
     def test_conclude_skips_when_no_trackers(self, monitor, data_store):
@@ -834,9 +951,147 @@ class TestConcludeGridInterval:
         monitor._grid_consumption_trackers = {}
         monitor._grid_production_trackers = {}
 
-        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
+        monitor._conclude_grid_interval("2026-02-22T12:05:00+01:00", TEST_NOW, 0.0, {})
 
         data_store.insert_grid_interval.assert_not_called()
+
+
+def _make_grid_trackers(monitor, cons_by_phase, prod_by_phase=None):
+    """Set up per-phase grid trackers holding a constant power for the interval."""
+    from apps.v2g_liberty.grid_connection.power_tracker import PowerTracker
+
+    monitor._grid_consumption_trackers = {}
+    monitor._grid_production_trackers = {}
+    for phase, value in cons_by_phase.items():
+        tracker = PowerTracker()
+        tracker.update(value, TEST_NOW)
+        monitor._grid_consumption_trackers[phase] = tracker
+    for phase, value in (prod_by_phase or {}).items():
+        tracker = PowerTracker()
+        tracker.update(value, TEST_NOW)
+        monitor._grid_production_trackers[phase] = tracker
+
+
+class TestResidentialLoad:
+    """Per-phase residential (net household) load: energy balance + smart-null."""
+
+    # ── _residential_load (the energy-balance formula) ────────────────
+    def test_energy_balance_formula(self, monitor):
+        # consumption - production + solar - charger
+        assert monitor._residential_load(2.0, 0.5, 1.0, 3.0) == -0.5
+
+    def test_none_consumption_gives_none(self, monitor):
+        assert monitor._residential_load(None, 0.0, 1.0, 0.0) is None
+
+    def test_none_production_treated_as_zero(self, monitor):
+        assert monitor._residential_load(2.0, None, 0.0, 0.0) == 2.0
+
+    # ── _charger_by_phase ─────────────────────────────────────────────
+    def test_charger_single_phase_grid_all_on_l1(self, monitor):
+        c.GRID_PHASES = 1
+        by_phase, unknown = monitor._charger_by_phase(3.0)
+        assert by_phase == {1: 3.0}
+        assert unknown is False
+
+    def test_charger_three_phase_int(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = 2
+        by_phase, unknown = monitor._charger_by_phase(3.0)
+        assert by_phase == {2: 3.0}
+        assert unknown is False
+
+    def test_charger_three_phase_list_splits_evenly(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = [1, 2, 3]
+        by_phase, unknown = monitor._charger_by_phase(3.0)
+        assert by_phase == {1: 1.0, 2: 1.0, 3: 1.0}
+        assert unknown is False
+
+    def test_charger_unknown_phase_with_power_is_unknown(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _, unknown = monitor._charger_by_phase(3.0)
+        assert unknown is True
+
+    def test_charger_unknown_phase_without_power_is_known(self, monitor):
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _, unknown = monitor._charger_by_phase(0.0)
+        assert unknown is False
+
+    # ── _pv_by_phase ──────────────────────────────────────────────────
+    def test_pv_single_phase_grid_sums_on_l1(self, monitor):
+        c.GRID_PHASES = 1
+        c.SOLAR_PANELS = [{"id": "a"}, {"id": "b"}]
+        by_phase, unknown = monitor._pv_by_phase({"a": 1.0, "b": 2.0})
+        assert by_phase == {1: 3.0}
+        assert unknown is False
+
+    def test_pv_three_phase_panel_split_evenly(self, monitor):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 3}]
+        by_phase, _ = monitor._pv_by_phase({"a": 3.0})
+        assert by_phase == {1: 1.0, 2: 1.0, 3: 1.0}
+
+    def test_pv_one_phase_panel_on_connected_phase(self, monitor):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 1, "connected_to_phase": 2}]
+        by_phase, unknown = monitor._pv_by_phase({"a": 2.5})
+        assert by_phase == {2: 2.5}
+        assert unknown is False
+
+    def test_pv_unknown_phase_with_power_is_unknown(self, monitor):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 1, "connected_to_phase": None}]
+        _, unknown = monitor._pv_by_phase({"a": 2.5})
+        assert unknown is True
+
+    # ── End-to-end via _conclude_grid_interval ────────────────────────
+    def test_conclude_computes_residential_per_phase(self, monitor, data_store):
+        c.SOLAR_PANELS = [{"id": "a", "phases": 1, "connected_to_phase": 1}]
+        c.CHARGER_CONNECTED_TO_PHASE = 2
+        _make_grid_trackers(
+            monitor,
+            {1: 2.0, 2: 3.0, 3: 1.0},
+            {1: 0.0, 2: 0.0, 3: 0.0},
+        )
+        t1 = TEST_NOW + timedelta(minutes=5)
+
+        # Charger charging 1.5 kW on L2, PV producing 1.0 kW on L1.
+        monitor._conclude_grid_interval("ts", t1, 1.5, {"a": 1.0})
+
+        residential = {
+            call.args[1]: call.args[4]
+            for call in data_store.insert_grid_interval.call_args_list
+        }
+        assert residential[1] == 3.0  # 2.0 - 0 + 1.0(pv)
+        assert residential[2] == 1.5  # 3.0 - 0 - 1.5(charger)
+        assert residential[3] == 1.0  # 1.0 - 0
+
+    def test_conclude_residential_null_when_charger_phase_unknown_and_charging(
+        self, monitor, data_store
+    ):
+        c.SOLAR_PANELS = []
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _make_grid_trackers(monitor, {1: 2.0, 2: 2.0, 3: 2.0})
+        t1 = TEST_NOW + timedelta(minutes=5)
+
+        # Car is charging (2 kW) but the phase is unknown -> cannot attribute.
+        monitor._conclude_grid_interval("ts", t1, 2.0, {})
+
+        assert data_store.insert_grid_interval.call_count == 3
+        for call in data_store.insert_grid_interval.call_args_list:
+            assert call.args[4] is None
+
+    def test_conclude_residential_computed_when_unknown_phase_but_idle(
+        self, monitor, data_store
+    ):
+        c.SOLAR_PANELS = []
+        c.CHARGER_CONNECTED_TO_PHASE = None
+        _make_grid_trackers(monitor, {1: 2.0, 2: 2.0, 3: 2.0})
+        t1 = TEST_NOW + timedelta(minutes=5)
+
+        # Charger phase unknown but the car drew no power -> still computable.
+        monitor._conclude_grid_interval("ts", t1, 0.0, {})
+
+        residential = {
+            call.args[1]: call.args[4]
+            for call in data_store.insert_grid_interval.call_args_list
+        }
+        assert residential == {1: 2.0, 2: 2.0, 3: 2.0}
 
 
 # =====================================================================
@@ -962,3 +1217,104 @@ class TestConcludePvInterval:
         monitor._conclude_pv_interval("2026-02-22T12:05:00+01:00", TEST_NOW)
 
         data_store.insert_pv_interval.assert_not_called()
+
+
+def _reg_states(mapping):
+    """Build a get_state side_effect returning full-state dicts per entity."""
+
+    async def _side_effect(entity_id, attribute=None):
+        return mapping.get(entity_id)
+
+    return _side_effect
+
+
+def _reg(value, unit="kWh"):
+    return {"state": value, "attributes": {"unit_of_measurement": unit}}
+
+
+class TestMeterEnergy:
+    @pytest.mark.asyncio
+    async def test_read_register_sum_sums_tariffs(self, monitor):
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states(
+                {"sensor.imp_t1": _reg("1200.0"), "sensor.imp_t2": _reg("800.5")}
+            )
+        )
+        total = await monitor._read_register_sum(["sensor.imp_t1", "sensor.imp_t2"])
+        assert total == 2000.5
+
+    @pytest.mark.asyncio
+    async def test_read_register_sum_normalises_wh(self, monitor):
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states({"sensor.imp": _reg("5000", unit="Wh")})
+        )
+        assert await monitor._read_register_sum(["sensor.imp"]) == 5.0
+
+    @pytest.mark.asyncio
+    async def test_read_register_sum_none_on_unavailable(self, monitor):
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states(
+                {"sensor.imp_t1": _reg("1200.0"), "sensor.imp_t2": _reg("unavailable")}
+            )
+        )
+        # One tariff register unavailable → whole interval skipped.
+        assert (
+            await monitor._read_register_sum(["sensor.imp_t1", "sensor.imp_t2"]) is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_conclude_stores_delta_and_advances_baseline(
+        self, monitor, data_store
+    ):
+        c.METER_CONSUMPTION_REGISTERS = ["sensor.imp"]
+        c.METER_PRODUCTION_REGISTERS = ["sensor.exp"]
+        monitor._meter_import_baseline = 100.0
+        monitor._meter_export_baseline = 50.0
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states(
+                {"sensor.imp": _reg("100.25"), "sensor.exp": _reg("50.0")}
+            )
+        )
+
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+
+        data_store.insert_meter_interval.assert_called_once_with(
+            "2026-05-01T12:00:00+02:00", 0.25, 0.0, 100.25, 50.0
+        )
+        assert monitor._meter_import_baseline == 100.25
+        assert monitor._meter_export_baseline == 50.0
+
+    @pytest.mark.asyncio
+    async def test_conclude_skips_when_not_configured(self, monitor, data_store):
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+        data_store.insert_meter_interval.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_conclude_first_interval_has_no_delta(self, monitor, data_store):
+        c.METER_CONSUMPTION_REGISTERS = ["sensor.imp"]
+        monitor._meter_import_baseline = None
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states({"sensor.imp": _reg("100.0")})
+        )
+
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+
+        # Delta None (no baseline yet), but totals stored and baseline set.
+        data_store.insert_meter_interval.assert_called_once_with(
+            "2026-05-01T12:00:00+02:00", None, None, 100.0, None
+        )
+        assert monitor._meter_import_baseline == 100.0
+
+    @pytest.mark.asyncio
+    async def test_conclude_reset_rebaselines(self, monitor, data_store):
+        c.METER_CONSUMPTION_REGISTERS = ["sensor.imp"]
+        monitor._meter_import_baseline = 18000.0  # meter replaced → drops
+        monitor.hass.get_state = AsyncMock(
+            side_effect=_reg_states({"sensor.imp": _reg("5.0")})
+        )
+
+        await monitor._conclude_meter_interval("2026-05-01T12:00:00+02:00")
+
+        args = data_store.insert_meter_interval.call_args[0]
+        assert args[1] is None  # import delta skipped on reset
+        assert monitor._meter_import_baseline == 5.0  # re-baselined

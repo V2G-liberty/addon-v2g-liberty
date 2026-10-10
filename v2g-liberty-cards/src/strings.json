@@ -11,7 +11,7 @@
     "car_max_soc_in_percent": "Schedule upper limit",
     "charger_max_charging_power": "Max. charging power",
     "charger_max_discharging_power": "Max. discharging power",
-    "charger_plus_car_roundtrip_efficiency": "Roundtrip efficiency",
+    "charger_plus_car_roundtrip_efficiency": "Charging efficiency (round-trip)",
     "charger_port": "Port number",
     "energy_price_markup_per_kwh": "Markup",
     "energy_price_vat": "VAT"
@@ -29,6 +29,7 @@
     "calendar_account_username": "Username",
     "calendar_account_password": "Password",
     "charger_host_url": "Charger hostname",
+    "charger_type": "Charger type",
     "fm_account_username": "Username",
     "fm_account_password": "Password",
     "fm_asset": "Asset name",
@@ -133,6 +134,7 @@
       "savings-label": "Savings vs fixed",
       "savings-fixed-label": "vs non-smart charging + fixed contract",
       "savings-dyn-label": "vs non-smart charging + dyn. contract",
+      "savings-unavailable": "Savings data not available yet",
       "savings-tooltip": "This is your savings compared to standard charging.\n\nStandard charging: every time you plugged in, charge immediately to your configured maximum battery percentage — without a smart schedule.\n\nThe cost of standard charging is calculated based on your charging history in two variants:\n • Fixed: standard charging kWh × monthly average contract prices (CBS).\n • Dynamic: standard charging kWh × the same dynamic energy prices."
     },
     "row-details-show": "Show details",
@@ -173,14 +175,165 @@
       "input_boolean.calendar_settings_initialised": "Calendar Settings",
       "input_boolean.electricity_contract_settings_initialised": "Electricity Contract Settings",
       "input_boolean.charger_settings_initialised": "Charger Settings",
+      "sensor.car_settings_initialised": "Car Settings",
       "sensor.fm_connection_status": "FlexMeasures connection",
       "sensor.calendar_account_connection_status": "Calendar connection"
     }
   },
   "settings": {
+    "grid-connection": {
+      "title": "Grid connection",
+      "role": {
+        "consumption": "Consumption L%{n}",
+        "production": "Production L%{n}",
+        "import": "Import tariff %{n}",
+        "export": "Export tariff %{n}"
+      },
+      "card": {
+        "active-alert": "Active · %{reporting} of %{total} sensors reporting",
+        "active-summary": "%{phase}, %{capacity} A per phase.",
+        "phase-1": "1-phase",
+        "phase-3": "3-phase",
+        "problem-title": "A sensor needs attention",
+        "problem-alert": "%{role} is not reporting correctly. Monitoring is paused until it is resolved.",
+        "problem-alert-generic": "A sensor is not reporting correctly. Monitoring is paused until it is resolved.",
+        "incomplete-title": "Not fully set up",
+        "incomplete-alert": "%{set} of %{total} sensors selected. Still missing: %{names}. Complete the setup to start monitoring.",
+        "not-set-up": "Configure your grid connection so V2G Liberty learns your household energy patterns — for better predictions and smarter schedules, and to be ready for the end of net metering.",
+        "set-up": "Set up",
+        "fix": "Fix this"
+      },
+      "header": {
+        "connection": "Connection",
+        "power": "Power",
+        "meter": "Meter readings",
+        "done": "Done"
+      },
+      "fm-gate-subject": "grid connection",
+      "intro": {
+        "p1": "By monitoring your grid connection, V2G Liberty learns your household energy patterns. That leads to <strong>better predictions</strong> and <strong>smarter schedules</strong>.",
+        "p2": "<strong>For Dutch users:</strong> a valuable preparation for the end of net metering. Once it ends, this configuration will be required.",
+        "req-header": "What you need",
+        "req-smart-meter-title": "Smart meter",
+        "req-smart-meter-desc": "Reports power per phase in real time.",
+        "req-cable-title": "P1 cable",
+        "req-cable-desc": "A USB P1 port cable or similar (~€15).",
+        "req-integration-title": "Home Assistant integration",
+        "req-integration-desc": "E.g. the DSMR Smart Meter integration, exposing the meter as sensor entities."
+      },
+      "connection": {
+        "phases-question": "How many phases does your grid connection have?",
+        "phase-1-title": "1 phase",
+        "phase-1-sub": "Small connection",
+        "phase-3-title": "3 phases",
+        "phase-3-sub": "Standard connection",
+        "phases-error": "Please select the number of phases.",
+        "phases-hint-summary": "Not sure?",
+        "phases-hint-body": "Check your smart meter integration. Separate L1, L2 and L3 sensors mean 3 phases; only L1 means 1 phase.",
+        "capacity-label": "Capacity per phase (ampere)",
+        "capacity-error-empty": "Please enter the capacity.",
+        "capacity-error-range": "Must be a whole number between 6 and 80.",
+        "capacity-hint-summary": "Where to find this",
+        "capacity-hint-body": "On your energy contract or your main fuse — typically 25 A or 35 A. Enter the actual value, not a lower safety margin.",
+        "continue-anyway": "Continue anyway"
+      },
+      "badge": {
+        "auto-detected": "Auto-detected"
+      },
+      "solar-warning": {
+        "title-one": "This change will break a solar panel",
+        "title-many": "This change will break solar panels",
+        "body-intro": "The new phase count no longer matches the configuration of:",
+        "body-outro": "Continue anyway is allowed — the affected panel(s) get flagged on the solar panels card. Nothing on the panels is changed automatically.",
+        "unnamed": "(unnamed)"
+      },
+      "sensors-heading": "Sensors",
+      "power": {
+        "intro": "To follow what your household uses and returns, V2G Liberty reads the power on every phase. These sensors were recognised automatically — please check that each one is right before continuing.",
+        "consumption-title": "Consumption",
+        "consumption-sub": "power drawn from the grid",
+        "production-title": "Production",
+        "production-sub": "power fed back to the grid",
+        "incomplete-alert": "Sensor(s) still missing — choose a sensor for every phase, for both consumption and production, to continue.",
+        "not-recognised-what": "power per phase"
+      },
+      "meter": {
+        "intro": "The cumulative meter readings are what your energy bill is settled on, per tariff. There are always two tariffs — with a single tariff, tariff 2 simply stays at the same value. These were recognised automatically — please check them before continuing.",
+        "import-title": "Import",
+        "import-sub": "total energy taken from the grid",
+        "export-title": "Export",
+        "export-sub": "total energy fed back to the grid",
+        "incomplete-alert": "Sensor(s) still missing — for both import and export, choose a total register or both tariff 1 and tariff 2 (cumulative kWh).",
+        "not-recognised-what": "cumulative kWh readings"
+      },
+      "done": {
+        "all-set": "All set — %{count} sensors linked.",
+        "incomplete-warning": "Not everything is set yet. Go back and complete the missing rows.",
+        "phases-label": "Phases",
+        "phases-value": "%{smart_count} phase |||| %{smart_count} phases",
+        "capacity-label": "Capacity per phase",
+        "no-sensor": "No sensor selected yet",
+        "keeps-monitoring": "V2G Liberty keeps monitoring these sensors and warns you as soon as one stops reporting.",
+        "save-incomplete": "Some rows are still missing — go back and complete them before saving.",
+        "saving": "Saving…"
+      },
+      "detect": {
+        "title": "Sensors not recognised — or not yet enabled",
+        "body": "No sensors reporting %{what} were found. Many integrations provide them but leave them disabled by default — check Settings → Devices & services → your meter → entities and enable them.",
+        "search-again": "Search again",
+        "open-integrations": "Open integrations"
+      },
+      "save-error": {
+        "fm": "Could not create the grid sensors in FlexMeasures: %{error}. Please check FlexMeasures and try again.",
+        "unreachable": "Could not reach the add-on. Please check that V2G Liberty is running and try again."
+      },
+      "picker": {
+        "consumption": "Consumption",
+        "production": "Production",
+        "import": "Import",
+        "export": "Export",
+        "power-subtitle": "%{direction} phase %{phase} · power",
+        "meter-subtitle": "Tariff %{tariff} · %{direction} · meter reading"
+      },
+      "choose-sensor": {
+        "title": "Choose sensor",
+        "search-label": "Search",
+        "clear-title": "Clear the search",
+        "search-info": "Prefilled with what you are setting up — every word has to match. Clear or edit it if your integration names things differently.",
+        "filter-power": "W / kW only",
+        "filter-meter": "kWh readings only",
+        "filter-all": "All sensors",
+        "empty": "No matching sensors.",
+        "already-in-use": "already in use",
+        "measures": "measures %{unit}",
+        "select-first": "Choose a sensor from the list first — search above if you don't see it.",
+        "unsuitable-title": "This sensor does not fit here",
+        "unsuitable-body": "This sensor measures %{unit}, not what this field needs. V2G Liberty cannot use it here and the schedules would be wrong. Pick another sensor, or press OK again to use it anyway.",
+        "unsuitable-fallback-unit": "the wrong quantity",
+        "help-summary": "Help — which sensor do I pick?",
+        "help-power-1": "Pick the <strong>power</strong> on one phase, in W or kW, measured at your meter — a value that changes all the time. Consumption is what you take from the grid, production what you feed back. Phase numbering follows your meter, so pick the sensor whose phase matches the row you are filling in.",
+        "help-power-2": "A sensor for a single appliance (a heat pump, a charger) measures only that device, not the whole connection.",
+        "help-meter-1": "Pick a total in kWh that only ever goes up — the same kind of number your meter shows. Import is what you took from the grid; export is what you fed back. With DSMR these are usually named <em>energy consumption / production tariff 1 / 2</em>.",
+        "help-meter-2": "Not sure between two? Compare the value with the display on your meter — the numbers should match.",
+        "cancel": "Cancel",
+        "ok": "OK"
+      },
+      "status": {
+        "reporting": "Reporting",
+        "waiting": "Waiting for data",
+        "wrong-type": "This sensor does not fit here",
+        "stale": "No update for a long time"
+      },
+      "row": {
+        "choose": "Choose sensor",
+        "change": "Change"
+      }
+    },
     "common": {
       "configure": "Configure",
-      "validation_error": "Problem with input (not specified)"
+      "validation_error": "Problem with input (not specified)",
+      "retry": "Retry",
+      "load-failed": "Could not reach V2G Liberty, so these settings could not be loaded. They have not been changed."
     },
     "administrator": {
       "header": "Administrator",
@@ -202,7 +355,23 @@
     },
     "car": {
       "header": "Car",
-      "alert": "Please configure all data elements, V2G Liberty needs this to work."
+      "alert": "V2G Liberty needs your car's details to plan its charging.",
+      "alert-with-id": "V2G Liberty needs your car's details to plan its charging. Connect the car to the charger first, so its ID can be read.",
+      "fields": {
+        "capacity": "Usable capacity",
+        "efficiency": "Charging efficiency",
+        "consumption": "Energy consumption",
+        "min-soc": "Schedule lower limit",
+        "max-soc": "Schedule upper limit",
+        "allowed-duration": "Allowed above upper limit",
+        "limits": "Schedule limits",
+        "limits-duration": "Up to %{hours} h above the limit",
+        "efficiency-dialog": "Charging efficiency (round-trip)"
+      },
+      "alert-title": "Car not set up yet",
+      "missing-id-title": "Car ID missing",
+      "missing-id": "This charger identifies cars. Read this car's ID so V2G Liberty can tell it apart from a visitor's car. The settings below stay as they are.",
+      "car-id-subtitle": "ID: %{id}"
     },
     "car-reservation-calendar": {
       "header": "Car reservation calendar",
@@ -238,10 +407,19 @@
     },
     "charger": {
       "header": "Charger",
+      "wallbox-quasar-1": "Wallbox Quasar 1",
+      "evtec-bidi-pro-10": "EVtec BiDiPro 10",
       "alert": "Please configure the charger, V2G Liberty needs this to work.",
+      "1-select-charger-type": {
+        "header": "Select charger type",
+        "description": "Please select the type of charger you are using:",
+        "validation-error": "Please select a charger type to continue."
+      },
       "invalid-host-error": "Please provide a valid hostname or IP-address (only letters, numbers, dots, hyphens, and underscores allowed).",
       "invalid-port-error": "Please provide a valid port.",
-      "connection-error": "No communication with charger, please check connection.",
+      "connection-error": "No communication with charger. Please check the connection, and whether Modbus is switched on in the charger.",
+      "charger-not-recognised-error": "Connected successfully, but the charger at this address does not appear to be the selected type. Please verify the charger type selection.",
+      "no-active-plug-error": "Connected to the charger, but no active plug was found. Please check the charger configuration.",
       "connection-success": "Succesfully connected",
       "connected-since": "Connected, last contact %{time} ago",
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
@@ -256,13 +434,42 @@
         }
       },
       "reduce-max-power-description": "Reduce max. (dis)charge power.",
-      "connection-details": {
-        "description": "To make the connection to the charger, you need the IP-address and port from the charger. You can find these in the Wallbox app.\nOpen the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth.",
-        "port-description": "Default is 502, so if you haven’t changed it, keep this."
+      "2-connection-details": {
+        "header": "connection settings",
+        "description": {
+          "generic": "To make the connection to the charger, you need the URL (usually the IP-address) and port from the charger.",
+          "evtec-bidi-pro-10": "You can find this in your network router or in the EVtec manager via the webbrowser.",
+          "wallbox-quasar-1": "You can find these in the Wallbox app: in the app, go to Settings (⚙-icon in the top right) -> Network -> Ethernet (or WiFi) ->  IP-address. Then you are asked to connect to the charger via Bluetooth."
+        },
+        "port-description": "Default is %{value}, so if you haven’t changed it, keep this."
       },
-      "charger-details": {
+      "3-power-details": {
+        "header": "power settings",
         "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
         "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger."
+      },
+      "phase": {
+        "grid-mismatch": "Your 3-phase charger requires a 3-phase grid connection. Please check your grid connection settings or charger type.",
+        "single-phase": "Your charger is connected to the only available phase (L1).",
+        "three-phase": "Your 3-phase charger is connected to all three phases.",
+        "question": "Which phase is your charger connected to?",
+        "option": "Phase %{n}",
+        "select-error": "Please select which phase your charger is connected to.",
+        "hint-summary": "Not sure?",
+        "hint-body": "Check the label on your fuse box, or use the automatic detection below.",
+        "detect": {
+          "title": "Automatic phase detection",
+          "explain": "Optionally, the phase can be detected automatically. This briefly charges (and discharges for bidirectional chargers) while monitoring the grid sensors. The charge mode will be temporarily set to Stop during detection. Make sure your car is connected.",
+          "start": "Start detection",
+          "unavailable": "Select the phase above and save. Detection is unavailable until then: it measures the charger that is connected right now, and the settings you changed are not saved yet. Once they are, reopen these settings to have the phase detected.",
+          "starting": "Starting…",
+          "baseline": "Measuring baseline…",
+          "charge-test": "Charge test…",
+          "discharge-test": "Discharge test…",
+          "success": "Detected: phase %{label}",
+          "failed": "Detection failed. You can select the phase manually.",
+          "timeout": "Detection timed out. You can select the phase manually."
+        }
       }
     },
     "dialogs": {
@@ -274,8 +481,8 @@
         "description": "This is the the maximum energy storage capacity of the car's battery that can be used for driving/charging/discharging. This often is lower than the advertised capacity.\n\nFind a reliable value on [Electric Vehicle Database](https://ev-database.org).\n\n**Battery health**\nIf a battery get’s older it usually degrades and cannot contain as much energy as when it was new. It’s advised to take this into account here. Do this by looking for the State of Health (SoH) in the cars the menu’s.\n*E.g: The SoH is 11/12 and the original usable capacity was 59kWh, then use a value of 54kWh.*"
       },
       "roundtrip-efficiency": {
-        "header": "Roundtrip efficiency",
-        "description": "This is the efficiency of a cycle of charge and discharge and includes charger and car. A typical value is 85%.\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."
+        "header": "Charging efficiency (round-trip)",
+        "description": "This is the efficiency of a cycle of charge and discharge and includes charger and car. Note that it covers the whole round trip, not charging alone. A typical value is 85%.\nA higher setting will result in more cycling in the schedule, a lower value will result in the schedule being idle more often."
       },
       "car-energy-consumption": {
         "header": "Car energy consumption",
@@ -328,6 +535,44 @@
       "multiple-asset-description": "Which asset is to be controlled via V2G Liberty?",
       "no-asset-selected-error": "Please select an option",
       "login-success": "Login successful"
+    },
+    "car-dialog": {
+      "add": {
+        "header": "Set up your car"
+      },
+      "edit": {
+        "header": "Edit %{name}",
+        "header-unnamed": "Edit car"
+      },
+      "limits": {
+        "description": "Within these limits the schedule is free to charge and discharge the car."
+      },
+      "name-label": "Car name",
+      "name-placeholder": "e.g. Nissan Leaf",
+      "learn-more": "Learn more",
+      "errors": {
+        "name-required": "Please give the car a name.",
+        "out-of-range": "Enter a whole number between %{min} and %{max}.",
+        "load-failed": "Could not load the car settings. Try again."
+      },
+      "car-id": {
+        "header": "Car identification",
+        "explain": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\n\nPlug the car into the charger, then read its ID.",
+        "read": "Read car ID",
+        "read-again": "Read again",
+        "reading": "Reading the ID of the connected car…",
+        "found": "Car ID %{id} read from the connected car.",
+        "registered": "Registered car ID: %{id}",
+        "no-car": "No car is connected. Plug the car in and try again.",
+        "no-id": "The car is connected but has not reported its ID yet. Try again in a moment.",
+        "failed": "The car ID could not be read. Check the charger connection and try again.",
+        "different": "A different car is connected (ID %{id}).",
+        "will-replace": "The connected car (ID %{id}) becomes the registered car when you save.",
+        "explain-edit": "This charger reads the ID of the car that is plugged in. V2G Liberty uses it to tell your car from any other, so it never charges or discharges a visitor's car on your schedule.\n\nPlug the car into the charger, then read its ID. Everything else you set up stays as it is.",
+        "keep-current": "Keep the current car",
+        "use-connected-option": "Use the connected car",
+        "check-values": "The name and the values below belong to the car that is registered now. Check them for the new car before you save."
+      }
     }
   }
 }

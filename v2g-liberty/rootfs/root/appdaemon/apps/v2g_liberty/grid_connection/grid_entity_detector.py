@@ -40,6 +40,9 @@ def detect_grid_entities(states: dict) -> dict:
     else:
         phases = None
 
+    # consumption_entities / production_entities are per-phase POWER sensors
+    # (W/kW) — the meter's cumulative ENERGY registers are detected separately
+    # by meter_register_detector and stored under consumption/production_registers.
     return {
         "phases": phases,
         "capacity_per_phase": capacity,

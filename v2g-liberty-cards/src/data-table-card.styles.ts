@@ -308,6 +308,18 @@ export const dataTableStyles = css`
       min-width: 0;
     }
 
+    .subcard-savings .savings-unavailable {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px 40px;
+      font-size: 15px;
+      color: var(--di-bg);
+      opacity: 0.75;
+    }
+
     /* ── Floating bar ─────────────────────────────── */
 
     .floating-bar {

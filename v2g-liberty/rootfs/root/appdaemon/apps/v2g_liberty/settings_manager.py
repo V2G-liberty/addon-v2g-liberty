@@ -1,13 +1,47 @@
 import json
 import os
+import time
 
 
 class SettingsManager:
     settings: dict = {}
 
+    # What the last read made of the settings file. The two failures need the
+    # user to do different things, so v2g_globals turns this into one of two
+    # notifications -- see retrieve_settings.
+    FILE_OK = None
+    FILE_SET_ASIDE = "set_aside"  # content was broken; started fresh
+    FILE_UNREADABLE = "unreadable"  # could not read it; touching nothing
+    file_problem: str | None = FILE_OK
+    set_aside_path: str = ""
+
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
     _FM_USER_ID_KEY = "fm_user_id"
     _FM_POWER_SOURCE_ID_KEY = "fm_power_source_id"
+
+    # The car(s) live in one list of objects, one element per car. In this
+    # release the list holds exactly one car; the list form is there so more
+    # cars can follow without another migration.
+    _CARS_KEY = "cars"
+    _LEGACY_CAR_KEYS = {
+        "input_number.car_max_capacity_in_kwh": "capacity_kwh",
+        "input_number.charger_plus_car_roundtrip_efficiency": "roundtrip_efficiency",
+        "input_number.car_consumption_wh_per_km": "consumption_wh_per_km",
+        "input_number.car_min_soc_in_percent": "min_soc_percent",
+        "input_number.car_max_soc_in_percent": "max_soc_percent",
+        "input_number.allowed_duration_above_max_soc_in_hrs": "allowed_duration_above_max_soc_hrs",
+    }
+    # Factory defaults, only used to tell "the user chose this" from "the app
+    # wrote the default on the very first boot". Kept in sync with the setting
+    # dicts in v2g_globals by a test.
+    _CAR_FACTORY_DEFAULTS = {
+        "capacity_kwh": 24,
+        "roundtrip_efficiency": 85,
+        "consumption_wh_per_km": 175,
+        "min_soc_percent": 20,
+        "max_soc_percent": 80,
+        "allowed_duration_above_max_soc_hrs": 4,
+    }
 
     def __init__(self, log):
         self.__log = log
@@ -18,30 +52,84 @@ class SettingsManager:
         self.__log("called")
 
         self.settings = {}
+        # Deliberately not cleared here: only a successful read clears it. The
+        # file is read more than once during start-up, and after setting one
+        # aside the next read finds nothing -- which would otherwise wipe the
+        # very problem we are about to report.
         if not os.path.exists(self._SETTINGS_FILE_PATH):
             self.__log("no settings file found", level="WARNING")
-        else:
-            try:
-                with open(self._SETTINGS_FILE_PATH, "r", encoding="utf-8") as read_file:
-                    settings = json.load(read_file)
-                    if isinstance(settings, dict):
-                        self.settings = self.__upgrade(settings)
-                        self.__write_to_file()
-                    else:
-                        self.__log(
-                            f"loading file content error, no dict: '{settings}'.",
-                            level="WARNING",
-                        )
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                self.__log(f"Error reading settings file: {e}", level="WARNING")
+            return
+
+        # Only the reading is guarded. Writing used to sit inside this try as
+        # well, so a failure to write came back as "cannot read" -- and with the
+        # guard in __write_to_file that would wedge every later save.
+        try:
+            with open(self._SETTINGS_FILE_PATH, "r", encoding="utf-8") as read_file:
+                settings = json.load(read_file)
+        except json.JSONDecodeError as e:
+            # The file is there and is demonstrably not JSON.
+            self.__set_file_aside(f"it is not valid JSON ({e})")
+            return
+        except OSError as e:
+            # Permissions, I/O, a volume not mounted yet -- and FileNotFoundError,
+            # which here means the file vanished between the check above and this
+            # open. The content may be perfectly fine and merely out of reach, so
+            # do not touch it: moving it aside could destroy a good file over a
+            # passing fault. A restart is the way out.
+            self.file_problem = self.FILE_UNREADABLE
+            self.__log(
+                f"Could not read the settings file: {e}. Leaving it untouched; "
+                "nothing will be saved until the add-on is restarted.",
+                level="ERROR",
+            )
+            return
+
+        if not isinstance(settings, dict):
+            self.__set_file_aside(f"it holds {type(settings).__name__}, not an object")
+            return
+
+        self.file_problem = self.FILE_OK
+        self.set_aside_path = ""
+        self.settings = self.__upgrade(settings)
+        self.__write_to_file()
+
+    def __set_file_aside(self, reason: str):
+        """The content is broken beyond use. Leaving it in place strands the
+        app -- running on defaults, saving nothing -- and a user cannot reach
+        /data to repair it, so there would be no way out. Move it aside: the
+        app starts clean and saving works again, and the original is kept for
+        support. The timestamp means one of these can never overwrite another.
+        """
+        path = f"{self._SETTINGS_FILE_PATH}.corrupt-{time.strftime('%Y%m%d-%H%M%S')}"
+        try:
+            os.replace(self._SETTINGS_FILE_PATH, path)
+        except OSError as e:
+            # If it cannot even be moved, fall back to touching nothing.
+            self.file_problem = self.FILE_UNREADABLE
+            self.__log(
+                f"The settings file is unusable ({reason}) and could not be set "
+                f"aside either: {e}. Leaving it untouched; nothing will be saved "
+                "until the add-on is restarted.",
+                level="ERROR",
+            )
+            return
+        self.file_problem = self.FILE_SET_ASIDE
+        self.set_aside_path = path
+        self.__log(
+            f"The settings file was unusable ({reason}) and has been set aside "
+            f"as '{path}'. Starting with factory defaults.",
+            level="ERROR",
+        )
 
     def __upgrade(self, settings: dict):
         settings = self.__upgrade_obsolete_settings(settings)
+        settings = self.__upgrade_charger_type(settings)
         settings = self.__upgrade_administrator_settings_initialised(settings)
         settings = self.__upgrade_calendar_settings_initialised(settings)
         settings = self.__upgrade_charger_settings_initialised(settings)
         settings = self.__upgrade_electricity_contract_settings_initialised(settings)
         settings = self.__upgrade_schedule_settings_initialised(settings)
+        settings = self.__upgrade_car_settings(settings)
         return settings
 
     def __upgrade_obsolete_settings(self, settings: dict):
@@ -109,6 +197,22 @@ class SettingsManager:
             settings["input_boolean.calendar_settings_initialised"] = True
         return settings
 
+    def __upgrade_charger_type(self, settings: dict):
+        """Installations from before the charger-type setting (phase 3 of the
+        359 migration) can only have a Wallbox Quasar 1: that was the only
+        supported charger. Assume it when the charger is configured but the type
+        is missing, so an upgrade keeps working without a visit to the settings.
+        """
+        if (
+            "input_text.charger_host_url" in settings
+            and "input_number.charger_port" in settings
+            and "input_boolean.use_reduced_max_charge_power" in settings
+            and "input_text.charger_type" not in settings
+        ):
+            settings["input_text.charger_type"] = "wallbox-quasar-1"
+            self.__log("Assuming charger_type to be 'wallbox-quasar-1'.")
+        return settings
+
     def __upgrade_charger_settings_initialised(self, settings: dict):
         if (
             "input_text.charger_host_url" in settings
@@ -165,6 +269,46 @@ class SettingsManager:
             settings["input_boolean.schedule_settings_initialised"] = True
         return settings
 
+    def __upgrade_car_settings(self, settings: dict):
+        """The car values used to live in six separate entity-keyed settings.
+        They now live in one object in the ``cars`` list, so the values of a car
+        can later be stored per car. No name is invented: the user picks one at
+        the first edit.
+
+        ``configured`` is only set when this installation really had a
+        configured car. The six factory defaults are written to the settings
+        file on the very first boot, so their mere presence proves nothing:
+        the installation must have been in use (a configured charger) or the
+        user must have changed at least one value.
+        """
+        if self._CARS_KEY in settings:
+            return settings
+        car = {
+            new: settings[old]
+            for old, new in self._LEGACY_CAR_KEYS.items()
+            if old in settings
+        }
+        if not car:
+            return settings
+        car.setdefault("name", "")
+        car.setdefault("ev_id", "")
+        was_in_use = bool(settings.get("input_boolean.charger_settings_initialised"))
+        user_changed_a_value = any(
+            car.get(key) not in (None, default)
+            for key, default in self._CAR_FACTORY_DEFAULTS.items()
+        )
+        car["configured"] = was_in_use or user_changed_a_value
+        settings[self._CARS_KEY] = [car]
+        # TODO: Review if the legacy flat keys can be removed once all users have
+        # upgraded past version 0.9.x. Keeping them one release makes a roll-back
+        # to the previous add-on version land on the real values instead of on
+        # the factory defaults. The new version no longer reads them.
+        self.__log(
+            f"Migrated {len(car) - 3} car settings into the 'cars' list "
+            f"(configured={car['configured']})."
+        )
+        return settings
+
     def store_setting(self, entity_id: str, value: any):
         """Store (overwrite or create) a setting in settings file.
 
@@ -180,6 +324,16 @@ class SettingsManager:
         self.__write_to_file()
 
     def __write_to_file(self):
+        if self.file_problem == self.FILE_UNREADABLE:
+            # The file is still the user's configuration; we just cannot read
+            # it. Writing would replace it with the little we hold in memory --
+            # which after a failed load is nothing at all. One stray byte used
+            # to be enough to lose every setting.
+            self.__log(
+                "Refusing to write: the settings file could not be read.",
+                level="ERROR",
+            )
+            return
         self.__log(f"__write_to_file, settings: '{self.settings}'.", level="DEBUG")
         # Write to a temporary file first, then atomically replace.
         # This prevents an empty settings file if the process is killed
@@ -187,10 +341,19 @@ class SettingsManager:
         tmp_path = self._SETTINGS_FILE_PATH + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as write_file:
             json.dump(self.settings, write_file, indent=2)
+            # Closing only hands the bytes to the kernel. Without this they can
+            # still be in the page cache when the power goes, and the rename
+            # below then publishes an empty or half-written file over the good
+            # one -- the very outcome the rename is here to prevent.
+            write_file.flush()
+            os.fsync(write_file.fileno())
         os.replace(tmp_path, self._SETTINGS_FILE_PATH)
 
     def reset(self):
+        # A deliberate wipe is also how you recover from an unreadable file,
+        # so it clears the guard rather than tripping over it.
         self.settings = {}
+        self.file_problem = self.FILE_OK
         self.__write_to_file()
 
     def get(self, entity_id):

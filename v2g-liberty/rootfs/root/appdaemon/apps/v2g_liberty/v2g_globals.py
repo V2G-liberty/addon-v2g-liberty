@@ -15,7 +15,10 @@ from . import constants as c
 from .log_wrapper import get_class_method_logger
 from .grid_connection.charger_phase_detector import ChargerPhaseDetector
 from .grid_connection.grid_entity_detector import detect_grid_entities
+from .grid_connection.meter_register_detector import detect_meter_registers
+from .chargers.factory import DEFAULT_CHARGER_TYPE, create_evse_client
 from .settings_manager import SettingsManager
+from .util.conversion_util import parse_to_int  # noqa: F401  re-exported for main_app
 
 
 class V2GLibertyGlobals:
@@ -24,6 +27,7 @@ class V2GLibertyGlobals:
     v2g_settings: SettingsManager
     v2g_main_app: object
     evse_client_app: object
+    data_monitor: object = None
     fm_client_app: object
     calendar_client: object
     fm_data_retrieve_client: object
@@ -144,6 +148,12 @@ class V2GLibertyGlobals:
         "value_type": "bool",
         "factory_default": False,
     }
+    SETTING_CHARGER_TYPE = {
+        "entity_name": "charger_type",
+        "entity_type": "input_text",
+        "value_type": "str",
+        "factory_default": None,
+    }
     SETTING_CHARGER_HOST_URL = {
         "entity_name": "charger_host_url",
         "entity_type": "input_text",
@@ -179,24 +189,34 @@ class V2GLibertyGlobals:
         "max": 25000,
     }  # min is not used yet...
 
-    # Settings related to car
+    # Settings related to car.
+    # The values live in the "cars" list in the settings file (one car in this
+    # release); these dicts only describe the HA entities the values are
+    # projected to, and the limits (mirrored from the HA package, pinned by a
+    # test) that a stored value is clamped to.
     SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = {
         "entity_name": "charger_plus_car_roundtrip_efficiency",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 85,
+        "min": 50,
+        "max": 100,
     }
     SETTING_CAR_MAX_CAPACITY_IN_KWH = {
         "entity_name": "car_max_capacity_in_kwh",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 24,
+        "min": 10,
+        "max": 200,
     }
     SETTING_CAR_CONSUMPTION_WH_PER_KM = {
         "entity_name": "car_consumption_wh_per_km",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 175,
+        "min": 100,
+        "max": 400,
     }
 
     # Settings related to optimisation
@@ -211,12 +231,16 @@ class V2GLibertyGlobals:
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 20,
+        "min": 10,
+        "max": 55,
     }
     SETTING_CAR_MAX_SOC_IN_PERCENT = {
         "entity_name": "car_max_soc_in_percent",
         "entity_type": "input_number",
         "value_type": "int",
         "factory_default": 80,
+        "min": 60,
+        "max": 95,
     }
     SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS = {
         "entity_name": "allowed_duration_above_max_soc_in_hrs",
@@ -226,6 +250,34 @@ class V2GLibertyGlobals:
         "min": 1,
         "max": 12,
     }
+    # Which key in the stored car object feeds which setting dict.
+    CAR_VALUE_SETTINGS = {
+        "capacity_kwh": SETTING_CAR_MAX_CAPACITY_IN_KWH,
+        "roundtrip_efficiency": SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY,
+        "consumption_wh_per_km": SETTING_CAR_CONSUMPTION_WH_PER_KM,
+        "min_soc_percent": SETTING_CAR_MIN_SOC_IN_PERCENT,
+        "max_soc_percent": SETTING_CAR_MAX_SOC_IN_PERCENT,
+        "allowed_duration_above_max_soc_hrs": SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
+    }
+    # Whether the car is configured is derived, not stored, and lives in a
+    # runtime sensor written with set_state: no package entry, so no Home
+    # Assistant restart is needed to get it, and it can never trip
+    # __process_setting over an entity HA does not know yet.
+    CAR_SETTINGS_INITIALISED_ENTITY = "sensor.car_settings_initialised"
+    # The numbers of a save_car_settings payload: payload key, object key, label.
+    CAR_FIELDS = (
+        ("capacity_kwh", "capacity_kwh", "Usable capacity"),
+        ("efficiency", "roundtrip_efficiency", "Roundtrip efficiency"),
+        ("consumption_wh_km", "consumption_wh_per_km", "Energy consumption"),
+        ("min_soc", "min_soc_percent", "Schedule lower limit"),
+        ("max_soc", "max_soc_percent", "Schedule upper limit"),
+        (
+            "allowed_duration_above_max",
+            "allowed_duration_above_max_soc_hrs",
+            "Allowed duration above the upper limit",
+        ),
+    )
+    CAR_NAME_MAX_LENGTH = 40
 
     # Settings related to notifications
     ADMIN_SETTINGS_INITIALISED = {
@@ -293,10 +345,20 @@ class V2GLibertyGlobals:
 
     hass: Hass = None
     notifier: Notifier = None
+    event_bus = None
 
-    def __init__(self, hass: Hass, notifier: Notifier):
+    # Grid FM provisioning: bound each attempt so a slow/hung FlexMeasures cannot
+    # block the save or startup, and guard against overlapping background
+    # (startup / FM-reconnect) provisioning runs. Kept below the cards'
+    # callFunction timeout (60s) so a save always returns a definitive
+    # success/fm_error to the UI before the frontend gives up.
+    _FM_PROVISION_TIMEOUT: int = 45
+    _grid_prov_in_flight: bool = False
+
+    def __init__(self, hass: Hass, notifier: Notifier, event_bus=None):
         self.hass = hass
         self.notifier = notifier
+        self.event_bus = event_bus
         self.__log = get_class_method_logger(module_name="v2g_globals")
         self.v2g_settings = SettingsManager(log=self.__log)
 
@@ -326,6 +388,9 @@ class V2GLibertyGlobals:
         )
         self.hass.listen_event(self.__save_calendar_settings, "save_calendar_settings")
         self.hass.listen_event(self.__save_charger_settings, "save_charger_settings")
+        self.hass.listen_event(self.__save_car_settings, "save_car_settings")
+        self.hass.listen_event(self.__get_car_settings, "get_car_settings")
+        self.hass.listen_event(self.__get_connected_car_id, "get_connected_car_id")
         self.hass.listen_event(
             self.__save_electricity_contract_settings,
             "save_electricity_contract_settings",
@@ -340,6 +405,7 @@ class V2GLibertyGlobals:
         self.hass.listen_event(
             self.__test_schedule_connection, "test_schedule_connection"
         )
+        self.hass.listen_event(self.__test_fm_reachable, "test_fm_reachable")
 
         self.hass.listen_event(
             self.__save_grid_connection_settings, "save_grid_connection_settings"
@@ -347,7 +413,6 @@ class V2GLibertyGlobals:
         self.hass.listen_event(
             self.__get_grid_connection_settings, "get_grid_connection_settings"
         )
-        self.hass.listen_event(self.__save_charger_phase, "save_charger_phase")
         self.hass.listen_event(self.__get_charger_phase, "get_charger_phase")
         self.hass.listen_event(self.__test_grid_entities, "test_grid_entities")
         self.hass.listen_event(self.__detect_grid_entities, "detect_grid_entities")
@@ -362,11 +427,61 @@ class V2GLibertyGlobals:
         self.hass.listen_event(self.restart_v2g_liberty, "RESTART_HA")
         self.hass.listen_event(self.__reset_database, "reset_database")
 
+        # Self-heal grid FM provisioning when FlexMeasures becomes reachable
+        # again (e.g. it was down at the last save or at startup).
+        if self.event_bus is not None:
+            self.event_bus.add_event_listener(
+                "fm_connection_status", self.__on_fm_connection_status
+            )
+
         self.__log("Completed initializing V2GLibertyGlobals")
 
     ######################################################################
     #                    INITIALISATION METHODS                          #
     ######################################################################
+
+    def get_configured_charger_type(self) -> str:
+        """The charger type to build the driver for at start-up: the stored
+        setting, or the default for installations that predate the setting.
+        Reads the settings file if that has not happened yet.
+        """
+        if not self.v2g_settings.settings:
+            self.v2g_settings.retrieve_settings()
+        charger_type = self.v2g_settings.get("input_text.charger_type")
+        return charger_type or DEFAULT_CHARGER_TYPE
+
+    SETTINGS_FILE_PROBLEM_TAG = "settings_file_problem"
+
+    def __report_settings_file_problem(self):
+        """The settings file failed to load. Say so: without this the app runs
+        on factory defaults and the user, who cannot reach /data, has no way to
+        tell that from a fresh install. The two cases need different actions.
+        """
+        problem = self.v2g_settings.file_problem
+        if problem == SettingsManager.FILE_OK:
+            return
+        if problem == SettingsManager.FILE_SET_ASIDE:
+            message = (
+                "Your settings could not be read and have been set aside as "
+                f"'{self.v2g_settings.set_aside_path}'. V2G Liberty has started "
+                "with factory defaults, so please set it up again."
+            )
+        else:
+            message = (
+                "The settings file could not be read. V2G Liberty is running on "
+                "factory defaults and will not save anything until the add-on "
+                "has been restarted."
+            )
+        # A sticky memo, not notify_user: that one pushes to the mobile apps of
+        # the registered recipients, and after a file was set aside there are
+        # none -- the recipients lived in the settings too. This lands in the
+        # Home Assistant sidebar, where the user is already looking, and needs
+        # nothing configured to arrive.
+        self.notifier.post_sticky_memo(
+            message=message,
+            title="V2G Liberty settings could not be read",
+            memo_id=self.SETTINGS_FILE_PROBLEM_TAG,
+        )
 
     async def kick_off_settings(self):
         # To be called from initialise or restart event
@@ -374,7 +489,12 @@ class V2GLibertyGlobals:
 
         self.v2g_settings.retrieve_settings()
         await self.__initialise_notification_settings()
+        self.__report_settings_file_problem()
 
+        # The car before the charger: initialising the charger runs its first
+        # poll, and with a car already plugged in that is a connect transition
+        # that compares the connected car against c.CAR_EV_ID.
+        await self.__initialise_car_settings()
         await self.__initialise_charger_settings()
         await self.__initialise_electricity_contract_settings()
         await self.__initialise_general_settings()
@@ -427,6 +547,33 @@ class V2GLibertyGlobals:
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     async def __save_charger_settings(self, event, data, kwargs):
+        charger_type = data.get("charger_type") or self.evse_client_app.CHARGER_TYPE
+
+        # The phase arrives together with the rest of the charger settings: the
+        # dialog collects everything and saves once, at the end. Saving the type
+        # earlier (and swapping the driver with it) left whoever abandoned the
+        # flow with a new charger and the phase of the one it replaced.
+        # Validate before storing anything, so a refused phase does not leave
+        # half of the settings applied -- the very thing this prevents.
+        raw_phase = data.get("connected_to_phase")
+        phases = None
+        if raw_phase is not None:
+            phases = self.normalise_charger_phases(raw_phase)
+            if phases is None:
+                self.__log(
+                    f"rejected connected_to_phase={raw_phase!r}",
+                    level="WARNING",
+                )
+                self.hass.fire_event(
+                    "save_charger_settings.result",
+                    error=(
+                        "connected_to_phase must be a phase (1, 2 or 3) "
+                        "or a list of distinct phases"
+                    ),
+                )
+                return
+
+        self.__store_setting("input_text.charger_type", charger_type)
         self.__store_setting("input_text.charger_host_url", data["host"])
         self.__store_setting("input_number.charger_port", data["port"])
         self.__store_setting(
@@ -441,13 +588,168 @@ class V2GLibertyGlobals:
                 "input_number.charger_max_discharging_power",
                 data["maxDischargingPower"],
             )
+        if phases is not None:
+            self.v2g_settings.store_object(
+                "charger_phase", {"connected_to_phase": phases}
+            )
+            self.__initialise_charger_phase_settings()
+
         self.__store_setting("input_boolean.charger_settings_initialised", True)
 
         self.hass.fire_event("save_charger_settings.result")
 
+        if charger_type != self.evse_client_app.CHARGER_TYPE:
+            await self.__switch_evse_client(charger_type)
+        # The car flag depends on the charger: a car without an id is finished
+        # on a Quasar but not on a charger that identifies cars.
+        await self.__refresh_car_settings_initialised()
         await self.__initialise_charger_settings()
         await self.__try_historical_import()
         await self.v2g_main_app.kick_off_v2g_liberty()
+
+    async def __switch_evse_client(self, charger_type: str):
+        """Replace the running charger driver by one for ``charger_type``.
+
+        The driver is created at start-up from the stored type; when the user
+        selects another type it is swapped here without a restart: the old
+        driver releases its polling, timers and connection, the new one is
+        wired to the same consumers and initialised by the caller.
+        """
+        self.__log(f"switching charger driver to '{charger_type}'")
+        new_evse = create_evse_client(
+            charger_type, self.hass, self.event_bus, self.notifier
+        )
+        old_evse = self.evse_client_app
+        if old_evse is not None:
+            await old_evse.shutdown()
+        new_evse.v2g_main_app = self.v2g_main_app
+        self.evse_client_app = new_evse
+        self.v2g_main_app.evse_client_app = new_evse
+        if self.data_monitor is not None:
+            self.data_monitor.evse_client_app = new_evse
+
+    async def __get_car_settings(self, event, data, kwargs):
+        """Answer the car card and dialog with everything they show: the stored
+        car, or the factory defaults when there is none. Always fires its
+        result, so the card's call never waits for its timeout."""
+        car = self.__stored_car()
+        payload = {
+            "name": str(car.get("name") or ""),
+            "ev_id": str(car.get("ev_id") or ""),
+            "configured": bool(car.get("configured")),
+            "identifies_car": self.__charger_identifies_car(),
+        }
+        for key, setting in self.CAR_VALUE_SETTINGS.items():
+            payload[key] = self.__car_value_or_default(setting, car.get(key))
+        self.hass.fire_event("get_car_settings.result", **payload)
+
+    @staticmethod
+    def __car_value_or_default(setting: dict, value):
+        """One stored car value as a number, or the factory default when there
+        is none. Coerced because a value migrated from the old entity-keyed
+        settings can be a string ("59.0"), and the card would show that as it
+        is -- and the dialog would put it in a number field."""
+        if value is None or value == "":
+            return setting["factory_default"]
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return setting["factory_default"]
+
+    async def __save_car_settings(self, event, data, kwargs):
+        """Store the car in one go, from the last page of the car dialog.
+
+        Everything is validated first; a refusal stores nothing and answers
+        with an error, so an abandoned or faulty dialog never leaves half a
+        car behind. On success the bare result goes out before the follow-up
+        work, so the dialog closes at once.
+        """
+        stored = self.__stored_car()
+
+        name = str(data.get("name") or "").strip()[: self.CAR_NAME_MAX_LENGTH]
+        if not name:
+            self.__refuse_car_settings("Please give the car a name.")
+            return
+
+        values = {}
+        for payload_key, object_key, label in self.CAR_FIELDS:
+            setting = self.CAR_VALUE_SETTINGS[object_key]
+            value, error = self.__validate_car_number(
+                setting, data.get(payload_key), label
+            )
+            if error:
+                self.__refuse_car_settings(error)
+                return
+            values[object_key] = value
+
+        # An empty id keeps the stored one: the dialog only sends an id when
+        # the user read (and accepted) a new one.
+        ev_id = str(data.get("ev_id") or "").strip() or str(stored.get("ev_id") or "")
+        if not ev_id and self.__charger_identifies_car():
+            self.__refuse_car_settings(
+                "Connect the car to the charger so its ID can be read, then try again."
+            )
+            return
+
+        self.__store_car({"name": name, "ev_id": ev_id, "configured": True, **values})
+        self.hass.fire_event("save_car_settings.result")
+
+        await self.__initialise_car_settings()
+        resumed = await self.v2g_main_app.handle_car_settings_saved()
+        if not resumed:
+            # Restoring the charge mode already re-activates the driver through
+            # the charge-mode listener; a kick-off on top would race it.
+            await self.v2g_main_app.kick_off_v2g_liberty()
+
+    async def __get_connected_car_id(self, event, data, kwargs):
+        """Read the id of the connected car on request from the car dialog.
+        Always fires its result: the dialog's call would otherwise wait for
+        its timeout."""
+        evse = self.evse_client_app
+        identifies_car = self.__charger_identifies_car()
+        ev_id, reason = "", "unsupported"
+        if identifies_car:
+            try:
+                ev_id, reason = await evse.read_connected_car_id()
+            except Exception as e:
+                # The driver catches its own errors; this is the safety net.
+                self.__log(f"reading the car id failed: {e}", level="WARNING")
+                ev_id, reason = "", "read_failed"
+        stored_ev_id = str(self.__stored_car().get("ev_id") or "")
+        # The dialog shows the user whatever comes back here, so a complaint
+        # about what it shows is only diagnosable if the answer is in the log.
+        self.__log(
+            f"answering with ev_id='{ev_id}', reason='{reason}', "
+            f"stored_ev_id='{stored_ev_id}', identifies_car={identifies_car}."
+        )
+        self.hass.fire_event(
+            "get_connected_car_id.result",
+            ev_id=ev_id,
+            reason=reason,
+            stored_ev_id=stored_ev_id,
+            identifies_car=identifies_car,
+        )
+
+    def __refuse_car_settings(self, error: str):
+        self.__log(f"refused car settings: {error}", level="WARNING")
+        self.hass.fire_event("save_car_settings.result", error=error)
+
+    @staticmethod
+    def __validate_car_number(setting: dict, raw, label: str):
+        """Refuse, do not clamp: a settings dialog must say no. (Clamping with a
+        memo is right for a stored value at boot, wrong for user input.)"""
+        low, high = setting["min"], setting["max"]
+        try:
+            value = int(float(raw))
+        except (TypeError, ValueError):
+            return None, f"{label} must be a whole number between {low} and {high}."
+        if not low <= value <= high:
+            return None, f"{label} must be between {low} and {high}."
+        return value, None
+
+    def __store_car(self, car: dict):
+        """This release holds one car: the list is replaced by that one."""
+        self.v2g_settings.store_object("cars", [car])
 
     async def __save_electricity_contract_settings(self, event, data, kwargs):
         self.__log("Saving electricity contract settings")
@@ -512,11 +814,21 @@ class V2GLibertyGlobals:
 
     # ── Grid connection settings (entity-free, JSON-based) ─────────────
 
+    # Canonical schema of the persisted ``grid_connection`` settings object.
+    # NB two different kinds of sensor are stored here (JSON cannot carry
+    # comments, so the distinction is documented in code):
+    #   - ``consumption_entities`` / ``production_entities`` — per-phase POWER
+    #     sensors (W/kW): power drawn from / fed back to the grid.
+    #   - ``consumption_registers`` / ``production_registers`` — cumulative
+    #     ENERGY meter registers (kWh, state_class total_increasing; OBIS
+    #     1.8.x import / 2.8.x export), summed per tariff.
     _GRID_CONNECTION_DEFAULTS = {
         "phases": 3,
         "capacity_per_phase": 25,
-        "consumption_entities": [],
-        "production_entities": [],
+        "consumption_entities": [],  # power sensors (W/kW), per phase
+        "production_entities": [],  # power sensors (W/kW), per phase
+        "consumption_registers": [],  # cumulative energy registers (kWh, import)
+        "production_registers": [],  # cumulative energy registers (kWh, export)
     }
 
     def __initialise_solar_panel_settings(self):
@@ -548,6 +860,8 @@ class V2GLibertyGlobals:
             ]
             c.GRID_CONSUMPTION_ENTITIES = []
             c.GRID_PRODUCTION_ENTITIES = []
+            c.METER_CONSUMPTION_REGISTERS = []
+            c.METER_PRODUCTION_REGISTERS = []
             return
 
         c.GRID_PHASES = data.get("phases", self._GRID_CONNECTION_DEFAULTS["phases"])
@@ -557,6 +871,8 @@ class V2GLibertyGlobals:
         )
         c.GRID_CONSUMPTION_ENTITIES = data.get("consumption_entities", [])
         c.GRID_PRODUCTION_ENTITIES = data.get("production_entities", [])
+        c.METER_CONSUMPTION_REGISTERS = data.get("consumption_registers", [])
+        c.METER_PRODUCTION_REGISTERS = data.get("production_registers", [])
         self.__log(
             f"Grid connection: {c.GRID_PHASES} phase(s), "
             f"{c.GRID_CAPACITY_PER_PHASE}A, "
@@ -582,6 +898,10 @@ class V2GLibertyGlobals:
         capacity = data.get("capacity_per_phase")
         consumption = data.get("consumption_entities", [])
         production = data.get("production_entities", [])
+        # Cumulative energy meter registers are optional (a grid connection may
+        # be configured without them). Coerce to lists; no per-phase count.
+        consumption_registers = data.get("consumption_registers") or []
+        production_registers = data.get("production_registers") or []
 
         # Validate
         if phases not in (1, 3):
@@ -616,6 +936,8 @@ class V2GLibertyGlobals:
             "capacity_per_phase": capacity,
             "consumption_entities": consumption,
             "production_entities": production,
+            "consumption_registers": consumption_registers,
+            "production_registers": production_registers,
         }
 
         # FM provisioning must succeed BEFORE anything is persisted. Apply the
@@ -627,23 +949,37 @@ class V2GLibertyGlobals:
             c.GRID_CAPACITY_PER_PHASE,
             c.GRID_CONSUMPTION_ENTITIES,
             c.GRID_PRODUCTION_ENTITIES,
+            c.METER_CONSUMPTION_REGISTERS,
+            c.METER_PRODUCTION_REGISTERS,
         )
         c.GRID_PHASES = phases
         c.GRID_CAPACITY_PER_PHASE = capacity
         c.GRID_CONSUMPTION_ENTITIES = consumption
         c.GRID_PRODUCTION_ENTITIES = production
+        c.METER_CONSUMPTION_REGISTERS = consumption_registers
+        c.METER_PRODUCTION_REGISTERS = production_registers
         try:
-            await self.__provision_grid_assets()
+            await asyncio.wait_for(
+                self.__provision_grid_assets(),
+                timeout=self._FM_PROVISION_TIMEOUT,
+            )
         except Exception as e:
             (
                 c.GRID_PHASES,
                 c.GRID_CAPACITY_PER_PHASE,
                 c.GRID_CONSUMPTION_ENTITIES,
                 c.GRID_PRODUCTION_ENTITIES,
+                c.METER_CONSUMPTION_REGISTERS,
+                c.METER_PRODUCTION_REGISTERS,
             ) = prev_constants
-            self.__log(f"Grid FM provisioning failed: {e}", level="WARNING")
+            reason = (
+                "FlexMeasures did not respond in time"
+                if isinstance(e, asyncio.TimeoutError)
+                else str(e)
+            )
+            self.__log(f"Grid FM provisioning failed: {reason}", level="WARNING")
             self.hass.fire_event(
-                "save_grid_connection_settings.result", fm_error=str(e)
+                "save_grid_connection_settings.result", fm_error=reason
             )
             return
 
@@ -657,6 +993,11 @@ class V2GLibertyGlobals:
             )
             self.__initialise_charger_phase_settings()
             self.__log("Cleared charger phase (grid phases or entities changed)")
+
+        # Let data_monitor re-register its grid listeners on the new entities
+        # without an app restart.
+        if self.event_bus is not None:
+            self.event_bus.emit_event("grid_settings_changed")
 
         self.hass.fire_event("save_grid_connection_settings.result")
 
@@ -1066,6 +1407,7 @@ class V2GLibertyGlobals:
             f"({sensor_count} sensors, {emulated_count} emulated)"
         )
         result = detect_grid_entities(states)
+        result.update(detect_meter_registers(states))
         self.__log(f"Detection result: {result}")
         self.hass.fire_event("detect_grid_entities.result", **result)
 
@@ -1081,6 +1423,10 @@ class V2GLibertyGlobals:
         any ``ensure_*`` / ``update_asset`` exception propagate. Callers must
         surface the failure: the save handler converts it into an ``fm_error``
         response, while the startup caller logs a WARNING and continues.
+
+        Atomic: the module-global ``c.FM_*`` id constants are published only
+        after every FM call has succeeded, so a partially-completed run leaves
+        them untouched rather than half-filled.
         """
         if not c.GRID_CONSUMPTION_ENTITIES:
             self.__log("Grid connection not configured, skipping FM provisioning")
@@ -1092,8 +1438,10 @@ class V2GLibertyGlobals:
                 "Configure FlexMeasures access and try again."
             )
 
+        # Build all ids into locals and publish the module-global constants
+        # only after every FM call has succeeded (see the "Atomic" note above).
         # Mains Connection asset
-        c.FM_MAINS_CONNECTION_ASSET_ID = await self.fm_client_app.ensure_asset(
+        mains_asset_id = await self.fm_client_app.ensure_asset(
             name="Mains Connection",
             generic_asset_type="building",
             attributes={
@@ -1106,43 +1454,64 @@ class V2GLibertyGlobals:
         if self.fm_client_app._charger_asset_id is not None:
             await self.fm_client_app.client.update_asset(
                 self.fm_client_app._charger_asset_id,
-                {"parent_asset_id": c.FM_MAINS_CONNECTION_ASSET_ID},
+                {"parent_asset_id": mains_asset_id},
             )
             self.__log(
                 f"Set charger asset {self.fm_client_app._charger_asset_id} "
-                f"as child of Mains Connection {c.FM_MAINS_CONNECTION_ASSET_ID}"
+                f"as child of Mains Connection {mains_asset_id}"
             )
 
         # Grid sensors per phase
+        consumption_ids: dict[int, int] = {}
+        production_ids: dict[int, int] = {}
+        residential_ids: dict[int, int] = {}
         for phase in range(1, c.GRID_PHASES + 1):
-            c.FM_GRID_CONSUMPTION_SENSOR_IDS[
-                phase
-            ] = await self.fm_client_app.ensure_sensor(
+            consumption_ids[phase] = await self.fm_client_app.ensure_sensor(
                 name=f"Grid Consumption L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+                asset_id=mains_asset_id,
                 attributes={"consumption_is_positive": True},
             )
-            c.FM_GRID_PRODUCTION_SENSOR_IDS[
-                phase
-            ] = await self.fm_client_app.ensure_sensor(
+            production_ids[phase] = await self.fm_client_app.ensure_sensor(
                 name=f"Grid Production L{phase}",
                 unit="kW",
-                asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+                asset_id=mains_asset_id,
+            )
+            # Residential (net household) load: grid minus solar and car.
+            residential_ids[phase] = await self.fm_client_app.ensure_sensor(
+                name=f"Residential Load L{phase}",
+                unit="kW",
+                asset_id=mains_asset_id,
+                attributes={"consumption_is_positive": True},
             )
 
         # Aggregate Power sensor (written by FM scheduler, not by V2G Liberty)
-        c.FM_AGGREGATE_POWER_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+        aggregate_power_id = await self.fm_client_app.ensure_sensor(
             name="Aggregate Power",
             unit="kW",
-            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+            asset_id=mains_asset_id,
+        )
+
+        # Aggregate metered energy: whole-connection import/export from the
+        # cumulative meter registers. kW-defined; V2G posts kWh increments per
+        # interval and FM converts. Left unfilled when no registers configured.
+        aggregate_consumption_id = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Consumption",
+            unit="kW",
+            asset_id=mains_asset_id,
+            attributes={"consumption_is_positive": True},
+        )
+        aggregate_production_id = await self.fm_client_app.ensure_sensor(
+            name="Aggregate Production",
+            unit="kW",
+            asset_id=mains_asset_id,
         )
 
         # EMS Status sensor
-        c.FM_EMS_STATUS_SENSOR_ID = await self.fm_client_app.ensure_sensor(
+        ems_status_id = await self.fm_client_app.ensure_sensor(
             name="EMS Status",
             unit="dimensionless",
-            asset_id=c.FM_MAINS_CONNECTION_ASSET_ID,
+            asset_id=mains_asset_id,
         )
 
         # Show all provisioned grid sensors on the Mains Connection's FM
@@ -1150,24 +1519,82 @@ class V2GLibertyGlobals:
         # attribute), so phases/capacity stay untouched.
         sensors_to_show = []
         for phase in range(1, c.GRID_PHASES + 1):
-            sensors_to_show.append(c.FM_GRID_CONSUMPTION_SENSOR_IDS[phase])
-            sensors_to_show.append(c.FM_GRID_PRODUCTION_SENSOR_IDS[phase])
-        sensors_to_show.append(c.FM_AGGREGATE_POWER_SENSOR_ID)
-        sensors_to_show.append(c.FM_EMS_STATUS_SENSOR_ID)
+            sensors_to_show.append(consumption_ids[phase])
+            sensors_to_show.append(production_ids[phase])
+            sensors_to_show.append(residential_ids[phase])
+        sensors_to_show.append(aggregate_power_id)
+        sensors_to_show.append(aggregate_consumption_id)
+        sensors_to_show.append(aggregate_production_id)
+        sensors_to_show.append(ems_status_id)
         await self.fm_client_app.client.update_asset(
-            c.FM_MAINS_CONNECTION_ASSET_ID,
+            mains_asset_id,
             {"sensors_to_show": sensors_to_show},
         )
+
+        # All FM calls succeeded — publish the ids atomically.
+        c.FM_MAINS_CONNECTION_ASSET_ID = mains_asset_id
+        c.FM_GRID_CONSUMPTION_SENSOR_IDS = consumption_ids
+        c.FM_GRID_PRODUCTION_SENSOR_IDS = production_ids
+        c.FM_RESIDENTIAL_LOAD_SENSOR_IDS = residential_ids
+        c.FM_AGGREGATE_POWER_SENSOR_ID = aggregate_power_id
+        c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID = aggregate_consumption_id
+        c.FM_AGGREGATE_PRODUCTION_SENSOR_ID = aggregate_production_id
+        c.FM_EMS_STATUS_SENSOR_ID = ems_status_id
 
         self.__log(
             f"Grid FM provisioning complete: "
             f"asset={c.FM_MAINS_CONNECTION_ASSET_ID}, "
             f"consumption={c.FM_GRID_CONSUMPTION_SENSOR_IDS}, "
             f"production={c.FM_GRID_PRODUCTION_SENSOR_IDS}, "
+            f"residential_load={c.FM_RESIDENTIAL_LOAD_SENSOR_IDS}, "
             f"aggregate_power={c.FM_AGGREGATE_POWER_SENSOR_ID}, "
+            f"aggregate_consumption={c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID}, "
+            f"aggregate_production={c.FM_AGGREGATE_PRODUCTION_SENSOR_ID}, "
             f"ems_status={c.FM_EMS_STATUS_SENSOR_ID}, "
             f"sensors_to_show={sensors_to_show}"
         )
+
+    async def __provision_grid_assets_best_effort(self):
+        """Provision FM grid assets in the background (startup / FM reconnect).
+
+        A bounded, guarded, failure-swallowing wrapper around
+        ``__provision_grid_assets`` so it never blocks startup and self-heals once
+        FlexMeasures is reachable. User-triggered saves do NOT use this — they
+        surface failures to the UI as ``fm_error``.
+        """
+        if self._grid_prov_in_flight:
+            return
+        self._grid_prov_in_flight = True
+        try:
+            await asyncio.wait_for(
+                self.__provision_grid_assets(),
+                timeout=self._FM_PROVISION_TIMEOUT,
+            )
+        except Exception as e:
+            self.__log(
+                f"Grid FM provisioning (background) failed: {e}", level="WARNING"
+            )
+        finally:
+            self._grid_prov_in_flight = False
+
+    async def __on_fm_connection_status(self, state):
+        """Self-heal grid provisioning when FlexMeasures becomes reachable.
+
+        If the grid is configured but its FM sensors were never provisioned (FM
+        was down at the last save or at startup), provision them now.
+        """
+        if state != "Successfully connected":
+            return
+        if not c.GRID_CONSUMPTION_ENTITIES:
+            return
+        if c.FM_GRID_CONSUMPTION_SENSOR_IDS:
+            # __provision_grid_assets publishes the ids atomically, so a
+            # non-empty map means a fully-completed run — nothing to redo.
+            return
+        self.__log(
+            "FlexMeasures reachable and grid not yet provisioned; provisioning now"
+        )
+        asyncio.ensure_future(self.__provision_grid_assets_best_effort())
 
     # ── Charger phase setting (entity-free, JSON-based) ────────────────
 
@@ -1181,20 +1608,30 @@ class V2GLibertyGlobals:
         c.CHARGER_CONNECTED_TO_PHASE = data.get("connected_to_phase", None)
         self.__log(f"Charger connected to phase: {c.CHARGER_CONNECTED_TO_PHASE}")
 
-    async def __save_charger_phase(self, event, data, kwargs):
-        """Handle save_charger_phase event from UI."""
-        phase = data.get("connected_to_phase")
-        if phase not in (1, 2, 3):
-            self.hass.fire_event(
-                "save_charger_phase.result",
-                error="connected_to_phase must be 1, 2, or 3",
-            )
-            return
+    VALID_CHARGER_PHASES = (1, 2, 3)
 
-        self.v2g_settings.store_object("charger_phase", {"connected_to_phase": phase})
-        self.__initialise_charger_phase_settings()
+    @staticmethod
+    def normalise_charger_phases(value) -> list | None:
+        """Normalise a charger phase setting to a sorted list of phase numbers.
 
-        self.hass.fire_event("save_charger_phase.result")
+        A charger occupies one or more phases: a Wallbox Quasar 1 sits on a
+        single one, an EVtec BiDiPro on all three, and a 2-phase charger on
+        e.g. [2, 3]. Accepts a bare phase number (as older settings and the
+        manual 1-phase selection supply) as well as a list.
+
+        Returns None when the value is not a usable phase set, so callers can
+        reject it rather than store something no consumer can interpret.
+        """
+        phases = value if isinstance(value, list) else [value]
+        if not 0 < len(phases) <= len(V2GLibertyGlobals.VALID_CHARGER_PHASES):
+            return None
+        if any(isinstance(p, bool) for p in phases):
+            return None
+        if any(p not in V2GLibertyGlobals.VALID_CHARGER_PHASES for p in phases):
+            return None
+        if len(set(phases)) != len(phases):
+            return None
+        return sorted(phases)
 
     # TODO: Should charger_settings_initialised be set to False when
     # charger_phase_is_valid() returns False? This would block charging
@@ -1218,7 +1655,7 @@ class V2GLibertyGlobals:
         """
         if not self.charger_phase_is_required():
             return True
-        return c.CHARGER_CONNECTED_TO_PHASE in (1, 2, 3)
+        return self.normalise_charger_phases(c.CHARGER_CONNECTED_TO_PHASE) is not None
 
     async def __get_charger_phase(self, event, data, kwargs):
         """Handle get_charger_phase event from UI.
@@ -1428,18 +1865,39 @@ class V2GLibertyGlobals:
         await self.hass.call_service("homeassistant/restart")
         # This also results in the V2G Liberty python modules to be reloaded (not a restart of appdaemon).
 
+    _CHARGER_CONNECTION_MESSAGES = {
+        "success": "Successfully connected",
+        "connection_failed": "Failed to connect",
+        "not_recognised": "Charger not recognised",
+        "no_active_plug": "No active plug found",
+    }
+
     async def __test_charger_connection(self, event, data, kwargs):
-        """Tests the connection with the charger and processes the maximum charge power read from the charger
-        Called from the settings page."""
+        """Tests the connection with the charger of the selected type, validates
+        its signature and reads the maximum charge power. Called from the
+        settings page, possibly for a type other than the running driver's.
+        """
         self.__log("Called")
         host = data["host"]
         port = data["port"]
-        (
-            success,
-            max_available_power,
-        ) = await self.evse_client_app.test_charger_connection(host, port)
-        msg = "Successfully connected" if success else "Failed to connect"
-        self.__log(f'result: "{msg}", {max_available_power}')
+        charger_type = data.get("charger_type") or self.evse_client_app.CHARGER_TYPE
+
+        max_available_power = None
+        try:
+            if charger_type == self.evse_client_app.CHARGER_TYPE:
+                evse = self.evse_client_app
+            else:
+                # A temporary, unconnected driver of the selected type.
+                evse = create_evse_client(
+                    charger_type, self.hass, self.event_bus, self.notifier
+                )
+            status, max_available_power = await evse.test_charger_connection(host, port)
+        except ValueError as e:
+            self.__log(f"Cannot test charger connection: {e}", level="WARNING")
+            status = "connection_failed"
+
+        msg = self._CHARGER_CONNECTION_MESSAGES.get(status, "Failed to connect")
+        self.__log(f'result: "{msg}" ({status}), {max_available_power}')
         self.hass.fire_event(
             "test_charger_connection.result",
             msg=msg,
@@ -1451,7 +1909,14 @@ class V2GLibertyGlobals:
         username = data["username"]
         password = data["password"]
         use_other_server = data["useOtherServer"]
-        host = data["host"] if use_other_server else c.FM_BASE_URL
+        # Not c.FM_BASE_URL: that global holds the *configured* URL, which is
+        # still the custom one while the user is switching back to the default.
+        # Testing against it would silently keep hitting the old server.
+        host = (
+            data["host"]
+            if use_other_server
+            else self.SETTING_FM_BASE_URL["factory_default"]
+        )
 
         try:
             assets = await self.fm_client_app.test_fm_connection(
@@ -1464,6 +1929,26 @@ class V2GLibertyGlobals:
             msg = "Failed to connect"
 
         self.hass.fire_event("test_schedule_connection.result", msg=msg, assets=assets)
+
+    async def __test_fm_reachable(self, event, data, kwargs):
+        """Lightweight liveness probe for the grid-connection wizard.
+
+        Answers "is FlexMeasures reachable right now?" using the existing
+        authenticated client (no credentials needed), so the wizard can gate on
+        a fresh signal rather than the lagging fm_connection_status sensor.
+        """
+        reachable = False
+        client = self.fm_client_app.client
+        if client is None:
+            self.__log("FM reachability probe: no client (FM not initialised)")
+        else:
+            try:
+                await client.get_assets()
+                reachable = True
+            except Exception as e:
+                self.__log(f"FM reachability probe failed: {e}", level="WARNING")
+        self.__log(f"FM reachability probe: reachable={reachable}")
+        self.hass.fire_event("test_fm_reachable.result", reachable=reachable)
 
     ######################################################################
     #                            HA METHODS                              #
@@ -1577,6 +2062,20 @@ class V2GLibertyGlobals:
     #                           CORE METHODS                             #
     ######################################################################
 
+    # Entities Home Assistant did not know about, logged once each so a boot
+    # without a restart does not fill the log with the same warning per setting.
+    _missing_entities: set = set()
+
+    def _log_missing_entity(self, entity_id: str):
+        if entity_id in self._missing_entities:
+            return
+        self._missing_entities.add(entity_id)
+        self.__log(
+            f"'{entity_id}' is unknown to Home Assistant; using the stored value. "
+            f"Restart Home Assistant to pick up new entities.",
+            level="WARNING",
+        )
+
     async def __process_setting(self, setting_object: dict):
         """
         This method checks if the setting-entity is empty, if so:
@@ -1588,6 +2087,19 @@ class V2GLibertyGlobals:
         entity_type = setting_object["entity_type"]
         entity_id = f"{entity_type}.{entity_name}"
         setting_entity = await self.hass.get_state(entity_id, attribute="all")
+        if setting_entity is None:
+            # Home Assistant does not know this entity (yet). The add-on copies
+            # the package on every start but does not restart HA, so a release
+            # that adds a helper runs one boot without it. Everything below
+            # works from the stored settings; only what is read FROM the entity
+            # has to be guarded. Crashing here would abort kick_off_settings and
+            # with it the whole app -- no charger, no schedules.
+            self._log_missing_entity(entity_id)
+            # An empty entity rather than {}: the code below reads .state and
+            # .attributes, and "no value in the UI" is exactly what an unknown
+            # entity means. That keeps the documented "" as the empty answer
+            # instead of leaking a None into the constants.
+            setting_entity = {"state": "", "attributes": {}}
 
         # Get the setting from store
         stored_setting_value = self.v2g_settings.get(entity_id)
@@ -1643,13 +2155,14 @@ class V2GLibertyGlobals:
         # Just for logging
         # Not an exact match of the constant name but good enough for logging
         message = f"set c.{entity_name.upper()} to"
-        mode = setting_entity["attributes"].get("mode", "none").lower()
+        attributes = setting_entity.get("attributes", {})
+        mode = attributes.get("mode", "none").lower()
         if mode == "password":
             message = f"{message} ********"
         else:
             message = f"{message} '{return_value}'"
 
-        uom = setting_entity["attributes"].get("unit_of_measurement")
+        uom = attributes.get("unit_of_measurement")
         if uom:
             message = f"{message} {uom}."
         else:
@@ -1666,6 +2179,12 @@ class V2GLibertyGlobals:
         )
         if not is_initialised:
             return
+
+        charger_type = await self.__process_setting(
+            setting_object=self.SETTING_CHARGER_TYPE
+        )
+        if charger_type and charger_type != self.evse_client_app.CHARGER_TYPE:
+            await self.__switch_evse_client(charger_type)
 
         c.CHARGER_HOST_URL = await self.__process_setting(
             setting_object=self.SETTING_CHARGER_HOST_URL
@@ -1756,25 +2275,47 @@ class V2GLibertyGlobals:
             setting_object=self.SETTING_OPTIMISATION_MODE,
         )
 
-        c.CAR_CONSUMPTION_WH_PER_KM = await self.__process_setting(
-            setting_object=self.SETTING_CAR_CONSUMPTION_WH_PER_KM,
-        )
+        self.__log("completed")
+
+    def __stored_car(self) -> dict:
+        """The configured car, or {} when there is none. The settings hold a
+        list of cars; this release uses exactly one, so this is cars[0]."""
+        cars = self.v2g_settings.get_object("cars", default=[]) or []
+        return dict(cars[0]) if cars else {}
+
+    async def __initialise_car_settings(self):
+        """Load the car object, set every car constant and its derived values,
+        write the values to the HA entities that feed the graph, the dashboard
+        and FlexMeasures, and derive the initialised flag.
+
+        Called at start-up, before the charger (whose first poll compares the
+        connected car against c.CAR_EV_ID), and after every successful save.
+        The constants are always set, also for an unconfigured car: nine
+        modules read them, and an empty capacity would break FlexMeasures
+        requests and the simulator. Adds no HA helper of its own: the name
+        lives in the car object and the flag is a runtime sensor.
+        """
+        self.__log("called")
+        car = self.__stored_car()
+        c.CAR_NAME = str(car.get("name") or "")
+        c.CAR_EV_ID = str(car.get("ev_id") or "")
+
+        values = {}
+        for key, setting in self.CAR_VALUE_SETTINGS.items():
+            values[key] = await self.__apply_car_value(setting, car.get(key))
+
+        c.CAR_MAX_CAPACITY_IN_KWH = values["capacity_kwh"]
+        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = values["roundtrip_efficiency"]
+        c.CAR_CONSUMPTION_WH_PER_KM = values["consumption_wh_per_km"]
+        c.CAR_MIN_SOC_IN_PERCENT = values["min_soc_percent"]
+        c.CAR_MAX_SOC_IN_PERCENT = values["max_soc_percent"]
+        c.ALLOWED_DURATION_ABOVE_MAX_SOC = values["allowed_duration_above_max_soc_hrs"]
+
         c.USAGE_PER_EVENT_TIME_INTERVAL = (
             c.KM_PER_HOUR_OF_CALENDAR_ITEM * c.CAR_CONSUMPTION_WH_PER_KM / 1000
         ) / (60 / c.FM_EVENT_RESOLUTION_IN_MINUTES)
-
-        c.CAR_MAX_CAPACITY_IN_KWH = await self.__process_setting(
-            setting_object=self.SETTING_CAR_MAX_CAPACITY_IN_KWH,
-        )
-
-        c.CAR_MIN_SOC_IN_PERCENT = await self.__process_setting(
-            setting_object=self.SETTING_CAR_MIN_SOC_IN_PERCENT,
-        )
         c.CAR_MIN_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MIN_SOC_IN_PERCENT / 100
-        )
-        c.CAR_MAX_SOC_IN_PERCENT = await self.__process_setting(
-            setting_object=self.SETTING_CAR_MAX_SOC_IN_PERCENT,
         )
         c.CAR_MAX_SOC_IN_KWH = (
             c.CAR_MAX_CAPACITY_IN_KWH * c.CAR_MAX_SOC_IN_PERCENT / 100
@@ -1785,17 +2326,48 @@ class V2GLibertyGlobals:
             / c.CAR_CONSUMPTION_WH_PER_KM
             * 1000
         )
-
-        c.ALLOWED_DURATION_ABOVE_MAX_SOC = await self.__process_setting(
-            setting_object=self.SETTING_ALLOWED_DURATION_ABOVE_MAX_SOC_IN_HRS,
-        )
-
-        c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY = await self.__process_setting(
-            setting_object=self.SETTING_CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY
-        )
         c.ROUNDTRIP_EFFICIENCY_FACTOR = c.CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY / 100
 
-        self.__log("completed")
+        await self.__refresh_car_settings_initialised(car)
+        self.__log(
+            f"completed, name='{c.CAR_NAME}', ev_id='{c.CAR_EV_ID}', "
+            f"configured={bool(car.get('configured'))}."
+        )
+
+    async def __apply_car_value(self, setting: dict, value):
+        """One car value: fall back to the factory default when absent, clamp to
+        the dict's min/max (the same safety net __process_setting has for
+        stored values) and project it to the HA entity. Returns the value the
+        constant is set to."""
+        source = "settings"
+        if value is None or value == "":
+            value = setting["factory_default"]
+            source = "factory_default"
+        value, _ = await self.__check_and_convert_value(setting, value)
+        await self.__write_setting_to_ha(
+            setting=setting, setting_value=value, source=source
+        )
+        return value
+
+    async def __refresh_car_settings_initialised(self, car: dict | None = None):
+        """The flag is derived, not latched: a car without an id on a charger
+        that identifies cars is not finished, so the moment the charger becomes
+        an identifying one the car goes back into the blocking dialog. Also
+        called after a charger save, when the driver may have been swapped."""
+        if car is None:
+            car = self.__stored_car()
+        is_initialised = bool(car.get("configured")) and (
+            bool(car.get("ev_id")) or not self.__charger_identifies_car()
+        )
+        await self.hass.set_state(
+            self.CAR_SETTINGS_INITIALISED_ENTITY,
+            state="on" if is_initialised else "off",
+        )
+
+    def __charger_identifies_car(self) -> bool:
+        """Whether the running charger driver can read the id of the connected
+        car. A class attribute on the driver, no I/O; drivers without it do not."""
+        return bool(getattr(self.evse_client_app, "IDENTIFIES_CAR", False))
 
     async def __initialise_calendar_settings(self):
         self.__log("called")
@@ -1882,12 +2454,10 @@ class V2GLibertyGlobals:
         asyncio.ensure_future(self.__discover_source_id_and_import())
 
         # Provision grid assets/sensors in FM (if grid connection is configured).
-        # Best-effort at startup: a provisioning failure must not abort init
-        # (the save handler is where failures surface to the user as fm_error).
-        try:
-            await self.__provision_grid_assets()
-        except Exception as e:
-            self.__log(f"Grid FM provisioning failed at startup: {e}", level="WARNING")
+        # Best-effort and non-blocking: never abort init on a slow/unreachable FM;
+        # it self-heals via __on_fm_connection_status once FM is reachable. The
+        # save handler is where failures surface to the user as fm_error.
+        asyncio.ensure_future(self.__provision_grid_assets_best_effort())
 
         self.__log("completed")
 
@@ -2246,7 +2816,7 @@ class V2GLibertyGlobals:
         if has_changed:
             msg = f"Adjusted '{entity_id}' to '{return_value}' to stay within limits."
             memo_id = f"auto_adjusted_setting_{entity_id}"
-            await self.notifier.post_sticky_memo(
+            self.notifier.post_sticky_memo(
                 message=msg,
                 title="Automatically adjusted setting",
                 memo_id=memo_id,
@@ -2384,15 +2954,3 @@ def is_local_now_between(start_time: str, end_time: str, now_time: str = None) -
 
     result = start_dt <= now <= end_dt
     return result
-
-
-def parse_to_int(number_string, default_value: int):
-    """Reliably parse a string, float or int to an int. If un-parsable return the default value.
-    :param number_string: str, float, int, bool (not dict or list)
-    :param default_value: int that is returned if parsing failed.
-    :return: parsed int
-    """
-    try:
-        return int(float(number_string))
-    except (TypeError, ValueError):
-        return default_value

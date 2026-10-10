@@ -2,7 +2,7 @@
 
 Mock chargers for testing [V2G Liberty](https://github.com/V2G-liberty/addon-v2g-liberty) without physical hardware.
 
-**Currently supported:** Wallbox Quasar bidirectional (V2G) charger
+**Currently supported:** Wallbox Quasar (with CLI) and EVtec BiDiPro (ECP4 / Modbus 2.0; driven by the dev emulator, no CLI) — both bidirectional (V2G) chargers
 
 ---
 
@@ -23,7 +23,7 @@ pip install -r requirements.txt
 ./setup-devcontainer.sh dev
 ```
 
-**Note:** This starts the complete dev environment including the Quasar mock server. The mock server will be available on port 5020.
+**Note:** This starts the complete dev environment including both mock servers: Quasar on port 5020 and EVtec BiDiPro on port 5021 (`evtec-mock:5020` inside Docker).
 
 ### 3. Start the CLI
 
@@ -75,7 +75,8 @@ charger-mocks/
 ├── README.md                          # This file
 ├── requirements.txt                   # Python dependencies (pyModbusTCP)
 ├── configs/                           # Initial register values
-│   └── quasar_charging_33pct.json     # Default: charging at 33% SoC
+│   ├── quasar_charging_33pct.json     # Quasar: charging at 33% SoC
+│   └── evtec_bidipro_33pct.json       # EVtec BiDiPro: connector 9, idle, 33% SoC
 └── quasar/                            # Wallbox Quasar mock
     ├── cli.py                         # Command-line interface
     ├── register_map.py                # Modbus register addresses
@@ -133,6 +134,7 @@ The correct address depends on **where you're connecting from**:
 | **V2G Liberty app** (in container) | `quasar-mock:5020` | AppDaemon runs in Docker network, uses service name |
 | **CLI from host machine** | `localhost:5020` | CLI runs on host, uses Docker port mapping |
 | **With Load Balancer enabled** | `127.0.0.1:5020` | Load balancer proxies between app and charger |
+| **EVtec BiDiPro mock** (HA UI / V2G app) | `evtec-mock:5020` | Second mock service; host port `localhost:5021` |
 
 ### Why NOT to Use `0.0.0.0`
 
@@ -208,6 +210,8 @@ Config files in `configs/` set initial Modbus register values.
 - SoC: 33%
 - Power: 5750W
 - Control: Remote
+
+**EVtec BiDiPro:** `evtec_bidipro_33pct.json` — connector 9 (base address 900), car connected and idle, 33% SoC, session type bidirectional, V2G offered (X+22 < 0), model string `cremacharge`. All multi-register values are big-endian. There is no CLI for this mock: the dev emulator (`v2g-liberty/rootfs/root/appdaemon/apps/dev_tools/charger_emulator_evtec.py`) drives it, and this file is generated from that emulator's `normal` seed so the two never drift apart.
 
 **Create custom configs:**
 1. Copy existing config

@@ -1,8 +1,7 @@
 import logging
 import pytest
-from unittest.mock import AsyncMock, MagicMock, call, ANY
+from unittest.mock import AsyncMock, MagicMock, ANY
 from apps.v2g_liberty.monitor_pause_at_reconnect import MonitorPauseAtReconnect
-from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.event_bus import EventBus
 from apps.v2g_liberty.notifier_util import Notifier
 
@@ -58,6 +57,18 @@ async def test_handle_connected_state_change_automatic(monitor, mock_hass):
     await monitor._handle_connected_state_change(True)
     mock_hass.get_state.assert_called_once_with("input_select.charge_mode", None)
     monitor.notifier.notify_user.assert_not_called()
+    # No prompt means no auto-switch fallback may be armed.
+    mock_hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_connected_state_change_none(monitor, mock_hass):
+    """Test that nothing happens (and no timer is armed) when charge mode is None."""
+    mock_hass.get_state.return_value = None
+    await monitor._handle_connected_state_change(True)
+    mock_hass.get_state.assert_called_once_with("input_select.charge_mode", None)
+    monitor.notifier.notify_user.assert_not_called()
+    mock_hass.run_in.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -71,7 +82,7 @@ async def test_handle_connected_state_change_pause(monitor, mock_hass, mock_noti
         title="Car connected, the app is set to 'Pause'",
         tag=monitor.NOTIFICATION_TAG,
         send_to_all=True,
-        ttl=30 * 60,
+        ttl=monitor.AUTO_SWITCH_TIMEOUT_SECONDS,
         actions=ANY,
         callback=monitor._handle_chosen_charge_mode,
     )
@@ -88,7 +99,7 @@ async def test_handle_connected_state_change_stop(monitor, mock_hass, mock_notif
         title="Car connected, the app is set to 'Pause'",
         tag=monitor.NOTIFICATION_TAG,
         send_to_all=True,
-        ttl=30 * 60,
+        ttl=monitor.AUTO_SWITCH_TIMEOUT_SECONDS,
         actions=ANY,
         callback=monitor._handle_chosen_charge_mode,
     )
@@ -105,7 +116,7 @@ async def test_handle_connected_state_change_charge(monitor, mock_hass, mock_not
         title="Car connected, the app is set to 'Charge'",
         tag=monitor.NOTIFICATION_TAG,
         send_to_all=True,
-        ttl=30 * 60,
+        ttl=monitor.AUTO_SWITCH_TIMEOUT_SECONDS,
         actions=ANY,
         callback=monitor._handle_chosen_charge_mode,
     )
@@ -143,3 +154,214 @@ async def test_handle_chosen_charge_mode_unknown(
         tag=monitor.NOTIFICATION_TAG
     )
     mock_hass.turn_on.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reconnect_schedules_auto_switch_timer(monitor, mock_hass):
+    """A reconnect in Pause schedules the auto-switch-to-Automatic fallback timer."""
+    mock_hass.get_state.return_value = "Pause"
+    await monitor._handle_connected_state_change(True)
+    # A one-shot timer to _auto_switch_to_automatic is armed with the timeout delay.
+    mock_hass.run_in.assert_awaited_once_with(
+        monitor._auto_switch_to_automatic,
+        delay=monitor.AUTO_SWITCH_TIMEOUT_SECONDS,
+    )
+    # The returned handle is remembered so it can be cancelled later.
+    assert monitor._auto_switch_timer_handle == mock_hass.run_in.return_value
+
+
+@pytest.mark.asyncio
+async def test_auto_switch_to_automatic_switches_mode(
+    monitor, mock_hass, mock_notifier
+):
+    """The fallback clears the prompt and switches the charge mode to Automatic."""
+    monitor._auto_switch_timer_handle = "pending_handle"
+    await monitor._auto_switch_to_automatic()
+    mock_notifier.clear_notification.assert_called_once_with(
+        tag=monitor.NOTIFICATION_TAG
+    )
+    mock_hass.turn_on.assert_called_once_with("input_boolean.chargemodeautomatic")
+    # The handle is cleared so a stale value cannot be cancelled twice.
+    assert monitor._auto_switch_timer_handle == ""
+
+
+@pytest.mark.asyncio
+async def test_user_response_cancels_pending_auto_switch(monitor, mock_hass):
+    """Any user response cancels the pending auto-switch fallback timer."""
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+    await monitor._handle_chosen_charge_mode(monitor.ACTION_KEEP_CURRENT)
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+    assert monitor._auto_switch_timer_handle == ""
+
+
+@pytest.mark.asyncio
+async def test_disconnect_cancels_pending_auto_switch(
+    monitor, mock_hass, mock_notifier
+):
+    """A disconnect cancels a pending auto-switch fallback and does not notify."""
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+    await monitor._handle_connected_state_change(False)
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+    assert monitor._auto_switch_timer_handle == ""
+    mock_hass.get_state.assert_not_called()
+    mock_notifier.notify_user.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_initialize_registers_charge_mode_listener(monitor, mock_hass):
+    """initialize() subscribes to charge_mode changes so any change can cancel."""
+    await monitor.initialize()
+    mock_hass.listen_state.assert_awaited_once_with(
+        monitor._handle_charge_mode_change,
+        "input_select.charge_mode",
+    )
+
+
+@pytest.mark.asyncio
+async def test_charge_mode_change_cancels_pending_auto_switch(monitor, mock_hass):
+    """A charge_mode change by any means cancels a pending auto-switch fallback."""
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+    # e.g. the user picks Automatic (then Pause) via the UI radio buttons.
+    await monitor._handle_charge_mode_change(
+        "input_select.charge_mode", "state", "Stop", "Automatic", {}
+    )
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+    assert monitor._auto_switch_timer_handle == ""
+
+
+@pytest.mark.asyncio
+async def test_charge_mode_unchanged_does_not_cancel(monitor, mock_hass):
+    """A no-op state callback (new == old) leaves a pending fallback intact."""
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+    await monitor._handle_charge_mode_change(
+        "input_select.charge_mode", "state", "Stop", "Stop", {}
+    )
+    mock_hass.cancel_timer.assert_not_awaited()
+    assert monitor._auto_switch_timer_handle == "pending_handle"
+
+
+# --- an unknown car is standing ---------------------------------------------
+# Its Stop is the app's safety measure, not a forgotten Pause: no prompt, and
+# the fallback must never lift it.
+
+
+@pytest.mark.asyncio
+async def test_initialize_registers_unknown_car_listener(monitor, mock_event_bus):
+    await monitor.initialize()
+    mock_event_bus.add_event_listener.assert_any_call(
+        "unknown_car_connected_state", monitor._handle_unknown_car_state
+    )
+
+
+@pytest.mark.asyncio
+async def test_unknown_car_withdraws_a_pending_prompt_and_fallback(
+    monitor, mock_hass, mock_notifier
+):
+    """The pending case: the car connected before its id was readable, so the
+    prompt and the fallback were already armed."""
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+
+    await monitor._handle_unknown_car_state(True)
+
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+    assert monitor._auto_switch_timer_handle == ""
+    mock_notifier.clear_notification.assert_called_once_with(
+        tag=monitor.NOTIFICATION_TAG
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_prompt_and_no_fallback_while_an_unknown_car_stands(
+    monitor, mock_hass, mock_notifier
+):
+    await monitor._handle_unknown_car_state(True)
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_not_called()
+    mock_hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_still_cancels_while_an_unknown_car_stands(monitor, mock_hass):
+    await monitor._handle_unknown_car_state(True)
+    mock_hass.timer_running = AsyncMock(return_value=True)
+    monitor._auto_switch_timer_handle = "pending_handle"
+
+    await monitor._handle_connected_state_change(False)
+
+    mock_hass.cancel_timer.assert_awaited_once_with("pending_handle", silent=True)
+
+
+@pytest.mark.asyncio
+async def test_normal_behaviour_returns_once_the_unknown_car_is_gone(
+    monitor, mock_hass, mock_notifier
+):
+    await monitor._handle_unknown_car_state(True)
+    await monitor._handle_unknown_car_state(False)
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()
+    mock_hass.run_in.assert_awaited_once()
+
+
+# --- V21: no prompt while the app is restoring the mode itself ---------------
+
+
+@pytest.mark.asyncio
+async def test_skip_next_reconnect_prompt_swallows_one_connect(
+    monitor, mock_hass, mock_notifier
+):
+    """The restore sets Automatic through HA, so the connect that follows still
+    reads Stop. Prompting there offers to lift a Stop already being lifted."""
+    monitor.skip_next_reconnect_prompt()
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_not_called()
+    mock_hass.run_in.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_skip_next_reconnect_prompt_is_one_shot(
+    monitor, mock_hass, mock_notifier
+):
+    """It must not swallow a later, genuine reconnect prompt."""
+    monitor.skip_next_reconnect_prompt()
+    mock_hass.get_state.return_value = "Stop"
+    await monitor._handle_connected_state_change(True)
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a_disconnect_drops_the_skip(monitor, mock_hass, mock_notifier):
+    """Armed just before a connect that is certain to follow; if it does not
+    come, the flag must not survive into the next session."""
+    monitor.skip_next_reconnect_prompt()
+    await monitor._handle_connected_state_change(False)
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_without_the_skip_nothing_changes(monitor, mock_hass, mock_notifier):
+    mock_hass.get_state.return_value = "Stop"
+
+    await monitor._handle_connected_state_change(True)
+
+    mock_notifier.notify_user.assert_called_once()

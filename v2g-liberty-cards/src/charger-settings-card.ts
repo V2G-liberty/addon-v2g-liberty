@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity, HassEvent } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderSettingsRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
 import { partial, setLanguage } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { callFunction } from './util/appdaemon';
@@ -23,6 +23,7 @@ enum ChargerConnectionStatus {
 @customElement('v2g-liberty-charger-settings-card')
 export class ChargerSettingsCard extends LitElement {
   @state() private _chargerSettingsInitialised: HassEntity;
+  @state() private _chargerType: HassEntity;
   @state() private _chargerHost: HassEntity;
   @state() private _chargerPort: HassEntity;
   @state() private _chargerConnectionStatus: HassEntity;
@@ -34,10 +35,13 @@ export class ChargerSettingsCard extends LitElement {
   // Charger phase (from JSON settings, not HA entity)
   @state() private _connectedToPhase: number | number[] | null = null;
   @state() private _phaseRequired: boolean = false;
+  @state() private _phaseValid: boolean = false;
 
   private _hass: HomeAssistant;
   private _phaseLoaded: boolean = false;
   private _unsubPhase: (() => void) | null = null;
+  private _unsubGrid: (() => void) | null = null;
+  private _unsubDetect: (() => void) | null = null;
 
   setConfig(config: LovelaceCardConfig) {}
 
@@ -51,6 +55,7 @@ export class ChargerSettingsCard extends LitElement {
     }
     this._chargerSettingsInitialised =
       hass.states[entityIds.chargerSettingsInitialised];
+    this._chargerType = hass.states[entityIds.chargerType];
     this._chargerHost = hass.states[entityIds.chargerHostname];
     this._chargerPort = hass.states[entityIds.chargerPort];
     this._chargerConnectionStatus =
@@ -96,6 +101,7 @@ export class ChargerSettingsCard extends LitElement {
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
+        ${this._renderChargerType()}
         ${renderEntityBlock(this._hass, this._chargerHost)}
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
@@ -111,6 +117,15 @@ export class ChargerSettingsCard extends LitElement {
         )}
       </div>
     `;
+  }
+
+  private _renderChargerType() {
+    // The entity holds the charger type id (e.g. "wallbox-quasar-1"); the
+    // human-readable label lives in strings.json under that id.
+    if (!this._chargerType) return nothing;
+    return renderEntityRow(this._chargerType, {
+      state: tp(this._chargerType.state),
+    });
   }
 
   private _renderChargerConnectionStatus() {
@@ -134,6 +149,10 @@ export class ChargerSettingsCard extends LitElement {
       const data = await callFunction(this._hass, 'get_charger_phase');
       this._connectedToPhase = data.connected_to_phase ?? null;
       this._phaseRequired = data.required ?? false;
+      // The backend already judges whether the stored value is a usable phase
+      // set. Deciding that here too (by testing for null) showed a hand-edited
+      // `[null]` as "LNone" instead of as "not set".
+      this._phaseValid = data.valid ?? false;
       this._phaseLoaded = true;
     } catch (e) {
       // Ignore — phase info not available
@@ -141,9 +160,23 @@ export class ChargerSettingsCard extends LitElement {
   }
 
   private async _subscribeToPhaseEvents() {
+    // The phase is saved as part of the charger settings, in one call at the
+    // end of the settings flow.
     this._unsubPhase = await this._hass.connection.subscribeEvents<HassEvent>(
       () => this._loadPhaseInfo(),
-      'save_charger_phase.result'
+      'save_charger_settings.result'
+    );
+    // A grid settings change clears the charger phase (and changes whether it
+    // is required), so reload the phase info to reflect it immediately.
+    this._unsubGrid = await this._hass.connection.subscribeEvents<HassEvent>(
+      () => this._loadPhaseInfo(),
+      'save_grid_connection_settings.result'
+    );
+    // Phase detection from the charger settings sets the phase, so reload so
+    // the warning clears without a page reload.
+    this._unsubDetect = await this._hass.connection.subscribeEvents<HassEvent>(
+      () => this._loadPhaseInfo(),
+      'detect_charger_phase.result'
     );
   }
 
@@ -153,14 +186,22 @@ export class ChargerSettingsCard extends LitElement {
       this._unsubPhase();
       this._unsubPhase = null;
     }
+    if (this._unsubGrid) {
+      this._unsubGrid();
+      this._unsubGrid = null;
+    }
+    if (this._unsubDetect) {
+      this._unsubDetect();
+      this._unsubDetect = null;
+    }
   }
 
   private _renderChargerPhase() {
     if (!this._phaseLoaded) return nothing;
 
-    if (this._connectedToPhase === null) {
+    if (!this._phaseValid || this._connectedToPhase === null) {
       if (this._phaseRequired) {
-        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning">Charger phase not configured.</ha-alert></div>`;
+        return html`<div style="margin-bottom: 16px;"><ha-alert alert-type="warning" title="Charger phase not set">Open the charger settings to set it, or have it detected there. Until then the energy per phase cannot be attributed to the charger.</ha-alert></div>`;
       }
       return nothing;
     }
@@ -169,15 +210,11 @@ export class ChargerSettingsCard extends LitElement {
       ? this._connectedToPhase.map(p => `L${p}`).join(', ')
       : `L${this._connectedToPhase}`;
 
-    return html`
-      <ha-settings-row>
-        <span slot="heading">
-          <ha-icon icon="mdi:electric-switch"></ha-icon>&nbsp; &nbsp;
-          Connected to phase
-        </span>
-        <div class="text-content value state">${phaseValue}</div>
-      </ha-settings-row>
-    `;
+    return renderSettingsRow(
+      'mdi:electric-switch',
+      'Connected to phase',
+      phaseValue
+    );
   }
 
   private _renderMaxChargeConfiguration() {

@@ -1,5 +1,6 @@
 """Main app to manage the charging process"""
 
+import asyncio
 import enum
 from itertools import accumulate
 import math
@@ -77,6 +78,11 @@ class V2Gliberty:
     timer_handle_set_next_action: object = None
     call_next_action_at_least_every: int = 15 * 60
     scheduling_timer_handles: List[str]
+    # Serialises the cancel-and-rebuild of those handles. Two schedules can
+    # arrive within milliseconds of each other, and the rebuild awaits ~324
+    # times, so without this both runs cancel an empty list and one set of
+    # timers is left running with no handle to reach it by.
+    scheduling_timers_lock: asyncio.Lock
 
     # This is a target datetime at which the SoC that is above the max_soc must return back to or
     # below this value. It is dependent on the user setting for allowed duration above max soc.
@@ -99,11 +105,15 @@ class V2Gliberty:
     no_schedule_notification_is_planned: bool
 
     evse_client_app: object = None
+    electric_vehicle: object = None
     fm_client_app: object = None
     reservations_client: object = None
+    pause_at_reconnect: object = None
     notifier: Notifier = None
     event_bus: EventBus = None
     hass: Hass = None
+    # The settings store, for bookkeeping that has to survive a restart.
+    v2g_settings: object = None
 
     def __init__(self, hass: Hass, event_bus: EventBus, notifier: Notifier):
         self.hass = hass
@@ -147,10 +157,12 @@ class V2Gliberty:
 
         # Reset at init
         try:
-            await self.hass.turn_off("input_boolean.charger_modbus_communication_fault")
+            await self.hass.set_state(
+                self.CHARGER_PROBLEM_ENTITY, state=self.CHARGER_PROBLEM_NONE
+            )
         except Exception:
             self.__log(
-                "Could not reset charger_modbus_communication_fault (HA not ready yet).",
+                f"Could not reset {self.CHARGER_PROBLEM_ENTITY} (HA not ready yet).",
                 level="WARNING",
             )
         await self.set_price_is_up_to_date(is_up_to_date=True)
@@ -159,6 +171,7 @@ class V2Gliberty:
         self.no_schedule_notification_is_planned = False
 
         self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
+        self.fm_client_app.add_listener("fm_data_issue", self.handle_fm_data_issue)
         self.fm_client_app.add_listener(
             "unreachable_target", self.handle_unreachable_target
         )
@@ -183,7 +196,32 @@ class V2Gliberty:
 
         self.event_bus.add_event_listener("soc_change", self.__handle_soc_change)
 
+        self.event_bus.add_event_listener(
+            "unknown_car_connected", self.__handle_unknown_car
+        )
+        self.event_bus.add_event_listener(
+            "known_car_connected", self.__handle_known_car
+        )
+        await self.__restore_unknown_car_bookkeeping()
+
+        self.event_bus.add_event_listener(
+            "discharge_refused", self.__handle_discharge_refused
+        )
+        self.discharge_refusal_timer_handle = None
+        # Which refusal the user has already been notified about, so a
+        # condition that comes and goes does not notify on every flip.
+        self.notified_discharge_refusal = None
+        # The refusal that currently stands, if any. Read by
+        # __process_schedule, which must not draw a prognosis of the very
+        # discharging the charger is refusing.
+        self.discharge_refused_reason = None
+        await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
+
         self.scheduling_timer_handles = []
+        self.scheduling_timers_lock = asyncio.Lock()
+        # Up once kick_off_v2g_liberty has run. Before that, a calendar load
+        # must not ask for a schedule: the kick-off does, with the targets.
+        self.has_kicked_off = False
 
         # Set to initial 'empty' values, makes rendering of graph faster.
         await self.__clear_all_soc_chart_lines()
@@ -195,6 +233,7 @@ class V2Gliberty:
 
     async def kick_off_v2g_liberty(self, v2g_args=None):
         """Show the settings in the UI and kickoff set_next_action"""
+        self.has_kicked_off = True
 
         charge_mode = await self.hass.get_state("input_select.charge_mode")
         if charge_mode == "Stop":
@@ -255,13 +294,24 @@ class V2Gliberty:
         )
         self.__log(f"Setting next action based on charge_mode '{charge_mode}'.")
 
+        if self.unknown_car_ev_id and charge_mode not in [
+            "Max boost now",
+            "Max discharge now",
+        ]:
+            # Closes the window between the unknown-car event and the Stop it
+            # forces (that lands through a HA round trip), and covers the
+            # watchdog and the kick-off at start-up. The two manual boosts are
+            # let through on purpose: the user asked for them, standing there.
+            self.__log(f"Unknown car '{self.unknown_car_ev_id}' connected, abort.")
+            return
+
         # Needed in many of the cases further in this method
         now = get_local_now()
-        soc = await self.evse_client_app.get_car_soc()
+        soc = self.electric_vehicle.soc
 
         if charge_mode == "Automatic":
             # update_charge_mode takes charger control already, not needed here.
-            soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+            soc_kwh = self.electric_vehicle.soc_kwh
             if soc_kwh in self.EMPTY_STATES:
                 self.__log("SoC_kWh is 'unknown', abort.")
                 return
@@ -290,9 +340,11 @@ class V2Gliberty:
                 self.__log(
                     f"Start Boost charge: SoC '{soc}%' < minimum '{c.CAR_MIN_SOC_IN_PERCENT}%'."
                 )
+                # The flag goes up before the awaits: a schedule that acquires
+                # the timer lock after this point must see it and stand down.
+                self.in_boost_to_reach_min_soc = True
                 await self.__cancel_charging_timers()
                 await self.__start_max_charge_now()
-                self.in_boost_to_reach_min_soc = True
 
                 # Create a minimal schedule to show in graph that gives user an estimation of when
                 # the min. SoC will be reached. The schedule starts now with current SoC.
@@ -372,7 +424,7 @@ class V2Gliberty:
 
             if not self.in_boost_to_reach_min_soc:
                 # Not checking > max charge (97%), we could also want to discharge based on schedule
-                soc_kwh = await self.evse_client_app.get_car_soc_kwh()
+                soc_kwh = self.electric_vehicle.soc_kwh
                 schedule = None
                 try:
                     schedule = await self.fm_client_app.get_new_schedule(
@@ -387,11 +439,34 @@ class V2Gliberty:
                 else:
                     self.__log(f"New schedule: {schedule}")
                     await self.__process_schedule(schedule=schedule)
+                    # A trigger that landed while this schedule was being
+                    # fetched was refused, and this schedule does not know
+                    # what it brought. Ask again, with the current data — also
+                    # when the schedule was rejected above, because what the
+                    # refused trigger brought is still unused. A request that
+                    # failed never gets here, and if processing raises the
+                    # deferral waits for the next trigger, like after a failed
+                    # request: an outage is not hammered.
+                    if self.fm_client_app.pop_deferred_schedule_request():
+                        self.__log(
+                            "A request was refused while this schedule was on its "
+                            "way; asking again with the current data."
+                        )
+                        await self.set_next_action(v2g_args="deferred_schedule_request")
 
         elif charge_mode == "Max boost now":
             # self.set_charger_control("take")
             # If charger_state = "not connected", the UI shows an (error) message.
             if soc >= c.CAR_MAX_CAPACITY_IN_PERCENT:
+                if self.unknown_car_ev_id:
+                    # Falling back to Automatic would show a mode the guard
+                    # above blocks, and leave nothing for the unknown-car
+                    # restore to put back. Just stop; the mode stays.
+                    self.__log("Max charge reached with an unknown car: stop.")
+                    await self.__set_charge_power(
+                        {"charge_power": 0, "source": "unknown car at max charge"}
+                    )
+                    return
                 self.__log(
                     "Reset charge_mode to 'Automatic' because max_charge is reached."
                 )
@@ -434,6 +509,13 @@ class V2Gliberty:
 
         elif charge_mode == "Max discharge now":
             if soc <= (c.CAR_MIN_SOC_IN_PERCENT + 1):
+                if self.unknown_car_ev_id:
+                    # See the boost branch: stop, keep the mode.
+                    self.__log("Minimum SoC reached with an unknown car: stop.")
+                    await self.__set_charge_power(
+                        {"charge_power": 0, "source": "unknown car at min soc"}
+                    )
+                    return
                 self.__log(
                     "Minimum soc reached: set charge_mode from 'Max discharge now' to 'Automatic'."
                 )
@@ -443,6 +525,10 @@ class V2Gliberty:
                     "Starting 'Max discharge now' based on charge_mode = Max discharge now"
                 )
                 await self.__start_max_discharge_now()
+                if self.discharge_refused_reason is not None:
+                    # The request was just refused; a prognosis of it would
+                    # contradict the warning shown for that refusal.
+                    return
                 max_discharge_now_prognoses = [dict(time=now.isoformat(), soc=soc)]
                 delta_to_min_soc_wh = (
                     (soc - c.CAR_MIN_SOC_IN_PERCENT) * c.CAR_MAX_CAPACITY_IN_KWH * 10
@@ -561,6 +647,11 @@ class V2Gliberty:
                 is_first_reservation = False
             # End for car_reservation loop
 
+        if not self.has_kicked_off:
+            self.__log(
+                "Targets loaded before kick-off; the kick-off asks for the schedule."
+            )
+            return
         await self.set_next_action(v2g_args)
 
     ######################################################################
@@ -651,16 +742,10 @@ class V2Gliberty:
         # if the car gets connected this notification can be removed.
         self.notifier.clear_notification(tag="reminder_to_connect")
 
-        # Trigger charger phase detection if not yet detected and grid is 3-phase
-        if (
-            c.GRID_PHASES == 3
-            and c.GRID_CONSUMPTION_ENTITIES
-            and c.CHARGER_CONNECTED_TO_PHASE is None
-        ):
-            self.__log(
-                "Car connected, charger phase not yet detected — starting detection"
-            )
-            self.hass.fire_event("detect_charger_phase")
+        # Deliberately no phase detection here. Detection is an invasive test:
+        # it forces the charge mode to Stop and charges the car to measure. That
+        # is not something to do unasked on every connect, so it is offered as a
+        # button in the charger settings instead (see the phase step there).
 
         await self.set_next_action(v2g_args="handle_car_connect")
 
@@ -670,6 +755,17 @@ class V2Gliberty:
         Goes to this status when the plug is removed from the socket (not when disconnect is
         requested from the UI)
         """
+        if self.unknown_car_ev_id and await self.__restore_after_unknown_car():
+            await self.notifier.notify_user(
+                message="The unknown car was unplugged; automatic charging "
+                "has been resumed.",
+                title=None,
+                tag="charge_mode_change",
+                critical=False,
+                send_to_all=True,
+                ttl=15 * 60,
+            )
+
         # Reset any possible target for discharge due to SoC > max-soc
         self.back_to_max_soc = None
 
@@ -778,6 +874,33 @@ class V2Gliberty:
             ttl=ttl,
         )
 
+    async def handle_fm_data_issue(
+        self, active: bool, sensor_id: int = None, detail: str = None
+    ):
+        """Show or dismiss a persistent memo when FlexMeasures is reachable but
+        refuses data for a specific sensor (an operational error, not a
+        connection failure). Emitted by fm_client.post_sensor_data.
+
+        The memo stays visible until the underlying post succeeds again (or the
+        user re-saves the grid/solar configuration to recreate the sensors).
+        To be called from fm_client_app.
+        """
+        if not active:
+            self.notifier.dismiss_sticky_memo(memo_id="fm_data_issue")
+            return
+        message = (
+            "V2G Liberty can reach FlexMeasures, but FlexMeasures refuses data "
+            f"for at least one sensor (sensor {sensor_id}, {detail}). This "
+            "usually means the sensor is still linked to a different "
+            "FlexMeasures asset. Please re-save the relevant grid- or "
+            "solar-panel configuration to recreate the sensors."
+        )
+        self.notifier.post_sticky_memo(
+            message=message,
+            title="FlexMeasures is refusing data",
+            memo_id="fm_data_issue",
+        )
+
     async def handle_no_new_schedule(self, error_name: str, error_state: bool):
         """Keep track of situations where no new schedule is available:
         - invalid schedule
@@ -800,8 +923,40 @@ class V2Gliberty:
         self.no_schedule_errors[error_name] = error_state
         await self.__notify_no_new_schedule()
 
-    async def handle_none_responsive_charger(self, was_car_connected: bool):
-        """Handle a none-responsive charger:
+    # One entity carries *why* the charger is unusable, so the UI can say
+    # something true instead of blaming communication for both cases. It
+    # replaces input_boolean.charger_modbus_communication_fault, which named
+    # only one of the two situations that reach this handler.
+    CHARGER_PROBLEM_ENTITY = "sensor.charger_problem"
+    CHARGER_PROBLEM_NONE = "none"
+    CHARGER_PROBLEM_COMMUNICATION = "communication"
+    CHARGER_PROBLEM_CHARGER_ERROR = "charger_error"
+
+    # The driver's reason string -> the problem state shown to the user.
+    # Anything unknown is treated as a communication problem: that is the older
+    # of the two paths and the safer thing to tell someone.
+    _CHARGER_PROBLEM_BY_REASON = {
+        "no Modbus response": CHARGER_PROBLEM_COMMUNICATION,
+        "charger reports error": CHARGER_PROBLEM_CHARGER_ERROR,
+    }
+
+    _CHARGER_PROBLEM_TITLES = {
+        CHARGER_PROBLEM_COMMUNICATION: "Charger communication error",
+        CHARGER_PROBLEM_CHARGER_ERROR: "Charger reports a fault",
+    }
+
+    # Replaces the tag "charger_modbus_crashed", which named only one of the
+    # two problems that end up here.
+    CHARGER_PROBLEM_TAG = "charger_problem"
+    # The charge mode the user had before the driver gave up on the charger,
+    # so a recovery can put it back. "Stop" here means the user had it there
+    # already, and a recovery must leave it alone.
+    charge_mode_before_charger_problem: str | None = None
+
+    async def handle_none_responsive_charger(
+        self, was_car_connected: bool, reason: str | None = None
+    ):
+        """Handle a charger that can no longer be used:
         - Stop charging
         - Set message in UI
         - Notify admin with (critical) message
@@ -809,19 +964,25 @@ class V2Gliberty:
         :param was_car_connected: Was the car connected at the moment the charger became
                                   none-responsive. Determines if the notification needs to
                                   be critical or not.
+        :param reason: why the driver escalated. Two very different situations end
+                       up here -- the charger is unreachable, or it is perfectly
+                       reachable and reporting a fault -- and the user needs a
+                       different first step for each.
         :returns: Noting
         """
-        self.__log(
-            "The charger probably crashed: Stop charging, set Error in UI and notify user"
+        problem = self._CHARGER_PROBLEM_BY_REASON.get(
+            reason, self.CHARGER_PROBLEM_COMMUNICATION
+        )
+        self.__log(f"Charger unusable ({problem}, {reason=}): stop, signal UI, notify")
+        self.charge_mode_before_charger_problem = await self.hass.get_state(
+            "input_select.charge_mode"
         )
         await self.__set_charge_mode_in_ui("Stop")
 
-        await self.hass.set_state(
-            "input_boolean.charger_modbus_communication_fault", state="on"
-        )
+        await self.hass.set_state(self.CHARGER_PROBLEM_ENTITY, state=problem)
         await self.hass.set_state(entity_id="sensor.charger_state_text", state="Error")
 
-        title = "Charger communication error"
+        title = self._CHARGER_PROBLEM_TITLES[problem]
         message = (
             "Automatic charging has been stopped!\n"
             "Please click this notification to open the V2G Liberty App "
@@ -832,23 +993,315 @@ class V2Gliberty:
         await self.notifier.notify_user(
             message=message,
             title=title,
-            tag="charger_modbus_crashed",
+            tag=self.CHARGER_PROBLEM_TAG,
             critical=critical,
             send_to_all=False,
         )
         return
 
+    # ── A discharge the charger refuses ────────────────────────────────
+
+    DISCHARGE_REFUSED_ENTITY = "sensor.discharge_refused"
+    DISCHARGE_REFUSED_TAG = "discharge_refused"
+
+    # How long a refusal has to persist before the user hears about it, when
+    # the request came from the schedule. "Not offered right now" can be brief
+    # and normal, and notifying on every refusal turns into noise people learn
+    # to ignore. A manual request skips this: the user is standing there.
+    DISCHARGE_REFUSED_NOTIFICATION_DELAY = 60 * 60
+
+    # What the user can do about each refusal. Provisional (2026-09-15) --
+    # confirmation was asked from the authors of the EVtec Modbus contract.
+    # Deliberately a table: replacing an entry must not mean touching logic.
+    # "the car" rather than "your car": the rest of the UI speaks that way, and
+    # a future installation may charge more than one car -- possibly someone
+    # else's.
+    # Whole messages rather than a shared intro plus a remedy: who is refusing
+    # differs per reason. X+22 is the car declining to offer a discharge
+    # window; X+04 is the session the charger set up. Saying "the car" for both
+    # would point the user at the wrong device.
+    _DISCHARGE_MESSAGES = {
+        # The session type is fixed when the session starts, so a new session
+        # is the only way out.
+        "session_not_bidirectional": (
+            "The charger is connected and operational but refuses to "
+            "discharge.\n"
+            "Unplug the car and plug it back in to start a new session "
+            "and check if problem is solved."
+        ),
+        # The car is not offering V2G; usually something in the car itself.
+        "v2g_not_offered": (
+            "The charger is connected and operational but the car refuses to "
+            "discharge.\n"
+            "Check the bidirectional charging settings in the car "
+            "and check if problem is solved."
+        ),
+        # Nothing has been read yet; give it time.
+        "window_unknown": (
+            "The charger is connected and operational but cannot discharge "
+            "yet.\n"
+            "This usually resolves by itself."
+        ),
+    }
+    _DISCHARGE_MESSAGE_FALLBACK = (
+        "The charger is connected and operational but refuses to discharge.\n"
+        "If this keeps happening, please contact your administrator."
+    )
+
+    async def __handle_discharge_refused(self, reason: str | None, is_manual: bool):
+        """A charger that refuses to discharge shows nothing at all: the car is
+        connected, charging works, and the schedule simply never runs. Surface
+        it, and say what the user can do about it."""
+        if reason is None:
+            was_refused = self.discharge_refused_reason is not None
+            # Cleared before the awaits below: a second call must not see a
+            # refusal that is on its way out.
+            self.discharge_refusal_timer_handle = None
+            self.notified_discharge_refusal = None
+            self.discharge_refused_reason = None
+            await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
+            await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
+            self.notifier.clear_notification(tag=self.DISCHARGE_REFUSED_TAG)
+            if was_refused:
+                # Taking the message away is not enough: the request that was
+                # refused is not repeated by itself, so the charger would sit
+                # idle with the user's "Max discharge now" still selected --
+                # the same silence this feature exists to end, one step later.
+                self.__log("Discharge possible again, re-evaluating what to do.")
+                await self.set_next_action(v2g_args="discharge_refusal_resolved")
+            return
+
+        self.discharge_refused_reason = reason
+        await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state=reason)
+
+        # Both prognoses assume the discharging that is being refused, so
+        # drawing either next to "the car is not discharging" would contradict
+        # the message. MAX_CHARGE_NOW survives a schedule refresh, so it has to
+        # be cleared here explicitly.
+        for line in (ChartLine.SCHEDULE, ChartLine.MAX_CHARGE_NOW):
+            await self.set_records_in_chart(chart_line_name=line, records=None)
+
+        if is_manual:
+            # No waiting: the user just pressed a button and nothing happened.
+            # Once per standing refusal though -- "not offered right now" can
+            # come and go, and a notification per flip is noise.
+            if reason != self.notified_discharge_refusal:
+                self.notified_discharge_refusal = reason
+                await self.__notify_discharge_refused({"reason": reason})
+            return
+
+        if self.discharge_refusal_timer_handle is None:
+            self.discharge_refusal_timer_handle = await set_oneshot_timer(
+                self.hass,
+                self.discharge_refusal_timer_handle,
+                self.__notify_discharge_refused,
+                delay=self.DISCHARGE_REFUSED_NOTIFICATION_DELAY,
+                reason=reason,
+            )
+
+    async def __notify_discharge_refused(self, kwargs: dict = None):
+        """AppDaemon passes a timer's kwargs as a single positional dict."""
+        reason = (kwargs or {}).get("reason")
+        self.discharge_refusal_timer_handle = None
+        self.notified_discharge_refusal = reason
+        await self.notifier.notify_user(
+            message=self._DISCHARGE_MESSAGES.get(
+                reason, self._DISCHARGE_MESSAGE_FALLBACK
+            ),
+            title="The car is not discharging",
+            tag=self.DISCHARGE_REFUSED_TAG,
+            critical=False,
+            send_to_all=True,
+        )
+
     async def reset_charger_communication_fault(self):
         """To clear UI alert and notification if it is still present."""
         self.__log("Called")
         await self.hass.set_state(
-            "input_boolean.charger_modbus_communication_fault", state="off"
+            self.CHARGER_PROBLEM_ENTITY, state=self.CHARGER_PROBLEM_NONE
         )
         identification = {
             "recipient": c.ADMIN_MOBILE_NAME,
-            "tag": "charger_modbus_crashed",
+            "tag": self.CHARGER_PROBLEM_TAG,
         }
         self.notifier.clear_notification(identification)
+
+    # ── An unknown car ─────────────────────────────────────────────────
+    # A charger that identifies cars (EVtec) reports a car whose id differs
+    # from the registered one. The app must not charge or discharge it on the
+    # owner's schedule, so it forces the charge mode to Stop and tells the
+    # user. The bookkeeping is persisted: a guest stays plugged in for hours
+    # or days and easily outlives a restart, while input_select.charge_mode
+    # does get its Stop back. Separate from the charger-problem bookkeeping.
+
+    UNKNOWN_CAR_ENTITY = "sensor.unknown_car_connected"  # "none" | ev_id
+    UNKNOWN_CAR_TAG = "unknown_car_connected"
+    FORCED_STOP_KEY = "forced_stop"  # {"reason", "ev_id", "previous_mode"}
+    # The id of the unregistered car that is plugged in now; None = none. Set
+    # before the first await so set_next_action can close the window until
+    # the Stop lands.
+    unknown_car_ev_id: str | None = None
+
+    async def __restore_unknown_car_bookkeeping(self):
+        """At start-up: an unknown car may still be plugged in from before the
+        restart. Restoring the id makes the guard work at once and a second
+        detection idempotent."""
+        record = self.__forced_stop_record()
+        if record.get("reason") == "unknown_car" and record.get("ev_id"):
+            self.unknown_car_ev_id = str(record["ev_id"])
+            self.__log(f"Unknown car '{self.unknown_car_ev_id}' still standing.")
+        await self.hass.set_state(
+            self.UNKNOWN_CAR_ENTITY,
+            state=self.unknown_car_ev_id or "none",
+            attributes=self.__unknown_car_attributes(),
+        )
+
+    @staticmethod
+    def __unknown_car_attributes() -> dict:
+        """What the banner on the main screen shows next to the connected id."""
+        return {"registered_ev_id": c.CAR_EV_ID, "registered_car_name": c.CAR_NAME}
+
+    def __forced_stop_record(self) -> dict:
+        if self.v2g_settings is None:
+            return {}
+        return self.v2g_settings.get_object(self.FORCED_STOP_KEY, default={}) or {}
+
+    async def __handle_unknown_car(self, ev_id: str):
+        """Emitted by the driver instead of is_car_connected=True. Idempotent:
+        a second emit for the same standing car (a driver swap or a restart
+        runs the connect transition again) must not overwrite the bookkeeping
+        with the Stop we forced ourselves, and must not notify twice."""
+        already_forced = self.__forced_stop_record().get("reason") == "unknown_car"
+        self.unknown_car_ev_id = ev_id  # before any await: the guard needs it now
+        await self.hass.set_state(
+            self.UNKNOWN_CAR_ENTITY,
+            state=ev_id,
+            attributes=self.__unknown_car_attributes(),
+        )
+        self.event_bus.emit_event("unknown_car_connected_state", is_unknown_car=True)
+        if already_forced:
+            self.__log(f"Unknown car '{ev_id}' reported again; already handled.")
+            return
+        previous_mode = await self.hass.get_state("input_select.charge_mode")
+        self.__log(f"Unknown car '{ev_id}': forcing Stop (was '{previous_mode}').")
+        self.v2g_settings.store_object(
+            self.FORCED_STOP_KEY,
+            {"reason": "unknown_car", "ev_id": ev_id, "previous_mode": previous_mode},
+        )
+        await self.__set_charge_mode_in_ui("Stop")
+        name = c.CAR_NAME or "your car"
+        await self.notifier.notify_user(
+            message=(
+                f"A car that is not '{name}' is plugged in (ID {ev_id}). "
+                "V2G Liberty has paused automatic charging and set the "
+                "charger to 0 W.\n"
+                "A visitor asked to charge? Press Charge.\n"
+                "Not expecting anyone? No power is flowing.\n"
+                "Your new car? Go to Settings > Car > Edit and read its ID."
+            ),
+            title="Unknown car connected",
+            tag=self.UNKNOWN_CAR_TAG,
+            critical=False,
+            send_to_all=True,
+        )
+
+    async def __handle_known_car(self, ev_id: str):
+        """The driver confirmed the standing car is the registered one. Only
+        of interest while this app still has an unknown car on its books: that
+        bookkeeping is persisted, so a car swapped while the app was down --
+        an add-on restart, or an HA restart, which stops every AppDaemon app --
+        would otherwise keep the forced Stop until the next unplug.
+
+        Silent when nothing stands: a plain connect must not emit
+        unknown_car_connected_state and wake the pause-at-reconnect monitor.
+        Never reached on a 'pending' verdict, so a guest car whose id is not
+        readable yet keeps its Stop until the retry decides.
+        """
+        if not self.unknown_car_ev_id:
+            return
+        self.__log(
+            f"Car '{ev_id or c.CAR_NAME}' is the registered one; "
+            f"dropping the stale verdict on '{self.unknown_car_ev_id}'."
+        )
+        # The driver emits is_car_connected=True right after this, while the
+        # mode below is still travelling through Home Assistant (V21).
+        if self.pause_at_reconnect is not None:
+            self.pause_at_reconnect.skip_next_reconnect_prompt()
+        await self.__restore_after_unknown_car()
+
+    async def __restore_after_unknown_car(self) -> bool:
+        """Lift the forced Stop if -- and only if -- this app forced it and the
+        user has not changed the mode since. Mirrors handle_charger_recovered's
+        rule, with its own persisted bookkeeping. Returns whether the mode was
+        restored."""
+        record = self.__forced_stop_record()
+        if self.v2g_settings is not None:
+            self.v2g_settings.store_object(self.FORCED_STOP_KEY, {})
+        self.unknown_car_ev_id = None
+        self.notifier.clear_notification(tag=self.UNKNOWN_CAR_TAG)
+        await self.hass.set_state(
+            self.UNKNOWN_CAR_ENTITY,
+            state="none",
+            attributes=self.__unknown_car_attributes(),
+        )
+        self.event_bus.emit_event("unknown_car_connected_state", is_unknown_car=False)
+        if record.get("reason") != "unknown_car":
+            return False
+        previous = record.get("previous_mode")
+        current = await self.hass.get_state("input_select.charge_mode")
+        # Never back to a boost: a boost is a deliberate, momentary action and
+        # hours may have passed. A Stop the user set since is left alone.
+        if previous in ["Automatic", "Max boost now", "Max discharge now"] and (
+            current == "Stop"
+        ):
+            await self.__set_charge_mode_in_ui("Automatic")
+            return True
+        return False
+
+    async def handle_car_settings_saved(self) -> bool:
+        """Called by v2g_globals after a successful car save, once c.CAR_EV_ID
+        has been refreshed. If the car standing there as unknown is the one
+        just registered, lift the forced Stop. Returns whether the charge mode
+        was restored, so the caller can skip its kick-off. A direct call rather
+        than an event: an event would wake the pause-at-reconnect monitor while
+        the mode is still Stop and produce a spurious prompt.
+        """
+        if (
+            self.unknown_car_ev_id
+            and c.CAR_EV_ID
+            and self.unknown_car_ev_id.casefold() == c.CAR_EV_ID.casefold()
+        ):
+            return await self.__restore_after_unknown_car()
+        return False
+
+    async def handle_charger_recovered(self):
+        """The driver's recovery probe found the charger back: clear the
+        problem and, if this app forced the charge mode to Stop, put it back on
+        Automatic -- set_active() then follows from the mode change. A user who
+        had Stop before keeps it. To be called from evse_client_app.
+        """
+        previous = self.charge_mode_before_charger_problem
+        self.charge_mode_before_charger_problem = None
+        self.__log(f"Charger recovered; charge mode before the problem: '{previous}'.")
+        await self.reset_charger_communication_fault()
+
+        # Always back to Automatic, never to the boost mode that may have been
+        # on: a boost is a deliberate, momentary action and hours may have
+        # passed. Unknown counts as Stop -- overriding a deliberate Stop is
+        # worse than asking for a click.
+        resume = previous in ["Automatic", "Max boost now", "Max discharge now"]
+        if resume:
+            await self.__set_charge_mode_in_ui("Automatic")
+        message = "The charger is working again."
+        if resume:
+            message += " Automatic charging has been resumed."
+        await self.notifier.notify_user(
+            message=message,
+            title="Charger recovered",
+            tag=self.CHARGER_PROBLEM_TAG,
+            critical=False,
+            send_to_all=False,
+        )
 
     async def set_records_in_chart(self, chart_line_name: ChartLine, records):
         """Write or remove records in lines in the chart.
@@ -932,6 +1385,12 @@ class V2Gliberty:
         await self.__clear_all_soc_chart_lines()
 
         if old_state == "Automatic":
+            # The boost to the minimum SoC belongs to Automatic and ends with it.
+            # Left standing, a return to Automatic finds the flag up, assumes the
+            # boost is still running and does nothing — while the reset below has
+            # just set the charger to 0 W. Cleared before the awaits, so a
+            # set_next_action that slips in between already sees it down.
+            self.in_boost_to_reach_min_soc = False
             self.__log("Cancel scheduled charging (timers).")
             await self.__cancel_charging_timers()
             await self.__reset_no_new_schedule()
@@ -940,12 +1399,12 @@ class V2Gliberty:
             old_state in ["Max boost now", "Max discharge now"]
             and new_state == "Automatic"
         ):
-            # When mode goes from "Max boost now" to "Automatic" charging needs to be stopped.
-            # Let schedule (later) decide if starting is needed
+            # Leaving a manual mode for "Automatic" must stop the (dis)charging it
+            # started. Let schedule (later) decide if starting is needed.
             await self.__set_charge_power(
                 {
                     "charge_power": 0,
-                    "source": "Reset for 'Max boost now' to 'Automatic'",
+                    "source": f"Reset for '{old_state}' to '{new_state}'",
                 }
             )
 
@@ -996,12 +1455,21 @@ class V2Gliberty:
             )
 
         if (
-            await self.evse_client_app.is_charging()
+            # Only on a genuine rise to max SoC. Both readings must be numeric:
+            # old_soc is None/"unavailable" on the first reading after a restart,
+            # and new_soc is "unavailable" right after the car is disconnected —
+            # comparing either against a number would raise. Guarding also avoids
+            # computing the range before the car settings are loaded, which would
+            # use the default battery capacity and report a wrong range.
+            isinstance(old_soc, (int, float))
+            and isinstance(new_soc, (int, float))
+            and old_soc < new_soc
             and new_soc == c.CAR_MAX_SOC_IN_PERCENT
+            and await self.evse_client_app.is_charging()
         ):
             message = (
                 f"Car battery at {new_soc} %, "
-                f"range ≈ {await self.evse_client_app.get_car_remaining_range()} km."
+                f"range ≈ {self.electric_vehicle.remaining_range_km} km."
             )
             self.__log(f"{message=}")
             await self.notifier.notify_user(
@@ -1166,6 +1634,22 @@ class V2Gliberty:
     ######################################################################
 
     async def __cancel_charging_timers(self):
+        """Cancel the schedule timers, waiting for a rebuild in progress first.
+
+        Called when the user leaves Automatic, when the car disconnects and
+        when a boost to the minimum SoC starts. Each of those can land in the
+        window where __process_schedule has already emptied the handle list
+        but not yet stored the new one; without the lock they would cancel
+        nothing and the fresh set would go live against the user's action.
+
+        Never call this from inside the locked block in __process_schedule:
+        the lock is not re-entrant. Use the _unlocked variant there.
+        """
+        async with self.scheduling_timers_lock:
+            await self.__cancel_charging_timers_unlocked()
+
+    async def __cancel_charging_timers_unlocked(self):
+        """The cancel itself; the caller holds scheduling_timers_lock."""
         count = len(self.scheduling_timer_handles)
         for h in self.scheduling_timer_handles:
             await cancel_timer_silent(self.hass, h)
@@ -1195,7 +1679,7 @@ class V2Gliberty:
             self.__log("aborted: car is not connected")
             return
 
-        if await self.evse_client_app.get_car_soc() in self.EMPTY_STATES:
+        if self.electric_vehicle.soc in self.EMPTY_STATES:
             self.__log("aborted: soc is 'unknown'")
             return
 
@@ -1249,42 +1733,71 @@ class V2Gliberty:
 
         self.__log("valid schedule")
 
-        # Cancel previous timers before creating new ones to prevent orphaned timers
-        await self.__cancel_charging_timers()
-
-        # Create new scheduling timers, to send a control signal for each value
-        handles = []
-        now = get_local_now()
-        # To be able to differentiate between different schedules the time is added.
-        str_source = f"schedule@{now.strftime('%H:%M:%S')}"
-        timer_datetimes = [start + i * resolution for i in range(len(values))]
-        # convert from MegaWatt from schedule to Watt for charger
-        mw_to_w_factor = 1000000
-
-        for t, value in zip(timer_datetimes, values):
-            if t > now:
-                # AJO 17-10-2021
-                # ToDo: If value is the same as previous, combine them so we have less timers and
-                # switching moments?
-                h = await self.hass.run_at(
-                    self.__set_charge_power,
-                    t,
-                    charge_power=int(value * mw_to_w_factor),
-                    source=str_source,
+        # One lock around cancel-and-rebuild. The rebuild awaits per timer, so
+        # two schedules arriving together would otherwise both cancel an empty
+        # list and the first set of ~324 timers would keep firing with no handle
+        # left to cancel it by — overruling later schedules and the Charge and
+        # Discharge buttons for the rest of the horizon.
+        async with self.scheduling_timers_lock:
+            # A run that waited here for another one is working on checks made
+            # before it waited. Re-check what the user may have changed in the
+            # meantime; the timers of the run that held the lock are then left
+            # for the cancel that belongs to that change.
+            if (
+                await self.hass.get_state("input_select.charge_mode", None)
+                != "Automatic"
+            ):
+                self.__log(
+                    "aborted at the timer-lock re-check: charge_mode is not automatic (any more)."
                 )
-                handles.append(h)
-            else:
-                await self.__set_charge_power(
-                    {
-                        "charge_power": int(value * mw_to_w_factor),
-                        "source": str_source,
-                    }
+                return
+            if not await self.evse_client_app.is_car_connected():
+                self.__log(
+                    "aborted at the timer-lock re-check: car is not connected (any more)."
                 )
-        self.scheduling_timer_handles = handles
+                return
+            if self.in_boost_to_reach_min_soc:
+                self.__log(
+                    "aborted at the timer-lock re-check: in boost to reach min SoC."
+                )
+                return
+
+            # Cancel previous timers before creating new ones to prevent orphaned timers
+            await self.__cancel_charging_timers_unlocked()
+
+            # Create new scheduling timers, to send a control signal for each value
+            handles = []
+            now = get_local_now()
+            # To be able to differentiate between different schedules the time is added.
+            str_source = f"schedule@{now.strftime('%H:%M:%S')}"
+            timer_datetimes = [start + i * resolution for i in range(len(values))]
+            # convert from MegaWatt from schedule to Watt for charger
+            mw_to_w_factor = 1000000
+
+            for t, value in zip(timer_datetimes, values):
+                if t > now:
+                    # AJO 17-10-2021
+                    # ToDo: If value is the same as previous, combine them so we have less timers and
+                    # switching moments?
+                    h = await self.hass.run_at(
+                        self.__set_charge_power,
+                        t,
+                        charge_power=int(value * mw_to_w_factor),
+                        source=str_source,
+                    )
+                    handles.append(h)
+                else:
+                    await self.__set_charge_power(
+                        {
+                            "charge_power": int(value * mw_to_w_factor),
+                            "source": str_source,
+                        }
+                    )
+            self.scheduling_timer_handles = handles
 
         exp_soc_values = list(
             accumulate(
-                [await self.evse_client_app.get_car_soc()]
+                [self.electric_vehicle.soc]
                 + convert_mw_to_percentage_points(
                     values,
                     resolution,
@@ -1293,6 +1806,17 @@ class V2Gliberty:
                 )
             )
         )
+
+        if self.discharge_refused_reason is not None:
+            # The prognosis assumes the discharging the charger is refusing, so
+            # it would contradict the warning shown next to it. Clearing it once
+            # when the refusal arrives is not enough: every new schedule would
+            # paint it straight back.
+            self.__log("Discharge refused: not drawing the schedule prognosis.")
+            await self.set_records_in_chart(
+                chart_line_name=ChartLine.SCHEDULE, records=None
+            )
+            return
 
         exp_soc_datetimes = [start + i * resolution for i in range(len(exp_soc_values))]
         expected_soc_based_on_scheduled_charges = [

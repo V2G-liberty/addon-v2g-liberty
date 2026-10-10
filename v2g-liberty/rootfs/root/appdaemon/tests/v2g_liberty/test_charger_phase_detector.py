@@ -9,6 +9,15 @@ from apps.v2g_liberty import constants as c
 
 
 @pytest.fixture(autouse=True)
+def _reset_single_flight():
+    """The guard lives on the class, so a leaked flag would poison every
+    following test."""
+    ChargerPhaseDetector._is_running = False
+    yield
+    ChargerPhaseDetector._is_running = False
+
+
+@pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
     """Patch asyncio.sleep so tests run instantly."""
     monkeypatch.setattr(charger_phase_detector.asyncio, "sleep", AsyncMock())
@@ -301,3 +310,57 @@ class TestProgressEvents:
         steps = [call.kwargs["step"] for call in progress_calls]
         assert "baseline" in steps
         assert "charge_test" in steps
+
+
+class TestSingleFlight:
+    """A detection pauses the charge mode and restores it afterwards. A second,
+    concurrent run would read "Stop" as the mode to restore -- leaving a charger
+    that does nothing -- and both runs would measure each other's power."""
+
+    @pytest.mark.asyncio
+    async def test_second_run_is_refused_while_one_is_running(
+        self, detector, hass_mock
+    ):
+        ChargerPhaseDetector._is_running = True
+
+        result = await detector.run()
+
+        assert result["success"] is False
+        assert "already running" in result["error"]
+        # Nothing was touched: no charge mode change, no charger commands.
+        hass_mock.call_service.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_flag_is_cleared_after_a_successful_run(self, detector, hass_mock):
+        hass_mock.get_state = make_grid_state_mock(
+            [
+                {"l1": "500", "l2": "300", "l3": "200"},
+                {"l1": "1900", "l2": "320", "l3": "195"},
+                {"l1": "-860", "l2": "290", "l3": "210"},
+            ]
+        )
+
+        result = await detector.run()
+
+        assert result["success"] is True
+        assert ChargerPhaseDetector._is_running is False
+
+    @pytest.mark.asyncio
+    async def test_flag_is_cleared_when_the_run_raises(self, detector, evse_mock):
+        evse_mock.set_active = AsyncMock(side_effect=RuntimeError("boom"))
+
+        result = await detector.run()
+
+        assert result["success"] is False
+        assert ChargerPhaseDetector._is_running is False
+
+    @pytest.mark.asyncio
+    async def test_flag_is_not_claimed_when_preconditions_fail(
+        self, detector, evse_mock
+    ):
+        """A refused run must not block the next attempt."""
+        evse_mock.is_car_connected.return_value = False
+
+        await detector.run()
+
+        assert ChargerPhaseDetector._is_running is False

@@ -2,6 +2,7 @@ import { fireEvent } from 'custom-card-helpers';
 
 import { tagName as editAdministratorSettingsDialogTag } from './edit-administrator-settings-dialog';
 import { tagName as editCarReservationCalendarSettingsDialogTag } from './edit-car-reservation-calendar-settings-dialog';
+import { tagName as editCarSettingsDialogTag } from './edit-car-settings-dialog';
 import { tagName as editChargerSettingsDialogTag } from './edit-charger-settings-dialog';
 import { tagName as editElectricityContractSettingsDialogTag } from './edit-electricity-contract-settings-dialog';
 import { tagName as editScheduleSettingsDialogTag } from './edit-schedule-settings-dialog';
@@ -9,6 +10,10 @@ import { tagName as editInputNumberDialogTag } from './edit-inputnumer-dialog';
 import { tagName as editInputSelectDialogTag } from './edit-inputselect-dialog';
 
 import { tagName as editGridConnectionSettingsDialogTag } from './edit-grid-connection-settings-dialog';
+import {
+  tagName as chooseSensorDialogTag,
+  ChooseSensorDialogParams,
+} from './choose-sensor-dialog';
 import {
   tagName as editSolarPanelDialogTag,
   SolarPanelDialogParams,
@@ -54,36 +59,14 @@ export const showAdministratorSettingsDialog = (element: HTMLElement): void => {
 
 // --- Car Settings ---
 
-export const showCarBatteryUsableCapacityDialog = (
-  element: HTMLElement,
-  dialogParams
-): void => {
-  showEditInputNumberDialog(element, {
-    header: tp('car-battery-usable-capacity.header'),
-    description: tp('car-battery-usable-capacity.description'),
-    ...dialogParams,
-  });
-};
-
-export const showRoundtripEfficiencyDialog = (
-  element: HTMLElement,
-  dialogParams
-): void => {
-  showEditInputNumberDialog(element, {
-    header: tp('roundtrip-efficiency.header'),
-    description: tp('roundtrip-efficiency.description'),
-    ...dialogParams,
-  });
-};
-
-export const showCarEnergyConsumptionDialog = (
-  element: HTMLElement,
-  dialogParams
-): void => {
-  showEditInputNumberDialog(element, {
-    header: tp('car-energy-consumption.header'),
-    description: tp('car-energy-consumption.description'),
-    ...dialogParams,
+// One route to the car settings: both the Configure and the Edit button of the
+// card open this dialog, which collects everything and saves once at the end.
+// The six per-value dialogs it replaces are gone.
+export const showCarSettingsDialog = (element: HTMLElement): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: editCarSettingsDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams: {},
   });
 };
 
@@ -108,6 +91,19 @@ export const showGridConnectionSettingsDialog = (
     dialogTag: editGridConnectionSettingsDialogTag,
     dialogImport: () => Promise.resolve(),
     dialogParams: {},
+  });
+};
+
+// --- Choose sensor (side-step of the grid connection flow) ---
+
+export const showChooseSensorDialog = (
+  element: HTMLElement,
+  dialogParams: ChooseSensorDialogParams
+): void => {
+  fireEvent(element, 'show-dialog', {
+    dialogTag: chooseSensorDialogTag,
+    dialogImport: () => Promise.resolve(),
+    dialogParams,
   });
 };
 
@@ -155,39 +151,6 @@ export const showOptimisationModeDialog = (
   showEditInputSelectDialog(element, {
     header: tp('optimisation-mode.header'),
     description: tp('optimisation-mode.description'),
-    ...dialogParams,
-  });
-};
-
-export const showCarBatteryLowerChargeLimitDialog = (
-  element: HTMLElement,
-  dialogParams
-): void => {
-  showEditInputNumberDialog(element, {
-    header: tp('car-battery-lower-charge-limit.header'),
-    description: tp('car-battery-lower-charge-limit.description'),
-    ...dialogParams,
-  });
-};
-
-export const showCarBatteryUpperChargeLimitDialog = (
-  element: HTMLElement,
-  dialogParams
-): void => {
-  showEditInputNumberDialog(element, {
-    header: tp('car-battery-upper-charge-limit.header'),
-    description: tp('car-battery-upper-charge-limit.description'),
-    ...dialogParams,
-  });
-};
-
-export const showAllowedDurationAboveMaxDialog = (
-  element: HTMLElement,
-  dialogParams
-): void => {
-  showEditInputNumberDialog(element, {
-    header: tp('allowed-duration-above-max.header'),
-    description: tp('allowed-duration-above-max.description'),
     ...dialogParams,
   });
 };

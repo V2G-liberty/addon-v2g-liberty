@@ -19,10 +19,54 @@ from .time_range_util import (
 )
 
 
+def _fm_http_status(exception: Exception) -> int | None:
+    """Extract the HTTP status code from a flexmeasures-client exception.
+
+    The client raises errors in two shapes:
+      - "Request failed with status code NNN"
+      - "Error occurred while communicating with the API: NNN, message=..."
+    Returns the status code as an int, or None when the exception carries no
+    HTTP status at all (transport error, timeout, DNS failure).
+    """
+    match = re.search(r"status code (\d{3})|API:\s*(\d{3})", str(exception))
+    if match is None:
+        return None
+    return int(match.group(1) or match.group(2))
+
+
+def _is_connection_error(exception: Exception) -> bool:
+    """Classify an exception as a connection/auth failure vs an operational
+    rejection of one specific request.
+
+    Returns True (the connection is down) for:
+      - no HTTP status at all (transport/timeout/DNS),
+      - a 5xx server error (FlexMeasures itself is failing),
+      - a 401 (token invalid, so the whole connection is unusable).
+    Returns False (the connection is up, only this request was refused) for
+    other 4xx such as 403/404/422: FlexMeasures is reachable but rejects this
+    specific action.
+    """
+    status = _fm_http_status(exception)
+    if status is None:
+        return True
+    if status >= 500:
+        return True
+    if status == 401:
+        return True
+    return False
+
+
 class FMClient(AsyncIOEventEmitter):
     """This class manages the communication with the FlexMeasures platform, which delivers the
     charging schedules.
-    - Reports on errors via v2g_liberty module handle_no_schedule()
+
+    Emits (via AsyncIOEventEmitter), handled in main_app:
+    - "no_new_schedule": a schedule could not be retrieved
+      (main_app.handle_no_new_schedule).
+    - "fm_data_issue": FlexMeasures is reachable but refuses data for a
+      specific sensor - an operational error, not a connection failure
+      (main_app.handle_fm_data_issue). kwargs: active (bool), and when active
+      also sensor_id (int) and detail (str). Raised from post_sensor_data.
     """
 
     event_bus: EventBus = None
@@ -30,22 +74,32 @@ class FMClient(AsyncIOEventEmitter):
     # Constants
     FM_SCHEDULE_DURATION: datetime
     FM_SCHEDULE_DURATION_STR: str
-    MAX_NUMBER_OF_REATTEMPTS: int
-    DELAY_FOR_INITIAL_ATTEMPT: int  # number of seconds
-    DELAY_FOR_REATTEMPTS: int  # number of seconds
+    # Attempts at trigger_and_get_schedule after the first one fails.
+    SCHEDULE_MAX_RETRIES: int = 2
 
     # A slack for the constraint_relaxation_window in minutes
     WINDOW_SLACK_IN_MINUTES: int
 
     # FM Authentication token
     fm_token: str
-    # Helper to prevent parallel calls to FM for getting a schedule
+    # Helper to prevent parallel calls to FM for getting a schedule. Up from the
+    # start of a request until get_new_schedule returns — including while the
+    # outcome is being reported — and cleared in a finally only, so neither an
+    # exception nor a cancellation nor an early return can leave it standing or
+    # drop it while a request is still in flight.
     fm_busy_getting_schedule: bool = False
-    # Helper to prevent blocking the sequence of getting schedules.
-    # Sometimes the previous bool is not reset (why we don't know), then it needs a timed reset.
-    # stores the date_time of the last successful received schedule
+    # Set when a request was refused because one was in flight. The refused
+    # call carried newer input (a reservation, a SoC step), so the schedule
+    # that is on its way is already stale. main_app takes this flag after it
+    # has processed that schedule and asks once more, with the current data.
+    # A refused watchdog tick counts too, on purpose: a schedule that took
+    # longer than the watchdog interval to arrive is older than that interval
+    # when it lands, so the refresh it is owed follows at once.
+    schedule_request_deferred: bool = False
+    # When the request in flight started (or, between requests, when the last
+    # schedule arrived). A request older than __schedule_request_budget() is
+    # assumed lost, as a last resort.
     fm_date_time_last_schedule: datetime
-    fm_max_seconds_between_schedules: int
 
     # Helper to see if FM connection/ping has too many errors
     connection_error_counter: int
@@ -78,21 +132,18 @@ class FMClient(AsyncIOEventEmitter):
         self.FM_SCHEDULE_DURATION = isodate.parse_duration(
             self.FM_SCHEDULE_DURATION_STR
         )
-        self.DELAY_FOR_REATTEMPTS = 6
-        self.MAX_NUMBER_OF_REATTEMPTS = 15
-        self.DELAY_FOR_INITIAL_ATTEMPT = 20
         self.WINDOW_SLACK_IN_MINUTES = 60
-
-        # Add an extra attempt to prevent the last attempt not being able to finish.
-        self.fm_max_seconds_between_schedules = (
-            self.DELAY_FOR_REATTEMPTS * (self.MAX_NUMBER_OF_REATTEMPTS + 1)
-            + self.DELAY_FOR_INITIAL_ATTEMPT
-        )
 
         # Ping every half hour. If offline, a separate process will run to increase frequency.
         self.connection_error_counter = 0
         # self.run_every(self.ping_server, "now", 30 * 60)
         self.handle_for_repeater = ""
+
+        # Sensor ids whose data posts are currently rejected by FlexMeasures
+        # with an operational error (e.g. 403). Used to raise/clear a single
+        # persistent "fm_data_issue" warning without touching the connection
+        # status. See post_sensor_data / _clear_data_issue.
+        self._sensors_with_data_issue: set[int] = set()
 
     async def test_fm_connection(self, host_url, username, password):
         """Test if we can connect with given FlexMeasures host and port.
@@ -113,10 +164,14 @@ class FMClient(AsyncIOEventEmitter):
 
         # TODO: Fix this
         from flexmeasures_client import FlexMeasuresClient
-        from flexmeasures_client.exceptions import EmailValidationError
+        from flexmeasures_client.exceptions import (
+            EmailValidationError,
+            EmptyPasswordError,
+            WrongHostError,
+        )
 
         host, ssl = get_host_and_ssl_from_url(host_url)
-        self.__log("host: '{host}', ssl: '{ssl}'.")
+        self.__log(f"host: '{host}', ssl: '{ssl}'.")
 
         try:
             client = FlexMeasuresClient(
@@ -126,14 +181,14 @@ class FMClient(AsyncIOEventEmitter):
                 ssl=ssl,
             )
         except ValueError as ve:
-            self.__log("CLIENT ERROR: {ve}.", level="WARNING")
-            # ValueErrors:
-            # 'xxx' is not an email address format string (= also for empty email)
-            # password cannot be empty
+            # e.g. a port in the host that is not a number
+            self.__log(f"CLIENT ERROR: {ve}.", level="WARNING")
             raise ve
-        except EmailValidationError as eve:
-            self.__log("CLIENT ERROR: {eve}.", level="WARNING")
-            raise eve
+        except (EmailValidationError, EmptyPasswordError, WrongHostError) as e:
+            # A malformed email, an empty password, or a scheme still in the host.
+            # None of these subclass ValueError.
+            self.__log(f"CLIENT ERROR: {e}.", level="WARNING")
+            raise e
 
         self.__log("successfully connect to flexmeasures")
         try:
@@ -155,7 +210,11 @@ class FMClient(AsyncIOEventEmitter):
         # Unusual place for the import, but it has to be in an async method otherwise it errors out
         # with problems with the async loop.
         from flexmeasures_client import FlexMeasuresClient
-        from flexmeasures_client.exceptions import EmailValidationError
+        from flexmeasures_client.exceptions import (
+            EmailValidationError,
+            EmptyPasswordError,
+            WrongHostError,
+        )
 
         self.fm_token = ""
         self.fm_busy_getting_schedule = False
@@ -176,14 +235,16 @@ class FMClient(AsyncIOEventEmitter):
                 ssl=ssl,
             )
         except ValueError as ve:
+            # e.g. a port in the host that is not a number
             self.__log(f"CLIENT ERROR: {ve}.", level="WARNING")
-            # ValueErrors:
-            # 'xxx' is not an email address format string (= also for empty email)
-            # password cannot be empty
             return ve
-        except EmailValidationError as eve:
-            self.__log(f"CLIENT ERROR: {eve}.", level="WARNING")
-            return eve
+        except (EmailValidationError, EmptyPasswordError, WrongHostError) as e:
+            # A malformed email, an empty password, or a scheme still in the host.
+            # None of these subclass ValueError. Returned, not raised: this runs
+            # inside kick_off_settings at start-up, and an exception there stops
+            # the whole app from starting instead of reporting a settings error.
+            self.__log(f"CLIENT ERROR: {e}.", level="WARNING")
+            return e
 
         self.__log("successfully initialised flexmeasures client")
 
@@ -707,30 +768,68 @@ class FMClient(AsyncIOEventEmitter):
                 unit=uom,
             )
         except Exception as e:
-            # flexmeasures-client raises ValueError("Request failed with status
-            # code NNN") when the response status is not its single expected
-            # status. FlexMeasures returns 202 (Accepted) for sensor-data posts,
-            # which the client (0.8.1) does not whitelist. A 2xx status means the
-            # data was accepted by FM, so treat it as success rather than a
+            # flexmeasures-client raises on any status other than its single
+            # expected one. FlexMeasures returns 202 (Accepted) for sensor-data
+            # posts, which the client (0.8.1) does not whitelist. A 2xx status
+            # means the data was accepted, so treat it as success rather than a
             # failure (which would otherwise retry forever and flag FM as down).
-            match = re.search(r"status code (\d{3})", str(e))
-            if match and 200 <= int(match.group(1)) < 300:
+            status = _fm_http_status(e)
+            if status is not None and 200 <= status < 300:
                 self.__log(
-                    f"accepted (HTTP {match.group(1)}) | sensor_id: '{sensor_id}', "
+                    f"accepted (HTTP {status}) | sensor_id: '{sensor_id}', "
                     f"start: '{start}', duration: '{duration}', unit: '{uom}'.",
                     level="DEBUG",
                 )
+                self._clear_data_issue(sensor_id)
                 return True
+
+            if _is_connection_error(e):
+                # Transport/timeout/5xx/401: the connection itself is down.
+                self.__log(
+                    f"connection failed | sensor_id: '{sensor_id}', "
+                    f"values: '{values}', start: '{start}', duration: "
+                    f"'{duration}', unit: '{uom}', "
+                    f"fm_client returned exception: '{e}'.",
+                    level="WARNING",
+                )
+                await self.set_fm_connection_status(connected=False)
+                return False
+
+            # Operational 4xx (e.g. 403/404/422): FlexMeasures is reachable but
+            # refuses this specific post. Leave the connection status untouched
+            # and raise a persistent, actionable warning instead of a false
+            # "Error" that would wrongly mark the whole FM connection as down.
             self.__log(
-                f"failed | sensor_id: '{sensor_id}', values: '{values}', "
-                f"start: '{start}', duration: '{duration}', unit: '{uom}', "
-                f"fm_client returned exception: '{e}'.",
+                f"rejected (HTTP {status}) | sensor_id: '{sensor_id}', "
+                f"values: '{values}', start: '{start}', duration: '{duration}', "
+                f"unit: '{uom}', fm_client returned exception: '{e}'.",
                 level="WARNING",
             )
-            await self.set_fm_connection_status(connected=False)
+            self._sensors_with_data_issue.add(sensor_id)
+            self.emit(
+                "fm_data_issue",
+                active=True,
+                sensor_id=sensor_id,
+                detail=f"HTTP {status}",
+            )
             return False
 
+        self._clear_data_issue(sensor_id)
         return True
+
+    def _clear_data_issue(self, sensor_id: int):
+        """Mark a sensor's data post as healthy again.
+
+        When this clears the last sensor that had an operational issue, emit
+        "fm_data_issue" with active=False so the persistent warning is
+        dismissed. A silent no-op when the sensor had no issue, so the happy
+        path emits nothing.
+        """
+        if sensor_id not in self._sensors_with_data_issue:
+            return
+        self._sensors_with_data_issue.discard(sensor_id)
+        if not self._sensors_with_data_issue:
+            self.emit("fm_data_issue", active=False)
 
     async def get_new_schedule(
         self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime
@@ -761,19 +860,18 @@ class FMClient(AsyncIOEventEmitter):
             seconds_since_last_schedule = int(
                 (now - self.fm_date_time_last_schedule).total_seconds()
             )
-            if seconds_since_last_schedule > self.fm_max_seconds_between_schedules:
+            if seconds_since_last_schedule > self.__schedule_request_budget():
                 self.__log(
                     f"Retrieving previous schedule is taking too long "
                     f"({seconds_since_last_schedule} sec.), assuming call got 'lost'. "
                     f"Getting new schedule."
                 )
-                # Reset the timestamp so that subsequent calls during the new
-                # request don't immediately consider it "lost" again.
-                self.fm_date_time_last_schedule = now
             else:
                 self.__log(
-                    "Not getting new schedule, still processing previous request."
+                    "Not getting new schedule, still processing previous request; "
+                    "asking again once that one is in."
                 )
+                self.schedule_request_deferred = True
                 return
         else:
             self.__log("Was not busy getting schedule, but i am now!")
@@ -781,7 +879,62 @@ class FMClient(AsyncIOEventEmitter):
         # This has to be set here instead of in get_schedule because that function is called with a
         # delay and during this delay this get_new_schedule could be called.
         self.fm_busy_getting_schedule = True
+        # This request reads the targets and the SoC as they are now, so it
+        # covers whatever a refused call wanted. Also drops a deferral left by
+        # a request that failed: the next trigger starts afresh anyway.
+        self.schedule_request_deferred = False
+        # Start the clock here as well. The guard above measures how long the
+        # request we are waiting on has been running; without this it measured
+        # the time since the last *successful* schedule, so a quiet night made
+        # every call during a fresh request declare it lost and fire a duplicate.
+        self.fm_date_time_last_schedule = now
 
+        # The finally is the only place the flag comes down. It used to be
+        # cleared early, before the outcome was reported; in the yield of that
+        # reporting a trigger could then start a second request unrefused, and
+        # this finally would clear that request's flag. Nothing on the reporting
+        # path asks for a schedule, so keeping the flag up there blocks nothing,
+        # and a trigger landing then is refused and remembered like any other.
+        try:
+            return await self.__get_new_schedule_while_busy(
+                targets, current_soc_kwh, back_to_max_soc, now
+            )
+        finally:
+            self.fm_busy_getting_schedule = False
+
+    def pop_deferred_schedule_request(self) -> bool:
+        """Whether a request was refused while the last one was in flight.
+
+        Clears the flag. The caller has just processed the schedule that was
+        in flight and uses this to ask once more with the current data.
+        """
+        deferred = self.schedule_request_deferred
+        self.schedule_request_deferred = False
+        return deferred
+
+    def __schedule_request_budget(self) -> int:
+        """Longest a healthy get_new_schedule can take, from the client's limits.
+
+        Every request the client makes, retries included, ends within
+        request_retry_timeout. One attempt is get_sensor (first call only),
+        the trigger and get_schedule, and on FlexMeasures 0.33+ a wait for the
+        scheduling job of up to job_polling_timeout, plus the status lookup
+        that may start just before that deadline. Then the retries, with a
+        one-second pause between attempts. With the 0.9.6 defaults: 4202 s.
+
+        A request younger than this is still being worked on, so a second one
+        would only duplicate it; the guard in get_new_schedule only treats a
+        request as lost once it has run longer than anything the client allows.
+        """
+        one_request = self.client.request_retry_timeout
+        one_attempt = 3 * one_request + self.client.job_polling_timeout + one_request
+        attempts = self.SCHEDULE_MAX_RETRIES + 1
+        return int(attempts * one_attempt + (attempts - 1))
+
+    async def __get_new_schedule_while_busy(
+        self, targets: list, current_soc_kwh: float, back_to_max_soc: datetime, now
+    ):
+        """The body of get_new_schedule, run while fm_busy_getting_schedule is up."""
         rounded_now = time_round(now, c.EVENT_RESOLUTION)
 
         # The schedule duration, usually just over a day long.
@@ -943,7 +1096,7 @@ class FMClient(AsyncIOEventEmitter):
                         )
                         + self.WINDOW_SLACK_IN_MINUTES
                     )
-                    self.__log("window_duration: {window_duration} minutes.")
+                    self.__log(f"window_duration: {window_duration} minutes.")
                     # srw = start_relaxation_window, erw = end_relaxation_window
                     srw = time_round(
                         (soc_minimum_start - timedelta(minutes=window_duration)),
@@ -1129,7 +1282,7 @@ class FMClient(AsyncIOEventEmitter):
             flex_model_str = flex_model_str[:1500] + "..."
         self.__log(f"flex_model: {flex_model_str}.")
         schedule = {}
-        max_retries = 2
+        max_retries = self.SCHEDULE_MAX_RETRIES
         for attempt in range(max_retries + 1):
             # Preferably the retry mechanism would be incorporated in the flexmeasures_client.
             # But this seems to make the system much more reliable so it is implemented here
@@ -1154,17 +1307,14 @@ class FMClient(AsyncIOEventEmitter):
                 else:
                     self.__log(
                         f"trigger_and_get_schedule failed after {attempt + 1} attempts. "
-                        f"Client exception: {e}.",
+                        f"Client exception: {e!r}.",
                         level="WARNING",
                     )
-                    self.fm_busy_getting_schedule = False
                     self.emit(
                         "no_new_schedule", "timeouts_on_schedule", error_state=True
                     )
                     await self.wait_for_complete()
                     return
-
-        self.fm_busy_getting_schedule = False
 
         if schedule == {}:
             self.__log("schedule is empty")

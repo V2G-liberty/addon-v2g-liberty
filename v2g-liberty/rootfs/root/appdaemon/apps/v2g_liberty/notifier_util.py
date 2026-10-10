@@ -165,7 +165,10 @@ class Notifier:
             # A tag is required for clearing.
             # Critical notifications should never auto clear.
             await self.hass.run_in(
-                self.clear_notification, delay=ttl, recipients=to_notify, tag=tag
+                self._clear_notification_after_ttl,
+                delay=ttl,
+                recipients=to_notify,
+                tag=tag,
             )
 
     def clear_notification(self, tag: str, recipients: Optional[list] = None):
@@ -199,6 +202,19 @@ class Notifier:
                     f"Could not clear notification: exception on {recipient}. Exception: {e}."
                 )
 
+    async def _clear_notification_after_ttl(self, kwargs: dict):
+        """Scheduled (``run_in``) callback that clears a notification after its ttl.
+
+        AppDaemon passes the scheduling kwargs as a single positional dict, so the
+        tag and recipients are read from it here. Scheduling ``clear_notification``
+        directly bound that whole dict to its ``tag`` parameter, so the ttl clear
+        never matched the real tag and the notification was never removed.
+        """
+        self.clear_notification(
+            tag=kwargs.get("tag"),
+            recipients=kwargs.get("recipients"),
+        )
+
     def post_sticky_memo(
         self, message: str, title: Optional[str] = None, memo_id: Optional[str] = None
     ):
@@ -220,6 +236,23 @@ class Notifier:
                 service="persistent_notification/create",
                 title=title,
                 message=message,
+                notification_id=memo_id,
+            )
+        except Exception as e:
+            self.__log(f"Failed. Exception: '{e}'.", level="WARNING")
+
+    def dismiss_sticky_memo(self, memo_id: str):
+        """
+        Dismiss a sticky memo (persistent notification) previously posted with
+        post_sticky_memo, identified by memo_id.
+
+        Args:
+            memo_id (str):
+                The id used when the memo was created via post_sticky_memo.
+        """
+        try:
+            self.hass.call_service(
+                service="persistent_notification/dismiss",
                 notification_id=memo_id,
             )
         except Exception as e:

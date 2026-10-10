@@ -7,6 +7,11 @@ from appdaemon.plugins.hass.hassapi import Hass
 
 from . import constants as c
 from .grid_connection.power_tracker import PowerTracker
+from .grid_connection.meter_energy import (
+    interval_delta,
+    normalise_to_kwh,
+    sum_register_readings,
+)
 from .log_wrapper import get_class_method_logger
 from .v2g_globals import get_local_now, time_ceil, time_round
 from .event_bus import EventBus
@@ -109,6 +114,11 @@ class DataMonitor:
     _grid_consumption_scales: dict[int, float]
     _grid_production_scales: dict[int, float]
     _pv_scales: dict[str, float]
+    # Meter energy: last cumulative kWh totals, used as the baseline for the
+    # per-interval delta. Loaded from the DB at init so a restart neither loses
+    # nor double-counts energy. None until the first successful read.
+    _meter_import_baseline: float | None = None
+    _meter_export_baseline: float | None = None
 
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
@@ -157,6 +167,9 @@ class DataMonitor:
             "charge_power_change", self._process_power_change
         )
         self.event_bus.add_event_listener("soc_change", self._process_soc_change)
+        self.event_bus.add_event_listener(
+            "grid_settings_changed", self._on_grid_settings_changed
+        )
 
         # Reservation logging
         if self.reservations_client is not None:
@@ -175,6 +188,14 @@ class DataMonitor:
         self._pv_trackers = {}
         self._pv_scales = {}
         await self._setup_pv_listeners(local_now)
+
+        # Meter energy baseline — restore from the DB so the first interval
+        # after a restart computes a correct delta (no loss, no double-count).
+        if self.data_store is not None:
+            (
+                self._meter_import_baseline,
+                self._meter_export_baseline,
+            ) = self.data_store.get_last_meter_totals()
 
         runtime = time_ceil(local_now, c.EVENT_RESOLUTION)
         await self.hass.run_every(
@@ -415,29 +436,70 @@ class DataMonitor:
             self._grid_consumption_scales = {}
         if not hasattr(self, "_grid_production_scales"):
             self._grid_production_scales = {}
+        # Tracks which (direction, phase) channels have already warned about a
+        # negative reading, so the warning fires once per channel per session.
+        if not hasattr(self, "_grid_negative_warned"):
+            self._grid_negative_warned = {}
+        # Handles of the registered listeners, kept so they can be cancelled and
+        # re-registered when grid settings change (see _on_grid_settings_changed).
+        if not hasattr(self, "_grid_listener_handles"):
+            self._grid_listener_handles = []
 
         for i, entity_id in enumerate(c.GRID_CONSUMPTION_ENTITIES, start=1):
             self._grid_consumption_scales[i] = await self._get_power_scale(entity_id)
             tracker = PowerTracker()
             tracker.reset(local_now)
             self._grid_consumption_trackers[i] = tracker
-            await self.hass.listen_state(
+            handle = await self.hass.listen_state(
                 self._handle_grid_consumption_change, entity_id, phase=i
             )
+            self._grid_listener_handles.append(handle)
 
         for i, entity_id in enumerate(c.GRID_PRODUCTION_ENTITIES, start=1):
             self._grid_production_scales[i] = await self._get_power_scale(entity_id)
             tracker = PowerTracker()
             tracker.reset(local_now)
             self._grid_production_trackers[i] = tracker
-            await self.hass.listen_state(
+            handle = await self.hass.listen_state(
                 self._handle_grid_production_change, entity_id, phase=i
             )
+            self._grid_listener_handles.append(handle)
 
         self.__log(
             f"Grid monitoring started: {len(c.GRID_CONSUMPTION_ENTITIES)} "
             f"consumption + {len(c.GRID_PRODUCTION_ENTITIES)} production entities."
         )
+
+    async def _teardown_grid_listeners(self):
+        """Cancel the registered grid listeners and reset grid state.
+
+        Leaves the trackers/scales empty so a subsequent _setup_grid_listeners
+        rebuilds them for the new entities.
+        """
+        for handle in getattr(self, "_grid_listener_handles", []):
+            try:
+                await self.hass.cancel_listen_state(handle)
+            except Exception as e:
+                self.__log(f"Failed to cancel a grid listener: {e}", level="WARNING")
+        self._grid_listener_handles = []
+        self._grid_consumption_trackers = {}
+        self._grid_production_trackers = {}
+        self._grid_consumption_scales = {}
+        self._grid_production_scales = {}
+        # Re-arm negative warnings for the freshly (re)configured sensors.
+        self._grid_negative_warned = {}
+
+    async def _on_grid_settings_changed(self, *args, **kwargs):
+        """Re-register grid listeners after grid settings were saved.
+
+        Grid settings changes only update the c.GRID_* constants; the listeners
+        still point at the old entities. Tear them down and register on the new
+        entities so monitoring (and the negative-value warning) works without an
+        app restart.
+        """
+        self.__log("Grid settings changed, re-registering grid listeners.")
+        await self._teardown_grid_listeners()
+        await self._setup_grid_listeners(get_local_now())
 
     async def _handle_grid_consumption_change(
         self, entity, attribute, old, new, kwargs
@@ -453,7 +515,11 @@ class DataMonitor:
         tracker = self._grid_consumption_trackers.get(phase)
         if tracker:
             scale = self._grid_consumption_scales.get(phase, 1.0)
-            tracker.update(power * scale, get_local_now())
+            power_kw = power * scale
+            await self._warn_if_negative_grid_power(
+                "consumption", phase, entity, power_kw
+            )
+            tracker.update(power_kw, get_local_now())
 
     async def _handle_grid_production_change(self, entity, attribute, old, new, kwargs):
         """Called when a grid production entity changes state."""
@@ -467,22 +533,238 @@ class DataMonitor:
         tracker = self._grid_production_trackers.get(phase)
         if tracker:
             scale = self._grid_production_scales.get(phase, 1.0)
-            tracker.update(power * scale, get_local_now())
+            power_kw = power * scale
+            await self._warn_if_negative_grid_power(
+                "production", phase, entity, power_kw
+            )
+            tracker.update(power_kw, get_local_now())
 
-    def _conclude_grid_interval(self, timestamp: str, local_now: datetime):
-        """Conclude grid trackers and persist to database."""
+    async def _warn_if_negative_grid_power(
+        self, direction: str, phase: int, entity: str, power_kw: float
+    ):
+        """Warn (once per channel) when a grid entity reports negative power.
+
+        Consumption and production are directional channels and should never be
+        negative. A negative value means a bidirectional/net sensor was selected
+        (e.g. a CT clamp that also sees the car feeding back) or the wrong sensor
+        entirely. Log a WARNING and raise a persistent notification so the user
+        can correct the sensor selection.
+        """
+        if not hasattr(self, "_grid_negative_warned"):
+            self._grid_negative_warned = {}
+
+        if power_kw >= 0:
+            return
+
+        key = (direction, phase)
+        if self._grid_negative_warned.get(key):
+            return
+        self._grid_negative_warned[key] = True
+
+        self.__log(
+            f"Grid {direction} L{phase} ({entity}) reported negative power "
+            f"({power_kw} kW), which points at a wrong or net sensor.",
+            level="WARNING",
+        )
+        await self.hass.call_service(
+            "persistent_notification/create",
+            title="V2G Liberty: check your grid sensors",
+            message=(
+                "A grid sensor is reporting a negative value. Consumption and "
+                "production sensors should never be negative, so this points at "
+                "a wrong sensor selection. Please open the grid connection "
+                "settings to check and correct your grid sensors."
+            ),
+            notification_id="grid_sensor_negative",
+        )
+
+    def _conclude_grid_interval(
+        self,
+        timestamp: str,
+        local_now: datetime,
+        charger_power_kw: float | None,
+        pv_avg_by_panel: dict,
+    ):
+        """Conclude grid trackers, derive per-phase residential load, persist.
+
+        Residential (net household) load per phase is the energy balance
+        consumption - production + solar - charger, with solar and charger
+        attributed to phases. When an attribution is unknown for a source that
+        actually had power this interval, residential is left None for every
+        phase -- we cannot know which phase to charge it to.
+        """
         if not getattr(self, "_grid_consumption_trackers", None):
             return
+
+        pv_by_phase, pv_unknown = self._pv_by_phase(pv_avg_by_panel)
+        charger_by_phase, charger_unknown = self._charger_by_phase(charger_power_kw)
+        unknown_attribution = pv_unknown or charger_unknown
 
         for phase in self._grid_consumption_trackers:
             cons_avg = self._grid_consumption_trackers[phase].conclude(local_now)
             prod_tracker = self._grid_production_trackers.get(phase)
             prod_avg = prod_tracker.conclude(local_now) if prod_tracker else None
 
+            if unknown_attribution:
+                residential = None
+            else:
+                residential = self._residential_load(
+                    cons_avg,
+                    prod_avg,
+                    pv_by_phase.get(phase, 0.0),
+                    charger_by_phase.get(phase, 0.0),
+                )
+
             if self.data_store is not None:
                 self.data_store.insert_grid_interval(
-                    timestamp, phase, cons_avg, prod_avg
+                    timestamp, phase, cons_avg, prod_avg, residential
                 )
+
+    @staticmethod
+    def _residential_load(
+        consumption_kw: float | None,
+        production_kw: float | None,
+        pv_kw: float,
+        charger_kw: float,
+    ) -> float | None:
+        """Net household load on one phase (energy balance).
+
+        residential = consumption - production + solar - charger, where charger
+        is signed (+charging / -discharging). Returns None when consumption is
+        unknown for the phase.
+        """
+        if consumption_kw is None:
+            return None
+        return round(consumption_kw - (production_kw or 0.0) + pv_kw - charger_kw, 3)
+
+    def _charger_by_phase(self, charger_power_kw: float | None):
+        """Distribute the signed charger power (kW) over the phase(s) it is on.
+
+        Returns ``(charger_by_phase, unknown_active)``. ``unknown_active`` is
+        True only on a 3-phase grid when the charger phase is not known and the
+        car actually drew/returned power this interval.
+        """
+        charger_by_phase: dict[int, float] = {}
+        power = charger_power_kw or 0.0
+
+        if c.GRID_PHASES == 1:
+            charger_by_phase[1] = power
+            return charger_by_phase, False
+
+        phase = c.CHARGER_CONNECTED_TO_PHASE
+        if isinstance(phase, list) and phase:
+            per_phase = power / len(phase)
+            for p in phase:
+                charger_by_phase[p] = charger_by_phase.get(p, 0.0) + per_phase
+        elif phase in (1, 2, 3):
+            charger_by_phase[phase] = power
+        elif power != 0:
+            return charger_by_phase, True
+
+        return charger_by_phase, False
+
+    def _pv_by_phase(self, pv_avg_by_panel: dict):
+        """Distribute concluded per-panel PV power (kW) over the phase(s).
+
+        Returns ``(pv_by_phase, unknown_active)``. ``unknown_active`` is True
+        only on a 3-phase grid when a 1-phase panel's phase is not known and it
+        actually produced this interval.
+        """
+        pv_by_phase: dict[int, float] = {}
+        unknown_active = False
+
+        for panel in c.SOLAR_PANELS:
+            power = pv_avg_by_panel.get(panel.get("id"))
+            if power is None:
+                continue
+
+            if c.GRID_PHASES == 1:
+                pv_by_phase[1] = pv_by_phase.get(1, 0.0) + power
+                continue
+
+            if panel.get("phases") == 3:
+                per_phase = power / 3
+                for p in (1, 2, 3):
+                    pv_by_phase[p] = pv_by_phase.get(p, 0.0) + per_phase
+            else:
+                connected = panel.get("connected_to_phase")
+                if connected in (1, 2, 3):
+                    pv_by_phase[connected] = pv_by_phase.get(connected, 0.0) + power
+                elif power != 0:
+                    unknown_active = True
+
+        return pv_by_phase, unknown_active
+
+    # ── Meter energy (aggregate import/export from cumulative registers) ─
+
+    async def _read_register_sum(self, entity_ids: list) -> float | None:
+        """Read and sum the cumulative energy registers (kWh).
+
+        Returns None when any register is missing or unavailable — a partial
+        sum would corrupt the interval delta (a dropped tariff register would
+        look like a meter reset).
+        """
+        readings = []
+        for entity_id in entity_ids:
+            full = await self.hass.get_state(entity_id, attribute="all")
+            if not full:
+                return None
+            state = full.get("state")
+            if state in (None, "", "unknown", "unavailable"):
+                return None
+            unit = (full.get("attributes") or {}).get("unit_of_measurement")
+            readings.append(normalise_to_kwh(state, unit))
+        return sum_register_readings(readings)
+
+    async def _conclude_meter_interval(self, timestamp: str):
+        """Derive per-interval import/export energy from the cumulative meter
+        registers and persist it.
+
+        Boundary-sampled via get_state (no high-frequency listeners): the
+        interval energy is the register total now minus the previous boundary
+        total. Meter resets and unavailable reads are handled by meter_energy;
+        the cumulative totals are stored as the baseline for the next interval.
+        """
+        if not c.METER_CONSUMPTION_REGISTERS and not c.METER_PRODUCTION_REGISTERS:
+            return
+
+        current_import = await self._read_register_sum(c.METER_CONSUMPTION_REGISTERS)
+        current_export = await self._read_register_sum(c.METER_PRODUCTION_REGISTERS)
+
+        import_kwh, import_reset = interval_delta(
+            current_import, self._meter_import_baseline
+        )
+        export_kwh, export_reset = interval_delta(
+            current_export, self._meter_export_baseline
+        )
+        if import_reset:
+            self.__log(
+                "Import meter register dropped below the previous total "
+                "(meter reset?); re-baselining, skipping this interval.",
+                level="WARNING",
+            )
+        if export_reset:
+            self.__log(
+                "Export meter register dropped below the previous total "
+                "(meter reset?); re-baselining, skipping this interval.",
+                level="WARNING",
+            )
+
+        # Advance the baseline whenever a fresh reading is available (normal and
+        # reset cases). Keep the old baseline on unavailable so the next
+        # successful read spans the gap and no energy is lost.
+        if current_import is not None:
+            self._meter_import_baseline = current_import
+        if current_export is not None:
+            self._meter_export_baseline = current_export
+
+        if current_import is None and current_export is None:
+            return  # nothing readable this interval
+
+        if self.data_store is not None:
+            self.data_store.insert_meter_interval(
+                timestamp, import_kwh, export_kwh, current_import, current_export
+            )
 
     # ── PV monitoring ──────────────────────────────────────────────────
 
@@ -528,15 +810,22 @@ class DataMonitor:
             scale = self._pv_scales.get(panel_id, 1.0)
             tracker.update(power * scale, get_local_now())
 
-    def _conclude_pv_interval(self, timestamp: str, local_now: datetime):
-        """Conclude PV trackers and persist to database."""
+    def _conclude_pv_interval(self, timestamp: str, local_now: datetime) -> dict:
+        """Conclude PV trackers, persist, and return concluded power per panel.
+
+        Returns a dict ``panel_id -> avg_kw`` so the caller can attribute solar
+        to phases for the residential-load calculation.
+        """
+        pv_avg_by_panel: dict = {}
         if not getattr(self, "_pv_trackers", None):
-            return
+            return pv_avg_by_panel
 
         for panel_id, tracker in self._pv_trackers.items():
             avg_kw = tracker.conclude(local_now)
+            pv_avg_by_panel[panel_id] = avg_kw
             if self.data_store is not None:
                 self.data_store.insert_pv_interval(timestamp, panel_id, avg_kw)
+        return pv_avg_by_panel
 
     # ── Charger power monitoring ───────────────────────────────────────
 
@@ -604,13 +893,16 @@ class DataMonitor:
                 energy_kwh, availability_pct, soc, app_state
             )
 
-            # Persist grid monitoring data
+            # Persist PV + grid monitoring data. PV is concluded first so its
+            # per-panel values can be attributed to phases for the residential
+            # (net household) load derived in the grid conclusion.
             if timestamp is not None:
-                self._conclude_grid_interval(timestamp, get_local_now())
-
-            # Persist PV monitoring data
-            if timestamp is not None:
-                self._conclude_pv_interval(timestamp, get_local_now())
+                local_now = get_local_now()
+                pv_avg_by_panel = self._conclude_pv_interval(timestamp, local_now)
+                self._conclude_grid_interval(
+                    timestamp, local_now, average_power_kw, pv_avg_by_panel
+                )
+                await self._conclude_meter_interval(timestamp)
 
             # Notify listeners (e.g. naive charging simulator).
             if timestamp is not None:

@@ -1,7 +1,8 @@
 """Unit test (pytest) for settings_manager module."""
 
-from unittest.mock import ANY, Mock, mock_open, patch
 import json
+from unittest.mock import ANY, Mock, mock_open, patch
+
 import pytest
 from apps.v2g_liberty.settings_manager import SettingsManager
 
@@ -21,6 +22,16 @@ def json_dump_mock():
     return Mock()
 
 
+@pytest.fixture(autouse=True)
+def no_disk_writes():
+    """These tests mock `open`, so there is no temporary file to fsync or
+    rename. Keep both away from the real filesystem; what they are about is the
+    content that gets written, not how it lands. Tests that assert on the
+    rename patch `os.replace` again inside their own block."""
+    with patch("os.fsync"), patch("os.replace"):
+        yield
+
+
 class TestRetrieveSettings:
     @patch("os.path.exists", lambda _: False)
     def test_retrieve_initial_settings(self, log_mock, settings_manager):
@@ -36,9 +47,7 @@ class TestRetrieveSettings:
         # Act
         settings_manager.retrieve_settings()
         # Assert
-        log_mock.assert_called_with(
-            "loading file content error, no dict: '[]'.", level="WARNING"
-        )
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
         assert settings_manager.settings == {}
 
     @patch("os.path.exists", lambda _: True)
@@ -168,6 +177,76 @@ class TestRetrieveSettings:
         assert (
             settings_manager.get("input_boolean.charger_settings_initialised") is True
         )
+
+    # Following four tests
+    # Check the charger_type migration: users who configured a charger before the
+    # charger_type setting existed get "wallbox-quasar-1", the only charger type
+    # available back then. Anything else is left alone.
+
+    @patch("os.path.exists", lambda _: True)
+    @patch("os.replace")
+    def test_upgrade_charger_type_existing_user(
+        self, os_replace_mock, settings_manager, json_dump_mock
+    ):
+        # Arrange: charger configured, but from before charger_type existed
+        saved_settings = json.dumps(
+            {
+                "input_text.charger_host_url": "192.168.1.1",
+                "input_number.charger_port": 502,
+                "input_boolean.use_reduced_max_charge_power": False,
+            }
+        )
+        with (
+            patch("builtins.open", mock_open(read_data=saved_settings)),
+            patch("json.dump", json_dump_mock),
+        ):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert settings_manager.get("input_text.charger_type") == "wallbox-quasar-1"
+        # The migrated settings must be written back to the file
+        json_dump_mock.assert_called_once()
+        written_settings = json_dump_mock.call_args.args[0]
+        assert written_settings["input_text.charger_type"] == "wallbox-quasar-1"
+
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_charger_type_already_set(self, settings_manager):
+        # Arrange
+        saved_settings = json.dumps(
+            {
+                "input_text.charger_host_url": "192.168.1.1",
+                "input_number.charger_port": 5020,
+                "input_boolean.use_reduced_max_charge_power": False,
+                "input_text.charger_type": "evtec-bidi-pro-10",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert settings_manager.get("input_text.charger_type") == "evtec-bidi-pro-10"
+
+    @patch("os.path.exists", lambda _: True)
+    @patch("builtins.open", mock_open(read_data="{}"))
+    def test_upgrade_charger_type_fresh_install(self, settings_manager):
+        # Act
+        settings_manager.retrieve_settings()
+        # Assert
+        assert "input_text.charger_type" not in settings_manager.settings
+
+    @patch("os.path.exists", lambda _: True)
+    def test_upgrade_charger_type_partial_charger_settings(self, settings_manager):
+        # Arrange: only the host is present, charger never fully configured
+        saved_settings = json.dumps(
+            {
+                "input_text.charger_host_url": "192.168.1.1",
+            }
+        )
+        with patch("builtins.open", mock_open(read_data=saved_settings)):
+            # Act
+            settings_manager.retrieve_settings()
+        # Assert
+        assert "input_text.charger_type" not in settings_manager.settings
 
     @patch("os.path.exists", lambda _: True)
     def test_upgrade_electricity_contract_settings_initialised(self, settings_manager):
@@ -441,3 +520,294 @@ class TestStoreObject:
         # Assert
         assert settings_manager.settings["input_text.charger_host_url"] == "192.168.1.1"
         assert settings_manager.settings["grid_connection"] == obj
+
+
+# ── Car settings migration ────────────────────────────────────────────
+# The six car values used to be six entity-keyed settings; they now live in
+# one object in the "cars" list. The flat keys stay one release (roll-back).
+
+_FLAT_CAR_DEFAULTS = {
+    "input_number.car_max_capacity_in_kwh": 24,
+    "input_number.charger_plus_car_roundtrip_efficiency": 85,
+    "input_number.car_consumption_wh_per_km": 175,
+    "input_number.car_min_soc_in_percent": 20,
+    "input_number.car_max_soc_in_percent": 80,
+    "input_number.allowed_duration_above_max_soc_in_hrs": 4,
+}
+
+
+def _retrieve(settings_manager, saved: dict, json_dump_mock=None):
+    with (
+        patch("os.path.exists", lambda _: True),
+        patch("os.replace"),
+        patch("builtins.open", mock_open(read_data=json.dumps(saved))),
+        patch("json.dump", json_dump_mock or Mock()),
+    ):
+        settings_manager.retrieve_settings()
+
+
+class TestUpgradeCarSettings:
+    def test_changed_values_migrate_as_configured(
+        self, settings_manager, json_dump_mock
+    ):
+        saved = {
+            "input_number.car_max_capacity_in_kwh": 62,
+            "input_number.charger_plus_car_roundtrip_efficiency": 90,
+            "input_number.car_consumption_wh_per_km": 160,
+            "input_number.car_min_soc_in_percent": 25,
+            "input_number.car_max_soc_in_percent": 85,
+            "input_number.allowed_duration_above_max_soc_in_hrs": 6,
+        }
+        _retrieve(settings_manager, saved, json_dump_mock)
+
+        assert settings_manager.get_object("cars") == [
+            {
+                "capacity_kwh": 62,
+                "roundtrip_efficiency": 90,
+                "consumption_wh_per_km": 160,
+                "min_soc_percent": 25,
+                "max_soc_percent": 85,
+                "allowed_duration_above_max_soc_hrs": 6,
+                "name": "",
+                "ev_id": "",
+                "configured": True,
+            }
+        ]
+        # The flat keys stay, so a roll-back finds its values.
+        for key, value in saved.items():
+            assert settings_manager.get(key) == value
+        # And the migrated settings are written back to the file.
+        json_dump_mock.assert_called_once()
+        assert json_dump_mock.call_args.args[0]["cars"][0]["configured"] is True
+
+    def test_untouched_defaults_without_charger_are_not_configured(
+        self, settings_manager
+    ):
+        """The app writes the six defaults on the very first boot, so their
+        presence alone does not mean the user ever configured a car."""
+        _retrieve(settings_manager, dict(_FLAT_CAR_DEFAULTS))
+
+        car = settings_manager.get_object("cars")[0]
+        assert car["configured"] is False
+        assert car["capacity_kwh"] == 24
+
+    def test_untouched_defaults_with_charger_are_configured(self, settings_manager):
+        """An installation that was in use (charger configured) kept the
+        defaults on purpose."""
+        saved = dict(_FLAT_CAR_DEFAULTS)
+        saved["input_boolean.charger_settings_initialised"] = True
+        _retrieve(settings_manager, saved)
+
+        assert settings_manager.get_object("cars")[0]["configured"] is True
+
+    def test_partial_flat_keys_migrate_what_is_there(self, settings_manager):
+        _retrieve(
+            settings_manager,
+            {"input_number.car_max_capacity_in_kwh": 40},
+        )
+
+        assert settings_manager.get_object("cars") == [
+            {"capacity_kwh": 40, "name": "", "ev_id": "", "configured": True}
+        ]
+
+    def test_existing_cars_list_is_left_alone(self, settings_manager):
+        cars = [{"name": "Ioniq 5", "ev_id": "X", "configured": True}]
+        saved = dict(_FLAT_CAR_DEFAULTS)
+        saved["cars"] = cars
+        _retrieve(settings_manager, saved)
+
+        assert settings_manager.get_object("cars") == cars
+
+    def test_no_car_keys_no_object(self, settings_manager):
+        _retrieve(settings_manager, {"input_text.charger_host_url": "192.168.1.1"})
+
+        assert "cars" not in settings_manager.settings
+
+    def test_factory_defaults_match_v2g_globals(self):
+        """The migration's notion of "unchanged" must be the app's defaults."""
+        from apps.v2g_liberty.v2g_globals import V2GLibertyGlobals
+
+        expected = {
+            key: setting["factory_default"]
+            for key, setting in V2GLibertyGlobals.CAR_VALUE_SETTINGS.items()
+        }
+        assert SettingsManager._CAR_FACTORY_DEFAULTS == expected
+        # And the legacy keys are exactly the entities those settings project to.
+        assert SettingsManager._LEGACY_CAR_KEYS == {
+            f"{setting['entity_type']}.{setting['entity_name']}": key
+            for key, setting in V2GLibertyGlobals.CAR_VALUE_SETTINGS.items()
+        }
+
+
+class TestWriteDurability:
+    """The settings file is the only record of what the user configured, and
+    losing it has been seen in the wild. Writing to a temporary file and
+    renaming only helps if the bytes are on disk before the rename."""
+
+    def test_the_temporary_file_is_fsynced_before_the_rename(self, settings_manager):
+        calls = []
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync", side_effect=lambda fd: calls.append(("fsync", fd))),
+            patch("os.replace", side_effect=lambda *a: calls.append(("replace", a))),
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        assert [name for name, _ in calls] == ["fsync", "replace"], (
+            "a rename without a preceding fsync can publish an empty file over "
+            "a good one, which is exactly what the rename is meant to prevent"
+        )
+        assert calls[0][1] == 7
+
+    def test_it_renames_onto_the_real_path(self, settings_manager):
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        tmp_path, target = replace_mock.call_args.args
+        assert target == SettingsManager._SETTINGS_FILE_PATH
+        assert tmp_path != target
+
+
+class TestABrokenSettingsFile:
+    """A file that cannot be used is handled two ways, because the user has to
+    do two different things. Content that is demonstrably broken is set aside
+    so the app can start clean -- nobody can reach /data to repair it, so
+    leaving it there would strand the app with no way out. A file we merely
+    could not read may be perfectly fine and briefly out of reach, so that one
+    is left exactly where it is."""
+
+    @patch("os.path.exists", lambda _: True)
+    def test_unparsable_content_is_set_aside(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.retrieve_settings()
+
+        source, destination = replace_mock.call_args.args
+        assert source == SettingsManager._SETTINGS_FILE_PATH
+        assert destination.startswith(SettingsManager._SETTINGS_FILE_PATH + ".corrupt-")
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
+        assert settings_manager.set_aside_path == destination
+
+    @patch("os.path.exists", lambda _: True)
+    def test_content_that_is_not_an_object_is_set_aside(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="[]")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
+
+    @patch("os.path.exists", lambda _: True)
+    def test_saving_works_again_after_the_file_was_set_aside(self, settings_manager):
+        """The whole point: the user can configure the app and it sticks."""
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        replace_mock.assert_called_once()
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_file_we_could_not_read_is_left_exactly_where_it_is(
+        self, log_mock, settings_manager
+    ):
+        """Permissions, I/O, a volume not mounted yet: the content may be fine.
+        Setting it aside on a passing fault would destroy a good file."""
+        with (
+            patch("builtins.open", side_effect=OSError("Input/output error")),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.retrieve_settings()
+
+        replace_mock.assert_not_called()
+        assert settings_manager.file_problem == SettingsManager.FILE_UNREADABLE
+
+        with patch("os.replace") as write_mock:
+            settings_manager.store_setting("input_boolean.whatever", True)
+        write_mock.assert_not_called()
+        log_mock.assert_called_with(
+            "Refusing to write: the settings file could not be read.", level="ERROR"
+        )
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_file_that_cannot_even_be_moved_is_left_alone(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace", side_effect=OSError("Read-only file system")),
+        ):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_UNREADABLE
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_readable_file_still_writes(self, settings_manager):
+        with patch("builtins.open", mock_open(read_data='{"key": "value"}')):
+            settings_manager.retrieve_settings()
+        assert settings_manager.file_problem == SettingsManager.FILE_OK
+
+        handle = mock_open()
+        handle.return_value.fileno.return_value = 7
+        with (
+            patch("builtins.open", handle),
+            patch("json.dump"),
+            patch("os.fsync"),
+            patch("os.replace") as replace_mock,
+        ):
+            settings_manager.store_setting("input_boolean.whatever", True)
+
+        replace_mock.assert_called_once()
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_second_read_does_not_wipe_the_problem(self, settings_manager):
+        """Start-up reads the file more than once, and after one is set aside
+        the next read finds nothing. That must not erase what we are about to
+        tell the user."""
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        with patch("os.path.exists", lambda _: False):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_SET_ASIDE
+
+    @patch("os.path.exists", lambda _: True)
+    def test_a_repaired_file_clears_the_problem(self, settings_manager):
+        with (
+            patch("builtins.open", mock_open(read_data="{ not json")),
+            patch("os.replace"),
+        ):
+            settings_manager.retrieve_settings()
+
+        with patch("builtins.open", mock_open(read_data='{"key": "value"}')):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.file_problem == SettingsManager.FILE_OK
+        assert settings_manager.set_aside_path == ""

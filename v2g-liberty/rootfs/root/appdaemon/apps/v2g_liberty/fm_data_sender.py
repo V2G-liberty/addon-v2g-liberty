@@ -31,7 +31,7 @@ class FMDataSender:
 
         # Ensure fm_send_status has an initial value on first start
         if self.data_store is not None:
-            for data_type in ("charger", "grid", "pv"):
+            for data_type in ("charger", "grid", "pv", "meter"):
                 last_sent = self.data_store.get_fm_last_sent(data_type)
                 if last_sent is None:
                     now = datetime.now(timezone.utc).isoformat()
@@ -65,6 +65,7 @@ class FMDataSender:
             ("charger", self._send_charger_data),
             ("grid", self._send_grid_data),
             ("pv", self._send_pv_data),
+            ("meter", self._send_meter_data),
         ):
             try:
                 await send_method()
@@ -215,6 +216,57 @@ class FMDataSender:
                 )
                 break
 
+    async def _send_meter_data(self):
+        """Send unsent aggregate meter energy (whole-connection import/export).
+
+        The meter_interval_log holds one row per 5-minute boundary with the
+        per-interval import/export increments derived from the cumulative
+        meter registers. Each side is posted as kWh to its kW-defined
+        aggregate sensor; FlexMeasures converts kWh/interval to average kW.
+        """
+        if not (
+            c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID and c.FM_AGGREGATE_PRODUCTION_SENSOR_ID
+        ):
+            return
+
+        last_sent = self.data_store.get_fm_last_sent("meter")
+        if last_sent is None:
+            now = datetime.now(timezone.utc).isoformat()
+            self.data_store.set_fm_last_sent(now, "meter")
+            self.__log(
+                "Meter: no last_sent_up_to, recovered by setting to now.",
+                level="WARNING",
+            )
+            return
+
+        intervals = self.data_store.get_meter_intervals_since(last_sent)
+        if not intervals:
+            self.__log("Meter: no unsent intervals.")
+            return
+
+        self.__log(f"Meter: {len(intervals)} unsent row(s).")
+        blocks = self._group_contiguous_blocks(intervals)
+
+        for block in blocks:
+            try:
+                success = await self._send_meter_block(block)
+            except Exception as e:
+                self.__log(
+                    f"Meter: block send raised exception: {e}",
+                    level="WARNING",
+                )
+                break
+            if success:
+                last_timestamp = block[-1]["timestamp"]
+                self.data_store.set_fm_last_sent(last_timestamp, "meter")
+                self.__log(f"Meter: block sent, advanced to {last_timestamp}.")
+            else:
+                self.__log(
+                    "Meter: block failed, will retry next run.",
+                    level="WARNING",
+                )
+                break
+
     # Max 288 intervals per block = 24 hours at 5-min resolution.
     MAX_BLOCK_SIZE = 288
 
@@ -323,7 +375,8 @@ class FMDataSender:
     def _group_grid_by_timestamp(intervals: list[dict]) -> dict[str, dict[int, dict]]:
         """Group grid interval rows by timestamp.
 
-        Returns {timestamp: {phase: {consumption_kw, production_kw}}}.
+        Returns {timestamp: {phase: {consumption_kw, production_kw,
+        residential_load_kw}}}.
         """
         by_timestamp: dict[str, dict[int, dict]] = {}
         for row in intervals:
@@ -333,6 +386,7 @@ class FMDataSender:
             by_timestamp[ts][row["phase"]] = {
                 "consumption_kw": row["consumption_kw"],
                 "production_kw": row["production_kw"],
+                "residential_load_kw": row.get("residential_load_kw"),
             }
         return by_timestamp
 
@@ -384,8 +438,8 @@ class FMDataSender:
     ) -> bool:
         """Send a contiguous block of grid data to FlexMeasures.
 
-        Posts consumption and production per phase. Returns True only if
-        all posts succeed.
+        Posts consumption, production and residential load per phase. Returns
+        True only if all posts succeed.
         """
         start = timestamps[0]
         duration = _len_to_iso_duration(len(timestamps))
@@ -428,6 +482,25 @@ class FMDataSender:
                 )
                 return False
 
+        for phase, sensor_id in c.FM_RESIDENTIAL_LOAD_SENSOR_IDS.items():
+            values = [
+                by_timestamp[ts].get(phase, {}).get("residential_load_kw")
+                for ts in timestamps
+            ]
+            ok = await self.fm_client_app.post_sensor_data(
+                sensor_id=sensor_id,
+                values=values,
+                start=start,
+                duration=duration,
+                uom="kW",
+            )
+            if not ok:
+                self.__log(
+                    f"Grid: failed to send residential load L{phase}.",
+                    level="WARNING",
+                )
+                return False
+
         return True
 
     async def _send_pv_block(
@@ -459,6 +532,43 @@ class FMDataSender:
                     level="WARNING",
                 )
                 return False
+
+        return True
+
+    async def _send_meter_block(self, block: list[dict]) -> bool:
+        """Send a contiguous block of aggregate meter energy to FlexMeasures.
+
+        Posts the per-interval import increments to the Aggregate Consumption
+        sensor and the export increments to Aggregate Production, both as kWh
+        (FM converts to average kW). Returns True only if both posts succeed.
+        """
+        start = block[0]["timestamp"]
+        duration = _len_to_iso_duration(len(block))
+
+        import_values = [row["import_kwh"] for row in block]
+        export_values = [row["export_kwh"] for row in block]
+
+        consumption_ok = await self.fm_client_app.post_sensor_data(
+            sensor_id=c.FM_AGGREGATE_CONSUMPTION_SENSOR_ID,
+            values=import_values,
+            start=start,
+            duration=duration,
+            uom="kWh",
+        )
+        if not consumption_ok:
+            self.__log("Meter: failed to send import (consumption).", level="WARNING")
+            return False
+
+        production_ok = await self.fm_client_app.post_sensor_data(
+            sensor_id=c.FM_AGGREGATE_PRODUCTION_SENSOR_ID,
+            values=export_values,
+            start=start,
+            duration=duration,
+            uom="kWh",
+        )
+        if not production_ok:
+            self.__log("Meter: failed to send export (production).", level="WARNING")
+            return False
 
         return True
 
