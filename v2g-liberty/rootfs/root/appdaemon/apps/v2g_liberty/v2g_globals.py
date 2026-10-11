@@ -807,9 +807,11 @@ class V2GLibertyGlobals:
 
         self.hass.fire_event("save_setting.result")
 
-        if data["entity"] == "input_select.optimisation_mode":
-            await self.__set_fm_optimisation_context()
         await self.__initialise_general_settings()
+        if data["entity"] == "input_select.optimisation_mode":
+            # Only now: the context is built from c.OPTIMISATION_MODE, which
+            # __initialise_general_settings has just read.
+            await self.__set_fm_optimisation_context()
         await self.v2g_main_app.kick_off_v2g_liberty()
 
     # ── Grid connection settings (entity-free, JSON-based) ─────────────
