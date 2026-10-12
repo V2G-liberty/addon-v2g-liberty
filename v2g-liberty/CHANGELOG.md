@@ -4,9 +4,7 @@
 
 ### Fixed
 
-- 🪲 BUG: Two Modbus errors at the same moment could report the charger as unreachable after it had already recovered (#511)
-- 🪲 BUG: "The car is not discharging" was still notified after discharging had started to work again (#511)
-- 🪲 BUG: When two events arrived at the same moment, a notification could be sent twice, or after its problem had already been solved (#511)
+- 🪲 BUG: A notification could arrive twice or after its problem was solved, and a recovered charger could still be reported as unreachable (#511)
 - 🪲 BUG: A new optimisation mode (price or emissions) only took effect at the next switch or restart (#510)
 - 🪲 BUG: An empty FlexMeasures password or a doubled https:// in the server URL stopped V2G Liberty from starting (#508)
 - 🪲 BUG: A reservation or SoC change arriving while a schedule was being fetched was ignored until the next refresh, up to 15 minutes (#508)
