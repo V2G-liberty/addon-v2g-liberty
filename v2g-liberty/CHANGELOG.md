@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- 🪲 BUG: When the charger escalated twice at once, it stayed on Stop after recovering instead of resuming automatic charging, and the alarm sounded twice (#516)
+- 🪲 BUG: A charger fault could leave the charger on Stop after recovery and sound the alarm twice, and resuming by hand beside a charger still in fault went unnoticed (#516)
 - 🪲 BUG: Missing admin's phone; no message to user and critical notifications lost (#514)
 - 🪲 BUG: The charger's phase was not sent to FlexMeasures, unlike that of solar panels (#513)
 - 🪲 BUG: When a schedule ran out without a new one, the charger kept the power of its last interval, so the car could go on (dis)charging unasked (#512)
