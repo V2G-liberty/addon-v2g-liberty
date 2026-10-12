@@ -6,9 +6,14 @@
   "containerEnv": {
     "PYTHONASYNCIODEBUG": "1"
   },
-  // Runs once when container is created to copy V2G Liberty configs to Home Assistant
-  // This is safe because copy-config is idempotent and HA loads config on startup
-  "postCreateCommand": "git config merge.ours.driver true && bash /workspaces/v2g-liberty/script/copy-config",
+  // Runs once when the container is created:
+  // - trusts /workspaces for git: the mounted folder can belong to another user,
+  //   and git then refuses to work ("dubious ownership"), the next command included;
+  // - copies the V2G Liberty configs to Home Assistant (idempotent; HA loads
+  //   config on startup);
+  // - brings the Python packages in line with requirements.txt, in case the
+  //   image was built from an older one (last, so a network error blocks nothing).
+  "postCreateCommand": "git config --global --add safe.directory /workspaces && git config merge.ours.driver true && bash /workspaces/v2g-liberty/script/copy-config && pip install --user -q -r /workspaces/v2g-liberty/requirements.txt",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
