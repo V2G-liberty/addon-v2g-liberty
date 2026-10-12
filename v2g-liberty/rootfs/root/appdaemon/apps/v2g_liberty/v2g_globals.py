@@ -2819,7 +2819,9 @@ class V2GLibertyGlobals:
                 rv = max(min_value, return_value)
             if max_value:
                 max_value = float(max_value)
-                rv = min(max_value, return_value)
+                # rv, not return_value: comparing the original again undid
+                # the minimum, so a value below it passed unchanged.
+                rv = min(max_value, rv)
             if rv != return_value:
                 has_changed = True
                 return_value = rv
@@ -2832,7 +2834,9 @@ class V2GLibertyGlobals:
                 rv = max(min_value, return_value)
             if max_value:
                 max_value = int(float(max_value))
-                rv = min(max_value, return_value)
+                # rv, not return_value: comparing the original again undid
+                # the minimum, so a value below it passed unchanged.
+                rv = min(max_value, rv)
             if rv != return_value:
                 has_changed = True
                 return_value = rv
