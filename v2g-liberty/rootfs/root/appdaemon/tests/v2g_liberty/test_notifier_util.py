@@ -1,11 +1,12 @@
 """Unit test (pytest) for notifier_util module."""
 
-from unittest.mock import MagicMock, call, AsyncMock, ANY
+from unittest.mock import ANY, AsyncMock, MagicMock, call
+
 import pytest
-from apps.v2g_liberty.notifier_util import Notifier
-from apps.v2g_liberty import constants as c
 from appdaemon.plugins.hass.hassapi import Hass
+from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.event_bus import EventBus
+from apps.v2g_liberty.notifier_util import Notifier
 
 
 @pytest.fixture
@@ -13,12 +14,24 @@ def event_bus():
     return AsyncMock(spec=EventBus)
 
 
+class ServiceResult:
+    """What AppDaemon's call_service returns: awaited by notify_user, ignored
+    by the fire-and-forget callers (clear, memos), so it must suit both."""
+
+    def __init__(self, result):
+        self.result = result
+
+    def __await__(self):
+        yield from ()
+        return self.result
+
+
 @pytest.fixture
 def mock_hass():
     """Mock the Hass object."""
     hass = MagicMock(spec=Hass)
     hass.log = MagicMock()
-    hass.call_service = MagicMock()
+    hass.call_service = MagicMock(return_value=ServiceResult({"success": True}))
     hass.run_in = AsyncMock()
     hass.list_services = MagicMock(
         return_value=[
@@ -52,8 +65,10 @@ async def test_notify_user_to_admin(notifier, mock_hass):
         critical=True,
     )
 
-    # Verify the correct notification is sent
-    mock_hass.call_service.assert_called_with(
+    # Verify the correct notification is sent. Not necessarily the last call:
+    # the first delivery to the administrator also clears an old memo saying
+    # that phone was missing.
+    mock_hass.call_service.assert_any_call(
         "notify/mobile_app_john",
         title="Test Title",
         message="Test message [HomeAssistant]",

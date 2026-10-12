@@ -16,6 +16,7 @@ class EditAdministratorSettingsDialog extends DialogBase {
   @state() private _mobileName: string;
   @state() private _mobilePlatform: string;
   @state() private _hasTriedToSave: boolean;
+  @state() private _missingMobileName: string;
 
   public async showDialog(): Promise<void> {
     super.showDialog();
@@ -28,6 +29,14 @@ class EditAdministratorSettingsDialog extends DialogBase {
       ''
     );
     this._hasTriedToSave = false;
+    // A phone that left Home Assistant is no choice any more: do not offer it
+    // as the current one, and say why the field is empty.
+    this._missingMobileName = '';
+    const notify = this.hass.services?.['notify'];
+    if (notify && this._mobileName && !(`mobile_app_${this._mobileName}` in notify)) {
+      this._missingMobileName = this._mobileName;
+      this._mobileName = '';
+    }
     await this.updateComplete;
   }
 
@@ -37,7 +46,7 @@ class EditAdministratorSettingsDialog extends DialogBase {
     const mobileNameState = this.hass.states[entityIds.adminMobileName];
     const mobilePlatformState = this.hass.states[entityIds.adminMobilePlatform];
 
-    const mobileApps = Object.keys(this.hass.services['notify'])
+    const mobileApps = Object.keys(this.hass.services['notify'] ?? {})
       .filter(service => /^mobile_app_/.test(service))
       .map(service => service.replace(/^mobile_app_/, ''));
 
@@ -51,6 +60,11 @@ class EditAdministratorSettingsDialog extends DialogBase {
         .headerTitle=${_isNew ? _header : null}
       >
         <p><ha-markdown breaks .content=${tp('sub-header')}></ha-markdown></p>
+        ${this._missingMobileName
+          ? html`<ha-alert alert-type="warning"
+              >${tp('phone-missing-choose', { name: this._missingMobileName })}</ha-alert
+            >`
+          : nothing}
         ${renderInputSelect(
           this._mobileName,
           mobileNameState,

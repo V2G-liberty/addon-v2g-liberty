@@ -1,6 +1,7 @@
 """Utility module to handle sending notifications to users"""
 
 from typing import Optional, Callable
+from appdaemon.exceptions import ServiceException
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
 
@@ -19,8 +20,10 @@ class Notifier:
 
     event_bus: EventBus = None
     hass: Hass = None
-    recipients: list = []
+    recipients: list
     _notification_callbacks: dict = {}
+
+    ADMIN_MISSING_MEMO_ID = "admin_mobile_missing"
 
     ########################################################################
     #                         INITIALISATIO METHOD                         #
@@ -29,14 +32,14 @@ class Notifier:
     def __init__(self, hass: Hass, event_bus: EventBus):
         self.hass = hass
         self.__log = get_class_method_logger(module_name="notifier_util")
+        self.recipients = []
+        # None until the first check, so that one always posts or dismisses.
+        self._admin_missing_reported: bool | None = None
 
         self.event_bus = event_bus
         # not used yet
         # self.event_bus.add_event_listener("notify_user", self.notify_user)
         # self.event_bus.add_event_listener("clear_notification", self.clear_notification)
-
-        # TODO: Add listener to see if any devices are (de-) registered
-        # self.hass.listen_event(self.entity_registry_listener, "entity_registry_updated")
 
         # Fired in UI / custom_card
         self.hass.listen_event(self._send_test_notification, "send_test_notification")
@@ -55,6 +58,10 @@ class Notifier:
         """Async initialization - must be called after __init__"""
         self.__log("Initializing Notifier (async)")
         self._get_recipients()
+        # AppDaemon's own service list never drops a removed service, so a phone
+        # that leaves Home Assistant while the app runs is followed here.
+        await self.hass.listen_event(self.__handle_service_change, "service_registered")
+        await self.hass.listen_event(self.__handle_service_change, "service_removed")
         self.__log("Completed async initialization of Notifier")
 
     ########################################################################
@@ -101,64 +108,39 @@ class Notifier:
                 Defaults to None. A tag is needed for this to work.
         """
 
-        if c.ADMIN_MOBILE_NAME == "" or not self.recipients:
+        if not self.recipients:
             self.__log(
                 "No registered devices to notify, cancel notification.", level="WARNING"
             )
             return
 
-        # All notifications always get sent to admin
-        to_notify = [c.ADMIN_MOBILE_NAME]
-
         # Use abbreviation to make more room for title itself.
         title = title if title else "V2G Liberty"
-
-        notification_data = {}
-
-        # critical trumps send_to_all
-        if critical:
-            self.__log(f"notify_user: Critical! Send to: {to_notify}.")
-            notification_data = c.PRIORITY_NOTIFICATION_CONFIG
-
-        if send_to_all and not critical:
-            self.__log(f"Send to all and not critical! Send to: {to_notify}.")
-            to_notify = self.recipients
 
         if tag is None:
             tag = str(uuid.uuid4())
 
-        notification_data["tag"] = tag
-
         if callback is not None:
             self._register_notification_callback(tag, callback)
 
+        notification_data = {"tag": tag}
         if actions:
             # Prepend the tag to each action for later matching with callback
-            tagged_actions = [
+            notification_data["actions"] = [
                 {"action": f"{tag}~{action['action']}", "title": action["title"]}
                 for action in actions
             ]
-            notification_data["actions"] = tagged_actions
 
         message = message + " [" + c.HA_NAME + "]"
 
-        self.__log(
-            f"Notifying recipients: {to_notify} with message: '{message[0:15]}...'"
-            f"data: {notification_data}."
-        )
-        for recipient in to_notify:
-            service = "notify/mobile_app_" + recipient
-            try:
-                if notification_data:
-                    self.hass.call_service(
-                        service, title=title, message=message, data=notification_data
-                    )
-                else:
-                    self.hass.call_service(service, title=title, message=message)
-            except Exception as e:
-                self.__log(
-                    f"Could not notify: exception on {recipient}. Exception: {e}."
-                )
+        if send_to_all and not critical:
+            to_notify = list(self.recipients)
+            await self.__send_to_each(to_notify, title, message, notification_data)
+        else:
+            # Meant for the administrator; critical trumps send_to_all.
+            to_notify = await self.__notify_admin(
+                title, message, notification_data, critical
+            )
 
         if ttl is not None and ttl > 0 and tag and not critical:
             # Remove the notification after a time-to-live.
@@ -170,6 +152,134 @@ class Notifier:
                 recipients=to_notify,
                 tag=tag,
             )
+
+    async def __notify_admin(
+        self, title: str, message: str, notification_data: dict, critical: bool
+    ) -> list:
+        """Send to the administrator's phone, or to all other phones when Home
+        Assistant does not know that phone (any more) or none is set.
+
+        Returns the phones it was sent to.
+        """
+        admin = c.ADMIN_MOBILE_NAME
+        if self.__admin_is_known():
+            data = notification_data
+            if critical:
+                self.__log(f"Critical! Send to: ['{admin}'].")
+                # A copy: the shared config must not collect tags and actions.
+                data = {**(c.PRIORITY_NOTIFICATION_CONFIG or {}), **notification_data}
+            outcome = await self.__send(admin, title, message, data)
+            if outcome != "not_found":
+                if outcome == "ok":
+                    self.__report_admin_missing(False)
+                return [admin]
+        # A notification for the administrator must not vanish because one
+        # phone is gone. The others get it at normal priority: the critical
+        # settings are the administrator's platform's, not theirs.
+        if admin:
+            self.__report_admin_missing(True)
+        others = [r for r in self.recipients if r != admin]
+        self.__log(
+            f"Administrator phone '{admin}' not available, sending to: {others}.",
+            level="WARNING",
+        )
+        await self.__send_to_each(others, title, message, notification_data)
+        return others
+
+    async def __send_to_each(
+        self, recipients: list, title: str, message: str, data: dict
+    ):
+        for recipient in recipients:
+            await self.__send(recipient, title, message, data)
+
+    async def __send(self, recipient: str, title: str, message: str, data: dict) -> str:
+        """Send to one phone, and say how that went: "ok", "not_found" (Home
+        Assistant or AppDaemon does not know the phone) or "failed".
+
+        Awaited, so a failure is seen here: without the await AppDaemon runs the
+        call as a separate task, and its error only reached the error log.
+        """
+        self.__log(
+            f"Notifying '{recipient}' with message: '{message[0:15]}...' data: {data}."
+        )
+        try:
+            result = await self.hass.call_service(
+                "notify/mobile_app_" + recipient,
+                title=title,
+                message=message,
+                data=data,
+            )
+        except ServiceException:
+            self.__log(
+                f"Could not notify '{recipient}': unknown phone.", level="WARNING"
+            )
+            return "not_found"
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.__log(f"Could not notify '{recipient}': {e}.", level="WARNING")
+            return "failed"
+        if isinstance(result, dict) and result.get("success") is False:
+            error = result.get("error") or {}
+            self.__log(
+                f"Could not notify '{recipient}': {error or result}.", level="WARNING"
+            )
+            return "not_found" if error.get("code") == "not_found" else "failed"
+        return "ok"
+
+    def __admin_is_known(self) -> bool:
+        return bool(c.ADMIN_MOBILE_NAME) and c.ADMIN_MOBILE_NAME in self.recipients
+
+    def check_admin_mobile(self):
+        """Report a configured administrator phone that Home Assistant does not
+        know (any more), or clear that report. Called at start-up, after the
+        administrator setting is saved, and when phones come and go. No phone
+        set at all is not reported here: the settings screen already shows it.
+        """
+        if not c.ADMIN_MOBILE_NAME:
+            self.__report_admin_missing(False)
+            return
+        self.__report_admin_missing(not self.__admin_is_known())
+
+    def __report_admin_missing(self, missing: bool):
+        if missing == self._admin_missing_reported:
+            return
+        self._admin_missing_reported = missing
+        if not missing:
+            self.dismiss_sticky_memo(self.ADMIN_MISSING_MEMO_ID)
+            return
+        self.__log(
+            f"Administrator phone '{c.ADMIN_MOBILE_NAME}' is not known in "
+            f"Home Assistant.",
+            level="WARNING",
+        )
+        self.post_sticky_memo(
+            title="Administrator phone not found",
+            message=(
+                f"The administrator phone '{c.ADMIN_MOBILE_NAME}' is no longer "
+                "known in Home Assistant. Notifications for the administrator, "
+                "critical ones included, now go to all phones.<br/>"
+                "Choose another administrator phone in the V2G Liberty settings."
+            ),
+            memo_id=self.ADMIN_MISSING_MEMO_ID,
+        )
+
+    async def __handle_service_change(self, event_name, data, kwargs):
+        """Follow phones that are added to or removed from Home Assistant."""
+        if data.get("domain") != "notify":
+            return
+        service = data.get("service", "")
+        if not service.startswith("mobile_app_"):
+            return
+        name = service.removeprefix("mobile_app_")
+        if event_name == "service_registered":
+            if name in self.recipients:
+                return
+            self.recipients = sorted([*self.recipients, name])
+        else:
+            if name not in self.recipients:
+                return
+            self.recipients = [r for r in self.recipients if r != name]
+        self.__log(f"{event_name} '{name}': recipients now {self.recipients}.")
+        self.check_admin_mobile()
 
     def clear_notification(self, tag: str, recipients: Optional[list] = None):
         """
