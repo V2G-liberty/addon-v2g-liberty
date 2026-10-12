@@ -294,7 +294,10 @@
       "3-power-details": {
         "header": "vermogensinstellingen",
         "description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
-        "reduce-max-power-description": "Hiermee beperk je het laad- en ontlaadvermogen verder, onder het maximum dat in de lader zelf is ingesteld."
+        "reduce-max-power-description": "Hiermee beperk je het laad- en ontlaadvermogen verder, onder het maximum dat in de lader zelf is ingesteld.",
+        "power-invalid": "Vul een heel aantal watt in.",
+        "power-too-low": "Minimaal %{min} W.",
+        "power-too-high": "Hooguit %{max} W: meer kan de lader niet."
       },
       "phase": {
         "grid-mismatch": "Je 3-fase lader heeft een 3-fase netaansluiting nodig. Controleer je netaansluiting-instellingen of het type lader.",

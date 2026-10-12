@@ -449,7 +449,10 @@
       "3-power-details": {
         "header": "power settings",
         "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
-        "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger."
+        "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger.",
+        "power-invalid": "Enter a whole number of watts.",
+        "power-too-low": "At least %{min} W.",
+        "power-too-high": "At most %{max} W: the charger cannot do more."
       },
       "phase": {
         "grid-mismatch": "Your 3-phase charger requires a 3-phase grid connection. Please check your grid connection settings or charger type.",

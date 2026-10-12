@@ -7,6 +7,7 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
+- 🪲 BUG: The charger dialog accepted powers outside the charger's limits (#518)
 - 🪲 BUG: After a restart, the UI cards (car, grid, solar panel) can not reach backend (#517)
 - 🪲 BUG: A charger fault could leave the charger on Stop after recovery (#516)
 - 🪲 BUG: Missing admin's phone; no message to user and critical notifications lost (#514)
