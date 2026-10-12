@@ -2298,6 +2298,8 @@ class V2GLibertyGlobals:
                 "media_stream": "alarm_stream",
             }
 
+        # At start-up and after a save: is that phone (still) known?
+        self.notifier.check_admin_mobile()
         self.__log("completed")
 
     async def __initialise_general_settings(self):

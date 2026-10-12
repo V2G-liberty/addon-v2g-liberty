@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: When the administrator's phone was no longer in Home Assistant, notifications for the administrator, critical ones included, were lost without a trace (#514)
 - 🪲 BUG: The charger's phase was not sent to FlexMeasures, unlike that of solar panels (#513)
 - 🪲 BUG: When a schedule ran out without a new one, the charger kept the power of its last interval, so the car could go on (dis)charging unasked (#512)
 - 🪲 BUG: A notification could arrive twice or after its problem was solved, and a recovered charger could still be reported as unreachable (#511)
