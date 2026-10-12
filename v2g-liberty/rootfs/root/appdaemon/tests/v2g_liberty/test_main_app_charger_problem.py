@@ -96,7 +96,9 @@ async def test_reset_clears_the_problem(v2g):
     await v2g.reset_charger_communication_fault()
 
     assert _state_writes(v2g)["sensor.charger_problem"] == "none"
-    v2g.notifier.clear_notification.assert_called_once()
+    # The tag itself, not a dict holding it: Home Assistant refused that, so
+    # the notification was never cleared.
+    v2g.notifier.clear_notification.assert_called_once_with(tag="charger_problem")
 
 
 # ── Recovery ──────────────────────────────────────────────────────────

@@ -1148,11 +1148,9 @@ class V2Gliberty:
         await self.hass.set_state(
             self.CHARGER_PROBLEM_ENTITY, state=self.CHARGER_PROBLEM_NONE
         )
-        identification = {
-            "recipient": c.ADMIN_MOBILE_NAME,
-            "tag": self.CHARGER_PROBLEM_TAG,
-        }
-        self.notifier.clear_notification(identification)
+        # From every phone: the problem notification goes to the others too
+        # when the administrator's phone is gone.
+        self.notifier.clear_notification(tag=self.CHARGER_PROBLEM_TAG)
 
     # ── An unknown car ─────────────────────────────────────────────────
     # A charger that identifies cars (EVtec) reports a car whose id differs
