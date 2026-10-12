@@ -593,6 +593,7 @@ class V2GLibertyGlobals:
                 "charger_phase", {"connected_to_phase": phases}
             )
             self.__initialise_charger_phase_settings()
+            asyncio.ensure_future(self.__write_charger_phase_to_fm())
 
         self.__store_setting("input_boolean.charger_settings_initialised", True)
 
@@ -994,6 +995,7 @@ class V2GLibertyGlobals:
                 {"connected_to_phase": None, "detected_at": None},
             )
             self.__initialise_charger_phase_settings()
+            asyncio.ensure_future(self.__write_charger_phase_to_fm())
             self.__log("Cleared charger phase (grid phases or entities changed)")
 
         # Let data_monitor re-register its grid listeners on the new entities
@@ -1576,8 +1578,13 @@ class V2GLibertyGlobals:
             self.__log(
                 f"Grid FM provisioning (background) failed: {e}", level="WARNING"
             )
+            return
         finally:
             self._grid_prov_in_flight = False
+        # Here too, so an existing install, or a charger asset changed in
+        # FlexMeasures meanwhile, is brought in line without a save.
+        if c.GRID_CONSUMPTION_ENTITIES:
+            await self.__write_charger_phase_to_fm()
 
     async def __on_fm_connection_status(self, state):
         """Self-heal grid provisioning when FlexMeasures becomes reachable.
@@ -1609,6 +1616,15 @@ class V2GLibertyGlobals:
             return
         c.CHARGER_CONNECTED_TO_PHASE = data.get("connected_to_phase", None)
         self.__log(f"Charger connected to phase: {c.CHARGER_CONNECTED_TO_PHASE}")
+
+    async def __write_charger_phase_to_fm(self):
+        """Record the charger's phase(s) on its FlexMeasures asset, as solar
+        panels have theirs. A list, because a charger can take one phase or
+        several; None when it is not set. set_asset_attributes merges, so the
+        asset's other attributes stay as they are.
+        """
+        phases = self.normalise_charger_phases(c.CHARGER_CONNECTED_TO_PHASE)
+        await self.fm_client_app.set_asset_attributes({"connected_to_phase": phases})
 
     VALID_CHARGER_PHASES = (1, 2, 3)
 
@@ -1707,6 +1723,7 @@ class V2GLibertyGlobals:
                 },
             )
             self.__initialise_charger_phase_settings()
+            asyncio.ensure_future(self.__write_charger_phase_to_fm())
 
         self.hass.fire_event("detect_charger_phase.result", **result)
 

@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: The charger's phase was not sent to FlexMeasures, unlike that of solar panels (#513)
 - 🪲 BUG: When a schedule ran out without a new one, the charger kept the power of its last interval, so the car could go on (dis)charging unasked (#512)
 - 🪲 BUG: A notification could arrive twice or after its problem was solved, and a recovered charger could still be reported as unreachable (#511)
 - 🪲 BUG: A new optimisation mode (price or emissions) only took effect at the next switch or restart (#510)
