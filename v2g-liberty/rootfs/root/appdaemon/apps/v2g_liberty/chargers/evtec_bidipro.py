@@ -449,6 +449,10 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._am_i_active = True
         await self._get_car_soc(do_not_use_cache=True)
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
+        # A fault the charger still reports is no change, so the state's change
+        # handler stays silent. Check it here, or resuming by hand during a
+        # charger problem leaves Automatic on beside a charger that cannot charge.
+        await self._handle_charger_error_state_change({})
         await self._set_poll_strategy()
 
     async def shutdown(self):
@@ -1359,6 +1363,12 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._log(f"{source=}, {reason=}.")
         await cancel_timer_silent(self.hass, self.timer_id_check_modus_exception_state)
         await cancel_timer_silent(self.hass, self.timer_id_check_error_state)
+        # Start a later resume with a clean slate. A handle left here reads as
+        # "a timer is still running" (fault) or "still within the grace period"
+        # (Modbus), and a charger that is still broken would not escalate again.
+        self.timer_id_check_modus_exception_state = None
+        self.timer_id_check_error_state = None
+        self.modbus_exception_counter = 0
 
         await self._cancel_polling(reason="un_recoverable charger error")
         # Nothing polls from here on, so the id re-read is unreachable anyway.
