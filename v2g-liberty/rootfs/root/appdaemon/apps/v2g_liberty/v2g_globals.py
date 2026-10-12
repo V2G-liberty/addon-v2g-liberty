@@ -1299,7 +1299,7 @@ class V2GLibertyGlobals:
 
         asset_attributes = {
             "peak_power_wp": panel.get("peak_power_wp"),
-            "connected_to_phase": panel.get("connected_to_phase"),
+            "connected_to_phase": self.panel_phases(panel),
             # Re-asserting the asset is active. Clears the deletion
             # marker set by mark_asset_deleted if this is a re-add of a
             # panel that was previously locally deleted.
@@ -1625,6 +1625,19 @@ class V2GLibertyGlobals:
         """
         phases = self.normalise_charger_phases(c.CHARGER_CONNECTED_TO_PHASE)
         await self.fm_client_app.set_asset_attributes({"connected_to_phase": phases})
+
+    @staticmethod
+    def panel_phases(panel: dict) -> list | None:
+        """The phase(s) a solar panel feeds into, in the same shape as the
+        charger's phase on its FlexMeasures asset: a sorted list, or None when
+        not known (on a 1-phase grid, where no phase is chosen). Locally a
+        1-phase panel keeps its bare number.
+        """
+        if panel.get("phases") == 3:
+            return [1, 2, 3]
+        return V2GLibertyGlobals.normalise_charger_phases(
+            panel.get("connected_to_phase")
+        )
 
     VALID_CHARGER_PHASES = (1, 2, 3)
 

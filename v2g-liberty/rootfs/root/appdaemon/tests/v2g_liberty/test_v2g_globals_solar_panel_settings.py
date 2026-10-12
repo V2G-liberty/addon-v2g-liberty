@@ -1066,14 +1066,28 @@ class TestSolarPanelFMProvisioningCalls:
     async def test_connected_to_phase_attribute_propagates_to_fm(
         self, globals_instance, fm_client_mock
     ):
-        """1-phase panel on a 3-phase grid: connected_to_phase ends up in attributes."""
+        """1-phase panel on a 3-phase grid: connected_to_phase ends up in
+        attributes, as a list like the charger's."""
         c.GRID_PHASES = 3
         await globals_instance._V2GLibertyGlobals__save_solar_panel(
             "event", _valid_panel_payload(phases=1, connected_to_phase=2), {}
         )
 
         attributes = fm_client_mock.ensure_asset.call_args.kwargs["attributes"]
-        assert attributes["connected_to_phase"] == 2
+        assert attributes["connected_to_phase"] == [2]
+
+    @pytest.mark.asyncio
+    async def test_a_3_phase_panel_is_on_all_three_phases(
+        self, globals_instance, fm_client_mock
+    ):
+        """The same shape as a 3-phase charger's: [1, 2, 3], not nothing."""
+        c.GRID_PHASES = 3
+        await globals_instance._V2GLibertyGlobals__save_solar_panel(
+            "event", _valid_panel_payload(phases=3), {}
+        )
+
+        attributes = fm_client_mock.ensure_asset.call_args.kwargs["attributes"]
+        assert attributes["connected_to_phase"] == [1, 2, 3]
 
     @pytest.mark.asyncio
     async def test_update_existing_panel_uses_same_asset_name(

@@ -3,7 +3,8 @@
 Solar panels have carried their phase as the `connected_to_phase` attribute
 of their FlexMeasures asset from the start; the charger's phase stayed local,
 used only to split the household load per phase. It is now written to the
-charger asset too, as a list (a charger can take one phase or several):
+charger asset too, as a list (a charger can take one phase or several; the
+panels now use the same shape):
 whenever the local setting changes, and after the grid connection is
 provisioned at start-up or on a FlexMeasures reconnect, so an existing
 install is brought in line without a save.
