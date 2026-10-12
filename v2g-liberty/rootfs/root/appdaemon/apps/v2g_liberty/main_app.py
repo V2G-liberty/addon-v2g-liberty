@@ -14,7 +14,12 @@ from .event_bus import EventBus
 from .v2g_globals import time_round, he, get_local_now, parse_to_int
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .timer_utils import cancel_timer_silent, set_at_timer, set_oneshot_timer
+from .timer_utils import (
+    TIMER_PENDING,
+    cancel_timer_silent,
+    set_at_timer,
+    set_oneshot_timer,
+)
 
 
 class ChartLine(enum.Enum):
@@ -169,6 +174,7 @@ class V2Gliberty:
 
         self.notification_timer_handle = None
         self.no_schedule_notification_is_planned = False
+        self.user_was_notified_of_no_schedule = False
 
         self.fm_client_app.add_listener("no_new_schedule", self.handle_no_new_schedule)
         self.fm_client_app.add_listener("fm_data_issue", self.handle_fm_data_issue)
@@ -396,13 +402,14 @@ class V2Gliberty:
                     f"SoC above minimum ({c.CAR_MIN_SOC_IN_PERCENT}%) again while in max_boost."
                     f"Stopping max_boost."
                 )
+                # Before the await: a concurrent call must not stop it again.
+                self.in_boost_to_reach_min_soc = False
                 await self.__set_charge_power(
                     {
                         "charge_power": 0,
                         "source": "set_next_action: end_of_boost_to_min_soc",
                     }
                 )
-                self.in_boost_to_reach_min_soc = False
                 # Remove "boost schedule" from graph.
                 await self.set_records_in_chart(
                     chart_line_name=ChartLine.BOOST, records=None
@@ -1055,11 +1062,12 @@ class V2Gliberty:
         if reason is None:
             was_refused = self.discharge_refused_reason is not None
             # Cleared before the awaits below: a second call must not see a
-            # refusal that is on its way out.
+            # refusal that is on its way out. The handle is kept to cancel it.
+            pending_timer = self.discharge_refusal_timer_handle
             self.discharge_refusal_timer_handle = None
             self.notified_discharge_refusal = None
             self.discharge_refused_reason = None
-            await cancel_timer_silent(self.hass, self.discharge_refusal_timer_handle)
+            await cancel_timer_silent(self.hass, pending_timer)
             await self.hass.set_state(self.DISCHARGE_REFUSED_ENTITY, state="none")
             self.notifier.clear_notification(tag=self.DISCHARGE_REFUSED_TAG)
             if was_refused:
@@ -1091,6 +1099,9 @@ class V2Gliberty:
             return
 
         if self.discharge_refusal_timer_handle is None:
+            # Claimed before the await: a concurrent refusal must not start a
+            # second timer.
+            self.discharge_refusal_timer_handle = TIMER_PENDING
             self.discharge_refusal_timer_handle = await set_oneshot_timer(
                 self.hass,
                 self.discharge_refusal_timer_handle,
@@ -1102,6 +1113,9 @@ class V2Gliberty:
     async def __notify_discharge_refused(self, kwargs: dict = None):
         """AppDaemon passes a timer's kwargs as a single positional dict."""
         reason = (kwargs or {}).get("reason")
+        if self.discharge_refused_reason is None:
+            # The refusal was resolved while this timer was being set.
+            return
         self.discharge_refusal_timer_handle = None
         self.notified_discharge_refusal = reason
         await self.notifier.notify_user(
@@ -1553,6 +1567,7 @@ class V2Gliberty:
             await cancel_timer_silent(self.hass, self.notification_timer_handle)
             self.notification_timer_handle = None
             self.no_schedule_notification_is_planned = False
+            self.user_was_notified_of_no_schedule = False
             self.notifier.clear_notification(tag="no_new_schedule")
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="off"
@@ -1570,30 +1585,30 @@ class V2Gliberty:
                 "input_boolean.error_no_new_schedule_available", state="on"
             )
             if not self.no_schedule_notification_is_planned:
-                # Plan a notification in case the error situation remains for more than an hour
+                # Plan a notification in case the error situation remains for more than an hour.
+                # Flag before the await: a concurrent call must not plan a second one.
+                self.no_schedule_notification_is_planned = True
                 self.notification_timer_handle = await set_oneshot_timer(
                     self.hass,
                     self.notification_timer_handle,
                     self.__no_new_schedule_notification,
                     delay=60 * 60,
                 )
-                self.no_schedule_notification_is_planned = True
         else:
             await self.hass.set_state(
                 "input_boolean.error_no_new_schedule_available", state="off"
             )
-            timer_was_running = False
-            if self.notification_timer_handle:
-                try:
-                    timer_was_running = await self.hass.timer_running(
-                        self.notification_timer_handle
-                    )
-                except Exception:  # pylint: disable=broad-exception-caught
-                    timer_was_running = False
             await cancel_timer_silent(self.hass, self.notification_timer_handle)
-            self.__log(f"notification timer cancelled before run: {timer_was_running}.")
-            if self.no_schedule_notification_is_planned and not timer_was_running:
+            # Read and cleared before the await below.
+            was_planned = self.no_schedule_notification_is_planned
+            was_notified = self.user_was_notified_of_no_schedule
+            self.user_was_notified_of_no_schedule = False
+            self.no_schedule_notification_is_planned = False
+            if was_planned and not was_notified:
+                self.__log("Schedules available again before the user was notified.")
+            if was_notified:
                 # Only send this message if "no_schedule_notification" was actually sent
+                self.__log("Schedules available again, telling the user.")
                 title = "Schedules available again"
                 message = (
                     "The problems with schedules have been solved.\n"
@@ -1608,12 +1623,15 @@ class V2Gliberty:
                     send_to_all=True,
                     ttl=30 * 60,
                 )
-            self.no_schedule_notification_is_planned = False
 
     async def __no_new_schedule_notification(self, v2g_args=None):
         # Work-around to have this in a separate function (without arguments) and not inline in
         # handle_no_new_schedule. This is needed because self.hass.run_in() with kwargs does not
         # really work well and results in this app crashing.
+        if not self.no_schedule_notification_is_planned:
+            # The problem was solved while this timer was being set.
+            return
+        self.user_was_notified_of_no_schedule = True
         title = "No new schedule available"
         message = (
             "If available, the current schedule will remain active.\nUsually this problem is solved"
