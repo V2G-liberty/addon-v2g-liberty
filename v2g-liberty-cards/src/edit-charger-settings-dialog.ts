@@ -80,6 +80,7 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _useReducedMaxPower: string;
   @state() private _chargerMaxChargingPower: string;
   @state() private _chargerMaxDischargingPower: string;
+  @state() private _hasTriedToContinue: boolean = false;
   @state() private _chargerConnectionStatus: string;
   @state() private _hasTriedToConnect: boolean;
   @state() private _quasarLoadBalancerLimit: string;
@@ -100,6 +101,8 @@ class EditChargerSettingsDialog extends DialogBase {
   @query(`[test-id='${entityIds.chargerPort}']`) private _chargerPortField;
 
   private _maxAvailablePower: string;
+  // The charger type the power fields were filled for in this dialog session.
+  private _powerFieldsType: string | null = null;
   // True once the user has edited the port in this dialog session; until then
   // switching the charger type prefills that type's default Modbus port.
   private _hasTypedPort: boolean = false;
@@ -158,6 +161,8 @@ class EditChargerSettingsDialog extends DialogBase {
       this.hass.states[entityIds.useReducedMaxChargePower].state;
     this._quasarLoadBalancerLimit = this.hass.states[entityIds.quasarLoadBalancerLimit].state;
     this._hasTriedToConnect = false;
+    this._hasTriedToContinue = false;
+    this._powerFieldsType = null;
     this._showPhaseStep = false;
     this._triedSavePhase = false;
     this._savingPhase = false;
@@ -446,6 +451,7 @@ class EditChargerSettingsDialog extends DialogBase {
     const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
+      ${this._renderPhaseSaveError()}
       <ha-alert alert-type="success">${tp('connection-success')}</ha-alert>
       <ha-markdown breaks .content=${description}></ha-markdown>
       ${renderInputBoolean(
@@ -501,13 +507,75 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._chargerMaxChargingPower = evt.target.value),
         '[0-9]+'
       )}
+      ${this._renderPowerError(
+        this._chargerMaxChargingPower,
+        entityIds.chargerMaxChargingPower,
+        'invalid-charging-power'
+      )}
       ${renderInputNumber(
         this._chargerMaxDischargingPower,
         chargerMaxDischargingPowerState,
         evt => (this._chargerMaxDischargingPower = evt.target.value),
         '[0-9]+'
       )}
+      ${this._renderPowerError(
+        this._chargerMaxDischargingPower,
+        entityIds.chargerMaxDischargingPower,
+        'invalid-discharging-power'
+      )}
     `;
+  }
+
+  // The field's max attribute is a hint for the input, not a check: a typed
+  // number passes it. So the limits are checked here, with the charger's own
+  // maximum as the ceiling.
+  private _powerError(value: string, entityId: string): string | null {
+    const power = Number(value);
+    const min = Number(this.hass.states[entityId]?.attributes.min ?? 0);
+    const max = Number(this._maxAvailablePower);
+    if (value === '' || !Number.isInteger(power)) {
+      return tp('3-power-details.power-invalid');
+    }
+    if (power < min) return tp('3-power-details.power-too-low', { min });
+    if (power > max) return tp('3-power-details.power-too-high', { max });
+    return null;
+  }
+
+  private _renderPowerError(value: string, entityId: string, testId: string) {
+    const error = this._hasTriedToContinue
+      ? this._powerError(value, entityId)
+      : null;
+    return error
+      ? html`<div test-id=${testId} class="invalid">${error}</div>`
+      : nothing;
+  }
+
+  // Fills the power fields for the selected charger. For the stored charger
+  // that is what was stored; for another type it is no reduction: a limit set
+  // for the previous charger is not a preference for this one, and a Quasar's
+  // 5100 W would silently halve an EVtec that can do 10 000 W.
+  private _fillPowerFields() {
+    const storedType =
+      chargerOption(this.hass.states[entityIds.chargerType]?.state)?.value ??
+      null;
+    const isStoredCharger = this._selectedChargerType === storedType;
+    this._useReducedMaxPower = isStoredCharger
+      ? this.hass.states[entityIds.useReducedMaxChargePower].state
+      : 'off';
+    this._chargerMaxChargingPower = isStoredCharger
+      ? this._storedPowerOrMax(entityIds.chargerMaxChargingPower)
+      : this._maxAvailablePower;
+    this._chargerMaxDischargingPower = isStoredCharger
+      ? this._storedPowerOrMax(entityIds.chargerMaxDischargingPower)
+      : this._maxAvailablePower;
+  }
+
+  private _storedPowerOrMax(entityId: string): string {
+    const state = this.hass.states[entityId]?.state;
+    // 1380 is the entity's minimum and initial value: never chosen, so not set.
+    return state === undefined || state === 'unknown' || parseInt(state, 10) === 1380
+      ? this._maxAvailablePower
+      : state;
   }
 
   private async _goToPowerDetails(): Promise<void> {
@@ -546,22 +614,14 @@ class EditChargerSettingsDialog extends DialogBase {
       this._chargerConnectionStatus = result.msg;
       if (this._isConnected()) {
         this._maxAvailablePower = result.max_available_power;
-        this._chargerMaxChargingPower = defaultMaxPower(
-          this.hass.states[entityIds.chargerMaxChargingPower],
-          this._maxAvailablePower
-        );
-        this._chargerMaxDischargingPower = defaultMaxPower(
-          this.hass.states[entityIds.chargerMaxDischargingPower],
-          this._maxAvailablePower
-        );
+        // Filled once per charger type: going back and forth keeps what the
+        // user typed, choosing another type starts afresh.
+        if (this._powerFieldsType !== this._selectedChargerType) {
+          this._fillPowerFields();
+          this._powerFieldsType = this._selectedChargerType;
+        }
+        this._hasTriedToContinue = false;
         this._currentPage = '3-power-details';
-      }
-
-      function defaultMaxPower(stateObj, defaultValue) {
-        return parseInt(stateObj.state, 10) === 1380 ||
-          stateObj.state === 'unknown'
-          ? defaultValue
-          : stateObj.state;
       }
     } catch (err) {
       if (
@@ -574,6 +634,21 @@ class EditChargerSettingsDialog extends DialogBase {
   }
 
   private async _continue(): Promise<void> {
+    if (this._useReducedMaxPower === 'on') {
+      this._hasTriedToContinue = true;
+      if (
+        this._powerError(
+          this._chargerMaxChargingPower,
+          entityIds.chargerMaxChargingPower
+        ) ||
+        this._powerError(
+          this._chargerMaxDischargingPower,
+          entityIds.chargerMaxDischargingPower
+        )
+      ) {
+        return;
+      }
+    }
     // Nothing is stored before the whole flow is done: the phase belongs to
     // the charger settings, and saving the type here (which swaps the driver)
     // left anyone who backed out of the phase step with a new charger and the
@@ -595,7 +670,6 @@ class EditChargerSettingsDialog extends DialogBase {
     // 359), apply the shared FM-reachability gate like the grid and solar
     // dialogs: fire `this._probeFm()` in showDialog() and block on
     // `this._fmReachable` (see DialogBase._probeFm / _renderFmGate).
-    // TODO: Add validation
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
     const args = {
       charger_type: this._selectedChargerType,
