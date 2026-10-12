@@ -88,6 +88,28 @@ async def test_repeated_refusals_do_not_restart_the_timer(v2g):
 
 
 @pytest.mark.asyncio
+async def test_clearing_cancels_the_pending_notification(v2g):
+    """The handle used to be cleared before it was passed to the cancel, so the
+    timer was never cancelled and the user heard about a refusal that had
+    already been resolved."""
+    v2g.hass.run_in = AsyncMock(return_value="refusal-timer")
+    v2g.hass.timer_running = AsyncMock(return_value=True)
+    await _refuse(v2g, "v2g_not_offered")
+    await _refuse(v2g, None)
+
+    v2g.hass.cancel_timer.assert_awaited_once_with("refusal-timer", silent=True)
+
+
+@pytest.mark.asyncio
+async def test_a_timer_that_outlived_its_refusal_says_nothing(v2g):
+    await _refuse(v2g, "v2g_not_offered")
+    await _refuse(v2g, None)
+    await v2g._V2Gliberty__notify_discharge_refused({"reason": "v2g_not_offered"})
+
+    v2g.notifier.notify_user.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_clearing_resets_state_timer_and_notification(v2g):
     await _refuse(v2g, "v2g_not_offered")
     await _refuse(v2g, None)

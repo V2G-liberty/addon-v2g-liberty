@@ -3,8 +3,8 @@
 from unittest.mock import AsyncMock
 
 import pytest
-
 from apps.v2g_liberty.timer_utils import (
+    TIMER_PENDING,
     cancel_timer_silent,
     set_daily_timer,
     set_oneshot_timer,
@@ -37,6 +37,14 @@ async def test_cancel_timer_silent_no_op_on_none(hass):
 @pytest.mark.asyncio
 async def test_cancel_timer_silent_no_op_on_empty_string(hass):
     await cancel_timer_silent(hass, "")
+    hass.timer_running.assert_not_called()
+    hass.cancel_timer.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_cancel_timer_silent_no_op_on_pending(hass):
+    """The placeholder a caller stores while its timer is being created."""
+    await cancel_timer_silent(hass, TIMER_PENDING)
     hass.timer_running.assert_not_called()
     hass.cancel_timer.assert_not_called()
 

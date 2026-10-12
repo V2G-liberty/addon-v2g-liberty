@@ -2,7 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 
-from ..timer_utils import cancel_timer_silent, set_recurring_timer
+from ..timer_utils import TIMER_PENDING, cancel_timer_silent, set_recurring_timer
 
 
 class RecoveryProbe:
@@ -45,7 +45,7 @@ class RecoveryProbe:
             return
         # Claim the slot before the await below; a second escalation arriving
         # meanwhile sees the claim and backs off.
-        self._timer_handle = ""
+        self._timer_handle = TIMER_PENDING
         try:
             # AppDaemon (4.5) schedules a recurring timer's first run at
             # now + interval + N for a "now+N" start, so "now" is what gives

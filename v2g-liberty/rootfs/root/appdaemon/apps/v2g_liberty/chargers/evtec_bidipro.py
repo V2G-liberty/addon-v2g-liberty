@@ -46,7 +46,7 @@ from .. import constants as c
 from ..event_bus import EventBus
 from ..log_wrapper import get_class_method_logger
 from ..notifier_util import Notifier
-from ..timer_utils import cancel_timer_silent, set_oneshot_timer
+from ..timer_utils import TIMER_PENDING, cancel_timer_silent, set_oneshot_timer
 from .recovery_probe import RecoveryProbe
 from .base_bidirectional_evse import BidirectionalEVSE
 from .modbus_types import MBR, ModbusConfigEntity
@@ -1258,6 +1258,9 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                     f"Starting check_error_state timer "
                     f"{self.MAX_CHARGER_ERROR_STATE_DURATION_IN_SECONDS}s."
                 )
+                # Claimed before the await: concurrent error reports must not
+                # start a second timer.
+                self.timer_id_check_error_state = TIMER_PENDING
                 self.timer_id_check_error_state = await set_oneshot_timer(
                     self.hass,
                     self.timer_id_check_error_state,
@@ -1293,6 +1296,11 @@ class EVtecBiDiProClient(BidirectionalEVSE):
 
         if self.modbus_exception_counter == 0:
             self._log(f"{source}: First modbus exception.")
+            # Claimed before the await: a second exception arriving while the
+            # timer is being set must not start a second timer, and must read
+            # a pending handle below, not None.
+            self.modbus_exception_counter = 1
+            self.timer_id_check_modus_exception_state = TIMER_PENDING
             self.timer_id_check_modus_exception_state = await set_oneshot_timer(
                 self.hass,
                 self.timer_id_check_modus_exception_state,
@@ -1301,7 +1309,6 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 reason="no Modbus response",
                 source=source,
             )
-            self.modbus_exception_counter = 1
             is_unrecoverable = False
         else:
             # Repeated: the timer above decides; no timer any more means the
