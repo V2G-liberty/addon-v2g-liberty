@@ -959,6 +959,9 @@ class V2Gliberty:
     # so a recovery can put it back. "Stop" here means the user had it there
     # already, and a recovery must leave it alone.
     charge_mode_before_charger_problem: str | None = None
+    # A charger problem has been handled and not yet ended, by a recovery or
+    # by the user leaving the Stop it forced.
+    charger_problem_is_handled: bool = False
 
     async def handle_none_responsive_charger(
         self, was_car_connected: bool, reason: str | None = None
@@ -980,6 +983,17 @@ class V2Gliberty:
         problem = self._CHARGER_PROBLEM_BY_REASON.get(
             reason, self.CHARGER_PROBLEM_COMMUNICATION
         )
+        if self.charger_problem_is_handled:
+            # The Modbus and the error-state timer can both escalate. A second
+            # escalation would remember the Stop the first just set as the
+            # user's mode, so a recovery left the charger on Stop, and it would
+            # sound the critical alarm twice.
+            self.__log(
+                f"Charger unusable ({problem}, {reason=}) again, already handled."
+            )
+            return
+        # Claimed before the first await.
+        self.charger_problem_is_handled = True
         self.__log(f"Charger unusable ({problem}, {reason=}): stop, signal UI, notify")
         self.charge_mode_before_charger_problem = await self.hass.get_state(
             "input_select.charge_mode"
@@ -1296,6 +1310,7 @@ class V2Gliberty:
         """
         previous = self.charge_mode_before_charger_problem
         self.charge_mode_before_charger_problem = None
+        self.charger_problem_is_handled = False
         self.__log(f"Charger recovered; charge mode before the problem: '{previous}'.")
         await self.reset_charger_communication_fault()
 
@@ -1436,6 +1451,11 @@ class V2Gliberty:
             )
 
         if old_state == "Stop" and new_state != "Stop":
+            # Leaving Stop also ends a Stop this app forced for an unusable
+            # charger (set_active cancels the recovery probe). Forget it, or the
+            # next problem would be ignored, or restore the mode from this one.
+            self.charger_problem_is_handled = False
+            self.charge_mode_before_charger_problem = None
             await self.evse_client_app.set_active()
 
         await self.set_next_action(v2g_args="__handle_charge_mode_change")
