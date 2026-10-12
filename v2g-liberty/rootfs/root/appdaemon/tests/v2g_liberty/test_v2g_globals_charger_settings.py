@@ -14,6 +14,7 @@ Covers the charger-type selection contract:
 - get_configured_charger_type: default for existing users vs configured.
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import pytest
@@ -123,6 +124,8 @@ def globals_instance(
     instance._V2GLibertyGlobals__try_historical_import = AsyncMock()
     instance._V2GLibertyGlobals__switch_evse_client = AsyncMock()
     instance._V2GLibertyGlobals__refresh_car_settings_initialised = AsyncMock()
+    instance.fm_client_app = MagicMock()
+    instance.fm_client_app.set_asset_attributes = AsyncMock()
     return instance
 
 
@@ -243,6 +246,32 @@ class TestSaveChargerSettings:
         )
 
         assert call_order == ["store"] * 5 + ["event", "init", "import", "kickoff"]
+
+    @pytest.mark.asyncio
+    async def test_a_saved_phase_is_written_to_the_charger_asset(
+        self, globals_instance
+    ):
+        """The phase also reaches FlexMeasures, in the background so the
+        dialog does not wait for it."""
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", _save_payload(connected_to_phase=2), {}
+        )
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        globals_instance.fm_client_app.set_asset_attributes.assert_awaited_once_with(
+            {"connected_to_phase": [2]}
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_phase_in_the_save_writes_nothing(self, globals_instance):
+        await globals_instance._V2GLibertyGlobals__save_charger_settings(
+            "event", _save_payload(), {}
+        )
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        globals_instance.fm_client_app.set_asset_attributes.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_changed_type_switches_driver(self, globals_instance):

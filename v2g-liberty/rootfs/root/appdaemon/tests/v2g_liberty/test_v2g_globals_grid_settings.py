@@ -2,8 +2,8 @@
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, Mock
-import pytest
 
+import pytest
 from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.v2g_globals import V2GLibertyGlobals
 
@@ -45,6 +45,7 @@ def fm_client_mock():
     """Mock FM client app — defaults to not connected (client=None)."""
     mock = MagicMock()
     mock.client = None
+    mock.set_asset_attributes = AsyncMock()
     return mock
 
 
@@ -396,6 +397,12 @@ class TestSaveGridClearsChargerPhase:
         )
 
         assert c.CHARGER_CONNECTED_TO_PHASE is None
+        # ... and FlexMeasures hears it too, in the background.
+        for _ in range(3):
+            await asyncio.sleep(0)
+        globals_with_fm.fm_client_app.set_asset_attributes.assert_awaited_once_with(
+            {"connected_to_phase": None}
+        )
 
     @pytest.mark.asyncio
     async def test_clears_phase_when_entities_change(
@@ -846,6 +853,7 @@ def fm_client_connected():
     mock.ensure_asset = AsyncMock(return_value=500)
     mock.ensure_sensor = AsyncMock(side_effect=lambda **kw: hash(kw["name"]) % 10000)
     mock.client.update_asset = AsyncMock()
+    mock.set_asset_attributes = AsyncMock()
     return mock
 
 
