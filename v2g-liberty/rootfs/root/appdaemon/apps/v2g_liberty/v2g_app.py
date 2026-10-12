@@ -1,6 +1,7 @@
 """Main module for setting up the app."""
 
 import asyncio
+import traceback
 from datetime import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
@@ -254,13 +255,28 @@ class V2GLibertyApp(Hass):
 
         await reference_price_manager.initialise()
 
-        start_module = datetime.now()
-        await main_app.kick_off_v2g_liberty(v2g_args="initialise")
-        self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
+        # Not awaited here: the kick-off's first schedule request waits for
+        # FlexMeasures, about half a minute and with long-running jobs much
+        # longer. While initialize() runs, AppDaemon discards this app's timers
+        # and events, so short timers were lost and the settings cards got no
+        # answer. Everything the kick-off needs is initialised above.
+        await self.create_task(self._kick_off(main_app))
 
         await main_app.log_versions()
 
         self._log_init_time("V2GLibertyApp (total)", start_app, True)
+
+    async def _kick_off(self, main_app: V2Gliberty):
+        """The kick-off, as a task of its own. An error raised inside
+        initialize() reached AppDaemon's log; in a task it would vanish, so it
+        is logged here."""
+        start = datetime.now()
+        try:
+            await main_app.kick_off_v2g_liberty(v2g_args="initialise")
+        except Exception:  # pylint: disable=broad-exception-caught
+            self.log(f"Kick-off failed:\n{traceback.format_exc()}", level="ERROR")
+            return
+        self._log_init_time("main_app.kick_off_v2g_liberty() (in background)", start)
 
     def _log_init_time(self, name: str, start: datetime, forced: bool = False):
         now = datetime.now()
