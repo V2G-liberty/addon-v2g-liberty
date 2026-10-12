@@ -178,7 +178,8 @@
       "sensor.car_settings_initialised": "Car Settings",
       "sensor.fm_connection_status": "FlexMeasures connection",
       "sensor.calendar_account_connection_status": "Calendar connection"
-    }
+    },
+    "admin_phone_missing": "Administrator Settings: the phone is no longer in Home Assistant"
   },
   "settings": {
     "grid-connection": {
@@ -339,6 +340,8 @@
       "header": "Administrator",
       "alert": "Please configure your administrator device.",
       "sub-header": "High priority notifications get sent to the administrator's mobile device.",
+      "phone-missing": "The administrator phone '%{name}' is no longer known in Home Assistant. Notifications for the administrator now go to all phones. Choose another phone with Edit.",
+      "phone-missing-choose": "'%{name}' is no longer known in Home Assistant. Choose another phone.",
       "error": "Please select an option"
     },
     "test_notification": {

@@ -148,6 +148,10 @@
         "change": "Wijzigen"
       }
     },
+    "administrator": {
+      "phone-missing": "De beheerdertelefoon '%{name}' is niet meer bekend in Home Assistant. Meldingen voor de beheerder gaan nu naar alle telefoons. Kies met Bewerken een andere telefoon.",
+      "phone-missing-choose": "'%{name}' is niet meer bekend in Home Assistant. Kies een andere telefoon."
+    },
     "common": {
       "configure": "Instellen",
       "validation_error": "Probleem met de invoer (niet gespecificeerd)",
@@ -433,7 +437,8 @@
       "sensor.car_settings_initialised": "Auto-instellingen",
       "sensor.fm_connection_status": "Verbinding met FlexMeasures",
       "sensor.calendar_account_connection_status": "Verbinding met de agenda"
-    }
+    },
+    "admin_phone_missing": "Beheerdersinstellingen: de telefoon staat niet meer in Home Assistant"
   },
   "input_number": {
     "car_max_capacity_in_kwh": "Bruikbare capaciteit",

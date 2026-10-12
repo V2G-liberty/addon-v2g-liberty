@@ -58,6 +58,21 @@ function connectionErrorSensors(hass: HomeAssistant) {
 }
 
 /**
+ * The administrator setting names a phone that Home Assistant no longer has
+ * as a mobile-app notify service (renamed, reinstalled, removed). Notifications
+ * for the administrator then go to all phones; this makes the user fix it.
+ * No verdict while Home Assistant has not loaded its services yet.
+ */
+export function adminPhoneMissing(hass: HomeAssistant): boolean {
+  if (hass.states[entityIds.adminSettingsInitialised]?.state !== 'on') return false;
+  const name = hass.states[entityIds.adminMobileName]?.state;
+  if (!name || NO_INFORMATION_STATES.includes(name)) return false;
+  const notify = hass.services?.['notify'];
+  if (!notify) return false;
+  return !(`mobile_app_${name}` in notify);
+}
+
+/**
  * Returns a list of uninitialized entity IDs as an HTML list.
  * @param hass Home Assistant instance
  */
@@ -69,8 +84,13 @@ export function renderUninitializedEntitiesList(hass: HomeAssistant) {
   const uninitializedEntities = entities.filter(entity => entity?.state === 'off');
 
   const errorSensors = connectionErrorSensors(hass);
+  const adminPhoneIsMissing = adminPhoneMissing(hass);
 
-  if (uninitializedEntities.length === 0 && errorSensors.length === 0) {
+  if (
+    uninitializedEntities.length === 0 &&
+    errorSensors.length === 0 &&
+    !adminPhoneIsMissing
+  ) {
     return nothing;
   }
 
@@ -84,6 +104,7 @@ export function renderUninitializedEntitiesList(hass: HomeAssistant) {
         const localizedName = tp(`entity_names.${sensorId}`);
         return html`<li>${localizedName}</li>`;
       })}
+      ${adminPhoneIsMissing ? html`<li>${tp('admin_phone_missing')}</li>` : nothing}
     </ul>
   `;
 }
@@ -101,6 +122,7 @@ export function hasUninitializedEntities(hass: HomeAssistant): boolean {
 
   return (
     entities.some(entity => entity?.state === 'off') ||
-    connectionErrorSensors(hass).length > 0
+    connectionErrorSensors(hass).length > 0 ||
+    adminPhoneMissing(hass)
   );
 }
