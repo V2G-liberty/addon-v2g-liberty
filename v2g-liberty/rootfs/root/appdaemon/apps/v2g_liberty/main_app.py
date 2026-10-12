@@ -1811,6 +1811,21 @@ class V2Gliberty:
                             "source": str_source,
                         }
                     )
+
+            # The charger holds its last setting until it is told otherwise, so
+            # without a successor schedule the last interval's power would run
+            # on past the horizon. Close the schedule with 0 W. Its handle goes
+            # with the others, so a new schedule, leaving Automatic, a
+            # disconnect or a boost cancels it too.
+            end_of_schedule = start + duration
+            closing = {"charge_power": 0, "source": f"{str_source}, end of schedule"}
+            if end_of_schedule > now:
+                h = await self.hass.run_at(
+                    self.__set_charge_power, end_of_schedule, **closing
+                )
+                handles.append(h)
+            else:
+                await self.__set_charge_power(closing)
             self.scheduling_timer_handles = handles
 
         exp_soc_values = list(

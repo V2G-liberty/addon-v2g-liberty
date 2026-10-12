@@ -17,13 +17,14 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.main_app import V2Gliberty
 
 TEST_TZ = timezone(timedelta(hours=1))
 TEST_NOW = datetime(2026, 2, 22, 12, 0, 0, tzinfo=TEST_TZ)
 VALUES = [0.001] * 12
+# One timer per interval, plus the one that closes the schedule with 0 W.
+TIMERS_PER_SET = len(VALUES) + 1
 
 
 def _schedule():
@@ -114,7 +115,7 @@ async def test_two_schedules_at_once_leave_no_timer_behind(v2g, timers):
     process = v2g._V2Gliberty__process_schedule
     await asyncio.gather(process(_schedule()), process(_schedule()))
 
-    assert len(v2g.scheduling_timer_handles) == len(VALUES)
+    assert len(v2g.scheduling_timer_handles) == TIMERS_PER_SET
     assert timers.orphans(v2g.scheduling_timer_handles) == set()
 
 
@@ -160,6 +161,6 @@ async def test_a_run_that_waited_rechecks_the_mode_and_stands_down(v2g, timers):
     process = v2g._V2Gliberty__process_schedule
     await asyncio.gather(process(_schedule()), process(_schedule()))
 
-    assert len(timers.created) == len(VALUES), "only the first run may build"
-    assert len(v2g.scheduling_timer_handles) == len(VALUES)
+    assert len(timers.created) == TIMERS_PER_SET, "only the first run may build"
+    assert len(v2g.scheduling_timer_handles) == TIMERS_PER_SET
     assert timers.orphans(v2g.scheduling_timer_handles) == set()
