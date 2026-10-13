@@ -8,6 +8,7 @@ If a fetch fails, retries are scheduled after 2 hours and 6 hours.
 """
 
 import asyncio
+import logging
 from datetime import timedelta
 
 from appdaemon.plugins.hass.hassapi import Hass
@@ -95,13 +96,16 @@ class ReferencePriceManager:
         # Fetch up to next month (CBS may publish ahead).
         end_month = (now.replace(day=1) + timedelta(days=32)).strftime("%Y-%m")
 
-        def _log(msg, level="INFO"):
-            import logging as _logging
-
-            log_level = getattr(_logging, level.upper(), _logging.INFO)
-            _logging.getLogger("AppDaemon.v2g-app.cbs_fetcher").log(log_level, msg)
-
         loop = asyncio.get_event_loop()
+        cbs_logger = logging.getLogger("AppDaemon.v2g-app.cbs_fetcher")
+
+        def _log(msg, level="INFO"):
+            # Called from the executor thread. AppDaemon's LogSubscriptionHandler
+            # hangs on this logger tree and touches the event loop, which from
+            # another thread raises, so hand the line to the loop to log.
+            log_level = getattr(logging, level.upper(), logging.INFO)
+            loop.call_soon_threadsafe(cbs_logger.log, log_level, msg)
+
         rows = await loop.run_in_executor(
             None, fetch_reference_prices, HISTORICAL_START_MONTH, end_month, _log
         )
