@@ -1,13 +1,15 @@
 """Main module for setting up the app."""
 
 import asyncio
+import traceback
 from datetime import datetime
 from appdaemon.plugins.hass.hassapi import Hass
 from .event_bus import EventBus
 from .ha_ui_manager import HAUIManager
 from .notifier_util import Notifier
 from .v2g_globals import V2GLibertyGlobals
-from .modbus_evse_client import ModbusEVSEclient
+from .chargers.factory import create_evse_client
+from .evs.electric_vehicle import ElectricVehicle
 from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
@@ -45,14 +47,16 @@ class V2GLibertyApp(Hass):
         self._log_init_time("Notifier", start_module)
 
         start_module = datetime.now()
-        v2g_globals = V2GLibertyGlobals(self, notifier=notifier)
+        v2g_globals = V2GLibertyGlobals(self, notifier=notifier, event_bus=event_bus)
         self._log_init_time("V2GLibertyGlobals", start_module)
 
+        # The driver for the configured charger type (Wallbox Quasar 1 unless
+        # the settings say otherwise). Construction is cheap and does not
+        # connect; v2g_globals swaps it at runtime if the type is changed.
         start_module = datetime.now()
-        modbus_evse_client = ModbusEVSEclient(
-            self, event_bus=event_bus, notifier=notifier
-        )
-        self._log_init_time("ModbusEVSEclient", start_module)
+        charger_type = v2g_globals.get_configured_charger_type()
+        evse_client = create_evse_client(charger_type, self, event_bus, notifier)
+        self._log_init_time(type(evse_client).__name__, start_module)
 
         start_module = datetime.now()
         fm_client = FMClient(self, event_bus=event_bus)
@@ -61,6 +65,12 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         reservations_client = ReservationsClient(self, event_bus=event_bus)
         self._log_init_time("ReservationsClient", start_module)
+
+        # Construct the EV before main_app so its soc_change subscription is
+        # registered first (belt-and-braces alongside its sync, run-inline handler).
+        start_module = datetime.now()
+        electric_vehicle = ElectricVehicle(self, event_bus=event_bus)
+        self._log_init_time("ElectricVehicle", start_module)
 
         start_module = datetime.now()
         main_app = V2Gliberty(self, event_bus=event_bus, notifier=notifier)
@@ -114,23 +124,28 @@ class V2GLibertyApp(Hass):
         self._log_init_time("ManageOctopusPriceData", start_module)
 
         v2g_globals.v2g_main_app = main_app
-        v2g_globals.evse_client_app = modbus_evse_client
+        # For bookkeeping that must survive a restart (an unknown car standing).
+        main_app.v2g_settings = v2g_globals.v2g_settings
+        v2g_globals.evse_client_app = evse_client
         v2g_globals.fm_client_app = fm_client
         v2g_globals.data_store = data_store
         v2g_globals.calendar_client = reservations_client
         v2g_globals.amber_price_data_manager = amber_price_data_manager
         v2g_globals.octopus_price_data_manager = octopus_price_data_manager
         v2g_globals.fm_data_retrieve_client = get_fm_data
-        modbus_evse_client.v2g_main_app = main_app
-        modbus_evse_client.v2g_globals = v2g_globals
-        main_app.evse_client_app = modbus_evse_client
+        evse_client.v2g_main_app = main_app
+        main_app.evse_client_app = evse_client
+        main_app.pause_at_reconnect = pause_at_reconnect
+        main_app.electric_vehicle = electric_vehicle
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
         data_repairer.data_store = data_store
         data_repairer.event_bus = event_bus
         v2g_globals.data_repairer = data_repairer
         naive_charging_simulator.data_store = data_store
-        data_monitor.evse_client_app = modbus_evse_client
+        data_monitor.evse_client_app = evse_client
+        # So a charger-type switch can re-point the monitor to the new driver.
+        v2g_globals.data_monitor = data_monitor
         data_monitor.reservations_client = reservations_client
         data_monitor.data_store = data_store
         api_server.data_store = data_store
@@ -160,6 +175,8 @@ class V2GLibertyApp(Hass):
         start_module = datetime.now()
         await notifier.initialize()
         self._log_init_time("notifier.initialize()", start_module)
+
+        await pause_at_reconnect.initialize()
 
         start_module = datetime.now()
         try:
@@ -238,13 +255,28 @@ class V2GLibertyApp(Hass):
 
         await reference_price_manager.initialise()
 
-        start_module = datetime.now()
-        await main_app.kick_off_v2g_liberty(v2g_args="initialise")
-        self._log_init_time("main_app.kick_off_v2g_liberty()", start_module)
+        # Not awaited here: the kick-off's first schedule request waits for
+        # FlexMeasures, about half a minute and with long-running jobs much
+        # longer. While initialize() runs, AppDaemon discards this app's timers
+        # and events, so short timers were lost and the settings cards got no
+        # answer. Everything the kick-off needs is initialised above.
+        await self.create_task(self._kick_off(main_app))
 
         await main_app.log_versions()
 
         self._log_init_time("V2GLibertyApp (total)", start_app, True)
+
+    async def _kick_off(self, main_app: V2Gliberty):
+        """The kick-off, as a task of its own. An error raised inside
+        initialize() reached AppDaemon's log; in a task it would vanish, so it
+        is logged here."""
+        start = datetime.now()
+        try:
+            await main_app.kick_off_v2g_liberty(v2g_args="initialise")
+        except Exception:  # pylint: disable=broad-exception-caught
+            self.log(f"Kick-off failed:\n{traceback.format_exc()}", level="ERROR")
+            return
+        self._log_init_time("main_app.kick_off_v2g_liberty() (in background)", start)
 
     def _log_init_time(self, name: str, start: datetime, forced: bool = False):
         now = datetime.now()

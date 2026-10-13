@@ -13,15 +13,26 @@ solid implementation.
 
 from typing import Any, Awaitable, Callable, Optional
 
+TIMER_PENDING = "pending"
+"""Placeholder handle for a timer that is being created.
+
+Setting a timer is an ``await``. A second call arriving meanwhile sees the
+handle still ``None`` and sets a second timer, whose handle then overwrites
+the first: an orphan that fires anyway. Claim the slot with this value
+before the ``await`` and store the real handle after it. It is not a real
+handle: ``cancel_timer_silent`` ignores it, like ``None``.
+"""
+
 
 async def cancel_timer_silent(hass, timer_id: Optional[str]) -> None:
     """Cancel an AppDaemon timer if it is still running.
 
-    Accepts ``None`` and empty-string handles as a no-op so callers do not
-    have to guard. Swallows any exception from the underlying AppDaemon
-    call to avoid noisy logs when a timer was already cleaned up.
+    Accepts ``None``, empty-string and ``TIMER_PENDING`` handles as a no-op
+    so callers do not have to guard. Swallows any exception from the
+    underlying AppDaemon call to avoid noisy logs when a timer was already
+    cleaned up.
     """
-    if not timer_id:
+    if not timer_id or timer_id == TIMER_PENDING:
         return
     try:
         running = await hass.timer_running(timer_id)
@@ -56,7 +67,7 @@ async def set_oneshot_timer(
     Args:
         hass: AppDaemon Hass instance with the async timer API.
         current_handle: Existing timer handle to cancel first, or ``None``
-            / empty string on the first call.
+            / empty string / ``TIMER_PENDING`` on the first call.
         callback: Async callable that AppDaemon will invoke after ``delay``
             seconds.
         delay: Delay in seconds.

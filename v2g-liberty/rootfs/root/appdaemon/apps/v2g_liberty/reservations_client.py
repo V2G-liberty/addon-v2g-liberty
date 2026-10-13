@@ -2,17 +2,17 @@
 
 import datetime as dt
 import re
-import requests
+
 import caldav
+import requests
+from appdaemon.plugins.hass.hassapi import Hass
 from pyee.asyncio import AsyncIOEventEmitter
 
-from appdaemon.plugins.hass.hassapi import Hass
-from .event_bus import EventBus
-
 from . import constants as c
+from .event_bus import EventBus
 from .log_wrapper import get_class_method_logger
-from .v2g_globals import get_local_now
 from .timer_utils import set_recurring_timer
+from .v2g_globals import get_local_now
 
 
 class ReservationsClient(AsyncIOEventEmitter):
@@ -34,6 +34,13 @@ class ReservationsClient(AsyncIOEventEmitter):
 
     poll_timer_id: str = ""
     POLLING_INTERVAL_SECONDS: int = 300
+    # The first poll is done directly, awaited, while the app initialises: not
+    # on a timer. AppDaemon discards every timer callback that fires while an
+    # app's initialize() is still running, and ours runs for close to a minute
+    # (the kick-off awaits a FlexMeasures schedule), so a timer set here for
+    # "shortly after start-up" never ran and the calendar was first read a
+    # whole interval later. Done directly, the reservations are known before
+    # the kick-off asks for its first schedule.
     calender_listener_id: str = ""
     event_bus: EventBus = None
     hass: Hass = None
@@ -217,6 +224,7 @@ class ReservationsClient(AsyncIOEventEmitter):
                     start="now",
                     interval=self.POLLING_INTERVAL_SECONDS,
                 )
+                await self.__first_poll(self.__poll_calendar_integration)
                 await self.__set_caldav_connection_status(connected=True)
                 return "Successfully connected"
             self.__log("No calendar integrations found")
@@ -276,6 +284,7 @@ class ReservationsClient(AsyncIOEventEmitter):
             start="now",
             interval=self.POLLING_INTERVAL_SECONDS,
         )
+        await self.__first_poll(self.__poll_dav_calendar)
         self.__log(
             f"started polling_time {self.poll_timer_id} "
             f"every {self.POLLING_INTERVAL_SECONDS} sec."
@@ -330,7 +339,7 @@ class ReservationsClient(AsyncIOEventEmitter):
         Ideally the listener would trigger for any change in any future calendar item, then polling
         would not be necessary.
         """
-        self.__log("Called", level="DEBUG")
+        self.__log("Polling the calendar integration.")
 
         now = get_local_now()
         start = now.isoformat()
@@ -343,14 +352,21 @@ class ReservationsClient(AsyncIOEventEmitter):
         )
         if local_events is None:
             self.__log("Could not retrieve events, aborting", level="WARNING")
-            return
+            return False
+        result = local_events.get("result", {})
+        if "response" not in result:
+            self.__log(
+                f"Calendar answered without events data (keys: {sorted(result.keys())}).",
+                level="WARNING",
+            )
+            return False
         # Peel off some unneeded layers
         local_events = (
-            local_events.get("result", {})
-            .get("response", {})
+            result.get("response", {})
             .get(c.INTEGRATION_CALENDAR_ENTITY_NAME, {})
             .get("events", [])
         )
+        self.__log(f"Polled calendar: {len(local_events)} event(s).")
         tmp_v2g_events = []
 
         for local_event in local_events:
@@ -375,6 +391,14 @@ class ReservationsClient(AsyncIOEventEmitter):
             )
             tmp_v2g_events.append(v2g_event)
         await self.__process_v2g_events(tmp_v2g_events)
+        return True
+
+    async def __first_poll(self, poll) -> None:
+        """Read the calendar once, now, so the reservations are known before
+        the kick-off asks for the first schedule. Awaited directly: a timer
+        would not do here, as AppDaemon drops timers that fire while
+        initialize() is still running."""
+        await poll()
 
     async def __poll_dav_calendar(self, kwargs=None):
         # Get the items in from now to the next week from the calendar

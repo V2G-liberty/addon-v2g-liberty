@@ -1,6 +1,7 @@
 """Unit test (pytest) for data_store module."""
 
 import logging
+import sqlite3
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock
 
@@ -223,6 +224,171 @@ class TestSchemaVersion:
         assert "newer than expected" in caplog.text
 
     @pytest.mark.asyncio
+    async def test_fresh_database_passes_validation(self, data_store, caplog):
+        """A freshly created database validates cleanly.
+
+        Also guards against EXPECTED_SCHEMA drifting out of sync with
+        __create_tables(): if a column were listed as expected but never created,
+        this would fail.
+        """
+        with caplog.at_level(logging.INFO):
+            await data_store.initialise()
+        assert data_store.is_available
+        assert "schema validated" in caplog.text.lower()
+
+    @pytest.mark.asyncio
+    async def test_incompatible_schema_raises_and_disables(
+        self, data_store, hass, caplog
+    ):
+        """Ronald's scenario: a pre-existing DB from the old, reset numbering.
+
+        Version reads 4 (from the abandoned numbering) but interval_log lacks
+        the naive_* columns and fm_send_status lacks data_type. initialise()
+        must raise and leave the store unavailable so v2g_app can degrade
+        gracefully instead of crashing later on a missing column.
+        """
+        con = sqlite3.connect(data_store.DB_PATH)
+        con.execute(
+            "CREATE TABLE schema_version "
+            "(version INTEGER NOT NULL, applied_at TEXT NOT NULL)"
+        )
+        con.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (4, '2026-01-01')"
+        )
+        # interval_log without naive_power_w / naive_soc_pct
+        con.execute(
+            "CREATE TABLE interval_log ("
+            "timestamp TEXT PRIMARY KEY, energy_kwh REAL, app_state TEXT NOT NULL, "
+            "soc_pct REAL, availability_pct REAL, "
+            "is_repaired INTEGER NOT NULL DEFAULT 0)"
+        )
+        # fm_send_status without data_type
+        con.execute("CREATE TABLE fm_send_status (last_sent_up_to TEXT NOT NULL)")
+        con.commit()
+        con.close()
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError):
+                await data_store.initialise()
+
+        assert not data_store.is_available
+        assert "naive_power_w" in caplog.text
+        assert "data_type" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_migrated_v1_database_validates_clean(self, data_store):
+        """A genuine v1 database migrates to v2 and then validates cleanly."""
+        con = sqlite3.connect(data_store.DB_PATH)
+        con.execute(
+            "CREATE TABLE schema_version "
+            "(version INTEGER NOT NULL, applied_at TEXT NOT NULL)"
+        )
+        con.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-01-01')"
+        )
+        # v0.8.0 interval_log already had the naive columns.
+        con.execute(
+            "CREATE TABLE interval_log ("
+            "timestamp TEXT PRIMARY KEY, energy_kwh REAL, app_state TEXT NOT NULL, "
+            "soc_pct REAL, availability_pct REAL, "
+            "is_repaired INTEGER NOT NULL DEFAULT 0, "
+            "naive_power_w REAL, naive_soc_pct REAL)"
+        )
+        # v1 fm_send_status: single column, migrated to add data_type.
+        con.execute("CREATE TABLE fm_send_status (last_sent_up_to TEXT NOT NULL)")
+        con.commit()
+        con.close()
+
+        await data_store.initialise()
+
+        assert data_store.is_available
+
+    @pytest.mark.asyncio
+    async def test_migrated_v2_database_gets_v3_and_v4_changes(self, data_store):
+        """A v2 database migrates all the way to v4 in one go, gaining both the
+        residential_load_kw column (v3) and the meter_interval_log table (v4)."""
+        # Build a valid current DB, then make it look like a real v2: drop
+        # everything added since v2 and set the version back to 2.
+        await data_store.initialise()
+        data_store.connection.execute(
+            "ALTER TABLE grid_interval_log DROP COLUMN residential_load_kw"
+        )
+        data_store.connection.execute("DROP TABLE meter_interval_log")
+        data_store.connection.execute("DELETE FROM schema_version")
+        data_store.connection.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (2, '2026-05-13')"
+        )
+        data_store.connection.commit()
+        data_store.close()
+
+        # Reinitialise: migrate v2 -> v4 (both intermediate steps) and validate.
+        await data_store.initialise()
+
+        assert data_store.is_available
+        cols = {
+            row[1]
+            for row in data_store.connection.execute(
+                "PRAGMA table_info(grid_interval_log)"
+            )
+        }
+        assert "residential_load_kw" in cols  # v3 migration
+        tables = {
+            row[0]
+            for row in data_store.connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        assert "meter_interval_log" in tables  # v4 migration
+        version = data_store.connection.execute(
+            "SELECT MAX(version) FROM schema_version"
+        ).fetchone()[0]
+        assert version == CURRENT_SCHEMA_VERSION
+
+    @pytest.mark.asyncio
+    async def test_migrated_v3_database_gets_meter_interval_log(self, data_store):
+        """A v3 database migrates to v4, gaining meter_interval_log."""
+        # Build a valid current DB, then make it look like v3: drop the new
+        # table and set the version back to 3.
+        await data_store.initialise()
+        data_store.connection.execute("DROP TABLE meter_interval_log")
+        data_store.connection.execute("DELETE FROM schema_version")
+        data_store.connection.execute(
+            "INSERT INTO schema_version (version, applied_at) VALUES (3, '2026-07-01')"
+        )
+        data_store.connection.commit()
+        data_store.close()
+
+        # Reinitialise: migrate v3 -> v4 and validate cleanly.
+        await data_store.initialise()
+
+        assert data_store.is_available
+        tables = {
+            row[0]
+            for row in data_store.connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        assert "meter_interval_log" in tables
+        version = data_store.connection.execute(
+            "SELECT MAX(version) FROM schema_version"
+        ).fetchone()[0]
+        assert version == CURRENT_SCHEMA_VERSION
+
+    @pytest.mark.asyncio
+    async def test_unknown_extra_column_is_allowed(self, data_store):
+        """A newer database with an unknown extra column stays usable."""
+        await data_store.initialise()
+        data_store.connection.execute(
+            "ALTER TABLE interval_log ADD COLUMN future_field TEXT"
+        )
+        data_store.connection.commit()
+        data_store.close()
+
+        # Reinitialising must not raise on the unrecognised column.
+        await data_store.initialise()
+        assert data_store.is_available
+
+    @pytest.mark.asyncio
     async def test_tables_preserved_after_reinitialise(self, data_store):
         """Verify that CREATE TABLE IF NOT EXISTS does not drop existing data."""
         await data_store.initialise()
@@ -266,6 +432,25 @@ class TestClose:
         # Second close should not raise
         data_store.close()
         assert data_store.connection is None
+
+
+class TestUnavailableDegradation:
+    """When the store is unavailable, read methods return neutral values.
+
+    This is what lets the whole app keep running after initialise() fails on an
+    incompatible schema, instead of crashing on a query.
+    """
+
+    def test_get_fm_last_sent_returns_none_when_unavailable(self, data_store):
+        # Never initialised, so no connection.
+        assert not data_store.is_available
+        assert data_store.get_fm_last_sent("charger") is None
+
+    @pytest.mark.asyncio
+    async def test_get_fm_last_sent_returns_none_after_close(self, data_store):
+        await data_store.initialise()
+        data_store.close()
+        assert data_store.get_fm_last_sent("charger") is None
 
 
 class TestInsertInterval:
@@ -869,6 +1054,27 @@ class TestGridIntervalLog:
         assert rows[2]["phase"] == 3
 
     @pytest.mark.asyncio
+    async def test_insert_and_retrieve_residential_load(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.5, 0.0, 0.9)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["residential_load_kw"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_residential_load_defaults_to_none(self, data_store):
+        await data_store.initialise()
+
+        # Not passing residential_load_kw leaves it NULL.
+        data_store.insert_grid_interval("2026-05-01T12:00:00+02:00", 1, 1.5, 0.0)
+
+        rows = data_store.get_grid_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["residential_load_kw"] is None
+
+    @pytest.mark.asyncio
     async def test_retrieve_filters_by_timestamp(self, data_store):
         await data_store.initialise()
 
@@ -967,6 +1173,54 @@ class TestPvIntervalLog:
         rows = data_store.get_pv_intervals_since("2026-05-01T11:00:00+02:00")
         assert len(rows) == 1
         assert rows[0]["power_kw"] is None
+
+
+class TestMeterIntervalLog:
+    @pytest.mark.asyncio
+    async def test_insert_and_retrieve(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_meter_interval(
+            "2026-05-01T12:00:00+02:00", 0.25, 0.0, 18441.05, 5000.0
+        )
+        rows = data_store.get_meter_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["import_kwh"] == 0.25
+        assert rows[0]["export_kwh"] == 0.0
+        # Cumulative totals are baseline-only, not returned by get_since.
+        assert "import_total_kwh" not in rows[0]
+
+    @pytest.mark.asyncio
+    async def test_get_last_totals_returns_latest_non_null(self, data_store):
+        await data_store.initialise()
+
+        data_store.insert_meter_interval(
+            "2026-05-01T12:00:00+02:00", 0.25, 0.0, 18441.05, 5000.0
+        )
+        # Later row where the import register was unavailable (total None):
+        # get_last_meter_totals falls back to the last known import total.
+        data_store.insert_meter_interval(
+            "2026-05-01T12:05:00+02:00", None, 0.1, None, 5000.1
+        )
+        assert data_store.get_last_meter_totals() == (18441.05, 5000.1)
+
+    @pytest.mark.asyncio
+    async def test_get_last_totals_empty(self, data_store):
+        await data_store.initialise()
+        assert data_store.get_last_meter_totals() == (None, None)
+
+    @pytest.mark.asyncio
+    async def test_retrieve_filters_by_timestamp(self, data_store):
+        await data_store.initialise()
+        data_store.insert_meter_interval(
+            "2026-05-01T10:00:00+02:00", 0.1, 0.0, 1.0, 0.0
+        )
+        data_store.insert_meter_interval(
+            "2026-05-01T12:00:00+02:00", 0.2, 0.0, 1.2, 0.0
+        )
+        rows = data_store.get_meter_intervals_since("2026-05-01T11:00:00+02:00")
+        assert len(rows) == 1
+        assert rows[0]["timestamp"] == "2026-05-01T12:00:00+02:00"
 
 
 class TestSchemaMigration:

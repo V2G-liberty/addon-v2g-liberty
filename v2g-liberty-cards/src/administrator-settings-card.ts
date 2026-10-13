@@ -1,4 +1,4 @@
-import { html, LitElement } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HassEntity } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
@@ -10,6 +10,7 @@ import { partial, setLanguage, t } from './util/translate';
 import { styles } from './card.styles';
 import { showAdministratorSettingsDialog } from './show-dialogs';
 import * as entityIds from './entity-ids';
+import { adminPhoneMissing } from './util/settings-error-alert';
 
 const tp = partial('settings.administrator');
 const tc = partial('settings.common');
@@ -84,6 +85,11 @@ export class AdministratorSettingsCard extends LitElement {
 
     return html`
       <div class="card-content">
+        ${adminPhoneMissing(this._hass)
+          ? html`<ha-alert alert-type="warning"
+              >${tp('phone-missing', { name: this._adminMobileName.state })}</ha-alert
+            >`
+          : nothing}
         <div class="description">${tp('sub-header')}</div>
         ${renderEntityBlock(this._hass, this._adminMobileName)}
         ${renderEntityBlock(this._hass, this._adminMobilePlatform)}

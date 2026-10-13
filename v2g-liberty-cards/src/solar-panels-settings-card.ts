@@ -4,10 +4,11 @@ import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { HassEvent } from 'home-assistant-js-websocket';
 
-import { renderButton } from './util/render';
+import { renderButton, renderLoadFailedCard } from './util/render';
 import { styles } from './card.styles';
-import { callFunction } from './util/appdaemon';
+import { callFunction, SETTINGS_LOAD_TIMEOUT_MS } from './util/appdaemon';
 import { showSolarPanelDialog } from './show-dialogs';
+import * as entityIds from './entity-ids';
 
 interface SolarPanel {
   id: string;
@@ -29,8 +30,10 @@ interface SolarPanel {
 export class SolarPanelsSettingsCard extends LitElement {
   @state() private _panels: SolarPanel[] = [];
   @state() private _loading: boolean = true;
+  @state() private _loadFailed: boolean = false;
 
   private _hass: HomeAssistant;
+  private _rebootedAt: string | null = null;
   private _unsubscribeSave: (() => void) | null = null;
   private _unsubscribeDelete: (() => void) | null = null;
   // Inconsistency_reason depends on grid phases, so also refresh on grid
@@ -44,8 +47,18 @@ export class SolarPanelsSettingsCard extends LitElement {
     const firstSet = !this._hass;
     this._hass = hass;
     if (firstSet) {
+      this._rebootedAt = hass.states[entityIds.appRebootedAt]?.state ?? null;
       this._loadPanels();
       this._subscribeToUpdates();
+      return;
+    }
+    // The add-on stamps this at the end of every start-up. Reloading on a
+    // change covers the page being open (or refreshed) while the add-on was
+    // still starting, and the add-on restarting afterwards.
+    const rebootedAt = hass.states[entityIds.appRebootedAt]?.state ?? null;
+    if (rebootedAt && rebootedAt !== this._rebootedAt) {
+      this._rebootedAt = rebootedAt;
+      this._loadPanels();
     }
   }
 
@@ -86,11 +99,21 @@ export class SolarPanelsSettingsCard extends LitElement {
   private async _loadPanels() {
     this._loading = true;
     try {
-      const data = await callFunction(this._hass, 'get_solar_panels');
+      const data = await callFunction(
+        this._hass,
+        'get_solar_panels',
+        {},
+        SETTINGS_LOAD_TIMEOUT_MS
+      );
       this._panels = (data.solar_panels ?? []) as SolarPanel[];
+      this._loadFailed = false;
     } catch (e) {
+      // Not reaching the add-on is not the same as having no panels: showing
+      // the empty state would invite the user to add panels that already
+      // exist. Say what happened and offer a Retry.
       console.error('Failed to load solar panels', e);
       this._panels = [];
+      this._loadFailed = true;
     }
     this._loading = false;
   }
@@ -102,6 +125,12 @@ export class SolarPanelsSettingsCard extends LitElement {
           <ha-spinner></ha-spinner>
         </div>
       </ha-card>`;
+    }
+
+    if (this._loadFailed) {
+      return renderLoadFailedCard(this._hass, 'Solar panels', () =>
+        this._loadPanels()
+      );
     }
 
     const content =
@@ -167,12 +196,23 @@ export class SolarPanelsSettingsCard extends LitElement {
           style="color: var(--error-color);"
         ></ha-svg-icon>`
       : html`<ha-svg-icon .path=${mdiSolarPower}></ha-svg-icon>`;
+    // Same shape as every other settings row, but with its own leading icon:
+    // a panel can carry an error marker instead of the solar symbol.
     return html`
       <ha-settings-row>
-        <span slot="heading">
-          ${leadingIcon}&nbsp; &nbsp; ${panel.name}
+        <span slot="heading" style="display: flex; align-items: center;">
+          ${leadingIcon}
+          <span
+            style="margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+            >${panel.name}</span
+          >
         </span>
-        <div class="value">${summary}</div>
+        <div
+          class="text-content value state"
+          style="flex: 0 0 auto; white-space: nowrap;"
+        >
+          ${summary}
+        </div>
         <ha-icon-button
           .label=${'Edit'}
           .path=${mdiPencil}

@@ -1,22 +1,37 @@
 """Unit test (pytest) for notifier_util module."""
 
-from unittest.mock import MagicMock, call, AsyncMock, ANY
+from unittest.mock import ANY, AsyncMock, MagicMock, call
+
 import pytest
-from apps.v2g_liberty.notifier_util import Notifier
-from apps.v2g_liberty import constants as c
 from appdaemon.plugins.hass.hassapi import Hass
+from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.event_bus import EventBus
+from apps.v2g_liberty.notifier_util import Notifier
+
 
 @pytest.fixture
 def event_bus():
     return AsyncMock(spec=EventBus)
+
+
+class ServiceResult:
+    """What AppDaemon's call_service returns: awaited by notify_user, ignored
+    by the fire-and-forget callers (clear, memos), so it must suit both."""
+
+    def __init__(self, result):
+        self.result = result
+
+    def __await__(self):
+        yield from ()
+        return self.result
+
 
 @pytest.fixture
 def mock_hass():
     """Mock the Hass object."""
     hass = MagicMock(spec=Hass)
     hass.log = MagicMock()
-    hass.call_service = MagicMock()
+    hass.call_service = MagicMock(return_value=ServiceResult({"success": True}))
     hass.run_in = AsyncMock()
     hass.list_services = MagicMock(
         return_value=[
@@ -50,8 +65,10 @@ async def test_notify_user_to_admin(notifier, mock_hass):
         critical=True,
     )
 
-    # Verify the correct notification is sent
-    mock_hass.call_service.assert_called_with(
+    # Verify the correct notification is sent. Not necessarily the last call:
+    # the first delivery to the administrator also clears an old memo saying
+    # that phone was missing.
+    mock_hass.call_service.assert_any_call(
         "notify/mobile_app_john",
         title="Test Title",
         message="Test message [HomeAssistant]",
@@ -111,6 +128,41 @@ def test_clear_notification(notifier, mock_hass):
     )
 
 
+@pytest.mark.asyncio
+async def test_ttl_schedules_clear_via_wrapper(notifier, mock_hass):
+    """A ttl schedules the unpacking wrapper, not clear_notification directly.
+
+    Scheduling clear_notification directly made AppDaemon pass its kwargs as one
+    positional dict into the `tag` parameter, so the ttl clear never matched.
+    """
+    await notifier.notify_user(
+        message="Test message",
+        tag="mytag",
+        send_to_all=True,
+        ttl=900,
+    )
+    mock_hass.run_in.assert_awaited_once_with(
+        notifier._clear_notification_after_ttl,
+        delay=900,
+        recipients=["jane", "john"],
+        tag="mytag",
+    )
+
+
+@pytest.mark.asyncio
+async def test_clear_after_ttl_unpacks_kwargs(notifier, mock_hass):
+    """The scheduled ttl-clear reads tag/recipients from AppDaemon's single dict
+    and clears the real tag string (not the whole dict)."""
+    await notifier._clear_notification_after_ttl(
+        {"__thread_id": "thread-1", "recipients": ["jane"], "tag": "mytag"}
+    )
+    mock_hass.call_service.assert_called_once_with(
+        "notify/mobile_app_jane",
+        message="clear_notification",
+        data={"tag": "mytag"},
+    )
+
+
 def test_post_sticky_memo(notifier, mock_hass):
     """Test post_sticky_memo creates a persistent notification."""
     notifier.post_sticky_memo(
@@ -125,4 +177,14 @@ def test_post_sticky_memo(notifier, mock_hass):
         title="Sticky Title",
         message="Sticky memo test",
         notification_id="sticky_id",
+    )
+
+
+def test_dismiss_sticky_memo(notifier, mock_hass):
+    """Test dismiss_sticky_memo dismisses the persistent notification by id."""
+    notifier.dismiss_sticky_memo(memo_id="fm_data_issue")
+
+    mock_hass.call_service.assert_called_with(
+        service="persistent_notification/dismiss",
+        notification_id="fm_data_issue",
     )

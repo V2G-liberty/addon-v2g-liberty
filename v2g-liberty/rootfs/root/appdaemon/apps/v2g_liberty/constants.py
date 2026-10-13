@@ -207,10 +207,11 @@ ROUNDTRIP_EFFICIENCY_FACTOR: float = 0.85
 # Defaults to 85, used in settings UI
 CHARGER_PLUS_CAR_ROUNDTRIP_EFFICIENCY: int = 85
 
-# Which phase the charger is connected to (1, 2, or 3).
-# Only relevant when GRID_PHASES == 3. Stored via JSON (no HA entity).
+# Which phase(s) the charger is connected to: a list such as [2] or [1, 2, 3].
+# A bare int is accepted from older settings. Only relevant when
+# GRID_PHASES == 3. Stored via JSON (no HA entity).
 # None means not yet configured.
-CHARGER_CONNECTED_TO_PHASE: int | None = None
+CHARGER_CONNECTED_TO_PHASE: int | list[int] | None = None
 
 # Defaults to min current setting of 6A * 230V = 1380W
 # FSC: Used in fm_client, v2g_liberty, evse_client keep here.
@@ -223,6 +224,12 @@ CHARGER_MAX_DISCHARGE_POWER: int = 1380
 # FSC: Used in fm_client, v2g_liberty, keep here.
 CAR_MAX_CAPACITY_IN_KWH: int = 24
 
+# Display name of the (single) configured car; "" until the user names it.
+CAR_NAME: str = ""
+# ISO 15118 EvccId of the configured car; "" = not known. Only a charger that
+# identifies cars (EVtec) uses it, to tell a known car from an unknown one.
+CAR_EV_ID: str = ""
+
 # GRID CONNECTION CONSTANTS
 # These are set from grid connection settings (JSON, no HA entities).
 # Empty lists mean grid monitoring is not configured.
@@ -230,14 +237,25 @@ GRID_PHASES: int = 3
 GRID_CAPACITY_PER_PHASE: int = 25
 GRID_CONSUMPTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
 GRID_PRODUCTION_ENTITIES: list[str] = []  # 1 or 3 HA entity IDs (raw meter values)
+# Cumulative energy meter registers (kWh, total_increasing) that feed the
+# aggregate consumption/production sensors on the Mains Connection. Each list
+# holds 1+ HA entity IDs: the tariff registers to sum, or a single total
+# register. Empty = not configured.
+METER_CONSUMPTION_REGISTERS: list[str] = []  # import registers (OBIS 1.8.x)
+METER_PRODUCTION_REGISTERS: list[str] = []  # export registers (OBIS 2.8.x)
 
 # FM asset/sensor IDs for grid monitoring.
 # Set at runtime by __provision_grid_assets() in v2g_globals.
 FM_MAINS_CONNECTION_ASSET_ID: int | None = None
 FM_GRID_CONSUMPTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_GRID_PRODUCTION_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
+FM_RESIDENTIAL_LOAD_SENSOR_IDS: dict[int, int] = {}  # phase → sensor_id
 FM_AGGREGATE_POWER_SENSOR_ID: int | None = None
 FM_EMS_STATUS_SENSOR_ID: int | None = None
+# Whole-connection metered import/export energy (from the cumulative meter
+# registers). kW-defined FM sensors; filled with per-interval kWh increments.
+FM_AGGREGATE_CONSUMPTION_SENSOR_ID: int | None = None
+FM_AGGREGATE_PRODUCTION_SENSOR_ID: int | None = None
 
 # SOLAR PANEL CONSTANTS
 # Set from solar panel settings (JSON, no HA entities). Each entry is a

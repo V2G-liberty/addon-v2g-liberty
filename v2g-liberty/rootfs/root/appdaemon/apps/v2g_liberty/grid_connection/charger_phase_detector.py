@@ -26,6 +26,15 @@ class ChargerPhaseDetector:
     _TEST_TIMEOUT = 120  # max seconds per charge/discharge test
     _MIN_DELTA_FACTOR = 0.5  # delta must be >= 50% of charge power
 
+    # A detection pauses the charge mode, commands power and restores the mode
+    # afterwards. A second, concurrent run would read "Stop" as the mode to
+    # restore -- leaving the user with a charger that does nothing -- and the
+    # two runs would measure each other's power, so the detected phase cannot
+    # be trusted either. The detector is constructed fresh per call (see
+    # v2g_globals.__detect_charger_phase), so the guard has to live on the
+    # class rather than on the instance.
+    _is_running: bool = False
+
     def __init__(self, hass, evse_client, log, grid_entities, charge_power_w):
         """Initialise the detector.
 
@@ -57,6 +66,12 @@ class ChargerPhaseDetector:
         """
         self._log("Starting charger phase detection")
 
+        if ChargerPhaseDetector._is_running:
+            self._log("Detection already running, refusing this run.", level="WARNING")
+            return self._failure(
+                "Phase detection is already running. Please wait for it to finish."
+            )
+
         # Check preconditions
         if not await self._evse.is_car_connected():
             return self._failure(
@@ -69,21 +84,25 @@ class ChargerPhaseDetector:
                 f"Expected 3 grid consumption entities, got {len(self._grid_entities)}"
             )
 
+        # Claim the run before touching the charge mode: everything below has
+        # to end up in the finally that restores it.
+        ChargerPhaseDetector._is_running = True
+
         # Pause charging: remember current charge_mode and set to "Stop"
         original_charge_mode = await self._hass.get_state("input_select.charge_mode")
-        self._log(f"Pausing charge_mode (was: {original_charge_mode})")
-        await self._hass.call_service(
-            "input_select/select_option",
-            entity_id="input_select.charge_mode",
-            option="Stop",
-        )
-        # Give the system time to stop any active charging
-        await asyncio.sleep(5)
-        # Re-activate EVSE client so detection can control the charger
-        # (charge_mode "Stop" deactivates it)
-        await self._evse.set_active()
-
         try:
+            self._log(f"Pausing charge_mode (was: {original_charge_mode})")
+            await self._hass.call_service(
+                "input_select/select_option",
+                entity_id="input_select.charge_mode",
+                option="Stop",
+            )
+            # Give the system time to stop any active charging
+            await asyncio.sleep(5)
+            # Re-activate EVSE client so detection can control the charger
+            # (charge_mode "Stop" deactivates it)
+            await self._evse.set_active()
+
             # Step 1: Baseline (instant snapshot via get_state)
             self._fire_progress("baseline")
             baseline = await self._read_grid_entities()
@@ -152,6 +171,8 @@ class ChargerPhaseDetector:
                     await self._evse.set_inactive()
             except Exception:
                 self._log("Failed to restore charge_mode", level="WARNING")
+            finally:
+                ChargerPhaseDetector._is_running = False
 
     async def _poll_until_clear(
         self, baseline: dict[int, float]

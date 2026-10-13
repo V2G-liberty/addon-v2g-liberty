@@ -679,6 +679,8 @@ class FlexMeasuresDataImporter:
             await self.v2g_main_app.set_price_is_up_to_date(is_up_to_date=True)
             if self._critical_price_notification_sent:
                 # Scenario E: push notification was sent — replace with confirmation.
+                # Flag before the await: a concurrent call must not confirm twice.
+                self._critical_price_notification_sent = False
                 self.notifier.clear_notification(tag="no_price_data")
                 await self.notifier.notify_user(
                     message=(
@@ -690,7 +692,6 @@ class FlexMeasuresDataImporter:
                     critical=False,
                     send_to_all=False,
                 )
-                self._critical_price_notification_sent = False
                 self.__log(
                     "Prices received: push notification replaced with confirmation."
                 )

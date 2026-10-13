@@ -35,6 +35,10 @@ TEST_NOW = datetime(2026, 2, 22, 12, 0, 0, tzinfo=TEST_TZ)
 def _set_constants():
     """Set runtime constants that are normally initialised by V2GLibertyGlobals."""
     c.EVENT_RESOLUTION = timedelta(minutes=c.FM_EVENT_RESOLUTION_IN_MINUTES)
+    # Meter registers not configured here: the full conclude then skips the
+    # meter step (which this end-to-end test does not exercise).
+    c.METER_CONSUMPTION_REGISTERS = []
+    c.METER_PRODUCTION_REGISTERS = []
 
 
 @pytest.fixture

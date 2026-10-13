@@ -22,21 +22,21 @@ class EventBus(AsyncIOEventEmitter):
     - `charger_communication_state_change`:
         - **Description**: Update charger communication status (is functional communication
           possible). Kept up to date with polling frequency.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** the charger driver (wallbox_quasar_1)
         - **Arguments**:
             - `can_communicate` (bool): communication possible or not.
 
     - `update_charger_info`:
         - **Description**: Update general info about the charger such as name, firmware,
         serial number, etc. Mainly for debugging, usually set at startup.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** the charger driver (wallbox_quasar_1)
         - **Arguments**:
             - `charger_info` (str): General charger info.
 
     - `soc_change`:
         - **Description**: Monitors changes in the car's state of charge (SoC).
           When the SoC value changes, this event is emitted with the new and old values.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** the charger driver (wallbox_quasar_1)
         - **Arguments**:
             - `new_soc` (int): The new state of charge value (1–100).
             - `old_soc` (int): The previous state of charge value (1–100).
@@ -50,30 +50,77 @@ class EventBus(AsyncIOEventEmitter):
 
     - `charge_power_change`:
         - **Description**: Monitors changes in the chargers actual (real) charge power.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** the charger driver (wallbox_quasar_1)
         - **Arguments**:
             - `new_power` (int): The new power value (-7400 - 7400) in Watt, can be 'unavailable'.
 
     - `charger_state_change`:
         - **Description**: Monitors changes in the chargers state (charging, idle, error etc.).
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** the charger driver (wallbox_quasar_1)
         - **Arguments**:
             - `new_charger_state` (int): The new state of the charger, can 'unavailable'.
             - `old_charger_state` (int): The old (previous) state of the charger, can 'unavailable'.
             - `new_charger_state_str` (str): text version to show in directly, can be 'unavailable'.
 
+    - `discharge_refused`:
+        - **Description**: The charger accepted the connection and the car is plugged in,
+          but it refuses to discharge right now. Emitted on every refusal and again with
+          `reason=None` as soon as a discharge is accepted or the car leaves, so a
+          listener can show and clear a message. Not an error: the charger is behaving
+          within its contract.
+        - **Emitted by** the charger driver (evtec_bidipro)
+        - **Arguments**:
+            - `reason` (str | None): why, or None when it no longer applies. One of
+              `session_not_bidirectional` (the session type does not permit V2G),
+              `v2g_not_offered` (the station offers no discharge window right now) or
+              `window_unknown` (the window has not been read yet).
+            - `is_manual` (bool): True when the request came from the user pressing
+              "Max discharge now", False when it came from the schedule. The user is
+              standing there in the first case and deserves to hear about it at once.
+
     - `evse_polled`:
         - **Description**: Monitors every (modbus) polling action to evse, a "heart-beat" that can
           change in frequency. Mainly aimed at showing in the UI.
-        - **Emitted by** modbus_evse_client
+        - **Emitted by** the charger driver (wallbox_quasar_1)
         - **Arguments**:
             - `stop` (bool): If True stop the poll indicator, set text to "".
 
     - `is_car_connected`:
-        - **Description**: Monitors if a car is connected to the charger.
-        - **Emitted by** modbus_evse_client
+        - **Description**: Monitors if a car is connected to the charger. True means a
+          car V2G Liberty may act upon: on a charger that identifies cars (EVtec) a
+          car with a matching id, no id registered, or an id not readable yet; on any
+          other charger every car. False on every disconnect, also of an unknown car.
+        - **Emitted by** the charger drivers (wallbox_quasar_1, evtec_bidipro)
         - **Arguments**:
             - `is_car_connected` (bool): connected state.
+
+    - `unknown_car_connected`:
+        - **Description**: A car connected whose readable id differs from the registered
+          one (c.CAR_EV_ID). Emitted instead of `is_car_connected=True`, and before the
+          connect SoC refresh so its listener is queued first. The main app pauses
+          automatic charging and notifies the user.
+        - **Emitted by** the charger driver (evtec_bidipro; never wallbox_quasar_1)
+        - **Arguments**:
+            - `ev_id` (str): the id of the connected car.
+
+    - `known_car_connected`:
+        - **Description**: The counterpart of `unknown_car_connected`: the standing
+          car is confirmed to be the registered one (or nothing is registered, so no
+          car can be unknown). Only emitted on a definitive verdict, never while the
+          id is still unreadable. The main app needs it to drop a persisted unknown-car
+          verdict that a swap during a restart has made stale.
+        - **Emitted by** the charger driver (evtec_bidipro; never wallbox_quasar_1)
+        - **Arguments**:
+            - `ev_id` (str): the id of the connected car; empty if none is registered.
+
+    - `unknown_car_connected_state`:
+        - **Description**: The app-wide state "an unknown car is standing at the
+          charger" (see `unknown_car_connected`). True when the main app forces its
+          Stop, False when the car leaves or gets registered. The pause-at-reconnect
+          monitor must neither prompt nor count down while it is True.
+        - **Emitted by** main_app
+        - **Arguments**:
+            - `is_unknown_car` (bool): whether an unknown car is standing.
 
     #### FlexMeasures related
 
@@ -108,6 +155,16 @@ class EventBus(AsyncIOEventEmitter):
           run (full or incremental). Used to trigger batch naive charging
           simulation over repaired/imported rows.
         - **Emitted by** data_repairer
+
+    #### Settings related
+
+    - `grid_settings_changed`:
+        - **Description**: Emitted after grid connection settings were saved
+          successfully (consumption/production entities or phases changed).
+          Used by data_monitor to tear down and re-register its grid listeners
+          on the new entities without an app restart. Listeners read the new
+          `c.GRID_*` constants directly, so no arguments are passed.
+        - **Emitted by** v2g_globals
 
     """
 

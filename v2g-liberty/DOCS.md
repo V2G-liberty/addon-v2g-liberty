@@ -7,9 +7,8 @@ _Liberty_ in the name refers to:
 
 - V2G&nbsp;Liberty strives for you to be independent of the make/type of charger & car.
 
-  <span class="sub-text">The truth now is that only the Wallbox Quasar charger offers (affordable) bidirectional charging.
-  As it is equipped with a CHAdeMo connector, so currently only cars with this connector are supported.
-  We expect to add new chargers to V2G&nbsp;Liberty soon.</span>
+  <span class="sub-text">V2G&nbsp;Liberty currently supports the Wallbox Quasar 1 and the EVtec BiDiPro 10; the charger type is selected in the settings.
+  We expect to add more bidirectional chargers over time.</span>
 
 - V2G&nbsp;Liberty strives for you to be independent of power company.
 
@@ -26,7 +25,7 @@ decreases emissions significantly, you can also choose to take sustainability a 
 
 Before installing or activation of V2G Liberty, please make sure:
 
-- The charging and discharging with the EV and Quasar charger works properly. Test this with the app supplied with the charger.
+- The charging and discharging with the EV and the charger works properly. Test this with the app or web interface supplied with the charger.
 - You have a FlexMeasures account
 - You have an electricity contract with dynamic prices (can be added later)
 - You have an online calendar<br/>
