@@ -60,7 +60,9 @@ def data_store(hass, tmp_path):
 @pytest.fixture
 def initialised_store(data_store):
     """Return a DataStore that has been fully initialised."""
-    asyncio.get_event_loop().run_until_complete(data_store.initialise())
+    # Not get_event_loop(): once an async test has closed its loop there is no
+    # current loop, and every test using this fixture errored in a full run.
+    asyncio.run(data_store.initialise())
     return data_store
 
 
