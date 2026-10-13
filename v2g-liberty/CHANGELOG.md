@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 🪲 BUG: Every start logged a traceback from the reference price fetch (#519)
 - 🪲 BUG: The charger dialog accepted powers outside the charger's limits (#518)
 - 🪲 BUG: After a restart, the UI cards (car, grid, solar panel) can not reach backend (#517)
 - 🪲 BUG: A charger fault could leave the charger on Stop after recovery (#516)
