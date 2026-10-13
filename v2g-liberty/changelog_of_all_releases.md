@@ -3,7 +3,7 @@
 A separate [changelog for only the current release](CHANGELOG.md) is available to keep things readable.
 That file also contains possible changes that the next release might include.
 
-## 0.9.0 2026-10-??
+## 0.9.0 2026-10-13
 
 ### Fixed
 
@@ -13,11 +13,11 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: A charger fault could leave the charger on Stop after recovery (#516)
 - 🪲 BUG: Missing admin's phone; no message to user and critical notifications lost (#514)
 - 🪲 BUG: The charger's phase was not sent to FlexMeasures, unlike that of solar panels (#513)
-- 🪲 BUG: When a schedule ran out without a new one, the charger kept the power of its last interval, so the car could go on (dis)charging unasked (#512)
-- 🪲 BUG: A notification could arrive twice or after its problem was solved, and a recovered charger could still be reported as unreachable (#511)
-- 🪲 BUG: A new optimisation mode (price or emissions) only took effect at the next switch or restart (#510)
-- 🪲 BUG: An empty FlexMeasures password or a doubled https:// in the server URL stopped V2G Liberty from starting (#508)
-- 🪲 BUG: A reservation or SoC change arriving while a schedule was being fetched was ignored until the next refresh, up to 15 minutes (#508)
+- 🪲 BUG: When a schedule ran out without a new one the car could go on (dis)charging unasked (#512)
+- 🪲 BUG: A recovered charger could still be reported as unreachable (#511)
+- 🪲 BUG: A new optimisation mode (price / emissions) only took effect at the next restart (#510)
+- 🪲 BUG: An empty FlexMeasures password or a doubled https:// stopped the app from starting (#508)
+- 🪲 BUG: A reservation or SoC change arriving while fetching a schedule was ignored (#508)
 - 🪲 BUG: For five minutes after a restart the schedule did not know the calendar reservations (#508)
 - 🪲 BUG: Orphaned charging timers overrule later schedules and the Charge/Discharge buttons (#507)
 - 🪲 BUG: A refused discharge below the minimum SoC also stopped the boost to that minimum (#507)
@@ -33,7 +33,7 @@ That file also contains possible changes that the next release might include.
 - 🪲 BUG: Fix ttl-based notification clearing (unpack AppDaemon's kwargs dict) - (#484)
 - 🪲 BUG: Fix grid connection save fm gate - (#485)
 - 🪲 BUG: FlexMeasures connection wrongly shows "Error" when a single sensor's data is rejected (#486)
-- 🪲 BUG: Turning off "use other than default server" still tests against the configured FlexMeasures URL (#494)
+- 🪲 BUG: Turning off "use other than default server" still tests against the configured URL (#494)
 
 
 ### Added
@@ -45,7 +45,7 @@ That file also contains possible changes that the next release might include.
 - 🚀 FEAT: Grid connection redesign (#488)
 - 🚀 FEAT: Support for the EVtec BiDiPro 10 charger (#482, #496, #497, #498)
 - 🚀 FEAT: All car settings in one dialog + unregistered car pauses automatic charging (#478, #502)
-- 🚀 FEAT: FlexMeasures stores the scheduled aggregate consumption and production on the Mains Connection (#495)
+- 🚀 FEAT: FM stores the scheduled aggregate consumption and production on the Mains Connection (#495)
 - 🚀 FEAT: Recover automatically once an unusable charger is back (#499)
 
 ### Changed
@@ -55,6 +55,7 @@ That file also contains possible changes that the next release might include.
 - ⬆️ Bump flexmeasures-client to 0.9.6 (#508)
 - 🛠️ Harden shared Modbus client: retries=0 and 10s timeout - (#490)
 - 🛠️ Refactoring: Share the identical methods of the two charger drivers in the base class (#504)
+
 
 ## 0.8.2 2026-06-19
 
