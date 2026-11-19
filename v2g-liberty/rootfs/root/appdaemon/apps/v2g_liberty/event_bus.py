@@ -156,6 +156,32 @@ class EventBus(AsyncIOEventEmitter):
           simulation over repaired/imported rows.
         - **Emitted by** data_repairer
 
+    #### Grid connection related
+
+    - `grid_power_sample`:
+        - **Description**: A fresh reading of the signed net power on one phase
+          of the grid connection, import positive, export negative. Emitted on
+          every state change of a grid consumption or production entity (a
+          DSMR 5 meter gives one per second per phase). Consumed by the fuse
+          guard; later also by the recourse engine.
+        - **Emitted by** data_monitor
+        - **Arguments**:
+            - `phase` (int): 1, 2 or 3 (1 on a 1-phase grid).
+            - `net_power_w` (int): consumption minus production on that phase, in W.
+
+    - `fuse_guard_limit_change`:
+        - **Description**: The fuse guard moved a standing limit without being
+          asked: lowered on an overload of a phase the charger is on, raised
+          again when the headroom came back, or reset when the meter went
+          stale or came back. The main app re-applies its outstanding power
+          request within the new bound.
+        - **Emitted by** fuse_guard
+        - **Arguments**:
+            - `charge_limit_w` (int): the most the charger may charge with, in W.
+            - `discharge_limit_w` (int): the most it may discharge with, in W (magnitude).
+            - `phase` (int | None): the phase that binds, None when none does.
+            - `reason` (str): why, for logging.
+
     #### Settings related
 
     - `grid_settings_changed`:
