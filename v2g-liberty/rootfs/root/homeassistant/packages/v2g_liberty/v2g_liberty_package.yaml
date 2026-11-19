@@ -256,6 +256,16 @@ template:
         state: "{{ None }}" # Value 0 will be set at init to indicate the loadbalancer is active
         icon: mdi:arrow-collapse-vertical
 
+      # Written by the fuse guard: the most the charger may charge with right
+      # now, given the other load on its phase(s). Unavailable while the guard
+      # is not active (no grid sensors or no charger phase configured).
+      - default_entity_id: sensor.fuse_guard_limit
+        name: Fuse guard limit
+        device_class: power
+        unit_of_measurement: W
+        state: "{{ None }}"
+        icon: mdi:fuse
+
       - default_entity_id: sensor.car_state_of_charge
         name: Car state of charge
         device_class: battery

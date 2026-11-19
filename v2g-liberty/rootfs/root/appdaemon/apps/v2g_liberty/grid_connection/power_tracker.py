@@ -24,6 +24,11 @@ class PowerTracker:
         self._current_power: float = 0.0
         self._last_update: datetime | None = None
 
+    @property
+    def current_power(self) -> float:
+        """The last power recorded, in the unit it was given."""
+        return self._current_power
+
     def update(self, power: float, now: datetime):
         """Record a power change.
 

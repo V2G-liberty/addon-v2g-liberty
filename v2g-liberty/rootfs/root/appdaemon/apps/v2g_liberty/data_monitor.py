@@ -402,14 +402,19 @@ class DataMonitor:
 
     # ── Grid monitoring ─────────────────────────────────────────────────
 
-    async def _get_power_scale(self, entity_id: str) -> float:
+    async def _get_power_scale(self, entity_id: str) -> float | None:
         """Return the multiplier that converts the entity's reported value to kW.
 
-        Reads the entity's ``unit_of_measurement`` once at setup time —
-        DSMR/inverter sensors often report in W, some integrations use
-        kW, a few (large industrial setups) use MW. Unknown or missing
-        units default to 1.0 (assume kW) with a WARNING so the user can
-        spot misconfigured sensors.
+        Reads the entity's ``unit_of_measurement`` — DSMR/inverter sensors
+        often report in W, some integrations use kW, a few (large industrial
+        setups) use MW. An unknown unit defaults to 1.0 (assume kW) with a
+        WARNING so the user can spot misconfigured sensors.
+
+        Returns None when the entity does not exist yet: the unit is then
+        decided at its first value (see _resolve_scale). Assuming kW for an
+        entity that only appears after start-up, as an emulated or late
+        integration sensor does, would read its W values a thousandfold,
+        and the fuse guard would clamp the charger on a phantom overload.
         """
         unit = await self.hass.get_state(entity_id, attribute="unit_of_measurement")
         if unit == "W":
@@ -418,11 +423,29 @@ class DataMonitor:
             return 1.0
         if unit == "MW":
             return 1000.0
+        if await self.hass.get_state(entity_id) is None:
+            self.__log(
+                f"Entity {entity_id} is not present yet; its unit is read at "
+                "its first value."
+            )
+            return None
         self.__log(
             f"Entity {entity_id} reports unit '{unit}', assuming kW.",
             level="WARNING",
         )
         return 1.0
+
+    async def _resolve_scale(self, scales: dict, key, entity_id: str) -> float:
+        """The scale for a channel, read now if it was unknown at setup."""
+        scale = scales.get(key)
+        if scale is None:
+            scale = await self._get_power_scale(entity_id)
+            if scale is None:
+                # The entity just reported a value, so this cannot happen;
+                # keep the old assumption rather than drop the sample.
+                scale = 1.0
+            scales[key] = scale
+        return scale
 
     async def _setup_grid_listeners(self, local_now: datetime):
         """Register listen_state for each configured grid entity."""
@@ -514,12 +537,15 @@ class DataMonitor:
         phase = kwargs.get("phase", 1)
         tracker = self._grid_consumption_trackers.get(phase)
         if tracker:
-            scale = self._grid_consumption_scales.get(phase, 1.0)
+            scale = await self._resolve_scale(
+                self._grid_consumption_scales, phase, entity
+            )
             power_kw = power * scale
             await self._warn_if_negative_grid_power(
                 "consumption", phase, entity, power_kw
             )
             tracker.update(power_kw, get_local_now())
+            self._emit_grid_power_sample(phase)
 
     async def _handle_grid_production_change(self, entity, attribute, old, new, kwargs):
         """Called when a grid production entity changes state."""
@@ -532,12 +558,29 @@ class DataMonitor:
         phase = kwargs.get("phase", 1)
         tracker = self._grid_production_trackers.get(phase)
         if tracker:
-            scale = self._grid_production_scales.get(phase, 1.0)
+            scale = await self._resolve_scale(
+                self._grid_production_scales, phase, entity
+            )
             power_kw = power * scale
             await self._warn_if_negative_grid_power(
                 "production", phase, entity, power_kw
             )
             tracker.update(power_kw, get_local_now())
+            self._emit_grid_power_sample(phase)
+
+    def _emit_grid_power_sample(self, phase: int):
+        """Publish the signed net power on a phase (W, import positive) after
+        either of its channels changed. The fuse guard works on these; a
+        DSMR 5 meter gives one per second per phase."""
+        consumption = self._grid_consumption_trackers.get(phase)
+        production = self._grid_production_trackers.get(phase)
+        consumption_kw = consumption.current_power if consumption else 0.0
+        production_kw = production.current_power if production else 0.0
+        self.event_bus.emit_event(
+            "grid_power_sample",
+            phase=phase,
+            net_power_w=round((consumption_kw - production_kw) * 1000),
+        )
 
     async def _warn_if_negative_grid_power(
         self, direction: str, phase: int, entity: str, power_kw: float
@@ -807,7 +850,7 @@ class DataMonitor:
         panel_id = kwargs.get("panel_id")
         tracker = self._pv_trackers.get(panel_id)
         if tracker:
-            scale = self._pv_scales.get(panel_id, 1.0)
+            scale = await self._resolve_scale(self._pv_scales, panel_id, entity)
             tracker.update(power * scale, get_local_now())
 
     def _conclude_pv_interval(self, timestamp: str, local_now: datetime) -> dict:
