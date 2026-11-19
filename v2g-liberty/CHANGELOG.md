@@ -4,11 +4,11 @@
 
 ### Added
 
-- 🚀 FEAT: Sign-aware fuse guard replaces the load balancer's power limiting
+- 🚀 FEAT: Sign-aware fuse guard replaces the load balancer's power limiting (#524)
 
 ### Fixed
 
-- 🪲 BUG: A grid or solar sensor that appears after start-up was read as kW for the rest of the session
+- 🪲 BUG: A grid or solar sensor that appears after start-up was read as kW for the rest of the session (#524)
 
 ## 0.9.0 2026-10-13
 
