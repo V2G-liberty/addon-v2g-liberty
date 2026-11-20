@@ -13,7 +13,7 @@
 ### Changed
 
 - 🛠️ Refactoring: Remove the Modbus-proxy load balancer; the charger's address is restored from its settings file, please check it after the update (#525)
-- 🛠️ Refactoring: Cards follow the fuse guard: the charger settings no longer advise a load balancer, and the grid connection card shows the power limit in force (#526)
+- 🛠️ Refactoring: Cards follow the fuse guard: the charger settings no longer advise a load balancer, and the grid connection card shows the power limit in force (#527)
 
 ## 0.9.0 2026-10-13
 
