@@ -17,6 +17,10 @@ That file also contains possible changes that the next release might include.
 
 - 🛠️ The Modbus-proxy load balancer; proxy users: check the charger host (#525)
 
+### Changed
+
+- 🛠️ Changed: Cards show the grid connection's power limit, not load balancer advice (#527)
+
 ## 0.9.0 2026-10-13
 
 ### Fixed

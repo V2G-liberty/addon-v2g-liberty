@@ -193,6 +193,9 @@
       "card": {
         "active-alert": "Active · %{reporting} of %{total} sensors reporting",
         "active-summary": "%{phase}, %{capacity} A per phase.",
+        "limit-none": "No power limit in force.",
+        "limit-active": "Limited on L%{phase}: charging max. %{charge} W, discharging max. %{discharge} W.",
+        "limit-blind": "No meter readings: charging max. %{charge} W, discharging max. %{discharge} W until they return.",
         "phase-1": "1-phase",
         "phase-3": "3-phase",
         "problem-title": "A sensor needs attention",
@@ -426,16 +429,7 @@
       "connection-success": "Succesfully connected",
       "connected-since": "Connected, last contact %{time} ago",
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
-      "load-balancer": {
-        "enabled": {
-          "title": "V2G Liberty load balancer module enabled",
-          "info": "The V2G Liberty load balancer module is currently enabled.\n\n**Important**\nThis module is provided without any guarantees. Use it at your own risk.\n\nPlease consult a certified electrician what maximum power can be set on the charger.\n\n**Configuration**\n\n- The Charger hostname must be set to `127.0.0.1`\n\n- The port number must be set to `5020`\n\nFor further details please consult `readme.md` in the folder `load_balancer`."
-        },
-        "not_enabled": {
-          "title": "V2G Liberty load balancer module not enabled",
-          "info": "A load balancer is recommended (but it is not mandatory). It enables the charger to have a higher maximum charge amperage setting while maintaining safe power levels. This leads to more efficient charging and increased yields.\n\n_Unfortunately the Wallbox Quasar 1 load balancer does not work correctly with V2G&nbsp;Liberty, please consult `readme.md` in the folder `load_balancer` for a workaround._\n\nPlease consult a certified electrician what maximum power can be set on the charger."
-        }
-      },
+      "grid-limit": "V2G Liberty keeps the (dis)charge power per phase within the capacity of your grid connection, as set under Grid connection.",
       "reduce-max-power-description": "Reduce max. (dis)charge power.",
       "2-connection-details": {
         "header": "connection settings",
@@ -448,6 +442,7 @@
       },
       "3-power-details": {
         "header": "power settings",
+        "no-fuse-margin": "You do not need a margin for your main fuse here.",
         "description": "The charger is configured to (dis)charge at max. **%{value}** W.",
         "reduce-max-power-description": "Use this to further limit the (dis)charge power below the maximum set in the charger.",
         "power-invalid": "Enter a whole number of watts.",

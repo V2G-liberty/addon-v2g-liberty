@@ -1,4 +1,4 @@
-import { html, css, LitElement } from 'lit';
+import { html, css, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { HassEvent } from 'home-assistant-js-websocket';
@@ -62,6 +62,7 @@ export class GridConnectionSettingsCard extends LitElement {
       ...this._productionEntities,
       ...this._consumptionRegisters,
       ...this._productionRegisters,
+      entityIds.fuseGuardLimit,
     ].filter(Boolean);
     if (ids.some(id => old.states[id] !== hass.states[id])) {
       this.requestUpdate();
@@ -199,6 +200,7 @@ export class GridConnectionSettingsCard extends LitElement {
             capacity: this._capacityPerPhase ?? '',
           })}
         </p>
+        ${this._renderPowerLimit()}
       </div>
       <div class="card-actions">
         ${renderButton(
@@ -209,6 +211,30 @@ export class GridConnectionSettingsCard extends LitElement {
         )}
       </div>
     `;
+  }
+
+  // What the power limit is right now, from the fuse guard's sensor. The
+  // sensor is unavailable while the guard is not active, which with the grid
+  // connection active means the charger phase is not set; the charger card
+  // says so already, so this line then says nothing.
+  private _renderPowerLimit() {
+    const limit = this._hass.states[entityIds.fuseGuardLimit];
+    if (!limit || limit.state === 'unavailable' || limit.state === 'unknown') {
+      return nothing;
+    }
+    const attrs = limit.attributes as {
+      discharge_limit_w?: number;
+      limiting_phase?: number | null;
+      meter_stale?: boolean;
+    };
+    const charge = Math.round(Number(limit.state));
+    const discharge = Math.round(Number(attrs.discharge_limit_w ?? charge));
+    const text = attrs.meter_stale
+      ? tp('card.limit-blind', { charge, discharge })
+      : attrs.limiting_phase
+        ? tp('card.limit-active', { phase: attrs.limiting_phase, charge, discharge })
+        : tp('card.limit-none');
+    return html`<p>${text}</p>`;
   }
 
   private _renderProblem() {
