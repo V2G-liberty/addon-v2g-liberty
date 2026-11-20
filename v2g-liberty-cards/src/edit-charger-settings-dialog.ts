@@ -4,8 +4,6 @@ import { HassEvent } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
 import {
-  renderLoadbalancerInfo,
-  isLoadbalancerEnabled,
   renderSpinner,
   renderButton,
   InputText,
@@ -83,7 +81,6 @@ class EditChargerSettingsDialog extends DialogBase {
   @state() private _hasTriedToContinue: boolean = false;
   @state() private _chargerConnectionStatus: string;
   @state() private _hasTriedToConnect: boolean;
-  @state() private _quasarLoadBalancerLimit: string;
 
   // Phase step state
   @state() private _showPhaseStep: boolean = false;
@@ -108,7 +105,7 @@ class EditChargerSettingsDialog extends DialogBase {
   private _hasTypedPort: boolean = false;
   // Whether a port was already stored in the settings. Selecting another
   // charger type then keeps it: an existing user may run a deliberate
-  // non-default port (the load balancer proxies the Quasar on 5020).
+  // non-default port.
   private _hasConfiguredPort: boolean = false;
 
   private get _chargerPhases(): number {
@@ -159,7 +156,6 @@ class EditChargerSettingsDialog extends DialogBase {
     this._chargerConnectionStatus = '';
     this._useReducedMaxPower =
       this.hass.states[entityIds.useReducedMaxChargePower].state;
-    this._quasarLoadBalancerLimit = this.hass.states[entityIds.quasarLoadBalancerLimit].state;
     this._hasTriedToConnect = false;
     this._hasTriedToContinue = false;
     this._powerFieldsType = null;
@@ -305,17 +301,11 @@ class EditChargerSettingsDialog extends DialogBase {
     const portDescription = tp('2-connection-details.port-description', {
       value: this._defaultPort(),
     });
-    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
       ${this._renderConnectionError()}
-      ${_isLoadBalancerEnabled
-        ? nothing
-        : html`
-          <ha-markdown breaks .content=${tp('2-connection-details.description.generic')}></ha-markdown>
-          <ha-markdown breaks .content=${tp(`2-connection-details.description.${this._selectedChargerType}`)}></ha-markdown><br/>
-        `
-      }
+      <ha-markdown breaks .content=${tp('2-connection-details.description.generic')}></ha-markdown>
+      <ha-markdown breaks .content=${tp(`2-connection-details.description.${this._selectedChargerType}`)}></ha-markdown><br/>
       ${renderInputText(
         InputText.Hostname,
         this._chargerHost,
@@ -336,13 +326,7 @@ class EditChargerSettingsDialog extends DialogBase {
         '[0-9]+'
       )}
       ${this._renderInvalidPortError()}
-      ${_isLoadBalancerEnabled
-        ? nothing
-        : html`
-          <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
-        `
-      }
-      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+      <ha-markdown breaks .content=${portDescription}></ha-markdown><br/>
       ${renderButton(
         this.hass,
         this._goBackToChargerSelection,
@@ -448,7 +432,6 @@ class EditChargerSettingsDialog extends DialogBase {
     const useReducedMaxPowerState =
       this.hass.states[entityIds.useReducedMaxChargePower];
     const isUsingReducedMaxPower = this._useReducedMaxPower === 'on';
-    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._quasarLoadBalancerLimit)
 
     return html`
       ${this._renderPhaseSaveError()}
@@ -460,7 +443,7 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
-      ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+      <p>${tp('grid-limit')} ${tp('3-power-details.no-fuse-margin')}</p>
       ${renderButton(
         this.hass,
         this._goBackToConnectionDetails,
