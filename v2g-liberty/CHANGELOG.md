@@ -8,12 +8,12 @@
 
 ### Fixed
 
-- 🪲 BUG: A grid or solar sensor that appears after start-up was read as kW for the rest of the session (#524)
+- 🪲 BUG: A grid or solar sensor that appeared after start-up was read as kW (#524)
 
 ### Changed
 
-- 🛠️ Refactoring: Remove the Modbus-proxy load balancer; the charger's address is restored from its settings file, please check it after the update (#525)
-- 🛠️ Refactoring: Cards follow the fuse guard: the charger settings no longer advise a load balancer, and the grid connection card shows the power limit in force (#527)
+- 🛠️ Refactoring: Remove the Modbus-proxy load balancer; proxy users: check the charger host (#525)
+- 🛠️ Refactoring: Cards show the grid connection's power limit, not load balancer advice (#527)
 
 ## 0.9.0 2026-10-13
 
