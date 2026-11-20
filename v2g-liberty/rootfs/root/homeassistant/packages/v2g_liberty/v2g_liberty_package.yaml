@@ -79,9 +79,6 @@ input_select:
     icon: mdi:battery-charging-medium
 
 input_boolean:
-  quasar_loadbalancer_no_total_power:
-    name: Quasar loadbalancer no total power
-
   admin_settings_initialised:
     name: Administrator settings are initialised
 
@@ -248,12 +245,14 @@ template:
   # for a template sensor.
   # These are all to be set from Python code.
   - sensor:
-      # Only applicable for the situation where the loadbalancer is active for the Quasar 1 charger.
+      # Left over from the removed Modbus-proxy load balancer: nothing writes
+      # it any more, but the current cards still read it. Goes with the cards
+      # update that shows the fuse guard instead.
       - default_entity_id: sensor.quasar_loadbalancer_limit
         name: Quasar loadbalancer limit
         device_class: power
         unit_of_measurement: W
-        state: "{{ None }}" # Value 0 will be set at init to indicate the loadbalancer is active
+        state: "{{ None }}"
         icon: mdi:arrow-collapse-vertical
 
       # Written by the fuse guard: the most the charger may charge with right

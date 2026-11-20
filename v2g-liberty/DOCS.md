@@ -89,7 +89,7 @@ If you've upgraded from an earlier version of V2G Liberty (also with the manual 
 
 ## Load balancing
 
-V2G Liberty has build in load balancing service (it is not a device although additional hardware is needed). Load balancing prevents overloading the electrical connection (to be precise, the one phase that the Quasar is connected to) by monitoring how much power is flowing through and if it reaches the maximum reducing the charge power of the Quasar. An active load balancer allows you to set a higher maximum charge power and thus make more efficient use of the installation. This is recommended but optional to use. More information can be found [here](https://github.com/V2G-liberty/addon-v2g-liberty/blob/main/v2g-liberty/rootfs/root/appdaemon/apps/load_balancer/readme.md).
+V2G Liberty has a built-in fuse guard that prevents overloading the electrical connection. It watches the power on the phase(s) the charger is connected to and, when a phase reaches its capacity, lowers the charge power (on too much import) or the discharge power (on too much export) of the charger. The other direction stays free. This lets you set a higher maximum charge power and make more efficient use of the installation. The fuse guard needs the grid connection settings: a power sensor per phase (for example from the DSMR/P1 integration) and the capacity per phase in ampere. Without those it does nothing. It is a software guard inside the add-on; the fuse itself remains the last line of defence. The current limits are shown in the sensor `sensor.fuse_guard_limit`.
 
 ## Tips & tricks
 

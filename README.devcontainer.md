@@ -130,8 +130,6 @@ docker-compose --project-name addon-v2g-liberty_devcontainer exec -it addon-v2g-
 - This is best practice (no hard-coded IP addresses)
 - When using a real Wallbox Quasar charger, you'll enter its hostname or IP address on your local network instead
 
-**Note**: If you're using the optional Load Balancer module (configured in `quasar_load_balancer.json`), use `127.0.0.1` as the host instead.
-
 ## 🎮 Controlling the Mock Charger
 
 Use the CLI to simulate different charging scenarios and test V2G Liberty behavior:

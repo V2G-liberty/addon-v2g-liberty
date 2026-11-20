@@ -113,7 +113,7 @@ You can tweak the charging process by setting min- and max-limits, min- and max-
 
 ## Load balancing
 
-V2G Liberty has build in load balancing service (it is not a device although additional hardware is needed). See documentation in the app for further details.
+V2G Liberty has a built-in fuse guard that prevents overloading the electrical connection. It uses the grid connection settings (a power sensor per phase and the capacity per phase); see the documentation in the app for details.
 
 ## Updates
 
