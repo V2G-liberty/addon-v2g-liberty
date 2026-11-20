@@ -16,6 +16,12 @@ class SettingsManager:
     set_aside_path: str = ""
 
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
+    # The removed Modbus-proxy load balancer kept its own settings here. The
+    # file is read once, to restore the charger's address, and then left alone.
+    _LOAD_BALANCER_JSON_PATH = "/homeassistant/quasar_load_balancer.json"
+    _LOAD_BALANCER_IMPORT_KEY = "load_balancer_json_import"
+    _PROXY_HOSTS = ("127.0.0.1", "localhost", "::1")
+    _PROXY_PORT = 5020
     _FM_USER_ID_KEY = "fm_user_id"
     _FM_POWER_SOURCE_ID_KEY = "fm_power_source_id"
 
@@ -130,6 +136,7 @@ class SettingsManager:
         settings = self.__upgrade_electricity_contract_settings_initialised(settings)
         settings = self.__upgrade_schedule_settings_initialised(settings)
         settings = self.__upgrade_car_settings(settings)
+        settings = self.__upgrade_load_balancer_json(settings)
         return settings
 
     def __upgrade_obsolete_settings(self, settings: dict):
@@ -307,6 +314,80 @@ class SettingsManager:
             f"Migrated {len(car) - 3} car settings into the 'cars' list "
             f"(configured={car['configured']})."
         )
+        return settings
+
+    def __upgrade_load_balancer_json(self, settings: dict):
+        """The Modbus-proxy load balancer is gone; the fuse guard does its work
+        from the grid connection settings. Users of the proxy had pointed the
+        charger settings at the proxy (127.0.0.1:5020) and kept the charger's
+        real address in the proxy's JSON file. Put that address back, whether
+        the proxy was enabled or not: a loopback host no longer answers.
+
+        The file is read once (the marker key records the outcome) and left
+        where it is; nothing else in it maps onto the fuse guard, which takes
+        its per-phase sensors and capacity from the grid connection dialog.
+        """
+        if self._LOAD_BALANCER_IMPORT_KEY in settings:
+            return settings
+        path = self._LOAD_BALANCER_JSON_PATH
+        if not os.path.isfile(path):
+            return settings
+
+        outcome = {"enabled": False, "charger_host_restored": False}
+        try:
+            with open(path, "r", encoding="utf-8") as read_file:
+                content = json.load(read_file)
+        except (json.JSONDecodeError, OSError) as e:
+            outcome["error"] = str(e)
+            content = {}
+        if not isinstance(content, dict):
+            outcome["error"] = f"holds {type(content).__name__}, not an object"
+            content = {}
+        outcome["enabled"] = bool(content.get("enabled"))
+
+        host = str(settings.get("input_text.charger_host_url", "")).strip().lower()
+        try:
+            port = float(settings.get("input_number.charger_port", 0))
+        except (TypeError, ValueError):
+            port = 0
+        charger_was_the_proxy = host in self._PROXY_HOSTS and port == self._PROXY_PORT
+
+        if charger_was_the_proxy:
+            real_host = str(content.get("quasar_host", "")).strip()
+            if real_host:
+                real_port = content.get("quasar_port", 502)
+                settings["input_text.charger_host_url"] = real_host
+                settings["input_number.charger_port"] = str(real_port)
+                outcome["charger_host_restored"] = True
+                self.__log(
+                    "The Modbus-proxy load balancer has been removed. The charger "
+                    f"settings pointed at the proxy; restored the charger's address "
+                    f"from quasar_load_balancer.json: {real_host}:{real_port}. "
+                    "Please check it in the charger settings.",
+                    level="WARNING",
+                )
+            else:
+                self.__log(
+                    "The Modbus-proxy load balancer has been removed, but the "
+                    "charger settings still point at the proxy (127.0.0.1:5020) "
+                    "and quasar_load_balancer.json holds no charger address. Set "
+                    "the charger's real address in the charger settings.",
+                    level="ERROR",
+                )
+        else:
+            self.__log(
+                "The Modbus-proxy load balancer has been removed; "
+                "quasar_load_balancer.json is no longer read. The charger "
+                "settings did not point at the proxy, so nothing was changed.",
+                level="WARNING",
+            )
+        self.__log(
+            "Power limiting is now done by the fuse guard, which needs the grid "
+            "connection settings: a power sensor per phase and the capacity per "
+            "phase. Without those it does nothing.",
+            level="WARNING",
+        )
+        settings[self._LOAD_BALANCER_IMPORT_KEY] = outcome
         return settings
 
     def store_setting(self, entity_id: str, value: any):

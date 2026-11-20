@@ -10,6 +10,10 @@
 
 - 🪲 BUG: A grid or solar sensor that appears after start-up was read as kW for the rest of the session (#524)
 
+### Changed
+
+- 🛠️ Refactoring: Remove the Modbus-proxy load balancer; the charger's address is restored from its settings file, please check it after the update
+
 ## 0.9.0 2026-10-13
 
 ### Fixed
