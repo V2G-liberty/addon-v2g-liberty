@@ -245,16 +245,6 @@ template:
   # for a template sensor.
   # These are all to be set from Python code.
   - sensor:
-      # Left over from the removed Modbus-proxy load balancer: nothing writes
-      # it any more, but the current cards still read it. Goes with the cards
-      # update that shows the fuse guard instead.
-      - default_entity_id: sensor.quasar_loadbalancer_limit
-        name: Quasar loadbalancer limit
-        device_class: power
-        unit_of_measurement: W
-        state: "{{ None }}"
-        icon: mdi:arrow-collapse-vertical
-
       # Written by the fuse guard: the most the charger may charge with right
       # now, given the other load on its phase(s). Unavailable while the guard
       # is not active (no grid sensors or no charger phase configured).

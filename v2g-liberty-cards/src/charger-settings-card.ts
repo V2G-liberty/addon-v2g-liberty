@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity, HassEvent } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow, renderSettingsRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderSettingsRow, renderButton } from './util/render';
 import { partial, setLanguage } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { callFunction } from './util/appdaemon';
@@ -30,7 +30,6 @@ export class ChargerSettingsCard extends LitElement {
   @state() private _useReducedMaxPower: HassEntity;
   @state() private _chargerMaxChargingPower: HassEntity;
   @state() private _chargerMaxDischargingPower: HassEntity;
-  @state() private _loadBalancerLimit: HassEntity;
 
   // Charger phase (from JSON settings, not HA entity)
   @state() private _connectedToPhase: number | number[] | null = null;
@@ -65,7 +64,6 @@ export class ChargerSettingsCard extends LitElement {
       hass.states[entityIds.chargerMaxChargingPower];
     this._chargerMaxDischargingPower =
       hass.states[entityIds.chargerMaxDischargingPower];
-    this._loadBalancerLimit = hass.states[entityIds.quasarLoadBalancerLimit];
   }
 
   render() {
@@ -97,7 +95,6 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderInitialisedContent() {
     const editCallback = () => showChargerSettingsDialog(this);
-    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._loadBalancerLimit.state)
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
@@ -106,7 +103,7 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${this._renderChargerPhase()}
-        ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+        <p>${tp('grid-limit')}</p>
       </div>
       <div class="card-actions">
         ${renderButton(

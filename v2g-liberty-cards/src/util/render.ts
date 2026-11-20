@@ -6,27 +6,6 @@ import { ifDefined } from 'lit/directives/if-defined';
 
 import { t, to, partial } from '../util/translate';
 
-export function renderLoadbalancerInfo(loadbalancerEnabled: boolean) {
-  const tp = partial('settings.charger');
-  const title = loadbalancerEnabled
-    ? tp('load-balancer.enabled.title')
-    : tp('load-balancer.not_enabled.title');
-  const info = loadbalancerEnabled
-    ? tp('load-balancer.enabled.info')
-    : tp('load-balancer.not_enabled.info');
-  const type = loadbalancerEnabled ? "info" : "warning";
-
-  return html`
-    <ha-alert title="${title}" alert-type="${type}">
-      <ha-markdown breaks .content=${info}></ha-markdown>
-    </ha-alert>
-  `;
-}
-
-export function isLoadbalancerEnabled(quasarLoadBalancerLimit: string): boolean {
-  return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
-}
-
 // HA 2026.3 migrated ha-dialog from MDC (mwc-dialog) to WebAwesome (wa-dialog).
 // The primaryAction/secondaryAction slots and TemplateResult .heading were removed.
 // New API: slot="footer" for buttons, .headerTitle string property for the title.
