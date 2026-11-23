@@ -237,6 +237,21 @@ async def test_export_overload_while_charging_leaves_charging_free(
 
 
 @pytest.mark.asyncio
+async def test_export_overload_while_idle_blocks_discharging_not_charging(
+    guard, clock, one_phase
+):
+    """The proxy's "high negative power" case: it cut the charge limit on a
+    solar surplus, which does nothing against export. Here only discharging
+    is held back, and charging stays open to absorb the surplus."""
+    guard._on_charge_power_change(0)
+    await _sample(guard, clock, net_w=-6000)
+
+    assert guard.discharge_limit_w == 0
+    assert guard.charge_limit_w == MAX
+    assert (await guard.clip(MAX)).allowed_w == MAX
+
+
+@pytest.mark.asyncio
 async def test_import_overload_while_discharging_leaves_discharging_free(
     guard, clock, one_phase
 ):

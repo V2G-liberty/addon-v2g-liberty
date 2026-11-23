@@ -23,6 +23,16 @@ def json_dump_mock():
 
 
 @pytest.fixture(autouse=True)
+def no_load_balancer_json(tmp_path, monkeypatch):
+    """The one-off import of the removed load balancer's file must not see a
+    file on the machine running the tests; the import's own tests point the
+    path at a file they wrote."""
+    monkeypatch.setattr(
+        SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(tmp_path / "absent.json")
+    )
+
+
+@pytest.fixture(autouse=True)
 def no_disk_writes():
     """These tests mock `open`, so there is no temporary file to fsync or
     rename. Keep both away from the real filesystem; what they are about is the
@@ -811,3 +821,257 @@ class TestABrokenSettingsFile:
 
         assert settings_manager.file_problem == SettingsManager.FILE_OK
         assert settings_manager.set_aside_path == ""
+
+
+# ── The removed Modbus-proxy load balancer ───────────────────────────────
+
+
+_PROXIED = {
+    "input_text.charger_host_url": "127.0.0.1",
+    "input_number.charger_port": "5020",
+    "input_boolean.charger_settings_initialised": True,
+}
+_LB_JSON = {
+    "enabled": True,
+    "quasar_host": "192.168.2.55",
+    "quasar_port": 502,
+    "total_power_entity_id": "sensor.sdm_phase_2_power",
+    "total_power_limit": 5750,
+}
+
+
+def _upgrade_lb(settings_manager, saved: dict, lb_json, tmp_path, monkeypatch):
+    """Run the load balancer import on `saved` with `lb_json` (a dict, a raw
+    string, or None for no file) as the proxy's settings file."""
+    path = tmp_path / "quasar_load_balancer.json"
+    if isinstance(lb_json, dict):
+        path.write_text(json.dumps(lb_json))
+    elif lb_json is not None:
+        path.write_text(lb_json)
+    monkeypatch.setattr(SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(path))
+    return settings_manager._SettingsManager__upgrade_load_balancer_json(dict(saved))
+
+
+class TestUpgradeLoadBalancerJson:
+    """The proxy is gone. Its users had pointed the charger settings at the
+    proxy (127.0.0.1:5020) and kept the charger's real address in the proxy's
+    JSON; that address goes back into the charger settings, once."""
+
+    def test_a_proxied_charger_gets_its_real_address_back(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        upgraded = _upgrade_lb(
+            settings_manager, _PROXIED, _LB_JSON, tmp_path, monkeypatch
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["input_number.charger_port"] == "502"
+        assert upgraded["load_balancer_json_import"] == {
+            "enabled": True,
+            "charger_host_restored": True,
+        }
+        warnings = [
+            call.args[0]
+            for call in log_mock.call_args_list
+            if call.kwargs.get("level") == "WARNING"
+        ]
+        assert any("192.168.2.55:502" in w for w in warnings)
+        assert any("grid connection settings" in w for w in warnings)
+
+    def test_a_disabled_proxy_still_gives_the_address_back(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        """A loopback host no longer answers, enabled or not."""
+        upgraded = _upgrade_lb(
+            settings_manager,
+            _PROXIED,
+            {**_LB_JSON, "enabled": False},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["load_balancer_json_import"]["enabled"] is False
+        assert upgraded["load_balancer_json_import"]["charger_host_restored"] is True
+
+    def test_a_charger_that_was_not_proxied_is_left_alone(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        saved = {
+            **_PROXIED,
+            "input_text.charger_host_url": "192.168.2.55",
+            "input_number.charger_port": "502",
+        }
+
+        upgraded = _upgrade_lb(settings_manager, saved, _LB_JSON, tmp_path, monkeypatch)
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["input_number.charger_port"] == "502"
+        assert upgraded["load_balancer_json_import"]["charger_host_restored"] is False
+
+    def test_the_dev_mock_on_port_5020_is_not_the_proxy(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        saved = {**_PROXIED, "input_text.charger_host_url": "quasar-mock"}
+
+        upgraded = _upgrade_lb(settings_manager, saved, _LB_JSON, tmp_path, monkeypatch)
+
+        assert upgraded["input_text.charger_host_url"] == "quasar-mock"
+        assert upgraded["load_balancer_json_import"]["charger_host_restored"] is False
+
+    def test_a_proxy_on_its_own_port_is_still_the_proxy(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        """The proxy listened where its JSON said, not only on 5020."""
+        saved = {**_PROXIED, "input_number.charger_port": "5021"}
+
+        upgraded = _upgrade_lb(
+            settings_manager, saved, {**_LB_JSON, "port": 5021}, tmp_path, monkeypatch
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["input_number.charger_port"] == "502"
+
+    def test_a_proxy_on_its_own_host_is_still_the_proxy(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        saved = {**_PROXIED, "input_text.charger_host_url": "192.168.2.10"}
+
+        upgraded = _upgrade_lb(
+            settings_manager,
+            saved,
+            {**_LB_JSON, "host": "192.168.2.10"},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+
+    def test_a_null_charger_address_is_not_restored(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        """A null quasar_host must not become the host "None"."""
+        upgraded = _upgrade_lb(
+            settings_manager,
+            _PROXIED,
+            {**_LB_JSON, "quasar_host": None},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "127.0.0.1"
+        assert upgraded["load_balancer_json_import"]["charger_host_restored"] is False
+        errors = [
+            c.args[0]
+            for c in log_mock.call_args_list
+            if c.kwargs.get("level") == "ERROR"
+        ]
+        assert len(errors) == 1 and "127.0.0.1:5020" in errors[0]
+
+    @pytest.mark.parametrize("bad_port", [None, "abc", 0, 70000])
+    def test_an_unusable_charger_port_falls_back_to_502(
+        self, settings_manager, tmp_path, monkeypatch, bad_port
+    ):
+        upgraded = _upgrade_lb(
+            settings_manager,
+            _PROXIED,
+            {**_LB_JSON, "quasar_port": bad_port},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["input_number.charger_port"] == "502"
+
+    def test_the_log_names_the_phase_sensor_and_limit_the_proxy_used(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        """Automatically taking the sensor over would be wrong (one phase,
+        sign convention unknown), but naming it saves the user a search."""
+        _upgrade_lb(settings_manager, _PROXIED, _LB_JSON, tmp_path, monkeypatch)
+
+        warnings = [
+            c.args[0]
+            for c in log_mock.call_args_list
+            if c.kwargs.get("level") == "WARNING"
+        ]
+        lead = [w for w in warnings if "sensor.sdm_phase_2_power" in w]
+        assert len(lead) == 1
+        assert "5750 W (25 A)" in lead[0]
+        assert "grid connection settings" in lead[0]
+
+    def test_without_the_file_nothing_happens(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        upgraded = _upgrade_lb(settings_manager, _PROXIED, None, tmp_path, monkeypatch)
+
+        assert upgraded == _PROXIED
+        log_mock.assert_not_called()
+
+    def test_the_file_is_read_only_once(self, settings_manager, tmp_path, monkeypatch):
+        saved = {
+            **_PROXIED,
+            "load_balancer_json_import": {
+                "enabled": True,
+                "charger_host_restored": True,
+            },
+        }
+
+        upgraded = _upgrade_lb(settings_manager, saved, _LB_JSON, tmp_path, monkeypatch)
+
+        assert (
+            upgraded["input_text.charger_host_url"] == "127.0.0.1"
+        )  # not touched again
+
+    def test_a_file_without_a_charger_address_logs_an_error(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        upgraded = _upgrade_lb(
+            settings_manager, _PROXIED, {"enabled": True}, tmp_path, monkeypatch
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "127.0.0.1"
+        assert upgraded["load_balancer_json_import"]["charger_host_restored"] is False
+        errors = [
+            c.args[0]
+            for c in log_mock.call_args_list
+            if c.kwargs.get("level") == "ERROR"
+        ]
+        assert len(errors) == 1 and "still point at the proxy" in errors[0]
+
+    def test_a_broken_file_is_recorded_and_not_retried(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        upgraded = _upgrade_lb(
+            settings_manager, _PROXIED, "{not json", tmp_path, monkeypatch
+        )
+
+        assert "error" in upgraded["load_balancer_json_import"]
+        assert upgraded["input_text.charger_host_url"] == "127.0.0.1"
+
+    def test_the_import_runs_on_retrieve_and_is_written_back(
+        self, settings_manager, json_dump_mock, tmp_path, monkeypatch
+    ):
+        """End to end: the import is part of the upgrade chain and its result
+        lands in the settings file."""
+        lb_path = tmp_path / "quasar_load_balancer.json"
+        lb_path.write_text(json.dumps(_LB_JSON))
+        monkeypatch.setattr(SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(lb_path))
+        real_open = open
+
+        def open_either(path, *args, **kwargs):
+            if str(path) == str(lb_path):
+                return real_open(path, *args, **kwargs)
+            return mock_open(read_data=json.dumps(_PROXIED))()
+
+        with (
+            patch("os.path.exists", lambda _: True),
+            patch("os.replace"),
+            patch("builtins.open", side_effect=open_either),
+            patch("json.dump", json_dump_mock),
+        ):
+            settings_manager.retrieve_settings()
+
+        assert settings_manager.get("input_text.charger_host_url") == "192.168.2.55"
+        written = json_dump_mock.call_args.args[0]
+        assert written["load_balancer_json_import"]["charger_host_restored"] is True

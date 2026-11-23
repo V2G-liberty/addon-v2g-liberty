@@ -83,7 +83,4 @@ bashio::log.info "Front-end plugins copied (apexcharts-card, lovelace-card-mod, 
 cp -a /root/homeassistant/v2g_liberty_example_configuration.yaml /homeassistant/v2g_liberty_example_configuration.yaml \
     || bashio::exit.nok 'Failed to copy v2g_liberty_example_configuration.yaml'
 
-cp -a /root/homeassistant/quasar_load_balancer.json-example /homeassistant/quasar_load_balancer.json-example \
-    || bashio::exit.nok 'Failed to copy quasar_load_balancer.json-example'
-
 bashio::log.info "V2G Liberty configuration complete."

@@ -16,6 +16,13 @@ class SettingsManager:
     set_aside_path: str = ""
 
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
+    # The removed Modbus-proxy load balancer kept its own settings here. The
+    # file is read once, to restore the charger's address, and then left alone.
+    _LOAD_BALANCER_JSON_PATH = "/homeassistant/quasar_load_balancer.json"
+    _LOAD_BALANCER_IMPORT_KEY = "load_balancer_json_import"
+    # Where the proxy listened, unless its own file said otherwise.
+    _PROXY_HOSTS = ("127.0.0.1", "localhost", "::1")
+    _PROXY_PORT = 5020
     _FM_USER_ID_KEY = "fm_user_id"
     _FM_POWER_SOURCE_ID_KEY = "fm_power_source_id"
 
@@ -130,6 +137,7 @@ class SettingsManager:
         settings = self.__upgrade_electricity_contract_settings_initialised(settings)
         settings = self.__upgrade_schedule_settings_initialised(settings)
         settings = self.__upgrade_car_settings(settings)
+        settings = self.__upgrade_load_balancer_json(settings)
         return settings
 
     def __upgrade_obsolete_settings(self, settings: dict):
@@ -308,6 +316,120 @@ class SettingsManager:
             f"(configured={car['configured']})."
         )
         return settings
+
+    def __upgrade_load_balancer_json(self, settings: dict):
+        """The Modbus-proxy load balancer is gone; the fuse guard does its work
+        from the grid connection settings. Users of the proxy had pointed the
+        charger settings at the proxy (127.0.0.1:5020, unless the proxy's JSON
+        said otherwise) and kept the charger's real address in that file. Put
+        that address back, whether the proxy was enabled or not: a loopback
+        host no longer answers.
+
+        The file is read once (the marker key records the outcome) and left
+        where it is. Nothing else in it maps onto the fuse guard, which takes
+        its per-phase sensors and capacity from the grid connection dialog;
+        the log names the phase sensor and limit the proxy used, as a lead.
+        """
+        if self._LOAD_BALANCER_IMPORT_KEY in settings:
+            return settings
+        path = self._LOAD_BALANCER_JSON_PATH
+        if not os.path.isfile(path):
+            return settings
+
+        outcome = {"enabled": False, "charger_host_restored": False}
+        try:
+            with open(path, "r", encoding="utf-8") as read_file:
+                content = json.load(read_file)
+        except (json.JSONDecodeError, OSError) as e:
+            outcome["error"] = str(e)
+            content = {}
+        if not isinstance(content, dict):
+            outcome["error"] = f"holds {type(content).__name__}, not an object"
+            content = {}
+        outcome["enabled"] = bool(content.get("enabled"))
+
+        proxy_hosts = set(self._PROXY_HOSTS)
+        proxy_ports = {self._PROXY_PORT}
+        own_host = self.__as_text(content.get("host"))
+        if own_host:
+            proxy_hosts.add(own_host.lower())
+        own_port = self.__as_port(content.get("port"))
+        if own_port:
+            proxy_ports.add(own_port)
+
+        host = str(settings.get("input_text.charger_host_url", "")).strip().lower()
+        port = self.__as_port(settings.get("input_number.charger_port"))
+        charger_was_the_proxy = host in proxy_hosts and port in proxy_ports
+
+        if charger_was_the_proxy:
+            real_host = self.__as_text(content.get("quasar_host"))
+            if real_host:
+                real_port = self.__as_port(content.get("quasar_port")) or 502
+                settings["input_text.charger_host_url"] = real_host
+                settings["input_number.charger_port"] = str(real_port)
+                outcome["charger_host_restored"] = True
+                self.__log(
+                    "The Modbus-proxy load balancer has been removed. The charger "
+                    f"settings pointed at the proxy; restored the charger's address "
+                    f"from quasar_load_balancer.json: {real_host}:{real_port}. "
+                    "Please check it in the charger settings.",
+                    level="WARNING",
+                )
+            else:
+                self.__log(
+                    "The Modbus-proxy load balancer has been removed, but the "
+                    f"charger settings still point at the proxy ({host}:{port}) "
+                    "and quasar_load_balancer.json holds no charger address. Set "
+                    "the charger's real address in the charger settings.",
+                    level="ERROR",
+                )
+        else:
+            self.__log(
+                "The Modbus-proxy load balancer has been removed; "
+                "quasar_load_balancer.json is no longer read. The charger "
+                "settings did not point at the proxy, so nothing was changed.",
+                level="WARNING",
+            )
+
+        lead = ""
+        sensor = self.__as_text(content.get("total_power_entity_id"))
+        if sensor:
+            lead = f" The proxy watched {sensor}"
+            limit_w = content.get("total_power_limit")
+            if (
+                isinstance(limit_w, (int, float))
+                and not isinstance(limit_w, bool)
+                and limit_w > 0
+            ):
+                lead += f" with a limit of {limit_w:.0f} W ({limit_w / 230:.0f} A)"
+            lead += (
+                "; that is a lead for the phase it was on, the sensor's sign "
+                "convention may differ."
+            )
+        self.__log(
+            "Power limiting is now done by the fuse guard, which needs the grid "
+            "connection settings: a power sensor per phase and the capacity per "
+            f"phase. Without those it does nothing.{lead}",
+            level="WARNING",
+        )
+        settings[self._LOAD_BALANCER_IMPORT_KEY] = outcome
+        return settings
+
+    @staticmethod
+    def __as_text(value) -> str:
+        """A non-empty string from a JSON value, stripped; "" for anything else."""
+        return value.strip() if isinstance(value, str) else ""
+
+    @staticmethod
+    def __as_port(value) -> int | None:
+        """A TCP port from a JSON or settings value; None for anything else."""
+        if isinstance(value, bool):
+            return None
+        try:
+            port = int(float(value))
+        except (TypeError, ValueError):
+            return None
+        return port if 0 < port <= 65535 else None
 
     def store_setting(self, entity_id: str, value: any):
         """Store (overwrite or create) a setting in settings file.
