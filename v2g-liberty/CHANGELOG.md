@@ -12,7 +12,7 @@
 
 ### Changed
 
-- 🛠️ Refactoring: Remove the Modbus-proxy load balancer; the charger's address is restored from its settings file, please check it after the update
+- 🛠️ Removed: The Modbus-proxy load balancer; proxy users: check the charger host (#525)
 
 ## 0.9.0 2026-10-13
 
