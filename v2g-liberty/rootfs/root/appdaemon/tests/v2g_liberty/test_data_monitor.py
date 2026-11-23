@@ -1318,3 +1318,129 @@ class TestMeterEnergy:
         args = data_store.insert_meter_interval.call_args[0]
         assert args[1] is None  # import delta skipped on reset
         assert monitor._meter_import_baseline == 5.0  # re-baselined
+
+
+class TestGridPowerSample:
+    """Each grid listener publishes the signed net power of its phase, so
+    the fuse guard sees every meter sample without a second set of
+    listeners."""
+
+    @pytest.fixture
+    def grid_monitor(self, monitor, hass):
+        hass.get_state = AsyncMock(return_value="W")  # the entities' unit
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1", "sensor.cons_l2"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1", "sensor.prod_l2"]
+        return monitor
+
+    @staticmethod
+    def _samples(monitor):
+        return [
+            call.kwargs
+            for call in monitor.event_bus.emit_event.call_args_list
+            if call.args and call.args[0] == "grid_power_sample"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_consumption_minus_production_in_watt(self, grid_monitor):
+        await grid_monitor._setup_grid_listeners(TEST_NOW)
+
+        await grid_monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "1500", {"phase": 1}
+        )
+        await grid_monitor._handle_grid_production_change(
+            "sensor.prod_l1", "state", "0", "300", {"phase": 1}
+        )
+
+        assert self._samples(grid_monitor) == [
+            {"phase": 1, "net_power_w": 1500},
+            {"phase": 1, "net_power_w": 1200},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_export_is_negative_and_phases_are_kept_apart(self, grid_monitor):
+        await grid_monitor._setup_grid_listeners(TEST_NOW)
+
+        await grid_monitor._handle_grid_production_change(
+            "sensor.prod_l2", "state", "0", "2000", {"phase": 2}
+        )
+
+        assert self._samples(grid_monitor) == [{"phase": 2, "net_power_w": -2000}]
+
+    @pytest.mark.asyncio
+    async def test_an_unreadable_state_publishes_nothing(self, grid_monitor):
+        await grid_monitor._setup_grid_listeners(TEST_NOW)
+
+        await grid_monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "unavailable", {"phase": 1}
+        )
+
+        assert self._samples(grid_monitor) == []
+
+
+class TestLatePowerScale:
+    """A grid or PV entity that does not exist yet when the listeners are set
+    up (an emulator, a slow integration) must not be read as kW for the rest
+    of the session: its unit is decided at its first value."""
+
+    @pytest.fixture
+    def late_hass(self, hass):
+        present = {"exists": False}
+
+        async def get_state(entity_id, attribute=None, **_):
+            if entity_id.startswith("sensor."):
+                if not present["exists"]:
+                    return None
+                return "W" if attribute == "unit_of_measurement" else "1500"
+            return "Automatic"
+
+        hass.get_state = AsyncMock(side_effect=get_state)
+        hass.present = present
+        return hass
+
+    @pytest.mark.asyncio
+    async def test_grid_unit_is_read_at_the_first_value(self, monitor, late_hass):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+        await monitor._setup_grid_listeners(TEST_NOW)
+        assert monitor._grid_consumption_scales[1] is None
+
+        late_hass.present["exists"] = True
+        await monitor._handle_grid_consumption_change(
+            "sensor.cons_l1", "state", "0", "1500", {"phase": 1}
+        )
+
+        assert monitor._grid_consumption_scales[1] == 0.001
+        assert monitor._grid_consumption_trackers[1].current_power == 1.5
+
+    @pytest.mark.asyncio
+    async def test_pv_unit_is_read_at_the_first_value(self, monitor, late_hass):
+        monitor._pv_trackers = {}
+        c.SOLAR_PANELS = [{"id": "sp_1", "power_entity_id": "sensor.pv_1"}]
+        await monitor._setup_pv_listeners(TEST_NOW)
+        assert monitor._pv_scales["sp_1"] is None
+
+        late_hass.present["exists"] = True
+        await monitor._handle_pv_power_change(
+            "sensor.pv_1", "state", "0", "2000", {"panel_id": "sp_1"}
+        )
+
+        assert monitor._pv_scales["sp_1"] == 0.001
+        assert monitor._pv_trackers["sp_1"].current_power == 2.0
+
+    @pytest.mark.asyncio
+    async def test_an_existing_entity_without_a_unit_still_counts_as_kw(
+        self, monitor, hass
+    ):
+        hass.get_state = AsyncMock(return_value="3")  # a state, no unit
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1"]
+        c.GRID_PRODUCTION_ENTITIES = []
+
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        assert monitor._grid_consumption_scales[1] == 1.0

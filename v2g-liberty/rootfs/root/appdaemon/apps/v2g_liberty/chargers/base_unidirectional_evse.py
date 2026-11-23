@@ -42,6 +42,17 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     # read it without hasattr.
     IDENTIFIES_CAR: bool = False
 
+    @property
+    def min_charge_power_w(self) -> int:
+        """The smallest power above 0 W this charger charges at, in W.
+
+        Between 0 W and this value lies the charger's dead zone: a setpoint
+        there is not followed as given (the Quasar accepts nothing under 6 A,
+        the BiDiPro raises it to its charge floor). The fuse guard rounds a
+        limit that lands there to 0 W. 0 when the driver knows no minimum.
+        """
+        return 0
+
     def __init__(self):
         super().__init__()
         # Each driver replaces this with a logger carrying its own module name.

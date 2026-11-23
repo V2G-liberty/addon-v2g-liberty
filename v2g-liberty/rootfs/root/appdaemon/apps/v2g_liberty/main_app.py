@@ -114,6 +114,9 @@ class V2Gliberty:
     fm_client_app: object = None
     reservations_client: object = None
     pause_at_reconnect: object = None
+    # The fuse guard bounds every power that goes to the driver (see
+    # grid_connection/fuse_guard.py); None in tests that do not care.
+    fuse_guard: object = None
     notifier: Notifier = None
     event_bus: EventBus = None
     hass: Hass = None
@@ -213,6 +216,14 @@ class V2Gliberty:
         self.event_bus.add_event_listener(
             "discharge_refused", self.__handle_discharge_refused
         )
+        self.event_bus.add_event_listener(
+            "fuse_guard_limit_change", self.__handle_fuse_guard_limit_change
+        )
+        # The power the schedule, a boost or the user last asked for, before
+        # the fuse guard's clip, and what actually went to the driver. When
+        # the guard moves a limit the request is re-applied within it.
+        self.requested_power_w = None
+        self.last_sent_power_w = None
         self.discharge_refusal_timer_handle = None
         # Which refusal the user has already been notified about, so a
         # condition that comes and goes does not notify on every flip.
@@ -778,6 +789,9 @@ class V2Gliberty:
 
         # Just to be sure, this also is done when disconnect ir requested
         self.in_boost_to_reach_min_soc = False
+        # No car, nothing for the fuse guard to re-apply.
+        self.requested_power_w = None
+        self.last_sent_power_w = None
 
         # There might be a notification to ask the user to dismiss an event or not,
         # if the car gets disconnected this notification can be removed.
@@ -1441,6 +1455,9 @@ class V2Gliberty:
                 "Stop charging (if in action) and give control based on charge_mode = Stop"
             )
             self.in_boost_to_reach_min_soc = False
+            # Nothing outstanding for the fuse guard to re-apply on Stop.
+            self.requested_power_w = None
+            self.last_sent_power_w = None
             await self.evse_client_app.set_inactive()
             # For monitoring
             await self.hass.set_state(
@@ -1522,6 +1539,8 @@ class V2Gliberty:
         # reactivating this mode when car does not get disconnected.
         # This also is set when car is actually disconnected
         self.in_boost_to_reach_min_soc = False
+        self.requested_power_w = None
+        self.last_sent_power_w = None
 
         await self.evse_client_app.stop_charging()
         # Control is not given to user, this is only relevant if charge_mode is "Off" (stop).
@@ -1897,14 +1916,48 @@ class V2Gliberty:
         source = kwargs.get("source", "unknown source")
         self.__log(f"Charger power {charge_power_in_watt}W requested by {source}.")
 
-        await self.evse_client_app.start_charge_with_power(
-            charge_power=charge_power_in_watt,
-            source=source,
-        )
+        # Remembered unclipped: a wider fuse guard limit re-applies it in full.
+        self.requested_power_w = charge_power_in_watt
+        await self.__send_charge_power(charge_power_in_watt, source)
         # For monitoring
         await self.hass.set_state(
             "sensor.current_scheduled_charging_power",
             state=charge_power,
+        )
+
+    async def __send_charge_power(self, power_w: int, source: str):
+        """Hand a power to the driver, bounded by the fuse guard."""
+        allowed_w = power_w
+        if self.fuse_guard is not None:
+            result = await self.fuse_guard.clip(power_w, source=source)
+            allowed_w = result.allowed_w
+        self.last_sent_power_w = allowed_w
+        await self.evse_client_app.start_charge_with_power(
+            charge_power=allowed_w,
+            source=source,
+        )
+
+    async def __handle_fuse_guard_limit_change(
+        self, charge_limit_w, discharge_limit_w, phase=None, reason=""
+    ):
+        """The fuse guard moved a limit: re-apply the outstanding request
+        within the new bound. The driver skips a setpoint it already holds,
+        so this sends the clipped value, and only when it differs from what
+        went out last."""
+        if self.requested_power_w is None or self.fuse_guard is None:
+            return
+        requested = self.requested_power_w
+        source = f"fuse guard: {reason}"
+        result = await self.fuse_guard.clip(requested, source=source)
+        if result.allowed_w == self.last_sent_power_w:
+            return
+        self.__log(
+            f"Fuse guard limit changed ({reason}): re-applying {requested} W "
+            f"as {result.allowed_w} W."
+        )
+        self.last_sent_power_w = result.allowed_w
+        await self.evse_client_app.start_charge_with_power(
+            charge_power=result.allowed_w, source=source
         )
 
     async def __start_max_discharge_now(self):

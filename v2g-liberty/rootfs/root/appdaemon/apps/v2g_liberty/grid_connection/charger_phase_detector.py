@@ -5,10 +5,16 @@ grid consumption entities respond, to determine the charger's phase.
 
 The algorithm:
 1. Baseline: snapshot of grid consumption (instant, single get_state read)
-2. Charge test: charge at minimum power, poll every 5 sec until a clear
+2. Charge test: charge at the test power, poll every 5 sec until a clear
    result is found or max 2 min timeout. Charger may take time to ramp up.
 3. Discharge test (bidi only): same approach as charge test
 4. Determine result: the phase(s) closest to the expected power change win
+
+The test power is the configured maximum charge power (v2g_globals passes
+it), so the change on the meter is unmistakable; it is not a low-power test.
+The detector commands the charger directly, not through the fuse guard:
+while the phase is unknown the guard has nothing to go on, and on a
+re-detection it would reason with the very phase that is in question.
 
 Results are stored via the provided save callback and reported via HA events.
 """
@@ -43,7 +49,8 @@ class ChargerPhaseDetector:
             evse_client: EVSE client (start_charge_with_power, stop_charging, etc.)
             log: logging callable
             grid_entities: list of consumption entity IDs (1 or 3)
-            charge_power_w: minimum charge power in watts (e.g. 1380)
+            charge_power_w: the test power in watts; v2g_globals passes the
+                configured maximum charge power (see the module docstring)
         """
         self._hass = hass
         self._evse = evse_client

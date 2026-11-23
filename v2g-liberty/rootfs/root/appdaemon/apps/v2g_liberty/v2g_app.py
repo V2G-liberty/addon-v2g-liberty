@@ -14,6 +14,7 @@ from .fm_client import FMClient
 from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
+from .grid_connection.fuse_guard import FuseGuard
 from .fm_data_sender import FMDataSender
 from .api_server import ApiServer
 from .data_repairer import DataRepairer
@@ -93,6 +94,16 @@ class V2GLibertyApp(Hass):
         self._log_init_time("DataMonitor", start_module)
 
         start_module = datetime.now()
+        # The driver is looked up late: v2g_globals replaces it on a
+        # charger-type change, and the guard asks it for its minimum power.
+        fuse_guard = FuseGuard(
+            self,
+            event_bus=event_bus,
+            get_evse_client=lambda: v2g_globals.evse_client_app,
+        )
+        self._log_init_time("FuseGuard", start_module)
+
+        start_module = datetime.now()
         fm_data_sender = FMDataSender(self)
         self._log_init_time("FMDataSender", start_module)
 
@@ -136,6 +147,7 @@ class V2GLibertyApp(Hass):
         evse_client.v2g_main_app = main_app
         main_app.evse_client_app = evse_client
         main_app.pause_at_reconnect = pause_at_reconnect
+        main_app.fuse_guard = fuse_guard
         main_app.electric_vehicle = electric_vehicle
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
@@ -245,6 +257,10 @@ class V2GLibertyApp(Hass):
         # DataMonitor and FMDataSender must be initialised before
         # kick_off_v2g_liberty, because set_active() emits the initial
         # soc_change event that DataMonitor needs to catch.
+        # Before the data monitor, whose grid listeners feed it samples; after
+        # kick_off_settings, so it reads the real grid and charger constants.
+        await fuse_guard.initialize()
+
         start_module = datetime.now()
         await data_monitor.initialize()
         self._log_init_time("data_monitor()", start_module)

@@ -394,6 +394,20 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         self._log(f"Returning max. power: {self.DEFAULT_HARDWARE_POWER_LIMIT_W}.")
         return True, self.DEFAULT_HARDWARE_POWER_LIMIT_W
 
+    @property
+    def min_charge_power_w(self) -> int:
+        """The station's charge floor (X+38) while the accept window is
+        known and sane, as _clamp_to_charge_window reads it; else 0. No
+        discharge minimum is known for the station, so that one stays at
+        the base class's 0."""
+        upper = self._MCE_UPPER_LIMIT.current_value
+        lower = self._MCE_LOWER_LIMIT.current_value
+        if not isinstance(upper, (int, float)) or upper <= 0:
+            return 0
+        if isinstance(lower, (int, float)) and 0 < lower <= upper:
+            return int(lower)
+        return 0
+
     async def start_charge_with_power(self, charge_power: int, source: str = "unknown"):
         """Start a charge session with a given power in Watt (negative = discharge).
         To be called from the v2g-liberty module.
