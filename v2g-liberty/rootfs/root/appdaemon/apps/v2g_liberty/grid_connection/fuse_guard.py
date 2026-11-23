@@ -37,6 +37,14 @@ driver's next poll has not reported (a ramp-up would look like a jump in
 household load), or may still carry the old power after a clip (the rest
 would look like household load and clip a second time, to 0 W).
 
+A limit that lands under the charger's minimum power is rounded to 0 W, in
+both directions. The Quasar accepts nothing under 6 A and the BiDiPro raises
+a request to its charge floor, so such a limit would be a setpoint the
+charger cannot follow: it rounds up, the phase stays overloaded, and the
+guard, whose headroom now equals its own limit, sees nothing left to lower.
+The minimum comes from the driver (``min_charge_power_w`` and
+``min_discharge_power_w``, 0 when it knows none).
+
 Without a meter sample, none yet after a start or none for ``STALE_AFTER_S``,
 the guard cannot see the household. The limits then fall back to the blind
 bound: ``BLIND_SHARE`` of the capacity of the charger's phase(s), at most the
@@ -140,9 +148,19 @@ class _Headroom:
 class FuseGuard:
     """See the module docstring."""
 
-    def __init__(self, hass, event_bus, now: Callable[[], datetime] | None = None):
+    def __init__(
+        self,
+        hass,
+        event_bus,
+        now: Callable[[], datetime] | None = None,
+        get_evse_client: Callable[[], object] | None = None,
+    ):
+        """``get_evse_client`` returns the current charger driver, late-bound
+        because a charger-type change replaces it. None (tests) means no
+        minimum power is known."""
         self.hass = hass
         self.event_bus = event_bus
+        self._get_evse_client = get_evse_client
         if now is None:
             # Late import: v2g_globals imports from this package.
             from ..v2g_globals import get_local_now  # pylint: disable=import-outside-toplevel
@@ -238,14 +256,36 @@ class FuseGuard:
         phases = len(self.charger_phases() or [1])
         return min(maximum, int(self.capacity_per_phase_w() * phases * BLIND_SHARE))
 
+    def _min_w(self, direction: str) -> int:
+        """The smallest power above 0 W the charger follows in this
+        direction, from the driver; 0 without a driver or a known minimum."""
+        evse = self._get_evse_client() if self._get_evse_client is not None else None
+        if evse is None:
+            return 0
+        name = "min_charge_power_w" if direction == CHARGE else "min_discharge_power_w"
+        value = getattr(evse, name, 0)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return 0
+        return max(0, int(value))
+
+    def _usable(self, direction: str, limit_w: int) -> int:
+        """A limit in the charger's dead zone, above 0 W but under its
+        minimum, becomes 0 W (see the module docstring)."""
+        if 0 < limit_w < self._min_w(direction):
+            return 0
+        return limit_w
+
     def limit_w(self, direction: str) -> int:
         """The standing limit as a magnitude, never above the configured
-        maximum; without a meter sample the blind bound."""
+        maximum; without a meter sample the blind bound. Never in the
+        charger's dead zone."""
         maximum = self._configured_max_w(direction)
         standing = self._limit[direction]
         if standing is None:
-            return self._blind_bound_w(direction) if self._stale else maximum
-        return min(standing, maximum)
+            bound = self._blind_bound_w(direction) if self._stale else maximum
+        else:
+            bound = min(standing, maximum)
+        return self._usable(direction, bound)
 
     @property
     def charge_limit_w(self) -> int:
@@ -281,7 +321,7 @@ class FuseGuard:
             room = self._headroom(now)
             room_w = room.charge_w if direction == CHARGE else room.discharge_w
             if room_w is not None and room_w < bound:
-                bound = max(0, room_w)
+                bound = self._usable(direction, max(0, room_w))
                 phase = (
                     room.charge_phase if direction == CHARGE else room.discharge_phase
                 )
@@ -295,12 +335,13 @@ class FuseGuard:
         elif self.is_active() and requested_w != 0:
             # No meter sample: the blind bound applies. Say so once per period.
             direction = CHARGE if requested_w > 0 else DISCHARGE
-            bound = self._blind_bound_w(direction)
+            bound = self.limit_w(direction)
             if not self._stale_warned:
                 self._stale_warned = True
                 self._log(
                     f"No grid samples; the fuse guard bounds the charger to "
-                    f"{bound} W ({BLIND_SHARE:.0%} of the capacity of its phases).",
+                    f"{bound} W (at most {BLIND_SHARE:.0%} of the capacity of its "
+                    "phases).",
                     level="WARNING",
                 )
             if abs(requested_w) > bound:
@@ -410,6 +451,10 @@ class FuseGuard:
         return reason
 
     def _headroom(self, now: datetime) -> _Headroom:
+        """The charger is taken to spread its power equally over its phases
+        (true for the BiDiPro, the only multi-phase charger so far), so each
+        phase carries 1/n of it and the whole-charger bound is n times the
+        room on the tightest phase."""
         phases = self.charger_phases() or []
         cap = self.capacity_per_phase_w()
         charger_w = self._charger_power_w(now)
@@ -450,8 +495,11 @@ class FuseGuard:
         return self._measured_w
 
     def _set_limit(self, direction: str, room_w: int, phase: int | None, now) -> bool:
-        """Lower a standing limit to the headroom. Returns True on a change."""
-        new = max(0, min(room_w, self._configured_max_w(direction)))
+        """Lower a standing limit to the headroom, or to 0 W when the headroom
+        is in the charger's dead zone. Returns True on a change."""
+        new = self._usable(
+            direction, max(0, min(room_w, self._configured_max_w(direction)))
+        )
         current = self.limit_w(direction)
         if new >= current:
             return False
@@ -475,8 +523,9 @@ class FuseGuard:
         current = self.limit_w(direction)
         step = self._step_w()
         # Come back to one ampere per phase under the capacity, not onto it:
-        # the next flicker of the household would be an overload again.
-        target = min(room_w - step, maximum)
+        # the next flicker of the household would be an overload again. A
+        # target in the charger's dead zone is 0 W, so the limit waits there.
+        target = self._usable(direction, min(room_w - step, maximum))
         enough = target >= maximum or target - current >= step
         if target <= current or not enough:
             self._restore_since[direction] = None

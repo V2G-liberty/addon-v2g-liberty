@@ -15,6 +15,12 @@ class BidirectionalEVSE(UnidirectionalEVSE, ABC):
 
     # Provided by the concrete driver: DISCHARGING_STATE, _am_i_active.
 
+    @property
+    def min_discharge_power_w(self) -> int:
+        """The smallest power above 0 W this charger discharges at, as a
+        magnitude in W; see min_charge_power_w. 0 when no minimum is known."""
+        return 0
+
     async def is_discharging(self) -> bool:
         """Indicates if currently the connected car is discharging (not charging)"""
         if not self._am_i_active:

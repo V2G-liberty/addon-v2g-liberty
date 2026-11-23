@@ -405,6 +405,16 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         self._log(f"Returning max. power: {max_available_power_by_charger}.")
         return True, max_available_power_by_charger
 
+    @property
+    def min_charge_power_w(self) -> int:
+        """The Quasar is set in whole amperes from 6 A up, in both directions
+        (CHARGE_POWER_LOWER_LIMIT)."""
+        return self.CHARGE_POWER_LOWER_LIMIT
+
+    @property
+    def min_discharge_power_w(self) -> int:
+        return self.CHARGE_POWER_LOWER_LIMIT
+
     async def start_charge_with_power(self, charge_power: int, source: str = "unknown"):
         """Function to start a charge session with a given power in Watt.
            To be called from v2g-liberty module.

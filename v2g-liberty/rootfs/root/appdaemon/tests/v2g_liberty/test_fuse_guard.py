@@ -11,6 +11,7 @@ injected, so nothing here waits.
 """
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -72,13 +73,30 @@ def three_phase(monkeypatch):
     monkeypatch.setattr(c, "CHARGER_MAX_DISCHARGE_POWER", MAX, raising=False)
 
 
-@pytest.fixture
-def guard(clock):
+def _make_guard(clock, get_evse_client=None):
     hass = AsyncMock()
     hass.set_state = AsyncMock()
     hass.run_every = AsyncMock(return_value="tick-handle")
     bus = MagicMock()
-    return FuseGuard(hass, bus, now=clock)
+    return FuseGuard(hass, bus, now=clock, get_evse_client=get_evse_client)
+
+
+@pytest.fixture
+def guard(clock):
+    """A guard whose driver knows no minimum power: limits land anywhere."""
+    return _make_guard(clock)
+
+
+QUASAR_MIN_W = 1380  # 6 A, the Quasar's smallest setting in either direction
+
+
+@pytest.fixture
+def quasar_guard(clock):
+    """A guard with a Quasar behind it: nothing between 0 W and 6 A."""
+    driver = SimpleNamespace(
+        min_charge_power_w=QUASAR_MIN_W, min_discharge_power_w=QUASAR_MIN_W
+    )
+    return _make_guard(clock, get_evse_client=lambda: driver)
 
 
 def _events(guard, name="fuse_guard_limit_change"):
@@ -482,6 +500,98 @@ async def test_the_step_is_one_ampere_on_every_charger_phase(
 
     await _sample(guard, clock, net_w=6300, phase=3)  # 900 W less headroom
     assert guard.charge_limit_w == (CAP - 3300) * 3
+
+
+# ── The charger's dead zone ──────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_clip_that_lands_in_the_dead_zone_goes_to_zero(
+    quasar_guard, clock, one_phase
+):
+    """Headroom 600 W on a charger that does nothing under 1380 W: written
+    as 600 W the Quasar would round up to 6 A, the phase would stay over
+    capacity and the guard, whose headroom then equals its own limit,
+    would never lower again. Stopping is the honest answer."""
+    await _sample(quasar_guard, clock, net_w=CAP - 600)  # household, car idle
+
+    result = await quasar_guard.clip(MAX, source="schedule")
+
+    assert result.allowed_w == 0
+    assert result.phase == 1
+    assert quasar_guard.charge_limit_w == 0
+    assert _sensor(quasar_guard)[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_discharge_clip_in_the_dead_zone_goes_to_zero_too(
+    quasar_guard, clock, one_phase
+):
+    await _sample(quasar_guard, clock, net_w=-(CAP - 600))  # PV exports
+
+    result = await quasar_guard.clip(-MAX)
+
+    assert result.allowed_w == 0
+    assert quasar_guard.discharge_limit_w == 0
+
+
+@pytest.mark.asyncio
+async def test_an_overload_lowers_through_the_dead_zone_to_zero(
+    quasar_guard, clock, one_phase
+):
+    quasar_guard._on_charge_power_change(QUASAR_MIN_W)  # charging at 6 A
+    await _sample(quasar_guard, clock, net_w=CAP + 780)  # household 5150 W
+
+    assert quasar_guard.charge_limit_w == 0
+    (event,) = _events(quasar_guard)
+    assert event["charge_limit_w"] == 0
+
+
+@pytest.mark.asyncio
+async def test_without_a_known_minimum_the_limit_lands_on_the_headroom(
+    guard, clock, one_phase
+):
+    """No driver, no minimum: the same overload leaves a 600 W limit."""
+    guard._on_charge_power_change(QUASAR_MIN_W)
+    await _sample(guard, clock, net_w=CAP + 780)
+
+    assert guard.charge_limit_w == 600
+
+
+@pytest.mark.asyncio
+async def test_a_restore_does_not_stop_in_the_dead_zone(quasar_guard, clock, one_phase):
+    quasar_guard._on_charge_power_change(QUASAR_MIN_W)
+    await _sample(quasar_guard, clock, net_w=CAP + 780)
+    assert quasar_guard.charge_limit_w == 0
+    quasar_guard._on_charge_power_change(0)  # the car stopped
+    clock.tick(fg.COOLDOWN_S)
+    quasar_guard.event_bus.emit_event.reset_mock()
+
+    # Household 4300 W: headroom 1450 W, one ampere under it is 1220 W,
+    # under 6 A. The limit stays at 0 W rather than land there.
+    for _ in range(fg.RESTORE_DELAY_S + 2):
+        await _sample(quasar_guard, clock, net_w=4300)
+    assert quasar_guard.charge_limit_w == 0
+    assert _events(quasar_guard) == []
+
+    # Household 4000 W: headroom 1750 W, so 1520 W is a setting the Quasar
+    # can follow.
+    for _ in range(fg.RESTORE_DELAY_S + 1):
+        await _sample(quasar_guard, clock, net_w=4000)
+    assert quasar_guard.charge_limit_w == 1750 - fg.HYSTERESIS_W
+
+
+@pytest.mark.asyncio
+async def test_a_blind_bound_in_the_dead_zone_is_zero(
+    quasar_guard, one_phase, monkeypatch
+):
+    """A 6 A phase: 70 % of it is 966 W, under the Quasar's 6 A."""
+    monkeypatch.setattr(c, "GRID_CAPACITY_PER_PHASE", 6, raising=False)
+
+    result = await quasar_guard.clip(MAX)
+
+    assert result.allowed_w == 0
+    assert quasar_guard.charge_limit_w == 0
 
 
 # ── Stale meter ──────────────────────────────────────────────────────────

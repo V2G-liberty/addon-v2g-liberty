@@ -94,7 +94,13 @@ class V2GLibertyApp(Hass):
         self._log_init_time("DataMonitor", start_module)
 
         start_module = datetime.now()
-        fuse_guard = FuseGuard(self, event_bus=event_bus)
+        # The driver is looked up late: v2g_globals replaces it on a
+        # charger-type change, and the guard asks it for its minimum power.
+        fuse_guard = FuseGuard(
+            self,
+            event_bus=event_bus,
+            get_evse_client=lambda: v2g_globals.evse_client_app,
+        )
         self._log_init_time("FuseGuard", start_module)
 
         start_module = datetime.now()
