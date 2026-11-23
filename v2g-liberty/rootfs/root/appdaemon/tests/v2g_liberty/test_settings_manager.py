@@ -919,6 +919,87 @@ class TestUpgradeLoadBalancerJson:
         assert upgraded["input_text.charger_host_url"] == "quasar-mock"
         assert upgraded["load_balancer_json_import"]["charger_host_restored"] is False
 
+    def test_a_proxy_on_its_own_port_is_still_the_proxy(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        """The proxy listened where its JSON said, not only on 5020."""
+        saved = {**_PROXIED, "input_number.charger_port": "5021"}
+
+        upgraded = _upgrade_lb(
+            settings_manager, saved, {**_LB_JSON, "port": 5021}, tmp_path, monkeypatch
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["input_number.charger_port"] == "502"
+
+    def test_a_proxy_on_its_own_host_is_still_the_proxy(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        saved = {**_PROXIED, "input_text.charger_host_url": "192.168.2.10"}
+
+        upgraded = _upgrade_lb(
+            settings_manager,
+            saved,
+            {**_LB_JSON, "host": "192.168.2.10"},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+
+    def test_a_null_charger_address_is_not_restored(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        """A null quasar_host must not become the host "None"."""
+        upgraded = _upgrade_lb(
+            settings_manager,
+            _PROXIED,
+            {**_LB_JSON, "quasar_host": None},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "127.0.0.1"
+        assert upgraded["load_balancer_json_import"]["charger_host_restored"] is False
+        errors = [
+            c.args[0]
+            for c in log_mock.call_args_list
+            if c.kwargs.get("level") == "ERROR"
+        ]
+        assert len(errors) == 1 and "127.0.0.1:5020" in errors[0]
+
+    @pytest.mark.parametrize("bad_port", [None, "abc", 0, 70000])
+    def test_an_unusable_charger_port_falls_back_to_502(
+        self, settings_manager, tmp_path, monkeypatch, bad_port
+    ):
+        upgraded = _upgrade_lb(
+            settings_manager,
+            _PROXIED,
+            {**_LB_JSON, "quasar_port": bad_port},
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+        assert upgraded["input_number.charger_port"] == "502"
+
+    def test_the_log_names_the_phase_sensor_and_limit_the_proxy_used(
+        self, settings_manager, log_mock, tmp_path, monkeypatch
+    ):
+        """Automatically taking the sensor over would be wrong (one phase,
+        sign convention unknown), but naming it saves the user a search."""
+        _upgrade_lb(settings_manager, _PROXIED, _LB_JSON, tmp_path, monkeypatch)
+
+        warnings = [
+            c.args[0]
+            for c in log_mock.call_args_list
+            if c.kwargs.get("level") == "WARNING"
+        ]
+        lead = [w for w in warnings if "sensor.sdm_phase_2_power" in w]
+        assert len(lead) == 1
+        assert "5750 W (25 A)" in lead[0]
+        assert "grid connection settings" in lead[0]
+
     def test_without_the_file_nothing_happens(
         self, settings_manager, log_mock, tmp_path, monkeypatch
     ):
