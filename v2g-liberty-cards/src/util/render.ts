@@ -14,6 +14,15 @@ export function isNewHaDialogAPI(hass: HomeAssistant): boolean {
   return year > 2026 || (year === 2026 && month >= 3);
 }
 
+/**
+ * Whether the fuse guard is limiting the charger. Its sensor is unavailable
+ * while the guard is not active: no grid connection set up, or a 3-phase one
+ * without the charger phase. A backend without the sensor counts as inactive.
+ */
+export function isFuseGuardActive(limit: HassEntity | undefined): boolean {
+  return !!limit && limit.state !== 'unavailable' && limit.state !== 'unknown';
+}
+
 function _haDialogFooterSlot(hass: HomeAssistant): string {
   return isNewHaDialogAPI(hass) ? 'footer' : null;
 }

@@ -275,6 +275,7 @@
       "connected-since": "Verbonden, laatste contact %{time} geleden",
       "max-power-description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
       "grid-limit": "V2G Liberty houdt het (ont)laadvermogen per fase binnen de capaciteit van je netaansluiting, zoals ingesteld bij Netaansluiting.",
+      "grid-limit-inactive": "V2G Liberty houdt het (ont)laadvermogen pas binnen de capaciteit van je netaansluiting als de netaansluiting en de laderfase zijn ingesteld. Tot die tijd begrenst alleen het maximale (ont)laadvermogen de lader.",
       "reduce-max-power-description": "Beperk het maximale laad- en ontlaadvermogen.",
       "2-connection-details": {
         "header": "verbindingsinstellingen",

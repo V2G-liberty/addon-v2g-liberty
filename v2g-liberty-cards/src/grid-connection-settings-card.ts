@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 import { HassEvent } from 'home-assistant-js-websocket';
 
-import { renderButton, renderLoadFailedCard } from './util/render';
+import { renderButton, renderLoadFailedCard, isFuseGuardActive } from './util/render';
 import { styles } from './card.styles';
 import { callFunction, SETTINGS_LOAD_TIMEOUT_MS } from './util/appdaemon';
 import { showGridConnectionSettingsDialog } from './show-dialogs';
@@ -219,7 +219,7 @@ export class GridConnectionSettingsCard extends LitElement {
   // says so already, so this line then says nothing.
   private _renderPowerLimit() {
     const limit = this._hass.states[entityIds.fuseGuardLimit];
-    if (!limit || limit.state === 'unavailable' || limit.state === 'unknown') {
+    if (!isFuseGuardActive(limit)) {
       return nothing;
     }
     const attrs = limit.attributes as {

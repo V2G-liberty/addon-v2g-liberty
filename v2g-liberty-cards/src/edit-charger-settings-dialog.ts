@@ -4,6 +4,7 @@ import { HassEvent } from 'home-assistant-js-websocket';
 
 import { callFunction } from './util/appdaemon';
 import {
+  isFuseGuardActive,
   renderSpinner,
   renderButton,
   InputText,
@@ -425,6 +426,15 @@ class EditChargerSettingsDialog extends DialogBase {
 
   // ── Step 3: power details ────────────────────────────────────────────
 
+  // Same rule as the charger card: only an active fuse guard earns the
+  // promise, and the "no margin needed" advice goes with it.
+  private _renderGridLimit() {
+    if (isFuseGuardActive(this.hass.states[entityIds.fuseGuardLimit])) {
+      return html`<p>${tp('grid-limit')} ${tp('3-power-details.no-fuse-margin')}</p>`;
+    }
+    return html`<ha-alert alert-type="warning">${tp('grid-limit-inactive')}</ha-alert>`;
+  }
+
   private _renderPowerDetails() {
     const description = tp('3-power-details.description', {
       value: this._maxAvailablePower,
@@ -443,7 +453,7 @@ class EditChargerSettingsDialog extends DialogBase {
         evt => (this._useReducedMaxPower = evt.target.checked ? 'on' : 'off')
       )}
       ${isUsingReducedMaxPower ? this._renderReducedMaxPower() : nothing}
-      <p>${tp('grid-limit')} ${tp('3-power-details.no-fuse-margin')}</p>
+      ${this._renderGridLimit()}
       ${renderButton(
         this.hass,
         this._goBackToConnectionDetails,

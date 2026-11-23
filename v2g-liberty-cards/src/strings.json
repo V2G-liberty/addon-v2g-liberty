@@ -430,6 +430,7 @@
       "connected-since": "Connected, last contact %{time} ago",
       "max-power-description": "The charger is configured to (dis)charge at max. **%{value}** W.",
       "grid-limit": "V2G Liberty keeps the (dis)charge power per phase within the capacity of your grid connection, as set under Grid connection.",
+      "grid-limit-inactive": "V2G Liberty keeps the (dis)charge power within the capacity of your grid connection only once the grid connection and the charger phase are set. Until then, only the maximum (dis)charge power limits the charger.",
       "reduce-max-power-description": "Reduce max. (dis)charge power.",
       "2-connection-details": {
         "header": "connection settings",

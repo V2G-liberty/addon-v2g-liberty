@@ -16,7 +16,7 @@
 
 ### Changed
 
-- 🛠️ Changed: Cards show the grid connection's power limit, not load balancer advice (#527)
+- 🛠️ Cards show the grid connection's power limit, not load balancer advice (#527)
 
 ## 0.9.0 2026-10-13
 
