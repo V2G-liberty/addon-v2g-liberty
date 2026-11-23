@@ -13,7 +13,8 @@ Tests cover:
 - DataStore: get_intervals_since filters correctly
 """
 
-from datetime import datetime, timedelta, timezone
+import asyncio
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -529,11 +530,72 @@ class TestInitialize:
         data_store.set_fm_last_sent.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_schedules_hourly_task(self, sender, hass):
+    async def test_schedules_a_run_every_five_minutes(self, sender, hass):
         await sender.initialize()
         hass.run_every.assert_called_once()
         call_args = hass.run_every.call_args
-        assert call_args.args[2] == 3600  # interval in seconds
+        assert call_args.args[2] == 5 * 60  # interval in seconds
+        assert call_args.args[1] > datetime.now(UTC)
+
+    @pytest.mark.parametrize(
+        "now, first",
+        [
+            # Shortly before a boundary: right after that boundary.
+            (datetime(2026, 2, 23, 12, 4, 50, tzinfo=UTC), (12, 5, 20)),
+            # Just after a boundary, the offset not yet passed: still this one.
+            (datetime(2026, 2, 23, 12, 5, 5, tzinfo=UTC), (12, 5, 20)),
+            # The offset is (nearly) upon us: the next boundary.
+            (datetime(2026, 2, 23, 12, 5, 16, tzinfo=UTC), (12, 10, 20)),
+            (datetime(2026, 2, 23, 12, 7, 30, tzinfo=UTC), (12, 10, 20)),
+            # On the boundary itself.
+            (datetime(2026, 2, 23, 12, 0, 0, tzinfo=UTC), (12, 0, 20)),
+        ],
+    )
+    def test_first_run_follows_the_next_five_minute_boundary(self, now, first):
+        """The data monitor concludes an interval on the boundary; the first
+        send comes 20 s later so that it already includes that interval."""
+        expected = now.replace(hour=first[0], minute=first[1], second=first[2])
+
+        assert FMDataSender._first_run(now) == expected
+
+
+class TestOverlappingRuns:
+    @pytest.mark.asyncio
+    async def test_a_run_still_busy_is_not_joined_by_the_next(self, sender):
+        """A long catch-up may outlast the five-minute interval; a second run
+        would read the same unsent rows and post them twice."""
+        release = asyncio.Event()
+
+        async def slow_charger_send():
+            await release.wait()
+
+        sender._send_charger_data = AsyncMock(side_effect=slow_charger_send)
+        sender._send_grid_data = AsyncMock()
+        sender._send_pv_data = AsyncMock()
+        sender._send_meter_data = AsyncMock()
+
+        first = asyncio.create_task(sender._send_unsent_data())
+        await asyncio.sleep(0)  # let the first run reach its await
+        await sender._send_unsent_data()  # second run: must return at once
+        assert sender._send_charger_data.await_count == 1
+        assert sender._send_grid_data.await_count == 0
+
+        release.set()
+        await first
+        assert sender._send_grid_data.await_count == 1
+        assert sender._sending is False
+
+    @pytest.mark.asyncio
+    async def test_the_guard_is_released_after_a_crash(self, sender):
+        sender._send_charger_data = AsyncMock(side_effect=RuntimeError("boom"))
+        sender._send_grid_data = AsyncMock()
+        sender._send_pv_data = AsyncMock()
+        sender._send_meter_data = AsyncMock()
+
+        await sender._send_unsent_data()
+
+        assert sender._sending is False
+        sender._send_grid_data.assert_awaited_once()
 
 
 # ──────────────────────────────────────────────────────────
