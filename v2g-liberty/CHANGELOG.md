@@ -8,7 +8,7 @@
 
 ### Fixed
 
-- 🪲 BUG: A grid or solar sensor that appears after start-up was read as kW for the rest of the session (#524)
+- 🪲 BUG: A grid or solar sensor that appeared after start-up was read as kW (#524)
 
 ### Removed
 
