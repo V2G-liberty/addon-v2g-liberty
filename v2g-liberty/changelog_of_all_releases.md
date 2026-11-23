@@ -11,11 +11,15 @@ That file also contains possible changes that the next release might include.
 
 ### Fixed
 
-- 🪲 BUG: A grid or solar sensor that appears after start-up was read as kW for the rest of the session (#524)
+- 🪲 BUG: A grid or solar sensor that appeared after start-up was read as kW (#524)
 
 ### Removed
 
 - 🛠️ The Modbus-proxy load balancer; proxy users: check the charger host (#525)
+
+### Changed
+
+- 🛠️ Cards show the grid connection's power limit, not load balancer advice (#527)
 
 ## 0.9.0 2026-10-13
 

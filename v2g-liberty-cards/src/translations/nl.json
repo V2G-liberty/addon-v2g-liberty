@@ -11,6 +11,9 @@
       "card": {
         "active-alert": "Actief · %{reporting} van %{total} sensoren rapporteren",
         "active-summary": "%{phase}, %{capacity} A per fase.",
+        "limit-none": "Geen vermogensbegrenzing actief.",
+        "limit-active": "Begrensd op L%{phase}: laden max. %{charge} W, ontladen max. %{discharge} W.",
+        "limit-blind": "Geen meterwaarden: laden max. %{charge} W, ontladen max. %{discharge} W tot ze er weer zijn.",
         "phase-1": "1-fase",
         "phase-3": "3-fase",
         "problem-title": "Een sensor heeft aandacht nodig",
@@ -271,16 +274,8 @@
       "connection-success": "Verbinding gelukt",
       "connected-since": "Verbonden, laatste contact %{time} geleden",
       "max-power-description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
-      "load-balancer": {
-        "enabled": {
-          "title": "Load balancer van V2G Liberty is ingeschakeld",
-          "info": "De load balancer van V2G Liberty staat aan.\n\n**Belangrijk**\nDeze module wordt geleverd zonder enige garantie. Gebruik op eigen risico.\n\nVraag een erkend installateur welk maximumvermogen je op de lader mag instellen.\n\n**Configuratie**\n\n- De hostnaam van de lader moet `127.0.0.1` zijn\n\n- Het poortnummer moet `5020` zijn\n\nMeer hierover staat in `readme.md` in de map `load_balancer`."
-        },
-        "not_enabled": {
-          "title": "Load balancer van V2G Liberty is niet ingeschakeld",
-          "info": "Een load balancer is aan te raden, maar niet verplicht. Hiermee kun je op de lader een hogere maximumstroom instellen terwijl het vermogen veilig blijft. Dat laadt efficiënter en levert meer op.\n\n_De load balancer van de Wallbox Quasar 1 werkt helaas niet goed samen met V2G&nbsp;Liberty; in `readme.md` in de map `load_balancer` staat een omweg._\n\nVraag een erkend installateur welk maximumvermogen je op de lader mag instellen."
-        }
-      },
+      "grid-limit": "V2G Liberty houdt het (ont)laadvermogen per fase binnen de capaciteit van je netaansluiting, zoals ingesteld bij Netaansluiting.",
+      "grid-limit-inactive": "V2G Liberty houdt het (ont)laadvermogen pas binnen de capaciteit van je netaansluiting als de netaansluiting en de laderfase zijn ingesteld. Tot die tijd begrenst alleen het maximale (ont)laadvermogen de lader.",
       "reduce-max-power-description": "Beperk het maximale laad- en ontlaadvermogen.",
       "2-connection-details": {
         "header": "verbindingsinstellingen",
@@ -293,6 +288,7 @@
       },
       "3-power-details": {
         "header": "vermogensinstellingen",
+        "no-fuse-margin": "Een marge voor de hoofdzekering hoef je hier niet in te stellen.",
         "description": "De lader is ingesteld op maximaal **%{value}** W laden en ontladen.",
         "reduce-max-power-description": "Hiermee beperk je het laad- en ontlaadvermogen verder, onder het maximum dat in de lader zelf is ingesteld.",
         "power-invalid": "Vul een heel aantal watt in.",

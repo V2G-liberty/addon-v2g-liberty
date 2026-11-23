@@ -46,9 +46,13 @@ export const chargerMaxChargingPower =
   'input_number.charger_max_charging_power';
 export const chargerMaxDischargingPower =
   'input_number.charger_max_discharging_power';
-export const quasarLoadBalancerLimit =
-  'sensor.quasar_loadbalancer_limit';
 export const chargerType = 'input_text.charger_type';
+
+// Grid connection
+// Written by the fuse guard: the charge limit in W, with the discharge limit,
+// the limiting phase and the meter state as attributes. Unavailable while
+// the guard is not active.
+export const fuseGuardLimit = 'sensor.fuse_guard_limit';
 
 // Electricity contract
 export const electricityContractSettingsInitialised =

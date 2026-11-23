@@ -6,33 +6,21 @@ import { ifDefined } from 'lit/directives/if-defined';
 
 import { t, to, partial } from '../util/translate';
 
-export function renderLoadbalancerInfo(loadbalancerEnabled: boolean) {
-  const tp = partial('settings.charger');
-  const title = loadbalancerEnabled
-    ? tp('load-balancer.enabled.title')
-    : tp('load-balancer.not_enabled.title');
-  const info = loadbalancerEnabled
-    ? tp('load-balancer.enabled.info')
-    : tp('load-balancer.not_enabled.info');
-  const type = loadbalancerEnabled ? "info" : "warning";
-
-  return html`
-    <ha-alert title="${title}" alert-type="${type}">
-      <ha-markdown breaks .content=${info}></ha-markdown>
-    </ha-alert>
-  `;
-}
-
-export function isLoadbalancerEnabled(quasarLoadBalancerLimit: string): boolean {
-  return !isNaN(parseInt(quasarLoadBalancerLimit, 10));
-}
-
 // HA 2026.3 migrated ha-dialog from MDC (mwc-dialog) to WebAwesome (wa-dialog).
 // The primaryAction/secondaryAction slots and TemplateResult .heading were removed.
 // New API: slot="footer" for buttons, .headerTitle string property for the title.
 export function isNewHaDialogAPI(hass: HomeAssistant): boolean {
   const [year, month] = hass.config.version.split('.').map(Number);
   return year > 2026 || (year === 2026 && month >= 3);
+}
+
+/**
+ * Whether the fuse guard is limiting the charger. Its sensor is unavailable
+ * while the guard is not active: no grid connection set up, or a 3-phase one
+ * without the charger phase. A backend without the sensor counts as inactive.
+ */
+export function isFuseGuardActive(limit: HassEntity | undefined): boolean {
+  return !!limit && limit.state !== 'unavailable' && limit.state !== 'unknown';
 }
 
 function _haDialogFooterSlot(hass: HomeAssistant): string {

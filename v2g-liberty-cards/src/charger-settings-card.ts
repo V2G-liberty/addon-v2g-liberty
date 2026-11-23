@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators';
 import { HassEntity, HassEvent } from 'home-assistant-js-websocket';
 import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 
-import { renderEntityBlock, renderEntityRow, renderSettingsRow, renderLoadbalancerInfo, isLoadbalancerEnabled, renderButton } from './util/render';
+import { renderEntityBlock, renderEntityRow, renderSettingsRow, renderButton, isFuseGuardActive } from './util/render';
 import { partial, setLanguage } from './util/translate';
 import { elapsedTimeSince } from './util/time';
 import { callFunction } from './util/appdaemon';
@@ -30,7 +30,7 @@ export class ChargerSettingsCard extends LitElement {
   @state() private _useReducedMaxPower: HassEntity;
   @state() private _chargerMaxChargingPower: HassEntity;
   @state() private _chargerMaxDischargingPower: HassEntity;
-  @state() private _loadBalancerLimit: HassEntity;
+  @state() private _fuseGuardLimit: HassEntity;
 
   // Charger phase (from JSON settings, not HA entity)
   @state() private _connectedToPhase: number | number[] | null = null;
@@ -65,7 +65,7 @@ export class ChargerSettingsCard extends LitElement {
       hass.states[entityIds.chargerMaxChargingPower];
     this._chargerMaxDischargingPower =
       hass.states[entityIds.chargerMaxDischargingPower];
-    this._loadBalancerLimit = hass.states[entityIds.quasarLoadBalancerLimit];
+    this._fuseGuardLimit = hass.states[entityIds.fuseGuardLimit];
   }
 
   render() {
@@ -97,7 +97,6 @@ export class ChargerSettingsCard extends LitElement {
 
   private _renderInitialisedContent() {
     const editCallback = () => showChargerSettingsDialog(this);
-    const _isLoadBalancerEnabled = isLoadbalancerEnabled(this._loadBalancerLimit.state)
     return html`
       <div class="card-content">
         ${this._renderChargerConnectionStatus()}
@@ -106,7 +105,7 @@ export class ChargerSettingsCard extends LitElement {
         ${renderEntityRow(this._chargerPort)}
         ${this._renderMaxChargeConfiguration()}
         ${this._renderChargerPhase()}
-        ${renderLoadbalancerInfo(_isLoadBalancerEnabled)}
+        ${this._renderGridLimit()}
       </div>
       <div class="card-actions">
         ${renderButton(
@@ -215,6 +214,16 @@ export class ChargerSettingsCard extends LitElement {
       'Connected to phase',
       phaseValue
     );
+  }
+
+  // Promise the grid connection's limit only while the fuse guard is active;
+  // until then nothing but the maximum (dis)charge power limits the charger,
+  // and the user should hear that rather than that a margin is not needed.
+  private _renderGridLimit() {
+    if (isFuseGuardActive(this._fuseGuardLimit)) {
+      return html`<p>${tp('grid-limit')}</p>`;
+    }
+    return html`<ha-alert alert-type="warning">${tp('grid-limit-inactive')}</ha-alert>`;
   }
 
   private _renderMaxChargeConfiguration() {
