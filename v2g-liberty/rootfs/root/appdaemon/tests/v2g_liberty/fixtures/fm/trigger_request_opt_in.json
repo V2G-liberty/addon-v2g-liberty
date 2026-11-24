@@ -7,11 +7,7 @@
     "relax-soc-constraints": true,
     "relax-capacity-constraints": true,
     "aggregate-consumption": {"sensor": 4712},
-    "aggregate-production": {"sensor": 4713},
-    "reference-sensor": {"sensor": 4711},
-    "response-order": [{"sensor": 65}],
-    "retrigger-on-band-exit": true,
-    "reference-at-start": "0.4 kW"
+    "aggregate-production": {"sensor": 4713}
   },
   "flex-model": [
     {
@@ -38,10 +34,7 @@
         {"consumption-range": ["0 W", "0 W"]},
         {"consumption-range": ["1400 W", "7400 W"]}
       ],
-      "response": {
-        "directions": ["consumption-up", "consumption-down", "production-up", "production-down"],
-        "response-time": "PT150S"
-      }
+      "react": true
     }
   ]
 }

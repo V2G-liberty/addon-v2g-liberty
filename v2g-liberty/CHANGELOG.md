@@ -6,7 +6,7 @@
 
 - 🚀 FEAT: Sign-aware fuse guard replaces the load balancer's power limiting (#524)
 - 🚀 FEAT: Measurements go to FlexMeasures every five minutes instead of hourly (#528)
-- 🚀 FEAT: Parse the per-slot recourse rules FlexMeasures may serve with a schedule
+- 🚀 FEAT: Parse the per-slot reaction rules FlexMeasures may serve with a schedule
 
 ### Fixed
 

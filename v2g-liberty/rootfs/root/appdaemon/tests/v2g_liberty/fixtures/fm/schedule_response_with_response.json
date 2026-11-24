@@ -4,10 +4,10 @@
   "unit": "MW",
   "values": [0.0044, 0.0044, 0.0, -0.0059],
   "scheduler_info": {"scheduler": "StorageScheduler"},
-  "response": [
-    {"reference": -0.0044, "gain": -1.0, "band": [[0.0014, 0.0074]]},
-    {"reference": -0.0044, "gain": -1.0, "band": [[-0.0074, -0.0014], [0.0, 0.0], [0.0014, 0.0074]]},
-    {"reference": 0.0012, "gain": 0.0, "band": [[0.0, 0.0]]},
-    {"reference": 0.0021, "gain": -1.0, "band": [[-0.0074, -0.0014]]}
+  "reaction": [
+    {"reference": -0.0044, "react": 1.0, "band": [[0.0014, 0.0074]]},
+    {"reference": -0.0044, "react": 1.0, "band": [[-0.0074, -0.0014], [0.0, 0.0], [0.0014, 0.0074]]},
+    {"reference": 0.0012, "react": 0.0, "band": [[0.0, 0.0]]},
+    {"reference": 0.0021, "react": 1.0, "band": [[-0.0074, -0.0014]]}
   ]
 }

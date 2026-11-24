@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.fm_client import FMClient
-from apps.v2g_liberty.recourse.rules import DeviceRules
+from apps.v2g_liberty.recourse.rules import ReactionSchedule
 from flexmeasures_client import FlexMeasuresClient
 from flexmeasures_client.exceptions import JobTimeoutError
 
@@ -237,7 +237,7 @@ async def test_a_trigger_during_the_reporting_of_an_outcome_is_refused(fm):
     assert fm.fm_busy_getting_schedule is False  # the finally, afterwards
 
 
-# --- Recourse rules: the read side of the contract -------------------------
+# --- Reaction rules: the read side of the contract -------------------------
 
 
 @pytest.mark.asyncio
@@ -248,7 +248,7 @@ async def test_a_schedule_without_rules_carries_none(fm):
         return_value=_fixture("schedule_response_without_response")
     )
     schedule = await _get(fm)
-    assert schedule["recourse_rules"] is None
+    assert schedule["reaction_rules"] is None
     assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
 
 
@@ -259,8 +259,8 @@ async def test_a_schedule_with_rules_carries_them_parsed(fm, monkeypatch):
         return_value=_fixture("schedule_response_with_response")
     )
     schedule = await _get(fm)
-    rules = schedule["recourse_rules"]
-    assert isinstance(rules, DeviceRules)
+    rules = schedule["reaction_rules"]
+    assert isinstance(rules, ReactionSchedule)
     assert rules.sensor_id == 65
     assert len(rules.rules) == 4
     assert rules.rules[0].p_w == pytest.approx(4400.0)
@@ -277,30 +277,20 @@ async def test_rules_that_do_not_fit_the_values_are_dropped_not_the_schedule(
     )
     with caplog.at_level(logging.WARNING):
         schedule = await _get(fm)
-    assert schedule["recourse_rules"] is None
+    assert schedule["reaction_rules"] is None
     assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
     assert "1 rules for 4 values" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_the_trigger_sends_none_of_the_opt_in_fields(fm, monkeypatch):
-    """FlexMeasures rejects unknown keys: 422 at the trigger for a flex-model
-    key, a failed job for a flex-context key. Until a server has the feature
-    and a mode setting switches it on, the request stays today's."""
-    monkeypatch.setattr(
-        c, "FM_OPTIMISATION_CONTEXT", {"consumption-price": {"sensor": 58}}
-    )
+async def test_the_trigger_sends_none_of_the_opt_in_fields(fm):
+    """A FlexMeasures without the feature rejects `react` with HTTP 422 at the
+    trigger. Until a server has the feature and a mode setting switches it
+    on, the request stays today's: no `react`, no operation modes."""
     opted_in = _fixture("trigger_request_opt_in")
+    (device,) = opted_in["flex-model"]
     await _get(fm)
     sent = fm.client.trigger_and_get_schedule.await_args.kwargs
-    for key in (
-        "reference-sensor",
-        "response-order",
-        "retrigger-on-band-exit",
-        "reference-at-start",
-    ):
-        assert key in opted_in["flex-context"]
-        assert key not in sent["flex_context"]
-    for key in ("operation-modes", "response"):
-        assert key in opted_in["flex-model"][0]
+    for key in ("react", "operation-modes"):
+        assert key in device
         assert key not in sent["flex_model"]
