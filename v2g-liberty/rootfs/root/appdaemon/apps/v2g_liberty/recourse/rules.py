@@ -26,7 +26,9 @@ The contract, as agreed with Seita (kick-off document, 24 November 2026):
 - ``reference``: the uncontrolled power at the connection the plan assumed,
   import positive. A number, never null: 0.0 when there was no forecast.
 - ``react``: 0 (follow the plan whatever the house does) or 1 (absorb the
-  surprise one to one). Shares in between are reserved for later.
+  surprise one to one). Shares in between are reserved for later; the
+  parser accepts [0, 1] and refuses anything outside, so a sign error on
+  either side can never amplify a surprise.
 - ``band``: the device powers the slot allows, as ascending ``[lo, hi]``
   ranges. ``null`` on a side means no bound from the planner, which only
   happens for a device without a known capacity. Never empty: a device
@@ -35,8 +37,11 @@ The contract, as agreed with Seita (kick-off document, 24 November 2026):
 - Nothing per slot about sensors or retriggers: the meter is the one the
   flex-context already names, and retriggering on a band exit is on by
   default.
-- Numbers are plain, in the schedule's ``unit``, at full precision. This
-  module converts them to W.
+- The plan lies inside its own band: with no surprise the device follows
+  its plan exactly. The parser enforces it, with half a watt of tolerance
+  for rounding between ``values`` and the band's edges.
+- Numbers are plain and finite, in the schedule's ``unit``, at full
+  precision. This module converts them to W.
 - Signs: device power positive is consumption (charging), meter power
   positive is import.
 - A FlexMeasures without the feature rejects ``react`` with HTTP 422, so
@@ -65,8 +70,8 @@ class RulesError(ValueError):
 class Band:
     """The device powers a slot allows, in W.
 
-    ``ranges`` are ascending, non-overlapping ``(lo, hi)`` pairs. ``None``
-    on a side means no bound from the planner. A charger with operation
+    ``ranges`` are ascending ``(lo, hi)`` pairs; a range may touch the next
+    but not overlap it. ``None`` on a side means no bound from the planner. A charger with operation
     modes gets ``((-7400, -1400), (0, 0), (1400, 7400))``: the dead zone
     between idle and the minimum charge power is not in the band.
     """
@@ -146,7 +151,8 @@ class ReactionSchedule:
 
     def rule_at(self, when: datetime) -> ReactionRule | None:
         """The rule of the slot that contains ``when``, or None when ``when``
-        falls outside the schedule."""
+        falls outside the schedule. ``when`` must carry a timezone, like the
+        schedule's start; a naive datetime raises TypeError."""
         index = math.floor((when - self.start) / self.resolution)
         if 0 <= index < len(self.rules):
             return self.rules[index]
@@ -178,6 +184,10 @@ def parse_reaction(schedule: dict, sensor_id: int) -> ReactionSchedule | None:
         duration = isodate.parse_duration(schedule["duration"])
     except (KeyError, TypeError, ValueError, AttributeError) as e:
         raise RulesError(f"the schedule has no usable start and duration: {e}") from e
+    if not isinstance(duration, timedelta):
+        # isodate gives a Duration for months and years; no slot length
+        # follows from that.
+        raise RulesError("the schedule's duration is not a fixed length")
     resolution = duration / len(values)
 
     rules = tuple(
@@ -216,12 +226,22 @@ def _parse_slot(
     missing = [key for key in ("reference", "react", "band") if key not in entry]
     if missing:
         raise RulesError(f"{what}: the rule lacks {', '.join(missing)}")
+    p_w = _number(value, f"{what}: value") * factor
+    share = _number(entry["react"], f"{what}: react")
+    if not 0.0 <= share <= 1.0:
+        # Outside [0, 1] a share would amplify the surprise or invert it.
+        raise RulesError(f"{what}: react {share} is outside [0, 1]")
+    band = _parse_band(entry["band"], factor, f"{what}: band")
+    if abs(band.nearest(p_w, p_w) - p_w) > _TIE_W:
+        # The band is the device's own limits and the plan respects them, so
+        # with no surprise react() must give the plan back.
+        raise RulesError(f"{what}: the plan ({p_w:.0f} W) lies outside the band")
     return ReactionRule(
         start=start,
-        p_w=_number(value, f"{what}: value") * factor,
+        p_w=p_w,
         reference_w=_number(entry["reference"], f"{what}: reference") * factor,
-        react=_number(entry["react"], f"{what}: react"),
-        band=_parse_band(entry["band"], factor, f"{what}: band"),
+        react=share,
+        band=band,
     )
 
 
@@ -229,6 +249,10 @@ def _number(raw, what: str) -> float:
     # A bool is an int in Python; true and false are not numbers in JSON.
     if isinstance(raw, bool) or not isinstance(raw, (int, float)):
         raise RulesError(f"{what} is not a number but {raw!r}")
+    if not math.isfinite(raw):
+        # json.loads lets NaN and Infinity through; a NaN setpoint would
+        # pass every comparison in nearest() and come out the other end.
+        raise RulesError(f"{what} is not a finite number but {raw!r}")
     return float(raw)
 
 

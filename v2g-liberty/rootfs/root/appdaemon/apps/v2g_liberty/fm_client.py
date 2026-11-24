@@ -1340,20 +1340,28 @@ class FMClient(AsyncIOEventEmitter):
         await self.wait_for_complete()
         await self.set_fm_connection_status(connected=True)
         schedule["reaction_rules"] = self._parse_rules(schedule)
+        # The parsed rules replace the raw array: 324 slots of it would
+        # otherwise land in the "New schedule" log line of every request.
+        schedule.pop("reaction", None)
         return schedule
 
     def _parse_rules(self, schedule: dict):
         """The reaction rules of a schedule, or None.
 
-        No "reaction" array is today's normal case. An array that does not
-        follow the contract is dropped with a warning and the schedule is
-        kept: the rules only ever add to the plan, and a glitch in them must
+        No "reaction" array is today's normal case. An array that cannot be
+        parsed, for whatever reason, is dropped with a warning and the
+        schedule is kept: the rules only ever add to the plan, and a glitch in them must
         not stop the car from charging.
         """
         try:
             rules = parse_reaction(schedule, sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID)
-        except RulesError as e:
-            self.__log(f"Reaction rules dropped, schedule kept: {e}.", level="WARNING")
+        except Exception as e:
+            # Not only contract errors: a bug in the parser or an odd shape
+            # from the server must not take the schedule down with it.
+            reason = str(e) if isinstance(e, RulesError) else f"{type(e).__name__}: {e}"
+            self.__log(
+                f"Reaction rules dropped, schedule kept: {reason}.", level="WARNING"
+            )
             return None
         if rules is not None:
             self.__log(f"The schedule carries reaction rules: {rules!r}.")

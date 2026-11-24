@@ -261,6 +261,7 @@ async def test_a_schedule_with_rules_carries_them_parsed(fm, monkeypatch):
     schedule = await _get(fm)
     rules = schedule["reaction_rules"]
     assert isinstance(rules, ReactionSchedule)
+    assert "reaction" not in schedule  # the raw array goes; the repr is short
     assert rules.sensor_id == 65
     assert len(rules.rules) == 4
     assert rules.rules[0].p_w == pytest.approx(4400.0)
@@ -280,6 +281,24 @@ async def test_rules_that_do_not_fit_the_values_are_dropped_not_the_schedule(
     assert schedule["reaction_rules"] is None
     assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
     assert "1 rules for 4 values" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_parser_crash_drops_the_rules_not_the_schedule(fm, monkeypatch, caplog):
+    """Not every failure is a contract error. Whatever the parser raises, the
+    schedule must still reach main_app."""
+    monkeypatch.setattr(
+        "apps.v2g_liberty.fm_client.parse_reaction",
+        MagicMock(side_effect=TypeError("boom")),
+    )
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        return_value=_fixture("schedule_response_with_response")
+    )
+    with caplog.at_level(logging.WARNING):
+        schedule = await _get(fm)
+    assert schedule["reaction_rules"] is None
+    assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
+    assert "TypeError: boom" in caplog.text
 
 
 @pytest.mark.asyncio

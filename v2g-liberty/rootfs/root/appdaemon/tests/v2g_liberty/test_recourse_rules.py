@@ -304,3 +304,65 @@ class TestRuleAt:
         rules = rules_of("schedule_response_with_response")
         assert rules.rule_at(NOON - timedelta(seconds=1)) is None
         assert rules.rule_at(NOON + timedelta(minutes=20)) is None
+
+
+VALID_FIXTURES = [
+    "schedule_response_with_response",
+    "schedule_response_null_band",
+    "schedule_response_night_k0",
+    "schedule_response_band_target",
+    "schedule_response_reference_zero",
+    "schedule_response_band_collapsed",
+]
+
+
+class TestContractInvariants:
+    @pytest.mark.parametrize("name", VALID_FIXTURES)
+    def test_with_no_surprise_every_slot_gives_the_plan(self, name):
+        """The plan lies inside its own band, so react(rule, 0) is p."""
+        for slot in rules_of(name).rules:
+            assert react(slot, surprise_w=0.0) == pytest.approx(slot.p_w)
+
+    def test_a_plan_outside_its_band_is_refused(self):
+        schedule = _schedule(values=[0.001, 0.0044, 0.0, -0.0059])
+        with pytest.raises(RulesError, match=re.escape("slot 0: the plan (1000 W)")):
+            parse_reaction(schedule, sensor_id=CHARGER)
+
+    def test_a_plan_just_below_an_edge_passes_within_rounding(self):
+        schedule = _schedule(values=[0.00139999999, 0.0044, 0.0, -0.0059])
+        assert parse_reaction(schedule, sensor_id=CHARGER) is not None
+
+    @pytest.mark.parametrize("share", [-1.0, -0.01, 1.01, 2.0])
+    def test_a_share_outside_zero_to_one_is_refused(self, share):
+        reason = f"slot 0: react {share} is outside [0, 1]"
+        with pytest.raises(RulesError, match=re.escape(reason)):
+            parse_reaction(_first_rule(react=share), sensor_id=CHARGER)
+
+    def test_a_share_in_between_is_applied_as_such(self):
+        rules = parse_reaction(_first_rule(react=0.5), sensor_id=CHARGER)
+        assert react(rules.rules[0], surprise_w=2000.0) == pytest.approx(3400.0)
+
+    @pytest.mark.parametrize(
+        ("schedule", "reason"),
+        [
+            (_first_rule(reference=float("nan")), "reference is not a finite number"),
+            (
+                _schedule(values=[float("inf"), 0.0044, 0.0, -0.0059]),
+                "value is not a finite",
+            ),
+            (_first_rule(band=[[float("nan"), 0.0074]]), "range 0 lo is not a finite"),
+        ],
+    )
+    def test_nan_and_infinity_are_refused(self, schedule, reason):
+        with pytest.raises(RulesError, match=re.escape(reason)):
+            parse_reaction(schedule, sensor_id=CHARGER)
+
+    def test_a_duration_in_months_is_refused_not_crashed(self):
+        with pytest.raises(RulesError, match="duration is not a fixed length"):
+            parse_reaction(_schedule(duration="P1M"), sensor_id=CHARGER)
+
+    def test_ranges_may_touch(self):
+        rules = parse_reaction(
+            _first_rule(band=[[0.0, 0.0], [0.0, 0.0074]]), sensor_id=CHARGER
+        )
+        assert_band(rules.rules[0].band, (0.0, 0.0), (0.0, 7400.0))
