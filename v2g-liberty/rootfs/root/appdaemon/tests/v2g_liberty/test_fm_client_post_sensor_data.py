@@ -7,7 +7,9 @@ operational 4xx (403/404/422) raise a persistent "fm_data_issue" warning while
 leaving the connection status untouched.
 """
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from apps.v2g_liberty.fm_client import (
@@ -122,6 +124,38 @@ class TestPostSensorDataClassification:
         fm.emit.assert_called_once_with(
             "fm_data_issue", active=True, sensor_id=_SENSOR_ID, detail="HTTP 403"
         )
+
+    @pytest.mark.asyncio
+    async def test_repeated_403_raises_the_issue_once(self, fm):
+        # The sender retries every five minutes. Raising the issue on every
+        # retry would bring back a memo the user has dismissed.
+        fm.client.post_sensor_data = AsyncMock(
+            side_effect=ValueError("Request failed with status code 403")
+        )
+        await _post(fm)
+        await _post(fm)
+        fm.emit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_failure_warnings_do_not_list_the_values(self, fm, caplog):
+        # A block holds up to 288 values and a failure is logged every five
+        # minutes until it succeeds; the count is in the DEBUG line already.
+        values = [12.345, 67.89]
+        for message in (
+            "Request failed with status code 403",
+            "Request failed with status code 502",
+        ):
+            fm.client.post_sensor_data = AsyncMock(side_effect=ValueError(message))
+            with caplog.at_level(logging.WARNING):
+                await fm.post_sensor_data(
+                    sensor_id=_SENSOR_ID,
+                    values=values,
+                    start=_START,
+                    duration=_DURATION,
+                    uom=_UOM,
+                )
+        assert caplog.text.count("sensor_id: '531'") == 2
+        assert "12.345" not in caplog.text
 
     @pytest.mark.asyncio
     async def test_5xx_marks_connection_down(self, fm):

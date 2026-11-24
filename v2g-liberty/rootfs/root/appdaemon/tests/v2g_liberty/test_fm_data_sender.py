@@ -14,6 +14,7 @@ Tests cover:
 """
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
@@ -559,6 +560,44 @@ class TestInitialize:
         assert FMDataSender._first_run(now) == expected
 
 
+class TestLogLevels:
+    """A routine run adds eight log lines every five minutes; those go to
+    DEBUG. A catch-up is worth seeing at INFO."""
+
+    @pytest.mark.asyncio
+    async def test_a_routine_run_logs_at_debug(self, sender, data_store, caplog):
+        data_store._last_sent["charger"] = _ts(9, 55)
+        data_store.get_intervals_since.return_value = [_make_interval(_ts(10, 0))]
+        with caplog.at_level(logging.DEBUG):
+            await sender._send_charger_data()
+
+        levels = {r.levelno for r in caplog.records if "Charger" in r.message}
+        assert levels == {logging.DEBUG}
+
+    @pytest.mark.asyncio
+    async def test_a_catch_up_logs_at_info(self, sender, data_store, caplog):
+        data_store._last_sent["charger"] = _ts(9, 55)
+        data_store.get_intervals_since.return_value = [
+            _make_interval(_ts(10, 0)),
+            _make_interval(_ts(10, 5)),
+        ]
+        with caplog.at_level(logging.DEBUG):
+            await sender._send_charger_data()
+
+        levels = {r.levelno for r in caplog.records if "Charger" in r.message}
+        assert levels == {logging.INFO}
+
+    @pytest.mark.asyncio
+    async def test_a_skipped_run_is_not_a_warning(self, sender, caplog):
+        sender._sending = True
+        with caplog.at_level(logging.DEBUG):
+            await sender._send_unsent_data()
+
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelno == logging.INFO
+        assert "still running" in caplog.records[0].message
+
+
 class TestOverlappingRuns:
     @pytest.mark.asyncio
     async def test_a_run_still_busy_is_not_joined_by_the_next(self, sender):
@@ -586,16 +625,19 @@ class TestOverlappingRuns:
         assert sender._sending is False
 
     @pytest.mark.asyncio
-    async def test_the_guard_is_released_after_a_crash(self, sender):
-        sender._send_charger_data = AsyncMock(side_effect=RuntimeError("boom"))
+    async def test_the_guard_is_released_when_the_run_is_cancelled(self, sender):
+        """An app reload cancels a run that is still posting. CancelledError
+        passes the per-type except, so only the finally resets the guard."""
+        sender._send_charger_data = AsyncMock(side_effect=asyncio.CancelledError())
         sender._send_grid_data = AsyncMock()
         sender._send_pv_data = AsyncMock()
         sender._send_meter_data = AsyncMock()
 
-        await sender._send_unsent_data()
+        with pytest.raises(asyncio.CancelledError):
+            await sender._send_unsent_data()
 
         assert sender._sending is False
-        sender._send_grid_data.assert_awaited_once()
+        sender._send_grid_data.assert_not_awaited()
 
 
 # ──────────────────────────────────────────────────────────

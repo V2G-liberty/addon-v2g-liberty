@@ -5,7 +5,7 @@
 ### Added
 
 - 🚀 FEAT: Sign-aware fuse guard replaces the load balancer's power limiting (#524)
-- 🚀 FEAT: Measurements go to FlexMeasures every five minutes instead of hourly
+- 🚀 FEAT: Measurements go to FlexMeasures every five minutes instead of hourly (#528)
 
 ### Fixed
 

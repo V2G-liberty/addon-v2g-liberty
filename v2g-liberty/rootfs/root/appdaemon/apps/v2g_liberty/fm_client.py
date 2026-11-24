@@ -788,10 +788,11 @@ class FMClient(AsyncIOEventEmitter):
 
             if _is_connection_error(e):
                 # Transport/timeout/5xx/401: the connection itself is down.
+                # The values are not logged: the sender retries every five
+                # minutes and a block holds up to 288 of them.
                 self.__log(
                     f"connection failed | sensor_id: '{sensor_id}', "
-                    f"values: '{values}', start: '{start}', duration: "
-                    f"'{duration}', unit: '{uom}', "
+                    f"start: '{start}', duration: '{duration}', unit: '{uom}', "
                     f"fm_client returned exception: '{e}'.",
                     level="WARNING",
                 )
@@ -804,17 +805,21 @@ class FMClient(AsyncIOEventEmitter):
             # "Error" that would wrongly mark the whole FM connection as down.
             self.__log(
                 f"rejected (HTTP {status}) | sensor_id: '{sensor_id}', "
-                f"values: '{values}', start: '{start}', duration: '{duration}', "
-                f"unit: '{uom}', fm_client returned exception: '{e}'.",
+                f"start: '{start}', duration: '{duration}', unit: '{uom}', "
+                f"fm_client returned exception: '{e}'.",
                 level="WARNING",
             )
-            self._sensors_with_data_issue.add(sensor_id)
-            self.emit(
-                "fm_data_issue",
-                active=True,
-                sensor_id=sensor_id,
-                detail=f"HTTP {status}",
-            )
+            if sensor_id not in self._sensors_with_data_issue:
+                # Raise the warning once per issue. The sender retries every
+                # five minutes; raising it on every retry would bring back a
+                # memo the user has dismissed.
+                self._sensors_with_data_issue.add(sensor_id)
+                self.emit(
+                    "fm_data_issue",
+                    active=True,
+                    sensor_id=sensor_id,
+                    detail=f"HTTP {status}",
+                )
             return False
 
         self._clear_data_issue(sensor_id)
