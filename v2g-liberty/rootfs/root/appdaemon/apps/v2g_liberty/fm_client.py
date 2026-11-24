@@ -1339,13 +1339,13 @@ class FMClient(AsyncIOEventEmitter):
         self.emit("no_new_schedule", "timeouts_on_schedule", error_state=False)
         await self.wait_for_complete()
         await self.set_fm_connection_status(connected=True)
-        schedule["reaction_rules"] = self._parse_rules(schedule)
+        schedule["reaction_rules"] = self._parse_reaction(schedule)
         # The parsed rules replace the raw array: 324 slots of it would
         # otherwise land in the "New schedule" log line of every request.
         schedule.pop("reaction", None)
         return schedule
 
-    def _parse_rules(self, schedule: dict):
+    def _parse_reaction(self, schedule: dict):
         """The reaction rules of a schedule, or None.
 
         No "reaction" array is today's normal case. An array that cannot be

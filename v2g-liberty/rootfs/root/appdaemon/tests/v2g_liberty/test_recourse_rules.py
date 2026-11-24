@@ -71,11 +71,11 @@ def assert_band(actual: Band, *expected):
 
 class TestParseFixtures:
     def test_a_schedule_without_reaction_has_no_rules(self):
-        schedule = fixture("schedule_response_without_response")
+        schedule = fixture("schedule_without_reaction")
         assert parse_reaction(schedule, sensor_id=CHARGER) is None
 
     def test_the_four_variants_are_read_in_watts(self):
-        rules = rules_of("schedule_response_with_response")
+        rules = rules_of("schedule_with_reaction")
         assert rules.sensor_id == CHARGER
         assert rules.start == NOON
         assert rules.resolution == timedelta(minutes=5)
@@ -99,11 +99,11 @@ class TestParseFixtures:
         assert_band(discharging.band, (-7400.0, -1400.0))
 
     def test_a_null_side_is_no_bound(self):
-        (only,) = rules_of("schedule_response_null_band").rules
+        (only,) = rules_of("schedule_null_band").rules
         assert_band(only.band, (None, -1400.0))
 
     def test_the_night_follows_the_plan(self):
-        rules = rules_of("schedule_response_night_k0")
+        rules = rules_of("schedule_night_k0")
         assert len(rules.rules) == 4
         for slot in rules.rules:
             assert slot.react == 0.0
@@ -111,18 +111,18 @@ class TestParseFixtures:
             assert_band(slot.band, (7400.0, 7400.0))
 
     def test_a_target_raises_the_lower_bound_towards_the_deadline(self):
-        rules = rules_of("schedule_response_band_target")
+        rules = rules_of("schedule_band_target")
         lower_bounds = [slot.band.ranges[-1][0] for slot in rules.rules]
         assert lower_bounds == pytest.approx([1400.0, 3000.0, 4500.0, 7400.0])
         assert all(slot.react == 1.0 for slot in rules.rules)
 
     def test_without_a_forecast_the_reference_is_zero(self):
-        rules = rules_of("schedule_response_reference_zero")
+        rules = rules_of("schedule_reference_zero")
         assert [slot.reference_w for slot in rules.rules] == [0.0, 0.0, 0.0, 0.0]
         assert [slot.react for slot in rules.rules] == [1.0, 0.0, 1.0, 0.0]
 
     def test_a_collapsed_band_is_read_as_such(self):
-        rules = rules_of("schedule_response_band_collapsed")
+        rules = rules_of("schedule_band_collapsed")
         for slot in rules.rules:
             assert slot.react == 1.0
             assert_band(slot.band, (7400.0, 7400.0))
@@ -139,7 +139,7 @@ class TestParseFixtures:
         assert "response" not in charger
 
     def test_the_repr_is_short(self):
-        rules = rules_of("schedule_response_with_response")
+        rules = rules_of("schedule_with_reaction")
         assert repr(rules) == (
             "ReactionSchedule(sensor_id=65, start=2026-12-10T12:00:00+01:00, "
             "resolution=5 min, slots=4)"
@@ -147,13 +147,13 @@ class TestParseFixtures:
 
 
 def _schedule(**changes) -> dict:
-    schedule = fixture("schedule_response_with_response")
+    schedule = fixture("schedule_with_reaction")
     schedule.update(changes)
     return schedule
 
 
 def _first_rule(**changes) -> dict:
-    schedule = fixture("schedule_response_with_response")
+    schedule = fixture("schedule_with_reaction")
     schedule["reaction"][0].update(changes)
     return schedule
 
@@ -165,7 +165,7 @@ class TestRefusedShapes:
             (_schedule(reaction={"reference": 0.0}), "reaction is not a list"),
             (_schedule(values=None), "no values"),
             (_schedule(values=[], reaction=[]), "no values"),
-            (fixture("schedule_response_invalid_length"), "1 rules for 4 values"),
+            (fixture("schedule_invalid_length"), "1 rules for 4 values"),
             (_schedule(unit="kWh"), "unknown unit 'kWh'"),
             (_schedule(unit=None), "unknown unit None"),
             (_schedule(start=None), "start and duration"),
@@ -181,6 +181,7 @@ class TestRefusedShapes:
             (_first_rule(band=[[0.0, 0.002], [0.001, 0.0074]]), "not ascending"),
             (_first_rule(band=[[0.0014, 0.0074], [0.0, 0.0]]), "not ascending"),
             (_first_rule(band=[[None, 0.0], [None, 0.0074]]), "not ascending"),
+            (_first_rule(band=[[0.0, None], [0.0014, 0.0074]]), "not ascending"),
         ],
     )
     def test_is_refused_with_the_reason(self, schedule, reason):
@@ -295,24 +296,24 @@ class TestReact:
 
 class TestRuleAt:
     def test_the_slot_that_contains_the_moment(self):
-        rules = rules_of("schedule_response_with_response")
+        rules = rules_of("schedule_with_reaction")
         assert rules.rule_at(NOON) is rules.rules[0]
         assert rules.rule_at(NOON + timedelta(minutes=7)) is rules.rules[1]
         assert rules.rule_at(NOON + timedelta(minutes=19, seconds=59)) is rules.rules[3]
 
     def test_outside_the_schedule_there_is_no_rule(self):
-        rules = rules_of("schedule_response_with_response")
+        rules = rules_of("schedule_with_reaction")
         assert rules.rule_at(NOON - timedelta(seconds=1)) is None
         assert rules.rule_at(NOON + timedelta(minutes=20)) is None
 
 
 VALID_FIXTURES = [
-    "schedule_response_with_response",
-    "schedule_response_null_band",
-    "schedule_response_night_k0",
-    "schedule_response_band_target",
-    "schedule_response_reference_zero",
-    "schedule_response_band_collapsed",
+    "schedule_with_reaction",
+    "schedule_null_band",
+    "schedule_night_k0",
+    "schedule_band_target",
+    "schedule_reference_zero",
+    "schedule_band_collapsed",
 ]
 
 

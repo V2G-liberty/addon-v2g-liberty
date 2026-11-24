@@ -121,7 +121,7 @@ class ReactionRule:
     positive). ``reference_w`` is the uncontrolled power at the connection
     the plan assumed (import positive); the surprise is measured against
     it, and it is 0.0 when FlexMeasures had no forecast. ``react`` is 0
-    (follow the plan) or 1 (absorb the surprise).
+    (follow the plan), 1 (absorb the surprise) or a share in between.
     """
 
     start: datetime

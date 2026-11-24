@@ -43,7 +43,7 @@ def fm(monkeypatch):
         job_polling_timeout=600.0,
         # The real client returns the schedule as a dict; so does the mock.
         trigger_and_get_schedule=AsyncMock(
-            return_value=_fixture("schedule_response_without_response")
+            return_value=_fixture("schedule_without_reaction")
         ),
     )
     client.emit = MagicMock()
@@ -245,7 +245,7 @@ async def test_a_schedule_without_rules_carries_none(fm):
     """Today's response, and that of a server without the feature: the
     schedule goes through unchanged, with no rules."""
     fm.client.trigger_and_get_schedule = AsyncMock(
-        return_value=_fixture("schedule_response_without_response")
+        return_value=_fixture("schedule_without_reaction")
     )
     schedule = await _get(fm)
     assert schedule["reaction_rules"] is None
@@ -256,7 +256,7 @@ async def test_a_schedule_without_rules_carries_none(fm):
 async def test_a_schedule_with_rules_carries_them_parsed(fm, monkeypatch):
     monkeypatch.setattr(c, "FM_ACCOUNT_POWER_SENSOR_ID", 65, raising=False)
     fm.client.trigger_and_get_schedule = AsyncMock(
-        return_value=_fixture("schedule_response_with_response")
+        return_value=_fixture("schedule_with_reaction")
     )
     schedule = await _get(fm)
     rules = schedule["reaction_rules"]
@@ -274,7 +274,7 @@ async def test_rules_that_do_not_fit_the_values_are_dropped_not_the_schedule(
     """One rule for four values breaks the contract. The rules only add to
     the plan, so the schedule is kept and the rules go, with the reason."""
     fm.client.trigger_and_get_schedule = AsyncMock(
-        return_value=_fixture("schedule_response_invalid_length")
+        return_value=_fixture("schedule_invalid_length")
     )
     with caplog.at_level(logging.WARNING):
         schedule = await _get(fm)
@@ -292,7 +292,7 @@ async def test_a_parser_crash_drops_the_rules_not_the_schedule(fm, monkeypatch, 
         MagicMock(side_effect=TypeError("boom")),
     )
     fm.client.trigger_and_get_schedule = AsyncMock(
-        return_value=_fixture("schedule_response_with_response")
+        return_value=_fixture("schedule_with_reaction")
     )
     with caplog.at_level(logging.WARNING):
         schedule = await _get(fm)
