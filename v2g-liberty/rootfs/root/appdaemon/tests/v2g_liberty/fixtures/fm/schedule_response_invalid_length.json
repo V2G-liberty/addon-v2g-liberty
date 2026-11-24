@@ -1,0 +1,10 @@
+{
+  "start": "2026-12-10T12:00:00+01:00",
+  "duration": "PT20M",
+  "unit": "MW",
+  "values": [0.0044, 0.0044, 0.0, -0.0059],
+  "scheduler_info": {"scheduler": "StorageScheduler"},
+  "response": [
+    {"reference": -0.0044, "gain": -1.0, "band": [[0.0014, 0.0074]]}
+  ]
+}

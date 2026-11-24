@@ -10,6 +10,7 @@ import isodate
 from appdaemon.plugins.hass.hassapi import Hass
 from . import constants as c
 from .log_wrapper import get_class_method_logger
+from .recourse.rules import RulesError, parse_rules
 from .event_bus import EventBus
 from .v2g_globals import time_round, time_ceil, get_local_now
 from .time_range_util import (
@@ -850,6 +851,10 @@ class FMClient(AsyncIOEventEmitter):
         param: current_soc_kwh (float), the state of charge at the moment the schedule is requested
         param: back_to_max_soc (datetime) if current SoC > Max_SoC this setting informs the schedule
                when to be back at max soc. Can be None.
+
+        The returned schedule carries its recourse rules, parsed and in W,
+        under "recourse_rules": a DeviceRules, or None when FlexMeasures
+        served none (see recourse/rules.py).
         """
         self.__log("called.")
         now = get_local_now()
@@ -1334,7 +1339,25 @@ class FMClient(AsyncIOEventEmitter):
         self.emit("no_new_schedule", "timeouts_on_schedule", error_state=False)
         await self.wait_for_complete()
         await self.set_fm_connection_status(connected=True)
+        schedule["recourse_rules"] = self._parse_rules(schedule)
         return schedule
+
+    def _parse_rules(self, schedule: dict):
+        """The recourse rules of a schedule, or None.
+
+        No "response" array is today's normal case. An array that does not
+        follow the contract is dropped with a warning and the schedule is
+        kept: the rules only ever add to the plan, and a glitch in them must
+        not stop the car from charging.
+        """
+        try:
+            rules = parse_rules(schedule, sensor_id=c.FM_ACCOUNT_POWER_SENSOR_ID)
+        except RulesError as e:
+            self.__log(f"Recourse rules dropped, schedule kept: {e}.", level="WARNING")
+            return None
+        if rules is not None:
+            self.__log(f"The schedule carries recourse rules: {rules!r}.")
+        return rules
 
     async def set_fm_connection_status(self, connected: bool, error_message: str = ""):
         """Helper to set fm connection status in HA entity"""
