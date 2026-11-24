@@ -1,4 +1,4 @@
-"""Module for daily batch export of interval data to FlexMeasures."""
+"""Posts the interval data to FlexMeasures every five minutes."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -8,9 +8,16 @@ from . import constants as c
 from .data_store import _APP_STATE_PRIORITY
 from .log_wrapper import get_class_method_logger
 
+SEND_INTERVAL_S = 5 * 60
+# The data monitor concludes an interval on the 5-minute boundary and
+# persists it. The sender runs this many seconds later, so every run
+# includes the interval that has just closed; with a 15-minute re-plan
+# cadence at FlexMeasures that keeps the forecasts at most 5 minutes behind.
+SEND_OFFSET_S = 20
+
 
 class FMDataSender:
-    """Sends interval_log data from SQLite to FlexMeasures daily.
+    """Sends interval_log data from SQLite to FlexMeasures every five minutes.
 
     Reads unsent intervals from the local database and posts power, SoC,
     and availability measurements to FlexMeasures. Tracks the last
@@ -24,9 +31,12 @@ class FMDataSender:
     def __init__(self, hass: Hass):
         self.hass = hass
         self.__log = get_class_method_logger(module_name="fm_data_sender")
+        # A run that is still posting (a long catch-up) must not be joined by
+        # the next one: both would read the same unsent rows.
+        self._sending = False
 
     async def initialize(self):
-        """Initialise send status and schedule hourly export."""
+        """Initialise send status and schedule the five-minute export."""
         self.__log("Initialising FMDataSender.")
 
         # Ensure fm_send_status has an initial value on first start
@@ -40,14 +50,31 @@ class FMDataSender:
                         f"First start ({data_type}): set last_sent_up_to to now."
                     )
 
-        first_run = datetime.now(timezone.utc) + timedelta(seconds=15)
-        await self.hass.run_every(self._send_unsent_data, first_run, 60 * 60)
-        self.__log("Completed initialising FMDataSender, scheduled every hour.")
+        first_run = self._first_run(datetime.now(timezone.utc))
+        await self.hass.run_every(self._send_unsent_data, first_run, SEND_INTERVAL_S)
+        self.__log(
+            "Completed initialising FMDataSender, sending every "
+            f"{SEND_INTERVAL_S // 60} minutes from "
+            f"{first_run.isoformat(timespec='seconds')}."
+        )
+
+    @staticmethod
+    def _first_run(now: datetime) -> datetime:
+        """The first send: SEND_OFFSET_S after a 5-minute boundary, so that it
+        includes the interval the data monitor concludes there. That is the
+        boundary just passed when its send moment is still at least 5 s away,
+        otherwise the next one: the timer must start in the future."""
+        boundary = now.replace(second=0, microsecond=0)
+        boundary -= timedelta(minutes=boundary.minute % 5)
+        first = boundary + timedelta(seconds=SEND_OFFSET_S)
+        if first <= now + timedelta(seconds=5):
+            first += timedelta(seconds=SEND_INTERVAL_S)
+        return first
 
     async def _send_unsent_data(self, *args):
         """Send all unsent interval data to FlexMeasures.
 
-        Each data type (charger, grid, pv) is sent independently — an
+        Each data type (charger, grid, pv, meter) is sent independently — an
         unexpected failure in one does not block the others. The per-type
         methods already handle their own block-level errors; this wrapper
         catches any escaping exception (data corruption, sudden FM client
@@ -61,19 +88,34 @@ class FMDataSender:
             self.__log("DataStore not available, skipping send.")
             return
 
-        for data_type, send_method in (
-            ("charger", self._send_charger_data),
-            ("grid", self._send_grid_data),
-            ("pv", self._send_pv_data),
-            ("meter", self._send_meter_data),
-        ):
-            try:
-                await send_method()
-            except Exception as e:
-                self.__log(
-                    f"{data_type}: send raised unexpected exception: {e}",
-                    level="WARNING",
-                )
+        if self._sending:
+            # Expected during a long catch-up, so not a warning.
+            self.__log("Previous send still running, skipping this run.")
+            return
+        self._sending = True
+        try:
+            for data_type, send_method in (
+                ("charger", self._send_charger_data),
+                ("grid", self._send_grid_data),
+                ("pv", self._send_pv_data),
+                ("meter", self._send_meter_data),
+            ):
+                try:
+                    await send_method()
+                except Exception as e:
+                    self.__log(
+                        f"{data_type}: send raised unexpected exception: {e}",
+                        level="WARNING",
+                    )
+        finally:
+            self._sending = False
+
+    @staticmethod
+    def _log_level(nr_intervals: int) -> str:
+        """A routine run carries one interval per type and is logged at DEBUG.
+        A catch-up of more intervals is logged at INFO: it tells that an
+        outage has been worked off."""
+        return "INFO" if nr_intervals > 1 else "DEBUG"
 
     async def _send_charger_data(self):
         """Send unsent charger interval data (power, SoC, availability)."""
@@ -89,10 +131,11 @@ class FMDataSender:
 
         intervals = self.data_store.get_intervals_since(last_sent)
         if not intervals:
-            self.__log("Charger: no unsent intervals.")
+            self.__log("Charger: no unsent intervals.", level="DEBUG")
             return
 
-        self.__log(f"Charger: {len(intervals)} unsent interval(s).")
+        level = self._log_level(len(intervals))
+        self.__log(f"Charger: {len(intervals)} unsent interval(s).", level=level)
         blocks = self._group_contiguous_blocks(intervals)
 
         for block in blocks:
@@ -107,7 +150,9 @@ class FMDataSender:
             if success:
                 last_timestamp = block[-1]["timestamp"]
                 self.data_store.set_fm_last_sent(last_timestamp, "charger")
-                self.__log(f"Charger: block sent, advanced to {last_timestamp}.")
+                self.__log(
+                    f"Charger: block sent, advanced to {last_timestamp}.", level=level
+                )
             else:
                 self.__log(
                     "Charger: block failed, will retry next run.",
@@ -132,15 +177,15 @@ class FMDataSender:
 
         intervals = self.data_store.get_grid_intervals_since(last_sent)
         if not intervals:
-            self.__log("Grid: no unsent intervals.")
+            self.__log("Grid: no unsent intervals.", level="DEBUG")
             return
-
-        self.__log(f"Grid: {len(intervals)} unsent row(s).")
 
         # Group by timestamp, then group timestamps into contiguous blocks
         by_timestamp = self._group_grid_by_timestamp(intervals)
         timestamps = sorted(by_timestamp.keys())
         blocks = self._group_contiguous_timestamps(timestamps)
+        level = self._log_level(len(timestamps))
+        self.__log(f"Grid: {len(intervals)} unsent row(s).", level=level)
 
         for block_timestamps in blocks:
             try:
@@ -154,7 +199,7 @@ class FMDataSender:
             if success:
                 last_ts = block_timestamps[-1]
                 self.data_store.set_fm_last_sent(last_ts, "grid")
-                self.__log(f"Grid: block sent, advanced to {last_ts}.")
+                self.__log(f"Grid: block sent, advanced to {last_ts}.", level=level)
             else:
                 self.__log(
                     "Grid: block failed, will retry next run.",
@@ -181,15 +226,15 @@ class FMDataSender:
 
         intervals = self.data_store.get_pv_intervals_since(last_sent)
         if not intervals:
-            self.__log("PV: no unsent intervals.")
+            self.__log("PV: no unsent intervals.", level="DEBUG")
             return
-
-        self.__log(f"PV: {len(intervals)} unsent row(s).")
 
         # Group by timestamp first, then group timestamps into contiguous blocks.
         by_timestamp = self._group_pv_by_timestamp(intervals)
         timestamps = sorted(by_timestamp.keys())
         blocks = self._group_contiguous_timestamps(timestamps)
+        level = self._log_level(len(timestamps))
+        self.__log(f"PV: {len(intervals)} unsent row(s).", level=level)
 
         # Map panel_id → fm_sensor_id for quick lookup.
         panel_sensors = {p["id"]: p["fm_sensor_id"] for p in panels_with_sensor}
@@ -208,7 +253,7 @@ class FMDataSender:
             if success:
                 last_ts = block_timestamps[-1]
                 self.data_store.set_fm_last_sent(last_ts, "pv")
-                self.__log(f"PV: block sent, advanced to {last_ts}.")
+                self.__log(f"PV: block sent, advanced to {last_ts}.", level=level)
             else:
                 self.__log(
                     "PV: block failed, will retry next run.",
@@ -241,10 +286,11 @@ class FMDataSender:
 
         intervals = self.data_store.get_meter_intervals_since(last_sent)
         if not intervals:
-            self.__log("Meter: no unsent intervals.")
+            self.__log("Meter: no unsent intervals.", level="DEBUG")
             return
 
-        self.__log(f"Meter: {len(intervals)} unsent row(s).")
+        level = self._log_level(len(intervals))
+        self.__log(f"Meter: {len(intervals)} unsent row(s).", level=level)
         blocks = self._group_contiguous_blocks(intervals)
 
         for block in blocks:
@@ -259,7 +305,9 @@ class FMDataSender:
             if success:
                 last_timestamp = block[-1]["timestamp"]
                 self.data_store.set_fm_last_sent(last_timestamp, "meter")
-                self.__log(f"Meter: block sent, advanced to {last_timestamp}.")
+                self.__log(
+                    f"Meter: block sent, advanced to {last_timestamp}.", level=level
+                )
             else:
                 self.__log(
                     "Meter: block failed, will retry next run.",
