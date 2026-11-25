@@ -1,0 +1,40 @@
+{
+  "start": "2026-12-10T12:00:00+01:00",
+  "duration": "PT27H",
+  "flex-context": {
+    "consumption-price": {"sensor": 58},
+    "production-price": {"sensor": 70},
+    "relax-soc-constraints": true,
+    "relax-capacity-constraints": true,
+    "aggregate-consumption": {"sensor": 4712},
+    "aggregate-production": {"sensor": 4713}
+  },
+  "flex-model": [
+    {
+      "sensor": 65,
+      "power-capacity": "7400 W",
+      "soc-at-start": 23.4,
+      "soc-unit": "kWh",
+      "soc-min": 8.0,
+      "soc-max": 48.0,
+      "soc-minima": [
+        {"value": 30.0, "start": "2026-12-11T07:00:00+01:00", "end": "2026-12-11T07:05:00+01:00"}
+      ],
+      "soc-maxima": [],
+      "roundtrip-efficiency": 0.85,
+      "consumption-capacity": [
+        {"value": "7400 W", "start": "2026-12-10T12:00:00+01:00", "end": "2026-12-11T15:00:00+01:00"}
+      ],
+      "production-capacity": [
+        {"value": "7400 W", "start": "2026-12-10T12:00:00+01:00", "end": "2026-12-11T15:00:00+01:00"}
+      ],
+      "state-of-charge": {"sensor": 67},
+      "operation-modes": [
+        {"production-range": ["1400 W", "7400 W"]},
+        {"consumption-range": ["0 W", "0 W"]},
+        {"consumption-range": ["1400 W", "7400 W"]}
+      ],
+      "react": true
+    }
+  ]
+}

@@ -8,17 +8,26 @@ no longer short enough to repair a flag that was left standing.
 """
 
 import asyncio
+import json
+import logging
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from apps.v2g_liberty import constants as c
 from apps.v2g_liberty.fm_client import FMClient
+from apps.v2g_liberty.recourse.rules import ReactionSchedule
 from flexmeasures_client import FlexMeasuresClient
 from flexmeasures_client.exceptions import JobTimeoutError
 
 TEST_TZ = timezone(timedelta(hours=1))
 TEST_NOW = datetime(2026, 2, 22, 12, 0, 0, tzinfo=TEST_TZ)
+FIXTURES = Path(__file__).parent / "fixtures" / "fm"
+
+
+def _fixture(name: str) -> dict:
+    return json.loads((FIXTURES / f"{name}.json").read_text())
 
 
 @pytest.fixture
@@ -32,7 +41,10 @@ def fm(monkeypatch):
     client.client = MagicMock(
         request_retry_timeout=200.0,
         job_polling_timeout=600.0,
-        trigger_and_get_schedule=AsyncMock(),
+        # The real client returns the schedule as a dict; so does the mock.
+        trigger_and_get_schedule=AsyncMock(
+            return_value=_fixture("schedule_without_reaction")
+        ),
     )
     client.emit = MagicMock()
     client.wait_for_complete = AsyncMock()
@@ -223,3 +235,81 @@ async def test_a_trigger_during_the_reporting_of_an_outcome_is_refused(fm):
     assert seen_during_reporting["deferred"] is True, "... and remembered"
     assert fm.client.trigger_and_get_schedule.await_count == 1
     assert fm.fm_busy_getting_schedule is False  # the finally, afterwards
+
+
+# --- Reaction rules: the read side of the contract -------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_schedule_without_rules_carries_none(fm):
+    """Today's response, and that of a server without the feature: the
+    schedule goes through unchanged, with no rules."""
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        return_value=_fixture("schedule_without_reaction")
+    )
+    schedule = await _get(fm)
+    assert schedule["reaction_rules"] is None
+    assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
+
+
+@pytest.mark.asyncio
+async def test_a_schedule_with_rules_carries_them_parsed(fm, monkeypatch):
+    monkeypatch.setattr(c, "FM_ACCOUNT_POWER_SENSOR_ID", 65, raising=False)
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        return_value=_fixture("schedule_with_reaction")
+    )
+    schedule = await _get(fm)
+    rules = schedule["reaction_rules"]
+    assert isinstance(rules, ReactionSchedule)
+    assert "reaction" not in schedule  # the raw array goes; the repr is short
+    assert rules.sensor_id == 65
+    assert len(rules.rules) == 4
+    assert rules.rules[0].p_w == pytest.approx(4400.0)
+
+
+@pytest.mark.asyncio
+async def test_rules_that_do_not_fit_the_values_are_dropped_not_the_schedule(
+    fm, caplog
+):
+    """One rule for four values breaks the contract. The rules only add to
+    the plan, so the schedule is kept and the rules go, with the reason."""
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        return_value=_fixture("schedule_invalid_length")
+    )
+    with caplog.at_level(logging.WARNING):
+        schedule = await _get(fm)
+    assert schedule["reaction_rules"] is None
+    assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
+    assert "1 rules for 4 values" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_parser_crash_drops_the_rules_not_the_schedule(fm, monkeypatch, caplog):
+    """Not every failure is a contract error. Whatever the parser raises, the
+    schedule must still reach main_app."""
+    monkeypatch.setattr(
+        "apps.v2g_liberty.fm_client.parse_reaction",
+        MagicMock(side_effect=TypeError("boom")),
+    )
+    fm.client.trigger_and_get_schedule = AsyncMock(
+        return_value=_fixture("schedule_with_reaction")
+    )
+    with caplog.at_level(logging.WARNING):
+        schedule = await _get(fm)
+    assert schedule["reaction_rules"] is None
+    assert schedule["values"] == [0.0044, 0.0044, 0.0, -0.0059]
+    assert "TypeError: boom" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_the_trigger_sends_none_of_the_opt_in_fields(fm):
+    """A FlexMeasures without the feature rejects `react` with HTTP 422 at the
+    trigger. Until a server has the feature and a mode setting switches it
+    on, the request stays today's: no `react`, no operation modes."""
+    opted_in = _fixture("trigger_request_opt_in")
+    (device,) = opted_in["flex-model"]
+    await _get(fm)
+    sent = fm.client.trigger_and_get_schedule.await_args.kwargs
+    for key in ("react", "operation-modes"):
+        assert key in device
+        assert key not in sent["flex_model"]
