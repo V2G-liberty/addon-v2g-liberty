@@ -117,6 +117,9 @@ class V2Gliberty:
     # The fuse guard bounds every power that goes to the driver (see
     # grid_connection/fuse_guard.py); None in tests that do not care.
     fuse_guard: object = None
+    # The reaction engine shadows the reaction rules FlexMeasures serves with
+    # a schedule (see recourse/engine.py); None in tests that do not care.
+    reaction_engine: object = None
     notifier: Notifier = None
     event_bus: EventBus = None
     hass: Hass = None
@@ -1710,6 +1713,9 @@ class V2Gliberty:
             await cancel_timer_silent(self.hass, h)
         self.scheduling_timer_handles = []
         self.__log(f"Canceled all {count} charging timers.")
+        if self.reaction_engine is not None:
+            # The rules belong to the schedule whose timers just went.
+            await self.reaction_engine.clear()
 
     ######################################################################
     # PRIVATE FUNCTIONS FOR COMPOSING, GETTING AND PROCESSING SCHEDULES  #
@@ -1864,6 +1870,12 @@ class V2Gliberty:
             else:
                 await self.__set_charge_power(closing)
             self.scheduling_timer_handles = handles
+
+            # The reaction rules that came with this schedule, if any; the
+            # cancel above cleared the previous schedule's.
+            rules = schedule.get("reaction_rules")
+            if self.reaction_engine is not None and rules is not None:
+                await self.reaction_engine.install(rules)
 
         exp_soc_values = list(
             accumulate(

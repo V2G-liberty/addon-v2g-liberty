@@ -163,7 +163,7 @@ class EventBus(AsyncIOEventEmitter):
           of the grid connection, import positive, export negative. Emitted on
           every state change of a grid consumption or production entity (a
           DSMR 5 meter gives one per second per phase). Consumed by the fuse
-          guard; later also by the recourse engine.
+          guard and the reaction engine.
         - **Emitted by** data_monitor
         - **Arguments**:
             - `phase` (int): 1, 2 or 3 (1 on a 1-phase grid).

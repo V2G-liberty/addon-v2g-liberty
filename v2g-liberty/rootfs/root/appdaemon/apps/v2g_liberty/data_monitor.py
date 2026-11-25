@@ -488,10 +488,50 @@ class DataMonitor:
             )
             self._grid_listener_handles.append(handle)
 
+        # A first sample per phase from the entities' current states. The
+        # listeners only fire on a change, and a phase that never changes,
+        # such as the charger's own phase while it idles, would otherwise
+        # never reach the fuse guard or the reaction engine.
+        for phase in sorted(self._grid_consumption_trackers):
+            await self._seed_grid_phase(phase, local_now)
+
         self.__log(
             f"Grid monitoring started: {len(c.GRID_CONSUMPTION_ENTITIES)} "
             f"consumption + {len(c.GRID_PRODUCTION_ENTITIES)} production entities."
         )
+
+    async def _seed_grid_phase(self, phase: int, local_now: datetime):
+        """Feed the trackers of a phase with the entities' current states and
+        publish the sample; nothing when neither state is a number."""
+        readings = 0
+        channels = (
+            (
+                c.GRID_CONSUMPTION_ENTITIES,
+                self._grid_consumption_trackers,
+                self._grid_consumption_scales,
+            ),
+            (
+                c.GRID_PRODUCTION_ENTITIES,
+                self._grid_production_trackers,
+                self._grid_production_scales,
+            ),
+        )
+        for entities, trackers, scales in channels:
+            if phase > len(entities) or phase not in trackers:
+                continue
+            entity_id = entities[phase - 1]
+            state = await self.hass.get_state(entity_id)
+            if state in self.EMPTY_STATES:
+                continue
+            try:
+                power = float(state)
+            except (TypeError, ValueError):
+                continue
+            scale = await self._resolve_scale(scales, phase, entity_id)
+            trackers[phase].update(power * scale, local_now)
+            readings += 1
+        if readings:
+            self._emit_grid_power_sample(phase)
 
     async def _teardown_grid_listeners(self):
         """Cancel the registered grid listeners and reset grid state.
