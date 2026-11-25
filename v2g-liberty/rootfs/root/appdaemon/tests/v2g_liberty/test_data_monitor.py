@@ -1379,6 +1379,45 @@ class TestGridPowerSample:
         assert self._samples(grid_monitor) == []
 
 
+class TestGridSeed:
+    """The listeners only fire on a change; a phase that never changes, such
+    as the charger's own phase while it idles, would otherwise never be
+    sampled and the engines downstream would wait for it forever."""
+
+    @pytest.mark.asyncio
+    async def test_a_first_sample_per_phase_comes_from_the_current_states(
+        self, monitor, hass
+    ):
+        monitor._grid_consumption_trackers = {}
+        monitor._grid_production_trackers = {}
+        c.GRID_CONSUMPTION_ENTITIES = ["sensor.cons_l1", "sensor.cons_l2"]
+        c.GRID_PRODUCTION_ENTITIES = ["sensor.prod_l1", "sensor.prod_l2"]
+        states = {
+            "sensor.cons_l1": "1500",
+            "sensor.prod_l1": "300",
+            "sensor.cons_l2": "0",
+            "sensor.prod_l2": "unavailable",
+        }
+
+        async def get_state(entity_id, attribute=None, **_):
+            if attribute == "unit_of_measurement":
+                return "W"
+            return states.get(entity_id)
+
+        hass.get_state = AsyncMock(side_effect=get_state)
+        await monitor._setup_grid_listeners(TEST_NOW)
+
+        samples = [
+            call.kwargs
+            for call in monitor.event_bus.emit_event.call_args_list
+            if call.args and call.args[0] == "grid_power_sample"
+        ]
+        assert samples == [
+            {"phase": 1, "net_power_w": 1200},
+            {"phase": 2, "net_power_w": 0},
+        ]
+
+
 class TestLatePowerScale:
     """A grid or PV entity that does not exist yet when the listeners are set
     up (an emulator, a slow integration) must not be read as kW for the rest

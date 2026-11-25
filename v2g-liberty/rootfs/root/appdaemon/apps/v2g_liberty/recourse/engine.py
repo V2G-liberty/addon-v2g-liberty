@@ -18,14 +18,21 @@ in 0.9.2 together with the request side and a mode setting.
   (``grid_power_sample``, import positive), so the surprise is judged at
   the connection as a whole, as FlexMeasures plans it. The charger's
   realised power is the driver's (``charge_power_change``).
-- A DSMR 5 meter gives a sample per second per phase. The sensor is
-  rewritten when the setpoint moved more than COALESCE_W, or by anything
-  once COALESCE_S have passed. The log gets band exits only.
-- A setpoint the band had to clip is a **band exit** once it has lasted
-  DWELL_S: the surprise is more than the charger may absorb. 0.9.1 logs it
-  and counts it in the sensor; 0.9.2 asks FlexMeasures for a new plan.
+- A DSMR 5 meter gives a sample per second per phase, and Home Assistant
+  records every write. The sensor is rewritten when the setpoint moved by
+  COALESCE_W or more, at most once per MIN_WRITE_GAP_S; for a smaller move
+  at most once per HEARTBEAT_S; at once when the slot, the band-exit state
+  or the meter's health changes; never for the attributes alone, so a
+  follow-the-plan night writes nothing. The log gets band exits only.
+- A setpoint beyond the band, below its lowest or above its highest bound,
+  is a **band exit** once it has lasted DWELL_S: the surprise is more than
+  the charger may absorb. A setpoint in the charger's dead zone is not: it
+  is rounded onto the band, never counted. 0.9.1 logs and counts exits in
+  the sensor; 0.9.2 asks FlexMeasures for a new plan.
 - Without a sample for STALE_AFTER_S the engine is blind and follows the
-  plan, as it does before every phase has delivered a first sample.
+  plan, as it does before every phase has delivered a first sample. The
+  charger's power is unknown until the driver reports it and again when
+  the driver loses the charger; without it there is no setpoint.
 - The local device bounds (a full car cannot absorb a surplus) and the
   hysteresis around the charger's dead zone belong to the driver's
   translator, which comes with live mode.
@@ -44,10 +51,12 @@ from .rules import ReactionRule, ReactionSchedule, react
 
 SENSOR_REACTION_SETPOINT = "sensor.reaction_setpoint"
 MODE = "shadow"
-# Rewrite the sensor for a setpoint change of at least this many watts at
-# once, or for any change once this many seconds have passed.
+# Rewrite the sensor for a setpoint move of at least this many watts, at most
+# once per MIN_WRITE_GAP_S; for a smaller move at most once per HEARTBEAT_S.
+# A change of slot, band-exit state or meter health goes at once.
 COALESCE_W = 50
-COALESCE_S = 5
+MIN_WRITE_GAP_S = 5
+HEARTBEAT_S = 60
 # A clipped setpoint is a band exit once it has lasted this long; shorter
 # excursions are a kettle or the charger settling.
 DWELL_S = 30
@@ -59,8 +68,9 @@ STALE_CHECK_EVERY_S = 30
 @dataclass(frozen=True)
 class Evaluation:
     """The rules' verdict at one moment, in W. ``raw_w`` is the setpoint
-    before the band, ``setpoint_w`` after it; ``outside`` is True when the
-    band had to clip, so the surprise is more than the charger may absorb."""
+    before the band, ``setpoint_w`` after it; ``outside`` is True when
+    ``raw_w`` lies beyond the band, so the surprise is more than the charger
+    may absorb. Rounding out of the dead zone does not count."""
 
     rule: ReactionRule
     meter_w: int
@@ -90,7 +100,9 @@ class ReactionEngine:
         self._net_w: dict[int, int] = {}
         self._last_sample_at: datetime | None = None
         self._stale = True  # no sample yet
-        self._charger_w = 0
+        # The charger's realised power; None until the driver reports it and
+        # again when the driver loses the charger.
+        self._charger_w: int | None = None
         # Band-exit bookkeeping: since when the band clips, whether this exit
         # has been logged, and how many exits this engine has seen.
         self._exit_since: datetime | None = None
@@ -107,6 +119,10 @@ class ReactionEngine:
         self.event_bus.add_event_listener("grid_power_sample", self._on_grid_sample)
         self.event_bus.add_event_listener(
             "charge_power_change", self._on_charge_power_change
+        )
+        self.event_bus.add_event_listener(
+            "charger_communication_state_change",
+            self._on_charger_communication_state_change,
         )
         self._tick_handle = await set_recurring_timer(
             self.hass, self._tick_handle, self._tick, "now", STALE_CHECK_EVERY_S
@@ -152,6 +168,16 @@ class ReactionEngine:
         if isinstance(new_power, (int, float)) and not isinstance(new_power, bool):
             self._charger_w = int(new_power)
 
+    async def _on_charger_communication_state_change(self, can_communicate: bool):
+        """The driver lost the charger: its last power says nothing anymore,
+        and no event will come to say so. Known again at the next report."""
+        if can_communicate or self._charger_w is None:
+            return
+        self._charger_w = None
+        if self._rules is not None:
+            self._log("Charger unreachable; no setpoint until its power is known.")
+        await self._publish(force=True)
+
     async def _tick(self, kwargs=None):
         if self._went_stale(self._now()):
             await self._publish(force=True)
@@ -181,6 +207,8 @@ class ReactionEngine:
             return "outside the schedule"
         if len(self._net_w) < c.GRID_PHASES:
             return "waiting for a sample of every phase"
+        if self._charger_w is None:
+            return "charger power unknown"
         meter_w = sum(self._net_w.values())
         surprise_w = (meter_w - self._charger_w) - rule.reference_w
         if self._stale:
@@ -190,7 +218,7 @@ class ReactionEngine:
         else:
             raw_w = rule.p_w - rule.react * surprise_w
             setpoint_w = react(rule, surprise_w)
-            outside = not rule.band.contains(raw_w)
+            outside = rule.band.exceeds(raw_w)
         return Evaluation(
             rule, meter_w, self._charger_w, surprise_w, raw_w, setpoint_w, outside
         )
@@ -221,9 +249,8 @@ class ReactionEngine:
     # ── Output ───────────────────────────────────────────────────────────
 
     async def _publish(self, force: bool = False):
-        """Write the sensor when something in it changed, coalescing the
-        small, fast changes a 1 Hz meter brings. A change of slot, of the
-        band-exit state or of the meter's health is written at once."""
+        """Write the sensor when something in it changed, sparingly: Home
+        Assistant records every write and the meter samples once a second."""
         now = self._now()
         verdict = self.evaluate(now)
         if isinstance(verdict, str):
@@ -254,13 +281,16 @@ class ReactionEngine:
                 "slot_start": verdict.rule.start.isoformat(),
                 "meter_w": verdict.meter_w,
                 "charger_w": verdict.charger_w,
-                "surprise_w": round(verdict.surprise_w),
+                # Blind: the surprise is whatever the last samples said, so
+                # it is not shown.
+                "surprise_w": None if self._stale else round(verdict.surprise_w),
                 "outside_band": verdict.outside,
                 "band_exits": self._exits,
                 "meter_stale": self._stale,
             }
         flags = (
             state == "unavailable",
+            attributes.get("reason"),
             attributes.get("outside_band"),
             attributes.get("band_exits"),
             attributes.get("meter_stale"),
@@ -269,16 +299,17 @@ class ReactionEngine:
         snapshot = (state, tuple(sorted((k, str(v)) for k, v in attributes.items())))
         if snapshot == self._published:
             return
-        if (
-            not force
-            and flags == self._published_flags
-            and setpoint is not None
-            and self._published_setpoint is not None
-            and self._published_at is not None
-            and abs(setpoint - self._published_setpoint) < COALESCE_W
-            and (now - self._published_at).total_seconds() < COALESCE_S
-        ):
-            return
+        if not force and self._published_at is not None:
+            since_write = (now - self._published_at).total_seconds()
+            if flags != self._published_flags:
+                pass  # a change of state goes at once
+            elif since_write < MIN_WRITE_GAP_S:
+                return
+            else:
+                # Same flags, so both setpoints are known.
+                moved = abs((setpoint or 0.0) - (self._published_setpoint or 0.0))
+                if moved < COALESCE_W and (moved == 0 or since_write < HEARTBEAT_S):
+                    return
         self._published = snapshot
         self._published_setpoint = setpoint
         self._published_at = now

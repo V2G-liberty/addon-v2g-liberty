@@ -140,44 +140,74 @@ class TestSetpoint:
         assert attributes["charger_w"] == PLAN_W
 
 
-class TestCoalescing:
+class TestWrites:
+    """Home Assistant records every write, so the sensor is written sparingly."""
+
     @pytest.mark.asyncio
-    async def test_small_changes_within_five_seconds_are_held(self, engine, clock):
+    async def test_a_drifting_setpoint_is_written_once_a_minute(self, engine, clock):
         await start(engine)
         await sample(engine, 2000)  # setpoint 2400
         before = writes(engine)
-        for step in range(1, 5):
+        for second in range(1, 59):
             clock.tick(1)
-            await sample(engine, 2000 + 10 * step)  # setpoint drifts by 10 W
+            await sample(engine, 2000 + 10 * (second % 4))  # drifts by tens of watts
         assert writes(engine) == before
-        clock.tick(1)  # five seconds since the last write
-        await sample(engine, 2040)
+        clock.tick(2)  # a minute since the last write
+        await sample(engine, 2010)
         assert writes(engine) == before + 1
 
     @pytest.mark.asyncio
-    async def test_a_jump_is_published_at_once(self, engine, clock):
+    async def test_a_jump_is_written_after_the_minimum_gap(self, engine, clock):
         await start(engine)
         await sample(engine, 2000)  # setpoint 2400
         before = writes(engine)
         clock.tick(1)
-        await sample(engine, 2100)  # setpoint 2300: a jump of 100 W
+        await sample(engine, 2100)  # setpoint 2300: a jump of 100 W, but too soon
+        assert writes(engine) == before
+        clock.tick(4)
+        await sample(engine, 2100)
         assert writes(engine) == before + 1
+        assert sensor(engine)[0] == 2300
+
+    @pytest.mark.asyncio
+    async def test_a_flag_change_is_written_at_once(self, engine, clock):
+        await start(engine)
+        await sample(engine, 2000)
+        before = writes(engine)
+        clock.tick(1)
+        await sample(engine, PLAN_W - 400)  # below the band: outside_band flips
+        assert writes(engine) == before + 1
+        assert sensor(engine)[1]["outside_band"] is True
 
     @pytest.mark.asyncio
     async def test_an_unchanged_verdict_is_not_rewritten(self, engine, clock):
         await start(engine)
         await sample(engine, 3000)
         before = writes(engine)
-        clock.tick(10)
+        clock.tick(120)
         await sample(engine, 3000)
+        assert writes(engine) == before
+
+    @pytest.mark.asyncio
+    async def test_a_follow_the_plan_night_writes_nothing(self, engine, clock):
+        """Slot 3 follows the plan: the setpoint and the flags stay whatever
+        the house does, and the attributes alone are not worth a write."""
+        clock.tick(10 * 60)
+        await start(engine)
+        engine._on_charge_power_change(0)
+        await sample(engine, 500)
+        before = writes(engine)
+        for second in range(1, 240):
+            clock.tick(1)
+            await sample(engine, 500 + 300 * (second % 5))
         assert writes(engine) == before
 
 
 class TestBandExit:
     @pytest.mark.asyncio
     async def test_an_exit_is_logged_once_after_the_dwell(self, engine, clock, caplog):
-        """Surprise +4 kW asks 0.4 kW, in the dead zone under the band: the
-        band clips to 1.4 kW. Thirty seconds of that is one band exit."""
+        """Surprise +4 kW asks 0.4 kW, below the band of slot 1: the band
+        clips to 1.4 kW. Thirty seconds of that is one band exit."""
         await start(engine)
         with caplog.at_level(logging.INFO):
             await sample(engine, PLAN_W - 400)
@@ -221,6 +251,23 @@ class TestBandExit:
         assert sensor(engine)[1]["band_exits"] == 0
         assert sensor(engine)[0] in (1400, 3400)
 
+    @pytest.mark.asyncio
+    async def test_the_dead_zone_is_no_exit(self, engine, clock, caplog):
+        """Slot 2: band [-7.4, -1.4] / [0, 0] / [1.4, 7.4] kW. A surprise of
+        +3.7 kW asks 0.7 kW, in the dead zone; nearest() rounds it onto the
+        band, to the plan's side, and that rounding is never a band exit."""
+        clock.tick(5 * 60)
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(eng.DWELL_S + 10):
+                clock.tick(1)
+                await sample(engine, PLAN_W - 700)  # surprise +3700
+        state, attributes = sensor(engine)
+        assert state == 1400
+        assert attributes["outside_band"] is False
+        assert attributes["band_exits"] == 0
+        assert "Band exit" not in caplog.text
+
 
 class TestMeter:
     @pytest.mark.asyncio
@@ -237,6 +284,7 @@ class TestMeter:
         state, attributes = sensor(engine)
         assert state == PLAN_W
         assert attributes["meter_stale"] is True
+        assert attributes["surprise_w"] is None
         await sample(engine, PLAN_W - 1400)
         state, attributes = sensor(engine)
         assert state == 1400
@@ -296,3 +344,36 @@ class TestLifecycle:
         assert not hasattr(engine, "evse_client_app")
         used = {call[0] for call in engine.hass.method_calls}
         assert used <= {"set_state", "run_every"}
+
+
+class TestChargerPower:
+    @pytest.mark.asyncio
+    async def test_no_setpoint_until_the_driver_reports_the_charger(self, engine):
+        await engine.initialize()
+        await engine.install(rules())
+        await sample(engine, 3000)
+        state, attributes = sensor(engine)
+        assert state == "unavailable"
+        assert attributes["reason"] == "charger power unknown"
+        engine._on_charge_power_change(PLAN_W)
+        await sample(engine, 3000)
+        assert sensor(engine)[0] == 1400
+
+    @pytest.mark.asyncio
+    async def test_a_lost_charger_takes_the_setpoint_away(self, engine, caplog):
+        """Modbus drops while charging at 4.4 kW: no event brings a new power,
+        so the last one would make the house look 4.4 kW off."""
+        await start(engine)
+        await sample(engine, 3000)
+        assert sensor(engine)[0] == 1400
+        with caplog.at_level(logging.INFO):
+            await engine._on_charger_communication_state_change(can_communicate=False)
+        state, attributes = sensor(engine)
+        assert state == "unavailable"
+        assert attributes["reason"] == "charger power unknown"
+        assert "Charger unreachable" in caplog.text
+        await engine._on_charger_communication_state_change(can_communicate=True)
+        assert sensor(engine)[0] == "unavailable"  # unknown until reported
+        engine._on_charge_power_change(PLAN_W)
+        await sample(engine, 3000)
+        assert sensor(engine)[0] == 1400

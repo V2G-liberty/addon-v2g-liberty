@@ -85,6 +85,13 @@ class Band:
     def contains(self, power_w: float) -> bool:
         return any(lo <= power_w <= hi for lo, hi in self.ranges)
 
+    def exceeds(self, power_w: float) -> bool:
+        """True when ``power_w`` lies beyond the band: below its lowest bound
+        or above its highest. A gap between two ranges, the charger's dead
+        zone, is not beyond the band; ``nearest()`` rounds out of it, and
+        that rounding is never a band exit."""
+        return power_w < self.ranges[0][0] or power_w > self.ranges[-1][1]
+
     def nearest(self, power_w: float, plan_w: float) -> float:
         """The allowed power nearest to ``power_w``.
 

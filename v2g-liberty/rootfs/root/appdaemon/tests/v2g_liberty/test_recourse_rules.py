@@ -249,6 +249,22 @@ class TestBand:
         assert self.DEAD_ZONE.nearest(700.0, plan_w=-4400.0) == 0.0
         assert self.DEAD_ZONE.nearest(-700.0, plan_w=-4400.0) == -1400.0
 
+    @pytest.mark.parametrize(
+        ("power_w", "beyond"),
+        [
+            (700.0, False),
+            (-700.0, False),
+            (3000.0, False),
+            (7401.0, True),
+            (-7401.0, True),
+        ],
+    )
+    def test_a_gap_is_not_beyond_the_band_but_the_outer_edges_are(
+        self, power_w, beyond
+    ):
+        """Q2: rounding out of the dead zone is never a band exit."""
+        assert self.DEAD_ZONE.exceeds(power_w) is beyond
+
 
 class TestReact:
     def test_follow_the_plan_ignores_the_surprise(self):
