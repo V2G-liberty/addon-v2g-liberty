@@ -15,6 +15,7 @@ from .reservations_client import ReservationsClient
 from .main_app import V2Gliberty
 from .data_monitor import DataMonitor
 from .grid_connection.fuse_guard import FuseGuard
+from .recourse.engine import ReactionEngine
 from .fm_data_sender import FMDataSender
 from .api_server import ApiServer
 from .data_repairer import DataRepairer
@@ -104,6 +105,10 @@ class V2GLibertyApp(Hass):
         self._log_init_time("FuseGuard", start_module)
 
         start_module = datetime.now()
+        reaction_engine = ReactionEngine(self, event_bus=event_bus)
+        self._log_init_time("ReactionEngine", start_module)
+
+        start_module = datetime.now()
         fm_data_sender = FMDataSender(self)
         self._log_init_time("FMDataSender", start_module)
 
@@ -148,6 +153,7 @@ class V2GLibertyApp(Hass):
         main_app.evse_client_app = evse_client
         main_app.pause_at_reconnect = pause_at_reconnect
         main_app.fuse_guard = fuse_guard
+        main_app.reaction_engine = reaction_engine
         main_app.electric_vehicle = electric_vehicle
         main_app.fm_client_app = fm_client
         main_app.reservations_client = reservations_client
@@ -260,6 +266,7 @@ class V2GLibertyApp(Hass):
         # Before the data monitor, whose grid listeners feed it samples; after
         # kick_off_settings, so it reads the real grid and charger constants.
         await fuse_guard.initialize()
+        await reaction_engine.initialize()
 
         start_module = datetime.now()
         await data_monitor.initialize()
