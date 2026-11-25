@@ -30,10 +30,12 @@ The contract, as agreed with Seita (kick-off document, 24 November 2026):
   parser accepts [0, 1] and refuses anything outside, so a sign error on
   either side can never amplify a surprise.
 - ``band``: the device powers the slot allows, as ascending ``[lo, hi]``
-  ranges. ``null`` on a side means no bound from the planner, which only
-  happens for a device without a known capacity. Never empty: a device
-  that must follow its plan gets ``[[p, p]]``. A charger with operation
-  modes gets a list that leaves out its dead zone.
+  ranges of finite numbers. The planner requires a power capacity for
+  every device, so it never serves an open (``null``) side; one is refused,
+  as the client does. Never empty: a device that must follow its plan gets
+  ``[[p, p]]`` with ``react`` 0, which is also what a band that leaves no
+  room comes with. A charger with operation modes gets a list that leaves
+  out its dead zone.
 - Nothing per slot about sensors or retriggers: the meter is the one the
   flex-context already names, and retriggering on a band exit is on by
   default.
@@ -62,27 +64,26 @@ _UNIT_TO_W = {"W": 1.0, "kW": 1_000.0, "MW": 1_000_000.0}
 _TIE_W = 0.5
 
 
-class RulesError(ValueError):
-    """The ``reaction`` array of a schedule does not follow the contract."""
+class InvalidReactionError(ValueError):
+    """The ``reaction`` array of a schedule does not follow the contract.
+    The client raises an error of the same name."""
 
 
 @dataclass(frozen=True)
 class Band:
     """The device powers a slot allows, in W.
 
-    ``ranges`` are ascending ``(lo, hi)`` pairs; a range may touch the next
-    but not overlap it. ``None`` on a side means no bound from the planner. A charger with operation
-    modes gets ``((-7400, -1400), (0, 0), (1400, 7400))``: the dead zone
-    between idle and the minimum charge power is not in the band.
+    ``ranges`` are ascending ``(lo, hi)`` pairs of finite numbers; a range
+    may touch the next but not overlap it, and there is always at least
+    one. A charger with operation modes gets
+    ``((-7400, -1400), (0, 0), (1400, 7400))``: the dead zone between idle
+    and the minimum charge power is not in the band.
     """
 
-    ranges: tuple[tuple[float | None, float | None], ...]
+    ranges: tuple[tuple[float, float], ...]
 
     def contains(self, power_w: float) -> bool:
-        return any(
-            (lo is None or lo <= power_w) and (hi is None or power_w <= hi)
-            for lo, hi in self.ranges
-        )
+        return any(lo <= power_w <= hi for lo, hi in self.ranges)
 
     def nearest(self, power_w: float, plan_w: float) -> float:
         """The allowed power nearest to ``power_w``.
@@ -93,12 +94,10 @@ class Band:
         """
         if self.contains(power_w):
             return power_w
-        best: float | None = None
+        best = self.ranges[0][0]
         best_distance = math.inf
         for lo, hi in self.ranges:
             for edge in (lo, hi):
-                if edge is None:
-                    continue
                 distance = abs(edge - power_w)
                 if distance < best_distance - _TIE_W:
                     best, best_distance = edge, distance
@@ -106,10 +105,6 @@ class Band:
                     edge - plan_w
                 ) < abs(best - plan_w):
                     best = edge
-        if best is None:
-            # A band without edges contains everything, so this is only
-            # reached for a Band built with no ranges at all.
-            return power_w
         return best
 
 
@@ -163,31 +158,35 @@ def parse_reaction(schedule: dict, sensor_id: int) -> ReactionSchedule | None:
     """The reaction rules of a schedule as FlexMeasures serves it, in W.
 
     Returns None when the schedule carries no ``reaction`` array, which is
-    today's normal case. Raises RulesError when the array does not follow
+    today's normal case. Raises InvalidReactionError when the array does not follow
     the contract; what that means for the schedule is the caller's call.
     """
     reaction = schedule.get("reaction")
     if reaction is None:
         return None
     if not isinstance(reaction, list):
-        raise RulesError(f"reaction is not a list but {type(reaction).__name__}")
+        raise InvalidReactionError(
+            f"reaction is not a list but {type(reaction).__name__}"
+        )
 
     values = schedule.get("values")
     if not isinstance(values, list) or not values:
-        raise RulesError("the schedule has no values")
+        raise InvalidReactionError("the schedule has no values")
     if len(reaction) != len(values):
-        raise RulesError(f"{len(reaction)} rules for {len(values)} values")
+        raise InvalidReactionError(f"{len(reaction)} rules for {len(values)} values")
 
     factor = _unit_factor(schedule.get("unit"))
     try:
         start = isodate.parse_datetime(schedule["start"])
         duration = isodate.parse_duration(schedule["duration"])
     except (KeyError, TypeError, ValueError, AttributeError) as e:
-        raise RulesError(f"the schedule has no usable start and duration: {e}") from e
+        raise InvalidReactionError(
+            f"the schedule has no usable start and duration: {e}"
+        ) from e
     if not isinstance(duration, timedelta):
         # isodate gives a Duration for months and years; no slot length
         # follows from that.
-        raise RulesError("the schedule's duration is not a fixed length")
+        raise InvalidReactionError("the schedule's duration is not a fixed length")
     resolution = duration / len(values)
 
     rules = tuple(
@@ -214,7 +213,7 @@ def _unit_factor(unit) -> float:
     try:
         return _UNIT_TO_W[unit]
     except (KeyError, TypeError):
-        raise RulesError(f"unknown unit {unit!r}") from None
+        raise InvalidReactionError(f"unknown unit {unit!r}") from None
 
 
 def _parse_slot(
@@ -222,20 +221,22 @@ def _parse_slot(
 ) -> ReactionRule:
     what = f"slot {index}"
     if not isinstance(entry, dict):
-        raise RulesError(f"{what}: the rule is not an object")
+        raise InvalidReactionError(f"{what}: the rule is not an object")
     missing = [key for key in ("reference", "react", "band") if key not in entry]
     if missing:
-        raise RulesError(f"{what}: the rule lacks {', '.join(missing)}")
+        raise InvalidReactionError(f"{what}: the rule lacks {', '.join(missing)}")
     p_w = _number(value, f"{what}: value") * factor
     share = _number(entry["react"], f"{what}: react")
     if not 0.0 <= share <= 1.0:
         # Outside [0, 1] a share would amplify the surprise or invert it.
-        raise RulesError(f"{what}: react {share} is outside [0, 1]")
+        raise InvalidReactionError(f"{what}: react {share} is outside [0, 1]")
     band = _parse_band(entry["band"], factor, f"{what}: band")
     if abs(band.nearest(p_w, p_w) - p_w) > _TIE_W:
         # The band is the device's own limits and the plan respects them, so
         # with no surprise react() must give the plan back.
-        raise RulesError(f"{what}: the plan ({p_w:.0f} W) lies outside the band")
+        raise InvalidReactionError(
+            f"{what}: the plan ({p_w:.0f} W) lies outside the band"
+        )
     return ReactionRule(
         start=start,
         p_w=p_w,
@@ -248,34 +249,34 @@ def _parse_slot(
 def _number(raw, what: str) -> float:
     # A bool is an int in Python; true and false are not numbers in JSON.
     if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-        raise RulesError(f"{what} is not a number but {raw!r}")
+        raise InvalidReactionError(f"{what} is not a number but {raw!r}")
     if not math.isfinite(raw):
         # json.loads lets NaN and Infinity through; a NaN setpoint would
         # pass every comparison in nearest() and come out the other end.
-        raise RulesError(f"{what} is not a finite number but {raw!r}")
+        raise InvalidReactionError(f"{what} is not a finite number but {raw!r}")
     return float(raw)
 
 
 def _parse_band(raw, factor: float, what: str) -> Band:
     if not isinstance(raw, list) or not raw:
-        raise RulesError(f"{what} is not a non-empty list of ranges")
-    ranges: list[tuple[float | None, float | None]] = []
-    previous_max: float | None = None
+        raise InvalidReactionError(f"{what} is not a non-empty list of ranges")
+    ranges: list[tuple[float, float]] = []
+    previous_hi: float | None = None
     for position, pair in enumerate(raw):
         if not isinstance(pair, list) or len(pair) != 2:
-            raise RulesError(f"{what}: range {position} is not a [lo, hi] pair")
-        lo = _side(pair[0], factor, f"{what}: range {position} lo")
-        hi = _side(pair[1], factor, f"{what}: range {position} hi")
-        if lo is not None and hi is not None and lo > hi:
-            raise RulesError(f"{what}: range {position} has its lo above its hi")
-        if position > 0 and (previous_max is None or lo is None or lo < previous_max):
-            raise RulesError(f"{what}: ranges are not ascending and non-overlapping")
+            raise InvalidReactionError(
+                f"{what}: range {position} is not a [lo, hi] pair"
+            )
+        lo = _number(pair[0], f"{what}: range {position} lo") * factor
+        hi = _number(pair[1], f"{what}: range {position} hi") * factor
+        if lo > hi:
+            raise InvalidReactionError(
+                f"{what}: range {position} has its lo above its hi"
+            )
+        if previous_hi is not None and lo < previous_hi:
+            raise InvalidReactionError(
+                f"{what}: ranges are not ascending and non-overlapping"
+            )
         ranges.append((lo, hi))
-        previous_max = hi
+        previous_hi = hi
     return Band(tuple(ranges))
-
-
-def _side(raw, factor: float, what: str) -> float | None:
-    if raw is None:
-        return None
-    return _number(raw, what) * factor

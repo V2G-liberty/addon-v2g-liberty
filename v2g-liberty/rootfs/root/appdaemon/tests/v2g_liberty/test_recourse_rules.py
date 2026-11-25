@@ -3,7 +3,7 @@ the fixtures in fixtures/fm/.
 
 The fixtures are the agreed examples (kick-off document, 24 November 2026).
 The parser must read every valid one and refuse every malformed shape with
-a RulesError, and react() must give the setpoints the scenario catalogue
+a InvalidReactionError, and react() must give the setpoints the scenario catalogue
 expects.
 """
 
@@ -15,9 +15,9 @@ from pathlib import Path
 import pytest
 from apps.v2g_liberty.recourse.rules import (
     Band,
+    InvalidReactionError,
     ReactionRule,
     ReactionSchedule,
-    RulesError,
     parse_reaction,
     react,
 )
@@ -98,9 +98,12 @@ class TestParseFixtures:
         assert discharging.p_w == pytest.approx(-5900.0)
         assert_band(discharging.band, (-7400.0, -1400.0))
 
-    def test_a_null_side_is_no_bound(self):
-        (only,) = rules_of("schedule_null_band").rules
-        assert_band(only.band, (None, -1400.0))
+    def test_a_null_side_is_refused(self):
+        """Never served: every device has a power capacity. Refused as the
+        client refuses it, so the two parsers agree on the input."""
+        reason = "slot 0: band: range 0 lo is not a number but None"
+        with pytest.raises(InvalidReactionError, match=re.escape(reason)):
+            parse_reaction(fixture("schedule_null_side"), sensor_id=CHARGER)
 
     def test_the_night_follows_the_plan(self):
         rules = rules_of("schedule_night_k0")
@@ -121,10 +124,11 @@ class TestParseFixtures:
         assert [slot.reference_w for slot in rules.rules] == [0.0, 0.0, 0.0, 0.0]
         assert [slot.react for slot in rules.rules] == [1.0, 0.0, 1.0, 0.0]
 
-    def test_a_collapsed_band_is_read_as_such(self):
+    def test_a_collapsed_band_comes_with_react_zero(self):
+        """The planner sets the share to 0 whenever the band leaves no room."""
         rules = rules_of("schedule_band_collapsed")
         for slot in rules.rules:
-            assert slot.react == 1.0
+            assert slot.react == 0.0
             assert_band(slot.band, (7400.0, 7400.0))
 
     def test_the_opt_in_request_is_todays_plus_one_boolean(self):
@@ -180,25 +184,35 @@ class TestRefusedShapes:
             (_first_rule(band=[[0.0074, 0.0014]]), "range 0 has its lo above its hi"),
             (_first_rule(band=[[0.0, 0.002], [0.001, 0.0074]]), "not ascending"),
             (_first_rule(band=[[0.0014, 0.0074], [0.0, 0.0]]), "not ascending"),
-            (_first_rule(band=[[None, 0.0], [None, 0.0074]]), "not ascending"),
-            (_first_rule(band=[[0.0, None], [0.0014, 0.0074]]), "not ascending"),
+            (
+                _first_rule(band=[[None, 0.0], [None, 0.0074]]),
+                "range 0 lo is not a number",
+            ),
+            (
+                _first_rule(band=[[0.0, None], [0.0014, 0.0074]]),
+                "range 0 hi is not a number",
+            ),
         ],
     )
     def test_is_refused_with_the_reason(self, schedule, reason):
-        with pytest.raises(RulesError, match=re.escape(reason)):
+        with pytest.raises(InvalidReactionError, match=re.escape(reason)):
             parse_reaction(schedule, sensor_id=CHARGER)
 
     def test_a_rule_that_is_not_an_object_is_refused(self):
         schedule = _schedule()
         schedule["reaction"][2] = 0.0
-        with pytest.raises(RulesError, match="slot 2: the rule is not an object"):
+        with pytest.raises(
+            InvalidReactionError, match="slot 2: the rule is not an object"
+        ):
             parse_reaction(schedule, sensor_id=CHARGER)
 
     def test_a_rule_without_a_key_is_refused(self):
         schedule = _schedule()
         del schedule["reaction"][1]["react"]
         del schedule["reaction"][1]["band"]
-        with pytest.raises(RulesError, match="slot 1: the rule lacks react, band"):
+        with pytest.raises(
+            InvalidReactionError, match="slot 1: the rule lacks react, band"
+        ):
             parse_reaction(schedule, sensor_id=CHARGER)
 
 
@@ -220,12 +234,6 @@ class TestBand:
     def test_contains(self, power_w, inside):
         assert self.DEAD_ZONE.contains(power_w) is inside
 
-    def test_a_null_side_is_unbounded(self):
-        open_below = band((None, -1400.0))
-        assert open_below.contains(-50_000.0)
-        assert not open_below.contains(0.0)
-        assert open_below.nearest(500.0, plan_w=-5900.0) == -1400.0
-
     def test_inside_the_band_the_power_is_returned_as_is(self):
         assert self.DEAD_ZONE.nearest(3000.0, plan_w=4400.0) == 3000.0
 
@@ -240,9 +248,6 @@ class TestBand:
         assert self.DEAD_ZONE.nearest(700.0, plan_w=4400.0) == 1400.0
         assert self.DEAD_ZONE.nearest(700.0, plan_w=-4400.0) == 0.0
         assert self.DEAD_ZONE.nearest(-700.0, plan_w=-4400.0) == -1400.0
-
-    def test_a_band_without_edges_allows_everything(self):
-        assert band((None, None)).nearest(123_456.0, plan_w=0.0) == 123_456.0
 
 
 class TestReact:
@@ -270,20 +275,19 @@ class TestReact:
         assert react(late, surprise_w=3000.0) == 3000.0
 
     def test_a_collapsed_band_behaves_as_follow_the_plan(self):
-        """D2: low state of charge and a target soon, react 1 but band
-        [[p, p]]."""
+        """D2: low state of charge and a target soon. The planner serves
+        react 0 here; a share of 1 with a band [[p, p]] would do the same."""
         forced = rule(p_w=7400.0, ranges=((7400.0, 7400.0),))
         assert react(forced, surprise_w=5000.0) == 7400.0
         assert react(forced, surprise_w=-5000.0) == 7400.0
 
-    def test_a_null_side_lets_the_device_go_beyond_the_plan(self):
-        """The expensive evening with an open lower side: when the house
-        imports more than planned the car discharges harder, with no bound
-        from the planner; when it exports more, the car eases off but never
-        charges."""
-        evening = rule(p_w=-5900.0, reference_w=2100.0, ranges=((None, -1400.0),))
-        assert react(evening, surprise_w=2000.0) == -7900.0
-        assert react(evening, surprise_w=20_000.0) == -25_900.0
+    def test_discharging_harder_stays_within_the_production_range(self):
+        """The expensive evening: when the house imports more than planned
+        the car discharges harder, up to its production range; when it
+        exports more, the car eases off but never charges."""
+        evening = rule(p_w=-5900.0, reference_w=2100.0, ranges=((-7400.0, -1400.0),))
+        assert react(evening, surprise_w=1000.0) == -6900.0
+        assert react(evening, surprise_w=20_000.0) == -7400.0
         assert react(evening, surprise_w=-3000.0) == -2900.0
         assert react(evening, surprise_w=-6000.0) == -1400.0
 
@@ -309,7 +313,6 @@ class TestRuleAt:
 
 VALID_FIXTURES = [
     "schedule_with_reaction",
-    "schedule_null_band",
     "schedule_night_k0",
     "schedule_band_target",
     "schedule_reference_zero",
@@ -326,7 +329,9 @@ class TestContractInvariants:
 
     def test_a_plan_outside_its_band_is_refused(self):
         schedule = _schedule(values=[0.001, 0.0044, 0.0, -0.0059])
-        with pytest.raises(RulesError, match=re.escape("slot 0: the plan (1000 W)")):
+        with pytest.raises(
+            InvalidReactionError, match=re.escape("slot 0: the plan (1000 W)")
+        ):
             parse_reaction(schedule, sensor_id=CHARGER)
 
     def test_a_plan_just_below_an_edge_passes_within_rounding(self):
@@ -336,7 +341,7 @@ class TestContractInvariants:
     @pytest.mark.parametrize("share", [-1.0, -0.01, 1.01, 2.0])
     def test_a_share_outside_zero_to_one_is_refused(self, share):
         reason = f"slot 0: react {share} is outside [0, 1]"
-        with pytest.raises(RulesError, match=re.escape(reason)):
+        with pytest.raises(InvalidReactionError, match=re.escape(reason)):
             parse_reaction(_first_rule(react=share), sensor_id=CHARGER)
 
     def test_a_share_in_between_is_applied_as_such(self):
@@ -355,11 +360,13 @@ class TestContractInvariants:
         ],
     )
     def test_nan_and_infinity_are_refused(self, schedule, reason):
-        with pytest.raises(RulesError, match=re.escape(reason)):
+        with pytest.raises(InvalidReactionError, match=re.escape(reason)):
             parse_reaction(schedule, sensor_id=CHARGER)
 
     def test_a_duration_in_months_is_refused_not_crashed(self):
-        with pytest.raises(RulesError, match="duration is not a fixed length"):
+        with pytest.raises(
+            InvalidReactionError, match="duration is not a fixed length"
+        ):
             parse_reaction(_schedule(duration="P1M"), sensor_id=CHARGER)
 
     def test_ranges_may_touch(self):

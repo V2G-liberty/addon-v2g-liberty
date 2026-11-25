@@ -25,8 +25,8 @@ to W.
 | `schedule_without_reaction.json` | Today's schedule, also what a server without the feature returns: no rules. |
 | `schedule_with_reaction.json` | Four slots that cover the variants: a single range; a list of ranges around the charger's dead zone; follow-the-plan (`react` 0, band `[[0, 0]]`); discharging with the device's own production range as band. |
 | `schedule_invalid_length.json` | One rule for four values. The rules are dropped; the schedule is kept. |
-| `schedule_null_band.json` | A `null` side: legal, "no bound from the planner". It does not occur for a device with a known capacity, but the parser and `react()` handle it. |
+| `schedule_null_side.json` | A `null` side. Never served: the planner requires a power capacity for every device, so every side is a finite number. Refused, as the client refuses it; kept as a parser test. |
 | `schedule_night_k0.json` | Cheap night, charging to the target: `react` 0 and `[[p, p]]` in every slot. A heat-pump cycle changes the load, not the price: no reaction. |
 | `schedule_band_target.json` | Clouds where sun was planned, with a target this evening: `react` 1, and the lower bound of the band rises towards the deadline, so the charger imports deliberately rather than miss the target. |
 | `schedule_reference_zero.json` | No forecast: `reference` 0.0 in every slot; `react` 1 only where the price is at or below zero or the connection binds. |
-| `schedule_band_collapsed.json` | Low state of charge and a target soon: `react` 1 with a collapsed band `[[p, p]]`, which behaves as follow-the-plan. |
+| `schedule_band_collapsed.json` | Low state of charge and a target soon: the band leaves no room, and the planner then serves `react` 0 with `[[p, p]]`, as it does whenever a band collapses. |

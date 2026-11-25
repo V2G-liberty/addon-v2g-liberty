@@ -10,7 +10,7 @@ import isodate
 from appdaemon.plugins.hass.hassapi import Hass
 from . import constants as c
 from .log_wrapper import get_class_method_logger
-from .recourse.rules import RulesError, parse_reaction
+from .recourse.rules import InvalidReactionError, parse_reaction
 from .event_bus import EventBus
 from .v2g_globals import time_round, time_ceil, get_local_now
 from .time_range_util import (
@@ -1358,7 +1358,11 @@ class FMClient(AsyncIOEventEmitter):
         except Exception as e:
             # Not only contract errors: a bug in the parser or an odd shape
             # from the server must not take the schedule down with it.
-            reason = str(e) if isinstance(e, RulesError) else f"{type(e).__name__}: {e}"
+            reason = (
+                str(e)
+                if isinstance(e, InvalidReactionError)
+                else f"{type(e).__name__}: {e}"
+            )
             self.__log(
                 f"Reaction rules dropped, schedule kept: {reason}.", level="WARNING"
             )
