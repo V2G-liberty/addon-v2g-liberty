@@ -272,11 +272,7 @@ class ReactionEngine:
                 "reference_w": round(verdict.rule.reference_w),
                 "react": verdict.rule.react,
                 "band_w": [
-                    [
-                        None if lo is None else round(lo),
-                        None if hi is None else round(hi),
-                    ]
-                    for lo, hi in verdict.rule.band.ranges
+                    [round(lo), round(hi)] for lo, hi in verdict.rule.band.ranges
                 ],
                 "slot_start": verdict.rule.start.isoformat(),
                 "meter_w": verdict.meter_w,
