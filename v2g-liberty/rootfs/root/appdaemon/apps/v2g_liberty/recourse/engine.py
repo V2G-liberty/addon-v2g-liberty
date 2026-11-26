@@ -17,7 +17,11 @@ in 0.9.2 together with the request side and a mode setting.
 - The meter is the sum of the per-phase samples the data monitor emits
   (``grid_power_sample``, import positive), so the surprise is judged at
   the connection as a whole, as FlexMeasures plans it. The charger's
-  realised power is the driver's (``charge_power_change``).
+  realised power is the driver's (``charge_power_change``). In live mode
+  the charger's share must be the commanded power during the charger's
+  settle time and the realised power after it, or its own ramp towards a
+  new setpoint reads as a surprise; the drivers measure those settle times.
+  Shadow uses the realised power throughout.
 - A DSMR 5 meter gives a sample per second per phase, and Home Assistant
   records every write. The sensor is rewritten when the setpoint moved by
   COALESCE_W or more, at most once per MIN_WRITE_GAP_S; for a smaller move
@@ -26,9 +30,14 @@ in 0.9.2 together with the request side and a mode setting.
   follow-the-plan night writes nothing. The log gets band exits only.
 - A setpoint beyond the band, below its lowest or above its highest bound,
   is a **band exit** once it has lasted DWELL_S: the surprise is more than
-  the charger may absorb. A setpoint in the charger's dead zone is not: it
-  is rounded onto the band, never counted. 0.9.1 logs and counts exits in
-  the sensor; 0.9.2 asks FlexMeasures for a new plan.
+  the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
+  edge: float noise on a reference served in MW, and meter noise, are not
+  exits. A setpoint in the charger's dead zone is not either: it is rounded
+  onto the band, never counted. Shorter excursions are counted, and the
+  energy past the band is integrated over every excursion, so the shadow
+  week yields the numbers a hysteresis at the band edge and an energy
+  threshold in front of the retrigger are set from. 0.9.1 logs and counts;
+  0.9.2 asks FlexMeasures for a new plan.
 - Without a sample for STALE_AFTER_S the engine is blind and follows the
   plan, as it does before every phase has delivered a first sample. The
   charger's power is unknown until the driver reports it and again when
@@ -60,6 +69,9 @@ HEARTBEAT_S = 60
 # A clipped setpoint is a band exit once it has lasted this long; shorter
 # excursions are a kettle or the charger settling.
 DWELL_S = 30
+# A raw setpoint this close to the band's edge is not outside it: the
+# tolerance the client's exit gate uses, in the order of meter noise.
+EXIT_TOLERANCE_W = 50
 # No sample for this long and the engine is blind: follow the plan.
 STALE_AFTER_S = 60
 STALE_CHECK_EVERY_S = 30
@@ -103,11 +115,17 @@ class ReactionEngine:
         # The charger's realised power; None until the driver reports it and
         # again when the driver loses the charger.
         self._charger_w: int | None = None
-        # Band-exit bookkeeping: since when the band clips, whether this exit
-        # has been logged, and how many exits this engine has seen.
+        # Band-exit bookkeeping: since when the band clips, the previous
+        # sample in that excursion and the energy past the band so far,
+        # whether this exit has been logged, and the counts: exits that
+        # lasted the dwell and excursions that did not.
         self._exit_since: datetime | None = None
+        self._exit_last_at: datetime | None = None
+        self._exit_wh = 0.0
         self._exit_logged = False
         self._exits = 0
+        self._short_excursions = 0
+        self._last_exit_wh: float | None = None
         # Coalescing of the sensor writes.
         self._published: tuple | None = None
         self._published_setpoint: float | None = None
@@ -137,8 +155,7 @@ class ReactionEngine:
     async def install(self, rules: ReactionSchedule):
         """Take the rules of a new schedule; the previous ones go."""
         self._rules = rules
-        self._exit_since = None
-        self._exit_logged = False
+        self._reset_excursion()
         self._log(f"Reaction rules installed, mode {MODE}: {rules!r}.")
         await self._publish(force=True)
 
@@ -148,8 +165,7 @@ class ReactionEngine:
         if self._rules is None:
             return
         self._rules = None
-        self._exit_since = None
-        self._exit_logged = False
+        self._reset_excursion()
         self._log("Reaction rules cleared.")
         await self._publish(force=True)
 
@@ -218,16 +234,29 @@ class ReactionEngine:
         else:
             raw_w = rule.p_w - rule.react * surprise_w
             setpoint_w = react(rule, surprise_w)
-            outside = rule.band.exceeds(raw_w)
+            outside = (
+                rule.band.exceeds(raw_w) and abs(raw_w - setpoint_w) > EXIT_TOLERANCE_W
+            )
         return Evaluation(
             rule, meter_w, self._charger_w, surprise_w, raw_w, setpoint_w, outside
         )
 
+    def _reset_excursion(self):
+        self._exit_since = None
+        self._exit_last_at = None
+        self._exit_wh = 0.0
+        self._exit_logged = False
+
     def _track_exit(self, verdict: Evaluation, now: datetime):
         if verdict.outside:
+            past_w = abs(verdict.raw_w - verdict.setpoint_w)
             if self._exit_since is None:
                 self._exit_since = now
-            elif (
+            else:
+                dt_s = (now - self._exit_last_at).total_seconds()
+                self._exit_wh += past_w * dt_s / 3600
+            self._exit_last_at = now
+            if (
                 not self._exit_logged
                 and (now - self._exit_since).total_seconds() >= DWELL_S
             ):
@@ -236,17 +265,31 @@ class ReactionEngine:
                 self._log(
                     f"Band exit #{self._exits}: the rules ask {verdict.raw_w:.0f} W, "
                     f"the band allows {verdict.setpoint_w:.0f} W, for {DWELL_S} s "
-                    f"now (surprise {verdict.surprise_w:.0f} W, slot "
+                    f"now, {self._exit_wh:.1f} Wh past the band (surprise "
+                    f"{verdict.surprise_w:.0f} W, slot "
                     f"{verdict.rule.start.isoformat()}). {MODE}: no retrigger."
                 )
         elif self._exit_since is not None:
+            seconds = (now - self._exit_since).total_seconds()
             if self._exit_logged:
-                seconds = (now - self._exit_since).total_seconds()
-                self._log(f"Band exit over after {seconds:.0f} s.")
-            self._exit_since = None
-            self._exit_logged = False
+                self._last_exit_wh = self._exit_wh
+                self._log(
+                    f"Band exit over after {seconds:.0f} s, {self._exit_wh:.1f} Wh "
+                    "past the band."
+                )
+            else:
+                self._short_excursions += 1
+                self._log(
+                    f"Excursion past the band of {seconds:.0f} s, {self._exit_wh:.1f} "
+                    f"Wh; shorter than the dwell of {DWELL_S} s, no exit.",
+                    level="DEBUG",
+                )
+            self._reset_excursion()
 
     # ── Output ───────────────────────────────────────────────────────────
+
+    def _last_exit_wh_rounded(self) -> float | None:
+        return None if self._last_exit_wh is None else round(self._last_exit_wh, 1)
 
     async def _publish(self, force: bool = False):
         """Write the sensor when something in it changed, sparingly: Home
@@ -261,8 +304,17 @@ class ReactionEngine:
                 "reason": verdict,
                 "meter_stale": self._stale,
                 "band_exits": self._exits,
+                "short_excursions": self._short_excursions,
+                "last_exit_wh": self._last_exit_wh_rounded(),
             }
         else:
+            # The raw per-sample surprise, for sizing the smoother that comes
+            # with live mode; visible only while debug logging is on.
+            self._log(
+                f"surprise {verdict.surprise_w:.0f} W, raw {verdict.raw_w:.0f} W, "
+                f"setpoint {verdict.setpoint_w:.0f} W.",
+                level="DEBUG",
+            )
             self._track_exit(verdict, now)
             setpoint = verdict.setpoint_w
             state = round(setpoint)
@@ -282,6 +334,8 @@ class ReactionEngine:
                 "surprise_w": None if self._stale else round(verdict.surprise_w),
                 "outside_band": verdict.outside,
                 "band_exits": self._exits,
+                "short_excursions": self._short_excursions,
+                "last_exit_wh": self._last_exit_wh_rounded(),
                 "meter_stale": self._stale,
             }
         flags = (
