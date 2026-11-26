@@ -16,7 +16,8 @@ against. Nothing here talks to FlexMeasures or to the charger, and nothing
 here keeps state. The flexmeasures-client is to offer the same parser and
 ``react()`` behind the same names; ours goes when that lands.
 
-The contract, as agreed with Seita (kick-off document, 24 November 2026):
+The contract, as agreed with Seita (kick-off document, 24 and 26 November
+2026):
 
 - The opt-in is ``"react": true`` on the device's flex-model item, in the
   trigger or stored on the asset. The flex-context changes not at all.
@@ -42,6 +43,11 @@ The contract, as agreed with Seita (kick-off document, 24 November 2026):
 - The plan lies inside its own band: with no surprise the device follows
   its plan exactly. The parser enforces it, with half a watt of tolerance
   for rounding between ``values`` and the band's edges.
+- A setpoint in a hole between two ranges, the charger's dead zone, takes
+  the edge on the side of the range that holds the plan: the mode the
+  device is in. A setpoint inside another range is returned as is; it asks
+  for a mode change, and whether to follow that is the engine's policy, not
+  the rule's (Seita, 26 November, amending the earlier "nearest edge").
 - Numbers are plain and finite, in the schedule's ``unit``, at full
   precision. This module converts them to W.
 - Signs: device power positive is consumption (charging), meter power
@@ -58,9 +64,8 @@ import isodate
 
 _UNIT_TO_W = {"W": 1.0, "kW": 1_000.0, "MW": 1_000_000.0}
 
-# Two edges whose distances to a setpoint differ by less than this are
-# equally near: the schedule is served in MW at full precision, the charger
-# takes whole watts.
+# Rounding between ``values`` and the band's edges: the schedule is served in
+# MW at full precision, the charger takes whole watts.
 _TIE_W = 0.5
 
 
@@ -93,26 +98,36 @@ class Band:
         return power_w < self.ranges[0][0] or power_w > self.ranges[-1][1]
 
     def nearest(self, power_w: float, plan_w: float) -> float:
-        """The allowed power nearest to ``power_w``.
+        """The allowed power for ``power_w``.
 
-        Inside the band that is ``power_w`` itself. Outside it is the nearest
-        edge of the nearest range. When two edges are equally near, in the
-        middle of a dead zone, it is the one on the side of the plan.
+        Inside the band that is ``power_w`` itself, also in another range
+        than the plan's: a request for a mode change, which the engine's
+        policy decides on. Beyond the band it is the outer bound. In a hole
+        between two ranges, the charger's dead zone, it is the edge on the
+        side of the range that holds the plan, the mode the device is in: a
+        plan charging 1.4 kW that is asked 0.5 kW keeps charging, a plan
+        idling that is asked 0.5 kW stays idle.
         """
+        if power_w <= self.ranges[0][0]:
+            return self.ranges[0][0]
+        if power_w >= self.ranges[-1][1]:
+            return self.ranges[-1][1]
         if self.contains(power_w):
             return power_w
-        best = self.ranges[0][0]
-        best_distance = math.inf
-        for lo, hi in self.ranges:
-            for edge in (lo, hi):
-                distance = abs(edge - power_w)
-                if distance < best_distance - _TIE_W:
-                    best, best_distance = edge, distance
-                elif abs(distance - best_distance) <= _TIE_W and abs(
-                    edge - plan_w
-                ) < abs(best - plan_w):
-                    best = edge
-        return best
+        plan_range = self._range_of(plan_w)
+        for i, ((_, hi), (lo, _)) in enumerate(zip(self.ranges, self.ranges[1:])):
+            if hi < power_w < lo:
+                return hi if plan_range <= i else lo
+        return power_w  # not reached: a power is inside, beyond or in a hole
+
+    def _range_of(self, power_w: float) -> int:
+        """The index of the range ``power_w`` lies in, or the nearest one."""
+
+        def distance(i: int) -> float:
+            lo, hi = self.ranges[i]
+            return max(lo - power_w, power_w - hi, 0.0)
+
+        return min(range(len(self.ranges)), key=distance)
 
 
 @dataclass(frozen=True)
@@ -210,8 +225,9 @@ def react(rule: ReactionRule, surprise_w: float) -> float:
 
     ``surprise_w`` is the measured uncontrolled power minus the reference,
     import positive. The setpoint is the plan minus the share of the
-    surprise the rule says to absorb, held inside the band. Pure: the
-    engine adds the sampling, the dwell and the hysteresis around it.
+    surprise the rule says to absorb, held inside the band and, in a dead
+    zone, rounded towards the plan's mode. Pure: the engine adds the
+    sampling, the dwell and the mode-change policy around it.
     """
     return rule.band.nearest(rule.p_w - rule.react * surprise_w, rule.p_w)
 

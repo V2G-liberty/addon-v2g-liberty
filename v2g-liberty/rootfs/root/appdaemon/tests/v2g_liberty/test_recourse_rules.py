@@ -117,7 +117,8 @@ class TestParseFixtures:
         rules = rules_of("schedule_band_target")
         lower_bounds = [slot.band.ranges[-1][0] for slot in rules.rules]
         assert lower_bounds == pytest.approx([1400.0, 3000.0, 4500.0, 7400.0])
-        assert all(slot.react == 1.0 for slot in rules.rules)
+        # The last slot's band is a single point, and that comes as react 0.
+        assert [slot.react for slot in rules.rules] == [1.0, 1.0, 1.0, 0.0]
 
     def test_without_a_forecast_the_reference_is_zero(self):
         rules = rules_of("schedule_reference_zero")
@@ -237,17 +238,39 @@ class TestBand:
     def test_inside_the_band_the_power_is_returned_as_is(self):
         assert self.DEAD_ZONE.nearest(3000.0, plan_w=4400.0) == 3000.0
 
+    def test_inside_another_range_than_the_plans_it_is_returned_as_is(self):
+        """A request for a mode change; whether to follow it is the engine's
+        policy, not the rule's."""
+        assert self.DEAD_ZONE.nearest(-3000.0, plan_w=4400.0) == -3000.0
+        assert self.DEAD_ZONE.nearest(0.0, plan_w=4400.0) == 0.0
+
     @pytest.mark.parametrize(
         ("power_w", "expected"),
-        [(9000.0, 7400.0), (-9000.0, -7400.0), (1000.0, 1400.0), (300.0, 0.0)],
+        [(9000.0, 7400.0), (-9000.0, -7400.0), (7400.0, 7400.0)],
     )
-    def test_outside_the_band_the_nearest_edge_is_returned(self, power_w, expected):
+    def test_beyond_the_band_the_outer_bound_is_returned(self, power_w, expected):
         assert self.DEAD_ZONE.nearest(power_w, plan_w=4400.0) == expected
 
-    def test_in_the_middle_of_the_dead_zone_the_plan_side_wins(self):
-        assert self.DEAD_ZONE.nearest(700.0, plan_w=4400.0) == 1400.0
-        assert self.DEAD_ZONE.nearest(700.0, plan_w=-4400.0) == 0.0
-        assert self.DEAD_ZONE.nearest(-700.0, plan_w=-4400.0) == -1400.0
+    @pytest.mark.parametrize(
+        ("power_w", "plan_w", "expected"),
+        [
+            (1000.0, 4400.0, 1400.0),  # near the charging edge, plan charging
+            (300.0, 4400.0, 1400.0),  # near idle, but the plan is charging
+            (700.0, 4400.0, 1400.0),
+            (-700.0, 4400.0, 0.0),  # the other hole: towards the plan's side
+            (700.0, -4400.0, 0.0),
+            (-700.0, -4400.0, -1400.0),
+            (-100.0, -4400.0, -1400.0),  # near idle, but the plan is discharging
+            (700.0, 0.0, 0.0),  # an idle plan stays idle
+            (-700.0, 0.0, 0.0),
+        ],
+    )
+    def test_in_a_hole_the_edge_on_the_plans_side_is_returned(
+        self, power_w, plan_w, expected
+    ):
+        """Not the nearest edge: the side of the mode the device is in, which
+        at the start of a slot is the range holding the plan."""
+        assert self.DEAD_ZONE.nearest(power_w, plan_w=plan_w) == expected
 
     @pytest.mark.parametrize(
         ("power_w", "beyond"),
@@ -276,13 +299,28 @@ class TestReact:
 
     def test_a_shortfall_of_sun_is_absorbed_down_to_the_band(self):
         """B1: 4.4 kW planned on a 4.4 kW surplus. Clouds leave 1.4 kW surplus
-        (surprise +3 kW): charge 1.4 kW. More clouds: the dead zone is left
-        for the nearest edge, idle. Extra sun: charge harder, to 7.4 kW."""
+        (surprise +3 kW): charge 1.4 kW. More clouds ask 0.4 kW, in the dead
+        zone: the charging mode holds, 1.4 kW. No surplus left at all: idle,
+        the outer bound. Extra sun: charge harder, to 7.4 kW."""
         sunny = rule(ranges=((0.0, 0.0), (1400.0, 7400.0)))
         assert react(sunny, surprise_w=3000.0) == 1400.0
-        assert react(sunny, surprise_w=4000.0) == 0.0
+        assert react(sunny, surprise_w=4000.0) == 1400.0
+        assert react(sunny, surprise_w=5000.0) == 0.0
         assert react(sunny, surprise_w=-2000.0) == 6400.0
         assert react(sunny, surprise_w=-5000.0) == 7400.0
+
+    def test_a_balance_point_reference_keeps_the_planned_mode(self):
+        """Seita's example of 26 November: modes idle and 1.4 to 7.4 kW, a
+        0.5 kW surplus, a plan that charges 1.4 kW because the car needs the
+        energy, so the reference is the balance point -1.4 kW. The house as
+        forecast asks 0.5 kW, in the hole: the nearest edge would stop a car
+        the planner wanted charging; the plan's side gives 1.4 kW. With 1 kW
+        of extra sun the 1.5 kW asked is inside the range and served as is."""
+        balanced = rule(
+            p_w=1400.0, reference_w=-1400.0, ranges=((0.0, 0.0), (1400.0, 7400.0))
+        )
+        assert react(balanced, surprise_w=-500.0 - -1400.0) == 1400.0
+        assert react(balanced, surprise_w=-1500.0 - -1400.0) == 1500.0
 
     def test_a_rising_lower_bound_makes_the_charger_import_for_the_target(self):
         """B2: with a target the band's lower bound rises; a shortfall of sun
@@ -308,8 +346,8 @@ class TestReact:
         assert react(evening, surprise_w=-6000.0) == -1400.0
 
     def test_the_middle_of_the_dead_zone_goes_to_the_plan_side(self):
-        """E1: a setpoint of 0.7 kW is as far from idle as from the minimum
-        charge power; the plan was charging, so the minimum wins."""
+        """E1: a setpoint of 0.7 kW lies in the dead zone; the plan was
+        charging, so the charging mode's edge, the minimum, is the answer."""
         sunny = rule(ranges=((-7400.0, -1400.0), (0.0, 0.0), (1400.0, 7400.0)))
         assert react(sunny, surprise_w=3700.0) == 1400.0
 
