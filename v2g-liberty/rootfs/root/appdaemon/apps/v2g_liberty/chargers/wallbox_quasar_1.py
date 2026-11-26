@@ -1060,12 +1060,13 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             )
             return
 
+        at = self._clock()
         res = await self._modbus_write(
             address=self.CHARGER_SET_CHARGE_POWER_REGISTER,
             value=charge_power,
             source=f"set_charge_power, from {source}",
         )
-        self.requested_charge_power = charge_power
+        self._note_requested_power(charge_power, at)
 
         if not res:
             self._log(

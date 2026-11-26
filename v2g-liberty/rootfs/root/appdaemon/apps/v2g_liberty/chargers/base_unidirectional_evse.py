@@ -15,6 +15,7 @@ methods that merely resemble each other differ exactly where the two chargers
 differ.
 """
 
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
@@ -24,7 +25,10 @@ from .. import constants as c
 from ..event_bus import EventBus
 from ..log_wrapper import get_class_method_logger
 from .modbus_types import ModbusConfigEntity
+from .settle_time import GIVE_UP_AFTER_S, SettleTimeTracker
 from .v2g_modbus_client import V2GmodbusClient
+
+SENSOR_CHARGER_SETTLE_TIME = "sensor.charger_settle_time"
 
 
 class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
@@ -60,6 +64,11 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
         # a driver that forgot should produce a line under the wrong name, not
         # fall over on the log statement itself.
         self._log: Callable[..., None] = get_class_method_logger(module_name="evse")
+        # How long the charger takes to follow a setpoint, per kind of
+        # transition; published as sensor.charger_settle_time. The clock is
+        # an attribute so a test can hold it still.
+        self._settle = SettleTimeTracker()
+        self._clock = time.monotonic
 
     async def read_connected_car_id(self) -> tuple[str, str]:
         """Read the id of the connected car, on request from the car dialog.
@@ -88,6 +97,7 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
     _mb_client: V2GmodbusClient = None
 
     # Both drivers declared these identically, so they live here now.
+    hass = None  # the AppDaemon handle; each driver sets its own
     event_bus: EventBus = None
     _am_i_active: bool = None  # whether the app is driving the charger
     requested_charge_power: int = 0
@@ -204,8 +214,21 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
             remaining_range=await self.get_car_remaining_range(),
         )
 
+    def _note_requested_power(self, charge_power: int, at: float | None = None):
+        """Record the setpoint that just went to the charger and start timing
+        how long the charger takes to follow it. ``at`` is the clock reading
+        from before the Modbus write, when the caller took one; the write
+        itself may take a while."""
+        self.requested_charge_power = charge_power
+        if at is None:
+            at = self._clock()
+        kind = self._settle.note_setpoint(int(charge_power), at)
+        if kind is not None:
+            self._log(f"Timing {kind} to {charge_power} W.", level="DEBUG")
+
     async def _handle_charge_power_change(self, new_power):
-        if not isinstance(new_power, (int, float)):
+        is_number = isinstance(new_power, (int, float))
+        if not is_number:
             self._log(f"Charge power is not a number: '{new_power}', treating as 0W.")
             new_power = 0
         self.event_bus.emit_event("charge_power_change", new_power=new_power)
@@ -221,3 +244,50 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
                 f"requested: {self.requested_charge_power}W."
             )
         self._is_power_deviating = is_deviating
+        if is_number:
+            await self._time_settling(int(new_power))
+
+    async def _time_settling(self, actual_w: int):
+        """One more power report: does it end the transition being timed?"""
+        measured = self._settle.note_actual(actual_w, self._clock())
+        if measured is None:
+            return
+        if measured.settled:
+            self._log(
+                f"Charger settled at {measured.actual_w} W, {measured.seconds:.0f} s "
+                f"after the setpoint {measured.to_w} W ({measured.kind}, from "
+                f"{measured.from_w} W)."
+            )
+            await self._publish_settle_time()
+        else:
+            self._log(
+                f"Charger did not reach {measured.to_w} W within {GIVE_UP_AFTER_S} s, "
+                f"at {measured.actual_w} W ({measured.kind}, from {measured.from_w} W); "
+                "not counted."
+            )
+
+    async def _publish_settle_time(self):
+        """The slowest median as the state, the rest in the attributes."""
+        slowest = self._settle.slowest()
+        last = self._settle.last
+        if slowest is None or last is None:
+            return
+        attributes = {
+            "medians_s": {k: round(v) for k, v in self._settle.medians().items()},
+            "counts": self._settle.counts(),
+            "slowest": slowest[0],
+            "last_kind": last.kind,
+            "last_s": round(last.seconds),
+            "last_from_w": last.from_w,
+            "last_to_w": last.to_w,
+        }
+        try:
+            await self.hass.set_state(
+                SENSOR_CHARGER_SETTLE_TIME,
+                state=round(slowest[1]),
+                attributes=attributes,
+            )
+        except Exception as e:  # noqa: BLE001  # HA may be restarting
+            self._log(
+                f"Could not write {SENSOR_CHARGER_SETTLE_TIME}: {e}", level="WARNING"
+            )
