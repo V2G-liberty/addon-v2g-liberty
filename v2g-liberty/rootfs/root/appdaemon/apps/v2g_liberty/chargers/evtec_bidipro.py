@@ -1178,6 +1178,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self._retry_car_id()
         self._clear_refusal_if_resolved()
+        await self._time_settling_on_poll()
         self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################

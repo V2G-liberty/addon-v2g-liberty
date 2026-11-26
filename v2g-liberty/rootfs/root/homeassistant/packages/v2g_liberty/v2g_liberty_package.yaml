@@ -266,9 +266,11 @@ template:
         icon: mdi:swap-vertical-bold
 
       # Written by the charger driver: how long the charger took to follow a
-      # new setpoint. The state is the slowest median, the attributes hold the
-      # median and count per kind of transition. Unknown until the first
-      # transition has been timed since the add-on started.
+      # new setpoint. The state is the slowest median; the attributes hold the
+      # median and count per kind of transition, and a wait per kind is read
+      # from those, not from the state. Measured to the polling interval, so
+      # an upper bound. Unknown until the first transition has been timed
+      # since the add-on started.
       - default_entity_id: sensor.charger_settle_time
         name: Charger settle time
         device_class: duration

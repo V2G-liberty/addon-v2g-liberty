@@ -249,7 +249,16 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
 
     async def _time_settling(self, actual_w: int):
         """One more power report: does it end the transition being timed?"""
-        measured = self._settle.note_actual(actual_w, self._clock())
+        await self._report_settling(self._settle.note_actual(actual_w, self._clock()))
+
+    async def _time_settling_on_poll(self):
+        """A poll without a change in power: has the charger settled short of
+        the setpoint, or has the time to give up passed? Called by the
+        drivers from their base poll, as a power that stands still is not
+        reported."""
+        await self._report_settling(self._settle.note_poll(self._clock()))
+
+    async def _report_settling(self, measured):
         if measured is None:
             return
         if measured.settled:
@@ -261,9 +270,10 @@ class UnidirectionalEVSE(AsyncIOEventEmitter, ABC):
             await self._publish_settle_time()
         else:
             self._log(
-                f"Charger did not reach {measured.to_w} W within {GIVE_UP_AFTER_S} s, "
-                f"at {measured.actual_w} W ({measured.kind}, from {measured.from_w} W); "
-                "not counted."
+                f"Charger did not settle on {measured.to_w} W within "
+                f"{GIVE_UP_AFTER_S} s, at {measured.actual_w} W ({measured.kind}, "
+                f"from {measured.from_w} W); not counted.",
+                level="DEBUG",
             )
 
     async def _publish_settle_time(self):

@@ -1172,6 +1172,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # modbus addresses in between them do not exist in the EVSE.
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self._get_and_process_registers([self._MCE_CHARGER_LOCKED])
+        await self._time_settling_on_poll()
         self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################
