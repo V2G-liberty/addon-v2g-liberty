@@ -11,7 +11,7 @@ That file also contains possible changes that the next release might include.
 - 🚀 FEAT: Measurements go to FlexMeasures every five minutes instead of hourly (#528)
 - 🚀 FEAT: Parse the per-slot reaction rules FlexMeasures may serve with a schedule (#529)
 - 🚀 FEAT: Shadow engine computes the reaction setpoint from the rules and the meter (#530)
-- 🚀 FEAT: Measure the charger's settle time per kind of transition, shown in a sensor (#531)
+- 🚀 FEAT: Measure the charger's settle time per kind of transition, shown in a sensor (#532)
 
 ### Fixed
 
@@ -24,6 +24,7 @@ That file also contains possible changes that the next release might include.
 ### Changed
 
 - 🛠️ Cards show the grid connection's power limit, not load balancer advice (#527)
+- 🛠️ Reaction engine: 50 W exit tolerance, short excursions and energy past the band (#533)
 
 ## 0.9.0 2026-10-13
 

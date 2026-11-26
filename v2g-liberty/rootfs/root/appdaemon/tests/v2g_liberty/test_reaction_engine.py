@@ -268,6 +268,56 @@ class TestBandExit:
         assert attributes["band_exits"] == 0
         assert "Band exit" not in caplog.text
 
+    @pytest.mark.asyncio
+    async def test_a_hair_beyond_the_edge_is_not_outside(self, engine, clock, caplog):
+        """Float noise on a reference served in MW, or meter noise, is no
+        band exit: the raw setpoint has to be more than EXIT_TOLERANCE_W
+        past the edge before it counts."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(eng.DWELL_S + 5):
+                clock.tick(1)
+                await sample(engine, PLAN_W - 1400 + 30)  # raw 1370 W, 30 W under
+            state, attributes = sensor(engine)
+            assert (state, attributes["outside_band"]) == (1400, False)
+            assert "Band exit" not in caplog.text
+            for _ in range(eng.DWELL_S + 5):
+                clock.tick(1)
+                await sample(engine, PLAN_W - 1400 + 60)  # raw 1340 W, 60 W under
+            assert sensor(engine)[1]["outside_band"] is True
+            assert caplog.text.count("Band exit #1") == 1
+
+    @pytest.mark.asyncio
+    async def test_short_excursions_are_counted(self, engine, clock):
+        """What a hysteresis at the band edge would absorb: excursions that
+        end before the dwell are counted, not logged as exits."""
+        await start(engine)
+        for _ in range(3):
+            await sample(engine, PLAN_W - 400)  # 1000 W past the band
+            clock.tick(10)
+            await sample(engine, PLAN_W - 1400)  # back on the edge
+            clock.tick(10)
+        attributes = sensor(engine)[1]
+        assert attributes["short_excursions"] == 3
+        assert attributes["band_exits"] == 0
+        assert attributes["last_exit_wh"] is None
+
+    @pytest.mark.asyncio
+    async def test_the_energy_past_the_band_is_logged_with_the_exit(
+        self, engine, clock, caplog
+    ):
+        """1000 W past the band for a minute is 16.7 Wh: the number an energy
+        threshold in front of the retrigger is set from."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(61):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert "for 30 s now, 8.3 Wh past the band" in caplog.text
+            await sample(engine, PLAN_W - 1400)
+        assert "Band exit over after 61 s, 16.7 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["last_exit_wh"] == 16.7
+
 
 class TestMeter:
     @pytest.mark.asyncio
