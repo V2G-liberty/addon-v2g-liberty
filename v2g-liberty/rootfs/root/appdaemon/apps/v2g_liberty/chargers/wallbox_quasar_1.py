@@ -1060,12 +1060,13 @@ class WallboxQuasar1Client(BidirectionalEVSE):
             )
             return
 
+        at = self._clock()
         res = await self._modbus_write(
             address=self.CHARGER_SET_CHARGE_POWER_REGISTER,
             value=charge_power,
             source=f"set_charge_power, from {source}",
         )
-        self.requested_charge_power = charge_power
+        self._note_requested_power(charge_power, at)
 
         if not res:
             self._log(
@@ -1171,6 +1172,7 @@ class WallboxQuasar1Client(BidirectionalEVSE):
         # modbus addresses in between them do not exist in the EVSE.
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self._get_and_process_registers([self._MCE_CHARGER_LOCKED])
+        await self._time_settling_on_poll()
         self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################

@@ -99,7 +99,7 @@ How it works: once a second V2G Liberty takes the reading of your grid meter, su
 
 A charger and a car take time to follow a new setpoint: a few seconds to charge less, up to a few minutes to start discharging, because the charger and the car first negotiate. These settle times differ per charger and per car. V2G Liberty measures them on your own installation, per kind of transition, and uses the slowest one as the waiting time before it asks for a new plan, so it adapts to your combination rather than working from a fixed table.
 
-Status: this release runs the reaction in *shadow*. The setpoint the rules would set is computed and shown in `sensor.reaction_setpoint`, but the charger keeps following the plan. Reacting for real, and the measured settle times, follow in a later release, once FlexMeasures serves the rules on production. Nothing new is sent to FlexMeasures until then.
+Status: this release runs the reaction in *shadow*. The setpoint the rules would set is computed and shown in `sensor.reaction_setpoint`, but the charger keeps following the plan. The settle times are already measured and shown in `sensor.charger_settle_time`: the slowest as the value, the time per kind of transition in the attributes, each a median over recent transitions and accurate to the charger's polling interval of a few seconds, so an upper bound. Reacting for real, with those times as the waiting time, follows in a later release, once FlexMeasures serves the rules on production. Nothing new is sent to FlexMeasures until then.
 
 ## Tips & tricks
 

@@ -736,12 +736,13 @@ class EVtecBiDiProClient(BidirectionalEVSE):
                 self._MBR_SUSPEND_MODE, 1, source=f"set_charger_action: start {reason}"
             )
         elif action == "stop":
+            at = self._clock()
             await self._modbus_write_mbr(
                 self._MBR_SET_CHARGE_POWER,
                 0,
                 source=f"set_charger_action: stop {reason}",
             )
-            self.requested_charge_power = 0
+            self._note_requested_power(0, at)
             await self._modbus_write_mbr(
                 self._MBR_SUSPEND_MODE, 0, source=f"set_charger_action: stop {reason}"
             )
@@ -1094,12 +1095,13 @@ class EVtecBiDiProClient(BidirectionalEVSE):
             )
             return
 
+        at = self._clock()
         res = await self._modbus_write_mbr(
             self._MBR_SET_CHARGE_POWER,
             int(charge_power),
             source=f"set_charge_power, from {source}",
         )
-        self.requested_charge_power = charge_power
+        self._note_requested_power(charge_power, at)
         if not res:
             self._log(
                 f"Failed to set charge power to {charge_power} Watt.", level="WARNING"
@@ -1176,6 +1178,7 @@ class EVtecBiDiProClient(BidirectionalEVSE):
         await self._get_and_process_registers(self.CHARGER_POLLING_ENTITIES)
         await self._retry_car_id()
         self._clear_refusal_if_resolved()
+        await self._time_settling_on_poll()
         self.event_bus.emit_event("evse_polled", stop=False)
 
     ######################################################################

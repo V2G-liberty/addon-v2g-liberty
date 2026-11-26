@@ -8,6 +8,7 @@
 - 🚀 FEAT: Measurements go to FlexMeasures every five minutes instead of hourly (#528)
 - 🚀 FEAT: Parse the per-slot reaction rules FlexMeasures may serve with a schedule (#529)
 - 🚀 FEAT: Shadow engine computes the reaction setpoint from the rules and the meter (#530)
+- 🚀 FEAT: Measure the charger's settle time per kind of transition, shown in a sensor (#531)
 
 ### Fixed
 
