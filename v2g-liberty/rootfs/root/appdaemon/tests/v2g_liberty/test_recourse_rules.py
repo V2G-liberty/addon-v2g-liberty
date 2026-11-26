@@ -290,24 +290,24 @@ class TestBand:
 
 
 class TestReact:
-    def test_follow_the_plan_ignores_the_surprise(self):
+    def test_follow_the_plan_ignores_the_deviation(self):
         """A3, C4: a cheap night, react 0 and band [[p, p]]. A heat-pump cycle
         changes the load, not the price per kWh."""
         night = rule(p_w=7400.0, react=0.0, ranges=((7400.0, 7400.0),))
-        assert react(night, surprise_w=2000.0) == 7400.0
-        assert react(night, surprise_w=-2000.0) == 7400.0
+        assert react(night, deviation_w=2000.0) == 7400.0
+        assert react(night, deviation_w=-2000.0) == 7400.0
 
     def test_a_shortfall_of_sun_is_absorbed_down_to_the_band(self):
         """B1: 4.4 kW planned on a 4.4 kW surplus. Clouds leave 1.4 kW surplus
-        (surprise +3 kW): charge 1.4 kW. More clouds ask 0.4 kW, in the dead
+        (deviation +3 kW): charge 1.4 kW. More clouds ask 0.4 kW, in the dead
         zone: the charging mode holds, 1.4 kW. No surplus left at all: idle,
         the outer bound. Extra sun: charge harder, to 7.4 kW."""
         sunny = rule(ranges=((0.0, 0.0), (1400.0, 7400.0)))
-        assert react(sunny, surprise_w=3000.0) == 1400.0
-        assert react(sunny, surprise_w=4000.0) == 1400.0
-        assert react(sunny, surprise_w=5000.0) == 0.0
-        assert react(sunny, surprise_w=-2000.0) == 6400.0
-        assert react(sunny, surprise_w=-5000.0) == 7400.0
+        assert react(sunny, deviation_w=3000.0) == 1400.0
+        assert react(sunny, deviation_w=4000.0) == 1400.0
+        assert react(sunny, deviation_w=5000.0) == 0.0
+        assert react(sunny, deviation_w=-2000.0) == 6400.0
+        assert react(sunny, deviation_w=-5000.0) == 7400.0
 
     def test_a_balance_point_reference_keeps_the_planned_mode(self):
         """Seita's example of 26 November: modes idle and 1.4 to 7.4 kW, a
@@ -319,37 +319,37 @@ class TestReact:
         balanced = rule(
             p_w=1400.0, reference_w=-1400.0, ranges=((0.0, 0.0), (1400.0, 7400.0))
         )
-        assert react(balanced, surprise_w=-500.0 - -1400.0) == 1400.0
-        assert react(balanced, surprise_w=-1500.0 - -1400.0) == 1500.0
+        assert react(balanced, deviation_w=-500.0 - -1400.0) == 1400.0
+        assert react(balanced, deviation_w=-1500.0 - -1400.0) == 1500.0
 
     def test_a_rising_lower_bound_makes_the_charger_import_for_the_target(self):
         """B2: with a target the band's lower bound rises; a shortfall of sun
         is absorbed only down to that bound."""
         late = rule(ranges=((3000.0, 7400.0),))
-        assert react(late, surprise_w=3000.0) == 3000.0
+        assert react(late, deviation_w=3000.0) == 3000.0
 
     def test_a_collapsed_band_behaves_as_follow_the_plan(self):
         """D2: low state of charge and a target soon. The planner serves
         react 0 here; a share of 1 with a band [[p, p]] would do the same."""
         forced = rule(p_w=7400.0, ranges=((7400.0, 7400.0),))
-        assert react(forced, surprise_w=5000.0) == 7400.0
-        assert react(forced, surprise_w=-5000.0) == 7400.0
+        assert react(forced, deviation_w=5000.0) == 7400.0
+        assert react(forced, deviation_w=-5000.0) == 7400.0
 
     def test_discharging_harder_stays_within_the_production_range(self):
         """The expensive evening: when the house imports more than planned
         the car discharges harder, up to its production range; when it
         exports more, the car eases off but never charges."""
         evening = rule(p_w=-5900.0, reference_w=2100.0, ranges=((-7400.0, -1400.0),))
-        assert react(evening, surprise_w=1000.0) == -6900.0
-        assert react(evening, surprise_w=20_000.0) == -7400.0
-        assert react(evening, surprise_w=-3000.0) == -2900.0
-        assert react(evening, surprise_w=-6000.0) == -1400.0
+        assert react(evening, deviation_w=1000.0) == -6900.0
+        assert react(evening, deviation_w=20_000.0) == -7400.0
+        assert react(evening, deviation_w=-3000.0) == -2900.0
+        assert react(evening, deviation_w=-6000.0) == -1400.0
 
     def test_the_middle_of_the_dead_zone_goes_to_the_plan_side(self):
         """E1: a setpoint of 0.7 kW lies in the dead zone; the plan was
         charging, so the charging mode's edge, the minimum, is the answer."""
         sunny = rule(ranges=((-7400.0, -1400.0), (0.0, 0.0), (1400.0, 7400.0)))
-        assert react(sunny, surprise_w=3700.0) == 1400.0
+        assert react(sunny, deviation_w=3700.0) == 1400.0
 
 
 class TestRuleAt:
@@ -376,10 +376,10 @@ VALID_FIXTURES = [
 
 class TestContractInvariants:
     @pytest.mark.parametrize("name", VALID_FIXTURES)
-    def test_with_no_surprise_every_slot_gives_the_plan(self, name):
+    def test_with_no_deviation_every_slot_gives_the_plan(self, name):
         """The plan lies inside its own band, so react(rule, 0) is p."""
         for slot in rules_of(name).rules:
-            assert react(slot, surprise_w=0.0) == pytest.approx(slot.p_w)
+            assert react(slot, deviation_w=0.0) == pytest.approx(slot.p_w)
 
     def test_a_plan_outside_its_band_is_refused(self):
         schedule = _schedule(values=[0.001, 0.0044, 0.0, -0.0059])
@@ -400,7 +400,7 @@ class TestContractInvariants:
 
     def test_a_share_in_between_is_applied_as_such(self):
         rules = parse_reaction(_first_rule(react=0.5), sensor_id=CHARGER)
-        assert react(rules.rules[0], surprise_w=2000.0) == pytest.approx(3400.0)
+        assert react(rules.rules[0], deviation_w=2000.0) == pytest.approx(3400.0)
 
     @pytest.mark.parametrize(
         ("schedule", "reason"),

@@ -3,10 +3,11 @@
 The design calls them recourse rules. Next to ``values`` a schedule may
 carry a ``reaction`` array: one rule per slot, ``{reference, react, band}``.
 The rule says how the device may deviate from its plan when the uncontrolled
-part of the house differs from what the plan assumed (the surprise)::
+part of the house differs from the power the plan is balanced against
+(the deviation from the balance point)::
 
-    surprise = (meter - realized device power) - reference
-    setpoint = p - react * surprise, held inside the band
+    deviation = (meter - realized device power) - reference
+    setpoint = p - react * deviation, held inside the band
 
 This module is the contract: the dataclasses, the parser that checks a
 schedule's rules against it, and ``react()``, the pure function the engine
@@ -24,12 +25,14 @@ The contract, as agreed with Seita (kick-off document, 24 and 26 November
   Without the opt-in the schedule is today's: no array.
 - ``reaction`` has exactly one entry per value, at the schedule's start and
   resolution. An absent array means no rules.
-- ``reference``: the uncontrolled power at the connection the plan assumed,
-  import positive. A number, never null: 0.0 when there was no forecast.
+- ``reference``: the uncontrolled power the plan is balanced against, import
+  positive: the forecast, or the balance point where the device's modes keep
+  the plan from balancing the connection exactly (Seita, 26 November). A
+  number, never null: 0.0 when there was no forecast.
 - ``react``: 0 (follow the plan whatever the house does) or 1 (absorb the
-  surprise one to one). Shares in between are reserved for later; the
+  deviation one to one). Shares in between are reserved for later; the
   parser accepts [0, 1] and refuses anything outside, so a sign error on
-  either side can never amplify a surprise.
+  either side can never amplify a deviation.
 - ``band``: the device powers the slot allows, as ascending ``[lo, hi]``
   ranges of finite numbers. The planner requires a power capacity for
   every device, so it never serves an open (``null``) side; one is refused,
@@ -40,7 +43,7 @@ The contract, as agreed with Seita (kick-off document, 24 and 26 November
 - Nothing per slot about sensors or retriggers: the meter is the one the
   flex-context already names, and retriggering on a band exit is on by
   default.
-- The plan lies inside its own band: with no surprise the device follows
+- The plan lies inside its own band: with no deviation the device follows
   its plan exactly. The parser enforces it, with half a watt of tolerance
   for rounding between ``values`` and the band's edges.
 - A setpoint in a hole between two ranges, the charger's dead zone, takes
@@ -135,10 +138,9 @@ class ReactionRule:
     """What the device may do in one slot.
 
     All powers in W. ``p_w`` is the planned device power (consumption
-    positive). ``reference_w`` is the uncontrolled power at the connection
-    the plan assumed (import positive); the surprise is measured against
-    it, and it is 0.0 when FlexMeasures had no forecast. ``react`` is 0
-    (follow the plan), 1 (absorb the surprise) or a share in between.
+    positive). ``reference_w`` is the uncontrolled power the plan is balanced
+    against (import positive); the deviation is measured against it, and it is 0.0 when FlexMeasures had no forecast. ``react`` is 0
+    (follow the plan), 1 (absorb the deviation) or a share in between.
     """
 
     start: datetime
@@ -220,16 +222,16 @@ def parse_reaction(schedule: dict, sensor_id: int) -> ReactionSchedule | None:
     )
 
 
-def react(rule: ReactionRule, surprise_w: float) -> float:
+def react(rule: ReactionRule, deviation_w: float) -> float:
     """The setpoint for the device under ``rule``, in W.
 
-    ``surprise_w`` is the measured uncontrolled power minus the reference,
+    ``deviation_w`` is the measured uncontrolled power minus the reference,
     import positive. The setpoint is the plan minus the share of the
-    surprise the rule says to absorb, held inside the band and, in a dead
+    deviation the rule says to absorb, held inside the band and, in a dead
     zone, rounded towards the plan's mode. Pure: the engine adds the
     sampling, the dwell and the mode-change policy around it.
     """
-    return rule.band.nearest(rule.p_w - rule.react * surprise_w, rule.p_w)
+    return rule.band.nearest(rule.p_w - rule.react * deviation_w, rule.p_w)
 
 
 def _unit_factor(unit) -> float:
@@ -251,12 +253,12 @@ def _parse_slot(
     p_w = _number(value, f"{what}: value") * factor
     share = _number(entry["react"], f"{what}: react")
     if not 0.0 <= share <= 1.0:
-        # Outside [0, 1] a share would amplify the surprise or invert it.
+        # Outside [0, 1] a share would amplify the deviation or invert it.
         raise InvalidReactionError(f"{what}: react {share} is outside [0, 1]")
     band = _parse_band(entry["band"], factor, f"{what}: band")
     if abs(band.nearest(p_w, p_w) - p_w) > _TIE_W:
         # The band is the device's own limits and the plan respects them, so
-        # with no surprise react() must give the plan back.
+        # with no deviation react() must give the plan back.
         raise InvalidReactionError(
             f"{what}: the plan ({p_w:.0f} W) lies outside the band"
         )

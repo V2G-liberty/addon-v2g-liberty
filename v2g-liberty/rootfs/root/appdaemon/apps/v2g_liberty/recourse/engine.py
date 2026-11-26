@@ -5,8 +5,8 @@ A schedule may carry a reaction rule per slot (see rules.py). The engine
 holds the rules of the current schedule and, on every sample of the grid
 meter, computes the setpoint the rules give right now::
 
-    surprise = (meter - charger) - reference
-    setpoint = react(rule, surprise)
+    deviation = (meter - charger) - reference
+    setpoint = react(rule, deviation)
 
 In 0.9.1 the engine runs in **shadow**: it computes, logs and publishes
 ``sensor.reaction_setpoint``, and writes nothing to the charger. It holds no
@@ -15,12 +15,12 @@ setting the plan. Live mode, where the setpoint goes to the charger, comes
 in 0.9.2 together with the request side and a mode setting.
 
 - The meter is the sum of the per-phase samples the data monitor emits
-  (``grid_power_sample``, import positive), so the surprise is judged at
+  (``grid_power_sample``, import positive), so the deviation is judged at
   the connection as a whole, as FlexMeasures plans it. The charger's
   realised power is the driver's (``charge_power_change``). In live mode
   the charger's share must be the commanded power during the charger's
   settle time and the realised power after it, or its own ramp towards a
-  new setpoint reads as a surprise; the drivers measure those settle times.
+  new setpoint reads as a deviation; the drivers measure those settle times.
   Shadow uses the realised power throughout.
 - A DSMR 5 meter gives a sample per second per phase, and Home Assistant
   records every write. The sensor is rewritten when the setpoint moved by
@@ -29,7 +29,7 @@ in 0.9.2 together with the request side and a mode setting.
   or the meter's health changes; never for the attributes alone, so a
   follow-the-plan night writes nothing. The log gets band exits only.
 - A setpoint beyond the band, below its lowest or above its highest bound,
-  is a **band exit** once it has lasted DWELL_S: the surprise is more than
+  is a **band exit** once it has lasted DWELL_S: the deviation is more than
   the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
   edge: float noise on a reference served in MW, and meter noise, are not
   exits. A setpoint in the charger's dead zone is not either: it is rounded
@@ -81,13 +81,13 @@ STALE_CHECK_EVERY_S = 30
 class Evaluation:
     """The rules' verdict at one moment, in W. ``raw_w`` is the setpoint
     before the band, ``setpoint_w`` after it; ``outside`` is True when
-    ``raw_w`` lies beyond the band, so the surprise is more than the charger
+    ``raw_w`` lies beyond the band, so the deviation is more than the charger
     may absorb. Rounding out of the dead zone does not count."""
 
     rule: ReactionRule
     meter_w: int
     charger_w: int
-    surprise_w: float
+    deviation_w: float
     raw_w: float
     setpoint_w: float
     outside: bool
@@ -226,19 +226,19 @@ class ReactionEngine:
         if self._charger_w is None:
             return "charger power unknown"
         meter_w = sum(self._net_w.values())
-        surprise_w = (meter_w - self._charger_w) - rule.reference_w
+        deviation_w = (meter_w - self._charger_w) - rule.reference_w
         if self._stale:
             # Blind: the plan, whatever the last samples said.
             raw_w = setpoint_w = rule.p_w
             outside = False
         else:
-            raw_w = rule.p_w - rule.react * surprise_w
-            setpoint_w = react(rule, surprise_w)
+            raw_w = rule.p_w - rule.react * deviation_w
+            setpoint_w = react(rule, deviation_w)
             outside = (
                 rule.band.exceeds(raw_w) and abs(raw_w - setpoint_w) > EXIT_TOLERANCE_W
             )
         return Evaluation(
-            rule, meter_w, self._charger_w, surprise_w, raw_w, setpoint_w, outside
+            rule, meter_w, self._charger_w, deviation_w, raw_w, setpoint_w, outside
         )
 
     def _reset_excursion(self):
@@ -265,8 +265,8 @@ class ReactionEngine:
                 self._log(
                     f"Band exit #{self._exits}: the rules ask {verdict.raw_w:.0f} W, "
                     f"the band allows {verdict.setpoint_w:.0f} W, for {DWELL_S} s "
-                    f"now, {self._exit_wh:.1f} Wh past the band (surprise "
-                    f"{verdict.surprise_w:.0f} W, slot "
+                    f"now, {self._exit_wh:.1f} Wh past the band (deviation "
+                    f"{verdict.deviation_w:.0f} W, slot "
                     f"{verdict.rule.start.isoformat()}). {MODE}: no retrigger."
                 )
         elif self._exit_since is not None:
@@ -308,10 +308,10 @@ class ReactionEngine:
                 "last_exit_wh": self._last_exit_wh_rounded(),
             }
         else:
-            # The raw per-sample surprise, for sizing the smoother that comes
+            # The raw per-sample deviation, for sizing the smoother that comes
             # with live mode; visible only while debug logging is on.
             self._log(
-                f"surprise {verdict.surprise_w:.0f} W, raw {verdict.raw_w:.0f} W, "
+                f"deviation {verdict.deviation_w:.0f} W, raw {verdict.raw_w:.0f} W, "
                 f"setpoint {verdict.setpoint_w:.0f} W.",
                 level="DEBUG",
             )
@@ -329,9 +329,9 @@ class ReactionEngine:
                 "slot_start": verdict.rule.start.isoformat(),
                 "meter_w": verdict.meter_w,
                 "charger_w": verdict.charger_w,
-                # Blind: the surprise is whatever the last samples said, so
+                # Blind: the deviation is whatever the last samples said, so
                 # it is not shown.
-                "surprise_w": None if self._stale else round(verdict.surprise_w),
+                "deviation_w": None if self._stale else round(verdict.deviation_w),
                 "outside_band": verdict.outside,
                 "band_exits": self._exits,
                 "short_excursions": self._short_excursions,

@@ -11,8 +11,11 @@ ones.
 The contract in short: the opt-in is `"react": true` on the device's
 flex-model item (nothing changes in the flex-context); the schedule then
 carries a `reaction` array with one entry per value, `{reference, react,
-band}`; the controller computes `surprise = (meter - device) - reference`
-and `setpoint = clip(p - react * surprise, band)`; a setpoint in a dead zone
+band}`. `reference` is the uncontrolled power the plan is balanced against:
+the forecast, or the balance point where the device's modes keep the plan
+from balancing the connection exactly. The controller computes
+`deviation = (meter - device) - reference` and
+`setpoint = clip(p - react * deviation, band)`; a setpoint in a dead zone
 takes the edge on the side of the plan's mode.
 
 Sensor ids and timestamps are illustrative: 65 is the charger's power

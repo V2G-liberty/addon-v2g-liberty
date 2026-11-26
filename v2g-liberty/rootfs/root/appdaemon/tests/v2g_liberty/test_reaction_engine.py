@@ -5,7 +5,7 @@ charger. The clock is injected, so nothing here waits.
 Slot 1 of schedule_with_reaction.json: the plan charges 4.4 kW on a planned
 surplus of 4.4 kW (reference -4.4 kW), react 1, band [1.4, 7.4] kW. The
 planned meter reading is therefore 0 W; whatever the meter shows beyond the
-charger's own power is the surprise.
+charger's own power is the deviation.
 """
 
 import json
@@ -91,13 +91,13 @@ class TestSetpoint:
     @pytest.mark.asyncio
     async def test_a_shortfall_of_sun_lowers_the_setpoint(self, engine):
         """B1: the house exports 1.4 kW less than planned, so the meter reads
-        the charger's 4.4 kW minus 1.4 kW. Surprise +3 kW: charge 1.4 kW."""
+        the charger's 4.4 kW minus 1.4 kW. Deviation +3 kW: charge 1.4 kW."""
         await start(engine)
         await sample(engine, PLAN_W - 1400)
         state, attributes = sensor(engine)
         assert state == 1400
         assert attributes["plan_w"] == PLAN_W
-        assert attributes["surprise_w"] == 3000
+        assert attributes["deviation_w"] == 3000
         assert attributes["outside_band"] is False
         assert attributes["band_w"] == [[1400, 7400]]
 
@@ -110,7 +110,7 @@ class TestSetpoint:
 
     @pytest.mark.asyncio
     async def test_a_follow_the_plan_slot_ignores_the_house(self, engine, clock):
-        """Slot 3: car reserved, react 0, band [[0, 0]]. A 5 kW surprise
+        """Slot 3: car reserved, react 0, band [[0, 0]]. A 5 kW deviation
         changes nothing and is no band exit."""
         clock.tick(10 * 60)
         await start(engine)
@@ -128,7 +128,7 @@ class TestSetpoint:
         engine._on_charge_power_change(2000)  # the charger lags its plan
         await sample(engine, 2000 - 4400)  # the house exports as planned
         state, attributes = sensor(engine)
-        assert attributes["surprise_w"] == 0
+        assert attributes["deviation_w"] == 0
         assert state == PLAN_W
 
     @pytest.mark.asyncio
@@ -206,7 +206,7 @@ class TestWrites:
 class TestBandExit:
     @pytest.mark.asyncio
     async def test_an_exit_is_logged_once_after_the_dwell(self, engine, clock, caplog):
-        """Surprise +4 kW asks 0.4 kW, below the band of slot 1: the band
+        """Deviation +4 kW asks 0.4 kW, below the band of slot 1: the band
         clips to 1.4 kW. Thirty seconds of that is one band exit."""
         await start(engine)
         with caplog.at_level(logging.INFO):
@@ -242,7 +242,7 @@ class TestBandExit:
 
     @pytest.mark.asyncio
     async def test_flicker_inside_the_band_is_no_exit(self, engine, clock):
-        """B6: clouds every second, the surprise jumps between 1 and 3 kW.
+        """B6: clouds every second, the deviation jumps between 1 and 3 kW.
         The setpoint follows; nothing leaves the band."""
         await start(engine)
         for second in range(60):
@@ -253,7 +253,7 @@ class TestBandExit:
 
     @pytest.mark.asyncio
     async def test_the_dead_zone_is_no_exit(self, engine, clock, caplog):
-        """Slot 2: band [-7.4, -1.4] / [0, 0] / [1.4, 7.4] kW. A surprise of
+        """Slot 2: band [-7.4, -1.4] / [0, 0] / [1.4, 7.4] kW. A deviation of
         +3.7 kW asks 0.7 kW, in the dead zone; nearest() rounds it onto the
         band, to the plan's side, and that rounding is never a band exit."""
         clock.tick(5 * 60)
@@ -261,7 +261,7 @@ class TestBandExit:
         with caplog.at_level(logging.INFO):
             for _ in range(eng.DWELL_S + 10):
                 clock.tick(1)
-                await sample(engine, PLAN_W - 700)  # surprise +3700
+                await sample(engine, PLAN_W - 700)  # deviation +3700
         state, attributes = sensor(engine)
         assert state == 1400
         assert attributes["outside_band"] is False
@@ -334,7 +334,7 @@ class TestMeter:
         state, attributes = sensor(engine)
         assert state == PLAN_W
         assert attributes["meter_stale"] is True
-        assert attributes["surprise_w"] is None
+        assert attributes["deviation_w"] is None
         await sample(engine, PLAN_W - 1400)
         state, attributes = sensor(engine)
         assert state == 1400
