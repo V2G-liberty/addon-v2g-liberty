@@ -66,6 +66,17 @@ input_boolean:
     initial: false
 
 input_number:
+  # Extra household load for the grid/PV emulator (read by grid_pv_emulator):
+  # a deviation on demand for the reaction engine, spread over the phases.
+  emulator_surprise_w:
+    name: "Grid/PV emulator: extra household load"
+    icon: mdi:stove
+    min: -3000
+    max: 8000
+    step: 100
+    initial: 0
+    unit_of_measurement: "W"
+    mode: box
   # Jump the emulated SoC to a value (read by charger_emulator).
   emulator_soc:
     name: "Charger emulator: set SoC"

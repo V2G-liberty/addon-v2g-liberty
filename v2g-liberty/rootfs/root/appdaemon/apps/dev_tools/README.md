@@ -58,6 +58,10 @@ Turn on `input_boolean.emulator_paused` in Developer Tools → States to stop se
 
 Turn it off to resume.
 
+### Making a deviation
+
+`input_number.emulator_surprise_w` (dev dashboard, "Extra household load") is added to the household load, spread equally over the three phases, so the reaction engine sees a step the plan did not expect while the fuse guard stays out of it. An oven is +2500 W, a kettle +2000 W for a minute, a cloud that lifts -1500 W. Set it back to 0 to end the deviation. Each change is logged once by the emulator, so it can be found back next to the engine's log lines and the samples CSV. The emulator updates every `update_interval` seconds (10 by default), so a step shows up within that time.
+
 ### Using with V2G Liberty
 
 1. Start the app (it runs automatically with the V2G Liberty app via AppDaemon)

@@ -111,6 +111,9 @@ views:
               - entity: input_boolean.emulator_force_negative
                 name: Force grid net negative
                 icon: mdi:transmission-tower-export
+              - entity: input_number.emulator_surprise_w
+                name: Extra household load (deviation)
+                icon: mdi:stove
           - type: markdown
             content: |
               Toggles for the separate grid/PV emulator: **Pause** (freeze it) and
