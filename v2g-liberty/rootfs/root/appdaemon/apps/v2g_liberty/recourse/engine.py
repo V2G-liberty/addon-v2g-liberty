@@ -18,9 +18,10 @@ in 0.9.2 together with the request side and a mode setting.
   (``grid_power_sample``, import positive), so the deviation is judged at
   the connection as a whole, as FlexMeasures plans it. The charger's
   realised power is the driver's (``charge_power_change``), which it
-  reports only when it changes; at start the engine takes the last value
-  the UI sensor kept, so a charger that idles through a restart is known
-  at once, and the driver's next report overrides it. In live mode
+  reports only when it changes, the first time during the charger's
+  first poll; the engine therefore registers its listeners before the
+  settings kick-off starts the charger (v2g_app), or a charger idling
+  through a restart would stay unknown until its next move. In live mode
   the charger's share must be the commanded power during the charger's
   settle time and the realised power after it, or its own ramp towards a
   new setpoint reads as a deviation; the drivers measure those settle times.
@@ -85,9 +86,29 @@ from ..timer_utils import set_recurring_timer
 from .rules import ReactionRule, ReactionSchedule, react
 
 SENSOR_REACTION_SETPOINT = "sensor.reaction_setpoint"
-# The UI's copy of the charger's realised power, kept by the HA UI manager
-# from the same ``charge_power_change`` event the engine listens to.
-SENSOR_CHARGER_POWER = "sensor.charger_real_charging_power"
+# Every write carries every key, None for the ones that do not apply.
+# AppDaemon merges the attributes into the entity's, which keeps the name,
+# unit, device class and icon the package gives the sensor; a key left out
+# would keep its old value too, so the reason of an unavailable spell would
+# outlive it.
+ATTRIBUTE_KEYS = (
+    "mode",
+    "reason",
+    "plan_w",
+    "reference_w",
+    "react",
+    "band_w",
+    "slot_start",
+    "meter_w",
+    "charger_w",
+    "deviation_w",
+    "outside_band",
+    "band_exits",
+    "short_excursions",
+    "last_exit_wh",
+    "drift_kwh",
+    "meter_stale",
+)
 REACTION_SAMPLE_EVENT = "reaction_sample"
 MODE = "shadow"
 # Rewrite the sensor for a setpoint move of at least this many watts, at most
@@ -183,8 +204,6 @@ class ReactionEngine:
             "charger_communication_state_change",
             self._on_charger_communication_state_change,
         )
-        # Listeners first, so a report that comes in during the seed is kept.
-        await self._seed_charger_power()
         self._tick_handle = await set_recurring_timer(
             self.hass, self._tick_handle, self._tick, "now", STALE_CHECK_EVERY_S
         )
@@ -225,20 +244,6 @@ class ReactionEngine:
             if self._rules is not None and not first:
                 self._log("Meter back; reacting again.")
         await self._publish(sample_phase=int(phase))
-
-    async def _seed_charger_power(self):
-        """The driver reports the charger's power only when it changes, so a
-        charger that idles through a restart would stay unknown until its
-        next move, hours on a quiet day. Start from the last value the UI
-        sensor kept; the driver's next report overrides it."""
-        if self._charger_w is not None:
-            return
-        try:
-            power_w = int(float(await self.hass.get_state(SENSOR_CHARGER_POWER)))
-        except (TypeError, ValueError):
-            return
-        if self._charger_w is None:  # no report came in during the await
-            self._charger_w = power_w
 
     def _on_charge_power_change(self, new_power):
         if isinstance(new_power, (int, float)) and not isinstance(new_power, bool):
@@ -462,6 +467,7 @@ class ReactionEngine:
                 "drift_kwh": self._drift_kwh_rounded(),
                 "meter_stale": self._stale,
             }
+        attributes = {key: attributes.get(key) for key in ATTRIBUTE_KEYS}
         flags = (
             state == "unavailable",
             attributes.get("reason"),
@@ -493,13 +499,8 @@ class ReactionEngine:
         self._published_at = now
         self._published_flags = flags
         try:
-            # Replace, not merge: AppDaemon keeps attributes it is not given,
-            # so the ``reason`` of an unavailable spell would outlive it.
             await self.hass.set_state(
-                SENSOR_REACTION_SETPOINT,
-                state=state,
-                attributes=attributes,
-                replace=True,
+                SENSOR_REACTION_SETPOINT, state=state, attributes=attributes
             )
         except Exception as e:  # noqa: BLE001  # HA may be restarting
             self._log(

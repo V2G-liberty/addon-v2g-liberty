@@ -57,7 +57,6 @@ def engine(clock, one_phase):
     hass = AsyncMock()
     hass.set_state = AsyncMock()
     hass.run_every = AsyncMock(return_value="tick-handle")
-    hass.get_state = AsyncMock(return_value=None)  # no UI sensor to seed from
     return ReactionEngine(hass, MagicMock(), now=clock)
 
 
@@ -428,57 +427,26 @@ class TestLifecycle:
     @pytest.mark.asyncio
     async def test_shadow_never_touches_the_charger(self, engine, clock):
         """The engine has no driver to call; the only things it asks of
-        AppDaemon are the sensor write, its stale-check timer and one read
-        of the UI's charger power at start."""
+        AppDaemon are the sensor write and its stale-check timer."""
         await start(engine)
         for second in range(10):
             clock.tick(1)
             await sample(engine, PLAN_W - 400)  # a band exit in the making
         assert not hasattr(engine, "evse_client_app")
         used = {call[0] for call in engine.hass.method_calls}
-        assert used <= {"set_state", "run_every", "get_state"}
+        assert used <= {"set_state", "run_every"}
 
 
 class TestChargerPower:
     @pytest.mark.asyncio
-    async def test_at_start_the_charger_power_comes_from_the_ui_sensor(self, engine):
-        """The driver reports the power only when it changes: a charger that
-        idles through a restart would otherwise stay unknown for hours."""
-        engine.hass.get_state = AsyncMock(return_value="0")
-        await engine.initialize()
-        engine.hass.get_state.assert_awaited_once_with(
-            "sensor.charger_real_charging_power"
-        )
-        await engine.install(rules())
-        await sample(engine, 3000)
-        state, attributes = sensor(engine)
-        assert state != "unavailable"
-        assert attributes["charger_w"] == 0
-
-    @pytest.mark.asyncio
-    async def test_a_ui_sensor_without_a_number_leaves_it_unknown(self, engine):
-        engine.hass.get_state = AsyncMock(return_value="unavailable")
-        await engine.initialize()
-        await engine.install(rules())
-        await sample(engine, 3000)
-        assert sensor(engine)[1]["reason"] == "charger power unknown"
-
-    @pytest.mark.asyncio
-    async def test_a_report_during_the_seed_wins(self, engine):
-        async def ui_value(entity_id):
-            engine._on_charge_power_change(1500)  # the driver reports meanwhile
-            return "0"
-
-        engine.hass.get_state = ui_value
-        await engine.initialize()
-        assert engine._charger_w == 1500
-
-    @pytest.mark.asyncio
-    async def test_a_setpoint_after_an_unknown_spell_carries_no_stale_reason(
+    async def test_every_write_carries_every_key_so_nothing_stale_survives(
         self, engine
     ):
-        """AppDaemon merges attributes unless told to replace them, so the
-        reason of the unavailable spell would stay next to a valid setpoint."""
+        """AppDaemon merges the attributes into the entity's, which keeps the
+        name, unit, device class and icon the package gives the sensor. So
+        the engine never replaces them, and writes every key of its own on
+        every write, None where it does not apply: the reason of the
+        unavailable spell must not sit next to a valid setpoint."""
         await engine.initialize()
         await engine.install(rules())
         await sample(engine, 3000)
@@ -487,8 +455,10 @@ class TestChargerPower:
         await sample(engine, 3000)
         state, attributes = sensor(engine)
         assert state == 1400
-        assert "reason" not in attributes
-        assert engine.hass.set_state.call_args.kwargs["replace"] is True
+        assert attributes["reason"] is None
+        for call in engine.hass.set_state.call_args_list:
+            assert "replace" not in call.kwargs
+            assert set(call.kwargs["attributes"]) == set(eng.ATTRIBUTE_KEYS)
 
     @pytest.mark.asyncio
     async def test_no_setpoint_until_the_driver_reports_the_charger(self, engine):
