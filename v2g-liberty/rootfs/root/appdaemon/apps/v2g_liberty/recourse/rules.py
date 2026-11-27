@@ -38,8 +38,9 @@ The contract, as agreed with Seita (kick-off document, 24 and 26 November
   every device, so it never serves an open (``null``) side; one is refused,
   as the client does. Never empty: a device that must follow its plan gets
   ``[[p, p]]`` with ``react`` 0, which is also what a band that leaves no
-  room comes with. A charger with operation modes gets a list that leaves
-  out its dead zone.
+  room comes with. That pairing is the planner's; the parser does not
+  check it, a point band fixes the setpoint whatever the share. A charger
+  with operation modes gets a list that leaves out its dead zone.
 - Nothing per slot about sensors or retriggers: the meter is the one the
   flex-context already names, and retriggering on a band exit is on by
   default.
@@ -48,9 +49,12 @@ The contract, as agreed with Seita (kick-off document, 24 and 26 November
   for rounding between ``values`` and the band's edges.
 - A setpoint in a hole between two ranges, the charger's dead zone, takes
   the edge on the side of the range that holds the plan: the mode the
-  device is in. A setpoint inside another range is returned as is; it asks
-  for a mode change, and whether to follow that is the engine's policy, not
-  the rule's (Seita, 26 November, amending the earlier "nearest edge").
+  device is in while it follows its plan, which it always does in shadow
+  and under live mode's default policy of holding the plan's mode within
+  a slot. A setpoint inside another range is returned as is; it asks for a
+  mode change, and whether to follow that, with the hysteresis that takes,
+  is the engine's policy, not the rule's (Seita, 26 November, amending the
+  earlier "nearest edge").
 - Numbers are plain and finite, in the schedule's ``unit``, at full
   precision. This module converts them to W.
 - Signs: device power positive is consumption (charging), meter power
@@ -107,9 +111,11 @@ class Band:
         than the plan's: a request for a mode change, which the engine's
         policy decides on. Beyond the band it is the outer bound. In a hole
         between two ranges, the charger's dead zone, it is the edge on the
-        side of the range that holds the plan, the mode the device is in: a
-        plan charging 1.4 kW that is asked 0.5 kW keeps charging, a plan
-        idling that is asked 0.5 kW stays idle.
+        side of the range that holds ``plan_w``: a plan charging 1.4 kW that
+        is asked 0.5 kW keeps charging, a plan idling that is asked 0.5 kW
+        stays idle. That range is the mode the device is in as long as it
+        follows its plan; an engine that has followed a mode change passes
+        a power in the range it moved to instead.
         """
         if power_w <= self.ranges[0][0]:
             return self.ranges[0][0]
@@ -138,8 +144,9 @@ class ReactionRule:
     """What the device may do in one slot.
 
     All powers in W. ``p_w`` is the planned device power (consumption
-    positive). ``reference_w`` is the uncontrolled power the plan is balanced
-    against (import positive); the deviation is measured against it, and it is 0.0 when FlexMeasures had no forecast. ``react`` is 0
+    positive). ``reference_w`` is the uncontrolled power the plan is
+    balanced against (import positive); the deviation is measured against
+    it, and it is 0.0 when FlexMeasures had no forecast. ``react`` is 0
     (follow the plan), 1 (absorb the deviation) or a share in between.
     """
 

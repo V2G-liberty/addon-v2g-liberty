@@ -42,9 +42,13 @@ in 0.9.2 together with the request side and a mode setting.
   plan, as it does before every phase has delivered a first sample. The
   charger's power is unknown until the driver reports it and again when
   the driver loses the charger; without it there is no setpoint.
-- The local device bounds (a full car cannot absorb a surplus) and the
-  hysteresis around the charger's dead zone belong to the driver's
-  translator, which comes with live mode.
+- Whether to follow a setpoint into another range of the band, a mode
+  change, is the engine's policy, and so is the hysteresis that keeps the
+  charger from flapping at a range's edge when it does; both come with
+  live mode. The rounding rule already holds the plan's mode through a
+  short deviation (``Band.nearest`` in rules.py). The driver's translator,
+  also live mode, keeps only the local device bounds: a full car cannot
+  absorb a surplus.
 """
 
 from __future__ import annotations

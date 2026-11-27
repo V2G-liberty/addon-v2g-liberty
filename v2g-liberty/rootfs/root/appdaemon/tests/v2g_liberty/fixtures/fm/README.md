@@ -15,8 +15,10 @@ band}`. `reference` is the uncontrolled power the plan is balanced against:
 the forecast, or the balance point where the device's modes keep the plan
 from balancing the connection exactly. The controller computes
 `deviation = (meter - device) - reference` and
-`setpoint = clip(p - react * deviation, band)`; a setpoint in a dead zone
-takes the edge on the side of the plan's mode.
+`setpoint = p - react * deviation`, held inside the band: beyond the band
+the outer bound, in a dead zone the edge on the side of the plan's mode,
+inside another range the value as is (a mode-change request, which the
+engine's policy decides on). Seita's notes write this as `clip(..., band)`.
 
 Sensor ids and timestamps are illustrative: 65 is the charger's power
 sensor, 67 its state of charge, 58 and 70 the prices, 4712 and 4713 the
@@ -31,7 +33,7 @@ to W.
 | `schedule_invalid_length.json` | One rule for four values. The rules are dropped; the schedule is kept. |
 | `schedule_null_side.json` | A `null` side. Never served: the planner requires a power capacity for every device, so every side is a finite number. Refused, as the client refuses it; kept as a parser test. |
 | `schedule_night_k0.json` | Cheap night, charging to the target: `react` 0 and `[[p, p]]` in every slot. A heat-pump cycle changes the load, not the price: no reaction. |
-| `schedule_band_target.json` | Clouds where sun was planned, with a target this evening: `react` 1, and the lower bound of the band rises towards the deadline, so the charger imports deliberately rather than miss the target. The last slot's band is a single point, and a point band always comes with `react` 0. |
+| `schedule_band_target.json` | Clouds where sun was planned, with a target this evening: `react` 1, and the lower bound of the band rises towards the deadline, so the charger imports deliberately rather than miss the target. The last slot's band is a single point, and a point band always comes with `react` 0: the planner's pairing, which the parser does not check, since a point band fixes the setpoint whatever the share. |
 | `schedule_reference_zero.json` | No forecast: `reference` 0.0 in every slot; `react` 1 only where the price is at or below zero or the connection binds. |
 | `schedule_band_collapsed.json` | Low state of charge and a target soon: the band leaves no room, and the planner then serves `react` 0 with `[[p, p]]`, as it does whenever a band collapses. |
 
