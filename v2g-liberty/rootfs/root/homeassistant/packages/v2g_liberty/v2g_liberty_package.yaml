@@ -258,6 +258,8 @@ template:
       # Written by the reaction engine, in shadow: the power the reaction
       # rules FlexMeasures served with the schedule would set right now,
       # given the meter. Unavailable while no schedule with rules is in.
+      # The engine writes the name, device class, unit and icon below with
+      # every write (SENSOR_METADATA in recourse/engine.py); keep them equal.
       - default_entity_id: sensor.reaction_setpoint
         name: Reaction setpoint
         device_class: power

@@ -251,9 +251,186 @@ class TestBandExit:
             await sample(engine, PLAN_W - 403)
             assert caplog.text.count("Band exit #") == 1  # not logged again
             await sample(engine, PLAN_W - 1400)  # back inside
-            assert "Band exit over after" in caplog.text
+            assert "Band exit over" not in caplog.text  # not for one sample
+            clock.tick(eng.EXIT_END_DWELL_S)
+            await sample(engine, PLAN_W - 1400)
+            assert "Band exit over after 41 s" in caplog.text
         assert sensor(engine)[1]["outside_band"] is False
         assert sensor(engine)[1]["band_exits"] == 1
+
+    @pytest.mark.asyncio
+    async def test_one_sample_inside_does_not_end_an_exit(self, engine, clock, caplog):
+        """The half-updated reading between a phase's consumption and
+        production updates sits inside the band for a few milliseconds.
+        It neither ends the exit nor starts a fresh dwell."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(eng.DWELL_S + 1):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert caplog.text.count("Band exit #1") == 1
+            await sample(engine, PLAN_W - 1400)  # one reading inside
+            clock.tick(1)
+            for _ in range(eng.DWELL_S + 5):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert "Band exit over" not in caplog.text
+            assert caplog.text.count("Band exit #") == 1
+            assert sensor(engine)[1]["band_exits"] == 1
+            await sample(engine, PLAN_W - 1400)  # inside for good
+            clock.tick(eng.EXIT_END_DWELL_S)
+            await sample(engine, PLAN_W - 1400)
+        assert "Band exit over after 67 s" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_at_a_ten_second_meter_one_reading_inside_is_ten_seconds_inside(
+        self, engine, clock, caplog
+    ):
+        """A DSMR 4 meter reports every ten seconds, so one reading inside
+        stands for ten seconds inside and ends the excursion; the next
+        reading outside starts a new one, with its own dwell."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(4):  # 0, 10, 20, 30 s outside
+                await sample(engine, PLAN_W - 400)
+                clock.tick(10)
+            assert caplog.text.count("Band exit #1") == 1
+            await sample(engine, PLAN_W - 1400)  # 40 s: inside
+            clock.tick(10)
+            await sample(engine, PLAN_W - 400)  # 50 s: outside again
+        # 1000 W held over four readings of ten seconds: 40 s, 11.1 Wh
+        assert "Band exit over after 40 s, 11.1 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["band_exits"] == 1
+        assert sensor(engine)[1]["outside_band"] is True
+
+    @pytest.mark.asyncio
+    async def test_the_half_updated_reading_at_a_ten_second_meter_is_a_flicker(
+        self, engine, clock, caplog
+    ):
+        """The grid emulator, like a meter whose phase arrives as two
+        entity updates, gives a reading inside the band milliseconds before
+        the real one every ten seconds. Neither ends the exit nor counts
+        energy, so the exit's energy is that of the readings outside."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(7):  # 0 .. 60 s, one flicker per tick
+                await sample(engine, PLAN_W - 1400)  # half-updated: inside
+                clock.tick(0.03)
+                await sample(engine, PLAN_W - 400)  # real: 1000 W past the band
+                clock.tick(9.97)
+            assert caplog.text.count("Band exit #") == 1
+            assert "Band exit over" not in caplog.text
+            assert sensor(engine)[1]["short_excursions"] == 0
+            await sample(engine, PLAN_W - 1400)  # 70 s: inside for good
+            clock.tick(eng.EXIT_END_DWELL_S)
+            await sample(engine, PLAN_W - 1400)
+        # 1000 W held over seven spells of 9.97 s outside; the 0.03 s flickers count nothing
+        expected_wh = round(1000 * 7 * 9.97 / 3600, 1)
+        assert (
+            f"Band exit over after 70 s, {expected_wh} Wh past the band." in caplog.text
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_silent_meter_ends_an_excursion_at_its_last_reading(
+        self, engine, clock, caplog
+    ):
+        """Five seconds past the band, then no sample for ten minutes, then
+        one inside: a short excursion of five seconds and 1.4 Wh, not one of
+        605 s with the 1000 W held over the gap, and no exit either."""
+        await start(engine)
+        with caplog.at_level(logging.DEBUG):
+            for _ in range(6):  # 0 .. 5 s outside
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            clock.tick(10 * 60)
+            await engine._tick()  # the meter is stale now
+            attributes = sensor(engine)[1]
+            assert attributes["meter_stale"] is True
+            assert attributes["short_excursions"] == 1
+            assert "Excursion past the band of 5 s, 1.4 Wh" in caplog.text
+            await sample(engine, PLAN_W - 1400)  # inside, meter back
+        assert "Band exit" not in caplog.text
+        assert sensor(engine)[1]["band_exits"] == 0
+
+    @pytest.mark.asyncio
+    async def test_a_silent_meter_ends_an_exit_at_its_last_reading(
+        self, engine, clock, caplog
+    ):
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(31):  # 0 .. 30 s outside: an exit
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert caplog.text.count("Band exit #1") == 1
+            clock.tick(10 * 60)
+            await engine._tick()
+        assert "Band exit over after 30 s, 8.3 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["last_exit_wh"] == 8.3
+
+    @pytest.mark.asyncio
+    async def test_a_lost_charger_ends_an_exit_at_its_last_reading(
+        self, engine, clock, caplog
+    ):
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(31):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            await engine._on_charger_communication_state_change(can_communicate=False)
+        assert "Band exit over after 30 s, 8.3 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["reason"] == "charger power unknown"
+
+    @pytest.mark.asyncio
+    async def test_a_new_schedule_closes_a_running_exit_with_its_energy(
+        self, engine, clock, caplog
+    ):
+        """In 0.9.2 an exit is what asks for the new schedule, so the exit
+        must be closed, with its energy, when that schedule arrives, not
+        dropped."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(31):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert caplog.text.count("Band exit #1") == 1
+            await engine.install(rules())
+        assert "Band exit over after 30 s, 8.3 Wh past the band." in caplog.text
+        attributes = sensor(engine)[1]
+        assert attributes["band_exits"] == 1
+        assert attributes["last_exit_wh"] == 8.3
+
+    @pytest.mark.asyncio
+    async def test_clearing_the_rules_closes_a_short_excursion(
+        self, engine, clock, caplog
+    ):
+        await start(engine)
+        with caplog.at_level(logging.DEBUG):
+            for _ in range(6):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            await engine.clear()
+        assert "Excursion past the band of 5 s, 1.4 Wh" in caplog.text
+        assert sensor(engine)[1]["short_excursions"] == 1
+
+    @pytest.mark.asyncio
+    async def test_a_flicker_inside_does_not_split_a_short_excursion(
+        self, engine, clock
+    ):
+        await start(engine)
+        for _ in range(10):
+            await sample(engine, PLAN_W - 400)
+            clock.tick(1)
+        await sample(engine, PLAN_W - 1400)  # one reading inside
+        clock.tick(1)
+        for _ in range(10):
+            await sample(engine, PLAN_W - 400)
+            clock.tick(1)
+        await sample(engine, PLAN_W - 1400)
+        clock.tick(eng.EXIT_END_DWELL_S)
+        await sample(engine, PLAN_W - 1400)
+        attributes = sensor(engine)[1]
+        assert attributes["short_excursions"] == 1
+        assert attributes["band_exits"] == 0
 
     @pytest.mark.asyncio
     async def test_a_short_excursion_is_no_exit(self, engine, clock, caplog):
@@ -322,6 +499,7 @@ class TestBandExit:
             clock.tick(10)
             await sample(engine, PLAN_W - 1400)  # back on the edge
             clock.tick(10)
+        await sample(engine, PLAN_W - 1400)  # closes the third one
         attributes = sensor(engine)[1]
         assert attributes["short_excursions"] == 3
         assert attributes["band_exits"] == 0
@@ -331,8 +509,9 @@ class TestBandExit:
     async def test_the_energy_past_the_band_is_logged_with_the_exit(
         self, engine, clock, caplog
     ):
-        """1000 W past the band for a minute is 16.7 Wh: the number an energy
-        threshold in front of the retrigger is set from."""
+        """1000 W past the band for 61 s is 16.9 Wh, the last reading held
+        until the setpoint came inside: the number an energy threshold in
+        front of the retrigger is set from."""
         await start(engine)
         with caplog.at_level(logging.INFO):
             for _ in range(61):
@@ -340,8 +519,10 @@ class TestBandExit:
                 clock.tick(1)
             assert "for 30 s now, 8.3 Wh past the band" in caplog.text
             await sample(engine, PLAN_W - 1400)
-        assert "Band exit over after 61 s, 16.7 Wh past the band." in caplog.text
-        assert sensor(engine)[1]["last_exit_wh"] == 16.7
+            clock.tick(eng.EXIT_END_DWELL_S)
+            await sample(engine, PLAN_W - 1400)
+        assert "Band exit over after 61 s, 16.9 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["last_exit_wh"] == 16.9
 
 
 class TestMeter:
@@ -439,14 +620,12 @@ class TestLifecycle:
 
 class TestChargerPower:
     @pytest.mark.asyncio
-    async def test_every_write_carries_every_key_so_nothing_stale_survives(
-        self, engine
-    ):
-        """AppDaemon merges the attributes into the entity's, which keeps the
-        name, unit, device class and icon the package gives the sensor. So
-        the engine never replaces them, and writes every key of its own on
-        every write, None where it does not apply: the reason of the
-        unavailable spell must not sit next to a valid setpoint."""
+    async def test_every_write_carries_the_metadata_and_every_key(self, engine):
+        """The engine replaces the entity's attributes on every write, so it
+        carries the sensor's name, unit, device class and icon itself and
+        writes every key of its own, None where it does not apply: the
+        reason of the unavailable spell must not sit next to a valid
+        setpoint, and nothing AppDaemon's merge would add gets in."""
         await engine.initialize()
         await engine.install(rules())
         await sample(engine, 3000)
@@ -457,8 +636,11 @@ class TestChargerPower:
         assert state == 1400
         assert attributes["reason"] is None
         for call in engine.hass.set_state.call_args_list:
-            assert "replace" not in call.kwargs
-            assert set(call.kwargs["attributes"]) == set(eng.ATTRIBUTE_KEYS)
+            assert call.kwargs["replace"] is True
+            written = call.kwargs["attributes"]
+            assert set(written) == set(eng.ATTRIBUTE_KEYS) | set(eng.SENSOR_METADATA)
+            assert {k: written[k] for k in eng.SENSOR_METADATA} == eng.SENSOR_METADATA
+            assert written["unit_of_measurement"] == "W"
 
     @pytest.mark.asyncio
     async def test_no_setpoint_until_the_driver_reports_the_charger(self, engine):

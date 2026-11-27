@@ -55,8 +55,16 @@ in 0.9.2 together with the request side and a mode setting.
   the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
   edge: float noise on a reference served in MW, and meter noise, are not
   exits. A setpoint in the charger's dead zone is not either: it is rounded
-  onto the band, never counted. Shorter excursions are counted, and the
-  energy past the band is integrated over every excursion, so the shadow
+  onto the band, never counted. An excursion ends once the setpoint has
+  been back inside for EXIT_END_DWELL_S: a shorter return, such as the
+  half-updated reading between a phase's consumption and production
+  updates, or a flicker on the edge, does not end it, does not start a
+  fresh dwell, and counts no energy while inside. Shorter excursions are
+  counted, and the energy past the band is integrated over every
+  excursion, each reading outside held until the next as the drift does,
+  up to the moment the setpoint went inside. A meter that falls silent, or
+  a spell without a verdict, or a new schedule, ends a running excursion
+  at its last reading; the gap counts for nothing. So the shadow
   week yields the numbers a hysteresis at the band edge and an energy
   threshold in front of the retrigger are set from. 0.9.1 logs and counts;
   0.9.2 asks FlexMeasures for a new plan.
@@ -86,11 +94,20 @@ from ..timer_utils import set_recurring_timer
 from .rules import ReactionRule, ReactionSchedule, react
 
 SENSOR_REACTION_SETPOINT = "sensor.reaction_setpoint"
-# Every write carries every key, None for the ones that do not apply.
-# AppDaemon merges the attributes into the entity's, which keeps the name,
-# unit, device class and icon the package gives the sensor; a key left out
-# would keep its old value too, so the reason of an unavailable spell would
-# outlive it.
+# The sensor's name, unit, device class and icon, the same as the package's
+# template gives the entity so that it exists before the first write. The
+# engine carries them on every write and replaces the entity's attributes:
+# AppDaemon's merge did not keep the template's attributes and added Home
+# Assistant's timestamps and context to them, and a sensor without a unit is
+# no power sensor to the history graph and the recorder.
+SENSOR_METADATA = {
+    "friendly_name": "Reaction setpoint",
+    "unit_of_measurement": "W",
+    "device_class": "power",
+    "icon": "mdi:swap-vertical-bold",
+}
+# Every write carries every key, None for the ones that do not apply, so the
+# sensor's attributes are the same set in every state.
 ATTRIBUTE_KEYS = (
     "mode",
     "reason",
@@ -120,6 +137,13 @@ HEARTBEAT_S = 60
 # A clipped setpoint is a band exit once it has lasted this long; shorter
 # excursions are a kettle or the charger settling.
 DWELL_S = 30
+# An excursion ends once the setpoint has been back inside the band for this
+# long, measured in time, not in samples: at a meter that reports every ten
+# seconds one reading inside stands for ten seconds inside, and ends it. What
+# must not end it is the half-updated reading between a phase's consumption
+# and production updates, milliseconds before the real one, or a flicker on
+# the edge. Two seconds is far above those and below a kettle's pause.
+EXIT_END_DWELL_S = 2
 # A raw setpoint this close to the band's edge is not outside it: the
 # tolerance the client's exit gate uses, in the order of meter noise.
 EXIT_TOLERANCE_W = 50
@@ -175,7 +199,9 @@ class ReactionEngine:
         # whether this exit has been logged, and the counts: exits that
         # lasted the dwell and excursions that did not.
         self._exit_since: datetime | None = None
+        self._inside_since: datetime | None = None
         self._exit_last_at: datetime | None = None
+        self._exit_past_w = 0.0  # the last reading outside, held until the next
         self._exit_wh = 0.0
         self._exit_logged = False
         self._exits = 0
@@ -216,6 +242,7 @@ class ReactionEngine:
 
     async def install(self, rules: ReactionSchedule):
         """Take the rules of a new schedule; the previous ones go."""
+        self._abandon_excursion()  # closed, with its energy, not dropped
         self._rules = rules
         self._reset_excursion()
         self._reset_drift()
@@ -227,6 +254,7 @@ class ReactionEngine:
         without rules arrived."""
         if self._rules is None:
             return
+        self._abandon_excursion()
         self._rules = None
         self._reset_excursion()
         self._reset_drift()
@@ -269,6 +297,7 @@ class ReactionEngine:
         if (now - self._last_sample_at).total_seconds() > STALE_AFTER_S:
             self._stale = True
             self._drift_last_at = None  # the gap counts for nothing
+            self._abandon_excursion()
             if self._rules is not None:
                 self._log(
                     f"No grid sample for {STALE_AFTER_S} s; following the plan "
@@ -338,18 +367,29 @@ class ReactionEngine:
 
     def _reset_excursion(self):
         self._exit_since = None
+        self._inside_since = None
         self._exit_last_at = None
+        self._exit_past_w = 0.0
         self._exit_wh = 0.0
         self._exit_logged = False
 
     def _track_exit(self, verdict: Evaluation, now: datetime):
         if verdict.outside:
-            past_w = abs(verdict.raw_w - verdict.setpoint_w)
+            outside_until = now  # the energy counts up to the moment it went inside
+            if self._inside_since is not None:
+                if self._inside_for(now) >= EXIT_END_DWELL_S:
+                    self._end_excursion()  # it ended when it went inside
+                else:
+                    outside_until = self._inside_since  # a flicker; it goes on
+                    self._inside_since = None
             if self._exit_since is None:
                 self._exit_since = now
             else:
-                dt_s = (now - self._exit_last_at).total_seconds()
-                self._exit_wh += past_w * dt_s / 3600
+                # Zero-order hold, as the drift: the previous reading outside
+                # stands until this one (or until the setpoint went inside).
+                dt_s = (outside_until - self._exit_last_at).total_seconds()
+                self._exit_wh += self._exit_past_w * dt_s / 3600
+            self._exit_past_w = abs(verdict.raw_w - verdict.setpoint_w)
             self._exit_last_at = now
             if (
                 not self._exit_logged
@@ -365,21 +405,50 @@ class ReactionEngine:
                     f"{verdict.rule.start.isoformat()}). {MODE}: no retrigger."
                 )
         elif self._exit_since is not None:
-            seconds = (now - self._exit_since).total_seconds()
-            if self._exit_logged:
-                self._last_exit_wh = self._exit_wh
-                self._log(
-                    f"Band exit over after {seconds:.0f} s, {self._exit_wh:.1f} Wh "
-                    "past the band."
-                )
-            else:
-                self._short_excursions += 1
-                self._log(
-                    f"Excursion past the band of {seconds:.0f} s, {self._exit_wh:.1f} "
-                    f"Wh; shorter than the dwell of {DWELL_S} s, no exit.",
-                    level="DEBUG",
-                )
-            self._reset_excursion()
+            if self._inside_since is None:
+                self._inside_since = now
+                # The last reading outside stood until this moment.
+                dt_s = (now - self._exit_last_at).total_seconds()
+                self._exit_wh += self._exit_past_w * dt_s / 3600
+                self._exit_last_at = now
+            if self._inside_for(now) >= EXIT_END_DWELL_S:
+                self._end_excursion()
+
+    def _inside_for(self, now: datetime) -> float:
+        return (now - self._inside_since).total_seconds()
+
+    def _abandon_excursion(self):
+        """The meter fell silent, there is no verdict (the charger's power
+        unknown, the schedule over) or a new schedule replaces the rules: the
+        excursion cannot be followed, so it ends at its last reading, with
+        the energy up to there. The gap counts for nothing, as it does for
+        the drift. In 0.9.2 an exit is what asks for the new schedule, so its
+        energy must survive the schedule's arrival."""
+        if self._exit_since is None:
+            return
+        self._end_excursion(self._inside_since or self._exit_last_at)
+
+    def _end_excursion(self, ended_at: datetime | None = None):
+        """Close the excursion as of the moment the setpoint went back
+        inside; the energy past the band was integrated up to that moment,
+        each reading outside held until the next."""
+        if ended_at is None:
+            ended_at = self._inside_since
+        seconds = (ended_at - self._exit_since).total_seconds()
+        if self._exit_logged:
+            self._last_exit_wh = self._exit_wh
+            self._log(
+                f"Band exit over after {seconds:.0f} s, {self._exit_wh:.1f} Wh "
+                "past the band."
+            )
+        else:
+            self._short_excursions += 1
+            self._log(
+                f"Excursion past the band of {seconds:.0f} s, {self._exit_wh:.1f} "
+                f"Wh; shorter than the dwell of {DWELL_S} s, no exit.",
+                level="DEBUG",
+            )
+        self._reset_excursion()
 
     # ── Output ───────────────────────────────────────────────────────────
 
@@ -421,6 +490,7 @@ class ReactionEngine:
             # No verdict, so nothing to hold: the gap until the next verdict
             # counts for nothing, as a stale spell does.
             self._drift_last_at = None
+            self._abandon_excursion()
             setpoint = None
             state = "unavailable"
             attributes = {
@@ -467,12 +537,19 @@ class ReactionEngine:
                 "drift_kwh": self._drift_kwh_rounded(),
                 "meter_stale": self._stale,
             }
-        attributes = {key: attributes.get(key) for key in ATTRIBUTE_KEYS}
+        attributes = {
+            **SENSOR_METADATA,
+            **{key: attributes.get(key) for key in ATTRIBUTE_KEYS},
+        }
         flags = (
             state == "unavailable",
             attributes.get("reason"),
             attributes.get("outside_band"),
             attributes.get("band_exits"),
+            # The end of an excursion is decided EXIT_END_DWELL_S after the
+            # setpoint went inside, on a sample that changes nothing else.
+            attributes.get("short_excursions"),
+            attributes.get("last_exit_wh"),
             attributes.get("meter_stale"),
             attributes.get("slot_start"),
             # The drift grows without the setpoint moving; one write per step.
@@ -500,7 +577,10 @@ class ReactionEngine:
         self._published_flags = flags
         try:
             await self.hass.set_state(
-                SENSOR_REACTION_SETPOINT, state=state, attributes=attributes
+                SENSOR_REACTION_SETPOINT,
+                state=state,
+                attributes=attributes,
+                replace=True,
             )
         except Exception as e:  # noqa: BLE001  # HA may be restarting
             self._log(
