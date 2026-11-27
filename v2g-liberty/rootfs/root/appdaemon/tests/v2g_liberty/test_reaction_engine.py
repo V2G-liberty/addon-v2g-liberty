@@ -331,6 +331,56 @@ class TestBandExit:
         )
 
     @pytest.mark.asyncio
+    async def test_a_silent_meter_ends_an_excursion_at_its_last_reading(
+        self, engine, clock, caplog
+    ):
+        """Five seconds past the band, then no sample for ten minutes, then
+        one inside: a short excursion of five seconds and 1.4 Wh, not one of
+        605 s with the 1000 W held over the gap, and no exit either."""
+        await start(engine)
+        with caplog.at_level(logging.DEBUG):
+            for _ in range(6):  # 0 .. 5 s outside
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            clock.tick(10 * 60)
+            await engine._tick()  # the meter is stale now
+            attributes = sensor(engine)[1]
+            assert attributes["meter_stale"] is True
+            assert attributes["short_excursions"] == 1
+            assert "Excursion past the band of 5 s, 1.4 Wh" in caplog.text
+            await sample(engine, PLAN_W - 1400)  # inside, meter back
+        assert "Band exit" not in caplog.text
+        assert sensor(engine)[1]["band_exits"] == 0
+
+    @pytest.mark.asyncio
+    async def test_a_silent_meter_ends_an_exit_at_its_last_reading(
+        self, engine, clock, caplog
+    ):
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(31):  # 0 .. 30 s outside: an exit
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert caplog.text.count("Band exit #1") == 1
+            clock.tick(10 * 60)
+            await engine._tick()
+        assert "Band exit over after 30 s, 8.3 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["last_exit_wh"] == 8.3
+
+    @pytest.mark.asyncio
+    async def test_a_lost_charger_ends_an_exit_at_its_last_reading(
+        self, engine, clock, caplog
+    ):
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(31):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            await engine._on_charger_communication_state_change(can_communicate=False)
+        assert "Band exit over after 30 s, 8.3 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["reason"] == "charger power unknown"
+
+    @pytest.mark.asyncio
     async def test_a_flicker_inside_does_not_split_a_short_excursion(
         self, engine, clock
     ):

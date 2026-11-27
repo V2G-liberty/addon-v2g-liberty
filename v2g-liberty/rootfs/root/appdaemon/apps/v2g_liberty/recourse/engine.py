@@ -62,7 +62,9 @@ in 0.9.2 together with the request side and a mode setting.
   fresh dwell, and counts no energy while inside. Shorter excursions are
   counted, and the energy past the band is integrated over every
   excursion, each reading outside held until the next as the drift does,
-  up to the moment the setpoint went inside, so the shadow
+  up to the moment the setpoint went inside. A meter that falls silent, or
+  a spell without a verdict, ends a running excursion at its last reading;
+  the gap counts for nothing. So the shadow
   week yields the numbers a hysteresis at the band edge and an energy
   threshold in front of the retrigger are set from. 0.9.1 logs and counts;
   0.9.2 asks FlexMeasures for a new plan.
@@ -284,6 +286,7 @@ class ReactionEngine:
         if (now - self._last_sample_at).total_seconds() > STALE_AFTER_S:
             self._stale = True
             self._drift_last_at = None  # the gap counts for nothing
+            self._abandon_excursion()
             if self._rules is not None:
                 self._log(
                     f"No grid sample for {STALE_AFTER_S} s; following the plan "
@@ -403,11 +406,22 @@ class ReactionEngine:
     def _inside_for(self, now: datetime) -> float:
         return (now - self._inside_since).total_seconds()
 
-    def _end_excursion(self):
+    def _abandon_excursion(self):
+        """The meter fell silent or there is no verdict (the charger's power
+        unknown, the schedule over): the excursion cannot be followed, so it
+        ends at its last reading, with the energy up to there. The gap counts
+        for nothing, as it does for the drift."""
+        if self._exit_since is None:
+            return
+        self._end_excursion(self._inside_since or self._exit_last_at)
+
+    def _end_excursion(self, ended_at: datetime | None = None):
         """Close the excursion as of the moment the setpoint went back
         inside; the energy past the band was integrated up to that moment,
         each reading outside held until the next."""
-        seconds = (self._inside_since - self._exit_since).total_seconds()
+        if ended_at is None:
+            ended_at = self._inside_since
+        seconds = (ended_at - self._exit_since).total_seconds()
         if self._exit_logged:
             self._last_exit_wh = self._exit_wh
             self._log(
@@ -463,6 +477,7 @@ class ReactionEngine:
             # No verdict, so nothing to hold: the gap until the next verdict
             # counts for nothing, as a stale spell does.
             self._drift_last_at = None
+            self._abandon_excursion()
             setpoint = None
             state = "unavailable"
             attributes = {
