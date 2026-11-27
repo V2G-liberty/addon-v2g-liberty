@@ -63,8 +63,8 @@ in 0.9.2 together with the request side and a mode setting.
   counted, and the energy past the band is integrated over every
   excursion, each reading outside held until the next as the drift does,
   up to the moment the setpoint went inside. A meter that falls silent, or
-  a spell without a verdict, ends a running excursion at its last reading;
-  the gap counts for nothing. So the shadow
+  a spell without a verdict, or a new schedule, ends a running excursion
+  at its last reading; the gap counts for nothing. So the shadow
   week yields the numbers a hysteresis at the band edge and an energy
   threshold in front of the retrigger are set from. 0.9.1 logs and counts;
   0.9.2 asks FlexMeasures for a new plan.
@@ -233,6 +233,7 @@ class ReactionEngine:
 
     async def install(self, rules: ReactionSchedule):
         """Take the rules of a new schedule; the previous ones go."""
+        self._abandon_excursion()  # closed, with its energy, not dropped
         self._rules = rules
         self._reset_excursion()
         self._reset_drift()
@@ -244,6 +245,7 @@ class ReactionEngine:
         without rules arrived."""
         if self._rules is None:
             return
+        self._abandon_excursion()
         self._rules = None
         self._reset_excursion()
         self._reset_drift()
@@ -407,10 +409,12 @@ class ReactionEngine:
         return (now - self._inside_since).total_seconds()
 
     def _abandon_excursion(self):
-        """The meter fell silent or there is no verdict (the charger's power
-        unknown, the schedule over): the excursion cannot be followed, so it
-        ends at its last reading, with the energy up to there. The gap counts
-        for nothing, as it does for the drift."""
+        """The meter fell silent, there is no verdict (the charger's power
+        unknown, the schedule over) or a new schedule replaces the rules: the
+        excursion cannot be followed, so it ends at its last reading, with
+        the energy up to there. The gap counts for nothing, as it does for
+        the drift. In 0.9.2 an exit is what asks for the new schedule, so its
+        energy must survive the schedule's arrival."""
         if self._exit_since is None:
             return
         self._end_excursion(self._inside_since or self._exit_last_at)

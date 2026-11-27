@@ -381,6 +381,38 @@ class TestBandExit:
         assert sensor(engine)[1]["reason"] == "charger power unknown"
 
     @pytest.mark.asyncio
+    async def test_a_new_schedule_closes_a_running_exit_with_its_energy(
+        self, engine, clock, caplog
+    ):
+        """In 0.9.2 an exit is what asks for the new schedule, so the exit
+        must be closed, with its energy, when that schedule arrives, not
+        dropped."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(31):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            assert caplog.text.count("Band exit #1") == 1
+            await engine.install(rules())
+        assert "Band exit over after 30 s, 8.3 Wh past the band." in caplog.text
+        attributes = sensor(engine)[1]
+        assert attributes["band_exits"] == 1
+        assert attributes["last_exit_wh"] == 8.3
+
+    @pytest.mark.asyncio
+    async def test_clearing_the_rules_closes_a_short_excursion(
+        self, engine, clock, caplog
+    ):
+        await start(engine)
+        with caplog.at_level(logging.DEBUG):
+            for _ in range(6):
+                await sample(engine, PLAN_W - 400)
+                clock.tick(1)
+            await engine.clear()
+        assert "Excursion past the band of 5 s, 1.4 Wh" in caplog.text
+        assert sensor(engine)[1]["short_excursions"] == 1
+
+    @pytest.mark.asyncio
     async def test_a_flicker_inside_does_not_split_a_short_excursion(
         self, engine, clock
     ):
