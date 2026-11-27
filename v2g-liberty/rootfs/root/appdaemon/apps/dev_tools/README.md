@@ -216,9 +216,11 @@ It exits non-zero on the first failed check, so it can be wired into a script. R
 
 ## Reaction sample recorder
 
-Writes the reaction engine's verdict per meter sample to `/config/logs/reaction_samples.csv` (in the dev container: `v2g-liberty/logs/` in the repository), so a probe can follow the file live. Columns `time,surprise,raw_setpoint,clipped_setpoint`: ISO 8601 with offset and milliseconds, then W. The column names are those of Seita's probe (`--deviation-csv FILE --surprise-unit W --follow`); the engine calls the second one deviation.
+Writes the reaction engine's verdict per meter sample to `/config/logs/reaction_samples.csv` (in the dev container: `v2g-liberty/logs/` in the repository), so a probe can follow the file live. Columns `time,surprise,raw_setpoint,clipped_setpoint,phase`: ISO 8601 with offset and milliseconds (when the engine evaluated the sample), then W, then the phase whose sample it was. The first four column names are those of Seita's probe (`--deviation-csv FILE --surprise-unit W --follow`), which ignores extra columns; the engine calls the second one deviation.
 
-- One row per evaluated sample: a three-phase meter gives one per phase per second, about 1 MB per hour, and only while the engine has rules (a schedule with a `reaction` array). Without rules the file is not created.
+- One row per evaluated sample: a three-phase meter gives one per phase per second, the other two phases still at their previous values, so keep the rows of the last phase for one complete row per second. Only while the engine has rules (a schedule with a `reaction` array); without rules the file is not created.
+- About 1 MB per hour and never cleaned up: delete or rotate the file after a test, in particular on a pre-production host you might forget.
+- The row is written on the event loop, inside the engine's publish call. On a slow disk that shows up as a slow engine; acceptable for a dev tool, not something to copy into the add-on.
 - Each row is flushed, and the file is opened per row, so you can delete it while the app runs to start afresh. An unwritable path gives one warning and no further attempts.
 - Configuration: `path` in `apps.yaml`. The app depends on `v2g-app`, whose event bus it listens to (`reaction_sample`), so it reloads with it.
 - Like the emulators it is stripped from the add-on image; on a pre-production host it can be placed by hand as described above.

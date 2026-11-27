@@ -187,7 +187,7 @@ class ReactionEngine:
             self._stale = False
             if self._rules is not None:
                 self._log("Meter back; reacting again.")
-        await self._publish(sample=True)
+        await self._publish(sample_phase=int(phase))
 
     def _on_charge_power_change(self, new_power):
         if isinstance(new_power, (int, float)) and not isinstance(new_power, bool):
@@ -300,15 +300,21 @@ class ReactionEngine:
     def _last_exit_wh_rounded(self) -> float | None:
         return None if self._last_exit_wh is None else round(self._last_exit_wh, 1)
 
-    def _emit_sample(self, now: datetime, verdict: Evaluation):
+    def _emit_sample(self, now: datetime, verdict: Evaluation, phase: int):
         """One event per evaluated meter sample, for a recorder. Only when
         something listens: the bus warns about an event nobody hears, and a
-        normal installation has no recorder."""
+        normal installation has no recorder. ``time`` is when the engine
+        evaluated the sample, milliseconds after the meter read it; the
+        meter's own timestamp does not travel on the bus. ``phase`` is the
+        phase whose sample this was: the other phases still hold the previous
+        second's values, so a reader wanting one row per second keeps the
+        last phase."""
         if not self.event_bus.listeners(REACTION_SAMPLE_EVENT):
             return
         self.event_bus.emit_event(
             REACTION_SAMPLE_EVENT,
             time=now,
+            phase=phase,
             deviation_w=round(verdict.deviation_w),
             raw_w=round(verdict.raw_w),
             setpoint_w=round(verdict.setpoint_w),
@@ -317,12 +323,12 @@ class ReactionEngine:
             charger_w=verdict.charger_w,
         )
 
-    async def _publish(self, force: bool = False, sample: bool = False):
+    async def _publish(self, force: bool = False, sample_phase: int | None = None):
         """Write the sensor when something in it changed, sparingly: Home
         Assistant records every write and the meter samples once a second.
-        A call for a fresh meter sample (``sample``) also emits the sample
-        event; the forced calls for a new schedule, a stale meter or a lost
-        charger evaluate the same old samples again and emit none."""
+        A call for a fresh meter sample (``sample_phase``) also emits the
+        sample event; the forced calls for a new schedule, a stale meter or
+        a lost charger evaluate the same old samples again and emit none."""
         now = self._now()
         verdict = self.evaluate(now)
         if isinstance(verdict, str):
@@ -344,8 +350,8 @@ class ReactionEngine:
                 f"setpoint {verdict.setpoint_w:.0f} W.",
                 level="DEBUG",
             )
-            if sample:
-                self._emit_sample(now, verdict)
+            if sample_phase is not None:
+                self._emit_sample(now, verdict, sample_phase)
             self._track_exit(verdict, now)
             setpoint = verdict.setpoint_w
             state = round(setpoint)

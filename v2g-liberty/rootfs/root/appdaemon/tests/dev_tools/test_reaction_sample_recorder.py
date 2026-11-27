@@ -11,6 +11,25 @@ CET = timezone(timedelta(hours=1))
 T0 = datetime(2026, 12, 10, 12, 0, tzinfo=CET)
 
 
+class FakeBus:
+    """Enough of the EventBus to count listeners and deliver an event."""
+
+    def __init__(self):
+        self.listeners = []
+
+    def add_event_listener(self, event, f):
+        assert event == "reaction_sample"
+        self.listeners.append(f)
+
+    def remove_event_listener(self, event, f):
+        assert event == "reaction_sample"
+        self.listeners.remove(f)
+
+    def emit(self, **kwargs):
+        for f in list(self.listeners):
+            f(**kwargs)
+
+
 def make_recorder(path, bus=None):
     recorder = object.__new__(ReactionSampleRecorder)
     recorder.args = {"path": str(path)}
@@ -45,6 +64,7 @@ def test_each_sample_is_a_row_under_one_header(tmp_path):
     recorder = make_recorder(path)
     recorder.on_sample(
         time=T0,
+        phase=1,
         deviation_w=3000,
         raw_w=1400,
         setpoint_w=1400,
@@ -53,12 +73,16 @@ def test_each_sample_is_a_row_under_one_header(tmp_path):
         charger_w=4400,  # extra fields: ignored
     )
     recorder.on_sample(
-        time=T0 + timedelta(seconds=1), deviation_w=5000, raw_w=-600, setpoint_w=1400
+        time=T0 + timedelta(seconds=1),
+        phase=3,
+        deviation_w=5000,
+        raw_w=-600,
+        setpoint_w=1400,
     )
     assert path.read_text().splitlines() == [
         HEADER,
-        "2026-12-10T12:00:00.000+01:00,3000,1400,1400",
-        "2026-12-10T12:00:01.000+01:00,5000,-600,1400",
+        "2026-12-10T12:00:00.000+01:00,3000,1400,1400,1",
+        "2026-12-10T12:00:01.000+01:00,5000,-600,1400,3",
     ]
 
 
@@ -90,3 +114,26 @@ def test_without_an_event_bus_it_warns_and_records_nothing(tmp_path):
     recorder.get_app = MagicMock(return_value=MagicMock(spec=[]))  # no event_bus
     recorder.initialize()
     assert len(warnings_of(recorder)) == 1
+
+
+def test_a_restart_of_the_recorder_leaves_one_listener(tmp_path):
+    """AppDaemon restarts the recorder on its own when its config or module
+    changes, while v2g-app and its bus live on: terminate() must take the
+    old listener off, or every sample is written twice."""
+    path = tmp_path / "s.csv"
+    bus = FakeBus()
+    first = make_recorder(path, bus)
+    first.terminate()
+    second = make_recorder(path, bus)
+    assert bus.listeners == [second.on_sample]
+    bus.emit(time=T0, phase=1, deviation_w=0, raw_w=4400, setpoint_w=4400)
+    assert len(path.read_text().splitlines()) == 2  # header and one row
+
+
+def test_terminate_without_a_bus_is_harmless(tmp_path):
+    recorder = object.__new__(ReactionSampleRecorder)
+    recorder.args = {"path": str(tmp_path / "s.csv")}
+    recorder.log = MagicMock()
+    recorder.get_app = MagicMock(return_value=MagicMock(spec=[]))
+    recorder.initialize()
+    recorder.terminate()

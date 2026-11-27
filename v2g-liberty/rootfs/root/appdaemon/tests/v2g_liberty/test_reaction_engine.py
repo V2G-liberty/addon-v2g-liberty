@@ -440,6 +440,7 @@ class TestSampleEvent:
         engine.event_bus.emit_event.assert_called_once_with(
             "reaction_sample",
             time=NOON,
+            phase=1,
             deviation_w=3000,
             raw_w=1400,
             setpoint_w=1400,
