@@ -17,7 +17,7 @@ views:
       - type: vertical-stack
         cards:
           - type: entities
-            title: Emulator controls
+            title: Quasar emulator
             show_header_toggle: false
             entities:
               - entity: input_select.emulator_charger_scenario
@@ -41,7 +41,7 @@ views:
       - type: vertical-stack
         cards:
           - type: entities
-            title: EVtec emulator controls
+            title: EVtec emulator
             show_header_toggle: false
             entities:
               - entity: input_select.emulator_evtec_scenario
