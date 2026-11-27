@@ -22,6 +22,8 @@
 
 - 🛠️ Cards show the grid connection's power limit, not load balancer advice (#527)
 - 🛠️ Reaction engine: 50 W exit tolerance, short excursions and energy past the band (#533)
+- 🛠️ Reaction rules: in a dead zone the setpoint keeps the plan's mode, as the client does (#534)
+- 🛠️ Reaction engine: the sensor's surprise attribute is now deviation, as the contract says (#534)
 
 ## 0.9.0 2026-10-13
 

@@ -3,10 +3,11 @@
 The design calls them recourse rules. Next to ``values`` a schedule may
 carry a ``reaction`` array: one rule per slot, ``{reference, react, band}``.
 The rule says how the device may deviate from its plan when the uncontrolled
-part of the house differs from what the plan assumed (the surprise)::
+part of the house differs from the power the plan is balanced against
+(the deviation from the balance point)::
 
-    surprise = (meter - realized device power) - reference
-    setpoint = p - react * surprise, held inside the band
+    deviation = (meter - realized device power) - reference
+    setpoint = p - react * deviation, held inside the band
 
 This module is the contract: the dataclasses, the parser that checks a
 schedule's rules against it, and ``react()``, the pure function the engine
@@ -16,32 +17,44 @@ against. Nothing here talks to FlexMeasures or to the charger, and nothing
 here keeps state. The flexmeasures-client is to offer the same parser and
 ``react()`` behind the same names; ours goes when that lands.
 
-The contract, as agreed with Seita (kick-off document, 24 November 2026):
+The contract, as agreed with Seita (kick-off document, 24 and 26 November
+2026):
 
 - The opt-in is ``"react": true`` on the device's flex-model item, in the
   trigger or stored on the asset. The flex-context changes not at all.
   Without the opt-in the schedule is today's: no array.
 - ``reaction`` has exactly one entry per value, at the schedule's start and
   resolution. An absent array means no rules.
-- ``reference``: the uncontrolled power at the connection the plan assumed,
-  import positive. A number, never null: 0.0 when there was no forecast.
+- ``reference``: the uncontrolled power the plan is balanced against, import
+  positive: the forecast, or the balance point where the device's modes keep
+  the plan from balancing the connection exactly (Seita, 26 November). A
+  number, never null: 0.0 when there was no forecast.
 - ``react``: 0 (follow the plan whatever the house does) or 1 (absorb the
-  surprise one to one). Shares in between are reserved for later; the
+  deviation one to one). Shares in between are reserved for later; the
   parser accepts [0, 1] and refuses anything outside, so a sign error on
-  either side can never amplify a surprise.
+  either side can never amplify a deviation.
 - ``band``: the device powers the slot allows, as ascending ``[lo, hi]``
   ranges of finite numbers. The planner requires a power capacity for
   every device, so it never serves an open (``null``) side; one is refused,
   as the client does. Never empty: a device that must follow its plan gets
   ``[[p, p]]`` with ``react`` 0, which is also what a band that leaves no
-  room comes with. A charger with operation modes gets a list that leaves
-  out its dead zone.
+  room comes with. That pairing is the planner's; the parser does not
+  check it, a point band fixes the setpoint whatever the share. A charger
+  with operation modes gets a list that leaves out its dead zone.
 - Nothing per slot about sensors or retriggers: the meter is the one the
   flex-context already names, and retriggering on a band exit is on by
   default.
-- The plan lies inside its own band: with no surprise the device follows
+- The plan lies inside its own band: with no deviation the device follows
   its plan exactly. The parser enforces it, with half a watt of tolerance
   for rounding between ``values`` and the band's edges.
+- A setpoint in a hole between two ranges, the charger's dead zone, takes
+  the edge on the side of the range that holds the plan: the mode the
+  device is in while it follows its plan, which it always does in shadow
+  and under live mode's default policy of holding the plan's mode within
+  a slot. A setpoint inside another range is returned as is; it asks for a
+  mode change, and whether to follow that, with the hysteresis that takes,
+  is the engine's policy, not the rule's (Seita, 26 November, amending the
+  earlier "nearest edge").
 - Numbers are plain and finite, in the schedule's ``unit``, at full
   precision. This module converts them to W.
 - Signs: device power positive is consumption (charging), meter power
@@ -58,9 +71,8 @@ import isodate
 
 _UNIT_TO_W = {"W": 1.0, "kW": 1_000.0, "MW": 1_000_000.0}
 
-# Two edges whose distances to a setpoint differ by less than this are
-# equally near: the schedule is served in MW at full precision, the charger
-# takes whole watts.
+# Rounding between ``values`` and the band's edges: the schedule is served in
+# MW at full precision, the charger takes whole watts.
 _TIE_W = 0.5
 
 
@@ -93,26 +105,38 @@ class Band:
         return power_w < self.ranges[0][0] or power_w > self.ranges[-1][1]
 
     def nearest(self, power_w: float, plan_w: float) -> float:
-        """The allowed power nearest to ``power_w``.
+        """The allowed power for ``power_w``.
 
-        Inside the band that is ``power_w`` itself. Outside it is the nearest
-        edge of the nearest range. When two edges are equally near, in the
-        middle of a dead zone, it is the one on the side of the plan.
+        Inside the band that is ``power_w`` itself, also in another range
+        than the plan's: a request for a mode change, which the engine's
+        policy decides on. Beyond the band it is the outer bound. In a hole
+        between two ranges, the charger's dead zone, it is the edge on the
+        side of the range that holds ``plan_w``: a plan charging 1.4 kW that
+        is asked 0.5 kW keeps charging, a plan idling that is asked 0.5 kW
+        stays idle. That range is the mode the device is in as long as it
+        follows its plan; an engine that has followed a mode change passes
+        a power in the range it moved to instead.
         """
+        if power_w <= self.ranges[0][0]:
+            return self.ranges[0][0]
+        if power_w >= self.ranges[-1][1]:
+            return self.ranges[-1][1]
         if self.contains(power_w):
             return power_w
-        best = self.ranges[0][0]
-        best_distance = math.inf
-        for lo, hi in self.ranges:
-            for edge in (lo, hi):
-                distance = abs(edge - power_w)
-                if distance < best_distance - _TIE_W:
-                    best, best_distance = edge, distance
-                elif abs(distance - best_distance) <= _TIE_W and abs(
-                    edge - plan_w
-                ) < abs(best - plan_w):
-                    best = edge
-        return best
+        plan_range = self._range_of(plan_w)
+        for i, ((_, hi), (lo, _)) in enumerate(zip(self.ranges, self.ranges[1:])):
+            if hi < power_w < lo:
+                return hi if plan_range <= i else lo
+        return power_w  # not reached: a power is inside, beyond or in a hole
+
+    def _range_of(self, power_w: float) -> int:
+        """The index of the range ``power_w`` lies in, or the nearest one."""
+
+        def distance(i: int) -> float:
+            lo, hi = self.ranges[i]
+            return max(lo - power_w, power_w - hi, 0.0)
+
+        return min(range(len(self.ranges)), key=distance)
 
 
 @dataclass(frozen=True)
@@ -120,10 +144,10 @@ class ReactionRule:
     """What the device may do in one slot.
 
     All powers in W. ``p_w`` is the planned device power (consumption
-    positive). ``reference_w`` is the uncontrolled power at the connection
-    the plan assumed (import positive); the surprise is measured against
+    positive). ``reference_w`` is the uncontrolled power the plan is
+    balanced against (import positive); the deviation is measured against
     it, and it is 0.0 when FlexMeasures had no forecast. ``react`` is 0
-    (follow the plan), 1 (absorb the surprise) or a share in between.
+    (follow the plan), 1 (absorb the deviation) or a share in between.
     """
 
     start: datetime
@@ -205,15 +229,16 @@ def parse_reaction(schedule: dict, sensor_id: int) -> ReactionSchedule | None:
     )
 
 
-def react(rule: ReactionRule, surprise_w: float) -> float:
+def react(rule: ReactionRule, deviation_w: float) -> float:
     """The setpoint for the device under ``rule``, in W.
 
-    ``surprise_w`` is the measured uncontrolled power minus the reference,
+    ``deviation_w`` is the measured uncontrolled power minus the reference,
     import positive. The setpoint is the plan minus the share of the
-    surprise the rule says to absorb, held inside the band. Pure: the
-    engine adds the sampling, the dwell and the hysteresis around it.
+    deviation the rule says to absorb, held inside the band and, in a dead
+    zone, rounded towards the plan's mode. Pure: the engine adds the
+    sampling, the dwell and the mode-change policy around it.
     """
-    return rule.band.nearest(rule.p_w - rule.react * surprise_w, rule.p_w)
+    return rule.band.nearest(rule.p_w - rule.react * deviation_w, rule.p_w)
 
 
 def _unit_factor(unit) -> float:
@@ -235,12 +260,12 @@ def _parse_slot(
     p_w = _number(value, f"{what}: value") * factor
     share = _number(entry["react"], f"{what}: react")
     if not 0.0 <= share <= 1.0:
-        # Outside [0, 1] a share would amplify the surprise or invert it.
+        # Outside [0, 1] a share would amplify the deviation or invert it.
         raise InvalidReactionError(f"{what}: react {share} is outside [0, 1]")
     band = _parse_band(entry["band"], factor, f"{what}: band")
     if abs(band.nearest(p_w, p_w) - p_w) > _TIE_W:
         # The band is the device's own limits and the plan respects them, so
-        # with no surprise react() must give the plan back.
+        # with no deviation react() must give the plan back.
         raise InvalidReactionError(
             f"{what}: the plan ({p_w:.0f} W) lies outside the band"
         )
