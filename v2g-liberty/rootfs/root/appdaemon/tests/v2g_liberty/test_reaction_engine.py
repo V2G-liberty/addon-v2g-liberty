@@ -298,7 +298,8 @@ class TestBandExit:
             await sample(engine, PLAN_W - 1400)  # 40 s: inside
             clock.tick(10)
             await sample(engine, PLAN_W - 400)  # 50 s: outside again
-        assert "Band exit over after 40 s" in caplog.text
+        # 1000 W held over four readings of ten seconds: 40 s, 11.1 Wh
+        assert "Band exit over after 40 s, 11.1 Wh past the band." in caplog.text
         assert sensor(engine)[1]["band_exits"] == 1
         assert sensor(engine)[1]["outside_band"] is True
 
@@ -323,8 +324,8 @@ class TestBandExit:
             await sample(engine, PLAN_W - 1400)  # 70 s: inside for good
             clock.tick(eng.EXIT_END_DWELL_S)
             await sample(engine, PLAN_W - 1400)
-        # 1000 W over six intervals of 9.97 s outside; the 0.03 s flickers count nothing
-        expected_wh = round(1000 * 6 * 9.97 / 3600, 1)
+        # 1000 W held over seven spells of 9.97 s outside; the 0.03 s flickers count nothing
+        expected_wh = round(1000 * 7 * 9.97 / 3600, 1)
         assert (
             f"Band exit over after 70 s, {expected_wh} Wh past the band." in caplog.text
         )
@@ -426,8 +427,9 @@ class TestBandExit:
     async def test_the_energy_past_the_band_is_logged_with_the_exit(
         self, engine, clock, caplog
     ):
-        """1000 W past the band for a minute is 16.7 Wh: the number an energy
-        threshold in front of the retrigger is set from."""
+        """1000 W past the band for 61 s is 16.9 Wh, the last reading held
+        until the setpoint came inside: the number an energy threshold in
+        front of the retrigger is set from."""
         await start(engine)
         with caplog.at_level(logging.INFO):
             for _ in range(61):
@@ -437,8 +439,8 @@ class TestBandExit:
             await sample(engine, PLAN_W - 1400)
             clock.tick(eng.EXIT_END_DWELL_S)
             await sample(engine, PLAN_W - 1400)
-        assert "Band exit over after 61 s, 16.7 Wh past the band." in caplog.text
-        assert sensor(engine)[1]["last_exit_wh"] == 16.7
+        assert "Band exit over after 61 s, 16.9 Wh past the band." in caplog.text
+        assert sensor(engine)[1]["last_exit_wh"] == 16.9
 
 
 class TestMeter:

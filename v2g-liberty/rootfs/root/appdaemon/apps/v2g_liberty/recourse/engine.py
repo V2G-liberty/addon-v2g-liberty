@@ -60,8 +60,9 @@ in 0.9.2 together with the request side and a mode setting.
   half-updated reading between a phase's consumption and production
   updates, or a flicker on the edge, does not end it, does not start a
   fresh dwell, and counts no energy while inside. Shorter excursions are
-  counted, and the
-  energy past the band is integrated over every excursion, so the shadow
+  counted, and the energy past the band is integrated over every
+  excursion, each reading outside held until the next as the drift does,
+  up to the moment the setpoint went inside, so the shadow
   week yields the numbers a hysteresis at the band edge and an energy
   threshold in front of the retrigger are set from. 0.9.1 logs and counts;
   0.9.2 asks FlexMeasures for a new plan.
@@ -189,6 +190,7 @@ class ReactionEngine:
         self._exit_since: datetime | None = None
         self._inside_since: datetime | None = None
         self._exit_last_at: datetime | None = None
+        self._exit_past_w = 0.0  # the last reading outside, held until the next
         self._exit_wh = 0.0
         self._exit_logged = False
         self._exits = 0
@@ -353,6 +355,7 @@ class ReactionEngine:
         self._exit_since = None
         self._inside_since = None
         self._exit_last_at = None
+        self._exit_past_w = 0.0
         self._exit_wh = 0.0
         self._exit_logged = False
 
@@ -365,12 +368,14 @@ class ReactionEngine:
                 else:
                     outside_until = self._inside_since  # a flicker; it goes on
                     self._inside_since = None
-            past_w = abs(verdict.raw_w - verdict.setpoint_w)
             if self._exit_since is None:
                 self._exit_since = now
             else:
+                # Zero-order hold, as the drift: the previous reading outside
+                # stands until this one (or until the setpoint went inside).
                 dt_s = (outside_until - self._exit_last_at).total_seconds()
-                self._exit_wh += past_w * dt_s / 3600
+                self._exit_wh += self._exit_past_w * dt_s / 3600
+            self._exit_past_w = abs(verdict.raw_w - verdict.setpoint_w)
             self._exit_last_at = now
             if (
                 not self._exit_logged
@@ -388,6 +393,10 @@ class ReactionEngine:
         elif self._exit_since is not None:
             if self._inside_since is None:
                 self._inside_since = now
+                # The last reading outside stood until this moment.
+                dt_s = (now - self._exit_last_at).total_seconds()
+                self._exit_wh += self._exit_past_w * dt_s / 3600
+                self._exit_last_at = now
             if self._inside_for(now) >= EXIT_END_DWELL_S:
                 self._end_excursion()
 
@@ -396,8 +405,8 @@ class ReactionEngine:
 
     def _end_excursion(self):
         """Close the excursion as of the moment the setpoint went back
-        inside; the energy past the band was integrated up to its last
-        sample outside."""
+        inside; the energy past the band was integrated up to that moment,
+        each reading outside held until the next."""
         seconds = (self._inside_since - self._exit_since).total_seconds()
         if self._exit_logged:
             self._last_exit_wh = self._exit_wh
