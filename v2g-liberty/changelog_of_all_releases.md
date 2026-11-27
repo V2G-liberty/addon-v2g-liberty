@@ -27,6 +27,7 @@ That file also contains possible changes that the next release might include.
 - 🛠️ Reaction engine: 50 W exit tolerance, short excursions and energy past the band (#533)
 - 🛠️ Reaction rules: in a dead zone the setpoint keeps the plan's mode, as the client does (#534)
 - 🛠️ Reaction engine: the sensor's surprise attribute is now deviation, as the contract says (#534)
+- 🛠️ Reaction engine: drift_kwh, the energy the shadow setpoint would move the car off plan (#536)
 
 ## 0.9.0 2026-10-13
 
