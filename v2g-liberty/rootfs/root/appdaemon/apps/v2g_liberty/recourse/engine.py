@@ -55,7 +55,11 @@ in 0.9.2 together with the request side and a mode setting.
   the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
   edge: float noise on a reference served in MW, and meter noise, are not
   exits. A setpoint in the charger's dead zone is not either: it is rounded
-  onto the band, never counted. Shorter excursions are counted, and the
+  onto the band, never counted. An excursion ends once the setpoint has
+  been back inside for EXIT_END_DWELL_S: one sample inside, such as the
+  half-updated reading between a phase's consumption and production
+  updates, or a flicker on the edge, does not end it, and so does not
+  start a fresh dwell. Shorter excursions are counted, and the
   energy past the band is integrated over every excursion, so the shadow
   week yields the numbers a hysteresis at the band edge and an energy
   threshold in front of the retrigger are set from. 0.9.1 logs and counts;
@@ -120,6 +124,11 @@ HEARTBEAT_S = 60
 # A clipped setpoint is a band exit once it has lasted this long; shorter
 # excursions are a kettle or the charger settling.
 DWELL_S = 30
+# An excursion ends once the setpoint has been back inside the band for this
+# long. One sample inside, such as the half-updated reading between a phase's
+# consumption and production updates, or a flicker on the edge, does not end
+# it; otherwise every such sample would end an exit and start a fresh dwell.
+EXIT_END_DWELL_S = 5
 # A raw setpoint this close to the band's edge is not outside it: the
 # tolerance the client's exit gate uses, in the order of meter noise.
 EXIT_TOLERANCE_W = 50
@@ -175,6 +184,7 @@ class ReactionEngine:
         # whether this exit has been logged, and the counts: exits that
         # lasted the dwell and excursions that did not.
         self._exit_since: datetime | None = None
+        self._inside_since: datetime | None = None
         self._exit_last_at: datetime | None = None
         self._exit_wh = 0.0
         self._exit_logged = False
@@ -338,12 +348,18 @@ class ReactionEngine:
 
     def _reset_excursion(self):
         self._exit_since = None
+        self._inside_since = None
         self._exit_last_at = None
         self._exit_wh = 0.0
         self._exit_logged = False
 
     def _track_exit(self, verdict: Evaluation, now: datetime):
         if verdict.outside:
+            if self._inside_since is not None:
+                if self._inside_for(now) >= EXIT_END_DWELL_S:
+                    self._end_excursion()  # it ended when it went inside
+                else:
+                    self._inside_since = None  # a flicker; the excursion goes on
             past_w = abs(verdict.raw_w - verdict.setpoint_w)
             if self._exit_since is None:
                 self._exit_since = now
@@ -365,21 +381,33 @@ class ReactionEngine:
                     f"{verdict.rule.start.isoformat()}). {MODE}: no retrigger."
                 )
         elif self._exit_since is not None:
-            seconds = (now - self._exit_since).total_seconds()
-            if self._exit_logged:
-                self._last_exit_wh = self._exit_wh
-                self._log(
-                    f"Band exit over after {seconds:.0f} s, {self._exit_wh:.1f} Wh "
-                    "past the band."
-                )
-            else:
-                self._short_excursions += 1
-                self._log(
-                    f"Excursion past the band of {seconds:.0f} s, {self._exit_wh:.1f} "
-                    f"Wh; shorter than the dwell of {DWELL_S} s, no exit.",
-                    level="DEBUG",
-                )
-            self._reset_excursion()
+            if self._inside_since is None:
+                self._inside_since = now
+            if self._inside_for(now) >= EXIT_END_DWELL_S:
+                self._end_excursion()
+
+    def _inside_for(self, now: datetime) -> float:
+        return (now - self._inside_since).total_seconds()
+
+    def _end_excursion(self):
+        """Close the excursion as of the moment the setpoint went back
+        inside; the energy past the band was integrated up to its last
+        sample outside."""
+        seconds = (self._inside_since - self._exit_since).total_seconds()
+        if self._exit_logged:
+            self._last_exit_wh = self._exit_wh
+            self._log(
+                f"Band exit over after {seconds:.0f} s, {self._exit_wh:.1f} Wh "
+                "past the band."
+            )
+        else:
+            self._short_excursions += 1
+            self._log(
+                f"Excursion past the band of {seconds:.0f} s, {self._exit_wh:.1f} "
+                f"Wh; shorter than the dwell of {DWELL_S} s, no exit.",
+                level="DEBUG",
+            )
+        self._reset_excursion()
 
     # ── Output ───────────────────────────────────────────────────────────
 
@@ -473,6 +501,10 @@ class ReactionEngine:
             attributes.get("reason"),
             attributes.get("outside_band"),
             attributes.get("band_exits"),
+            # The end of an excursion is decided EXIT_END_DWELL_S after the
+            # setpoint went inside, on a sample that changes nothing else.
+            attributes.get("short_excursions"),
+            attributes.get("last_exit_wh"),
             attributes.get("meter_stale"),
             attributes.get("slot_start"),
             # The drift grows without the setpoint moving; one write per step.
