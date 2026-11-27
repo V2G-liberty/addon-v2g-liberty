@@ -192,18 +192,26 @@ class TestWrites:
     @pytest.mark.asyncio
     async def test_a_steady_deviation_is_rewritten_per_drift_step(self, engine, clock):
         """The setpoint stays 1.4 kW under a plan of 4.4 kW, so the drift
-        grows by 3 kW times the time: 0.1 kWh per two minutes, and each
-        step is worth a write."""
+        grows by 3 kW times the time: 0.1 kWh per two minutes. A step of
+        0.1 kWh is worth a write; the steps are centred on zero, so the first
+        comes past -0.05 kWh, the next past -0.15 kWh."""
         await start(engine)
         await sample(engine, 3000)
         before = writes(engine)
         clock.tick(60)
         await sample(engine, 3000)
-        assert writes(engine) == before  # -0.05 kWh: not a step yet
+        assert writes(engine) == before  # -0.05 kWh: still zero's step
         clock.tick(60)
         await sample(engine, 3000)
         assert writes(engine) == before + 1
         assert sensor(engine)[1]["drift_kwh"] == -0.1
+        clock.tick(60)
+        await sample(engine, 3000)
+        assert writes(engine) == before + 1  # -0.15 kWh: the same step
+        clock.tick(60)
+        await sample(engine, 3000)
+        assert writes(engine) == before + 2
+        assert sensor(engine)[1]["drift_kwh"] == -0.2
 
     @pytest.mark.asyncio
     async def test_a_follow_the_plan_night_writes_nothing(self, engine, clock):
@@ -561,6 +569,19 @@ class TestDrift:
         clock.tick(300)
         await sample(engine, 3000)
         assert sensor(engine)[1]["drift_kwh"] == -0.25
+
+    @pytest.mark.asyncio
+    async def test_a_spell_without_the_charger_counts_for_nothing(self, engine, clock):
+        """The driver lost the charger for ten minutes: no verdict, so the
+        held value of the last sample must not be charged to the gap."""
+        await start(engine)
+        await sample(engine, 3000)
+        await engine._on_charger_communication_state_change(False)
+        clock.tick(600)
+        await engine._on_charger_communication_state_change(True)
+        engine._on_charge_power_change(PLAN_W)
+        await sample(engine, 3000)
+        assert sensor(engine)[1]["drift_kwh"] == 0.0
 
     @pytest.mark.asyncio
     async def test_the_drift_is_shown_without_a_verdict_too(self, engine, clock):

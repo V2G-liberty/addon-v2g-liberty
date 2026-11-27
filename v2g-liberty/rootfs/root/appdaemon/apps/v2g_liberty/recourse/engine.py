@@ -39,8 +39,13 @@ in 0.9.2 together with the request side and a mode setting.
   would have taken more than planned; in shadow it is what the car would
   have built up. It is published as ``drift_kwh``, reset by every new
   schedule, and logged once it passes DRIFT_LOG_KWH, the client's default
-  threshold. In the shadow week it is the second retrigger reason next to
-  the band exit (the client's DriftGate); 0.9.1 logs and counts.
+  threshold. A spell without a verdict, a stale meter, a lost charger or a
+  schedule that ran out, counts for nothing: the clock restarts at the next
+  verdict. The integration runs on every phase sample; the half-updated
+  totals of the first two phases in a second largely cancel out. In the
+  shadow week it is the second retrigger reason next to the band exit (the
+  client's DriftGate). 0.9.1 logs the first crossing per schedule; 0.9.2,
+  where the drift asks for a new plan, acts on every crossing.
 - A setpoint beyond the band, below its lowest or above its highest bound,
   is a **band exit** once it has lasted DWELL_S: the deviation is more than
   the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
@@ -66,6 +71,7 @@ in 0.9.2 together with the request side and a mode setting.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -384,6 +390,9 @@ class ReactionEngine:
         now = self._now()
         verdict = self.evaluate(now)
         if isinstance(verdict, str):
+            # No verdict, so nothing to hold: the gap until the next verdict
+            # counts for nothing, as a stale spell does.
+            self._drift_last_at = None
             setpoint = None
             state = "unavailable"
             attributes = {
@@ -438,7 +447,9 @@ class ReactionEngine:
             attributes.get("meter_stale"),
             attributes.get("slot_start"),
             # The drift grows without the setpoint moving; one write per step.
-            int(self._drift_wh / 1000 / DRIFT_STEP_KWH),
+            # Steps of equal width centred on zero, so leaving zero is not a
+            # write by itself; float noise rounded away.
+            math.floor(round(self._drift_wh / (DRIFT_STEP_KWH * 1000) + 0.5, 6)),
         )
         snapshot = (state, tuple(sorted((k, str(v)) for k, v in attributes.items())))
         if snapshot == self._published:
