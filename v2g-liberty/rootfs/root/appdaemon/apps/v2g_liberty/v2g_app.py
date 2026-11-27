@@ -245,6 +245,11 @@ class V2GLibertyApp(Hass):
         await amber_price_data_manager.initialize()
         self._log_init_time("amber_price_data_manager.initialize()", start_module)
 
+        # Before kick_off_settings, which starts the charger: the driver
+        # reports the charger's power only when it changes, the first time
+        # during its first poll, and a listener registered later misses it.
+        await reaction_engine.initialize()
+
         start_module = datetime.now()
         await v2g_globals.kick_off_settings()
         self._log_init_time("v2g_globals.kick_off_settings()", start_module)
@@ -268,7 +273,6 @@ class V2GLibertyApp(Hass):
         # Before the data monitor, whose grid listeners feed it samples; after
         # kick_off_settings, so it reads the real grid and charger constants.
         await fuse_guard.initialize()
-        await reaction_engine.initialize()
 
         start_module = datetime.now()
         await data_monitor.initialize()

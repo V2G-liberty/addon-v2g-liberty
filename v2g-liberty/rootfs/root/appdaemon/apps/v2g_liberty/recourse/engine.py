@@ -17,7 +17,11 @@ in 0.9.2 together with the request side and a mode setting.
 - The meter is the sum of the per-phase samples the data monitor emits
   (``grid_power_sample``, import positive), so the deviation is judged at
   the connection as a whole, as FlexMeasures plans it. The charger's
-  realised power is the driver's (``charge_power_change``). In live mode
+  realised power is the driver's (``charge_power_change``), which it
+  reports only when it changes, the first time during the charger's
+  first poll; the engine therefore registers its listeners before the
+  settings kick-off starts the charger (v2g_app), or a charger idling
+  through a restart would stay unknown until its next move. In live mode
   the charger's share must be the commanded power during the charger's
   settle time and the realised power after it, or its own ramp towards a
   new setpoint reads as a deviation; the drivers measure those settle times.
@@ -82,6 +86,29 @@ from ..timer_utils import set_recurring_timer
 from .rules import ReactionRule, ReactionSchedule, react
 
 SENSOR_REACTION_SETPOINT = "sensor.reaction_setpoint"
+# Every write carries every key, None for the ones that do not apply.
+# AppDaemon merges the attributes into the entity's, which keeps the name,
+# unit, device class and icon the package gives the sensor; a key left out
+# would keep its old value too, so the reason of an unavailable spell would
+# outlive it.
+ATTRIBUTE_KEYS = (
+    "mode",
+    "reason",
+    "plan_w",
+    "reference_w",
+    "react",
+    "band_w",
+    "slot_start",
+    "meter_w",
+    "charger_w",
+    "deviation_w",
+    "outside_band",
+    "band_exits",
+    "short_excursions",
+    "last_exit_wh",
+    "drift_kwh",
+    "meter_stale",
+)
 REACTION_SAMPLE_EVENT = "reaction_sample"
 MODE = "shadow"
 # Rewrite the sensor for a setpoint move of at least this many watts, at most
@@ -210,10 +237,11 @@ class ReactionEngine:
 
     async def _on_grid_sample(self, phase: int, net_power_w: int):
         self._net_w[int(phase)] = int(net_power_w)
+        first = self._last_sample_at is None  # the start is not a return
         self._last_sample_at = self._now()
         if self._stale:
             self._stale = False
-            if self._rules is not None:
+            if self._rules is not None and not first:
                 self._log("Meter back; reacting again.")
         await self._publish(sample_phase=int(phase))
 
@@ -439,6 +467,7 @@ class ReactionEngine:
                 "drift_kwh": self._drift_kwh_rounded(),
                 "meter_stale": self._stale,
             }
+        attributes = {key: attributes.get(key) for key in ATTRIBUTE_KEYS}
         flags = (
             state == "unavailable",
             attributes.get("reason"),

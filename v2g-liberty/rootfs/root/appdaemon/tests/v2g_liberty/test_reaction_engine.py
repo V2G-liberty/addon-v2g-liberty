@@ -366,6 +366,22 @@ class TestMeter:
         assert attributes["meter_stale"] is False
 
     @pytest.mark.asyncio
+    async def test_the_first_sample_is_not_a_return_of_the_meter(
+        self, engine, clock, caplog
+    ):
+        """The engine starts without a sample, so the first one would read
+        as the meter coming back; it only is after a stale spell."""
+        with caplog.at_level(logging.INFO):
+            await start(engine)
+            await sample(engine, PLAN_W - 1400)
+        assert "Meter back" not in caplog.text
+        clock.tick(eng.STALE_AFTER_S + 1)
+        await engine._tick()
+        with caplog.at_level(logging.INFO):
+            await sample(engine, PLAN_W - 1400)
+        assert "Meter back" in caplog.text
+
+    @pytest.mark.asyncio
     async def test_it_waits_for_a_sample_of_every_phase(self, engine, monkeypatch):
         monkeypatch.setattr(c, "GRID_PHASES", 3, raising=False)
         await start(engine)
@@ -422,6 +438,28 @@ class TestLifecycle:
 
 
 class TestChargerPower:
+    @pytest.mark.asyncio
+    async def test_every_write_carries_every_key_so_nothing_stale_survives(
+        self, engine
+    ):
+        """AppDaemon merges the attributes into the entity's, which keeps the
+        name, unit, device class and icon the package gives the sensor. So
+        the engine never replaces them, and writes every key of its own on
+        every write, None where it does not apply: the reason of the
+        unavailable spell must not sit next to a valid setpoint."""
+        await engine.initialize()
+        await engine.install(rules())
+        await sample(engine, 3000)
+        assert sensor(engine)[1]["reason"] == "charger power unknown"
+        engine._on_charge_power_change(PLAN_W)
+        await sample(engine, 3000)
+        state, attributes = sensor(engine)
+        assert state == 1400
+        assert attributes["reason"] is None
+        for call in engine.hass.set_state.call_args_list:
+            assert "replace" not in call.kwargs
+            assert set(call.kwargs["attributes"]) == set(eng.ATTRIBUTE_KEYS)
+
     @pytest.mark.asyncio
     async def test_no_setpoint_until_the_driver_reports_the_charger(self, engine):
         await engine.initialize()
