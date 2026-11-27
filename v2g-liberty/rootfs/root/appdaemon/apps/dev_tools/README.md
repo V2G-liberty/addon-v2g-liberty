@@ -60,7 +60,14 @@ Turn it off to resume.
 
 ### Making a deviation
 
-`input_number.emulator_surprise_w` (dev dashboard, "Extra household load") is added to the household load, spread equally over the three phases, so the reaction engine sees a step the plan did not expect while the fuse guard stays out of it. An oven is +2500 W, a kettle +2000 W for a minute, a cloud that lifts -1500 W. Set it back to 0 to end the deviation. Each change is logged once by the emulator, so it can be found back next to the engine's log lines and the samples CSV. The emulator updates every `update_interval` seconds (10 by default), so a step shows up within that time.
+`input_number.emulator_surprise_w` (dev dashboard, "Extra household load") is added to the household load, spread equally over the three phases, so the reaction engine sees a step the plan did not expect. An oven is +2500 W, a kettle +2000 W for a minute, a cloud that lifts -1500 W. Set it back to 0 to end the deviation. Each change is logged once by the emulator, so it can be found back next to the engine's log lines and the samples CSV.
+
+Things to know when reading the result:
+
+- **Noise.** The household load varies at random per tick, up to ±200 W on L1, ±150 W on L2 and ±100 W on L3 (±450 W in total), so the engine sees a deviation of a few hundred watt without any extra load. A step of 100–300 W drowns in that; use at least 1000 W for a step that stands out.
+- **Fuse guard.** The fuse guard counts per phase. With the emulated 25 A fuse (5750 W per phase) and a 10 kW three-phase charger (3333 W per phase) there is about 1000 W of headroom per phase at the evening peak, so up to about +3000 W in total the fuse guard stays out of it. Above that it clips the charger, and the engine then sees the clipped charger power as well as the extra load. With a single-phase charger at full power the fuse guard is clipping already.
+- **Rhythm.** The emulator ticks every `update_interval` seconds (10 by default) where a DSMR 5 meter gives a sample per second. A step shows up within a tick; a dip shorter than a tick cannot be made. For a meter-like rhythm set `update_interval: 1` in `apps.yaml`, at ten times the state writes to Home Assistant.
+- **Force negative.** `input_boolean.emulator_force_negative` leaves the extra load out of the forced net value (it tests the grid dialog's warning, not the engine). Do not use the two together.
 
 ### Using with V2G Liberty
 
