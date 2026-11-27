@@ -32,6 +32,15 @@ in 0.9.2 together with the request side and a mode setting.
   bus, when something listens: the dev tools' recorder writes those to a
   CSV a probe can follow live. The add-on ships no listener, so a normal
   installation writes nothing.
+- Absorbing a deviation inside the band never shows as a band exit, but it
+  moves the car's state of charge away from the plan, and with one-sided
+  bands in one direction only. The **drift** is the integral of (setpoint
+  minus plan) since the schedule arrived, in kWh, positive when the car
+  would have taken more than planned; in shadow it is what the car would
+  have built up. It is published as ``drift_kwh``, reset by every new
+  schedule, and logged once it passes DRIFT_LOG_KWH, the client's default
+  threshold. In the shadow week it is the second retrigger reason next to
+  the band exit (the client's DriftGate); 0.9.1 logs and counts.
 - A setpoint beyond the band, below its lowest or above its highest bound,
   is a **band exit** once it has lasted DWELL_S: the deviation is more than
   the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
@@ -84,6 +93,10 @@ EXIT_TOLERANCE_W = 50
 # No sample for this long and the engine is blind: follow the plan.
 STALE_AFTER_S = 60
 STALE_CHECK_EVERY_S = 30
+# Log the drift once it passes this, in either direction: the client's
+# default DriftGate threshold. The sensor is rewritten per DRIFT_STEP_KWH.
+DRIFT_LOG_KWH = 0.5
+DRIFT_STEP_KWH = 0.1
 
 
 @dataclass(frozen=True)
@@ -135,6 +148,13 @@ class ReactionEngine:
         self._exits = 0
         self._short_excursions = 0
         self._last_exit_wh: float | None = None
+        # Drift bookkeeping: the energy the setpoint has moved away from the
+        # plan since the schedule arrived, the previous sample it was
+        # integrated to, and whether its passing the threshold was logged.
+        self._drift_wh = 0.0
+        self._drift_last_at: datetime | None = None
+        self._drift_held_w = 0.0
+        self._drift_logged = False
         # Coalescing of the sensor writes.
         self._published: tuple | None = None
         self._published_setpoint: float | None = None
@@ -165,6 +185,7 @@ class ReactionEngine:
         """Take the rules of a new schedule; the previous ones go."""
         self._rules = rules
         self._reset_excursion()
+        self._reset_drift()
         self._log(f"Reaction rules installed, mode {MODE}: {rules!r}.")
         await self._publish(force=True)
 
@@ -175,6 +196,7 @@ class ReactionEngine:
             return
         self._rules = None
         self._reset_excursion()
+        self._reset_drift()
         self._log("Reaction rules cleared.")
         await self._publish(force=True)
 
@@ -212,6 +234,7 @@ class ReactionEngine:
             return False
         if (now - self._last_sample_at).total_seconds() > STALE_AFTER_S:
             self._stale = True
+            self._drift_last_at = None  # the gap counts for nothing
             if self._rules is not None:
                 self._log(
                     f"No grid sample for {STALE_AFTER_S} s; following the plan "
@@ -249,6 +272,35 @@ class ReactionEngine:
         return Evaluation(
             rule, meter_w, self._charger_w, deviation_w, raw_w, setpoint_w, outside
         )
+
+    def _reset_drift(self):
+        self._drift_wh = 0.0
+        self._drift_last_at = None
+        self._drift_held_w = 0.0
+        self._drift_logged = False
+
+    def _track_drift(self, verdict: Evaluation, now: datetime):
+        """Integrate (setpoint minus plan) as a zero-order hold: the previous
+        sample's value counts until this one. The first sample after a reset
+        or a stale spell only starts the clock. Logged once per schedule when
+        the drift passes DRIFT_LOG_KWH."""
+        if self._drift_last_at is not None:
+            dt_s = (now - self._drift_last_at).total_seconds()
+            self._drift_wh += self._drift_held_w * dt_s / 3600
+        self._drift_last_at = now
+        self._drift_held_w = verdict.setpoint_w - verdict.rule.p_w
+        if not self._drift_logged and abs(self._drift_wh) >= DRIFT_LOG_KWH * 1000:
+            self._drift_logged = True
+            more_or_less = "more" if self._drift_wh > 0 else "less"
+            self._log(
+                f"Drift of {self._drift_wh / 1000:+.2f} kWh since the schedule "
+                f"arrived: the setpoint would have given the car {more_or_less} "
+                f"than the plan, past the {DRIFT_LOG_KWH} kWh threshold. "
+                f"{MODE}: no retrigger."
+            )
+
+    def _drift_kwh_rounded(self) -> float:
+        return round(self._drift_wh / 1000, 3)
 
     def _reset_excursion(self):
         self._exit_since = None
@@ -341,6 +393,7 @@ class ReactionEngine:
                 "band_exits": self._exits,
                 "short_excursions": self._short_excursions,
                 "last_exit_wh": self._last_exit_wh_rounded(),
+                "drift_kwh": self._drift_kwh_rounded(),
             }
         else:
             # The raw per-sample deviation, for sizing the smoother that comes
@@ -352,6 +405,7 @@ class ReactionEngine:
             )
             if sample_phase is not None:
                 self._emit_sample(now, verdict, sample_phase)
+                self._track_drift(verdict, now)
             self._track_exit(verdict, now)
             setpoint = verdict.setpoint_w
             state = round(setpoint)
@@ -373,6 +427,7 @@ class ReactionEngine:
                 "band_exits": self._exits,
                 "short_excursions": self._short_excursions,
                 "last_exit_wh": self._last_exit_wh_rounded(),
+                "drift_kwh": self._drift_kwh_rounded(),
                 "meter_stale": self._stale,
             }
         flags = (
@@ -382,6 +437,8 @@ class ReactionEngine:
             attributes.get("band_exits"),
             attributes.get("meter_stale"),
             attributes.get("slot_start"),
+            # The drift grows without the setpoint moving; one write per step.
+            int(self._drift_wh / 1000 / DRIFT_STEP_KWH),
         )
         snapshot = (state, tuple(sorted((k, str(v)) for k, v in attributes.items())))
         if snapshot == self._published:

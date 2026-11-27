@@ -181,12 +181,29 @@ class TestWrites:
 
     @pytest.mark.asyncio
     async def test_an_unchanged_verdict_is_not_rewritten(self, engine, clock):
+        """No deviation, so no drift either: nothing in the sensor changes."""
+        await start(engine)
+        await sample(engine, 0)
+        before = writes(engine)
+        clock.tick(120)
+        await sample(engine, 0)
+        assert writes(engine) == before
+
+    @pytest.mark.asyncio
+    async def test_a_steady_deviation_is_rewritten_per_drift_step(self, engine, clock):
+        """The setpoint stays 1.4 kW under a plan of 4.4 kW, so the drift
+        grows by 3 kW times the time: 0.1 kWh per two minutes, and each
+        step is worth a write."""
         await start(engine)
         await sample(engine, 3000)
         before = writes(engine)
-        clock.tick(120)
+        clock.tick(60)
         await sample(engine, 3000)
-        assert writes(engine) == before
+        assert writes(engine) == before  # -0.05 kWh: not a step yet
+        clock.tick(60)
+        await sample(engine, 3000)
+        assert writes(engine) == before + 1
+        assert sensor(engine)[1]["drift_kwh"] == -0.1
 
     @pytest.mark.asyncio
     async def test_a_follow_the_plan_night_writes_nothing(self, engine, clock):
@@ -471,3 +488,89 @@ class TestSampleEvent:
         await start(engine)
         await sample(engine, 3000)
         engine.event_bus.emit_event.assert_not_called()
+
+
+class TestDrift:
+    """Absorbing inside the band moves the car away from its plan: the
+    integral of (setpoint minus plan) since the schedule arrived, in kWh,
+    held from one sample to the next. Slots 1 and 2 of the fixture both
+    plan 4.4 kW, so the first ten minutes give a steady setpoint."""
+
+    @pytest.mark.asyncio
+    async def test_absorbing_less_sun_than_planned_is_negative_drift(
+        self, engine, clock, caplog
+    ):
+        """Deviation +3 kW holds the setpoint at 1.4 kW under a plan of
+        4.4 kW: minus 3 kW for ten minutes is minus 0.5 kWh, the threshold."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            await sample(engine, 3000)  # starts the clock
+            assert sensor(engine)[1]["drift_kwh"] == 0.0
+            clock.tick(600)
+            await sample(engine, 3000)
+        assert sensor(engine)[1]["drift_kwh"] == -0.5
+        assert caplog.text.count("Drift of -0.50 kWh") == 1
+        assert "less than the plan" in caplog.text
+        assert "Band exit" not in caplog.text  # the two stay apart
+
+    @pytest.mark.asyncio
+    async def test_absorbing_more_sun_is_positive_drift_logged_once(
+        self, engine, clock, caplog
+    ):
+        """Deviation -3 kW raises the setpoint to 7.4 kW: plus 3 kW."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            await sample(engine, -3000)
+            clock.tick(600)
+            await sample(engine, -3000)
+            clock.tick(60)
+            await sample(engine, -3000)  # slot 3 follows its plan: no change
+        assert sensor(engine)[1]["drift_kwh"] == 0.5
+        assert caplog.text.count("Drift of +0.50 kWh") == 1
+        assert "more than the plan" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_a_new_schedule_resets_the_drift(self, engine, clock, caplog):
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            await sample(engine, 3000)
+            clock.tick(600)
+            await sample(engine, 3000)
+            assert sensor(engine)[1]["drift_kwh"] == -0.5
+            await engine.install(rules())
+            assert sensor(engine)[1]["drift_kwh"] == 0.0
+            clock.now = NOON  # the same ten minutes again, under the new rules
+            await sample(engine, 3000)
+            clock.tick(600)
+            await sample(engine, 3000)
+        assert sensor(engine)[1]["drift_kwh"] == -0.5
+        assert caplog.text.count("Drift of") == 2  # logged once per schedule
+
+    @pytest.mark.asyncio
+    async def test_a_stale_spell_counts_for_nothing(self, engine, clock):
+        """Without samples the engine is blind and follows the plan: the gap
+        adds no drift, and the first sample after it only restarts the clock."""
+        await start(engine)
+        await sample(engine, 3000)
+        clock.tick(eng.STALE_AFTER_S + 1)
+        await engine._tick()
+        assert sensor(engine)[1]["meter_stale"] is True
+        clock.tick(300 - eng.STALE_AFTER_S - 1)
+        await sample(engine, 3000)  # 12:05, slot 2
+        assert sensor(engine)[1]["drift_kwh"] == 0.0
+        clock.tick(300)
+        await sample(engine, 3000)
+        assert sensor(engine)[1]["drift_kwh"] == -0.25
+
+    @pytest.mark.asyncio
+    async def test_the_drift_is_shown_without_a_verdict_too(self, engine, clock):
+        await start(engine)
+        await sample(engine, 3000)
+        clock.tick(600)
+        await sample(engine, 3000)
+        await engine._on_charger_communication_state_change(False)
+        state, attributes = sensor(engine)
+        assert state == "unavailable"
+        assert attributes["drift_kwh"] == -0.5
+        await engine.clear()
+        assert sensor(engine)[1]["drift_kwh"] == 0.0
