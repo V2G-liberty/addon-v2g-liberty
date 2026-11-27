@@ -56,10 +56,11 @@ in 0.9.2 together with the request side and a mode setting.
   edge: float noise on a reference served in MW, and meter noise, are not
   exits. A setpoint in the charger's dead zone is not either: it is rounded
   onto the band, never counted. An excursion ends once the setpoint has
-  been back inside for EXIT_END_DWELL_S: one sample inside, such as the
+  been back inside for EXIT_END_DWELL_S: a shorter return, such as the
   half-updated reading between a phase's consumption and production
-  updates, or a flicker on the edge, does not end it, and so does not
-  start a fresh dwell. Shorter excursions are counted, and the
+  updates, or a flicker on the edge, does not end it, does not start a
+  fresh dwell, and counts no energy while inside. Shorter excursions are
+  counted, and the
   energy past the band is integrated over every excursion, so the shadow
   week yields the numbers a hysteresis at the band edge and an energy
   threshold in front of the retrigger are set from. 0.9.1 logs and counts;
@@ -125,10 +126,12 @@ HEARTBEAT_S = 60
 # excursions are a kettle or the charger settling.
 DWELL_S = 30
 # An excursion ends once the setpoint has been back inside the band for this
-# long. One sample inside, such as the half-updated reading between a phase's
-# consumption and production updates, or a flicker on the edge, does not end
-# it; otherwise every such sample would end an exit and start a fresh dwell.
-EXIT_END_DWELL_S = 5
+# long, measured in time, not in samples: at a meter that reports every ten
+# seconds one reading inside stands for ten seconds inside, and ends it. What
+# must not end it is the half-updated reading between a phase's consumption
+# and production updates, milliseconds before the real one, or a flicker on
+# the edge. Two seconds is far above those and below a kettle's pause.
+EXIT_END_DWELL_S = 2
 # A raw setpoint this close to the band's edge is not outside it: the
 # tolerance the client's exit gate uses, in the order of meter noise.
 EXIT_TOLERANCE_W = 50
@@ -355,16 +358,18 @@ class ReactionEngine:
 
     def _track_exit(self, verdict: Evaluation, now: datetime):
         if verdict.outside:
+            outside_until = now  # the energy counts up to the moment it went inside
             if self._inside_since is not None:
                 if self._inside_for(now) >= EXIT_END_DWELL_S:
                     self._end_excursion()  # it ended when it went inside
                 else:
-                    self._inside_since = None  # a flicker; the excursion goes on
+                    outside_until = self._inside_since  # a flicker; it goes on
+                    self._inside_since = None
             past_w = abs(verdict.raw_w - verdict.setpoint_w)
             if self._exit_since is None:
                 self._exit_since = now
             else:
-                dt_s = (now - self._exit_last_at).total_seconds()
+                dt_s = (outside_until - self._exit_last_at).total_seconds()
                 self._exit_wh += past_w * dt_s / 3600
             self._exit_last_at = now
             if (

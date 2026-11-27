@@ -283,6 +283,53 @@ class TestBandExit:
         assert "Band exit over after 67 s" in caplog.text
 
     @pytest.mark.asyncio
+    async def test_at_a_ten_second_meter_one_reading_inside_is_ten_seconds_inside(
+        self, engine, clock, caplog
+    ):
+        """A DSMR 4 meter reports every ten seconds, so one reading inside
+        stands for ten seconds inside and ends the excursion; the next
+        reading outside starts a new one, with its own dwell."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(4):  # 0, 10, 20, 30 s outside
+                await sample(engine, PLAN_W - 400)
+                clock.tick(10)
+            assert caplog.text.count("Band exit #1") == 1
+            await sample(engine, PLAN_W - 1400)  # 40 s: inside
+            clock.tick(10)
+            await sample(engine, PLAN_W - 400)  # 50 s: outside again
+        assert "Band exit over after 40 s" in caplog.text
+        assert sensor(engine)[1]["band_exits"] == 1
+        assert sensor(engine)[1]["outside_band"] is True
+
+    @pytest.mark.asyncio
+    async def test_the_half_updated_reading_at_a_ten_second_meter_is_a_flicker(
+        self, engine, clock, caplog
+    ):
+        """The grid emulator, like a meter whose phase arrives as two
+        entity updates, gives a reading inside the band milliseconds before
+        the real one every ten seconds. Neither ends the exit nor counts
+        energy, so the exit's energy is that of the readings outside."""
+        await start(engine)
+        with caplog.at_level(logging.INFO):
+            for _ in range(7):  # 0 .. 60 s, one flicker per tick
+                await sample(engine, PLAN_W - 1400)  # half-updated: inside
+                clock.tick(0.03)
+                await sample(engine, PLAN_W - 400)  # real: 1000 W past the band
+                clock.tick(9.97)
+            assert caplog.text.count("Band exit #") == 1
+            assert "Band exit over" not in caplog.text
+            assert sensor(engine)[1]["short_excursions"] == 0
+            await sample(engine, PLAN_W - 1400)  # 70 s: inside for good
+            clock.tick(eng.EXIT_END_DWELL_S)
+            await sample(engine, PLAN_W - 1400)
+        # 1000 W over six intervals of 9.97 s outside; the 0.03 s flickers count nothing
+        expected_wh = round(1000 * 6 * 9.97 / 3600, 1)
+        assert (
+            f"Band exit over after 70 s, {expected_wh} Wh past the band." in caplog.text
+        )
+
+    @pytest.mark.asyncio
     async def test_a_flicker_inside_does_not_split_a_short_excursion(
         self, engine, clock
     ):
