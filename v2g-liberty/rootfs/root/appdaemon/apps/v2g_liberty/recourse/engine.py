@@ -28,6 +28,10 @@ in 0.9.2 together with the request side and a mode setting.
   at most once per HEARTBEAT_S; at once when the slot, the band-exit state
   or the meter's health changes; never for the attributes alone, so a
   follow-the-plan night writes nothing. The log gets band exits only.
+- Every evaluated sample also goes out as ``reaction_sample`` on the event
+  bus, when something listens: the dev tools' recorder writes those to a
+  CSV a probe can follow live. The add-on ships no listener, so a normal
+  installation writes nothing.
 - A setpoint beyond the band, below its lowest or above its highest bound,
   is a **band exit** once it has lasted DWELL_S: the deviation is more than
   the charger may absorb. Beyond means more than EXIT_TOLERANCE_W past the
@@ -63,6 +67,7 @@ from ..timer_utils import set_recurring_timer
 from .rules import ReactionRule, ReactionSchedule, react
 
 SENSOR_REACTION_SETPOINT = "sensor.reaction_setpoint"
+REACTION_SAMPLE_EVENT = "reaction_sample"
 MODE = "shadow"
 # Rewrite the sensor for a setpoint move of at least this many watts, at most
 # once per MIN_WRITE_GAP_S; for a smaller move at most once per HEARTBEAT_S.
@@ -182,7 +187,7 @@ class ReactionEngine:
             self._stale = False
             if self._rules is not None:
                 self._log("Meter back; reacting again.")
-        await self._publish()
+        await self._publish(sample=True)
 
     def _on_charge_power_change(self, new_power):
         if isinstance(new_power, (int, float)) and not isinstance(new_power, bool):
@@ -295,9 +300,29 @@ class ReactionEngine:
     def _last_exit_wh_rounded(self) -> float | None:
         return None if self._last_exit_wh is None else round(self._last_exit_wh, 1)
 
-    async def _publish(self, force: bool = False):
+    def _emit_sample(self, now: datetime, verdict: Evaluation):
+        """One event per evaluated meter sample, for a recorder. Only when
+        something listens: the bus warns about an event nobody hears, and a
+        normal installation has no recorder."""
+        if not self.event_bus.listeners(REACTION_SAMPLE_EVENT):
+            return
+        self.event_bus.emit_event(
+            REACTION_SAMPLE_EVENT,
+            time=now,
+            deviation_w=round(verdict.deviation_w),
+            raw_w=round(verdict.raw_w),
+            setpoint_w=round(verdict.setpoint_w),
+            plan_w=round(verdict.rule.p_w),
+            meter_w=verdict.meter_w,
+            charger_w=verdict.charger_w,
+        )
+
+    async def _publish(self, force: bool = False, sample: bool = False):
         """Write the sensor when something in it changed, sparingly: Home
-        Assistant records every write and the meter samples once a second."""
+        Assistant records every write and the meter samples once a second.
+        A call for a fresh meter sample (``sample``) also emits the sample
+        event; the forced calls for a new schedule, a stale meter or a lost
+        charger evaluate the same old samples again and emit none."""
         now = self._now()
         verdict = self.evaluate(now)
         if isinstance(verdict, str):
@@ -319,6 +344,8 @@ class ReactionEngine:
                 f"setpoint {verdict.setpoint_w:.0f} W.",
                 level="DEBUG",
             )
+            if sample:
+                self._emit_sample(now, verdict)
             self._track_exit(verdict, now)
             setpoint = verdict.setpoint_w
             state = round(setpoint)

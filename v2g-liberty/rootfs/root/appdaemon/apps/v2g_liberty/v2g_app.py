@@ -38,6 +38,8 @@ class V2GLibertyApp(Hass):
 
         start_module = datetime.now()
         event_bus = EventBus(self)
+        # Reachable through get_app("v2g-app") for the dev tools' recorder.
+        self.event_bus = event_bus
         self._log_init_time("EventBus", start_module)
 
         start_module = datetime.now()

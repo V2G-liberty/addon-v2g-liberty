@@ -68,3 +68,14 @@ charger_emulator_evtec:
   hw_soc_ceiling_pct: 97
   hw_max_charge_power_w: 10000
   hw_max_discharge_power_w: 10000
+
+# Dev-only: writes the reaction engine's verdict per meter sample to a CSV a
+# probe can follow live (Seita's --deviation-csv --follow). Listens on v2g-app's
+# event bus, hence the dependency; the file only grows while the engine has
+# rules. Stripped from the production image with the rest of dev_tools.
+reaction_sample_recorder:
+  module: dev_tools.reaction_sample_recorder
+  class: ReactionSampleRecorder
+  dependencies:
+    - v2g-app
+  path: /config/logs/reaction_samples.csv

@@ -427,3 +427,46 @@ class TestChargerPower:
         engine._on_charge_power_change(PLAN_W)
         await sample(engine, 3000)
         assert sensor(engine)[0] == 1400
+
+
+class TestSampleEvent:
+    """Every evaluated sample goes out as an event, for the dev tools'
+    recorder; the engine itself writes no file."""
+
+    @pytest.mark.asyncio
+    async def test_a_sample_is_emitted_when_something_listens(self, engine):
+        await start(engine)
+        await sample(engine, 3000)  # deviation 3 kW: charge 1.4 kW
+        engine.event_bus.emit_event.assert_called_once_with(
+            "reaction_sample",
+            time=NOON,
+            deviation_w=3000,
+            raw_w=1400,
+            setpoint_w=1400,
+            plan_w=PLAN_W,
+            meter_w=3000,
+            charger_w=PLAN_W,
+        )
+
+    @pytest.mark.asyncio
+    async def test_only_a_fresh_sample_with_rules_emits(self, engine, clock):
+        await engine.initialize()
+        engine._on_charge_power_change(PLAN_W)
+        await sample(engine, 3000)  # no rules yet
+        await engine.install(rules())  # a forced publish, not a sample
+        assert engine.event_bus.emit_event.call_count == 0
+        await sample(engine, 3000)
+        clock.tick(eng.STALE_AFTER_S + 1)
+        await engine._tick()  # the meter went stale
+        await engine._on_charger_communication_state_change(False)
+        await engine.clear()
+        assert engine.event_bus.emit_event.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_nothing_is_emitted_without_a_listener(self, engine):
+        """The bus warns about an event nobody hears, once per sample; a
+        normal installation has no recorder."""
+        engine.event_bus.listeners.return_value = []
+        await start(engine)
+        await sample(engine, 3000)
+        engine.event_bus.emit_event.assert_not_called()
