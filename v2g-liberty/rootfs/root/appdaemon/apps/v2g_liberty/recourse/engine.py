@@ -94,11 +94,20 @@ from ..timer_utils import set_recurring_timer
 from .rules import ReactionRule, ReactionSchedule, react
 
 SENSOR_REACTION_SETPOINT = "sensor.reaction_setpoint"
-# Every write carries every key, None for the ones that do not apply.
-# AppDaemon merges the attributes into the entity's, which keeps the name,
-# unit, device class and icon the package gives the sensor; a key left out
-# would keep its old value too, so the reason of an unavailable spell would
-# outlive it.
+# The sensor's name, unit, device class and icon, the same as the package's
+# template gives the entity so that it exists before the first write. The
+# engine carries them on every write and replaces the entity's attributes:
+# AppDaemon's merge did not keep the template's attributes and added Home
+# Assistant's timestamps and context to them, and a sensor without a unit is
+# no power sensor to the history graph and the recorder.
+SENSOR_METADATA = {
+    "friendly_name": "Reaction setpoint",
+    "unit_of_measurement": "W",
+    "device_class": "power",
+    "icon": "mdi:swap-vertical-bold",
+}
+# Every write carries every key, None for the ones that do not apply, so the
+# sensor's attributes are the same set in every state.
 ATTRIBUTE_KEYS = (
     "mode",
     "reason",
@@ -528,7 +537,10 @@ class ReactionEngine:
                 "drift_kwh": self._drift_kwh_rounded(),
                 "meter_stale": self._stale,
             }
-        attributes = {key: attributes.get(key) for key in ATTRIBUTE_KEYS}
+        attributes = {
+            **SENSOR_METADATA,
+            **{key: attributes.get(key) for key in ATTRIBUTE_KEYS},
+        }
         flags = (
             state == "unavailable",
             attributes.get("reason"),
@@ -565,7 +577,10 @@ class ReactionEngine:
         self._published_flags = flags
         try:
             await self.hass.set_state(
-                SENSOR_REACTION_SETPOINT, state=state, attributes=attributes
+                SENSOR_REACTION_SETPOINT,
+                state=state,
+                attributes=attributes,
+                replace=True,
             )
         except Exception as e:  # noqa: BLE001  # HA may be restarting
             self._log(

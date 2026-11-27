@@ -620,14 +620,12 @@ class TestLifecycle:
 
 class TestChargerPower:
     @pytest.mark.asyncio
-    async def test_every_write_carries_every_key_so_nothing_stale_survives(
-        self, engine
-    ):
-        """AppDaemon merges the attributes into the entity's, which keeps the
-        name, unit, device class and icon the package gives the sensor. So
-        the engine never replaces them, and writes every key of its own on
-        every write, None where it does not apply: the reason of the
-        unavailable spell must not sit next to a valid setpoint."""
+    async def test_every_write_carries_the_metadata_and_every_key(self, engine):
+        """The engine replaces the entity's attributes on every write, so it
+        carries the sensor's name, unit, device class and icon itself and
+        writes every key of its own, None where it does not apply: the
+        reason of the unavailable spell must not sit next to a valid
+        setpoint, and nothing AppDaemon's merge would add gets in."""
         await engine.initialize()
         await engine.install(rules())
         await sample(engine, 3000)
@@ -638,8 +636,11 @@ class TestChargerPower:
         assert state == 1400
         assert attributes["reason"] is None
         for call in engine.hass.set_state.call_args_list:
-            assert "replace" not in call.kwargs
-            assert set(call.kwargs["attributes"]) == set(eng.ATTRIBUTE_KEYS)
+            assert call.kwargs["replace"] is True
+            written = call.kwargs["attributes"]
+            assert set(written) == set(eng.ATTRIBUTE_KEYS) | set(eng.SENSOR_METADATA)
+            assert {k: written[k] for k in eng.SENSOR_METADATA} == eng.SENSOR_METADATA
+            assert written["unit_of_measurement"] == "W"
 
     @pytest.mark.asyncio
     async def test_no_setpoint_until_the_driver_reports_the_charger(self, engine):
