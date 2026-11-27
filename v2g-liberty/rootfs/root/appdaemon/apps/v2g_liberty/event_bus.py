@@ -182,6 +182,25 @@ class EventBus(AsyncIOEventEmitter):
             - `phase` (int | None): the phase that binds, None when none does.
             - `reason` (str): why, for logging.
 
+    #### Reaction engine related
+
+    - `reaction_sample`:
+        - **Description**: The reaction engine's verdict on one meter sample,
+          for a recorder (dev tools). Emitted on every `grid_power_sample` the
+          engine evaluates with rules installed, and only when something
+          listens: a normal installation has no recorder.
+        - **Emitted by** reaction_engine
+        - **Arguments**:
+            - `time` (datetime): when the engine evaluated the sample, local
+              time; milliseconds after the meter read it.
+            - `phase` (int): the phase whose sample this was; the other
+              phases still hold their previous values.
+            - `deviation_w` (int): (meter - charger) - reference.
+            - `raw_w` (int): the setpoint before the band.
+            - `setpoint_w` (int): the setpoint after the band.
+            - `plan_w`, `meter_w`, `charger_w` (int): the slot's plan, the
+              meter and the charger's realised power.
+
     #### Settings related
 
     - `grid_settings_changed`:
