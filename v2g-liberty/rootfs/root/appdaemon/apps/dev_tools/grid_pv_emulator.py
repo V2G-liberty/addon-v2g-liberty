@@ -9,6 +9,11 @@ Updates them every ~10 seconds with realistic values, including:
 - A signed net-power sensor per phase (import positive, export negative) to
   test the grid dialog's "negative value" warning. It goes negative during PV
   surplus, or always when `input_boolean.emulator_force_negative` is on.
+- A deviation on demand: `input_number.emulator_surprise_w` is added to the
+  household load, spread equally over the three phases, so the reaction
+  engine sees a step the plan did not expect (an oven: +2500 W; a cloud
+  that lifts: -1500 W). At ordinary values the fuse guard stays out of it;
+  the README has the numbers. The force-negative sensor leaves it out.
 - Cumulative import/export energy registers per tariff (DSMR 1.8.x / 2.8.x),
   total_increasing kWh. These integrate the CROSS-PHASE net (summed over the
   phases, then gated) — like a real meter, and unlike summing the per-phase
@@ -46,6 +51,8 @@ class GridPvEmulator(hass.Hass):
 
     _PAUSE_ENTITY = "input_boolean.emulator_paused"
     _FORCE_NEGATIVE_ENTITY = "input_boolean.emulator_force_negative"
+    _SURPRISE_ENTITY = "input_number.emulator_surprise_w"
+    _last_surprise_w: float = 0.0
     _cycle: int = 0  # Alternating offset to ensure state changes
 
     def initialize(self):
@@ -67,6 +74,15 @@ class GridPvEmulator(hass.Hass):
                 self._FORCE_NEGATIVE_ENTITY,
                 state="off",
                 attributes={"friendly_name": "Force emulator grid net negative"},
+            )
+        if self.get_state(self._SURPRISE_ENTITY) is None:
+            self.set_state(
+                self._SURPRISE_ENTITY,
+                state=0,
+                attributes={
+                    "friendly_name": "Grid/PV emulator: extra household load",
+                    "unit_of_measurement": "W",
+                },
             )
 
         # Create a fuse threshold entity (DSMR OBIS 1-0:31.4.0)
@@ -127,14 +143,16 @@ class GridPvEmulator(hass.Hass):
 
         # Calculate components
         base = self._calculate_base_load(now)
+        extra_per_phase = self._surprise_w() / 3
+        household = {p: base[p] + extra_per_phase for p in (1, 2, 3)}
         charger = self._calculate_charger_impact()
         pv_per_phase = self._calculate_pv_per_phase(now)
 
         force_negative = self.get_state(self._FORCE_NEGATIVE_ENTITY) == "on"
 
-        # Per phase: net = base + charger - pv
+        # Per phase: net = household + charger - pv
         for phase in (1, 2, 3):
-            total_consumption = base[phase] + charger[phase]
+            total_consumption = household[phase] + charger[phase]
             pv_on_phase = pv_per_phase[phase]
             net = total_consumption - pv_on_phase
 
@@ -160,6 +178,8 @@ class GridPvEmulator(hass.Hass):
             # kind of wrong/net sensor a user might accidentally pick. It goes
             # negative during PV surplus; the force toggle makes it clearly
             # negative regardless of time so the warning can be tested anytime.
+            # The extra household load is left out of the forced value: it
+            # would turn a step up into a step down.
             if force_negative:
                 net_value = -(500 + round(base[phase])) + offset
             else:
@@ -182,7 +202,9 @@ class GridPvEmulator(hass.Hass):
         # Cumulative energy registers. The meter sums the phases at one instant,
         # gates the sign, then integrates — so use the CROSS-PHASE net, not the
         # per-phase channels (which would double-count opposing flows).
-        total_net_w = sum(base[p] + charger[p] - pv_per_phase[p] for p in (1, 2, 3))
+        total_net_w = sum(
+            household[p] + charger[p] - pv_per_phase[p] for p in (1, 2, 3)
+        )
         increment_kwh = abs(total_net_w) / 1000 * (self._update_interval / 3600)
         tariff = self._active_tariff(now)
         if total_net_w > 0:
@@ -219,7 +241,7 @@ class GridPvEmulator(hass.Hass):
         self._ticks_since_status += 1
         if self._status_every and self._ticks_since_status >= self._status_every:
             self._ticks_since_status = 0
-            self._log_status(base, charger, pv_per_phase, total_net_w, tariff)
+            self._log_status(household, charger, pv_per_phase, total_net_w, tariff)
 
     def _set_sensor(self, entity_id: str, value: float, friendly_name: str):
         self.set_state(
@@ -253,10 +275,10 @@ class GridPvEmulator(hass.Hass):
         """Dutch dual tariff: 2 (dal) at night, 1 (normaal) during the day."""
         return 2 if now.hour < 7 or now.hour >= 23 else 1
 
-    def _log_status(self, base, charger, pv_per_phase, total_net_w, tariff):
+    def _log_status(self, household, charger, pv_per_phase, total_net_w, tariff):
         """Heartbeat: per-phase net, the cross-phase net + gate, register totals."""
         per_phase = {
-            p: round(base[p] + charger[p] - pv_per_phase[p]) for p in (1, 2, 3)
+            p: round(household[p] + charger[p] - pv_per_phase[p]) for p in (1, 2, 3)
         }
         direction = "import" if total_net_w > 0 else "export"
         self.log(
@@ -267,6 +289,21 @@ class GridPvEmulator(hass.Hass):
             f"prod_t1={round(self._energy['export_t1'], 3)} "
             f"prod_t2={round(self._energy['export_t2'], 3)}"
         )
+
+    def _surprise_w(self) -> float:
+        """The extra household load asked for on the dashboard, in W; a change
+        is logged once so the step can be found back next to the engine's."""
+        try:
+            surprise_w = float(self.get_state(self._SURPRISE_ENTITY) or 0)
+        except (TypeError, ValueError):
+            surprise_w = 0.0
+        if surprise_w != self._last_surprise_w:
+            self.log(
+                f"Extra household load {self._last_surprise_w:.0f} W -> "
+                f"{surprise_w:.0f} W, spread over the three phases."
+            )
+            self._last_surprise_w = surprise_w
+        return surprise_w
 
     def _calculate_base_load(self, now: datetime) -> dict[int, float]:
         """Calculate household base load per phase with time-of-day variation."""
