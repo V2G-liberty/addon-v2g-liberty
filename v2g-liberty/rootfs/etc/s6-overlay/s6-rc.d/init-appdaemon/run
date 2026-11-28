@@ -22,6 +22,13 @@ mkdir -p /config/logs
 rm -rf /config/tests \
     /config/appdaemon.devcontainer.yaml
 
+# The Modbus-proxy load balancer left the image in 0.9.1 (the fuse guard
+# replaced it); the copy below would leave its app folder and example file
+# behind on every installation that upgrades from 0.9.0 or older. The user's
+# own quasar_load_balancer.json, if any, is theirs and stays.
+rm -rf /config/apps/load_balancer \
+    /homeassistant/quasar_load_balancer.json-example
+
 # Copy python files
 cp -aR /root/appdaemon/* /config \
     || bashio::exit.nok 'Failed to copy V2G-Liberty app'

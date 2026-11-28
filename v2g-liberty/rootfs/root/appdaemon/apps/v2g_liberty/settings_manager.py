@@ -325,14 +325,28 @@ class SettingsManager:
         that address back, whether the proxy was enabled or not: a loopback
         host no longer answers.
 
-        The file is read once (the marker key records the outcome) and left
-        where it is. Nothing else in it maps onto the fuse guard, which takes
+        The file is read once (the marker key records the outcome). When the
+        import succeeded, it is renamed to ``quasar_load_balancer.json.migrated``
+        so the user can see it is no longer needed; when it could not be read,
+        or the charger still points at the proxy without a real address in
+        it, it stays as it is for the user to look at. Nothing else in it maps
+        onto the fuse guard, which takes
         its per-phase sensors and capacity from the grid connection dialog;
         the log names the phase sensor and limit the proxy used, as a lead.
         """
-        if self._LOAD_BALANCER_IMPORT_KEY in settings:
-            return settings
         path = self._LOAD_BALANCER_JSON_PATH
+        if self._LOAD_BALANCER_IMPORT_KEY in settings:
+            # Imported by a version that left the file in place: rename it now
+            # if that import succeeded.
+            done = settings[self._LOAD_BALANCER_IMPORT_KEY]
+            if (
+                os.path.isfile(path)
+                and isinstance(done, dict)
+                and "error" not in done
+                and not done.get("charger_host_missing")
+            ):
+                self.__set_load_balancer_json_aside(path)
+            return settings
         if not os.path.isfile(path):
             return settings
 
@@ -376,6 +390,7 @@ class SettingsManager:
                     level="WARNING",
                 )
             else:
+                outcome["charger_host_missing"] = True
                 self.__log(
                     "The Modbus-proxy load balancer has been removed, but the "
                     f"charger settings still point at the proxy ({host}:{port}) "
@@ -412,8 +427,29 @@ class SettingsManager:
             f"phase. Without those it does nothing.{lead}",
             level="WARNING",
         )
+        if "error" not in outcome and not outcome.get("charger_host_missing"):
+            self.__set_load_balancer_json_aside(path)
         settings[self._LOAD_BALANCER_IMPORT_KEY] = outcome
         return settings
+
+    def __set_load_balancer_json_aside(self, path: str):
+        """Rename the imported file so the user sees it is no longer needed.
+        A failed rename only costs that hint: the marker key keeps the file
+        from being read again."""
+        migrated = f"{path}.migrated"
+        try:
+            os.replace(path, migrated)
+        except OSError as e:
+            self.__log(
+                f"Could not rename {path} to {migrated}: {e}; it is no longer "
+                "read and can be removed.",
+                level="WARNING",
+            )
+            return
+        self.__log(
+            f"Renamed {path} to {migrated}: its settings are taken over and the "
+            "file is no longer needed."
+        )
 
     @staticmethod
     def __as_text(value) -> str:
