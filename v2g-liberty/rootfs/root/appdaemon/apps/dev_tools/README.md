@@ -84,7 +84,7 @@ The emulator is **dev-only** and is **stripped from the built add-on image** (`r
 
 If you do want it on a pre-production host, you can add it by hand — and it now survives restarts:
 
-1. Place the `dev_tools/` directory in the add-on's `/config/apps/` directory (e.g. via the add-on's file access or `docker cp` into the container). The startup copy only adds/overwrites from the image, and the cleanup no longer touches `dev_tools/`, so your folder is kept.
+1. Place the `dev_tools/` directory in the add-on's `/config/apps/` directory (on the host `/addon_configs/local_v2g-liberty/apps/`). In its `apps.yaml`, remove the `log:` lines (the named logs exist only in the dev container's AppDaemon config; with them AppDaemon cannot create the app), the apps for a charger mock that is not there, and point `charger_host` at the mock that is (e.g. via the add-on's file access or `docker cp` into the container). The startup copy only adds/overwrites from the image, and the cleanup no longer touches `dev_tools/`, so your folder is kept.
 2. Restart AppDaemon / the add-on.
 3. After ~10 seconds the `sensor.emulated_*` entities appear (Developer Tools → States). Use those entity IDs in the grid connection settings dialog; toggle `input_boolean.emulator_paused` to test the "no sensor activity" scenario.
 

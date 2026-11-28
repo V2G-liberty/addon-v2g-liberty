@@ -16,6 +16,8 @@ class SettingsManager:
     set_aside_path: str = ""
 
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
+    # The imported load balancer file, renamed once the settings are saved.
+    _load_balancer_json_pending: str | None = None
     # The removed Modbus-proxy load balancer kept its own settings here. The
     # file is read once, to restore the charger's address, and then left alone.
     _LOAD_BALANCER_JSON_PATH = "/homeassistant/quasar_load_balancer.json"
@@ -99,6 +101,10 @@ class SettingsManager:
         self.set_aside_path = ""
         self.settings = self.__upgrade(settings)
         self.__write_to_file()
+        # Only now that the import's outcome is on disk. Renamed before a
+        # write that fails, the next start would find neither the marker nor
+        # the restored address, and no file to import them from again.
+        self.__set_pending_load_balancer_json_aside()
 
     def __set_file_aside(self, reason: str):
         """The content is broken beyond use. Leaving it in place strands the
@@ -325,14 +331,29 @@ class SettingsManager:
         that address back, whether the proxy was enabled or not: a loopback
         host no longer answers.
 
-        The file is read once (the marker key records the outcome) and left
-        where it is. Nothing else in it maps onto the fuse guard, which takes
+        The file is read once (the marker key records the outcome). When the
+        import succeeded, it is renamed to ``quasar_load_balancer.json.migrated``
+        so the user can see it is no longer needed, once the settings holding
+        the outcome are saved (see retrieve_settings); when it could not be read,
+        or the charger still points at the proxy without a real address in
+        it, it stays as it is for the user to look at. Nothing else in it maps
+        onto the fuse guard, which takes
         its per-phase sensors and capacity from the grid connection dialog;
         the log names the phase sensor and limit the proxy used, as a lead.
         """
-        if self._LOAD_BALANCER_IMPORT_KEY in settings:
-            return settings
         path = self._LOAD_BALANCER_JSON_PATH
+        if self._LOAD_BALANCER_IMPORT_KEY in settings:
+            # Imported by a version that left the file in place: rename it now
+            # if that import succeeded.
+            done = settings[self._LOAD_BALANCER_IMPORT_KEY]
+            if (
+                os.path.isfile(path)
+                and isinstance(done, dict)
+                and "error" not in done
+                and not done.get("charger_host_missing")
+            ):
+                self._load_balancer_json_pending = path
+            return settings
         if not os.path.isfile(path):
             return settings
 
@@ -376,6 +397,7 @@ class SettingsManager:
                     level="WARNING",
                 )
             else:
+                outcome["charger_host_missing"] = True
                 self.__log(
                     "The Modbus-proxy load balancer has been removed, but the "
                     f"charger settings still point at the proxy ({host}:{port}) "
@@ -412,8 +434,33 @@ class SettingsManager:
             f"phase. Without those it does nothing.{lead}",
             level="WARNING",
         )
+        if "error" not in outcome and not outcome.get("charger_host_missing"):
+            self._load_balancer_json_pending = path
         settings[self._LOAD_BALANCER_IMPORT_KEY] = outcome
         return settings
+
+    def __set_pending_load_balancer_json_aside(self):
+        """Rename the imported file so the user sees it is no longer needed.
+        Called once the settings with the import's marker are saved. A failed
+        rename only costs that hint: the marker keeps the file from being read
+        again."""
+        path, self._load_balancer_json_pending = self._load_balancer_json_pending, None
+        if path is None:
+            return
+        migrated = f"{path}.migrated"
+        try:
+            os.replace(path, migrated)
+        except OSError as e:
+            self.__log(
+                f"Could not rename {path} to {migrated}: {e}; it is no longer "
+                "read and can be removed.",
+                level="WARNING",
+            )
+            return
+        self.__log(
+            f"Renamed {path} to {migrated}: its settings are taken over and the "
+            "file is no longer needed."
+        )
 
     @staticmethod
     def __as_text(value) -> str:

@@ -1,6 +1,7 @@
 """Unit test (pytest) for settings_manager module."""
 
 import json
+import os
 from unittest.mock import ANY, Mock, mock_open, patch
 
 import pytest
@@ -30,6 +31,11 @@ def no_load_balancer_json(tmp_path, monkeypatch):
     monkeypatch.setattr(
         SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(tmp_path / "absent.json")
     )
+
+
+# The real one, for the tests that rename a file in tmp_path while
+# no_disk_writes keeps os.replace away from the settings file.
+_REAL_OS_REPLACE = os.replace
 
 
 @pytest.fixture(autouse=True)
@@ -842,14 +848,19 @@ _LB_JSON = {
 
 def _upgrade_lb(settings_manager, saved: dict, lb_json, tmp_path, monkeypatch):
     """Run the load balancer import on `saved` with `lb_json` (a dict, a raw
-    string, or None for no file) as the proxy's settings file."""
+    string, or None for no file) as the proxy's settings file, followed by
+    what a successful save of the settings does: the pending rename."""
     path = tmp_path / "quasar_load_balancer.json"
     if isinstance(lb_json, dict):
         path.write_text(json.dumps(lb_json))
     elif lb_json is not None:
         path.write_text(lb_json)
     monkeypatch.setattr(SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(path))
-    return settings_manager._SettingsManager__upgrade_load_balancer_json(dict(saved))
+    upgraded = settings_manager._SettingsManager__upgrade_load_balancer_json(
+        dict(saved)
+    )
+    settings_manager._SettingsManager__set_pending_load_balancer_json_aside()
+    return upgraded
 
 
 class TestUpgradeLoadBalancerJson:
@@ -946,6 +957,114 @@ class TestUpgradeLoadBalancerJson:
         )
 
         assert upgraded["input_text.charger_host_url"] == "192.168.2.55"
+
+    def test_an_imported_file_is_renamed_to_migrated(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        """After the import the file is renamed, so the user sees it is no
+        longer needed; the marker key keeps it from being read again."""
+        with patch("os.replace", _REAL_OS_REPLACE):
+            _upgrade_lb(settings_manager, _PROXIED, _LB_JSON, tmp_path, monkeypatch)
+
+        assert not (tmp_path / "quasar_load_balancer.json").exists()
+        migrated = tmp_path / "quasar_load_balancer.json.migrated"
+        assert json.loads(migrated.read_text()) == _LB_JSON
+
+    def test_a_file_with_nothing_to_restore_is_renamed_too(
+        self, settings_manager, tmp_path, monkeypatch
+    ):
+        saved = {**_PROXIED, "input_text.charger_host_url": "192.168.2.55"}
+
+        with patch("os.replace", _REAL_OS_REPLACE):
+            _upgrade_lb(settings_manager, saved, _LB_JSON, tmp_path, monkeypatch)
+
+        assert (tmp_path / "quasar_load_balancer.json.migrated").exists()
+
+    def test_the_file_is_renamed_only_once_the_settings_are_saved(
+        self, log_mock, tmp_path, monkeypatch
+    ):
+        """A save that fails after the import must leave the file where the
+        next start finds it: renamed before the save, the restored address
+        and the marker would be lost with no file left to import them from."""
+        settings_path = tmp_path / "v2g_liberty_settings.json"
+        settings_path.write_text(json.dumps(_PROXIED))
+        lb_path = tmp_path / "quasar_load_balancer.json"
+        lb_path.write_text(json.dumps(_LB_JSON))
+        monkeypatch.setattr(SettingsManager, "_SETTINGS_FILE_PATH", str(settings_path))
+        monkeypatch.setattr(SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(lb_path))
+
+        def disk_full(self):
+            raise OSError("No space left on device")
+
+        with patch("os.replace", _REAL_OS_REPLACE):
+            with patch.object(
+                SettingsManager, "_SettingsManager__write_to_file", disk_full
+            ):
+                with pytest.raises(OSError):
+                    SettingsManager(log=log_mock).retrieve_settings()
+            assert lb_path.exists()  # still there for the next start
+            assert json.loads(settings_path.read_text()) == _PROXIED  # unchanged
+
+            restarted = SettingsManager(log=log_mock)
+            restarted.retrieve_settings()
+
+        saved = json.loads(settings_path.read_text())
+        assert saved["input_text.charger_host_url"] == "192.168.2.55"
+        assert saved["load_balancer_json_import"]["charger_host_restored"] is True
+        assert not lb_path.exists()
+        assert (tmp_path / "quasar_load_balancer.json.migrated").exists()
+
+    @pytest.mark.parametrize(
+        ("marker", "renamed"),
+        [
+            ({"enabled": True, "charger_host_restored": True}, True),
+            ({"enabled": False, "charger_host_restored": False}, True),
+            ({"enabled": False, "error": "Expecting value"}, False),
+            (
+                {
+                    "enabled": True,
+                    "charger_host_restored": False,
+                    "charger_host_missing": True,
+                },
+                False,
+            ),
+        ],
+        ids=["restored", "nothing_to_restore", "unreadable", "address_missing"],
+    )
+    def test_a_file_imported_by_an_earlier_version_is_renamed_now(
+        self, settings_manager, tmp_path, monkeypatch, marker, renamed
+    ):
+        """An installation that imported the file before the rename existed
+        still has it: rename it at the next start if that import succeeded,
+        without reading it again."""
+        saved = {**_PROXIED, "load_balancer_json_import": marker}
+        with patch("os.replace", _REAL_OS_REPLACE):
+            upgraded = _upgrade_lb(
+                settings_manager, saved, _LB_JSON, tmp_path, monkeypatch
+            )
+
+        assert upgraded["input_text.charger_host_url"] == "127.0.0.1"  # not re-read
+        assert (tmp_path / "quasar_load_balancer.json.migrated").exists() is renamed
+        assert (tmp_path / "quasar_load_balancer.json").exists() is not renamed
+
+    @pytest.mark.parametrize(
+        "lb_json",
+        [
+            "{ not json",
+            {**_LB_JSON, "quasar_host": None},
+        ],
+        ids=["unreadable", "proxied_without_an_address"],
+    )
+    def test_a_file_the_user_still_needs_stays_as_it_is(
+        self, settings_manager, tmp_path, monkeypatch, lb_json
+    ):
+        """Unreadable, or the charger still points at the proxy without a
+        real address in the file: the user has to look, so it stays."""
+        with patch("os.replace", _REAL_OS_REPLACE):
+            _upgrade_lb(settings_manager, _PROXIED, lb_json, tmp_path, monkeypatch)
+
+        assert (tmp_path / "quasar_load_balancer.json").exists()
+        assert not (tmp_path / "quasar_load_balancer.json.migrated").exists()
 
     def test_a_null_charger_address_is_not_restored(
         self, settings_manager, log_mock, tmp_path, monkeypatch
