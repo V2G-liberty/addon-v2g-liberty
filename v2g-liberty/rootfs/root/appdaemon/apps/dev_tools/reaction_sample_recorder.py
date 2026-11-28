@@ -22,8 +22,12 @@ per second. About 1 MB per hour on a one-second meter, only while the
 engine has rules. The file is rotated like a log file: at ``max_bytes`` the
 full file becomes ``.1``, older ones shift up, and at most ``max_files`` of
 them are kept, so a forgotten run on a pre-production host is bounded
-(100 MB by default). The live file keeps its name, so a follower keeps
-following; it starts afresh with its header. The row is written on the
+(100 MB by default). The live file keeps its name and starts afresh with
+its header. A follower that reopens the file by name keeps following (tail
+-F does; tail -f stays on the renamed .1). Seita's probe reopens it on every
+poll and reads a shorter file from its start, so it carries on, missing only
+the rows written between its last poll and the rotation; those are in .1.
+The row is written on the
 event loop, in the engine's own publish call; a slow disk shows up as a
 slow engine, acceptable for a dev tool. In the dev container
 ``/config/logs`` is the repository's ``v2g-liberty/logs/`` folder.
