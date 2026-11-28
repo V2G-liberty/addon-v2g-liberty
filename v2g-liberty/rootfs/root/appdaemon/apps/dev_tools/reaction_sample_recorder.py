@@ -5,13 +5,18 @@ Dev-only: stripped from the add-on image with the rest of dev_tools. The
 recorder listens to ``reaction_sample`` on V2G Liberty's event bus, reached
 through the app object, and appends one row per sample::
 
-    time,surprise,raw_setpoint,clipped_setpoint,phase
+    time,surprise,raw_setpoint,clipped_setpoint,phase,plan,react,reference,band_lo,band_hi
 
 ``time`` is ISO 8601 with offset and milliseconds (when the engine evaluated
 the sample), the powers are W, ``phase`` is the phase whose sample it was.
-The first four column names are those of Seita's probe, which follows the
-file with ``--deviation-csv FILE --surprise-unit W --follow`` and ignores
-the rest; the engine's own name for the second column is deviation. Each
+``plan``, ``react``, ``reference`` and the band's outer ends ``band_lo`` and
+``band_hi`` are the rule in force for that sample, so every row can be read
+on its own, whichever schedule was in force then. The first four column
+names are those of Seita's probe, which follows the file with
+``--deviation-csv FILE --surprise-unit W --follow`` and ignores the rest;
+the engine's own name for the second column is deviation. A file still
+headed by an older set of columns is rotated aside at start, so one file
+never mixes two layouts. Each
 row is flushed, and the file is opened per row, so a file removed to start
 afresh comes back with its header at the next sample. A path that cannot be
 written gives one warning and no further attempts.
@@ -38,7 +43,10 @@ import os
 import appdaemon.plugins.hass.hassapi as hass
 
 EVENT = "reaction_sample"
-HEADER = "time,surprise,raw_setpoint,clipped_setpoint,phase"
+HEADER = (
+    "time,surprise,raw_setpoint,clipped_setpoint,phase,"
+    "plan,react,reference,band_lo,band_hi"
+)
 DEFAULT_PATH = "/config/logs/reaction_samples.csv"
 DEFAULT_MAX_BYTES = 1_000_000
 DEFAULT_MAX_FILES = 100
@@ -55,8 +63,21 @@ class ReactionSampleRecorder(hass.Hass):
         if self._bus is None:
             self.log(f"{V2G_APP} has no event bus; not recording.", level="WARNING")
             return
+        self._set_aside_an_older_layout()
         self._bus.add_event_listener(EVENT, self.on_sample)
         self.log(f"Recording reaction samples to {self._path}.")
+
+    def _set_aside_an_older_layout(self):
+        """A file headed by other columns (an older recorder) is rotated
+        aside, so the rows below a header always match it."""
+        try:
+            with open(self._path, encoding="utf-8") as f:
+                header = f.readline().rstrip("\n")
+        except OSError:
+            return  # no file yet, or unreadable: the next write tells
+        if header and header != HEADER:
+            self.log(f"{self._path} has other columns ({header}); rotating it aside.")
+            self._rotate()
 
     def terminate(self):
         """AppDaemon restarts this app on its own when its config or module
@@ -66,13 +87,30 @@ class ReactionSampleRecorder(hass.Hass):
             self._bus.remove_event_listener(EVENT, self.on_sample)
             self._bus = None
 
-    def on_sample(self, time, deviation_w, raw_w, setpoint_w, phase="", **_):
-        """One row, flushed. The event's other fields are not recorded."""
+    def on_sample(
+        self,
+        time,
+        deviation_w,
+        raw_w,
+        setpoint_w,
+        phase="",
+        plan_w="",
+        react="",
+        reference_w="",
+        band_lo_w="",
+        band_hi_w="",
+        **_,
+    ):
+        """One row, flushed. The event's meter and charger powers are not
+        recorded; a field an older engine does not send stays empty."""
         if self._failed:
             return
+        if isinstance(react, float):
+            react = f"{react:g}"  # 1.0 -> 1, 0.5 -> 0.5
         row = (
             f"{time.isoformat(timespec='milliseconds')},"
-            f"{deviation_w},{raw_w},{setpoint_w},{phase}\n"
+            f"{deviation_w},{raw_w},{setpoint_w},{phase},"
+            f"{plan_w},{react},{reference_w},{band_lo_w},{band_hi_w}\n"
         )
         try:
             self._rotate_if_full()
@@ -96,6 +134,13 @@ class ReactionSampleRecorder(hass.Hass):
             return
         if size < self._max_bytes:
             return
+        self._rotate(size)
+
+    def _rotate(self, size: int | None = None):
+        """The file becomes .1, .1 becomes .2 and so on; the oldest beyond
+        max_files is dropped."""
+        if size is None:
+            size = os.path.getsize(self._path)
         for number in range(self._max_files - 1, 0, -1):
             older = f"{self._path}.{number}"
             if os.path.exists(older):

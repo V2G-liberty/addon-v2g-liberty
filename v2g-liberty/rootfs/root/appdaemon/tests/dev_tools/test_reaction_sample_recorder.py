@@ -60,6 +60,8 @@ def test_it_listens_on_the_apps_event_bus(tmp_path):
 
 
 def test_each_sample_is_a_row_under_one_header(tmp_path):
+    """With the rule in force on every row (plan, react, reference, the
+    band's outer ends); a field an older engine does not send stays empty."""
     path = tmp_path / "s.csv"
     recorder = make_recorder(path)
     recorder.on_sample(
@@ -70,7 +72,11 @@ def test_each_sample_is_a_row_under_one_header(tmp_path):
         setpoint_w=1400,
         plan_w=4400,
         meter_w=3000,
-        charger_w=4400,  # extra fields: ignored
+        charger_w=4400,  # not recorded
+        react=1.0,
+        reference_w=-4400,
+        band_lo_w=1400,
+        band_hi_w=7400,
     )
     recorder.on_sample(
         time=T0 + timedelta(seconds=1),
@@ -81,9 +87,34 @@ def test_each_sample_is_a_row_under_one_header(tmp_path):
     )
     assert path.read_text().splitlines() == [
         HEADER,
-        "2026-12-10T12:00:00.000+01:00,3000,1400,1400,1",
-        "2026-12-10T12:00:01.000+01:00,5000,-600,1400,3",
+        "2026-12-10T12:00:00.000+01:00,3000,1400,1400,1,4400,1,-4400,1400,7400",
+        "2026-12-10T12:00:01.000+01:00,5000,-600,1400,3,,,,,",
     ]
+    assert HEADER.split(",")[5:] == ["plan", "react", "reference", "band_lo", "band_hi"]
+
+
+def test_a_file_with_the_old_columns_is_rotated_aside_at_start(tmp_path):
+    """Rows under a header must match it: a file an older recorder started
+    goes to .1, and the new rows start a new file with the new header."""
+    path = tmp_path / "s.csv"
+    old_rows = (
+        "time,surprise,raw_setpoint,clipped_setpoint,phase\n"
+        "2026-12-10T11:59:59.000+01:00,3000,1400,1400,1\n"
+    )
+    path.write_text(old_rows)
+    recorder = make_recorder(path)
+    recorder.on_sample(time=T0, deviation_w=0, raw_w=4400, setpoint_w=4400)
+    assert (tmp_path / "s.csv.1").read_text() == old_rows
+    assert path.read_text().splitlines()[0] == HEADER
+    assert any("other columns" in call.args[0] for call in recorder.log.call_args_list)
+
+
+def test_a_file_with_the_current_columns_is_kept_at_start(tmp_path):
+    path = tmp_path / "s.csv"
+    path.write_text(HEADER + "\n2026-12-10T11:59:59.000+01:00,0,4400,4400,1,,,,,\n")
+    make_recorder(path).on_sample(time=T0, deviation_w=0, raw_w=4400, setpoint_w=4400)
+    assert not (tmp_path / "s.csv.1").exists()
+    assert len(path.read_text().splitlines()) == 3
 
 
 def test_a_removed_file_comes_back_with_its_header(tmp_path):
@@ -163,5 +194,5 @@ def test_the_file_is_rotated_at_max_bytes_and_the_oldest_dropped(tmp_path):
     # The newest rows are in the live file, the oldest kept are in .2, and
     # the very oldest were dropped with the rotation beyond max_files.
     newest = path.read_text().splitlines()[-1]
-    assert newest.endswith(",-5011,5000,5000,1")
+    assert newest.endswith(",-5011,5000,5000,1,,,,,")
     assert any("Rotated" in call.args[0] for call in recorder.log.call_args_list)

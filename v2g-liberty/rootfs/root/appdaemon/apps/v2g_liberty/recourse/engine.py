@@ -463,9 +463,12 @@ class ReactionEngine:
         meter's own timestamp does not travel on the bus. ``phase`` is the
         phase whose sample this was: the other phases still hold the previous
         second's values, so a reader wanting one row per second keeps the
-        last phase."""
+        last phase. The rule in force travels with every sample (plan, react,
+        reference and the band's outer ends), so a row can be read on its own,
+        whichever schedule was in force then."""
         if not self.event_bus.listeners(REACTION_SAMPLE_EVENT):
             return
+        rule = verdict.rule
         self.event_bus.emit_event(
             REACTION_SAMPLE_EVENT,
             time=now,
@@ -473,9 +476,13 @@ class ReactionEngine:
             deviation_w=round(verdict.deviation_w),
             raw_w=round(verdict.raw_w),
             setpoint_w=round(verdict.setpoint_w),
-            plan_w=round(verdict.rule.p_w),
+            plan_w=round(rule.p_w),
             meter_w=verdict.meter_w,
             charger_w=verdict.charger_w,
+            react=rule.react,
+            reference_w=round(rule.reference_w),
+            band_lo_w=round(rule.band.ranges[0][0]),
+            band_hi_w=round(rule.band.ranges[-1][1]),
         )
 
     async def _publish(self, force: bool = False, sample_phase: int | None = None):

@@ -692,7 +692,21 @@ class TestSampleEvent:
             plan_w=PLAN_W,
             meter_w=3000,
             charger_w=PLAN_W,
+            react=1.0,
+            reference_w=-4400,
+            band_lo_w=1400,
+            band_hi_w=7400,
         )
+
+    @pytest.mark.asyncio
+    async def test_the_band_ends_are_its_outermost_ranges(self, engine, clock):
+        """Slot 2 has three ranges (discharge, idle, charge): the ends are
+        the lowest discharge and the highest charge, not the hole."""
+        clock.tick(5 * 60)
+        await start(engine)
+        await sample(engine, 3000)
+        kwargs = engine.event_bus.emit_event.call_args.kwargs
+        assert (kwargs["band_lo_w"], kwargs["band_hi_w"]) == (-7400, 7400)
 
     @pytest.mark.asyncio
     async def test_only_a_fresh_sample_with_rules_emits(self, engine, clock):
