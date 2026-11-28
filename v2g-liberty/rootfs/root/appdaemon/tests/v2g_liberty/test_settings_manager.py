@@ -848,14 +848,19 @@ _LB_JSON = {
 
 def _upgrade_lb(settings_manager, saved: dict, lb_json, tmp_path, monkeypatch):
     """Run the load balancer import on `saved` with `lb_json` (a dict, a raw
-    string, or None for no file) as the proxy's settings file."""
+    string, or None for no file) as the proxy's settings file, followed by
+    what a successful save of the settings does: the pending rename."""
     path = tmp_path / "quasar_load_balancer.json"
     if isinstance(lb_json, dict):
         path.write_text(json.dumps(lb_json))
     elif lb_json is not None:
         path.write_text(lb_json)
     monkeypatch.setattr(SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(path))
-    return settings_manager._SettingsManager__upgrade_load_balancer_json(dict(saved))
+    upgraded = settings_manager._SettingsManager__upgrade_load_balancer_json(
+        dict(saved)
+    )
+    settings_manager._SettingsManager__set_pending_load_balancer_json_aside()
+    return upgraded
 
 
 class TestUpgradeLoadBalancerJson:
@@ -973,6 +978,40 @@ class TestUpgradeLoadBalancerJson:
         with patch("os.replace", _REAL_OS_REPLACE):
             _upgrade_lb(settings_manager, saved, _LB_JSON, tmp_path, monkeypatch)
 
+        assert (tmp_path / "quasar_load_balancer.json.migrated").exists()
+
+    def test_the_file_is_renamed_only_once_the_settings_are_saved(
+        self, log_mock, tmp_path, monkeypatch
+    ):
+        """A save that fails after the import must leave the file where the
+        next start finds it: renamed before the save, the restored address
+        and the marker would be lost with no file left to import them from."""
+        settings_path = tmp_path / "v2g_liberty_settings.json"
+        settings_path.write_text(json.dumps(_PROXIED))
+        lb_path = tmp_path / "quasar_load_balancer.json"
+        lb_path.write_text(json.dumps(_LB_JSON))
+        monkeypatch.setattr(SettingsManager, "_SETTINGS_FILE_PATH", str(settings_path))
+        monkeypatch.setattr(SettingsManager, "_LOAD_BALANCER_JSON_PATH", str(lb_path))
+
+        def disk_full(self):
+            raise OSError("No space left on device")
+
+        with patch("os.replace", _REAL_OS_REPLACE):
+            with patch.object(
+                SettingsManager, "_SettingsManager__write_to_file", disk_full
+            ):
+                with pytest.raises(OSError):
+                    SettingsManager(log=log_mock).retrieve_settings()
+            assert lb_path.exists()  # still there for the next start
+            assert json.loads(settings_path.read_text()) == _PROXIED  # unchanged
+
+            restarted = SettingsManager(log=log_mock)
+            restarted.retrieve_settings()
+
+        saved = json.loads(settings_path.read_text())
+        assert saved["input_text.charger_host_url"] == "192.168.2.55"
+        assert saved["load_balancer_json_import"]["charger_host_restored"] is True
+        assert not lb_path.exists()
         assert (tmp_path / "quasar_load_balancer.json.migrated").exists()
 
     @pytest.mark.parametrize(

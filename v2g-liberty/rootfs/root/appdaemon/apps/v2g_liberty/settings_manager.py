@@ -16,6 +16,8 @@ class SettingsManager:
     set_aside_path: str = ""
 
     _SETTINGS_FILE_PATH = "/data/v2g_liberty_settings.json"
+    # The imported load balancer file, renamed once the settings are saved.
+    _load_balancer_json_pending: str | None = None
     # The removed Modbus-proxy load balancer kept its own settings here. The
     # file is read once, to restore the charger's address, and then left alone.
     _LOAD_BALANCER_JSON_PATH = "/homeassistant/quasar_load_balancer.json"
@@ -99,6 +101,10 @@ class SettingsManager:
         self.set_aside_path = ""
         self.settings = self.__upgrade(settings)
         self.__write_to_file()
+        # Only now that the import's outcome is on disk. Renamed before a
+        # write that fails, the next start would find neither the marker nor
+        # the restored address, and no file to import them from again.
+        self.__set_pending_load_balancer_json_aside()
 
     def __set_file_aside(self, reason: str):
         """The content is broken beyond use. Leaving it in place strands the
@@ -327,7 +333,8 @@ class SettingsManager:
 
         The file is read once (the marker key records the outcome). When the
         import succeeded, it is renamed to ``quasar_load_balancer.json.migrated``
-        so the user can see it is no longer needed; when it could not be read,
+        so the user can see it is no longer needed, once the settings holding
+        the outcome are saved (see retrieve_settings); when it could not be read,
         or the charger still points at the proxy without a real address in
         it, it stays as it is for the user to look at. Nothing else in it maps
         onto the fuse guard, which takes
@@ -345,7 +352,7 @@ class SettingsManager:
                 and "error" not in done
                 and not done.get("charger_host_missing")
             ):
-                self.__set_load_balancer_json_aside(path)
+                self._load_balancer_json_pending = path
             return settings
         if not os.path.isfile(path):
             return settings
@@ -428,14 +435,18 @@ class SettingsManager:
             level="WARNING",
         )
         if "error" not in outcome and not outcome.get("charger_host_missing"):
-            self.__set_load_balancer_json_aside(path)
+            self._load_balancer_json_pending = path
         settings[self._LOAD_BALANCER_IMPORT_KEY] = outcome
         return settings
 
-    def __set_load_balancer_json_aside(self, path: str):
+    def __set_pending_load_balancer_json_aside(self):
         """Rename the imported file so the user sees it is no longer needed.
-        A failed rename only costs that hint: the marker key keeps the file
-        from being read again."""
+        Called once the settings with the import's marker are saved. A failed
+        rename only costs that hint: the marker keeps the file from being read
+        again."""
+        path, self._load_balancer_json_pending = self._load_balancer_json_pending, None
+        if path is None:
+            return
         migrated = f"{path}.migrated"
         try:
             os.replace(path, migrated)
