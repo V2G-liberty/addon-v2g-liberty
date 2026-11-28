@@ -30,9 +30,9 @@ class FakeBus:
             f(**kwargs)
 
 
-def make_recorder(path, bus=None):
+def make_recorder(path, bus=None, **args):
     recorder = object.__new__(ReactionSampleRecorder)
-    recorder.args = {"path": str(path)}
+    recorder.args = {"path": str(path), **args}
     recorder.log = MagicMock()
     app = MagicMock()
     app.event_bus = MagicMock() if bus is None else bus
@@ -137,3 +137,31 @@ def test_terminate_without_a_bus_is_harmless(tmp_path):
     recorder.get_app = MagicMock(return_value=MagicMock(spec=[]))
     recorder.initialize()
     recorder.terminate()
+
+
+def test_the_file_is_rotated_at_max_bytes_and_the_oldest_dropped(tmp_path):
+    """Like a rotating log: the full file becomes .1, older ones shift up,
+    at most max_files are kept; the live file starts afresh with its header,
+    under the same name, so a follower keeps following."""
+    bus = FakeBus()
+    path = tmp_path / "s.csv"
+    recorder = make_recorder(path, bus, max_bytes=150, max_files=2)
+    for n in range(12):  # a header and a row are ~100 bytes together
+        bus.emit(
+            time=T0 + timedelta(seconds=n),
+            deviation_w=-5000 - n,
+            raw_w=5000,
+            setpoint_w=5000,
+            phase=1,
+        )
+    rotated = sorted(p.name for p in tmp_path.iterdir())
+    assert rotated == ["s.csv", "s.csv.1", "s.csv.2"]  # never a .3
+    for name in rotated:
+        lines = (tmp_path / name).read_text().splitlines()
+        assert lines[0] == HEADER
+        assert len(lines) >= 2
+    # The newest rows are in the live file, the oldest kept are in .2, and
+    # the very oldest were dropped with the rotation beyond max_files.
+    newest = path.read_text().splitlines()[-1]
+    assert newest.endswith(",-5011,5000,5000,1")
+    assert any("Rotated" in call.args[0] for call in recorder.log.call_args_list)

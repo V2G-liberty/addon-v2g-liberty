@@ -79,3 +79,7 @@ reaction_sample_recorder:
   dependencies:
     - v2g-app
   path: /config/logs/reaction_samples.csv
+  # Rotated like a log file: at max_bytes the file becomes .1, older ones
+  # shift up, at most max_files are kept (about 100 MB in all).
+  max_bytes: 1000000
+  max_files: 100
