@@ -92,6 +92,11 @@ No `appdaemon.yaml` edit is needed: `dev_tools` is no longer listed under `exclu
 
 > ⚠️ **Never place the emulator on a real production install** — it would emit fake meter/PV data.
 
+**Two test switches of the app itself, for a run against a FlexMeasures server that serves the reaction rules.** Each is a file, looked for in the add-on's own config folder first (`/config` inside the add-on, which is `/addon_configs/local_v2g-liberty/` on the host, the folder that also holds `apps/` and `logs/`, reachable through the Samba or SSH add-on) and then in `/data` (the dev container's bind mount). Without them nothing changes, and a release ships neither.
+
+- `fm_access_token` — the account's access token. Used instead of the e-mail and password login, which an account with two-factor authentication refuses. One line, no quotes; read at every start of the app.
+- `fm_reaction_optin` — an empty file. While it exists, every schedule trigger carries `react: true` and the charger's operation modes (1400 W to the charger's maximum, idle in between). A server without the feature answers 422 "Unknown field", so only create it against a server that has it.
+
 ## Charger Emulator
 
 `charger_emulator.py` — Makes the static Wallbox Quasar Modbus mock (`quasar-mock`) **dynamic**, so V2G Liberty sees a charger that responds to its commands. This unblocks automatic charger-phase detection and lets charging, discharging, SoC and error handling be tested without real hardware.
@@ -230,7 +235,7 @@ It exits non-zero on the first failed check, so it can be wired into a script. R
 Writes the reaction engine's verdict per meter sample to `/config/logs/reaction_samples.csv` (in the dev container: `v2g-liberty/logs/` in the repository), so a probe can follow the file live. Columns `time,surprise,raw_setpoint,clipped_setpoint,phase`: ISO 8601 with offset and milliseconds (when the engine evaluated the sample), then W, then the phase whose sample it was. The first four column names are those of Seita's probe (`--deviation-csv FILE --surprise-unit W --follow`), which ignores extra columns; the engine calls the second one deviation.
 
 - One row per evaluated sample: a three-phase meter gives one per phase per second, the other two phases still at their previous values, so keep the rows of the last phase for one complete row per second. Only while the engine has rules (a schedule with a `reaction` array); without rules the file is not created.
-- About 1 MB per hour and never cleaned up: delete or rotate the file after a test, in particular on a pre-production host you might forget.
+- About 1 MB per hour on a one-second meter (a tenth of that on the emulator's 10 s tick). Rotated like a log file: at `max_bytes` (1 MB) the file becomes `.1`, older ones shift up, and at most `max_files` (100) are kept, so a forgotten run stays under about 100 MB. The live file keeps its name and starts afresh with its header. A follower must reopen the file by name: `tail -F` does, `tail -f` stays on the renamed `.1`. Seita's probe (`--follow`) reopens it on every poll and reads a shorter file from its start, so it carries on; it misses only the rows written between its last poll and the rotation (a few seconds per MB, at most the 15 s of the copy script when it reads the shared copy), and those are in `.1`. Collect all numbered files for the whole-period analysis.
 - The row is written on the event loop, inside the engine's publish call. On a slow disk that shows up as a slow engine; acceptable for a dev tool, not something to copy into the add-on.
 - Each row is flushed, and the file is opened per row, so you can delete it while the app runs to start afresh. An unwritable path gives one warning and no further attempts.
 - Configuration: `path` in `apps.yaml`. The app depends on `v2g-app`, whose event bus it listens to (`reaction_sample`), so it reloads with it.
