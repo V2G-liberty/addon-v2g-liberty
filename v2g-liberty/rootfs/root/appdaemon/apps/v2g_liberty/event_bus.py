@@ -200,6 +200,11 @@ class EventBus(AsyncIOEventEmitter):
             - `setpoint_w` (int): the setpoint after the band.
             - `plan_w`, `meter_w`, `charger_w` (int): the slot's plan, the
               meter and the charger's realised power.
+            - `react` (float): the slot's share, 0 (follow the plan) to 1.
+            - `reference_w` (int): the uncontrolled power the plan is
+              balanced against, as served for the slot.
+            - `band_lo_w`, `band_hi_w` (int): the band's outer ends: the
+              lowest and highest power the slot allows.
 
     #### Settings related
 
