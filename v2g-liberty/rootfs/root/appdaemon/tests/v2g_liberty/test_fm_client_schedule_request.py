@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from apps.v2g_liberty import constants as c
+from apps.v2g_liberty import fm_client as fm_module
 from apps.v2g_liberty.fm_client import FMClient
 from apps.v2g_liberty.recourse.rules import ReactionSchedule
 from flexmeasures_client import FlexMeasuresClient
@@ -302,10 +303,13 @@ async def test_a_parser_crash_drops_the_rules_not_the_schedule(fm, monkeypatch, 
 
 
 @pytest.mark.asyncio
-async def test_the_trigger_sends_none_of_the_opt_in_fields(fm):
+async def test_the_trigger_sends_none_of_the_opt_in_fields(fm, monkeypatch, tmp_path):
     """A FlexMeasures without the feature rejects `react` with HTTP 422 at the
     trigger. Until a server has the feature and a mode setting switches it
     on, the request stays today's: no `react`, no operation modes."""
+    monkeypatch.setattr(
+        fm_module, "TEST_REACTION_OPT_IN_FILES", (str(tmp_path / "absent"),)
+    )
     opted_in = _fixture("trigger_request_opt_in")
     (device,) = opted_in["flex-model"]
     await _get(fm)
@@ -313,3 +317,37 @@ async def test_the_trigger_sends_none_of_the_opt_in_fields(fm):
     for key in ("react", "operation-modes"):
         assert key in device
         assert key not in sent["flex_model"]
+
+
+@pytest.mark.asyncio
+async def test_the_opt_in_file_puts_react_and_the_modes_in_the_trigger(
+    fm, monkeypatch, tmp_path
+):
+    """The test facility for an installation that runs against a server with
+    the feature: with the file present the trigger carries the opt-in of the
+    contract's F1, the modes from the minimum power to the charger's maximum."""
+    flag = tmp_path / "fm_reaction_optin"
+    flag.touch()
+    monkeypatch.setattr(
+        fm_module,
+        "TEST_REACTION_OPT_IN_FILES",
+        (str(tmp_path / "config_first_but_absent"), str(flag)),
+    )
+    monkeypatch.setattr(c, "CHARGER_MAX_CHARGE_POWER", 7400, raising=False)
+    monkeypatch.setattr(c, "CHARGER_MAX_DISCHARGE_POWER", 7400, raising=False)
+    (device,) = _fixture("trigger_request_opt_in")["flex-model"]
+    await _get(fm)
+    sent = fm.client.trigger_and_get_schedule.await_args.kwargs["flex_model"]
+    assert sent["react"] is True
+    assert sent["operation-modes"] == device["operation-modes"]
+    assert sent["power-capacity"] == "7400 W"
+
+
+def test_the_access_token_file_is_read_stripped_or_not_at_all(monkeypatch, tmp_path):
+    token_file = tmp_path / "fm_access_token"
+    monkeypatch.setattr(fm_module, "TEST_ACCESS_TOKEN_FILES", (str(token_file),))
+    assert fm_module._test_access_token() is None  # no file: the normal login
+    token_file.write_text("eyJ.example.token\n")
+    assert fm_module._test_access_token() == "eyJ.example.token"
+    token_file.write_text("\n")
+    assert fm_module._test_access_token() is None  # an empty file is no token

@@ -92,6 +92,11 @@ No `appdaemon.yaml` edit is needed: `dev_tools` is no longer listed under `exclu
 
 > ⚠️ **Never place the emulator on a real production install** — it would emit fake meter/PV data.
 
+**Two test switches of the app itself, for a run against a FlexMeasures server that serves the reaction rules.** Each is a file, looked for in the add-on's own config folder first (`/config` inside the add-on, which is `/addon_configs/local_v2g-liberty/` on the host, the folder that also holds `apps/` and `logs/`, reachable through the Samba or SSH add-on) and then in `/data` (the dev container's bind mount). Without them nothing changes, and a release ships neither.
+
+- `fm_access_token` — the account's access token. Used instead of the e-mail and password login, which an account with two-factor authentication refuses. One line, no quotes; read at every start of the app.
+- `fm_reaction_optin` — an empty file. While it exists, every schedule trigger carries `react: true` and the charger's operation modes (1400 W to the charger's maximum, idle in between). A server without the feature answers 422 "Unknown field", so only create it against a server that has it.
+
 ## Charger Emulator
 
 `charger_emulator.py` — Makes the static Wallbox Quasar Modbus mock (`quasar-mock`) **dynamic**, so V2G Liberty sees a charger that responds to its commands. This unblocks automatic charger-phase detection and lets charging, discharging, SoC and error handling be tested without real hardware.

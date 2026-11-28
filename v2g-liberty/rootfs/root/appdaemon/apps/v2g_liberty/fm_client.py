@@ -5,6 +5,7 @@ import json
 import math
 import re
 from datetime import datetime, timedelta
+from pathlib import Path
 from pyee.asyncio import AsyncIOEventEmitter
 import isodate
 from appdaemon.plugins.hass.hassapi import Hass
@@ -55,6 +56,64 @@ def _is_connection_error(exception: Exception) -> bool:
     if status == 401:
         return True
     return False
+
+
+# Two test facilities, switched on by a file and inert without it, so that a
+# test installation can run unattended against a FlexMeasures server that
+# serves the reaction rules. Nothing for a user to set; a release ships
+# neither file. Each is looked for in the add-on's own config folder first
+# (/config here, /addon_configs/<slug>/ on the host, reachable without
+# docker) and then in /data (the development container's bind mount).
+#
+# An access token, for an account that FlexMeasures protects with two-factor
+# authentication, which refuses the e-mail and password login the client
+# uses. Absent: the normal login.
+TEST_ACCESS_TOKEN_FILES = ("/config/fm_access_token", "/data/fm_access_token")
+# Present: the trigger carries ``react: true`` and the charger's operation
+# modes, the opt-in of the reaction rules, which a server without the
+# feature refuses as an unknown field. Absent: today's request.
+TEST_REACTION_OPT_IN_FILES = ("/config/fm_reaction_optin", "/data/fm_reaction_optin")
+# The charger's minimum power in its operation modes: the contract's value;
+# the Quasar's floor is 6 A, about 1380 W.
+REACTION_MIN_POWER_W = 1400
+
+
+def _test_file(candidates) -> Path | None:
+    """The first of the candidate paths that exists, or None."""
+    for candidate in candidates:
+        path = Path(candidate)
+        if path.exists():
+            return path
+    return None
+
+
+def _test_access_token() -> str | None:
+    path = _test_file(TEST_ACCESS_TOKEN_FILES)
+    if path is None:
+        return None
+    try:
+        token = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return token or None
+
+
+def reaction_opt_in_fields() -> dict:
+    """The flex-model fields of the reaction opt-in while the opt-in file is
+    present: ``react`` and the operation modes, a production range and a
+    consumption range from the minimum power to the charger's maximum with
+    idle between them. Empty otherwise."""
+    if _test_file(TEST_REACTION_OPT_IN_FILES) is None:
+        return {}
+    lo = REACTION_MIN_POWER_W
+    return {
+        "react": True,
+        "operation-modes": [
+            {"production-range": [f"{lo} W", f"{c.CHARGER_MAX_DISCHARGE_POWER} W"]},
+            {"consumption-range": ["0 W", "0 W"]},
+            {"consumption-range": [f"{lo} W", f"{c.CHARGER_MAX_CHARGE_POWER} W"]},
+        ],
+    }
 
 
 class FMClient(AsyncIOEventEmitter):
@@ -180,6 +239,7 @@ class FMClient(AsyncIOEventEmitter):
                 email=username,
                 password=password,
                 ssl=ssl,
+                access_token=_test_access_token(),
             )
         except ValueError as ve:
             # e.g. a port in the host that is not a number
@@ -234,6 +294,7 @@ class FMClient(AsyncIOEventEmitter):
                 email=c.FM_ACCOUNT_USERNAME,
                 password=c.FM_ACCOUNT_PASSWORD,
                 ssl=ssl,
+                access_token=_test_access_token(),
             )
         except ValueError as ve:
             # e.g. a port in the host that is not a number
@@ -250,8 +311,13 @@ class FMClient(AsyncIOEventEmitter):
         self.__log("successfully initialised flexmeasures client")
 
         try:
-            self.__log("getting access token...")
-            await self.client.get_access_token()
+            if self.client.access_token is None:
+                self.__log("getting access token...")
+                await self.client.get_access_token()
+            else:
+                self.__log(
+                    f"using the access token from {_test_file(TEST_ACCESS_TOKEN_FILES)}."
+                )
         except ValueError as ve:
             self.__log(f"V2G ERROR: {ve}")
             # ValueErrors:
@@ -268,9 +334,12 @@ class FMClient(AsyncIOEventEmitter):
         if self.client.access_token is None:
             self.__log("access token is None", level="WARNING")
             return "Unknown error with FlexMeasures"
-        self.__log(
-            f"access token: {self.client.access_token}, returning 'Successfully connected'."
-        )
+        self.__log("access token received, returning 'Successfully connected'.")
+        if reaction_opt_in_fields():
+            self.__log(
+                f"{_test_file(TEST_REACTION_OPT_IN_FILES)} present: the schedule "
+                "trigger carries react and the charger's operation modes."
+            )
 
         # TODO: Anti-pattern — connection status is set here on success but callers are
         # responsible for setting it on failure. Ideally callers own the status update in
@@ -1277,6 +1346,7 @@ class FMClient(AsyncIOEventEmitter):
         )
 
         flex_model = {
+            **reaction_opt_in_fields(),
             "power-capacity": f"{c.CHARGER_MAX_CHARGE_POWER} W",
             "soc-at-start": current_soc_kwh,
             "soc-unit": "kWh",
